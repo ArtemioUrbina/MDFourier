@@ -1,3 +1,33 @@
+/* 
+ * A Fourier Transform analysis tool to compare different 
+ * Sega Genesis/Mega Drive audio hardware revisions.
+ *
+ * Copyright (C)2019 Artemio Urbina
+ *
+ * This file is part of the 240p Test Suite
+ *
+ * You can redistribute it and/or modify
+ * it under the terms of the GNU General Public License as published by
+ * the Free Software Foundation; either version 2 of the License, or
+ * (at your option) any later version.
+ *
+ * This software is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.	See the
+ * GNU General Public License for more details.
+ *
+ * You should have received a copy of the GNU General Public License
+ * along with this software; if not, write to the Free Software
+ * Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA	02111-1307	USA
+ *
+ * Requires the FFTW library: 
+ *    http://www.fftw.org/
+ * 
+ * Compile with: 
+ *    gcc -Wall -std=gnu99 -o comparegenesis comparegenesis.c -lfftw3 -lm
+ */
+
+
 #include <stdio.h>
 #include <stdarg.h>
 #include <stdlib.h>
@@ -58,16 +88,38 @@ typedef struct GenesisAudioSt {
 
 void logmsg(char *fmt, ... );
 double ProcessSamples(fftw_plan *p, MaxFreq *MaxFreqArray, short *samples, size_t size, long samplerate, double secondunits);
-void CompareNotes(GenesisAudio *ModelSignal, GenesisAudio *TestSignal, double sigMatch, double tolerance, int extend);
+void CompareNotes(GenesisAudio *ReferenceSignal, GenesisAudio *TestSignal, double sigMatch, double tolerance, int extend);
 int LoadFile(FILE *file, GenesisAudio *Signal, fftw_plan *p);
-void PrintComparedNotes(MaxFreq *ModelArray, MaxFreq *ComparedArray, double sigMatch);
+void PrintComparedNotes(MaxFreq *ReferenceArray, MaxFreq *ComparedArray, double sigMatch);
+
+
+// WAV data structures
+typedef struct	WAV_HEADER
+{
+	/* RIFF Chunk Descriptor */
+	uint8_t 		RIFF[4];		// RIFF Header Magic header
+	uint32_t		ChunkSize;		// RIFF Chunk Size
+	uint8_t 		WAVE[4];		// WAVE Header
+	/* "fmt" sub-chunk */
+	uint8_t 		fmt[4]; 		// FMT header
+	uint32_t		Subchunk1Size;	// Size of the fmt chunk
+	uint16_t		AudioFormat;	// Audio format 1=PCM,6=mulaw,7=alaw,	  257=IBM Mu-Law, 258=IBM A-Law, 259=ADPCM
+	uint16_t		NumOfChan;		// Number of channels 1=Mono 2=Sterio
+	uint32_t		SamplesPerSec;	// Sampling Frequency in Hz
+	uint32_t		bytesPerSec;	// bytes per second
+	uint16_t		blockAlign; 	// 2=16-bit mono, 4=16-bit stereo
+	uint16_t		bitsPerSample;	// Number of bits per sample
+	/* "data" sub-chunk */
+	uint8_t 		Subchunk2ID[4]; // "data"  string
+	uint32_t		Subchunk2Size;	// Sampled data length
+} wav_hdr;
 
 int main(int argc , char *argv[])
 {
 	fftw_plan			p = NULL;
 	FILE				*model = NULL;
 	FILE				*compare = NULL;
-	GenesisAudio  		ModelSignal;
+	GenesisAudio  		ReferenceSignal;
 	GenesisAudio  		TestSignal;
 	double				sigMatch = FREQ_COMPARE;
 	double				tolerance = PERCENT_TOLERANCE;
@@ -78,15 +130,15 @@ int main(int argc , char *argv[])
 
 	if(argc < 2)
 	{
-		logmsg("\tusage: comparegenesis [model.wav] [compare.wav]\n");
+		logmsg("\tusage: %s [reference.wav] [compare.wav]\n", argv[0]);
 		return(1);
 	}
 
-	printf("\tMODEL file is %s\n", argv[1]);
+	printf("\tREFERENCE file is %s\n", argv[1]);
 	model = fopen(argv[1], "rb");
 	if(!model)
 	{
-		logmsg("\tCould not open MODEL file: \"%s\"\n", argv[1]);
+		logmsg("\tCould not open REFERENCE file: \"%s\"\n", argv[1]);
 		return 0;
 	}
 
@@ -117,16 +169,16 @@ int main(int argc , char *argv[])
 	else
 		printf("\tWeight TOLERANCE percentage to compare is %0.2f%%\n", tolerance);
 
-	logmsg("\tLoading MODEL file %s\n", argv[1]);
+	logmsg("\n\tLoading REFERENCE audio file %s\n", argv[1]);
 	
-	if(!LoadFile(model, &ModelSignal, &p))
+	if(!LoadFile(model, &ReferenceSignal, &p))
 		return 0;
 
-	logmsg("\tLoading Compare file %s\n", argv[2]);
+	logmsg("\n\tLoading Compare audio file %s\n", argv[2]);
 	if(!LoadFile(compare, &TestSignal, &p))
 		return 0;
 
-	CompareNotes(&ModelSignal, &TestSignal, sigMatch, tolerance, extend);
+	CompareNotes(&ReferenceSignal, &TestSignal, sigMatch, tolerance, extend);
 
 	if(p)
 		fftw_destroy_plan(p);
@@ -140,16 +192,46 @@ int LoadFile(FILE *file, GenesisAudio *Signal, fftw_plan *p)
 	int 	buffer_frames = SAMPLE_RATE;
 	char	*buffer;
 	size_t	buffersize = 0;
+	wav_hdr   header;
 
 	buffersize = buffer_frames * 4 + 44; // plus header
 	buffer = malloc(buffersize);
 	if(!buffer)
 	{
-		logmsg("malloc failed\n");
+		logmsg("\tmalloc failed\n");
 		return(0);
 	}
 
-	fseek (file, 44, SEEK_SET ); // Skip wav header
+	
+	if(fread(&header, 1, sizeof(wav_hdr), file) != sizeof(wav_hdr))
+	{
+		logmsg("\tInvalid WAV file: File too small\n");
+		return(0);
+	}
+
+	if(header.AudioFormat != 1) // Check for PCM
+	{
+		logmsg("\tInvalid WAV File: Only PCM is supported\n\tPlease use WAV PCM 16 bit 44100hz");
+		return(0);
+	}
+
+	if(header.NumOfChan != 2) // Check for Stereo
+	{
+		logmsg("\tInvalid WAV file: Only Stereo supported\n");
+		return(0);
+	}
+
+	if(header.SamplesPerSec != 44100) // Check for PCM
+	{
+		logmsg("\tInvalid WAV file: Only 44100 Hz supported for now\n\tPlease use WAV PCM 16 bit 44100hz");
+		return(0);
+	}
+
+	if(header.bitsPerSample != 16) // Check for PCM
+	{
+		logmsg("\tInvalid WAV file: Only 16 bit supported for now\n\tPlease use WAV PCM 16 bit 44100hz");
+		return(0);
+	}
 
 	memset(buffer, 0, buffersize);
 	memset(Signal, 0, sizeof(GenesisAudio));
@@ -169,7 +251,7 @@ int LoadFile(FILE *file, GenesisAudio *Signal, fftw_plan *p)
 		}
 		else
 		{
-			logmsg("unexpected end of File, please record the full Audio Test from the 240p Test Suite\n");
+			logmsg("\tunexpected end of File, please record the full Audio Test from the 240p Test Suite\n");
 			return 0;
 		}
 		Signal->Notes[i].index = i < PSG_COUNT ? i : i - PSG_COUNT;
@@ -394,12 +476,15 @@ double ProcessSamples(fftw_plan *p, MaxFreq *MaxFreqArray, short *samples, size_
 }
 
 
-void CompareNotes(GenesisAudio *ModelSignal, GenesisAudio *TestSignal, double sigMatch, double tolerance, int extend)
+void CompareNotes(GenesisAudio *ReferenceSignal, GenesisAudio *TestSignal, double sigMatch, double tolerance, int extend)
 {
 	int 	note, msg = 0, total = 0;
-	int 	weights = 0, notfound = 0;
-	int 	adjusted = 0, adjWeight = 0, adjHz = 0;
-	double	highDiffAdj = 0, highDiff = 0, highHz = 0;
+	int 	FMweights = 0, FMnotfound = 0;
+	int 	FMadjusted = 0, FMadjWeight = 0, FMadjHz = 0;
+	double	FMhighDiffAdj = 0, FMhighDiff = 0, FMhighHz = 0;
+    int 	PSGweights = 0, PSGnotfound = 0;
+	int 	PSGadjusted = 0, PSGadjWeight = 0, PSGadjHz = 0;
+	double	PSGhighDiffAdj = 0, PSGhighDiff = 0, PSGhighHz = 0;
 	char	diff[4096];
 	char	buffer[512];
 
@@ -409,12 +494,12 @@ void CompareNotes(GenesisAudio *ModelSignal, GenesisAudio *TestSignal, double si
 		int count = 0;
 
 		msg = 0;
-		sprintf(diff, "Note: %s# %d \n", ModelSignal->Notes[note].type == TYPE_FM ? "FM" : "PSG", ModelSignal->Notes[note].index);
+		sprintf(diff, "Note: %s# %d \n", ReferenceSignal->Notes[note].type == TYPE_FM ? "FM" : "PSG", ReferenceSignal->Notes[note].index);
 
 		// Determine up to what frequency the 90% of the peaks from the signal are 
 		for(int freq = 0; freq < COUNT; freq ++)
 		{
-			percent += ModelSignal->Notes[note].freq[freq].weight;
+			percent += ReferenceSignal->Notes[note].freq[freq].weight;
 			if(percent >= sigMatch)
 			{
 				count = freq;
@@ -424,7 +509,7 @@ void CompareNotes(GenesisAudio *ModelSignal, GenesisAudio *TestSignal, double si
 
 		for(int freq = 0; freq < count; freq++)
 		{
-			if(ModelSignal->Notes[note].freq[freq].hertz && !(ModelSignal->Notes[note].freq[freq].hertz > 15670 && ModelSignal->Notes[note].freq[freq].hertz < 15700))
+			if(ReferenceSignal->Notes[note].freq[freq].hertz && !(ReferenceSignal->Notes[note].freq[freq].hertz > 15670 && ReferenceSignal->Notes[note].freq[freq].hertz < 15700))
 			{
 				int found = 0, index = 0, compSize = 0;
 
@@ -439,7 +524,7 @@ void CompareNotes(GenesisAudio *ModelSignal, GenesisAudio *TestSignal, double si
 
 				for(int comp = 0; comp < compSize; comp++)
 				{
-					if(ModelSignal->Notes[note].freq[freq].hertz == TestSignal->Notes[note].freq[comp].hertz)
+					if(ReferenceSignal->Notes[note].freq[freq].hertz == TestSignal->Notes[note].freq[comp].hertz)
 					{
 						found = 1;
 						index = comp;
@@ -453,16 +538,28 @@ void CompareNotes(GenesisAudio *ModelSignal, GenesisAudio *TestSignal, double si
 					{
 						double hertzDiff;
 	
-						hertzDiff = fabs(TestSignal->Notes[note].freq[comp].hertz - ModelSignal->Notes[note].freq[freq].hertz);
+						hertzDiff = fabs(TestSignal->Notes[note].freq[comp].hertz - ReferenceSignal->Notes[note].freq[freq].hertz);
 						if(hertzDiff < HERTZ_DIFF)
 						{
 							found = 2;
 							index = comp;
-							adjusted++;
-							adjHz++;
-							
-							if(hertzDiff > highHz)
-								highHz = hertzDiff;
+
+							if(ReferenceSignal->Notes[note].type == TYPE_FM)
+							{
+								FMadjusted++;
+								FMadjHz++;
+								
+								if(hertzDiff > FMhighHz)
+									FMhighHz = hertzDiff;
+							}
+							else
+							{
+								PSGadjusted++;
+								PSGadjHz++;
+								
+								if(hertzDiff > PSGhighHz)
+									PSGhighHz = hertzDiff;
+							}
 							break;
 						}
 					}
@@ -472,42 +569,67 @@ void CompareNotes(GenesisAudio *ModelSignal, GenesisAudio *TestSignal, double si
 				{
 					double test;
 	
-					test = fabs(TestSignal->Notes[note].freq[index].weight - ModelSignal->Notes[note].freq[freq].weight);
+					test = fabs(TestSignal->Notes[note].freq[index].weight - ReferenceSignal->Notes[note].freq[freq].weight);
 					if(test >= tolerance)
 					{
 						sprintf(buffer, "  Different Weight found: %g Hz at %.2f%% instead of %g Hz at %.2f%% (%0.2f)\n",
 							TestSignal->Notes[note].freq[index].hertz,
 							TestSignal->Notes[note].freq[index].weight,
-							ModelSignal->Notes[note].freq[freq].hertz,
-							ModelSignal->Notes[note].freq[freq].weight,
+							ReferenceSignal->Notes[note].freq[freq].hertz,
+							ReferenceSignal->Notes[note].freq[freq].weight,
 							test);	
 						strcat(diff, buffer);
 						msg ++;
 						total ++;
-						weights ++;
 
-						if(test > highDiff)
-							highDiff = test;
+						if(ReferenceSignal->Notes[note].type == TYPE_FM)
+						{
+							FMweights ++;
+	
+							if(test > FMhighDiff)
+								FMhighDiff = test;
+						}
+						else
+						{
+							PSGweights ++;
+	
+							if(test > PSGhighDiff)
+								PSGhighDiff = test;
+						}
 					}
 		
 					if(test && test < tolerance)
 					{
-						adjWeight++;
-						adjusted++;
-						if(test > highDiffAdj)
-							highDiffAdj = test;
+                        if(ReferenceSignal->Notes[note].type == TYPE_FM)
+                        {
+						    FMadjWeight++;
+						    FMadjusted++;
+						    if(test > FMhighDiffAdj)
+							    FMhighDiffAdj = test;
+                        }
+                        else
+                        {
+						    PSGadjWeight++;
+						    PSGadjusted++;
+						    if(test > PSGhighDiffAdj)
+							    PSGhighDiffAdj = test;
+                        }
 					}
 				}
 
 				if(!found)
 				{
-					sprintf(buffer, "  Model Frequency not found: %g Hz at %.2f%%\n",
-							 ModelSignal->Notes[note].freq[freq].hertz,
-							 ModelSignal->Notes[note].freq[freq].weight);
+					sprintf(buffer, "  Reference Frequency not found: %g Hz at %.2f%%\n",
+							 ReferenceSignal->Notes[note].freq[freq].hertz,
+							 ReferenceSignal->Notes[note].freq[freq].weight);
 					strcat(diff, buffer);
 					msg ++;
 					total ++;
-					notfound ++;
+
+                    if(ReferenceSignal->Notes[note].type == TYPE_FM)
+					    FMnotfound ++;
+                    else
+                        PSGnotfound ++;
 				}
 			}
 		}
@@ -516,34 +638,45 @@ void CompareNotes(GenesisAudio *ModelSignal, GenesisAudio *TestSignal, double si
 		{
 			logmsg("%s\n", diff);	
 			if(extend)
-				PrintComparedNotes(&ModelSignal->Notes[note], &TestSignal->Notes[note], sigMatch);
+				PrintComparedNotes(&ReferenceSignal->Notes[note], &TestSignal->Notes[note], sigMatch);
 		}
 	}
 	if(!total)
 	{
 		logmsg("WAV files are acustically identical\n");
-		if(adjusted)
-			logmsg("\tAdjusted to match with ranges: %d (Hz: %d [highest: %g Hz], W: %d [highest: %0.2f%%])\n", adjusted, adjHz, highHz, adjWeight, highDiffAdj);
+        if(FMadjusted)
+            logmsg("FM Sound\tAdjusted to match with ranges: %d (Hz: %d [highest: %g Hz], W: %d [highest: %0.2f%%])\n", 
+                FMadjusted, FMadjHz, FMhighHz, FMadjWeight, FMhighDiffAdj);
+		if(PSGadjusted)
+	        logmsg("PSG Sound\tAdjusted to match with ranges: %d (Hz: %d [highest: %g Hz], W: %d [highest: %0.2f%%])\n",
+                PSGadjusted, PSGadjHz, PSGhighHz, PSGadjWeight, PSGhighDiffAdj);
 	}
 	else
-		logmsg("Total differences are %d\n\tNot found: %d\n\tDifferent weights: %d [highest: %0.2f%%]\n\tAdjusted to match with ranges: %d (Hz: %d [highest: %g Hz], W: %d [highest: %0.2f%%])\n", 
-			total, notfound, weights, highDiff, adjusted, adjHz, highHz, adjWeight, highDiffAdj);
+    {
+        logmsg("Total differences are %d\n========================\n", total);
+        if(FMadjusted)
+		    logmsg("FM differences [%d]\n\tNot found: %d\n\tDifferent weights: %d [highest: %0.2f%%]\n\tAdjusted to match with ranges: %d (Hz: %d [highest: %g Hz], W: %d [highest: %0.2f%%])\n", 
+			    FMnotfound+FMweights, FMnotfound, FMweights, FMhighDiff, FMadjusted, FMadjHz, FMhighHz, FMadjWeight, FMhighDiffAdj);
+        if(PSGadjusted)
+	        logmsg("PSG differences [%d]\n\tNot found: %d\n\tDifferent weights: %d [highest: %0.2f%%]\n\tAdjusted to match with ranges: %d (Hz: %d [highest: %g Hz], W: %d [highest: %0.2f%%])\n", 
+			    PSGnotfound+PSGweights, PSGnotfound, PSGweights, PSGhighDiff, PSGadjusted, PSGadjHz, PSGhighHz, PSGadjWeight, PSGhighDiffAdj);
+    }
 }
 
 
-void PrintComparedNotes(MaxFreq *ModelArray, MaxFreq *ComparedArray, double sigMatch)
+void PrintComparedNotes(MaxFreq *ReferenceArray, MaxFreq *ComparedArray, double sigMatch)
 {
 	double total = 0;
 
 	for(int j = 0; j < COUNT; j++)
 	{
-		if(ModelArray->freq[j].weight && ModelArray->freq[j].hertz)
+		if(ReferenceArray->freq[j].weight && ReferenceArray->freq[j].hertz)
 		{
-			total += ModelArray->freq[j].weight;
-			logmsg("[%0.2d] (%0.2f%%) Model: %5g Hz\t%0.2f%% ", 
+			total += ReferenceArray->freq[j].weight;
+			logmsg("[%0.2d] (%0.2f%%) Reference: %5g Hz\t%0.2f%% ", 
 						j, total,
-						ModelArray->freq[j].hertz,
-						ModelArray->freq[j].weight);
+						ReferenceArray->freq[j].hertz,
+						ReferenceArray->freq[j].weight);
 
 			if(ComparedArray->freq[j].hertz)
 				logmsg("\tCompared:\t%5g Hz\t%0.2f%%", 
