@@ -58,19 +58,20 @@ typedef struct GenesisAudioSt {
 
 void logmsg(char *fmt, ... );
 double ProcessSamples(fftw_plan *p, MaxFreq *MaxFreqArray, short *samples, size_t size, long samplerate, double secondunits);
-void CompareNotes(GenesisAudio *ModelSignal, GenesisAudio *TestSignal, double sigMatch, double tolerance);
+void CompareNotes(GenesisAudio *ModelSignal, GenesisAudio *TestSignal, double sigMatch, double tolerance, int extend);
 int LoadFile(FILE *file, GenesisAudio *Signal, fftw_plan *p);
 void PrintComparedNotes(MaxFreq *ModelArray, MaxFreq *ComparedArray, double sigMatch);
 
 int main(int argc , char *argv[])
 {
-	fftw_plan			  p = NULL;
-	FILE				  *model = NULL;
-	FILE				  *compare = NULL;
-	GenesisAudio  		  ModelSignal;
-	GenesisAudio  		  TestSignal;
-	double				  sigMatch = FREQ_COMPARE;
-	double				  tolerance = PERCENT_TOLERANCE;
+	fftw_plan			p = NULL;
+	FILE				*model = NULL;
+	FILE				*compare = NULL;
+	GenesisAudio  		ModelSignal;
+	GenesisAudio  		TestSignal;
+	double				sigMatch = FREQ_COMPARE;
+	double				tolerance = PERCENT_TOLERANCE;
+	int 				extend = 1;
 
 	printf("Sega Genesis/Mega Drive Fourier Audio compare tool for 240p Test Suite\n");
 	printf("by Artemio Urbina 2019, licensed under GPL\n");
@@ -118,12 +119,14 @@ int main(int argc , char *argv[])
 
 	logmsg("\tLoading MODEL file %s\n", argv[1]);
 	
-	LoadFile(model, &ModelSignal, &p);
+	if(!LoadFile(model, &ModelSignal, &p))
+		return 0;
 
 	logmsg("\tLoading Compare file %s\n", argv[2]);
-	LoadFile(compare, &TestSignal, &p);
+	if(!LoadFile(compare, &TestSignal, &p))
+		return 0;
 
-	CompareNotes(&ModelSignal, &TestSignal, sigMatch, tolerance);
+	CompareNotes(&ModelSignal, &TestSignal, sigMatch, tolerance, extend);
 
 	if(p)
 		fftw_destroy_plan(p);
@@ -167,7 +170,7 @@ int LoadFile(FILE *file, GenesisAudio *Signal, fftw_plan *p)
 		else
 		{
 			logmsg("unexpected end of File, please record the full Audio Test from the 240p Test Suite\n");
-			break;
+			return 0;
 		}
 		Signal->Notes[i].index = i < PSG_COUNT ? i : i - PSG_COUNT;
 		Signal->Notes[i].type = i < PSG_COUNT ? TYPE_FM : TYPE_PSG;
@@ -310,14 +313,25 @@ double ProcessSamples(fftw_plan *p, MaxFreq *MaxFreqArray, short *samples, size_
 	
 				hertzDiff = fabs(MaxFreqArray[f].freq[j].hertz - MaxFreqArray[f].freq[i].hertz);
 				
-				if(MaxFreqArray[f].freq[j].hertz >= HERTZ_DIFF && MaxFreqArray[f].freq[i].hertz >= HERTZ_DIFF 
+				if(MaxFreqArray[f].freq[i].hertz >= HERTZ_DIFF && MaxFreqArray[f].freq[j].hertz >= HERTZ_DIFF 
 					&& MaxFreqArray[f].freq[j].weight > 0 && i != j &&(hertzDiff <= HERTZ_DIFF*BASE))
 				{
-					MaxFreqArray[f].freq[i].weight += MaxFreqArray[f].freq[j].weight;
-
-					MaxFreqArray[f].freq[j].hertz = 0;
-					MaxFreqArray[f].freq[j].weight = 0;
-					MaxFreqArray[f].freq[j].index = 0;
+					if(MaxFreqArray[f].freq[i].weight > MaxFreqArray[f].freq[j].weight)
+					{
+						MaxFreqArray[f].freq[i].weight += MaxFreqArray[f].freq[j].weight;
+	
+						MaxFreqArray[f].freq[j].hertz = 0;
+						MaxFreqArray[f].freq[j].weight = 0;
+						MaxFreqArray[f].freq[j].index = 0;
+					}
+					else
+					{
+						MaxFreqArray[f].freq[j].weight += MaxFreqArray[f].freq[i].weight;
+	
+						MaxFreqArray[f].freq[i].hertz = 0;
+						MaxFreqArray[f].freq[i].weight = 0;
+						MaxFreqArray[f].freq[i].index = 0;
+					}
 					if(i > j)
 					{
 						Frequency	t;
@@ -380,7 +394,7 @@ double ProcessSamples(fftw_plan *p, MaxFreq *MaxFreqArray, short *samples, size_
 }
 
 
-void CompareNotes(GenesisAudio *ModelSignal, GenesisAudio *TestSignal, double sigMatch, double tolerance)
+void CompareNotes(GenesisAudio *ModelSignal, GenesisAudio *TestSignal, double sigMatch, double tolerance, int extend)
 {
 	int 	note, msg = 0, total = 0;
 	int 	weights = 0, notfound = 0;
@@ -404,8 +418,6 @@ void CompareNotes(GenesisAudio *ModelSignal, GenesisAudio *TestSignal, double si
 			if(percent >= sigMatch)
 			{
 				count = freq;
-				sprintf(buffer, "Percent %g: data %d\n", percent, count);
-				strcat(diff, buffer);
 				break;
 			}
 		}
@@ -503,7 +515,8 @@ void CompareNotes(GenesisAudio *ModelSignal, GenesisAudio *TestSignal, double si
 		if(msg)
 		{
 			logmsg("%s\n", diff);	
-			PrintComparedNotes(&ModelSignal->Notes[note], &TestSignal->Notes[note], sigMatch);
+			if(extend)
+				PrintComparedNotes(&ModelSignal->Notes[note], &TestSignal->Notes[note], sigMatch);
 		}
 	}
 	if(!total)
@@ -527,11 +540,10 @@ void PrintComparedNotes(MaxFreq *ModelArray, MaxFreq *ComparedArray, double sigM
 		if(ModelArray->freq[j].weight && ModelArray->freq[j].hertz)
 		{
 			total += ModelArray->freq[j].weight;
-			logmsg("[%0.2d] Model: %5g Hz\t%0.2f%% (%0.2f%%)", 
-						j, 
+			logmsg("[%0.2d] (%0.2f%%) Model: %5g Hz\t%0.2f%% ", 
+						j, total,
 						ModelArray->freq[j].hertz,
-						ModelArray->freq[j].weight,
-						total);
+						ModelArray->freq[j].weight);
 
 			if(ComparedArray->freq[j].hertz)
 				logmsg("\tCompared:\t%5g Hz\t%0.2f%%", 
