@@ -1,4 +1,4 @@
-# GenesisAudioCompare
+# MDFourier
 A Fourier Transform analysis tool to compare different Sega Genesis/Mega Drive audio hardware revisions. 
 
 This is a set of tools intended to compare Mega Drive/Sega Genesis audio characteristics aided by Fourier analysis. 
