@@ -49,7 +49,7 @@
 #define PSG_COUNT	40
 #define NOISE_COUNT 100
 
-#define COUNT		120		// Number of frequencies to account for 
+#define COUNT		100	// Number of frequencies to account for 
 #define MAX_NOTES	140		// we have 140 notes in the 240p Test Suite
 
 #define TYPE_NONE	0
@@ -59,7 +59,7 @@
 
 // This is the percentual difference allowed between model and compared
 // to be a match
-#define PERCENT_TOLERANCE	2.0
+#define PERCENT_TOLERANCE	0.3
 
 // Width of each peak
 #define HERTZ_WIDTH			0.0
@@ -126,7 +126,7 @@ int main(int argc , char *argv[])
 	GenesisAudio  		*TestSignal;
 	double				sigMatch = FREQ_COMPARE;
 	double				tolerance = PERCENT_TOLERANCE;
-	int 				extend = 1;
+	int 				extend = 0;
 
 	printf("== MDFourier ==\nSega Genesis/Mega Drive Fourier Audio compare tool for 240p Test Suite\n");
 	printf("by Artemio Urbina 2019, licensed under GPL\n\n");
@@ -165,6 +165,8 @@ int main(int argc , char *argv[])
 	if(argc >= 5)
 	{
 		tolerance = atof(argv[4]);
+        if(tolerance < 0.0 || tolerance > 100.0)
+			tolerance = PERCENT_TOLERANCE;
 		printf("\tWeight tolerance changed to %0.2f%%\n", tolerance);
 	}
 	else
@@ -377,7 +379,7 @@ double ProcessSamples(fftw_plan *p, MaxFreq *MaxFreqArray, short *samples, size_
 		// analyze only 0khz to 20khz
 		// i/boxwsize = 0 to i/boxsize = 20000
 		// 0*boxsize to 20000*boxsize
-		for(i = 0*boxsize; i < 20000*boxsize; i++)  // Nyquist at 44.1khz
+		for(i = 10*boxsize; i < 20000*boxsize; i++)  // Nyquist at 44.1khz
 		{
 			double r1 = creal(out[i]);
 			double i1 = cimag(out[i]);
@@ -522,6 +524,7 @@ void CompareNotes(GenesisAudio *ReferenceSignal, GenesisAudio *TestSignal, doubl
 	char	diff[4096];
 	char	buffer[512];
 
+	logmsg("-- Results --\n\n");
 	for(note = 0; note < MAX_NOTES; note++)
 	{
 		double percent = 0;
@@ -707,7 +710,7 @@ void CompareNotes(GenesisAudio *ReferenceSignal, GenesisAudio *TestSignal, doubl
 	}
 	if(!total)
 	{
-		logmsg("\n==WAV files are acoustically identical==\n");
+		logmsg("\n== WAV files are acoustically identical== \n");
 		if(FMadjHz+FMadjWeight)
 		{
 			logmsg("FM Sound\n");
@@ -776,6 +779,7 @@ void PrintComparedNotes(MaxFreq *ReferenceArray, MaxFreq *ComparedArray, double 
 {
 	double total = 0;
 
+	logmsg("Full Note values\n");
 	for(int j = 0; j < COUNT; j++)
 	{
 		if(ReferenceArray->freq[j].weight && ReferenceArray->freq[j].hertz)
