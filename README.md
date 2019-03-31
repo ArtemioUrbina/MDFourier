@@ -11,7 +11,7 @@ With these tools, any implementation can be evaluated against the frequency resp
 The intention is not to detriment any particular implementation, but help to improve them whenever possible by identifying the differences. This can help emulators, FPGA implementations and even hardware modifications to match the desired reference recording.
 Although I believe any present and future implementation should base its characteristics on vintage retail hardware, that doesn’t mean there is room for improvement. Reducing noise is one such area.
 
-The YM2612 probably operates in a very similar way the YM3812 does, in that it has an internal log transformed table. However, I believe most implementations use pure since waves, creating an idealized representation of how it should sound if it was implemented that way. But it wasn’t. And having the option to re-create it as it behaved is as valuable as the idealized/improved implementation. If it can be done with complete accuracy, why aren’t we doing it? I believe lack of information is one of the answers to that question.
+The YM2612 operates just like the YM3812 does, in that it has an internal log transformed table. Modern implementations like MAME, the MAME derived core in Genesis Plus GX, Nuked, BlastEm and Exodus should all have bit perfect recreations of the tables used in the original chip. However there are differences that must come from the analog side. If it can be done with complete accuracy, why aren't we doing it? I believe lack of information is one of the answers to that question.
 
 I must emphasize I am not an expert in any of the related areas, just interested in preservation and FM sound. Any corrections and improvements are encouraged and welcome.
 
