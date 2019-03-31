@@ -43,40 +43,38 @@
 
 #define SAMPLE_RATE 44100*2 //sice we are in stereo!
 
-#define	FFT_OM			-5000
-#define	FFT_NOT_FOUND	-500
-
 #define BASE 1			// frequency width size
 #define SIZE_BASE SAMPLE_RATE/BASE
 
 #define PSG_COUNT	40
 #define NOISE_COUNT 100
 
-#define COUNT 100		// Number of frequencies to account for 
-#define MAX_NOTES 140	// we have 140 notes in the 240p Test Suite
+#define COUNT		120		// Number of frequencies to account for 
+#define MAX_NOTES	140		// we have 140 notes in the 240p Test Suite
 
 #define TYPE_NONE	0
 #define TYPE_FM 	1
 #define TYPE_PSG	2
 #define TYPE_NOISE	3
 
-// This is the minimum percentual value to consider for matches
-#define MIN_PERCENT 		0.0f
-
 // This is the percentual difference allowed between model and compared
 // to be a match
-#define PERCENT_TOLERANCE	5.0f
+#define PERCENT_TOLERANCE	2.0
+
+// Width of each peak
+#define HERTZ_WIDTH			0.0
 
 // +/- Tolerance in frequency Difference to be the same one
-#define HERTZ_DIFF			10.0f
+#define HERTZ_DIFF			0.0
 
 //Percentage of normalized weighted frequencies to match
-#define FREQ_COMPARE		90.0f
+#define FREQ_COMPARE		90.0
 
 typedef struct FrequencySt {
 	double weight;
 	double hertz;
 	long   index;
+	int    matched;
 } Frequency;
 
 typedef struct MaxFreqSt {
@@ -157,7 +155,7 @@ int main(int argc , char *argv[])
 	if(argc >= 4)
 	{
 		sigMatch = atof(argv[3]);
-		if(sigMatch < 0.0f || sigMatch > 100.0f)
+		if(sigMatch < 0.0 || sigMatch > 100.0)
 			sigMatch = FREQ_COMPARE;
 		printf("\tSignal Percentage match changed to %0.2f%%\n", sigMatch);
 	}
@@ -372,13 +370,14 @@ double ProcessSamples(fftw_plan *p, MaxFreq *MaxFreqArray, short *samples, size_
 			MaxFreqArray[f].freq[i].hertz = 0;
 			MaxFreqArray[f].freq[i].weight = 0;
 			MaxFreqArray[f].freq[i].index = -1;
+			MaxFreqArray[f].freq[i].matched = 0;
 		}
 
 		//for(i = 0; i < arraysize/2+1; i++)
 		// analyze only 0khz to 20khz
 		// i/boxwsize = 0 to i/boxsize = 20000
 		// 0*boxsize to 20000*boxsize
-		for(i = 10*boxsize; i < 20000*boxsize; i++)  // Nyquist at 44.1khz
+		for(i = 0*boxsize; i < 20000*boxsize; i++)  // Nyquist at 44.1khz
 		{
 			double r1 = creal(out[i]);
 			double i1 = cimag(out[i]);
@@ -415,62 +414,65 @@ double ProcessSamples(fftw_plan *p, MaxFreq *MaxFreqArray, short *samples, size_
 
 		// Normalize to 100
 		for(i = 0; i < COUNT; i++)
-			MaxFreqArray[f].freq[i].weight = MaxFreqArray[f].freq[i].weight * 100.0f / TotalWeight;
+			MaxFreqArray[f].freq[i].weight = MaxFreqArray[f].freq[i].weight * 100.0 / TotalWeight;
 
 		// The following mess compressed adjacent frequencies
-		for(i = 0; i < COUNT; i++)
+		if(HERTZ_WIDTH > 0.0)
 		{
-			for(int j = 0; j < COUNT; j++)
+			for(i = 0; i < COUNT; i++)
 			{
-				double hertzDiff;
-	
-				hertzDiff = fabs(MaxFreqArray[f].freq[j].hertz - MaxFreqArray[f].freq[i].hertz);
-				
-				if(MaxFreqArray[f].freq[i].hertz >= HERTZ_DIFF && MaxFreqArray[f].freq[j].hertz >= HERTZ_DIFF 
-					&& MaxFreqArray[f].freq[j].weight > 0 && i != j &&(hertzDiff <= HERTZ_DIFF*BASE))
+				for(int j = 0; j < COUNT; j++)
 				{
-					if(MaxFreqArray[f].freq[i].weight > MaxFreqArray[f].freq[j].weight)
-					{
-						MaxFreqArray[f].freq[i].weight += MaxFreqArray[f].freq[j].weight;
-	
-						MaxFreqArray[f].freq[j].hertz = 0;
-						MaxFreqArray[f].freq[j].weight = 0;
-						MaxFreqArray[f].freq[j].index = 0;
-					}
-					else
-					{
-						MaxFreqArray[f].freq[j].weight += MaxFreqArray[f].freq[i].weight;
-	
-						MaxFreqArray[f].freq[i].hertz = 0;
-						MaxFreqArray[f].freq[i].weight = 0;
-						MaxFreqArray[f].freq[i].index = 0;
-					}
-					if(i > j)
-					{
-						Frequency	t;
+					double hertzDiff;
+		
+					hertzDiff = fabs(MaxFreqArray[f].freq[j].hertz - MaxFreqArray[f].freq[i].hertz);
 					
-						t = MaxFreqArray[f].freq[j];
-						MaxFreqArray[f].freq[j] = MaxFreqArray[f].freq[i];
-						MaxFreqArray[f].freq[i] = t;
+					if(MaxFreqArray[f].freq[i].hertz >= HERTZ_WIDTH && MaxFreqArray[f].freq[j].hertz >= HERTZ_WIDTH 
+						&& MaxFreqArray[f].freq[j].weight > 0 && i != j &&(hertzDiff <= HERTZ_WIDTH*BASE))
+					{
+						if(MaxFreqArray[f].freq[i].weight > MaxFreqArray[f].freq[j].weight)
+						{
+							MaxFreqArray[f].freq[i].weight += MaxFreqArray[f].freq[j].weight;
+		
+							MaxFreqArray[f].freq[j].hertz = 0;
+							MaxFreqArray[f].freq[j].weight = 0;
+							MaxFreqArray[f].freq[j].index = 0;
+						}
+						else
+						{
+							MaxFreqArray[f].freq[j].weight += MaxFreqArray[f].freq[i].weight;
+		
+							MaxFreqArray[f].freq[i].hertz = 0;
+							MaxFreqArray[f].freq[i].weight = 0;
+							MaxFreqArray[f].freq[i].index = 0;
+						}
+						if(i > j)
+						{
+							Frequency	t;
+						
+							t = MaxFreqArray[f].freq[j];
+							MaxFreqArray[f].freq[j] = MaxFreqArray[f].freq[i];
+							MaxFreqArray[f].freq[i] = t;
+						}
+						removed ++;
 					}
-					removed ++;
 				}
 			}
-		}
-
-		// sort array by weight
-		for(i = 0; i < COUNT; i++)
-		{
-			for(int j = i + 1; j < COUNT; j++)
+	
+			// sort array by weight
+			for(i = 0; i < COUNT; i++)
 			{
-				if (MaxFreqArray[f].freq[i].weight < MaxFreqArray[f].freq[j].weight) 
+				for(int j = i + 1; j < COUNT; j++)
 				{
-						Frequency	t;
-					
-						t = MaxFreqArray[f].freq[i];
-						MaxFreqArray[f].freq[i] = MaxFreqArray[f].freq[j];
-						MaxFreqArray[f].freq[j] = t;
-					}
+					if (MaxFreqArray[f].freq[i].weight < MaxFreqArray[f].freq[j].weight) 
+					{
+							Frequency	t;
+						
+							t = MaxFreqArray[f].freq[i];
+							MaxFreqArray[f].freq[i] = MaxFreqArray[f].freq[j];
+							MaxFreqArray[f].freq[j] = t;
+						}
+				}
 			}
 		}
 	}
@@ -489,9 +491,9 @@ double ProcessSamples(fftw_plan *p, MaxFreq *MaxFreqArray, short *samples, size_
 				Percentage += MaxFreqArray[f].freq[j].weight;
 				//detect CRT frequency and abort after it
 				if(MaxFreqArray[f].freq[j].hertz > 15670 && MaxFreqArray[f].freq[j].hertz < 15700)
-					logmsg("Frequency [%0.2d] with %0.2f%% (%2.2f%%):\t%g Hz *** CRT Noise ***\n", j, MaxFreqArray[f].freq[j].weight, Percentage, MaxFreqArray[f].freq[j].hertz);
+					logmsg("Frequency [%2d] with %5.2f%% (%5.2f%%): %5.0f Hz *** CRT Noise ***\n", j, MaxFreqArray[f].freq[j].weight, Percentage, MaxFreqArray[f].freq[j].hertz);
 				else
-					logmsg("Frequency [%0.2d] with %0.2f%% (%2.2f%%):\t%g Hz\n", j, MaxFreqArray[f].freq[j].weight, Percentage, MaxFreqArray[f].freq[j].hertz);
+					logmsg("Frequency [%2d] with %5.2f%% (%5.2f%%): %5.0f Hz\n", j, MaxFreqArray[f].freq[j].weight, Percentage, MaxFreqArray[f].freq[j].hertz);
 			}
 		}
 	}
@@ -567,41 +569,64 @@ void CompareNotes(GenesisAudio *ReferenceSignal, GenesisAudio *TestSignal, doubl
 
 				for(int comp = 0; comp < compSize; comp++)
 				{
-					if(ReferenceSignal->Notes[note].freq[freq].hertz == TestSignal->Notes[note].freq[comp].hertz)
+					if(!TestSignal->Notes[note].freq[comp].matched && 
+						ReferenceSignal->Notes[note].freq[freq].hertz ==
+						TestSignal->Notes[note].freq[comp].hertz)
 					{
+						TestSignal->Notes[note].freq[comp].matched = freq + 1;
 						found = 1;
 						index = comp;
 						break;
 					}
 				}
 
-				if(!found) // search with tolerance, if done in one pass, false positives emerge
+				if(!found && HERTZ_DIFF != 0.0) // search with tolerance, if done in one pass, false positives emerge
 				{
+					double	lowest = 20000, tmpDiff = 0;
+					int 	lowIndex = -1;
+
+					// Find closest match
 					for(int comp = 0; comp < compSize; comp++)
 					{
-						double hertzDiff;
-	
-						hertzDiff = fabs(TestSignal->Notes[note].freq[comp].hertz - ReferenceSignal->Notes[note].freq[freq].hertz);
-						if(hertzDiff < HERTZ_DIFF)
+						if(!TestSignal->Notes[note].freq[comp].matched)
 						{
-							found = 2;
-							index = comp;
+							double hertzDiff;
+		
+							hertzDiff = fabs(TestSignal->Notes[note].freq[comp].hertz -
+											 ReferenceSignal->Notes[note].freq[freq].hertz);
 
-							if(ReferenceSignal->Notes[note].type == TYPE_FM)
+							if(hertzDiff <= HERTZ_DIFF)
 							{
-								FMadjHz++;
-								
-								if(hertzDiff > FMhighHz)
-									FMhighHz = hertzDiff;
+								if(hertzDiff < lowest)
+								{
+									lowest = hertzDiff;
+									lowIndex = comp;
+									tmpDiff = hertzDiff;
+								}
 							}
-							else
-							{
-								PSGadjHz++;
-								
-								if(hertzDiff > PSGhighHz)
-									PSGhighHz = hertzDiff;
-							}
-							break;
+						}
+					}
+
+					if(lowIndex >= 0)
+					{
+						TestSignal->Notes[note].freq[lowIndex].matched = freq + 1;
+
+						found = 2;
+						index = lowIndex;
+
+						if(ReferenceSignal->Notes[note].type == TYPE_FM)
+						{
+							FMadjHz++;
+							
+							if(tmpDiff > FMhighHz)
+								FMhighHz = tmpDiff;
+						}
+						else
+						{
+							PSGadjHz++;
+							
+							if(tmpDiff > PSGhighHz)
+								PSGhighHz = tmpDiff;
 						}
 					}
 				}
@@ -639,7 +664,7 @@ void CompareNotes(GenesisAudio *ReferenceSignal, GenesisAudio *TestSignal, doubl
 						}
 					}
 		
-					if(test && test < tolerance)
+					if(test && test <= tolerance)
 					{
 						if(ReferenceSignal->Notes[note].type == TYPE_FM)
 						{
@@ -688,9 +713,10 @@ void CompareNotes(GenesisAudio *ReferenceSignal, GenesisAudio *TestSignal, doubl
 			logmsg("FM Sound\n");
 			logmsg("\tAdjustments made to match within defined ranges: %d\n",
 				FMadjHz+FMadjWeight);
-			logmsg("\t\tFrequencies adjusted: %d of %d (%0.2f%%) [highest difference: %0.2f Hz]\n",
-				FMadjHz, FMcompared, (double)FMadjHz/(double)FMcompared*100, FMhighHz);
-            logmsg("\t\tWeights adjusted: %d of %d (%0.2f%%) [highest difference: %0.2f%%]\n",
+			if(HERTZ_DIFF != 0.0)
+				logmsg("\t\tFrequencies adjusted: %d of %d (%0.2f%%) [highest difference: %0.2f Hz]\n",
+					FMadjHz, FMcompared, (double)FMadjHz/(double)FMcompared*100, FMhighHz);
+			logmsg("\t\tWeights adjusted: %d of %d (%0.2f%%) [highest difference: %0.2f%%]\n",
 				FMadjWeight, FMcompared, (double)FMadjWeight/(double)FMcompared*100, FMhighDiffAdj);
 		}
 		if(PSGadjHz+PSGadjWeight)
@@ -698,11 +724,12 @@ void CompareNotes(GenesisAudio *ReferenceSignal, GenesisAudio *TestSignal, doubl
 			logmsg("PSG Sound\n");
 			logmsg("\tAdjustments made to match within defined ranges: %d\n",
 				PSGadjHz+PSGadjWeight);
-			logmsg("\t\tFrequencies adjusted: %d of %d (%0.2f%%) [highest difference: %0.2f Hz]\n",
-				PSGadjHz, PSGcompared, (double)PSGadjHz/(double)PSGcompared*100, PSGhighHz);
-            logmsg("\t\tWeights adjusted: %d of %d (%0.2f%%) [highest difference: %0.2f%%]\n",
+			if(HERTZ_DIFF != 0.0)
+				logmsg("\t\tFrequencies adjusted: %d of %d (%0.2f%%) [highest difference: %0.2f Hz]\n",
+					PSGadjHz, PSGcompared, (double)PSGadjHz/(double)PSGcompared*100, PSGhighHz);
+			logmsg("\t\tWeights adjusted: %d of %d (%0.2f%%) [highest difference: %0.2f%%]\n",
 				PSGadjWeight, PSGcompared, (double)PSGadjWeight/(double)PSGcompared*100, PSGhighDiffAdj);
-        }
+		}
 	}
 	else
 	{
@@ -713,13 +740,14 @@ void CompareNotes(GenesisAudio *ReferenceSignal, GenesisAudio *TestSignal, doubl
 			logmsg("\nFM differences %d\n",
 				FMnotfound+FMweights);
 			logmsg("\tNot found: %d of %d (%0.2f%%)\n", 
-                FMnotfound, FMcompared, (double)FMnotfound/(double)FMcompared*100);
+				FMnotfound, FMcompared, (double)FMnotfound/(double)FMcompared*100);
 			logmsg("\tDifferent weights: %d of %d (%0.2f%%) [highest: %0.2f%%]\n",
-                 FMweights, FMcompared, (double)FMweights/(double)FMcompared*100, FMhighDiff);
-            logmsg("\n\tMatched frequencies analysis:\n");
-			logmsg("\tFrequencies adjusted: %d of %d (%0.2f%%) [highest difference: %0.2f Hz]\n",
-				FMadjHz, FMcompared, (double)FMadjHz/(double)FMcompared*100, FMhighHz);
-            logmsg("\tWeights adjusted: %d of %d (%0.2f%%) [highest difference: %0.2f%%]\n",
+				 FMweights, FMcompared, (double)FMweights/(double)FMcompared*100, FMhighDiff);
+			logmsg("\n\tMatched frequencies analysis:\n");
+			if(HERTZ_DIFF != 0.0)
+				logmsg("\tFrequencies adjusted: %d of %d (%0.2f%%) [highest difference: %0.2f Hz]\n",
+					FMadjHz, FMcompared, (double)FMadjHz/(double)FMcompared*100, FMhighHz);
+			logmsg("\tWeights adjusted: %d of %d (%0.2f%%) [highest difference: %0.2f%%]\n",
 				FMadjWeight, FMcompared, (double)FMadjWeight/(double)FMcompared*100, FMhighDiffAdj);
 		}
 
@@ -728,13 +756,14 @@ void CompareNotes(GenesisAudio *ReferenceSignal, GenesisAudio *TestSignal, doubl
 			logmsg("\nPSG differences %d\n",
 				PSGnotfound+PSGweights);
 			logmsg("\tNot found: %d of %d (%0.2f%%)\n", 
-                PSGnotfound, PSGcompared, (double)PSGnotfound/(double)PSGcompared*100);
+				PSGnotfound, PSGcompared, (double)PSGnotfound/(double)PSGcompared*100);
 			logmsg("\tDifferent weights: %d of %d (%0.2f%%) [highest: %0.2f%%]\n",
-                PSGweights, PSGcompared, (double)PSGweights/(double)PSGcompared*100, PSGhighDiff);
-            logmsg("\n\tMatched frequencies analysis:\n");
-			logmsg("\tFrequencies adjusted: %d of %d (%0.2f%%) [highest difference: %0.2f Hz]\n",
-				PSGadjHz, PSGcompared, (double)PSGadjHz/(double)PSGcompared*100, PSGhighHz);
-            logmsg("\tWeights adjusted: %d of %d (%0.2f%%) [highest difference: %0.2f%%]\n",
+				PSGweights, PSGcompared, (double)PSGweights/(double)PSGcompared*100, PSGhighDiff);
+			logmsg("\n\tMatched frequencies analysis:\n");
+			if(HERTZ_DIFF != 0.0)
+				logmsg("\tFrequencies adjusted: %d of %d (%0.2f%%) [highest difference: %0.2f Hz]\n",
+					PSGadjHz, PSGcompared, (double)PSGadjHz/(double)PSGcompared*100, PSGhighHz);
+			logmsg("\tWeights adjusted: %d of %d (%0.2f%%) [highest difference: %0.2f%%]\n",
 				PSGadjWeight, PSGcompared, (double)PSGadjWeight/(double)PSGcompared*100, PSGhighDiffAdj);
 		}
 	}
@@ -752,15 +781,16 @@ void PrintComparedNotes(MaxFreq *ReferenceArray, MaxFreq *ComparedArray, double 
 		if(ReferenceArray->freq[j].weight && ReferenceArray->freq[j].hertz)
 		{
 			total += ReferenceArray->freq[j].weight;
-			logmsg("[%0.2d] (%0.2f%%) Reference: %5g Hz\t%0.2f%% ", 
+			logmsg("[%4.2d] (%0.2f%%) Reference: %5g Hz\t%0.2f%% ", 
 						j, total,
 						ReferenceArray->freq[j].hertz,
 						ReferenceArray->freq[j].weight);
 
 			if(ComparedArray->freq[j].hertz)
-				logmsg("\tCompared:\t%5g Hz\t%0.2f%%", 
+				logmsg("\tCompared:\t%5g Hz\t%0.2f%% [matched to %d]", 
 						ComparedArray->freq[j].hertz,
-						ComparedArray->freq[j].weight);
+						ComparedArray->freq[j].weight,
+						ComparedArray->freq[j].matched - 1);
 			else
 				logmsg("\tCompared:\t=====");
 			logmsg("\n");
