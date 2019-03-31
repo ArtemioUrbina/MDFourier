@@ -41,10 +41,7 @@
 #include <fftw3.h>
 
 
-#define SAMPLE_RATE 44100*2 //sice we are in stereo!
-
-#define BASE 1			// frequency width size
-#define SIZE_BASE SAMPLE_RATE/BASE
+#define SAMPLE_RATE 44100 //sice we are in stereo!
 
 #define PSG_COUNT	40
 #define NOISE_COUNT 100
@@ -88,12 +85,13 @@ typedef struct GenesisAudioSt {
 }  GenesisAudio;
 
 void logmsg(char *fmt, ... );
-double ProcessSamples(fftw_plan *p, MaxFreq *MaxFreqArray, short *samples, size_t size, long samplerate, double secondunits);
+double ProcessSamples(MaxFreq *MaxFreqArray, short *samples, size_t size, long samplerate, float *);
 void CompareNotes(GenesisAudio *ReferenceSignal, GenesisAudio *TestSignal, double sigMatch, double tolerance, int extend);
-int LoadFile(FILE *file, GenesisAudio *Signal, fftw_plan *p);
+int LoadFile(FILE *file, GenesisAudio *Signal);
 void PrintComparedNotes(MaxFreq *ReferenceArray, MaxFreq *ComparedArray, double sigMatch);
 char *GetRange(int index);
 int GetSubIndex(int index);
+float *hanning(int N, short itype);
 
 
 // WAV data structures
@@ -119,7 +117,6 @@ typedef struct	WAV_HEADER
 
 int main(int argc , char *argv[])
 {
-	fftw_plan			p = NULL;
 	FILE				*model = NULL;
 	FILE				*compare = NULL;
 	GenesisAudio  		*ReferenceSignal;
@@ -165,7 +162,7 @@ int main(int argc , char *argv[])
 	if(argc >= 5)
 	{
 		tolerance = atof(argv[4]);
-        if(tolerance < 0.0 || tolerance > 100.0)
+		if(tolerance < 0.0 || tolerance > 100.0)
 			tolerance = PERCENT_TOLERANCE;
 		printf("\tWeight tolerance changed to %0.2f%%\n", tolerance);
 	}
@@ -189,7 +186,7 @@ int main(int argc , char *argv[])
 		return 0;
 	}
 
-	if(!LoadFile(model, ReferenceSignal, &p))
+	if(!LoadFile(model, ReferenceSignal))
 	{
 		free(ReferenceSignal);
 		free(TestSignal);
@@ -197,7 +194,7 @@ int main(int argc , char *argv[])
 	}
 
 	logmsg("Loading Compare audio file %s\n", argv[2]);
-	if(!LoadFile(compare, TestSignal, &p))
+	if(!LoadFile(compare, TestSignal))
 	{
 		free(ReferenceSignal);
 		free(TestSignal);
@@ -205,9 +202,6 @@ int main(int argc , char *argv[])
 	}
 
 	CompareNotes(ReferenceSignal, TestSignal, sigMatch, tolerance, extend);
-
-	if(p)
-		fftw_destroy_plan(p);
 
 	free(ReferenceSignal);
 	free(TestSignal);
@@ -217,23 +211,22 @@ int main(int argc , char *argv[])
 	return(0);
 }
 
-int LoadFile(FILE *file, GenesisAudio *Signal, fftw_plan *p)
+int LoadFile(FILE *file, GenesisAudio *Signal)
 {
 	int 	i = 0;
-	int 	buffer_frames = SAMPLE_RATE;
+	int 	loadedNoteSize = 0;
 	char	*buffer;
 	size_t	buffersize = 0;
-	wav_hdr   header;
+	wav_hdr header;
+	//hanning window
+	float	*windowUsed = NULL; 
+	float	*window2Second = NULL; 
+	float	*window1Second = NULL; 
+	int 	applyhanning = 0;
 
-	buffersize = buffer_frames * 4 + 44; // plus header
-	buffer = malloc(buffersize);
-	if(!buffer)
-	{
-		logmsg("\tmalloc failed\n");
-		return(0);
-	}
+	if(!file)
+		return 0;
 
-	
 	if(fread(&header, 1, sizeof(wav_hdr), file) != sizeof(wav_hdr))
 	{
 		logmsg("\tInvalid WAV file: File too small\n");
@@ -264,17 +257,48 @@ int LoadFile(FILE *file, GenesisAudio *Signal, fftw_plan *p)
 		return(0);
 	}
 
-	memset(buffer, 0, buffersize);
+	buffersize = SAMPLE_RATE*8*sizeof(char); // 2 bytes per sample, stereo
+	buffer = (char*)malloc(buffersize);
+	if(!buffer)
+	{
+		logmsg("\tmalloc failed\n");
+		return(0);
+	}
+
+	window2Second = hanning(SAMPLE_RATE*2, 0);
+	if(!window2Second)
+	{
+		logmsg ("hanning creation failed\n");
+		return(0);
+	}
+
+	window1Second = hanning(SAMPLE_RATE, 0);
+	if(!window1Second)
+	{
+		logmsg ("hanning creation failed\n");
+		return(0);
+	}
+
 	memset(Signal, 0, sizeof(GenesisAudio));
 
 	while(i < MAX_NOTES)
 	{
+		windowUsed = NULL;
+
 		if(i < PSG_COUNT)
-			buffer_frames = SAMPLE_RATE;   //2 second blocks
+		{
+			loadedNoteSize = buffersize;   //2 second blocks
+			if(applyhanning)
+				windowUsed = window2Second;
+		}
 		else
-			buffer_frames = SAMPLE_RATE / 2; // 1 second block
+		{
+			loadedNoteSize = buffersize/2; // 1 second block
+			if(applyhanning)
+				windowUsed = window1Second;
+		}
 		memset(buffer, 0, buffersize);
-		if(fread(buffer, 4, buffer_frames, file) > 0)
+		if(fread(buffer, 1, loadedNoteSize, file) > 0)
 		{
 #ifdef VERBOSE
 			logmsg("==================== %s# %d (%d)===================\n", GetRange(i), GetSubIndex(i), i);
@@ -283,16 +307,20 @@ int LoadFile(FILE *file, GenesisAudio *Signal, fftw_plan *p)
 		else
 		{
 			logmsg("\tunexpected end of File, please record the full Audio Test from the 240p Test Suite\n");
-			return 0;
+				break;
 		}
 		Signal->Notes[i].index = i < PSG_COUNT ? i : i - PSG_COUNT;
 		Signal->Notes[i].type = i < PSG_COUNT ? TYPE_FM : TYPE_PSG;
 
-		ProcessSamples(p, &Signal->Notes[i], (short*)buffer, buffer_frames, SAMPLE_RATE, BASE);
+		ProcessSamples(&Signal->Notes[i], (short*)buffer, loadedNoteSize/2, SAMPLE_RATE, windowUsed);
 		i++;
 	}
+
 	fclose(file);
 	free(buffer);
+
+	free(window2Second);
+	free(window1Second);
 	return i;
 }
 
@@ -314,17 +342,20 @@ static double TimeSpecToSeconds(struct timespec* ts)
 }
 #endif
 
-double ProcessSamples(fftw_plan *p, MaxFreq *MaxFreqArray, short *samples, size_t size, long samplerate, double secondunits)
+double ProcessSamples(MaxFreq *MaxFreqArray, short *samples, size_t size, long samplerate, float *window)
 {
-	long		  	samplesize = 0, arraysize = 0;	
-	long		  	i = 0, f = 0, framesizernd = 0; 
-	double		  	in[2*(SIZE_BASE/2+1)], root = 0, framesize = 0;  
-	double		 	boxsize = 0;
-	fftw_complex  	out[SIZE_BASE/2+1];
+	fftw_plan		p = NULL;
+	long		  	stereoSignalSize = 0;	
+	long		  	i = 0, monoSignalSize = 0; 
+	double		  	*in = NULL, root = 0;
+	fftw_complex  	*out = NULL;
+	double		 	boxsize = 1, seconds = 0;
 #ifdef ELAPSED
-	struct timespec start, end;
+	struct			timespec start, end;
 	double			elapsedSeconds;
 #endif
+	long			removed = 0;
+	double			TotalWeight = 0;
 	
 	if(!MaxFreqArray)
 	{
@@ -332,173 +363,181 @@ double ProcessSamples(fftw_plan *p, MaxFreq *MaxFreqArray, short *samples, size_
 		return 0;
 	}
 
-	samplesize = (long)size;  
+	stereoSignalSize = (long)size;
+	monoSignalSize = stereoSignalSize/2;	 // 4 is 2 16 bit values
+	seconds = size/(samplerate*2);
 
-	framesize = samplerate/secondunits;
-	framesizernd = (long)framesize;  
+	in = (double*)malloc(sizeof(double)*(monoSignalSize+1));
+	if(!in)
+	{
+		logmsg("Not enough memory\n");
+		return(0);
+	}
+	out = (fftw_complex*)malloc(sizeof(fftw_complex)*(monoSignalSize/2+1));
+	if(!out)
+	{
+		logmsg("Not enough memory\n");
+		return(0);
+	}
 
 #ifdef VERBOSE
 	logmsg("Samples are at %lu Khz and %g seconds long.\n",
-			samplerate/2, (double)samplesize/samplerate*2);	  
+			samplerate, seconds);
 #endif
 
 #ifdef ELAPSED
 	clock_gettime(CLOCK_MONOTONIC, &start);
 #endif
 
-	arraysize = framesizernd;
+	p = fftw_plan_dft_r2c_1d(monoSignalSize, in, out, FFTW_MEASURE);
 
-	boxsize = (double)arraysize/(double)samplerate;  
-	for(f = 0; f < samplesize/framesize; f++)
+	memset(in, 0, sizeof(double)*(monoSignalSize+1));
+	memset(out, 0, sizeof(fftw_complex)*(monoSignalSize/2+1));
+
+	if(!window)
 	{
-		long	framestart = 0;
-		long	removed = 0;
-		double	TotalWeight = 0;
-
-		framestart = framesize*f;
-
-		if(!(*p))
-			*p = fftw_plan_dft_r2c_1d(arraysize, in, out, FFTW_MEASURE);
-
-		for(i = 0; i < framesizernd; i++)
-			in[i] = (double)samples[i+framestart];
-
-		fftw_execute(*p); 
-	
-		root = sqrt(arraysize);
-
-		for(i = 0; i < COUNT; i++)
-		{
-			MaxFreqArray[f].freq[i].hertz = 0;
-			MaxFreqArray[f].freq[i].weight = 0;
-			MaxFreqArray[f].freq[i].index = -1;
-			MaxFreqArray[f].freq[i].matched = 0;
-		}
-
-		//for(i = 0; i < arraysize/2+1; i++)
-		// analyze only 0khz to 20khz
-		// i/boxwsize = 0 to i/boxsize = 20000
-		// 0*boxsize to 20000*boxsize
-		for(i = 10*boxsize; i < 20000*boxsize; i++)  // Nyquist at 44.1khz
-		{
-			double r1 = creal(out[i]);
-			double i1 = cimag(out[i]);
-			double val, previous;
-			int    j = 0;
-	
-			val = sqrt(sqrt(r1 * r1 + i1 * i1) / root);
-
-			previous = 10000;
-			for(j = 0; j < COUNT; j++)
-			{
-				if(val > MaxFreqArray[f].freq[j].weight && val < previous)
-				{
-					int k = 0;
-					//Move the previous values down the array
-					for(k = COUNT-1; k > j; k--)
-						MaxFreqArray[f].freq[k] = MaxFreqArray[f].freq[k - 1];
-
-					MaxFreqArray[f].freq[j].weight = val;
-					MaxFreqArray[f].freq[j].index = i;
-				}
-
-				previous = MaxFreqArray[f].freq[j].weight;
-			}
-		}
-		
-		// Calculate Hz
-		// Estimate TotalWeight for Normalization
-		for(i = 0; i < COUNT; i++)
-		{
-			MaxFreqArray[f].freq[i].hertz = (double)((double)MaxFreqArray[f].freq[i].index/boxsize);
-			TotalWeight += MaxFreqArray[f].freq[i].weight;
-		}
-
-		// Normalize to 100
-		for(i = 0; i < COUNT; i++)
-			MaxFreqArray[f].freq[i].weight = MaxFreqArray[f].freq[i].weight * 100.0 / TotalWeight;
-
-		// The following mess compressed adjacent frequencies
-		if(HERTZ_WIDTH > 0.0)
-		{
-			for(i = 0; i < COUNT; i++)
-			{
-				for(int j = 0; j < COUNT; j++)
-				{
-					double hertzDiff;
-		
-					hertzDiff = fabs(MaxFreqArray[f].freq[j].hertz - MaxFreqArray[f].freq[i].hertz);
-					
-					if(MaxFreqArray[f].freq[i].hertz >= HERTZ_WIDTH && MaxFreqArray[f].freq[j].hertz >= HERTZ_WIDTH 
-						&& MaxFreqArray[f].freq[j].weight > 0 && i != j &&(hertzDiff <= HERTZ_WIDTH*BASE))
-					{
-						if(MaxFreqArray[f].freq[i].weight > MaxFreqArray[f].freq[j].weight)
-						{
-							MaxFreqArray[f].freq[i].weight += MaxFreqArray[f].freq[j].weight;
-		
-							MaxFreqArray[f].freq[j].hertz = 0;
-							MaxFreqArray[f].freq[j].weight = 0;
-							MaxFreqArray[f].freq[j].index = 0;
-						}
-						else
-						{
-							MaxFreqArray[f].freq[j].weight += MaxFreqArray[f].freq[i].weight;
-		
-							MaxFreqArray[f].freq[i].hertz = 0;
-							MaxFreqArray[f].freq[i].weight = 0;
-							MaxFreqArray[f].freq[i].index = 0;
-						}
-						if(i > j)
-						{
-							Frequency	t;
-						
-							t = MaxFreqArray[f].freq[j];
-							MaxFreqArray[f].freq[j] = MaxFreqArray[f].freq[i];
-							MaxFreqArray[f].freq[i] = t;
-						}
-						removed ++;
-					}
-				}
-			}
-	
-			// sort array by weight
-			for(i = 0; i < COUNT; i++)
-			{
-				for(int j = i + 1; j < COUNT; j++)
-				{
-					if (MaxFreqArray[f].freq[i].weight < MaxFreqArray[f].freq[j].weight) 
-					{
-							Frequency	t;
-						
-							t = MaxFreqArray[f].freq[i];
-							MaxFreqArray[f].freq[i] = MaxFreqArray[f].freq[j];
-							MaxFreqArray[f].freq[j] = t;
-						}
-				}
-			}
-		}
+		for(i = 0; i < monoSignalSize; i++)
+			in[i] = (double)samples[i*2];
+	}
+	else
+	{
+		for(i = 0; i < monoSignalSize; i++)
+			in[i] = (double)samples[i*2]*window[i]; //hanning window
 	}
 
-	// Print results 
-#ifdef VERBOSE
-	for(f = 0; f < samplesize/framesize; f++)
-	{
-		int j = 0;
-		double Percentage = 0;
+	fftw_execute(p); 
+	fftw_destroy_plan(p);
 
+	root = sqrt(monoSignalSize);
+
+	for(i = 0; i < COUNT; i++)
+	{
+		MaxFreqArray->freq[i].hertz = 0;
+		MaxFreqArray->freq[i].weight = 0;
+		MaxFreqArray->freq[i].index = -1;
+		MaxFreqArray->freq[i].matched = 0;
+	}
+
+	//for(i = 0; i < monoSignalSize/2+1; i++)
+	// analyze only 0khz to 20khz
+	// i/boxwsize = 0 to i/boxsize = 20000
+	// 0*boxsize to 20000*boxsize
+	for(i = 10*boxsize; i < 20000*boxsize; i++)  // Nyquist at 44.1khz
+	{
+		double r1 = creal(out[i]);
+		double i1 = cimag(out[i]);
+		double val, previous;
+		int    j = 0;
+
+		val = sqrt(sqrt(r1 * r1 + i1 * i1) / root);
+
+		previous = 10000;
 		for(j = 0; j < COUNT; j++)
 		{
-			if(MaxFreqArray[f].freq[j].weight && MaxFreqArray[f].freq[j].hertz)
+			if(val > MaxFreqArray->freq[j].weight && val < previous)
 			{
-				Percentage += MaxFreqArray[f].freq[j].weight;
-				//detect CRT frequency and abort after it
-				if(MaxFreqArray[f].freq[j].hertz > 15670 && MaxFreqArray[f].freq[j].hertz < 15700)
-					logmsg("Frequency [%2d] with %5.2f%% (%5.2f%%): %5.0f Hz *** CRT Noise ***\n", j, MaxFreqArray[f].freq[j].weight, Percentage, MaxFreqArray[f].freq[j].hertz);
-				else
-					logmsg("Frequency [%2d] with %5.2f%% (%5.2f%%): %5.0f Hz\n", j, MaxFreqArray[f].freq[j].weight, Percentage, MaxFreqArray[f].freq[j].hertz);
+				int k = 0;
+				//Move the previous values down the array
+				for(k = COUNT-1; k > j; k--)
+					MaxFreqArray->freq[k] = MaxFreqArray->freq[k - 1];
+
+				MaxFreqArray->freq[j].weight = val;
+				MaxFreqArray->freq[j].index = i;
+			}
+
+			previous = MaxFreqArray->freq[j].weight;
+		}
+	}
+	
+	// Calculate Hz
+	// Estimate TotalWeight for Normalization
+	for(i = 0; i < COUNT; i++)
+	{
+		MaxFreqArray->freq[i].hertz = (double)(MaxFreqArray->freq[i].index)/(boxsize*seconds);
+		TotalWeight += MaxFreqArray->freq[i].weight;
+	}
+
+	// Normalize to 100
+	for(i = 0; i < COUNT; i++)
+		MaxFreqArray->freq[i].weight = MaxFreqArray->freq[i].weight * 100.0 / TotalWeight;
+
+	// The following mess compressed adjacent frequencies
+	if(HERTZ_WIDTH > 0.0)
+	{
+		for(i = 0; i < COUNT; i++)
+		{
+			for(int j = 0; j < COUNT; j++)
+			{
+				double hertzDiff;
+	
+				hertzDiff = fabs(MaxFreqArray->freq[j].hertz - MaxFreqArray->freq[i].hertz);
+				
+				if(MaxFreqArray->freq[i].hertz >= HERTZ_WIDTH && MaxFreqArray->freq[j].hertz >= HERTZ_WIDTH 
+					&& MaxFreqArray->freq[j].weight > 0 && i != j &&(hertzDiff <= HERTZ_WIDTH))
+				{
+					if(MaxFreqArray->freq[i].weight > MaxFreqArray->freq[j].weight)
+					{
+						MaxFreqArray->freq[i].weight += MaxFreqArray->freq[j].weight;
+	
+						MaxFreqArray->freq[j].hertz = 0;
+						MaxFreqArray->freq[j].weight = 0;
+						MaxFreqArray->freq[j].index = 0;
+					}
+					else
+					{
+						MaxFreqArray->freq[j].weight += MaxFreqArray->freq[i].weight;
+	
+						MaxFreqArray->freq[i].hertz = 0;
+						MaxFreqArray->freq[i].weight = 0;
+						MaxFreqArray->freq[i].index = 0;
+					}
+					if(i > j)
+					{
+						Frequency	t;
+					
+						t = MaxFreqArray->freq[j];
+						MaxFreqArray->freq[j] = MaxFreqArray->freq[i];
+						MaxFreqArray->freq[i] = t;
+					}
+					removed ++;
+				}
+			}
+		}
+
+		// sort array by weight
+		for(i = 0; i < COUNT; i++)
+		{
+			for(int j = i + 1; j < COUNT; j++)
+			{
+				if (MaxFreqArray->freq[i].weight < MaxFreqArray->freq[j].weight) 
+				{
+						Frequency	t;
+					
+						t = MaxFreqArray->freq[i];
+						MaxFreqArray->freq[i] = MaxFreqArray->freq[j];
+						MaxFreqArray->freq[j] = t;
+					}
 			}
 		}
 	}
+
+// Print results 
+#ifdef VERBOSE
+	double			Percentage = 0;
+
+	for(int j = 0; j < COUNT; j++)
+	{
+		if(MaxFreqArray->freq[j].weight && MaxFreqArray->freq[j].hertz)
+		{
+			Percentage += MaxFreqArray->freq[j].weight;
+			//detect CRT frequency and abort after it
+			if(MaxFreqArray->freq[j].hertz > 15670 && MaxFreqArray->freq[j].hertz < 15700)
+				logmsg("Frequency [%2d] with %5.2f%% (%5.2f%%): %g Hz *** CRT Noise ***\n", j, MaxFreqArray->freq[j].weight, Percentage, MaxFreqArray->freq[j].hertz);
+			else
+				logmsg("Frequency [%2d] with %5.2f%% (%5.2f%%): %g Hz\n", j, MaxFreqArray->freq[j].weight, Percentage, MaxFreqArray->freq[j].hertz);
+		}
+	}
+
 #endif
 	
 #ifdef ELAPSED
@@ -506,6 +545,9 @@ double ProcessSamples(fftw_plan *p, MaxFreq *MaxFreqArray, short *samples, size_
 	elapsedSeconds = TimeSpecToSeconds(&end) - TimeSpecToSeconds(&start);
 	logmsg("Processing WAV took %f\n", elapsedSeconds);
 #endif
+
+	free(in);
+	free(out);
 
 	return(0);
 }
@@ -521,7 +563,7 @@ void CompareNotes(GenesisAudio *ReferenceSignal, GenesisAudio *TestSignal, doubl
 	int 	PSGweights = 0, PSGnotfound = 0;
 	int 	PSGadjWeight = 0, PSGadjHz = 0;
 	double	PSGhighDiffAdj = 0, PSGhighDiff = 0, PSGhighHz = 0;
-	char	diff[4096];
+	char	diff[4096*4];
 	char	buffer[512];
 
 	logmsg("-- Results --\n\n");
@@ -830,4 +872,72 @@ int GetSubIndex(int index)
 	if(index >= NOISE_COUNT) // NOISE
 		return((index - NOISE_COUNT)% 20 + 1);
 	return((index - PSG_COUNT) % 20 + 1);  // PSG
+}
+
+/*
+%	HANNING   Hanning window.
+%	HANNING(N) returns the N-point symmetric Hanning window in a column
+%	vector.  Note that the first and last zero-weighted window samples
+%	are not included.
+%
+%	HANNING(N,'symmetric') returns the same result as HANNING(N).
+%
+%	HANNING(N,'periodic') returns the N-point periodic Hanning window,
+%	and includes the first zero-weighted window sample.
+%
+%	NOTE: Use the HANN function to get a Hanning window which has the
+%		   first and last zero-weighted samples.ep
+	itype = 1 --> periodic
+	itype = 0 --> symmetric
+	default itype=0 (symmetric)
+ 
+	Copyright 1988-2004 The MathWorks, Inc.
+%	$Revision: 1.11.4.3 $  $Date: 2007/12/14 15:05:04 $
+*/
+
+float *hanning(int N, short itype)
+{
+	int half, i, idx, n;
+	float *w;
+ 
+	w = (float*) calloc(N, sizeof(float));
+	memset(w, 0, N*sizeof(float));
+ 
+	if(itype==1)	//periodic function
+		n = N-1;
+	else
+		n = N;
+ 
+	if(n%2==0)
+	{
+		half = n/2;
+		for(i=0; i<half; i++) //CALC_HANNING   Calculates Hanning window samples.
+			w[i] = 0.5 * (1 - cos(2*M_PI*(i+1) / (n+1)));
+ 
+		idx = half-1;
+		for(i=half; i<n; i++) {
+			w[i] = w[idx];
+			idx--;
+		}
+	}
+	else
+	{
+		half = (n+1)/2;
+		for(i=0; i<half; i++) //CALC_HANNING   Calculates Hanning window samples.
+			w[i] = 0.5 * (1 - cos(2*M_PI*(i+1) / (n+1)));
+ 
+		idx = half-2;
+		for(i=half; i<n; i++) {
+			w[i] = w[idx];
+			idx--;
+		}
+	}
+ 
+	if(itype==1)	//periodic function
+	{
+		for(i=N-1; i>=1; i--)
+			w[i] = w[i-1];
+		w[0] = 0.0;
+	}
+	return(w);
 }
