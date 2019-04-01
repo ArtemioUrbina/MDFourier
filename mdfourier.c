@@ -36,6 +36,8 @@
 #include <sys/stat.h>
 #include <ctype.h>
 #include <unistd.h>
+#include <stdint.h>
+#include <time.h>
 
 #include <string.h>
 #include <math.h>
@@ -114,7 +116,7 @@ typedef struct parameters_st {
 	double		sigMatch;
 	double		tolerance;
 	double		HzWidth;
-    double		HzDiff;
+	double		HzDiff;
 	int 		extendedResults;
 	int 		verbose;
 	int 		hanning;
@@ -124,6 +126,9 @@ typedef struct parameters_st {
 	int 		clockNote;
 	int 		debugVerbose;
 } parameters;
+
+int do_log = 0;
+char log_file[1024];
 
 int LoadFile(FILE *file, GenesisAudio *Signal, parameters *config);
 double ProcessSamples(MaxFreq *MaxFreqArray, short *samples, size_t size, long samplerate, float *hanning, parameters *config);
@@ -341,8 +346,16 @@ void logmsg(char *fmt, ... )
 
 	va_start(arguments, fmt);
 	vprintf(fmt, arguments);
-	va_end(arguments);
 
+	if(do_log)
+	{
+		FILE *logfile = fopen(log_file, "a");
+		if(!logfile)
+			return;
+		vfprintf(logfile, fmt, arguments);
+		fclose(logfile);
+	}
+	va_end(arguments);
 	return;
 }
 
@@ -498,7 +511,7 @@ double ProcessSamples(MaxFreq *MaxFreqArray, short *samples, size_t size, long s
 						MaxFreqArray->freq[i].weight = 0;
 						MaxFreqArray->freq[i].index = 0;
 					}
-                    /*
+					/*
 					if(i > j)
 					{
 						Frequency	t;
@@ -507,7 +520,7 @@ double ProcessSamples(MaxFreq *MaxFreqArray, short *samples, size_t size, long s
 						MaxFreqArray->freq[j] = MaxFreqArray->freq[i];
 						MaxFreqArray->freq[i] = t;
 					}
-                    */
+					*/
 					removed ++;
 				}
 			}
@@ -545,8 +558,8 @@ double ProcessSamples(MaxFreq *MaxFreqArray, short *samples, size_t size, long s
 				else
 					logmsg("Frequency [%2d] with %5.2f%% (%5.2f%%): %g Hz\n", j, MaxFreqArray->freq[j].weight, Percentage, MaxFreqArray->freq[j].hertz);
 			}
-            if(config->debugVerbose && j == 20)
-                exit(1);
+			if(config->debugVerbose && j == 20)
+				exit(1);
 		}
 	}
 	
@@ -765,10 +778,10 @@ void CompareNotes(GenesisAudio *ReferenceSignal, GenesisAudio *TestSignal, param
 	}
 	if(!total)
 	{
-        if(config->tolerance == 0.0 && config->sigMatch == 100.0)
-            logmsg("\n== WAV files are acoustically identical  == \n");
-        else
-		    logmsg("\n== WAV files are acoustically equivalent (under the selected parameters) == \n");
+		if(config->tolerance == 0.0 && config->sigMatch == 100.0)
+			logmsg("\n== WAV files are acoustically identical  == \n");
+		else
+			logmsg("\n== WAV files are acoustically equivalent (under the selected parameters) == \n");
 		if(FMadjHz+FMadjWeight)
 		{
 			logmsg("FM Sound\n");
@@ -906,9 +919,9 @@ int commandline(int argc , char *argv[], parameters *config)
 	config->clock = 0;
 	config->clockNote = 0;
 	config->HzWidth = HERTZ_WIDTH;
-    config->HzDiff = HERTZ_DIFF;
+	config->HzDiff = HERTZ_DIFF;
 
-	while ((c = getopt (argc, argv, "hknwey vd:a:p:t:r:c:f:b:")) != -1)
+	while ((c = getopt (argc, argv, "hlknweyvd:a:p:t:r:c:f:b:")) != -1)
 	switch (c)
 	  {
 	  case 'h':
@@ -929,6 +942,9 @@ int commandline(int argc , char *argv[], parameters *config)
 	  case 'n':
 		config->clockNote = 1;
 		break;
+	  case 'l':
+		do_log = 1;
+		break;
 	  case 'y':
 		config->debugVerbose = 1;
 		config->verbose = 1;
@@ -937,7 +953,7 @@ int commandline(int argc , char *argv[], parameters *config)
 		config->MaxFreq = atoi(optarg);
 		if(config->MaxFreq < 10 || config->MaxFreq > 400)
 			config->MaxFreq = COUNT;
-		printf("\tMax frequencies to use from FFTW are %d (default 120)\n", config->MaxFreq);
+		logmsg("\tMax frequencies to use from FFTW are %d (default 120)\n", config->MaxFreq);
 		break;
 	  case 'p':
 		config->sigMatch = atof(optarg);
@@ -948,13 +964,13 @@ int commandline(int argc , char *argv[], parameters *config)
 		config->HzWidth = atof(optarg);
 		if(config->HzWidth < 0.0 || config->HzWidth > 5000.0)
 			config->HzWidth = HERTZ_WIDTH;
-		printf("\tHertz Width Compression changed to %f (default 0.0)\n", config->HzWidth);
+		logmsg("\tHertz Width Compression changed to %f (default 0.0)\n", config->HzWidth);
 		break;
-      case 'd':
+	  case 'd':
 		config->HzDiff = atof(optarg);
 		if(config->HzDiff < 0.0 || config->HzDiff > 5000.0)
 			config->HzDiff = HERTZ_DIFF;
-		printf("\tHertz Difference tolerance %f (default 0.0)\n", config->HzDiff);
+		logmsg("\tHertz Difference tolerance %f (default 0.0)\n", config->HzDiff);
 		break;
 	  case 't':
 		config->tolerance = atof(optarg);
@@ -970,8 +986,8 @@ int commandline(int argc , char *argv[], parameters *config)
 				config->channel = optarg[0];
 				break;
 			default:
-				printf("Invalid audio channel option %c\n", optarg[0]);
-				printf("Use l for Left, r for Right or s for Stereo\n");
+				logmsg("Invalid audio channel option %c\n", optarg[0]);
+				logmsg("Use l for Left, r for Right or s for Stereo\n");
 				return 0;
 				break;
 		}
@@ -986,34 +1002,32 @@ int commandline(int argc , char *argv[], parameters *config)
 		break;
 	  case '?':
 		if (optopt == 'r')
-		  fprintf (stderr, "Reference File -%c requires an argument.\n", optopt);
+		  logmsg("Reference File -%c requires an argument.\n", optopt);
 		else if (optopt == 'c')
-		  fprintf (stderr, "Compare File -%c requires an argument.\n", optopt);
+		  logmsg("Compare File -%c requires an argument.\n", optopt);
 		else if (optopt == 'a')
-		  fprintf (stderr, "Audio channel option -%c requires an argument: l,r or s\n", optopt);
+		  logmsg("Audio channel option -%c requires an argument: l,r or s\n", optopt);
 		else if (optopt == 'p')
-		  fprintf (stderr, "Percentage match to compare -%c requires an argument: 0.0-100.0\n", optopt);
+		  logmsg("Percentage match to compare -%c requires an argument: 0.0-100.0\n", optopt);
 		else if (optopt == 't')
-		  fprintf (stderr, "Weight tolerance percentage -%c requires an argument: 0.0-100.0\n", optopt);
+		  logmsg("Weight tolerance percentage -%c requires an argument: 0.0-100.0\n", optopt);
 		else if (optopt == 'f')
-		  fprintf (stderr, "Max frequencies to use from FFTW -%c requires an argument: 0-400\n", optopt);
+		  logmsg("Max frequencies to use from FFTW -%c requires an argument: 0-400\n", optopt);
 		else if (isprint (optopt))
-		  fprintf (stderr, "Unknown option `-%c'.\n", optopt);
+		  logmsg("Unknown option `-%c'.\n", optopt);
 		else
-		  fprintf (stderr,
-				   "Unknown option character `\\x%x'.\n",
-				   optopt);
+		  logmsg("Unknown option character `\\x%x'.\n", optopt);
 		return 0;
 		break;
 	  default:
-		printf ("Invalid argument %c\n", optopt);
+		logmsg("Invalid argument %c\n", optopt);
 		return 0;
 		break;
 	  }
 	
 	for (index = optind; index < argc; index++)
 	{
-		printf ("Invalid argument %s\n", argv[index]);
+		logmsg("Invalid argument %s\n", argv[index]);
 		return 0;
 	}
 
@@ -1023,9 +1037,20 @@ int commandline(int argc , char *argv[], parameters *config)
 		return 0;
 	}
 
-	printf("\tSignal Percentage match to compare is %0.2f%%\n", config->sigMatch);
-	printf("\tWeight tolerance percentage to compare is %0.2f%%\n", config->tolerance);
-	printf("\tAudio Channel is: %c\n", config->channel);
+	logmsg("\tSignal Percentage match to compare is %0.2f%%\n", config->sigMatch);
+	logmsg("\tWeight tolerance percentage to compare is %0.2f%%\n", config->tolerance);
+	logmsg("\tAudio Channel is: %c\n", config->channel);
+
+	if(do_log)
+	{
+		int len;
+
+		len = strlen(config->targetFile) - 4;
+		sprintf(log_file, "%s", config->targetFile);
+		sprintf(log_file+len, ".txt");
+		remove(log_file);
+		printf("\tLog enabled to file: %s\n", log_file);
+	}
 
 	return 1;
 }
@@ -1037,6 +1062,7 @@ void PrintUsage()
 	logmsg("\t\t-e: extended results enabled, shows a table with all matched\n\t\t\tfrequencies for each note with differences\n");
 	logmsg("\t\t-w: enable Hanning windowing. I've found this introduces\n\t\t\tmore differences\n");
 	logmsg("\t\t-c <l,r,s>: select audio channel to compare. Default is both channels\n\t\t\t's' stereo, 'l' for left or 'r' for right\n");
+	logmsg("\t\t-l: log output to file [compare].txt\n");
 	logmsg("\t\t-k: clock FFTW operations\n");
 	logmsg("\t\t-n: clock FFTW operations for each Note\n");
 }
