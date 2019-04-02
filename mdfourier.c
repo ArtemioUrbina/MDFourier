@@ -53,6 +53,7 @@
 #define NOISE_COUNT 100
 
 #define COUNT		400 	// Number of frequencies to account for (MAX) 
+#define FREQ_COUNT	120 	// Number of frequencies to account for (default)
 #define MAX_NOTES	140		// we have 140 notes in the 240p Test Suite
 
 #define TYPE_NONE	0
@@ -132,6 +133,7 @@ typedef struct parameters_st {
 	int 		clock;
 	int 		clockNote;
 	int 		debugVerbose;
+	int 		spreadsheet;
 } parameters;
 
 int do_log = 0;
@@ -147,13 +149,8 @@ float *hanning(int N, short itype);
 void logmsg(char *fmt, ... );
 char *GetRange(int index);
 int GetSubIndex(int index);
+void Header(int log);
 void PrintUsage();
-
-void Header()
-{
-	logmsg("== MDFourier " MDVERSION " ==\nSega Genesis/Mega Drive Fourier Audio compare tool for 240p Test Suite\n");
-	logmsg("by Artemio Urbina 2019, licensed under GPL\n\n");
-}
 
 int main(int argc , char *argv[])
 {
@@ -163,9 +160,9 @@ int main(int argc , char *argv[])
 	GenesisAudio  		*TestSignal;
 	parameters			config;
 
+	Header(0);
 	if(!commandline(argc, argv, &config))
 	{
-		Header();
 		PrintUsage();
 		return 1;
 	}
@@ -200,6 +197,14 @@ int main(int argc , char *argv[])
 	{
 		free(ReferenceSignal);
 		logmsg("Not enough memory for Data Structures\n");
+		return 0;
+	}
+
+	if(strcmp(config.referenceFile, config.targetFile) == 0)
+	{
+		logmsg("Both inputs are the same file %s, skipping to save time\n", config.referenceFile);
+		free(ReferenceSignal);
+		free(TestSignal);
 		return 0;
 	}
 
@@ -351,7 +356,8 @@ void logmsg(char *fmt, ... )
 	va_list arguments; 
 
 	va_start(arguments, fmt);
-	vprintf(fmt, arguments);
+	if(do_log != 2)
+		vprintf(fmt, arguments);
 
 	if(do_log)
 	{
@@ -830,8 +836,16 @@ void CompareNotes(GenesisAudio *ReferenceSignal, GenesisAudio *TestSignal, param
 	logmsg("============================================================\n");
 	logmsg("Reference: %s\nCompared to: %s\n", config->referenceFile, config->targetFile);
 	if(FMcompared+PSGcompared)
+	{
 		logmsg("Total differences are %d out of %d [%g%% different]\n============================================================\n",
 				 totalDiff, FMcompared+PSGcompared, (double)totalDiff*100.0/(double)(PSGcompared+FMcompared));
+		if(config->spreadsheet)
+		{
+			logmsg("Spreadsheet, %s, %s, %d, %d, %g\n",
+				 basename(config->referenceFile), basename(config->targetFile),
+				 totalDiff, FMcompared+PSGcompared, (double)totalDiff*100.0/(double)(PSGcompared+FMcompared));
+		}
+	}	
 	if(!totalDiff && FMcompared+PSGcompared)
 	{
 		if(config->tolerance == 0.0 && config->sigMatch == 100.0)
@@ -839,71 +853,47 @@ void CompareNotes(GenesisAudio *ReferenceSignal, GenesisAudio *TestSignal, param
 		else
 			logmsg("\n== WAV files are equivalent under these parameters  == \n");
 		logmsg("============================================================\n");
-		if(FMadjHz+FMadjWeight)
-		{
-			logmsg("FM Sound\n");
-			logmsg("\tAdjustments made to match within defined ranges: %d\n",
-				FMadjHz+FMadjWeight);
-			if(config->HzDiff != 0.0)
-				logmsg("\t\tFrequencies adjusted: %d of %d (%0.2f%%) [highest difference: %0.2f Hz]\n",
-					FMadjHz, FMcompared, (double)FMadjHz/(double)FMcompared*100, FMhighHz);
-			logmsg("\t\tWeights adjusted: %d of %d (%0.2f%%) [highest difference: %0.2f%%]\n",
-				FMadjWeight, FMcompared, (double)FMadjWeight/(double)FMcompared*100, FMhighDiffAdj);
-		}
-		if(PSGadjHz+PSGadjWeight)
-		{
-			logmsg("PSG Sound\n");
-			logmsg("\tAdjustments made to match within defined ranges: %d\n",
-				PSGadjHz+PSGadjWeight);
-			if(config->HzDiff != 0.0)
-				logmsg("\t\tFrequencies adjusted: %d of %d (%0.2f%%) [highest difference: %0.2f Hz]\n",
-					PSGadjHz, PSGcompared, (double)PSGadjHz/(double)PSGcompared*100, PSGhighHz);
-			logmsg("\t\tWeights adjusted: %d of %d (%0.2f%%) [highest difference: %0.2f%%]\n",
-				PSGadjWeight, PSGcompared, (double)PSGadjWeight/(double)PSGcompared*100, PSGhighDiffAdj);
-		}
+	}
+
+	if(FMcompared+PSGcompared)
+	{
+		logmsg("FM Sound\n");
+		logmsg("\tFM differences: %d\n",
+			FMnotfound+FMweights);
+		logmsg("\t\tNot found: %d of %d (%0.2f%%)\n", 
+			FMnotfound, FMcompared, (double)FMnotfound/(double)FMcompared*100);
+		logmsg("\t\tDifferent weights: %d of %d (%0.2f%%) [highest: %0.4f%%]\n",
+			 FMweights, FMcompared, (double)FMweights/(double)FMcompared*100, FMhighDiff);
+
+		logmsg("\n\tAdjustments made to match within defined ranges: %d total\n",
+			FMadjHz+FMadjWeight);
+		//if(config->HzDiff != 0.0)
+		logmsg("\t\tFrequencies adjusted: %d of %d (%0.2f%%) [highest difference: %0.4f Hz]\n",
+				FMadjHz, FMcompared, (double)FMadjHz/(double)FMcompared*100, FMhighHz);
+		logmsg("\t\tWeights adjusted: %d of %d (%0.2f%%) [highest difference: %0.4f%%]\n",
+			FMadjWeight, FMcompared, (double)FMadjWeight/(double)FMcompared*100, FMhighDiffAdj);
+
+		logmsg("PSG Sound\n");
+		logmsg("\tPSG differences: %d\n",
+			PSGnotfound+PSGweights);
+		logmsg("\tNot found: %d of %d (%0.2f%%)\n", 
+			PSGnotfound, PSGcompared, (double)PSGnotfound/(double)PSGcompared*100);
+		logmsg("\tDifferent weights: %d of %d (%0.2f%%) [highest: %0.4f%%]\n",
+			PSGweights, PSGcompared, (double)PSGweights/(double)PSGcompared*100, PSGhighDiff);
+		logmsg("\n\tAdjustments made to match within defined ranges: %d total\n",
+		PSGadjHz+PSGadjWeight);
+		//if(config->HzDiff != 0.0)
+		logmsg("\t\tFrequencies adjusted: %d of %d (%0.2f%%) [highest difference: %0.4f Hz]\n",
+			PSGadjHz, PSGcompared, (double)PSGadjHz/(double)PSGcompared*100, PSGhighHz);
+		logmsg("\t\tWeights adjusted: %d of %d (%0.2f%%) [highest difference: %0.4f%%]\n",
+			PSGadjWeight, PSGcompared, (double)PSGadjWeight/(double)PSGcompared*100, PSGhighDiffAdj);
 	}
 	else
-	{
-		if(FMcompared+PSGcompared)
-		{
-			if(FMnotfound+FMweights)
-			{
-				logmsg("\nFM differences %d\n",
-					FMnotfound+FMweights);
-				logmsg("\tNot found: %d of %d (%0.2f%%)\n", 
-					FMnotfound, FMcompared, (double)FMnotfound/(double)FMcompared*100);
-				logmsg("\tDifferent weights: %d of %d (%0.2f%%) [highest: %0.2f%%]\n",
-					 FMweights, FMcompared, (double)FMweights/(double)FMcompared*100, FMhighDiff);
-				logmsg("\n\tMatched frequencies analysis:\n");
-				if(config->HzDiff != 0.0)
-					logmsg("\tFrequencies adjusted: %d of %d (%0.2f%%) [highest difference: %0.2f Hz]\n",
-						FMadjHz, FMcompared, (double)FMadjHz/(double)FMcompared*100, FMhighHz);
-				logmsg("\tWeights adjusted: %d of %d (%0.2f%%) [highest difference: %0.2f%%]\n",
-					FMadjWeight, FMcompared, (double)FMadjWeight/(double)FMcompared*100, FMhighDiffAdj);
-			}
-	
-			if(PSGnotfound+PSGweights)
-			{
-				logmsg("\nPSG differences %d\n",
-					PSGnotfound+PSGweights);
-				logmsg("\tNot found: %d of %d (%0.2f%%)\n", 
-					PSGnotfound, PSGcompared, (double)PSGnotfound/(double)PSGcompared*100);
-				logmsg("\tDifferent weights: %d of %d (%0.2f%%) [highest: %0.2f%%]\n",
-					PSGweights, PSGcompared, (double)PSGweights/(double)PSGcompared*100, PSGhighDiff);
-				logmsg("\n\tMatched frequencies analysis:\n");
-				if(config->HzDiff != 0.0)
-					logmsg("\tFrequencies adjusted: %d of %d (%0.2f%%) [highest difference: %0.2f Hz]\n",
-						PSGadjHz, PSGcompared, (double)PSGadjHz/(double)PSGcompared*100, PSGhighHz);
-				logmsg("\tWeights adjusted: %d of %d (%0.2f%%) [highest difference: %0.2f%%]\n",
-					PSGadjWeight, PSGcompared, (double)PSGadjWeight/(double)PSGcompared*100, PSGhighDiffAdj);
-			}
-		}
-		else
-			logmsg("Reference file has no frequencies at all!\n");
-	}
+		logmsg("Reference file has no frequencies at all!\n");
+
 	if(HadCRTNoise)
 		logmsg("\nReference Signal has CRT noise (15697 hz)\n");
-    logmsg("\n\n");
+	logmsg("\n");
 	free(diff);
 }
 
@@ -978,6 +968,21 @@ int GetSubIndex(int index)
 	return((index - PSG_COUNT) % 20 + 1);  // PSG
 }
 
+char *GetChannel(char c)
+{
+	switch(c)
+	{
+		case 'l':
+			return "Left";
+		case 'r':
+			return "Right";
+		case 's':
+			return "Stereo";
+		default:
+			return "ERROR";
+	}
+}
+
 int commandline(int argc , char *argv[], parameters *config)
 {
 	int c, index, ref = 0, tar = 0;
@@ -993,15 +998,16 @@ int commandline(int argc , char *argv[], parameters *config)
 	config->verbose = 0;
 	config->hanning = 0;
 	config->channel = 's';
-	config->MaxFreq = 120;
+	config->MaxFreq = FREQ_COUNT;
 	config->clock = 0;
 	config->clockNote = 0;
 	config->HzWidth = HERTZ_WIDTH;
 	config->HzDiff = HERTZ_DIFF;
 	config->showAll = 0;
 	config->debugVerbose = 0;
+	config->spreadsheet = 0;
 
-	while ((c = getopt (argc, argv, "hlkxnwejyvd:a:p:t:r:c:f:b:s:z:")) != -1)
+	while ((c = getopt (argc, argv, "hlkmxnwejyvd:a:p:t:r:c:f:b:s:z:")) != -1)
 	switch (c)
 	  {
 	  case 'h':
@@ -1025,11 +1031,14 @@ int commandline(int argc , char *argv[], parameters *config)
 	  case 'n':
 		config->clockNote = 1;
 		break;
-	  case 'x':
+	  case 'm':
 		config->showAll = 1;
 		break;
 	  case 'l':
 		do_log = 1;
+		break;
+	  case 'x':
+		config->spreadsheet = 1;
 		break;
 	  case 'y':
 		config->debugVerbose = 1;
@@ -1039,19 +1048,16 @@ int commandline(int argc , char *argv[], parameters *config)
 		config->startHz = atoi(optarg);
 		if(config->startHz < 0 || config->startHz > 19900)
 			config->startHz = START_HZ;
-		logmsg("\tFrequency start range for FFTW is now %d (default 10)\n", config->startHz);
 		break;
 	  case 'z':
 		config->endHz = atoi(optarg);
 		if(config->endHz < 10 || config->endHz > 20000)
 			config->endHz = END_HZ;
-		logmsg("\tFrequency end range for FFTW is now %d (default 20000)\n", config->endHz);
 		break;
 	  case 'f':
 		config->MaxFreq = atoi(optarg);
-		if(config->MaxFreq < 10 || config->MaxFreq > 400)
+		if(config->MaxFreq < 1 || config->MaxFreq > 400)
 			config->MaxFreq = COUNT;
-		logmsg("\tMax frequencies to use from FFTW are %d (default 120)\n", config->MaxFreq);
 		break;
 	  case 'p':
 		config->sigMatch = atof(optarg);
@@ -1062,13 +1068,11 @@ int commandline(int argc , char *argv[], parameters *config)
 		config->HzWidth = atof(optarg);
 		if(config->HzWidth < 0.0 || config->HzWidth > 5000.0)
 			config->HzWidth = HERTZ_WIDTH;
-		logmsg("\tHertz Width Compression changed to %f (default 0.0)\n", config->HzWidth);
 		break;
 	  case 'd':
 		config->HzDiff = atof(optarg);
 		if(config->HzDiff < 0.0 || config->HzDiff > 5000.0)
 			config->HzDiff = HERTZ_DIFF;
-		logmsg("\tHertz Difference tolerance %f (default 0.0)\n", config->HzDiff);
 		break;
 	  case 't':
 		config->tolerance = atof(optarg);
@@ -1110,7 +1114,7 @@ int commandline(int argc , char *argv[], parameters *config)
 		else if (optopt == 't')
 		  logmsg("Weight tolerance percentage -%c requires an argument: 0.0-100.0\n", optopt);
 		else if (optopt == 'f')
-		  logmsg("Max frequencies to use from FFTW -%c requires an argument: 0-400\n", optopt);
+		  logmsg("Max # of frequencies to use from FFTW -%c requires an argument: 1-400\n", optopt);
 		else if (optopt == 's')
 		  logmsg("Min frequency range for FFTW -%c requires an argument: 0-19900\n", optopt);
 		else if (optopt == 'z')
@@ -1135,7 +1139,7 @@ int commandline(int argc , char *argv[], parameters *config)
 
 	if(!ref || !tar)
 	{
-		logmsg("Please define both -r reference and -c compare wav files\n");
+		logmsg("Please define both reference and compare audio files\n");
 		return 0;
 	}
 
@@ -1144,11 +1148,6 @@ int commandline(int argc , char *argv[], parameters *config)
 		logmsg("Invalid frequency range for FFTW (%d Hz to %d Hz)\n", config->startHz, config->endHz);
 		return 0;
 	}
-
-	Header();
-	logmsg("\tSignal Percentage match to compare is %0.2f%%\n", config->sigMatch);
-	logmsg("\tWeight tolerance percentage to compare is %0.2f%%\n", config->tolerance);
-	logmsg("\tAudio Channel is: %c\n", config->channel);
 
 	if(do_log)
 	{
@@ -1161,21 +1160,62 @@ int commandline(int argc , char *argv[], parameters *config)
 		sprintf(log_file+len-4, ".txt");
 		remove(log_file);
 		printf("\tLog enabled to file: %s\n", log_file);
+		do_log = 2;
+		Header(1);
+		do_log = 1;
 	}
+
+	logmsg("\tSignal Percentage match to compare is %0.2f%%\n", config->sigMatch);
+	logmsg("\tWeight tolerance percentage to compare is %0.2f%%\n", config->tolerance);
+	logmsg("\tAudio Channel is: %s\n", GetChannel(config->channel));
+	if(config->startHz != START_HZ)
+		logmsg("\tFrequency start range for FFTW is now %d (default %d)\n", config->startHz, START_HZ);
+	if(config->endHz != END_HZ)
+		logmsg("\tFrequency end range for FFTW is now %d (default %d)\n", config->endHz, END_HZ);
+	if(config->MaxFreq != FREQ_COUNT)
+		logmsg("\tMax frequencies to use from FFTW are %d (default %d)\n", config->MaxFreq, COUNT);
+	if(config->HzWidth != HERTZ_WIDTH)
+		logmsg("\tHertz Width Compression changed to %g (default %g)\n", config->HzWidth, HERTZ_WIDTH);
+	if(config->HzDiff != HERTZ_DIFF)
+		logmsg("\tHertz Difference tolerance %f (default %d)\n", config->HzDiff, HERTZ_DIFF);
+	if(config->hanning)
+		logmsg("\tA Hanning window will be applied to each note to be compared\n");
 
 	return 1;
 }
 
 void PrintUsage()
 {
-	logmsg("\n\n\tusage: mdfourier -r reference.wav -c compare.wav\n");
-	logmsg("\t\t-v: verbose mode enabled, spits the FFTW results\n");
-	logmsg("\t\t-e: extended results enabled, shows a table with all matched\n\t\t\tfrequencies for each note with differences\n");
-	logmsg("\t\t-w: enable Hanning windowing. I've found this introduces\n\t\t\tmore differences\n");
-	logmsg("\t\t-c <l,r,s>: select audio channel to compare. Default is both channels\n\t\t\t's' stereo, 'l' for left or 'r' for right\n");
-	logmsg("\t\t-l: log output to file [compare].txt\n");
-	logmsg("\t\t-k: clock FFTW operations\n");
-	logmsg("\t\t-n: clock FFTW operations for each Note\n");
+	// b,d and y options are not documented since they are mostly for testing or found not as usefull as desired
+	logmsg("  usage: mdfourier -r reference.wav -c compare.wav\n\n");
+	logmsg("   FFT and Analysis options:\n");
+	logmsg("	 -p: Defines the top <p>ercentage of the\n\tnormalized signal frequency weights to match from the reference audio\n");
+	logmsg("	 -t: Defines the percentage of <t>olerance when comparing weights\n");
+	logmsg("	 -s: Defines <s>tart of the frequency range to compare with FFT\n\tA smaller range will compare more frequencies unless changed\n");
+	logmsg("	 -z: Defines end of the frequency range to compare with FFT\n\tA smaller range will compare more frequencies unless changed\n");
+	logmsg("	 -c <l,r,s>: select audio <c>hannel to compare. Default is both channels\n\t's' stereo, 'l' for left or 'r' for right\n");
+	logmsg("	 -w: enable Hanning <w>indowing. This introduces more differences\n");
+	logmsg("	 -f: Change the number of frequencies to use from FFTW\n");
+	logmsg("   Output options:\n");
+	logmsg("	 -v: Enable <v>erbose mode, spits all the FFTW results\n");
+	logmsg("	 -j: Cuts all the per note information and shows <j>ust the total results\n");
+	logmsg("	 -e: Enables <e>xtended results. Shows a table with all matched\n\tfrequencies for each note with differences\n");
+	logmsg("	 -m: Enables Show all notes compared with <m>atched frequencies\n");
+	logmsg("	 -x: Enables totaled output for use with grep and spreadsheet\n");
+	logmsg("	 -l: <l>og output to file [reference]_vs_[compare].txt\n");
+	logmsg("	 -k: cloc<k> FFTW operations\n");
+	logmsg("	 -n: clock FFTW operations for each <n>ote\n");
+}
+
+void Header(int log)
+{
+	char title1[] = "== MDFourier " MDVERSION " ==\nSega Genesis/Mega Drive Fourier Audio compare tool for 240p Test Suite\n";
+	char title2[] = "by Artemio Urbina 2019, licensed under GPL\n\n";
+
+	if(log)
+		logmsg("%s%s", title1, title2);
+	else
+		printf("%s%s", title1, title2);
 }
 
 /*
