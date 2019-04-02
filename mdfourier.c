@@ -170,7 +170,6 @@ int main(int argc , char *argv[])
 		return 1;
 	}
 	
-	Header();
 	reference = fopen(config.referenceFile, "rb");
 	if(!reference)
 	{
@@ -830,7 +829,9 @@ void CompareNotes(GenesisAudio *ReferenceSignal, GenesisAudio *TestSignal, param
 
 	logmsg("============================================================\n");
 	logmsg("Reference: %s\nCompared to: %s\n", config->referenceFile, config->targetFile);
-
+	if(FMcompared+PSGcompared)
+		logmsg("Total differences are %d out of %d [%g%% different]\n============================================================\n",
+				 totalDiff, FMcompared+PSGcompared, (double)totalDiff*100.0/(double)(PSGcompared+FMcompared));
 	if(!totalDiff && FMcompared+PSGcompared)
 	{
 		if(config->tolerance == 0.0 && config->sigMatch == 100.0)
@@ -865,9 +866,6 @@ void CompareNotes(GenesisAudio *ReferenceSignal, GenesisAudio *TestSignal, param
 	{
 		if(FMcompared+PSGcompared)
 		{
-			logmsg("Total differences are %d out of %d [%g%% different]\n============================================================\n",
-				 totalDiff, FMcompared+PSGcompared, (double)totalDiff*100.0/(double)(PSGcompared+FMcompared));
-	
 			if(FMnotfound+FMweights)
 			{
 				logmsg("\nFM differences %d\n",
@@ -905,7 +903,7 @@ void CompareNotes(GenesisAudio *ReferenceSignal, GenesisAudio *TestSignal, param
 	}
 	if(HadCRTNoise)
 		logmsg("\nReference Signal has CRT noise (15697 hz)\n");
-
+    logmsg("\n\n");
 	free(diff);
 }
 
@@ -1147,19 +1145,20 @@ int commandline(int argc , char *argv[], parameters *config)
 		return 0;
 	}
 
+	Header();
 	logmsg("\tSignal Percentage match to compare is %0.2f%%\n", config->sigMatch);
 	logmsg("\tWeight tolerance percentage to compare is %0.2f%%\n", config->tolerance);
 	logmsg("\tAudio Channel is: %c\n", config->channel);
 
 	if(do_log)
 	{
-        int len;
-        
+		int len;
+		
 		sprintf(log_file, "%s", basename(config->referenceFile));
-        len = strlen(log_file);
-        sprintf(log_file+len-4, "_vs_%s", basename(config->targetFile));
-        len = strlen(log_file);
-        sprintf(log_file+len-4, ".txt");
+		len = strlen(log_file);
+		sprintf(log_file+len-4, "_vs_%s", basename(config->targetFile));
+		len = strlen(log_file);
+		sprintf(log_file+len-4, ".txt");
 		remove(log_file);
 		printf("\tLog enabled to file: %s\n", log_file);
 	}
