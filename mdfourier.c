@@ -45,16 +45,16 @@
 #include <fftw3.h>
 #include <libgen.h>
 
-#define MDVERSION "0.95"
+#define MDVERSION "0.75"
 
 #define SAMPLE_RATE 44100 //sice we are in stereo!
 
 #define PSG_COUNT	40
 #define NOISE_COUNT 100
 
-#define COUNT		2000 	// Number of frequencies to account for (MAX) 
-#define FREQ_COUNT	800 	// Number of frequencies to account for (default)
-#define MAX_NOTES	140		// we have 140 notes in the 240p Test Suite
+#define MAX_FREQ_COUNT		20000 	// Number of frequencies to account for (MAX) 
+#define FREQ_COUNT			5000	// Number of frequencies to account for (default)
+#define MAX_NOTES			140		// we have 140 notes in the 240p Test Suite
 
 #define TYPE_NONE	0
 #define TYPE_FM 	1
@@ -74,8 +74,8 @@
 //Percentage of normalized weighted frequencies to match
 #define FREQ_COMPARE		1.0
 
-#define START_HZ	10
-#define END_HZ		20000
+#define START_HZ	1
+#define END_HZ		MAX_FREQ_COUNT
 
 typedef struct FrequencySt {
 	double hertz;
@@ -87,7 +87,7 @@ typedef struct FrequencySt {
 } Frequency;
 
 typedef struct MaxFreqSt {
-	Frequency	freq[COUNT];
+	Frequency	freq[MAX_FREQ_COUNT];
 	int 		index;
 	int 		type;
 } MaxFreq;
@@ -113,7 +113,7 @@ void CleanAudio(GenesisAudio *Signal)
 		return;
 	for(int n = 0; n < MAX_NOTES+1; n++)
 	{
-		for(int i = 0; i < COUNT; i++)
+		for(int i = 0; i < MAX_FREQ_COUNT; i++)
 		{
 			Signal->Notes[n].freq[i].hertz = 0;
 			Signal->Notes[n].freq[i].weight = 0;
@@ -150,6 +150,12 @@ typedef struct	WAV_HEADER
 	uint32_t		Subchunk2Size;	// Sampled data length
 } wav_hdr;
 
+typedef struct window_st {
+	float *win1Sec;
+	float *win2Sec;
+} windowManager;
+
+
 typedef struct parameters_st {
 	char 		referenceFile[1024];
 	char 		targetFile[1024];
@@ -167,8 +173,7 @@ typedef struct parameters_st {
 	int 		clock;
 	int 		clockNote;
 	int 		debugVerbose;
-	int 		spreadsheet;
-	int 		invertCompare;
+	int 		spreadsheet;	
 	char 		normalize;
 	double		relativeMaxWeight;
 } parameters;
@@ -191,7 +196,6 @@ void CleanParameters(parameters *config)
 	config->showAll = 0;
 	config->debugVerbose = 0;
 	config->spreadsheet = 0;
-	config->invertCompare = 0;
 	config->normalize = 'g';
 	config->relativeMaxWeight = 0;
 }
@@ -201,7 +205,7 @@ char log_file[2048];
 
 int LoadFile(FILE *file, GenesisAudio *Signal, parameters *config, char *fileName);
 double ProcessSamples(MaxFreq *MaxFreqArray, short *samples, size_t size, long samplerate, float *window, parameters *config);
-void CompareNotes(GenesisAudio *ReferenceSignal, GenesisAudio *TestSignal, parameters *config);
+double CompareNotes(GenesisAudio *ReferenceSignal, GenesisAudio *TestSignal, parameters *config);
 void CleanMatched(GenesisAudio *ReferenceSignal, GenesisAudio *TestSignal, parameters *config);
 void PrintComparedNotes(MaxFreq *ReferenceArray, MaxFreq *ComparedArray, parameters *config, int hasFloor, double floorAmplitude);
 void PrintFrequencies(GenesisAudio *Signal, parameters *config);
@@ -225,6 +229,7 @@ int main(int argc , char *argv[])
 	GenesisAudio  		*ReferenceSignal;
 	GenesisAudio  		*TestSignal;
 	parameters			config;
+	double				result1 = 0, result2 = 0;
 
 	Header(0);
 	if(!commandline(argc, argv, &config))
@@ -290,14 +295,17 @@ int main(int argc , char *argv[])
 		return 0;
 	}
 
-	CompareNotes(ReferenceSignal, TestSignal, &config);
-	if(config.invertCompare)
-	{
-		if(config.normalize == 'r')
-			config.relativeMaxWeight = 0.0;
-		CleanMatched(ReferenceSignal, TestSignal, &config);
-		CompareNotes(TestSignal, ReferenceSignal, &config);
-	}
+	result1 = CompareNotes(ReferenceSignal, TestSignal, &config);
+	if(config.normalize == 'r')
+		config.relativeMaxWeight = 0.0;
+	CleanMatched(ReferenceSignal, TestSignal, &config);
+	result2 = CompareNotes(TestSignal, ReferenceSignal, &config);
+
+	if(config.spreadsheet)
+		logmsg("Spreadsheet-RefFile-CompFile-NoiseR-NoiseC-Percent-PrecentReverse, %s, %s, %g, %g, %g, %g\n",
+				 basename(ReferenceSignal->SourceFile), basename(TestSignal->SourceFile),
+				 ReferenceSignal->floorAmplitude, TestSignal->floorAmplitude,
+				result1, result2);
 
 	free(ReferenceSignal);
 	free(TestSignal);
@@ -307,18 +315,100 @@ int main(int argc , char *argv[])
 	return(0);
 }
 
+int initWindows(windowManager *windows, int SamplesPerSec, char type)
+{
+	if(!windows)
+		return 0;
+
+	windows->win1Sec = NULL;
+	windows->win2Sec = NULL;
+
+	if(type != 'n')
+	{
+		if(type == 't')
+		{
+			windows->win2Sec = tukeyWindow(SamplesPerSec*2);
+			if(!windows->win2Sec)
+			{
+				logmsg ("Tukey window creation failed\n");
+				return(0);
+			}
+		
+			windows->win1Sec = tukeyWindow(SamplesPerSec);
+			if(!windows->win2Sec)
+			{
+				logmsg ("Tukey window creation failed\n");
+				return(0);
+			}
+		}
+
+		if(type == 'f')
+		{
+			windows->win2Sec = flattopWindow(SamplesPerSec*2);
+			if(!windows->win2Sec)
+			{
+				logmsg ("FlatTop window creation failed\n");
+				return(0);
+			}
+		
+			windows->win1Sec = flattopWindow(SamplesPerSec);
+			if(!windows->win1Sec)
+			{
+				logmsg ("FlatTop window creation failed\n");
+				return(0);
+			}
+		}
+
+		if(type == 'h')
+		{
+			windows->win2Sec = hannWindow(SamplesPerSec*2);
+			if(!windows->win2Sec)
+			{
+				logmsg ("Hann window creation failed\n");
+				return(0);
+			}
+		
+			windows->win1Sec = hannWindow(SamplesPerSec);
+			if(!windows->win1Sec)
+			{
+				logmsg ("Hann window creation failed\n");
+				return(0);
+			}
+		}
+	}
+
+	/*
+	if(windows->win1Sec)
+		for(int w= 0; w < SamplesPerSec; w++)
+			logmsg("%d,%g\n", w, window1Second[w]);
+	exit(1); 
+	*/
+
+	return 1;
+}
+
+void freeWindows(windowManager *windows)
+{
+	if(!windows)
+		return;
+
+	free(windows->win1Sec);
+	windows->win1Sec = NULL;
+	free(windows->win2Sec);
+	windows->win2Sec = NULL;
+}
+
 int LoadFile(FILE *file, GenesisAudio *Signal, parameters *config, char *fileName)
 {
-	int 	i = 0;
-	int 	loadedNoteSize = 0;
-	char	*buffer;
-	size_t	buffersize = 0;
-	wav_hdr header;
-	float	*windowUsed = NULL; 
-	float	*window2Second = NULL; 
-	float	*window1Second = NULL; 
-	struct	timespec start, end;
-	double	seconds = 0;
+	int 				i = 0;
+	int 				loadedNoteSize = 0;
+	char				*buffer;
+	size_t			 	buffersize = 0;
+	wav_hdr 			header;
+	windowManager		windows;
+	float				*windowUsed = NULL;
+	struct	timespec	start, end;
+	double				seconds = 0;
 
 	if(!file)
 		return 0;
@@ -369,66 +459,8 @@ int LoadFile(FILE *file, GenesisAudio *Signal, parameters *config, char *fileNam
 		return(0);
 	}
 
-	if(config->window != 'n')
-	{
-		if(config->window == 't')
-		{
-			window2Second = tukeyWindow(header.SamplesPerSec*2);
-			if(!window2Second)
-			{
-				logmsg ("Tukey window creation failed\n");
-				return(0);
-			}
-		
-			window1Second = tukeyWindow(header.SamplesPerSec);
-			if(!window1Second)
-			{
-				logmsg ("Tukey window creation failed\n");
-				return(0);
-			}
-		}
-
-		if(config->window == 'f')
-		{
-			window2Second = flattopWindow(header.SamplesPerSec*2);
-			if(!window2Second)
-			{
-				logmsg ("FlatTop window creation failed\n");
-				return(0);
-			}
-		
-			window1Second = flattopWindow(header.SamplesPerSec);
-			if(!window1Second)
-			{
-				logmsg ("FlatTop window creation failed\n");
-				return(0);
-			}
-		}
-
-		if(config->window == 'h')
-		{
-			window2Second = hannWindow(header.SamplesPerSec*2);
-			if(!window2Second)
-			{
-				logmsg ("Hann window creation failed\n");
-				return(0);
-			}
-		
-			window1Second = hannWindow(header.SamplesPerSec);
-			if(!window1Second)
-			{
-				logmsg ("Hann window creation failed\n");
-				return(0);
-			}
-		}
-	}
-
-	/*
-	if(window1Second)
-		for(int w= 0; w < header.SamplesPerSec; w++)
-			logmsg("%d,%g\n", w, window1Second[w]);
-	exit(1); 
-	*/
+	if(!initWindows(&windows, header.SamplesPerSec, config->window))
+		return 0;
 
 	CleanAudio(Signal);
 
@@ -441,20 +473,26 @@ int LoadFile(FILE *file, GenesisAudio *Signal, parameters *config, char *fileNam
 
 	while(i < MAX_NOTES+Signal->hasFloor)
 	{
-		if(config->window == 'n')
+		if(i == MAX_NOTES && config->window != 'f')
+		{
+			// Use Flat Top window for noise
+			freeWindows(&windows);
+			if(!initWindows(&windows, header.SamplesPerSec, 'f'))
+				return(0);
 			windowUsed = NULL;
+		}
 
 		if(i < PSG_COUNT)
 		{
 			loadedNoteSize = buffersize;   //2 second blocks
 			if(config->window != 'n')
-				windowUsed = window2Second;
+				windowUsed = windows.win2Sec;
 		}
 		else
 		{
 			loadedNoteSize = buffersize/2; // 1 second block
 			if(config->window != 'n')
-				windowUsed = window1Second;
+				windowUsed = windows.win1Sec;
 		}
 		memset(buffer, 0, buffersize);
 		if(fread(buffer, 1, loadedNoteSize, file) != loadedNoteSize)
@@ -487,10 +525,7 @@ int LoadFile(FILE *file, GenesisAudio *Signal, parameters *config, char *fileNam
 	fclose(file);
 	free(buffer);
 
-	if(window2Second)
-		free(window2Second);
-	if(window1Second)
-		free(window1Second);
+	freeWindows(&windows);
 
 	if(config->verbose)
 		PrintFrequencies(Signal, config);
@@ -510,9 +545,9 @@ void FindFloor(GenesisAudio *Signal, parameters *config)
 			Signal->floorWeight = Signal->Notes[MAX_NOTES].freq[i].weight;
 			Signal->floorAmplitude = Signal->Notes[MAX_NOTES].freq[i].amplitude;
 			/*
-            if(Signal->floorAmplitude <= -3.0)  // Don't search at the limit
+			if(Signal->floorAmplitude <= -3.0)	// Don't search at the limit
 				Signal->floorAmplitude += 3.0;
-            */
+			*/
 			logmsg("Found Silent block, with top Noise at %0.4f.db (%0.4f%%) Using as Noisefloor\n",
 				Signal->floorAmplitude, Signal->floorWeight);
 			return;
@@ -640,9 +675,8 @@ double ProcessSamples(MaxFreq *MaxFreqArray, short *samples, size_t size, long s
 	long		  	i = 0, monoSignalSize = 0; 
 	double		  	*signal = NULL;
 	fftw_complex  	*spectrum = NULL;
-	double		 	boxsize = 1, seconds = 0;
+	double		 	boxsize = 0, seconds = 0;
 	struct			timespec start, end;
-	long			removed = 0;
 	double			MaxWeight = 0;
 	
 	if(!MaxFreqArray)
@@ -654,6 +688,7 @@ double ProcessSamples(MaxFreq *MaxFreqArray, short *samples, size_t size, long s
 	stereoSignalSize = (long)size;
 	monoSignalSize = stereoSignalSize/2;	 // 4 is 2 16 bit values
 	seconds = size/(samplerate*2);
+	boxsize = seconds;
 
 	signal = (double*)malloc(sizeof(double)*(monoSignalSize+1));
 	if(!signal)
@@ -688,15 +723,11 @@ double ProcessSamples(MaxFreq *MaxFreqArray, short *samples, size_t size, long s
 		if(config->window != 'n' && window)
 			signal[i] *= window[i];
 	}
-	
 
 	fftw_execute(p); 
 	fftw_destroy_plan(p);
 
-	//for(i = 0; i < monoSignalSize/2+1; i++)
-	// analyze only 0khz to 20khz
-	// i/boxwsize = 0 to i/boxsize = 20000
-	// 0*boxsize to 20000*boxsize
+	//for(i = 1; i < monoSignalSize/2+1; i++)
 	for(i = config->startHz*boxsize; i < config->endHz*boxsize; i++)	// Nyquist at 44.1khz
 	{
 		double r1 = creal(spectrum[i]);
@@ -704,26 +735,28 @@ double ProcessSamples(MaxFreq *MaxFreqArray, short *samples, size_t size, long s
 		double magnitude, phase, previous;
 		int    j = 0;
 
-		//magnitude  = sqrt(sqrt(r1 * r1 + i1 * i1) / root);
-		magnitude = 2*sqrt(r1*r1 + i1*i1)/monoSignalSize;
+		magnitude = sqrt(r1*r1 + i1*i1)/monoSignalSize;
 		phase = atan2(i1, r1);
 
-		previous = 10000;
+		previous = 1.e30;
 		for(j = 0; j < config->MaxFreq; j++)
 		{
-			if(magnitude  > MaxFreqArray->freq[j].weight && magnitude  < previous)
+			//if(!IsCRTNoise((double)i/seconds))
 			{
-				//Move the previous values down the array
-				for(int k = config->MaxFreq-1; k > j; k--)
-					MaxFreqArray->freq[k] = MaxFreqArray->freq[k - 1];
-
-				MaxFreqArray->freq[j].hertz = 
-					(double)i/(boxsize*seconds);
-				MaxFreqArray->freq[j].weight = magnitude;
-				MaxFreqArray->freq[j].amplitude = 0;
-				MaxFreqArray->freq[j].phase = phase;
-				MaxFreqArray->freq[j].indexFFT = i;
-				
+				if(magnitude > MaxFreqArray->freq[j].weight && magnitude < previous)
+				{
+					//Move the previous values down the array
+					for(int k = config->MaxFreq-1; k > j; k--)
+						MaxFreqArray->freq[k] = MaxFreqArray->freq[k - 1];
+	
+					MaxFreqArray->freq[j].hertz = 
+						(double)i/seconds;
+					MaxFreqArray->freq[j].weight = magnitude;
+					MaxFreqArray->freq[j].amplitude = 0;
+					MaxFreqArray->freq[j].phase = phase;
+					MaxFreqArray->freq[j].indexFFT = i;
+					
+				}
 			}
 
 			previous = MaxFreqArray->freq[j].weight;
@@ -731,7 +764,7 @@ double ProcessSamples(MaxFreq *MaxFreqArray, short *samples, size_t size, long s
 	}
 	
 	// The following mess compressed adjacent frequencies
-	// Disabled by default and nt as useful as expected in the current form
+	// Disabled by default and it is not as useful as expected in the current form
 	if(config->HzWidth > 0.0)
 	{
 		for(i = 0; i < config->MaxFreq; i++)
@@ -748,32 +781,25 @@ double ProcessSamples(MaxFreq *MaxFreqArray, short *samples, size_t size, long s
 					if(MaxFreqArray->freq[i].weight > MaxFreqArray->freq[j].weight)
 					{
 						MaxFreqArray->freq[i].weight += MaxFreqArray->freq[j].weight;
-						MaxFreqArray->freq[i].weight/= 2;
-
-						MaxFreqArray->freq[i].amplitude += MaxFreqArray->freq[j].amplitude;
-						MaxFreqArray->freq[i].amplitude/= 2;
+						//MaxFreqArray->freq[i].weight/= 2;
 
 						MaxFreqArray->freq[j].hertz = 0;
 						MaxFreqArray->freq[j].weight = 0;
 						MaxFreqArray->freq[j].phase = 0;
+						MaxFreqArray->freq[i].amplitude = 0;
 						MaxFreqArray->freq[j].indexFFT = -1;
 					}
 					else
 					{
 						MaxFreqArray->freq[j].weight += MaxFreqArray->freq[i].weight;
-						MaxFreqArray->freq[j].weight/= 2;
+						//MaxFreqArray->freq[j].weight/= 2;
 
-						MaxFreqArray->freq[j].amplitude += MaxFreqArray->freq[j].amplitude;
-						MaxFreqArray->freq[j].amplitude/= 2;
-	
 						MaxFreqArray->freq[i].hertz = 0;
 						MaxFreqArray->freq[i].weight = 0;
-						MaxFreqArray->freq[i].amplitude = 0;
 						MaxFreqArray->freq[i].phase = 0;
+						MaxFreqArray->freq[i].amplitude = 0;
 						MaxFreqArray->freq[i].indexFFT = -1;
 					}
-
-					removed ++;
 				}
 			}
 		}
@@ -796,7 +822,8 @@ double ProcessSamples(MaxFreq *MaxFreqArray, short *samples, size_t size, long s
 	}
 
 	// Do per note normalization if requested
-	// This make it so total volume is ignored at a global level
+	// This makes it so relative channel/note 
+	// volume is ignored at a global level
 	if(config->normalize == 'n')
 	{
 		MaxWeight = 0;
@@ -830,13 +857,13 @@ double ProcessSamples(MaxFreq *MaxFreqArray, short *samples, size_t size, long s
 	}
 
 	free(signal);
-	free(spectrum);
+	fftw_free(spectrum);
 
 	return(0);
 }
 
 
-void CompareNotes(GenesisAudio *ReferenceSignal, GenesisAudio *TestSignal, parameters *config)
+double CompareNotes(GenesisAudio *ReferenceSignal, GenesisAudio *TestSignal, parameters *config)
 {
 	int 	note, msg = 0, totalDiff = 0, HadCRTNoise = 0;
 	int 	FMweights = 0, FMnotfound = 0;
@@ -854,7 +881,7 @@ void CompareNotes(GenesisAudio *ReferenceSignal, GenesisAudio *TestSignal, param
 	if(!diff)							 // for when many differences do appear
 	{
 		logmsg("Insufficient memory\n");
-		return;
+		return 0;
 	}	
 	msgSize = 4096;
 	logmsg("\n-- Results --\n\n");
@@ -1105,12 +1132,15 @@ void CompareNotes(GenesisAudio *ReferenceSignal, GenesisAudio *TestSignal, param
 	{
 		logmsg("Total differences are %d out of %d [%g%% different]\n============================================================\n",
 				 totalDiff, FMcompared+PSGcompared, (double)totalDiff*100.0/(double)(PSGcompared+FMcompared));
+		/*
 		if(config->spreadsheet)
 		{
-			logmsg("Spreadsheet-RefFile-CompFile-Diff-Comp-Percent, %s, %s, %d, %d, %g\n",
+			logmsg("Spreadsheet-RefFile-CompFile-Diff-Comp-Percent-NoiseR-NoiseC, %s, %s, %d, %d, %g, %g, %g\n",
 				 basename(ReferenceSignal->SourceFile), basename(TestSignal->SourceFile),
-				 totalDiff, FMcompared+PSGcompared, (double)totalDiff*100.0/(double)(PSGcompared+FMcompared));
+				 totalDiff, FMcompared+PSGcompared, (double)totalDiff*100.0/(double)(PSGcompared+FMcompared),
+				 ReferenceSignal->floorAmplitude, TestSignal->floorAmplitude);
 		}
+		*/
 	}	
 	if(!totalDiff && FMcompared+PSGcompared)
 	{
@@ -1161,6 +1191,7 @@ void CompareNotes(GenesisAudio *ReferenceSignal, GenesisAudio *TestSignal, param
 		logmsg("\nReference Signal has CRT noise (15697 hz)\n");
 	logmsg("\n");
 	free(diff);
+	return (double)totalDiff*100.0/(double)(PSGcompared+FMcompared);
 }
 
 
@@ -1279,7 +1310,7 @@ int commandline(int argc , char *argv[], parameters *config)
 	
 	CleanParameters(config);
 
-	while ((c = getopt (argc, argv, "hlkmxgiejyvw:n:d:a:p:t:r:c:f:b:s:z:")) != -1)
+	while ((c = getopt (argc, argv, "hejvkgmlxyw:n:d:a:t:r:c:f:b:s:z:")) != -1)
 	switch (c)
 	  {
 	  case 'h':
@@ -1310,9 +1341,6 @@ int commandline(int argc , char *argv[], parameters *config)
 	  case 'x':
 		config->spreadsheet = 1;
 		break;
-	  case 'i':
-		config->invertCompare = 1;
-		break;
 	  case 'y':
 		config->debugVerbose = 1;
 		config->verbose = 1;
@@ -1329,8 +1357,8 @@ int commandline(int argc , char *argv[], parameters *config)
 		break;
 	  case 'f':
 		config->MaxFreq = atoi(optarg);
-		if(config->MaxFreq < 1 || config->MaxFreq > COUNT)
-			config->MaxFreq = COUNT;
+		if(config->MaxFreq < 1 || config->MaxFreq > MAX_FREQ_COUNT)
+			config->MaxFreq = MAX_FREQ_COUNT;
 		break;
 	  case 'b':
 		config->HzWidth = atof(optarg);
@@ -1415,7 +1443,7 @@ int commandline(int argc , char *argv[], parameters *config)
 		else if (optopt == 't')
 		  logmsg("Weight tolerance percentage -%c requires an argument: 0.0-100.0\n", optopt);
 		else if (optopt == 'f')
-		  logmsg("Max # of frequencies to use from FFTW -%c requires an argument: 1-%d\n", optopt, COUNT);
+		  logmsg("Max # of frequencies to use from FFTW -%c requires an argument: 1-%d\n", optopt, MAX_FREQ_COUNT);
 		else if (optopt == 's')
 		  logmsg("Min frequency range for FFTW -%c requires an argument: 0-19900\n", optopt);
 		else if (optopt == 'z')
@@ -1489,7 +1517,6 @@ void PrintUsage()
 	// b,d and y options are not documented since they are mostly for testing or found not as usefull as desired
 	logmsg("  usage: mdfourier -r reference.wav -c compare.wav\n\n");
 	logmsg("   FFT and Analysis options:\n");
-	logmsg("	 -p: Defines the top <p>ercentage of the\n\tnormalized signal frequency weights to match from the reference audio\n");
 	logmsg("	 -t: Defines the percentage of <t>olerance when comparing weights\n");
 	logmsg("	 -s: Defines <s>tart of the frequency range to compare with FFT\n\tA smaller range will compare more frequencies unless changed\n");
 	logmsg("	 -z: Defines end of the frequency range to compare with FFT\n\tA smaller range will compare more frequencies unless changed\n");
