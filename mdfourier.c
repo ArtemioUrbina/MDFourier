@@ -59,9 +59,9 @@
 #define TYPE_PSG	2
 #define TYPE_NOISE	3
 
-// This is the percentual difference allowed between reference and compared
-// to be a match
-#define PERCENT_TOLERANCE	3.0
+// This is the difference allowed between reference and compared
+// amplitudes to match, in dbs
+#define DBS_TOLERANCE	3.0
 
 // Width of each peak
 #define HERTZ_WIDTH			0.0
@@ -69,7 +69,7 @@
 // +/- Tolerance in frequency Difference to be the same one
 #define HERTZ_DIFF			0.0
 
-//Percentage of normalized magniutude frequencies to match
+//Percentage of magnitude normalized frequencies to match
 #define FREQ_COMPARE		1.0
 
 #define START_HZ	10
@@ -97,7 +97,6 @@ typedef struct GenesisAudioSt {
 	MaxFreq 	Notes[MAX_NOTES+1]; 
 	char		SourceFile[1024];
 	int 		hasFloor;
-	double		floorMagnitude[FLOORSIZE];
 	double		floorFreq[FLOORSIZE];
 	double		floorAmplitude[FLOORSIZE];
 	int			floorCount;
@@ -130,9 +129,8 @@ void CleanAudio(GenesisAudio *Signal)
 	Signal->hasFloor = 0;
 	for(int i = 0; i < FLOORSIZE; i++)
 	{
-		Signal->floorMagnitude[i] = 0.0;
-		Signal->floorAmplitude[i] = 0.0;
 		Signal->floorFreq[i] = 0.0;
+		Signal->floorAmplitude[i] = 0.0;	
 	}
 	Signal->floorCount = 0;
 }
@@ -189,7 +187,7 @@ typedef struct parameters_st {
 
 void CleanParameters(parameters *config)
 {
-	config->tolerance = PERCENT_TOLERANCE;
+	config->tolerance = DBS_TOLERANCE;
 	config->startHz = START_HZ;
 	config->endHz = END_HZ;
 	config->extendedResults = 0;
@@ -622,11 +620,10 @@ void FindFloor(GenesisAudio *Signal, parameters *config)
 	{
 		if(!IsCRTNoise(Signal->Notes[MAX_NOTES].freq[i].hertz))
 		{
-			Signal->floorMagnitude[count] = Signal->Notes[MAX_NOTES].freq[i].magnitude;
 			Signal->floorAmplitude[count] = Signal->Notes[MAX_NOTES].freq[i].amplitude;
 			Signal->floorFreq[count] = Signal->Notes[MAX_NOTES].freq[i].hertz;
-			logmsg("Found 'Silence' block, top[%d]: %g Hz at %0.4f.db (%0.4f%%)\n",
-				count+1, Signal->floorFreq[count], Signal->floorAmplitude[count], Signal->floorMagnitude[count]);
+			logmsg("Found 'Silence' block, top[%d]: %g Hz at %0.4f.db\n",
+				count+1, Signal->floorFreq[count], Signal->floorAmplitude[count]);
 			count++;
 			Signal->floorCount = count;
 			if(count == FLOORSIZE)
@@ -718,8 +715,8 @@ void PrintFrequencies(GenesisAudio *Signal, parameters *config)
 		{
 			if(Signal->Notes[note].freq[j].hertz)
 			{
-				logmsg("Frequency [%2d] with %5.2f%%: %g Hz [Amplitude: %g] [Phase: %g]",
-					j, Signal->Notes[note].freq[j].magnitude, 
+				logmsg("Frequency [%2d] %5.4g Hz [Amplitude: %g] [Phase: %g]",
+					j, 
 					Signal->Notes[note].freq[j].hertz,
 					Signal->Notes[note].freq[j].amplitude,
 					Signal->Notes[note].freq[j].phase);
@@ -731,8 +728,8 @@ void PrintFrequencies(GenesisAudio *Signal, parameters *config)
 	
 			if(config->spreadsheet)
 			{
-				logmsg("Spreadsheet-index-Hz-magnitude, %d, %g, %g\n",
-					j, Signal->Notes[note].freq[j].hertz, Signal->Notes[note].freq[j].magnitude);
+				logmsg("Spreadsheet-index-Hz-amplitude, %d, %g, %g\n",
+					j, Signal->Notes[note].freq[j].hertz, Signal->Notes[note].freq[j].amplitude);
 			}
 
 			if(config->debugVerbose && j == 20)  // this is just for internal quick debugging
@@ -830,14 +827,18 @@ double ProcessSamples(MaxFreq *MaxFreqArray, short *samples, size_t size, long s
 		double i1 = cimag(spectrum[i]);
 		double magnitude, previous;
 		int    j = 0;
+		double Hertz;
 
 		magnitude = sqrt(r1*r1 + i1*i1)/monoSignalSize;
+		//magnitude = 2*(r1*r1 + i1*i1)/(monoSignalSize*monoSignalSize);
+ 		//amplitude = 10 * log10(magnitude+DBL_EPSILON);
+		Hertz = ((double)i/seconds);
 
 		previous = 1.e30;
-		for(j = 0; j < config->MaxFreq; j++)
+		//printf("%g Hz %g m (old %g) %g dbs\n", Hertz, m, magnitude, a);
+		if(!IsCRTNoise(Hertz))
 		{
-			double Hertz = ((double)i/seconds);
-			if(!IsCRTNoise(Hertz))
+			for(j = 0; j < config->MaxFreq; j++)
 			{
 				if(magnitude > MaxFreqArray->freq[j].magnitude && magnitude < previous)
 				{
@@ -852,9 +853,8 @@ double ProcessSamples(MaxFreq *MaxFreqArray, short *samples, size_t size, long s
 					MaxFreqArray->freq[j].indexFFT = i;
 					break;
 				}
+				previous = MaxFreqArray->freq[j].magnitude;
 			}
-
-			previous = MaxFreqArray->freq[j].magnitude;
 		}
 	}
 	
@@ -1003,11 +1003,12 @@ int CalculateMaxCompare(int note, msgbuff *message, GenesisAudio *Signal, parame
 				return count;
 			}
 
+
 			for(int count = 0; count < Signal->floorCount; count ++)
 			{
 				double difference;
 
-				if(Signal->floorMagnitude[Signal->floorCount-1] >= Signal->Notes[note].freq[freq].magnitude)
+				if(Signal->Notes[note].freq[freq].amplitude <= Signal->floorAmplitude[Signal->floorCount-1])
 				{
 					if(IsLogEnabled())
 						DisableConsole();
@@ -1025,13 +1026,7 @@ int CalculateMaxCompare(int note, msgbuff *message, GenesisAudio *Signal, parame
 
 				difference = fabs(fabs(Signal->floorAmplitude[count]) - fabs(Signal->Notes[note].freq[freq].amplitude));
 				if((Signal->Notes[note].freq[freq].hertz == Signal->floorFreq[count] &&
-					difference <= 0.5))  // this in dbs
-				/*
-				difference = fabs(Signal->floorMagnitude[count] - Signal->Notes[note].freq[freq].magnitude);
-				if(//Signal->floorMagnitude[Signal->floorCount-1] <= Signal->Notes[note].freq[freq].magnitude ||
-					(Signal->Notes[note].freq[freq].hertz == Signal->floorFreq[count] &&
-					difference <= 0.05))
-				*/
+					difference <= config->tolerance))  // this in dbs
 				{
 					if(IsLogEnabled())
 						DisableConsole();
@@ -1202,20 +1197,18 @@ double CompareNotes(GenesisAudio *ReferenceSignal, GenesisAudio *TestSignal, par
 					}
 				}
 
-				if(found)  // Now in either case, compare Magnitudes
+				if(found)  // Now in either case, compare amplitudes
 				{
 					double test;
 	
-					test = fabs(TestSignal->Notes[note].freq[index].magnitude - ReferenceSignal->Notes[note].freq[freq].magnitude);
+					test = fabs(TestSignal->Notes[note].freq[index].amplitude - ReferenceSignal->Notes[note].freq[freq].amplitude);
 					if(test > config->tolerance)
 					{
-						sprintf(message.buffer, "\tDifferent Magnitude: %g Hz at %.4f%% (%0.2fdbs/%0.2f) instead of %g Hz at %.4f%% (%0.2fdbs/%0.2f) {%g}\n",
+						sprintf(message.buffer, "\tDifferent Amplitude: %g Hz at %0.4fdbs (ph:%0.2f) instead of %g Hz at %0.2fdbs (ph:%0.2f) {%g}\n",
 							TestSignal->Notes[note].freq[index].hertz,
-							TestSignal->Notes[note].freq[index].magnitude,
 							TestSignal->Notes[note].freq[index].amplitude,
 							TestSignal->Notes[note].freq[index].phase,
 							ReferenceSignal->Notes[note].freq[freq].hertz,
-							ReferenceSignal->Notes[note].freq[freq].magnitude,
 							ReferenceSignal->Notes[note].freq[freq].amplitude,
 							ReferenceSignal->Notes[note].freq[freq].phase,
 							test);	
@@ -1258,9 +1251,8 @@ double CompareNotes(GenesisAudio *ReferenceSignal, GenesisAudio *TestSignal, par
 
 				if(!found)
 				{
-					sprintf(message.buffer, "\tReference Frequency not found: %g Hz at %.2f%% %.2f%% db (index: %d)\n",
+					sprintf(message.buffer, "\tReference Frequency not found: %g Hz at %5.4f db (index: %d)\n",
 							ReferenceSignal->Notes[note].freq[freq].hertz,
-							ReferenceSignal->Notes[note].freq[freq].magnitude,
 							ReferenceSignal->Notes[note].freq[freq].amplitude,
 							freq);
 					InsertMessageInBuffer(&message, config);
@@ -1327,7 +1319,7 @@ double CompareNotes(GenesisAudio *ReferenceSignal, GenesisAudio *TestSignal, par
 			FMnotfound+FM_magnitudes);
 		logmsg("\t\tNot found: %d of %d (%0.2f%%)\n", 
 			FMnotfound, FMcompared, (double)FMnotfound/(double)FMcompared*100);
-		logmsg("\t\tDifferent Magnitudes: %d of %d (%0.2f%%) [highest: %0.4f%%]\n",
+		logmsg("\t\tDifferent Amplitudes: %d of %d (%0.2f%%) [highest difference: %0.4f dbs]\n",
 			 FM_magnitudes, FMcompared, (double)FM_magnitudes/(double)FMcompared*100, FMhighDiff);
 
 		logmsg("\n\tAdjustments made to match within defined ranges: %d total\n",
@@ -1335,7 +1327,7 @@ double CompareNotes(GenesisAudio *ReferenceSignal, GenesisAudio *TestSignal, par
 		//if(config->HzDiff != 0.0)
 		logmsg("\t\tFrequencies adjusted: %d of %d (%0.2f%%) [highest difference: %0.4f Hz]\n",
 				FMadjHz, FMcompared, (double)FMadjHz/(double)FMcompared*100, FMhighHz);
-		logmsg("\t\tMagnitudes adjusted: %d of %d (%0.2f%%) [highest difference: %0.4f%%]\n",
+		logmsg("\t\tAmplitudes adjusted: %d of %d (%0.2f%%) [highest difference: %0.4f dbs]\n",
 			FMadjMagnitudes, FMcompared, (double)FMadjMagnitudes/(double)FMcompared*100, FMhighDiffAdj);
 
 		logmsg("PSG Sound\n");
@@ -1343,14 +1335,14 @@ double CompareNotes(GenesisAudio *ReferenceSignal, GenesisAudio *TestSignal, par
 			PSGnotfound+PSG_magnitudes);
 		logmsg("\t\tNot found: %d of %d (%0.2f%%)\n", 
 			PSGnotfound, PSGcompared, (double)PSGnotfound/(double)PSGcompared*100);
-		logmsg("\t\tDifferent Magnitudes: %d of %d (%0.2f%%) [highest: %0.4f%%]\n",
+		logmsg("\t\tDifferent Amplitudes: %d of %d (%0.2f%%) [highest difference: %0.4f]\n",
 			PSG_magnitudes, PSGcompared, (double)PSG_magnitudes/(double)PSGcompared*100, PSGhighDiff);
 		logmsg("\n\tAdjustments made to match within defined ranges: %d total\n",
 		PSGadjHz+PSGadjMagnitudes);
 		//if(config->HzDiff != 0.0)
 		logmsg("\t\tFrequencies adjusted: %d of %d (%0.2f%%) [highest difference: %0.4f Hz]\n",
 			PSGadjHz, PSGcompared, (double)PSGadjHz/(double)PSGcompared*100, PSGhighHz);
-		logmsg("\t\tMagnitudes adjusted: %d of %d (%0.2f%%) [highest difference: %0.4f%%]\n",
+		logmsg("\t\tAmplitudes adjusted: %d of %d (%0.2f%%) [highest difference: %0.4f]\n",
 			PSGadjMagnitudes, PSGcompared, (double)PSGadjMagnitudes/(double)PSGcompared*100, PSGhighDiffAdj);
 	}
 	else
@@ -1374,21 +1366,19 @@ void PrintComparedNotes(MaxFreq *ReferenceArray, MaxFreq *ComparedArray, paramet
 	// changed Magnitude->amplitude
 	for(int j = 0; j < config->MaxFreq; j++)
 	{
-		if(ReferenceArray->freq[j].magnitude && ReferenceArray->freq[j].hertz)
+		if(ReferenceArray->freq[j].hertz)
 		{
 			int match = 0;
 
-			logmsg("[%4.2d] Ref: %5g Hz\t%0.4f%%\t%0.4fdb [>%3d]", 
+			logmsg("[%4.2d] Ref: %5g Hz\t%0.4fdb [>%3d]", 
 						j,
 						ReferenceArray->freq[j].hertz,
-						ReferenceArray->freq[j].magnitude,
 						ReferenceArray->freq[j].amplitude,
 						ReferenceArray->freq[j].matched - 1);
 
 			if(ComparedArray->freq[j].hertz)
-				logmsg("\tComp:\t%5g Hz\t%0.4f%%\t%0.4fdb [<%3d]", 
+				logmsg("\tComp:\t%5g Hz\t%0.4fdb [<%3d]", 
 						ComparedArray->freq[j].hertz,
-						ComparedArray->freq[j].magnitude,
 						ComparedArray->freq[j].amplitude,
 						ComparedArray->freq[j].matched - 1);
 			else
@@ -1401,8 +1391,8 @@ void PrintComparedNotes(MaxFreq *ReferenceArray, MaxFreq *ComparedArray, paramet
 			else
 					logmsg(" ");
 			if(match != -1 &&
-				ReferenceArray->freq[j].magnitude != 
-				ComparedArray->freq[match].magnitude)
+				ReferenceArray->freq[j].amplitude != 
+				ComparedArray->freq[match].amplitude)
 					logmsg("W");
 			logmsg("\n");
 			// Use Silence as reference for floor Noise and amplitude cutoff
@@ -1552,8 +1542,8 @@ int commandline(int argc , char *argv[], parameters *config)
 		break;
 	  case 't':
 		config->tolerance = atof(optarg);
-		if(config->tolerance < 0.0 || config->tolerance > 100.0)
-			config->tolerance = PERCENT_TOLERANCE;
+		if(config->tolerance < 0.0 || config->tolerance > 20.0)
+			config->tolerance = DBS_TOLERANCE;
 		break;
 	  case 'a':
 		switch(optarg[0])
@@ -1621,7 +1611,7 @@ int commandline(int argc , char *argv[], parameters *config)
 		else if (optopt == 'w')
 		  logmsg("FFT Window option -%c requires an argument: n,t,f or h\n", optopt);
 		else if (optopt == 't')
-		  logmsg("Magnitude tolerance percentage -%c requires an argument: 0.0-100.0\n", optopt);
+		  logmsg("Magitude tolerance percentage -%c requires an argument: 0.0-100.0\n", optopt);
 		else if (optopt == 'f')
 		  logmsg("Max # of frequencies to use from FFTW -%c requires an argument: 1-%d\n", optopt, MAX_FREQ_COUNT);
 		else if (optopt == 's')
@@ -1682,7 +1672,7 @@ int commandline(int argc , char *argv[], parameters *config)
 		EnableConsole();
 	}
 
-	logmsg("\tMagnitude tolerance percentage to compare is %0.2f%%\n", config->tolerance);
+	logmsg("\tAmplitude (in dbs) to tolerance while comparing is %0.2f\n", config->tolerance);
 	logmsg("\tAudio Channel is: %s\n", GetChannel(config->channel));
 	if(config->startHz != START_HZ)
 		logmsg("\tFrequency start range for FFTW is now %d (default %d)\n", config->startHz, START_HZ);
