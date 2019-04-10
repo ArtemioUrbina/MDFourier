@@ -926,7 +926,12 @@ double ProcessSamples(MaxFreq *MaxFreqArray, short *samples, size_t size, long s
 			{
 				float filter;
 
-				filter = 0.001;
+				// This should never bed one as such
+				// A proper filter shoudl be used, or you'll get
+				// ringing artifacts via Gibbs phenomenon
+				// Here it "works" because we are just
+				// "visualizing" the results
+				filter = 0;
 				spectrum[i] = spectrum[i]*filter;
 				blanked ++;
 			}
