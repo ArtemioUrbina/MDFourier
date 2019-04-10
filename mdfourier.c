@@ -69,7 +69,7 @@
 // +/- Tolerance in frequency Difference to be the same one
 #define HERTZ_DIFF			0.0
 
-//Percentage of magnitude normalized frequencies to match
+//Percentage of normalized magnitude frequencies to match
 #define FREQ_COMPARE		1.0
 
 #define START_HZ	10
@@ -397,9 +397,9 @@ int initWindows(windowManager *windows, int SamplesPerSec, char type)
 	}
 
 	/*
-	if(windows->win1Sec)
-		for(int w= 0; w < SamplesPerSec; w++)
-			logmsg("%d,%g\n", w, window1Second[w]);
+	if(windows->win2Sec)
+		for(int w= 0; w < SamplesPerSec*2; w++)
+			logmsg("%d,%g\n", w, windows->win2Sec[w]);
 	exit(1); 
 	*/
 
@@ -1611,7 +1611,7 @@ int commandline(int argc , char *argv[], parameters *config)
 		else if (optopt == 'w')
 		  logmsg("FFT Window option -%c requires an argument: n,t,f or h\n", optopt);
 		else if (optopt == 't')
-		  logmsg("Magitude tolerance percentage -%c requires an argument: 0.0-100.0\n", optopt);
+		  logmsg("Amplitude tolerance -%c requires an argument: 0.0-100.0\n", optopt);
 		else if (optopt == 'f')
 		  logmsg("Max # of frequencies to use from FFTW -%c requires an argument: 1-%d\n", optopt, MAX_FREQ_COUNT);
 		else if (optopt == 's')
@@ -1672,7 +1672,7 @@ int commandline(int argc , char *argv[], parameters *config)
 		EnableConsole();
 	}
 
-	logmsg("\tAmplitude (in dbs) to tolerance while comparing is %0.2f\n", config->tolerance);
+	logmsg("\tAmplitude tolerance while comparing is %0.2f dbs\n", config->tolerance);
 	logmsg("\tAudio Channel is: %s\n", GetChannel(config->channel));
 	if(config->startHz != START_HZ)
 		logmsg("\tFrequency start range for FFTW is now %d (default %d)\n", config->startHz, START_HZ);
@@ -1695,7 +1695,7 @@ void PrintUsage()
 	// b,d and y options are not documented since they are mostly for testing or found not as usefull as desired
 	logmsg("  usage: mdfourier -r reference.wav -c compare.wav\n\n");
 	logmsg("   FFT and Analysis options:\n");
-	logmsg("	 -t: Defines the percentage of <t>olerance when comparing magnitudes\n");
+	logmsg("	 -t: Defines the <t>olerance when comparing amplitudes in dbs\n");
 	logmsg("	 -s: Defines <s>tart of the frequency range to compare with FFT\n\tA smaller range will compare more frequencies unless changed\n");
 	logmsg("	 -z: Defines end of the frequency range to compare with FFT\n\tA smaller range will compare more frequencies unless changed\n");
 	logmsg("	 -c <l,r,s>: select audio <c>hannel to compare. Default is both channels\n\t's' stereo, 'l' for left or 'r' for right\n");
