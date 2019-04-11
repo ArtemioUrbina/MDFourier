@@ -169,7 +169,8 @@ typedef struct parameters_st {
 	int 		clock;
 	int 		clockNote;
 	int 		spreadsheet;	
-	double		relativeMaxMagnitude;
+	double		MaxMagnitude;
+	double		MinAmplitude;
 	double		floorAmplitude;
 	double		useFloor;
 	int			invert;
@@ -191,7 +192,8 @@ void CleanParameters(parameters *config)
 	config->HzWidth = HERTZ_WIDTH;
 	config->HzDiff = HERTZ_DIFF;
 	config->showAll = 0;
-	config->relativeMaxMagnitude = 0;
+	config->MaxMagnitude = 0;
+	config->MinAmplitude = 0;
 	config->floorAmplitude = 0;
 	config->useFloor = 0;
 	config->invert = 0;
@@ -542,7 +544,7 @@ int LoadFile(FILE *file, GenesisAudio *Signal, parameters *config, char *fileNam
 	// Instead of Global Normalization by default, do...
 	FindMaxMagnitude(Signal, config);
 
-	if(Signal->hasFloor) // analyze noise floor if available
+	if(Signal->hasFloor && config->useFloor) // analyze noise floor if available
 		FindFloor(Signal, config);
 
 	// Clean up everything again
@@ -578,7 +580,8 @@ int LoadFile(FILE *file, GenesisAudio *Signal, parameters *config, char *fileNam
 		Signal->Notes[i].type = i < PSG_COUNT ? TYPE_FM : TYPE_PSG;
 
 		// now rewrite array
-		ProcessSamples(&Signal->Notes[i], (short*)buffer, loadedNoteSize/2, header.SamplesPerSec, windowUsed, config, 1);
+		if(i < MAX_NOTES)  // Ignore Silence!
+			ProcessSamples(&Signal->Notes[i], (short*)buffer, loadedNoteSize/2, header.SamplesPerSec, windowUsed, config, 1);
 
 		// Now rewrite global
 		memcpy(AllSamples + pos, buffer, loadedNoteSize);
@@ -684,6 +687,7 @@ void FindFloor(GenesisAudio *Signal, parameters *config)
 void FindMaxMagnitude(GenesisAudio *Signal, parameters *config)
 {
 	double MaxMagnitude = 0;
+	double MinAmplitude = 0;
 
 	// Find global peak
 	for(int note = 0; note < MAX_NOTES+Signal->hasFloor; note++)
@@ -695,7 +699,7 @@ void FindMaxMagnitude(GenesisAudio *Signal, parameters *config)
 		}
 	}
 
-	config->relativeMaxMagnitude = MaxMagnitude;
+	config->MaxMagnitude = MaxMagnitude;
 
 	//Calculate Amplitude in dbs
 	for(int note = 0; note < MAX_NOTES+Signal->hasFloor; note++)
@@ -706,8 +710,12 @@ void FindMaxMagnitude(GenesisAudio *Signal, parameters *config)
 				20*log10(Signal->Notes[note].freq[i].magnitude / MaxMagnitude);
 			Signal->Notes[note].freq[i].magnitude = 
 				Signal->Notes[note].freq[i].magnitude * 100.0 / MaxMagnitude;
+			if(Signal->Notes[note].freq[i].amplitude < MinAmplitude)
+				MinAmplitude = Signal->Notes[note].freq[i].amplitude;
 		}
 	}
+
+	config->MinAmplitude = MinAmplitude;
 }
 
 void CleanMatched(GenesisAudio *ReferenceSignal, GenesisAudio *TestSignal, parameters *config)
@@ -883,8 +891,21 @@ double ProcessSamples(MaxFreq *MaxFreqArray, short *samples, size_t size, long s
 
 	if(reverse)
 	{
+		double MinAmplitude = 0;
+
+		// This needs exploring, global minimum at that frequency count
+		//CutOff = config->MinAmplitude;
+
 		// Find the Max magnitude for frequency at -f cuttoff
-		CutOff = MaxFreqArray->freq[config->MaxFreq-1].amplitude;
+		for(int j = 0; j < config->MaxFreq; j++)
+		{
+			if(!MaxFreqArray->freq[j].hertz)
+				break;
+			if(MaxFreqArray->freq[j].amplitude < MinAmplitude)
+				MinAmplitude = MaxFreqArray->freq[j].amplitude;
+		}
+		CutOff = MinAmplitude;
+		//logmsg("Cutoff: %g\n", CutOff);
 
 		//Process the whole frequency spectrum
 		for(i = config->startHz*boxsize; i < config->endHz*boxsize; i++)	// Nyquist at 44.1khz
@@ -896,7 +917,7 @@ double ProcessSamples(MaxFreq *MaxFreqArray, short *samples, size_t size, long s
 			double Hertz;
 	
 			magnitude = sqrt(r1*r1 + i1*i1)/monoSignalSize;
-			amplitude = 20*log10(magnitude / config->relativeMaxMagnitude);
+			amplitude = 20*log10(magnitude / config->MaxMagnitude);
 			Hertz = ((double)i/seconds);
 
 			if(config->invert)
