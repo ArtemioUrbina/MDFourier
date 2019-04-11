@@ -183,6 +183,8 @@ typedef struct parameters_st {
 	char 		normalize;
 	double		relativeMaxMagnitude;
 	int			ignoreFloor;
+	int			scaledDifference;
+	int			scaledExponential;
 } parameters;
 
 void CleanParameters(parameters *config)
@@ -206,6 +208,8 @@ void CleanParameters(parameters *config)
 	config->normalize = 'g';
 	config->relativeMaxMagnitude = 0;
 	config->ignoreFloor = 1;
+	config->scaledDifference = 1;
+	config->scaledExponential = 2;
 }
 
 int do_log = 0;
@@ -1090,14 +1094,16 @@ int CalculateMaxCompare(int note, msgbuff *message, GenesisAudio *Signal, parame
 
 double CompareNotes(GenesisAudio *ReferenceSignal, GenesisAudio *TestSignal, parameters *config)
 {
-	int 	note, msg = 0, totalDiff = 0, HadCRTNoise = 0;
-	int 	FM_amplitudes = 0, FMnotfound = 0;
-	int 	FMadjAmplitudes = 0, FMadjHz = 0;
-	int 	FMcompared = 0, PSGcompared = 0;
-	double	FMhighDiffAdj = 0, FMhighDiff = 0, FMhighHz = 0;
-	int 	PSG_Amplitudes = 0, PSGnotfound = 0;
-	int 	PSGadjAmplitudes = 0, PSGadjHz = 0;
-	double	PSGhighDiffAdj = 0, PSGhighDiff = 0, PSGhighHz = 0;
+	int			note = 0;
+	long int 	msg = 0, HadCRTNoise = 0;
+	double		totalDiff = 0, totalError = 0;
+	long int	FM_amplitudes = 0, FMnotfound = 0;
+	long int	FMadjAmplitudes = 0, FMadjHz = 0;
+	long int 	FMcompared = 0, PSGcompared = 0;
+	double		FMhighDiffAdj = 0, FMhighDiff = 0, FMhighHz = 0;
+	long int	PSG_Amplitudes = 0, PSGnotfound = 0;
+	long int	PSGadjAmplitudes = 0, PSGadjHz = 0;
+	double		PSGhighDiffAdj = 0, PSGhighDiff = 0, PSGhighHz = 0;
 	msgbuff message;
 
 	message.message = malloc(sizeof(char)*4096);  // I know this sounds strange, but we are protecting
@@ -1123,7 +1129,7 @@ double CompareNotes(GenesisAudio *ReferenceSignal, GenesisAudio *TestSignal, par
 		refSize = CalculateMaxCompare(note, &message, ReferenceSignal, config);
 		testSize = CalculateMaxCompare(note, &message, TestSignal, config);
 
-		for(int freq = 0; freq < refSize; freq++)
+		for(long int freq = 0; freq < refSize; freq++)
 		{
 			int CRTNoise;
 				
@@ -1141,7 +1147,7 @@ double CompareNotes(GenesisAudio *ReferenceSignal, GenesisAudio *TestSignal, par
 				else
 					PSGcompared ++;
 
-				for(int comp = 0; comp < testSize; comp++)
+				for(long int comp = 0; comp < testSize; comp++)
 				{
 					if(!TestSignal->Notes[note].freq[comp].matched && 
 						ReferenceSignal->Notes[note].freq[freq].hertz ==
@@ -1161,7 +1167,7 @@ double CompareNotes(GenesisAudio *ReferenceSignal, GenesisAudio *TestSignal, par
 					int 	lowIndex = -1;
 
 					// Find closest match
-					for(int comp = 0; comp < testSize; comp++)
+					for(long int comp = 0; comp < testSize; comp++)
 					{
 						if(!TestSignal->Notes[note].freq[comp].matched)
 						{
@@ -1225,7 +1231,43 @@ double CompareNotes(GenesisAudio *ReferenceSignal, GenesisAudio *TestSignal, par
 							test);	
 						InsertMessageInBuffer(&message, config);
 						msg++;
-						totalDiff++;
+						if(config->scaledDifference)
+						{
+							double value = 0;
+							
+							// we get the proportional linear error in range 0-1
+							value = ReferenceSignal->Notes[note].freq[freq].magnitude/100.0;
+
+							switch(config->scaledExponential)
+							{
+								case 1:
+									value *= 2.0;  // compensate for an error of 50%
+									break;
+								case 2:
+									// Map to x^2 for a non linear weight
+									value = value*value;	
+									// Compensate for non linear deviation
+									// Max error with white noise vs silence is 33.33%
+									value *= 3.0;
+									break;
+								case 3:
+									// Map to x^3 for a non linear weight
+									value = value*value*value;	
+									// Compensate for non linear deviation
+									// Max error with white noise vs silence is 25%
+									value *= 4.0;
+									break;
+								default:
+									break;
+							}
+
+							totalDiff += value;
+
+							// Keep values to compensate for non linear deviation
+							totalError ++;
+						}
+						else
+							totalDiff ++;
 
 						if(ReferenceSignal->Notes[note].type == TYPE_FM)
 						{
@@ -1263,13 +1305,50 @@ double CompareNotes(GenesisAudio *ReferenceSignal, GenesisAudio *TestSignal, par
 				//if(!found && ReferenceSignal->Notes[note].freq[freq].amplitude > -60.0 && freq < config->MaxFreq*.9)  //TEST
 				if(!found)
 				{
-					sprintf(message.buffer, "\tReference Frequency not found: %g Hz at %5.4f db (index: %d)\n",
+					sprintf(message.buffer, "\tReference Frequency not found: %g Hz at %5.4f db (index: %ld)\n",
 							ReferenceSignal->Notes[note].freq[freq].hertz,
 							ReferenceSignal->Notes[note].freq[freq].amplitude,
 							freq);
 					InsertMessageInBuffer(&message, config);
 					msg ++;
-					totalDiff++;
+
+					if(config->scaledDifference)
+					{
+						double value = 0;
+						
+						// we get the proportional linear error in range 0-1
+						value = 1.0 - (double)freq/(double)config->MaxFreq;
+
+						switch(config->scaledExponential)
+						{
+							case 1:
+								value *= 2.0;  // compensate for an error of 50%
+								break;
+							case 2:
+								// Map to x^2 for a non linear weight
+								value = value*value;	
+								// Compensate for non linear deviation
+								// Max error with white noise vs silence is 33.33%
+								value *= 3.0;
+								break;
+							case 3:
+								// Map to x^3 for a non linear weight
+								value = value*value*value;	
+								// Compensate for non linear deviation
+								// Max error with white noise vs silence is 25%
+								value *= 4.0;
+								break;
+							default:
+								break;
+						}
+
+						totalDiff += value;
+
+						// Keep values to compensate for non linear deviation
+						totalError ++;
+					}
+					else
+						totalDiff ++;
 
 					if(ReferenceSignal->Notes[note].type == TYPE_FM)
 						FMnotfound ++;
@@ -1286,7 +1365,7 @@ double CompareNotes(GenesisAudio *ReferenceSignal, GenesisAudio *TestSignal, par
 			logmsg("%s\n", message.message);
 			if(config->extendedResults)
 			{
-				logmsg("Unmatched Note Report for %s# %d (%d)\n", GetRange(note), GetSubIndex(note), note);
+				logmsg("Unmatched Note Report for %s# %ld (%ld)\n", GetRange(note), GetSubIndex(note), note);
 				PrintComparedNotes(&ReferenceSignal->Notes[note], &TestSignal->Notes[note],
 					config, ReferenceSignal);
 			}
@@ -1299,7 +1378,7 @@ double CompareNotes(GenesisAudio *ReferenceSignal, GenesisAudio *TestSignal, par
 				DisableConsole();
 			if(!config->justResults && config->showAll)
 			{
-				logmsg("Matched Note Report for %s# %d (%d)\n", GetRange(note), GetSubIndex(note), note);
+				logmsg("Matched Note Report for %s# %ld (%ld)\n", GetRange(note), GetSubIndex(note), note);
 				PrintComparedNotes(&ReferenceSignal->Notes[note], &TestSignal->Notes[note], 
 					config, ReferenceSignal);
 			}
@@ -1308,11 +1387,18 @@ double CompareNotes(GenesisAudio *ReferenceSignal, GenesisAudio *TestSignal, par
 		}
 	}
 
+	if(config->scaledDifference)
+	{
+		// Compensate error for data deviation with x^2*3.0 or x*2.0
+		if(totalDiff > totalError)
+			totalDiff = totalError;
+	}
+
 	logmsg("============================================================\n");
 	logmsg("Reference: %s\nCompared to: %s\n", ReferenceSignal->SourceFile, TestSignal->SourceFile);
 	if(FMcompared+PSGcompared)
 	{
-		logmsg("Total differences are %d out of %d [%g%% different]\n============================================================\n",
+		logmsg("Total differences are %g out of %ld [%g%% different]\n============================================================\n",
 				 totalDiff, FMcompared+PSGcompared, (double)totalDiff*100.0/(double)(PSGcompared+FMcompared));
 	}	
 	if(!totalDiff && FMcompared+PSGcompared)
@@ -1327,34 +1413,34 @@ double CompareNotes(GenesisAudio *ReferenceSignal, GenesisAudio *TestSignal, par
 	if(FMcompared+PSGcompared)
 	{
 		logmsg("FM Sound\n");
-		logmsg("\tFM differences: %d\n",
+		logmsg("\tFM differences: %ld\n",
 			FMnotfound+FM_amplitudes);
-		logmsg("\t\tNot found: %d of %d (%0.2f%%)\n", 
+		logmsg("\t\tNot found: %ld of %ld (%0.2f%%)\n", 
 			FMnotfound, FMcompared, (double)FMnotfound/(double)FMcompared*100);
-		logmsg("\t\tDifferent Amplitudes: %d of %d (%0.2f%%) [highest difference: %0.4f dbs]\n",
+		logmsg("\t\tDifferent Amplitudes: %ld of %ld (%0.2f%%) [highest difference: %0.4f dbs]\n",
 			 FM_amplitudes, FMcompared, (double)FM_amplitudes/(double)FMcompared*100, FMhighDiff);
 
-		logmsg("\n\tAdjustments made to match within defined ranges: %d total\n",
+		logmsg("\n\tAdjustments made to match within defined ranges: %ld total\n",
 			FMadjHz+FMadjAmplitudes);
 		//if(config->HzDiff != 0.0)
-		logmsg("\t\tFrequencies adjusted: %d of %d (%0.2f%%) [highest difference: %0.4f Hz]\n",
+		logmsg("\t\tFrequencies adjusted: %ld of %ld (%0.2f%%) [highest difference: %0.4f Hz]\n",
 				FMadjHz, FMcompared, (double)FMadjHz/(double)FMcompared*100, FMhighHz);
-		logmsg("\t\tAmplitudes adjusted: %d of %d (%0.2f%%) [highest difference: %0.4f dbs]\n",
+		logmsg("\t\tAmplitudes adjusted: %ld of %ld (%0.2f%%) [highest difference: %0.4f dbs]\n",
 			FMadjAmplitudes, FMcompared, (double)FMadjAmplitudes/(double)FMcompared*100, FMhighDiffAdj);
 
 		logmsg("PSG Sound\n");
-		logmsg("\tPSG differences: %d\n",
+		logmsg("\tPSG differences: %ld\n",
 			PSGnotfound+PSG_Amplitudes);
-		logmsg("\t\tNot found: %d of %d (%0.2f%%)\n", 
+		logmsg("\t\tNot found: %ld of %ld (%0.2f%%)\n", 
 			PSGnotfound, PSGcompared, (double)PSGnotfound/(double)PSGcompared*100);
-		logmsg("\t\tDifferent Amplitudes: %d of %d (%0.2f%%) [highest difference: %0.4f]\n",
+		logmsg("\t\tDifferent Amplitudes: %ld of %ld (%0.2f%%) [highest difference: %0.4f]\n",
 			PSG_Amplitudes, PSGcompared, (double)PSG_Amplitudes/(double)PSGcompared*100, PSGhighDiff);
-		logmsg("\n\tAdjustments made to match within defined ranges: %d total\n",
+		logmsg("\n\tAdjustments made to match within defined ranges: %ld total\n",
 		PSGadjHz+PSGadjAmplitudes);
 		//if(config->HzDiff != 0.0)
-		logmsg("\t\tFrequencies adjusted: %d of %d (%0.2f%%) [highest difference: %0.4f Hz]\n",
+		logmsg("\t\tFrequencies adjusted: %ld of %ld (%0.2f%%) [highest difference: %0.4f Hz]\n",
 			PSGadjHz, PSGcompared, (double)PSGadjHz/(double)PSGcompared*100, PSGhighHz);
-		logmsg("\t\tAmplitudes adjusted: %d of %d (%0.2f%%) [highest difference: %0.4f]\n",
+		logmsg("\t\tAmplitudes adjusted: %ld of %ld (%0.2f%%) [highest difference: %0.4f dbs]\n",
 			PSGadjAmplitudes, PSGcompared, (double)PSGadjAmplitudes/(double)PSGcompared*100, PSGhighDiffAdj);
 	}
 	else
