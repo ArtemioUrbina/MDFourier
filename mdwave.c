@@ -206,7 +206,6 @@ char log_file[2048];
 
 int LoadFile(FILE *file, GenesisAudio *Signal, parameters *config, char *fileName);
 double ProcessSamples(MaxFreq *MaxFreqArray, short *samples, size_t size, long samplerate, float *window, parameters *config,  int reverse);
-void CleanMatched(GenesisAudio *ReferenceSignal, GenesisAudio *TestSignal, parameters *config);
 void FindMaxMagnitude(GenesisAudio *Signal, parameters *config);
 int commandline(int argc , char *argv[], parameters *config);
 static double TimeSpecToSeconds(struct timespec* ts);
@@ -223,11 +222,8 @@ void PrintUsage();
 int main(int argc , char *argv[])
 {
 	FILE				*reference = NULL;
-	FILE				*compare = NULL;
 	GenesisAudio  		*ReferenceSignal;
-	GenesisAudio  		*TestSignal;
 	parameters			config;
-	double				result1 = 0, result2 = 0;
 
 	Header(0);
 	if(!commandline(argc, argv, &config))
@@ -262,15 +258,12 @@ int main(int argc , char *argv[])
 	if(!LoadFile(reference, ReferenceSignal, &config, config.referenceFile))
 	{
 		free(ReferenceSignal);
-		free(TestSignal);
 		return 0;
 	}
 	logmsg("Max blanked frequencies per note from the spectrum %d\n", config.maxBlanked);
 	
 	free(ReferenceSignal);
-	free(TestSignal);
 	ReferenceSignal = NULL;
-	TestSignal = NULL;
 	
 	return(0);
 }
@@ -640,7 +633,7 @@ int LoadFile(FILE *file, GenesisAudio *Signal, parameters *config, char *fileNam
 		return (0);
 	}
 
-	if(write)
+	if(processed)
 		fclose(processed);
 
 
@@ -716,21 +709,6 @@ void FindMaxMagnitude(GenesisAudio *Signal, parameters *config)
 	}
 
 	config->MinAmplitude = MinAmplitude;
-}
-
-void CleanMatched(GenesisAudio *ReferenceSignal, GenesisAudio *TestSignal, parameters *config)
-{
-	for(int note = 0; note < MAX_NOTES+ReferenceSignal->hasFloor; note++)
-	{
-		for(int i = 0; i < config->MaxFreq; i++)
-			ReferenceSignal->Notes[note].freq[i].matched = 0;
-	}
-
-	for(int note = 0; note < MAX_NOTES+TestSignal->hasFloor; note++)
-	{
-		for(int i = 0; i < config->MaxFreq; i++)
-			TestSignal->Notes[note].freq[i].matched = 0;
-	}
 }
 
 void PrintFrequencies(GenesisAudio *Signal, parameters *config)

@@ -45,6 +45,8 @@
 #include <fftw3.h>
 #include <libgen.h>
 
+#include "incbeta.h"
+
 #define MDVERSION "0.75"
 
 #define PSG_COUNT	40
@@ -183,8 +185,8 @@ typedef struct parameters_st {
 	char 		normalize;
 	double		relativeMaxMagnitude;
 	int			ignoreFloor;
-	int			scaledDifference;
-	int			scaledExponential;
+	int			useOutputFilter;
+	int			outputFilterFunction;
 } parameters;
 
 void CleanParameters(parameters *config)
@@ -208,8 +210,8 @@ void CleanParameters(parameters *config)
 	config->normalize = 'g';
 	config->relativeMaxMagnitude = 0;
 	config->ignoreFloor = 1;
-	config->scaledDifference = 1;
-	config->scaledExponential = 2;
+	config->useOutputFilter = 1;
+	config->outputFilterFunction = 2;
 }
 
 int do_log = 0;
@@ -319,9 +321,8 @@ int main(int argc , char *argv[])
 	result2 = CompareNotes(TestSignal, ReferenceSignal, &config);
 
 	if(config.spreadsheet)
-		logmsg("Spreadsheet-RefFile-CompFile-NoiseR-NoiseC-Percent-PrecentReverse, %s, %s, %g, %g, %g, %g\n",
+		logmsg("Spreadsheet, %s, %s, %g, %g\n",
 				 basename(ReferenceSignal->SourceFile), basename(TestSignal->SourceFile),
-				 ReferenceSignal->floorAmplitude[0], TestSignal->floorAmplitude[0],
 				result1, result2);
 
 	free(ReferenceSignal);
@@ -993,41 +994,16 @@ int CalculateMaxCompare(int note, msgbuff *message, GenesisAudio *Signal, parame
 		{
 			if(!Signal->Notes[note].freq[freq].hertz)
 			{
-				/*
-				if(IsLogEnabled())
-					DisableConsole();
-
-				sprintf(message->buffer, "Note %d Broke at %d: %g Hz %g dbs\n", 
-					note, freq, Signal->Notes[note].freq[freq].hertz, Signal->Notes[note].freq[freq].amplitude);
-				InsertMessageInBuffer(message, config);
-			
-				if(IsLogEnabled())
-					EnableConsole();
-				*/
-
 				count = freq;
 				return count;
 			}
 
-
 			for(int count = 0; count < Signal->floorCount; count ++)
 			{
-				double difference;
+				double difference = 0;
 
 				if(Signal->Notes[note].freq[freq].amplitude <= Signal->floorAmplitude[Signal->floorCount-1])
 				{
-					/*
-					if(IsLogEnabled())
-						DisableConsole();
-
-					sprintf(message->buffer, "XNote %d Broke at %d: %g Hz %g dbs\n", 
-						note, freq, Signal->Notes[note].freq[freq].hertz, Signal->Notes[note].freq[freq].amplitude);
-					InsertMessageInBuffer(message, config);
-				
-					if(IsLogEnabled())
-						EnableConsole();
-					*/
-
 					count = freq;
 					return count;
 				}
@@ -1036,18 +1012,6 @@ int CalculateMaxCompare(int note, msgbuff *message, GenesisAudio *Signal, parame
 				if((Signal->Notes[note].freq[freq].hertz == Signal->floorFreq[count] &&
 					difference <= config->tolerance))  // this in dbs
 				{
-					/*
-					if(IsLogEnabled())
-						DisableConsole();
-
-					sprintf(message->buffer, "*Note %d Broke at %d: %g Hz %g dbs (%g)\n", 
-						note, freq, Signal->Notes[note].freq[freq].hertz, Signal->Notes[note].freq[freq].amplitude, difference);
-					InsertMessageInBuffer(message, config);
-				
-					if(IsLogEnabled())
-						EnableConsole();
-					*/
-
 					count = freq;
 					return count;
 				}
@@ -1060,36 +1024,68 @@ int CalculateMaxCompare(int note, msgbuff *message, GenesisAudio *Signal, parame
 		{
 			if(!Signal->Notes[note].freq[freq].hertz)
 			{
-				/*
-				if(IsLogEnabled())
-					DisableConsole();
-
-				sprintf(message->buffer, "Note %d Broke at %d: %g Hz %g dbs\n", 
-					note, freq, Signal->Notes[note].freq[freq].hertz, Signal->Notes[note].freq[freq].amplitude);
-				InsertMessageInBuffer(message, config);
-			
-				if(IsLogEnabled())
-					EnableConsole();
-				*/
-
 				count = freq;
 				return count;
 			}
 		}
 	}
 
-	/*
-	if(IsLogEnabled())
-		DisableConsole();
-
-	sprintf(message->buffer, "+Note %d Broke at %d: %g Hz %g dbs\n", 
-		note, count, Signal->Notes[note].freq[count-1].hertz, Signal->Notes[note].freq[count-1].amplitude);
-	InsertMessageInBuffer(message, config);
-
-	if(IsLogEnabled())
-		EnableConsole();
-	*/
 	return count;
+}
+
+double CalculateWeightedError(double pError, parameters *config)
+{
+	int option = 0;
+
+	option = config->outputFilterFunction;
+	switch(option)
+	{
+		case 1:
+			// The integral of x^1 in the 0-1 Range is 1/2
+			pError *= 2.0;  // compensate for an error of 50%
+			break;
+		case 2:
+			// Map to Beta function
+			pError = incbeta(8.0, 8.0, pError);
+			// Compensate for non linear deviation
+			// The integral of Beta above is 1/2
+			pError *= 2.0;
+			break;
+		case 3:
+			// Map to Beta function
+			pError = incbeta(3.0, 1.0, pError);
+			// Compensate for non linear deviation
+			// The integral of Beta above in the 0-1 Range is 1/4
+			pError *= 4.0;
+			break;
+		case 4:
+			// Map to Beta function
+			pError = incbeta(5.0, 0.5, pError);
+			// Compensate for non linear deviation
+			pError *= 10.99;
+			break;
+
+		case 5:
+			// Map to Beta function
+			pError = incbeta(1.0, 3.0, pError);
+			// Compensate for non linear deviation
+			// The integral of Beta above in the 0-1 Range is 3/4
+			pError *= 1.33333333;
+			break;
+		case 6:
+			// Map to Beta function
+			pError = incbeta(0.5, 6, pError);
+			// Compensate for non linear deviation
+			pError *= 1.0831;
+			break;
+		default:
+			// This is unexpected behaviour, log it
+			logmsg("CalculateWeightedError, out of range value %d\n", option);
+			pError = 1;
+			break;
+	}
+
+	return pError;
 }
 
 double CompareNotes(GenesisAudio *ReferenceSignal, GenesisAudio *TestSignal, parameters *config)
@@ -1231,37 +1227,20 @@ double CompareNotes(GenesisAudio *ReferenceSignal, GenesisAudio *TestSignal, par
 							test);	
 						InsertMessageInBuffer(&message, config);
 						msg++;
-						if(config->scaledDifference)
+
+						if(config->useOutputFilter)
 						{
 							double value = 0;
 							
 							// we get the proportional linear error in range 0-1
-							value = ReferenceSignal->Notes[note].freq[freq].magnitude/100.0;
-
-							switch(config->scaledExponential)
-							{
-								case 1:
-									value *= 2.0;  // compensate for an error of 50%
-									break;
-								case 2:
-									// Map to x^2 for a non linear weight
-									value = value*value;	
-									// Compensate for non linear deviation
-									// Max error with white noise vs silence is 33.33%
-									value *= 3.0;
-									break;
-								case 3:
-									// Map to x^3 for a non linear weight
-									value = value*value*value;	
-									// Compensate for non linear deviation
-									// Max error with white noise vs silence is 25%
-									value *= 4.0;
-									break;
-								default:
-									break;
-							}
-
-							totalDiff += value;
+							//value = ReferenceSignal->Notes[note].freq[freq].magnitude/100.0;
+							value = 1.0 - (double)freq/(double)config->MaxFreq;
+							totalDiff += CalculateWeightedError(value, config);
+							/*
+							sprintf(message.buffer, "Amplitude [%ld/%d] Value: %g Calculated: %g Accum: %g\n",
+								freq, config->MaxFreq, value, CalculateWeightedError(value, config), totalDiff);
+							InsertMessageInBuffer(&message, config);	
+							*/
 
 							// Keep values to compensate for non linear deviation
 							totalError ++;
@@ -1312,38 +1291,19 @@ double CompareNotes(GenesisAudio *ReferenceSignal, GenesisAudio *TestSignal, par
 					InsertMessageInBuffer(&message, config);
 					msg ++;
 
-					if(config->scaledDifference)
+					if(config->useOutputFilter)
 					{
 						double value = 0;
 						
 						// we get the proportional linear error in range 0-1
 						value = 1.0 - (double)freq/(double)config->MaxFreq;
 
-						switch(config->scaledExponential)
-						{
-							case 1:
-								value *= 2.0;  // compensate for an error of 50%
-								break;
-							case 2:
-								// Map to x^2 for a non linear weight
-								value = value*value;	
-								// Compensate for non linear deviation
-								// Max error with white noise vs silence is 33.33%
-								value *= 3.0;
-								break;
-							case 3:
-								// Map to x^3 for a non linear weight
-								value = value*value*value;	
-								// Compensate for non linear deviation
-								// Max error with white noise vs silence is 25%
-								value *= 4.0;
-								break;
-							default:
-								break;
-						}
-
-						totalDiff += value;
-
+						totalDiff += CalculateWeightedError(value, config);
+						/*
+						sprintf(message.buffer, "Frequency [%ld/%d] Value: %g Calculated: %g Accum: %g\n",
+								freq, config->MaxFreq, value, CalculateWeightedError(value, config), totalDiff);
+						InsertMessageInBuffer(&message, config);
+						*/
 						// Keep values to compensate for non linear deviation
 						totalError ++;
 					}
@@ -1387,9 +1347,10 @@ double CompareNotes(GenesisAudio *ReferenceSignal, GenesisAudio *TestSignal, par
 		}
 	}
 
-	if(config->scaledDifference)
+	if(config->useOutputFilter)
 	{
 		// Compensate error for data deviation with x^2*3.0 or x*2.0
+		//logmsg("Real Diff %g\n", totalDiff);
 		if(totalDiff > totalError)
 			totalDiff = totalError;
 	}
@@ -1398,8 +1359,8 @@ double CompareNotes(GenesisAudio *ReferenceSignal, GenesisAudio *TestSignal, par
 	logmsg("Reference: %s\nCompared to: %s\n", ReferenceSignal->SourceFile, TestSignal->SourceFile);
 	if(FMcompared+PSGcompared)
 	{
-		logmsg("Total differences are %g out of %ld [%g%% different]\n============================================================\n",
-				 totalDiff, FMcompared+PSGcompared, (double)totalDiff*100.0/(double)(PSGcompared+FMcompared));
+		logmsg("Total differences are %g out of %ld [%3.2f%% different]\n============================================================\n",
+				 round(totalDiff), FMcompared+PSGcompared, (double)totalDiff*100.0/(double)(PSGcompared+FMcompared));
 	}	
 	if(!totalDiff && FMcompared+PSGcompared)
 	{
@@ -1468,16 +1429,18 @@ void PrintComparedNotes(MaxFreq *ReferenceArray, MaxFreq *ComparedArray, paramet
 		{
 			int match = 0;
 
-			logmsg("[%4.2d] Ref: %5g Hz\t%0.4fdb [>%3d]", 
+			logmsg("[%5d] Ref: %7g Hz %6.2fdb %6.2f ph [>%3d]", 
 						j,
 						ReferenceArray->freq[j].hertz,
 						ReferenceArray->freq[j].amplitude,
+						ReferenceArray->freq[j].phase,
 						ReferenceArray->freq[j].matched - 1);
 
 			if(ComparedArray->freq[j].hertz)
-				logmsg("\tComp:\t%5g Hz\t%0.4fdb [<%3d]", 
+				logmsg("\tComp: %7g Hz %6.2fdb %6.2f ph [<%3d]", 
 						ComparedArray->freq[j].hertz,
 						ComparedArray->freq[j].amplitude,
+						ComparedArray->freq[j].phase,
 						ComparedArray->freq[j].matched - 1);
 			else
 				logmsg("\tCompared:\tNULL");
@@ -1575,7 +1538,7 @@ int commandline(int argc , char *argv[], parameters *config)
 	
 	CleanParameters(config);
 
-	while ((c = getopt (argc, argv, "hejvkgimlxyw:n:d:a:t:r:c:f:b:s:z:")) != -1)
+	while ((c = getopt (argc, argv, "hejvkgimlxyo:w:n:d:a:t:r:c:f:b:s:z:")) != -1)
 	switch (c)
 	  {
 	  case 'h':
@@ -1587,6 +1550,9 @@ int commandline(int argc , char *argv[], parameters *config)
 		break;
 	  case 'j':
 		config->justResults = 1;
+		break;
+	  case 'm':
+		config->showAll = 1;
 		break;
 	  case 'v':
 		config->verbose = 1;
@@ -1600,9 +1566,6 @@ int commandline(int argc , char *argv[], parameters *config)
 	  case 'g':
 		config->clockNote = 1;
 		break;
-	  case 'm':
-		config->showAll = 1;
-		break;
 	  case 'l':
 		EnableConsole();
 		break;
@@ -1612,6 +1575,13 @@ int commandline(int argc , char *argv[], parameters *config)
 	  case 'y':
 		config->debugVerbose = 1;
 		config->verbose = 1;
+		break;
+	  case 'o':
+		config->outputFilterFunction = atoi(optarg);
+		if(config->outputFilterFunction < 0 || config->outputFilterFunction > 6)
+			config->outputFilterFunction = 2;
+		if(!config->outputFilterFunction)
+			config->useOutputFilter = 0;
 		break;
 	  case 's':
 		config->startHz = atoi(optarg);
@@ -1708,8 +1678,10 @@ int commandline(int argc , char *argv[], parameters *config)
 		  logmsg("Audio channel option -%c requires an argument: l,r or s\n", optopt);
 		else if (optopt == 'w')
 		  logmsg("FFT Window option -%c requires an argument: n,t,f or h\n", optopt);
+		else if (optopt == 'o')
+		  logmsg("Output curve -%c requires an argument 0-4\n", optopt);
 		else if (optopt == 't')
-		  logmsg("Amplitude tolerance -%c requires an argument: 0.0-100.0\n", optopt);
+		  logmsg("Amplitude tolerance -%c requires an argument: 0.0-100 dbs\n", optopt);
 		else if (optopt == 'f')
 		  logmsg("Max # of frequencies to use from FFTW -%c requires an argument: 1-%d\n", optopt, MAX_FREQ_COUNT);
 		else if (optopt == 's')
@@ -1737,6 +1709,18 @@ int commandline(int argc , char *argv[], parameters *config)
 	if(!ref || !tar)
 	{
 		logmsg("Please define both reference and compare audio files\n");
+		return 0;
+	}
+
+	if(config->extendedResults && config->justResults)
+	{
+		logmsg("Just Results cancels Extended results\n");
+		return 0;
+	}
+
+	if(config->showAll && config->justResults)
+	{
+		logmsg("Just Results cancels Show All\n");
 		return 0;
 	}
 
@@ -1772,19 +1756,29 @@ int commandline(int argc , char *argv[], parameters *config)
 
 	logmsg("\tAmplitude tolerance while comparing is %0.2f dbs\n", config->tolerance);
 	logmsg("\tAudio Channel is: %s\n", GetChannel(config->channel));
+	logmsg("\tMax frequencies to use from FFTW are %d (default %d)\n", config->MaxFreq, FREQ_COUNT);
 	if(config->startHz != START_HZ)
 		logmsg("\tFrequency start range for FFTW is now %d (default %d)\n", config->startHz, START_HZ);
 	if(config->endHz != END_HZ)
 		logmsg("\tFrequency end range for FFTW is now %d (default %d)\n", config->endHz, END_HZ);
-	if(config->MaxFreq != FREQ_COUNT)
-		logmsg("\tMax frequencies to use from FFTW are %d (default %d)\n", config->MaxFreq, FREQ_COUNT);
 	if(config->HzWidth != HERTZ_WIDTH)
 		logmsg("\tHertz Width Compression changed to %g (default %g)\n", config->HzWidth, HERTZ_WIDTH);
 	if(config->HzDiff != HERTZ_DIFF)
 		logmsg("\tHertz Difference tolerance %f (default %d)\n", config->HzDiff, HERTZ_DIFF);
 	if(config->window != 'n')
 		logmsg("\tA %s window will be applied to each note to be compared\n", GetWindow(config->window));
-
+	else
+		logmsg("\tNo window (rectangle) will be applied to each note to be compared\n");
+	if(config->useOutputFilter)
+	{
+		if(config->outputFilterFunction >= 2)
+			logmsg("\tA Beta function #%d filter will be applied to the results\n", 
+				config->outputFilterFunction);
+		else
+			logmsg("\tA linear function filter will be applied to the results\n");
+	}
+	else
+		logmsg("\tNo filtering will be applied to the results\n");
 	return 1;
 }
 
