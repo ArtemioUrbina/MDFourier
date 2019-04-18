@@ -38,7 +38,6 @@ typedef struct FrequencySt {
 	double magnitude;
 	double amplitude;
 	double phase;
-	long   indexFFT;
 	int    matched;
 } Frequency;
 

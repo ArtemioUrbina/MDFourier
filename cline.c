@@ -36,19 +36,19 @@ void PrintUsage()
 	// b,d and y options are not documented since they are mostly for testing or found not as usefull as desired
 	logmsg("  usage: mdfourier -r reference.wav -c compare.wav\n\n");
 	logmsg("   FFT and Analysis options:\n");
+	logmsg("	 -w: enable <w>indowing. Default is a custom Tukey window.\n\tOptions are 'n' for none, 't' for Tukey, 'h' for Hann and 'f' for FlatTop\n");
+	logmsg("	 -f: Change the number of frequencies to use from FFTW\n");
 	logmsg("	 -t: Defines the <t>olerance when comparing amplitudes in dbs\n");
+	logmsg("	 -c <l,r,s>: select audio <c>hannel to compare. Default is both channels\n\t's' stereo, 'l' for left or 'r' for right\n");
 	logmsg("	 -s: Defines <s>tart of the frequency range to compare with FFT\n\tA smaller range will compare more frequencies unless changed\n");
 	logmsg("	 -z: Defines end of the frequency range to compare with FFT\n\tA smaller range will compare more frequencies unless changed\n");
-	logmsg("	 -c <l,r,s>: select audio <c>hannel to compare. Default is both channels\n\t's' stereo, 'l' for left or 'r' for right\n");
-	logmsg("	 -w: enable Hanning <w>indowing. This introduces more differences\n");
-	logmsg("	 -f: Change the number of frequencies to use from FFTW\n");
 	logmsg("   Output options:\n");
+	logmsg("	 -l: <l>og output to file [reference]_vs_[compare].txt\n");
 	logmsg("	 -v: Enable <v>erbose mode, spits all the FFTW results\n");
 	logmsg("	 -j: Cuts all the per note information and shows <j>ust the total results\n");
 	logmsg("	 -e: Enables <e>xtended results. Shows a table with all matched\n\tfrequencies for each note with differences\n");
 	logmsg("	 -m: Enables Show all notes compared with <m>atched frequencies\n");
 	logmsg("	 -x: Enables totaled output for use with grep and spreadsheet\n");
-	logmsg("	 -l: <l>og output to file [reference]_vs_[compare].txt\n");
 	logmsg("	 -k: cloc<k> FFTW operations\n");
 	logmsg("	 -g: clock FFTW operations for each <n>ote\n");
 }
@@ -169,7 +169,7 @@ int commandline(int argc , char *argv[], parameters *config)
 		break;
 	  case 't':
 		config->tolerance = atof(optarg);
-		if(config->tolerance < 0.0 || config->tolerance > 20.0)
+		if(config->tolerance < 0.0 || config->tolerance > 40.0)
 			config->tolerance = DBS_TOLERANCE;
 		break;
 	  case 'a':
@@ -240,7 +240,7 @@ int commandline(int argc , char *argv[], parameters *config)
 		else if (optopt == 'o')
 		  logmsg("Output curve -%c requires an argument 0-4\n", optopt);
 		else if (optopt == 't')
-		  logmsg("Amplitude tolerance -%c requires an argument: 0.0-100 dbs\n", optopt);
+		  logmsg("Amplitude tolerance -%c requires an argument: 0.0-40.0 dbs\n", optopt);
 		else if (optopt == 'f')
 		  logmsg("Max # of frequencies to use from FFTW -%c requires an argument: 1-%d\n", optopt, MAX_FREQ_COUNT);
 		else if (optopt == 's')
@@ -308,7 +308,10 @@ int commandline(int argc , char *argv[], parameters *config)
 		EnableConsole();
 	}
 
-	logmsg("\tAmplitude tolerance while comparing is %0.2f dbs\n", config->tolerance);
+	if(config->normalize == 'r')
+		config->relativeMaxMagnitude = 0.0;
+
+	logmsg("\tAmplitude tolerance while comparing is +/-%0.2f dbs\n", config->tolerance);
 	logmsg("\tAudio Channel is: %s\n", GetChannel(config->channel));
 	logmsg("\tMax frequencies to use from FFTW are %d (default %d)\n", config->MaxFreq, FREQ_COUNT);
 	if(config->startHz != START_HZ)
@@ -316,9 +319,9 @@ int commandline(int argc , char *argv[], parameters *config)
 	if(config->endHz != END_HZ)
 		logmsg("\tFrequency end range for FFTW is now %d (default %d)\n", config->endHz, END_HZ);
 	if(config->HzWidth != HERTZ_WIDTH)
-		logmsg("\tHertz Width Compression changed to %g (default %g)\n", config->HzWidth, HERTZ_WIDTH);
+		logmsg("\tHertz Width Compression changed to %g (default %g Hz)\n", config->HzWidth, HERTZ_WIDTH);
 	if(config->HzDiff != HERTZ_DIFF)
-		logmsg("\tHertz Difference tolerance %f (default %d)\n", config->HzDiff, HERTZ_DIFF);
+		logmsg("\tHertz Difference tolerance +/-%g (default %d Hz)\n", config->HzDiff, HERTZ_DIFF);
 	if(config->window != 'n')
 		logmsg("\tA %s window will be applied to each note to be compared\n", GetWindow(config->window));
 	else

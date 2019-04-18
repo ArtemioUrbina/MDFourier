@@ -92,9 +92,6 @@ int main(int argc , char *argv[])
 		return 0;
 	}
 
-	if(config.normalize == 'r')
-		config.relativeMaxMagnitude = 0.0;
-
 	logmsg("\nLoading Reference audio file %s\n", config.referenceFile);
 	if(!LoadFile(reference, ReferenceSignal, &config, config.referenceFile))
 	{
@@ -261,7 +258,8 @@ int LoadFile(FILE *file, GenesisAudio *Signal, parameters *config, char *fileNam
 		Signal->Notes[i].index = i < PSG_COUNT ? i : i - PSG_COUNT;
 		Signal->Notes[i].type = i < PSG_COUNT ? TYPE_FM : TYPE_PSG;
 
-		if(0)
+#ifdef SAVE_CHUNKS
+		if(1)
 		{
 			FILE 		*chunk = NULL;
 			wav_hdr		cheader;
@@ -292,6 +290,7 @@ int LoadFile(FILE *file, GenesisAudio *Signal, parameters *config, char *fileNam
 		
 			fclose(chunk);
 		}
+#endif
 
 		ProcessSamples(&Signal->Notes[i], (short*)buffer, loadedNoteSize/2, header.SamplesPerSec, windowUsed, config);
 
@@ -311,7 +310,7 @@ int LoadFile(FILE *file, GenesisAudio *Signal, parameters *config, char *fileNam
 	if(config->normalize != 'n')
 		GlobalNormalize(Signal, config);
 
-	if(!config->ignoreFloor && Signal->hasFloor) // analyze noise floor if available
+	if(!config->ignoreFloor && Signal->hasFloor) // analyze silence floor if available
 		FindFloor(Signal, config);
 
 	fclose(file);
@@ -415,7 +414,6 @@ double ProcessSamples(MaxFreq *MaxFreqArray, short *samples, size_t size, long s
 					MaxFreqArray->freq[j].magnitude = magnitude;
 					MaxFreqArray->freq[j].amplitude = 0;
 					MaxFreqArray->freq[j].phase = atan2(i1, r1);
-					MaxFreqArray->freq[j].indexFFT = i;
 					break;
 				}
 				previous = MaxFreqArray->freq[j].magnitude;
@@ -447,7 +445,6 @@ double ProcessSamples(MaxFreq *MaxFreqArray, short *samples, size_t size, long s
 						MaxFreqArray->freq[j].magnitude = 0;
 						MaxFreqArray->freq[j].phase = 0;
 						MaxFreqArray->freq[i].amplitude = 0;
-						MaxFreqArray->freq[j].indexFFT = -1;
 					}
 					else
 					{
@@ -458,7 +455,6 @@ double ProcessSamples(MaxFreq *MaxFreqArray, short *samples, size_t size, long s
 						MaxFreqArray->freq[i].magnitude = 0;
 						MaxFreqArray->freq[i].phase = 0;
 						MaxFreqArray->freq[i].amplitude = 0;
-						MaxFreqArray->freq[i].indexFFT = -1;
 					}
 				}
 			}
@@ -490,7 +486,7 @@ double ProcessSamples(MaxFreq *MaxFreqArray, short *samples, size_t size, long s
 		// Find MaxMagnitude for Normalization
 		for(i = 0; i < config->MaxFreq; i++)
 		{
-			if(MaxFreqArray->freq[i].indexFFT != -1)
+			if(MaxFreqArray->freq[i].hertz)
 			{
 				if(MaxFreqArray->freq[i].magnitude > MaxMagnitude)
 					MaxMagnitude = MaxFreqArray->freq[i].magnitude;
@@ -753,13 +749,11 @@ double CompareNotes(GenesisAudio *ReferenceSignal, GenesisAudio *TestSignal, par
 					//if(test > config->tolerance && ReferenceSignal->Notes[note].freq[freq].amplitude > -60.0 && freq < config->MaxFreq*.9) // TEST
 					if(test > config->tolerance)
 					{
-						sprintf(message.buffer, "\tDifferent Amplitude: %g Hz at %0.4fdbs (ph:%0.2f) instead of %g Hz at %0.2fdbs (ph:%0.2f) {%g}\n",
+						sprintf(message.buffer, "\tDifferent Amplitude: %g Hz at %0.4fdbs instead of %g Hz at %0.2fdbs {%g}\n",
 							TestSignal->Notes[note].freq[index].hertz,
 							TestSignal->Notes[note].freq[index].amplitude,
-							TestSignal->Notes[note].freq[index].phase,
 							ReferenceSignal->Notes[note].freq[freq].hertz,
 							ReferenceSignal->Notes[note].freq[freq].amplitude,
-							ReferenceSignal->Notes[note].freq[freq].phase,
 							test);	
 						InsertMessageInBuffer(&message, config);
 						msg++;

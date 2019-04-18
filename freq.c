@@ -50,7 +50,6 @@ void CleanAudio(GenesisAudio *Signal)
 			Signal->Notes[n].freq[i].magnitude = 0;
 			Signal->Notes[n].freq[i].amplitude = 0;
 			Signal->Notes[n].freq[i].phase = 0;
-			Signal->Notes[n].freq[i].indexFFT = -1;
 			Signal->Notes[n].freq[i].matched = 0;
 		}
 	}
@@ -161,11 +160,10 @@ void PrintFrequencies(GenesisAudio *Signal, parameters *config)
 		{
 			if(Signal->Notes[note].freq[j].hertz)
 			{
-				logmsg("Frequency [%2d] %5.4g Hz [Amplitude: %g] [Phase: %g]",
+				logmsg("Frequency [%2d] %5.4g Hz [Amplitude: %g]",
 					j, 
 					Signal->Notes[note].freq[j].hertz,
-					Signal->Notes[note].freq[j].amplitude,
-					Signal->Notes[note].freq[j].phase);
+					Signal->Notes[note].freq[j].amplitude);
 				//detect CRT frequency
 				if(IsCRTNoise(Signal->Notes[note].freq[j].hertz))
 					logmsg(" *** CRT Noise ***");
@@ -213,18 +211,16 @@ void PrintComparedNotes(MaxFreq *ReferenceArray, MaxFreq *ComparedArray, paramet
 		{
 			int match = 0;
 
-			logmsg("[%5d] Ref: %7g Hz %6.2fdb %6.2f ph [>%3d]", 
+			logmsg("[%5d] Ref: %7g Hz %6.2fdb [>%3d]", 
 						j,
 						ReferenceArray->freq[j].hertz,
 						ReferenceArray->freq[j].amplitude,
-						ReferenceArray->freq[j].phase,
 						ReferenceArray->freq[j].matched - 1);
 
 			if(ComparedArray->freq[j].hertz)
-				logmsg("\tComp: %7g Hz %6.2fdb %6.2f ph [<%3d]", 
+				logmsg("\tComp: %7g Hz %6.2fdb [<%3d]", 
 						ComparedArray->freq[j].hertz,
 						ComparedArray->freq[j].amplitude,
-						ComparedArray->freq[j].phase,
 						ComparedArray->freq[j].matched - 1);
 			else
 				logmsg("\tCompared:\tNULL");
