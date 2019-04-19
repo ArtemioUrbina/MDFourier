@@ -1,3 +1,4 @@
+CC = gcc
 CCFLAGS = -Wfatal-errors -Wpedantic -Wall -std=gnu99 -O3
 LFLAGS = -lm libfftw3.a
 

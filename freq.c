@@ -35,7 +35,7 @@
 
 int IsCRTNoise(double freq)
 {
-	//Peak around 15697-15698 usualy
+	/* Peak around 15697-15698 usualy */
 	if(freq >= 15620 && freq <= 15710)
 		return 1;
 	return 0;
@@ -424,7 +424,7 @@ void FindFloor(AudioSignal *Signal, parameters *config)
 			return;
 		}
 	}
-	Signal->hasFloor = 0;  // revoke it if not found
+	Signal->hasFloor = 0;  /* revoke it if not found */
 }
 
 void GlobalNormalize(AudioSignal *Signal, parameters *config)
@@ -434,7 +434,7 @@ void GlobalNormalize(AudioSignal *Signal, parameters *config)
 	if(!Signal)
 		return;
 
-	// Find global peak
+	/* Find global peak */
 	if(config->normalize == 'g' ||
 	  (config->normalize == 'r' && config->relativeMaxMagnitude == 0.0))
 	{
@@ -456,7 +456,7 @@ void GlobalNormalize(AudioSignal *Signal, parameters *config)
 	if(config->normalize == 'r' && config->relativeMaxMagnitude != 0.0)
 		MaxMagnitude = config->relativeMaxMagnitude;
 
-	//Normalize and calculate Amplitude in dbs
+	/* Normalize and calculate Amplitude in dbs */
 	for(int block = 0; block < config->types.totalChunks; block++)
 	{
 		for(int i = 0; i < config->MaxFreq; i++)
@@ -471,9 +471,9 @@ void GlobalNormalize(AudioSignal *Signal, parameters *config)
 	}
 }
 
-// Do per block normalization if requested
-// This makes it so relative channel/block 
-// volume is ignored at a global level
+/* Do per block normalization if requested */
+/* This makes it so relative channel/block */
+/* volume is ignored at a global level */
 void LocalNormalize(AudioBlocks *AudioArray, parameters *config)
 {
 	double MaxMagnitude = 0;
@@ -481,7 +481,7 @@ void LocalNormalize(AudioBlocks *AudioArray, parameters *config)
 	if(!AudioArray)
 		return;
 
-	// Find MaxMagnitude for Normalization
+	/* Find MaxMagnitude for Normalization */
 	for(long int i = 0; i < config->MaxFreq; i++)
 	{
 		if(AudioArray->freq[i].hertz)
@@ -491,8 +491,8 @@ void LocalNormalize(AudioBlocks *AudioArray, parameters *config)
 		}
 	}
  
-	// Normalize to 100
-	// Calculate per Block dbs
+	/* Normalize to 100 */
+	/* Calculate per Block dbs */
 	for(long int i = 0; i < config->MaxFreq; i++)
 	{
 		AudioArray->freq[i].amplitude = 
@@ -544,7 +544,7 @@ void PrintFrequencies(AudioSignal *Signal, parameters *config)
 					j, 
 					Signal->Blocks[block].freq[j].hertz,
 					Signal->Blocks[block].freq[j].amplitude);
-				//detect CRT frequency
+				/* detect CRT frequency */
 				if(IsCRTNoise(Signal->Blocks[block].freq[j].hertz))
 					logmsg(" *** CRT Noise ***");
 				logmsg("\n");
@@ -556,7 +556,7 @@ void PrintFrequencies(AudioSignal *Signal, parameters *config)
 					j, Signal->Blocks[block].freq[j].hertz, Signal->Blocks[block].freq[j].amplitude);
 			}
 
-			if(config->debugVerbose && j == 20)  // this is just for internal quick debugging
+			if(config->debugVerbose && j == 20)  /* this is just for internal quick debugging */
 				exit(1);
 		}
 	}
@@ -572,8 +572,8 @@ void FillFrequencyStructures(AudioBlocks *AudioArray, parameters *config)
 
 	size = AudioArray->fftwValues.size;
 	boxsize = AudioArray->fftwValues.seconds;
-	//for(i = 1; i < monoSignalSize/2+1; i++)
-	for(i = config->startHz*boxsize; i < config->endHz*boxsize; i++)	// Nyquist at 44.1khz
+	/* for(i = 1; i < monoSignalSize/2+1; i++) */
+	for(i = config->startHz*boxsize; i < config->endHz*boxsize; i++)	/* Nyquist at 44.1khz */
 	{
 		double r1 = creal(AudioArray->fftwValues.spectrum[i]);
 		double i1 = cimag(AudioArray->fftwValues.spectrum[i]);
@@ -581,20 +581,20 @@ void FillFrequencyStructures(AudioBlocks *AudioArray, parameters *config)
 		int    j = 0;
 		double Hertz;
 
-		//magnitude = 2*(r1*r1 + i1*i1)/(monoSignalSize*monoSignalSize);
- 		//amplitude = 10 * log10(magnitude+DBL_EPSILON);
+		/* magnitude = 2*(r1*r1 + i1*i1)/(monoSignalSize*monoSignalSize); */
+ 		/* amplitude = 10 * log10(magnitude+DBL_EPSILON); */
 		magnitude = sqrt(r1*r1 + i1*i1)/size;
 		Hertz = ((double)i/boxsize);
 
 		previous = 1.e30;
-		//printf("%g Hz %g m (old %g) %g dbs\n", Hertz, m, magnitude, a);
+		/* printf("%g Hz %g m (old %g) %g dbs\n", Hertz, m, magnitude, a); */
 		if(!IsCRTNoise(Hertz))
 		{
 			for(j = 0; j < config->MaxFreq; j++)
 			{
 				if(magnitude > AudioArray->freq[j].magnitude && magnitude < previous)
 				{
-					//Move the previous values down the array
+					/* Move the previous values down the array */
 					for(int k = config->MaxFreq-1; k > j; k--)
 						AudioArray->freq[k] = AudioArray->freq[k - 1];
 	
@@ -614,8 +614,8 @@ void CompressFrequencies(AudioBlocks *AudioArray, parameters *config)
 {
 	long int i = 0;
 
-	// The following mess compressed adjacent frequencies
-	// Disabled by default and it is not as useful as expected in the current form
+	/* The following mess compressed adjacent frequencies */
+	/* Disabled by default and it is not as useful as expected in the current form */
 	
 	for(i = 0; i < config->MaxFreq; i++)
 	{
@@ -631,7 +631,7 @@ void CompressFrequencies(AudioBlocks *AudioArray, parameters *config)
 				if(AudioArray->freq[i].magnitude > AudioArray->freq[j].magnitude)
 				{
 					AudioArray->freq[i].magnitude += AudioArray->freq[j].magnitude;
-					//AudioArray->freq[i].magnitude/= 2;
+					/* AudioArray->freq[i].magnitude/= 2; */
 
 					AudioArray->freq[j].hertz = 0;
 					AudioArray->freq[j].magnitude = 0;
@@ -641,7 +641,7 @@ void CompressFrequencies(AudioBlocks *AudioArray, parameters *config)
 				else
 				{
 					AudioArray->freq[j].magnitude += AudioArray->freq[i].magnitude;
-					//AudioArray->freq[j].magnitude/= 2;
+					/* AudioArray->freq[j].magnitude/= 2; */
 
 					AudioArray->freq[i].hertz = 0;
 					AudioArray->freq[i].magnitude = 0;
@@ -652,7 +652,7 @@ void CompressFrequencies(AudioBlocks *AudioArray, parameters *config)
 		}
 	}
 
-	// sort array by magnitude
+	/* sort array by magnitude */
 	for(i = 0; i < config->MaxFreq; i++)
 	{
 		for(int j = i + 1; j < config->MaxFreq; j++)
@@ -688,7 +688,7 @@ void PrintComparedBlocks(AudioBlocks *ReferenceArray, AudioBlocks *ComparedArray
 	if(IsLogEnabled())
 		DisableConsole();
 
-	// changed Magnitude->amplitude
+	/* changed Magnitude->amplitude */
 	for(int j = 0; j < config->MaxFreq; j++)
 	{
 		if(ReferenceArray->freq[j].hertz)

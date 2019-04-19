@@ -322,7 +322,7 @@ int LoadFile(FILE *file, AudioSignal *Signal, parameters *config, char *fileName
 		{
 			FILE 		*chunk = NULL;
 			wav_hdr		cheader;
-			char		fName[2048];
+			char		fName[3096];
 
 			cheader = header;
 			GenerateFileName(config, basename(fileName), Name);

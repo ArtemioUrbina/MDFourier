@@ -53,27 +53,27 @@
 #define MDVERSION "0.75"
 
 
-#define MAX_FREQ_COUNT		22050 	// Number of frequencies to account for (MAX) 
-#define FREQ_COUNT			2000	// Number of frequencies to account for (default)
+#define MAX_FREQ_COUNT		22050 	/* Number of frequencies to account for (MAX) */
+#define FREQ_COUNT			2000	/* Number of frequencies to account for (default) */
 
 #define TYPE_SILENCE	0
 #define TYPE_NOTYPE		-1
 #define NO_INDEX 		-1
 
-// to remove
+/* to remove */
 #define	TYPE_FM			1
 
-// This is the difference allowed between reference and compared
-// amplitudes to match, in dbs
+/* This is the difference allowed between reference and compared */
+/* amplitudes to match, in dbs */
 #define DBS_TOLERANCE	3.0
 
-// Width of each peak
+/* Width of each peak */
 #define HERTZ_WIDTH			0.0
 
-// +/- Tolerance in frequency Difference to be the same one
+/* +/- Tolerance in frequency Difference to be the same one */
 #define HERTZ_DIFF			0.0
 
-//Percentage of normalized magnitude frequencies to match
+/*Percentage of normalized magnitude frequencies to match */
 #define FREQ_COMPARE		1.0
 
 #define START_HZ	10
@@ -179,25 +179,25 @@ typedef struct parameters_st {
 
 /********************************************************/
 
-// WAV data structures
+/* WAV data structures */
 typedef struct	WAV_HEADER
 {
 	/* RIFF Chunk Descriptor */
-	uint8_t 		RIFF[4];		// RIFF Header Magic header
-	uint32_t		ChunkSize;		// RIFF Chunk Size
-	uint8_t 		WAVE[4];		// WAVE Header
+	uint8_t 		RIFF[4];		/* RIFF Header Magic header */
+	uint32_t		ChunkSize;		/* RIFF Chunk Size */
+	uint8_t 		WAVE[4];		/* WAVE Header */
 	/* "fmt" sub-chunk */
-	uint8_t 		fmt[4]; 		// FMT header
-	uint32_t		Subchunk1Size;	// Size of the fmt chunk
-	uint16_t		AudioFormat;	// Audio format 1=PCM,6=mulaw,7=alaw,	  257=IBM Mu-Law, 258=IBM A-Law, 259=ADPCM
-	uint16_t		NumOfChan;		// Number of channels 1=Mono 2=Sterio
-	uint32_t		SamplesPerSec;	// Sampling Frequency in Hz
-	uint32_t		bytesPerSec;	// bytes per second
-	uint16_t		blockAlign; 	// 2=16-bit mono, 4=16-bit stereo
-	uint16_t		bitsPerSample;	// Number of bits per sample
+	uint8_t 		fmt[4]; 		/* FMT header */
+	uint32_t		Subchunk1Size;	/* Size of the fmt chunk */
+	uint16_t		AudioFormat;	/* Audio format 1=PCM,6=mulaw,7=alaw,	  257=IBM Mu-Law, 258=IBM A-Law, 259=ADPCM */
+	uint16_t		NumOfChan;		/* Number of channels 1=Mono 2=Sterio */
+	uint32_t		SamplesPerSec;	/* Sampling Frequency in Hz */
+	uint32_t		bytesPerSec;	/* bytes per second */
+	uint16_t		blockAlign; 	/* 2=16-bit mono, 4=16-bit stereo */
+	uint16_t		bitsPerSample;	/* Number of bits per sample */
 	/* "data" sub-chunk */
-	uint8_t 		Subchunk2ID[4]; // "data"  string
-	uint32_t		Subchunk2Size;	// Sampled data length
+	uint8_t 		Subchunk2ID[4]; /* "data"  string */
+	uint32_t		Subchunk2Size;	/* Sampled data length */
 } wav_hdr;
 
 /********************************************************/

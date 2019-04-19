@@ -34,6 +34,10 @@
 
 #include "mdfourier.h"
 
+#ifndef M_PI
+#define M_PI 3.1415926535897932384626433832795
+#endif
+
 float *hannWindow(int n);
 float *flattopWindow(int n);
 float *tukeyWindow(int n);
