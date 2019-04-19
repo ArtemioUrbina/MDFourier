@@ -1,9 +1,9 @@
-CCFLAGS = -Wfatal-errors -Wpedantic -Wall -std=gnu99 -O3
+CCFLAGS = -Wfatal-errors -Wpedantic -Wall -std=gnu99 -g
 LFLAGS = -lm libfftw3.a
 
 all: mdfourier mdwave
 
-mdfourier: mdfourier.o freq.o cline.o windows.o log.o incbeta.o 
+mdfourier: freq.o windows.o log.o incbeta.o cline.o mdfourier.o 
 	$(CC) $(CCFLAGS) -o $@ $^ $(LFLAGS)
 
 mdwave: mdwave.o

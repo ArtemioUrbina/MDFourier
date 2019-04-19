@@ -1,7 +1,8 @@
 /* 
  * MDFourier
  * A Fourier Transform analysis tool to compare different 
- * Sega Genesis/Mega Drive audio hardware revisions.
+ * Sega Genesis/Mega Drive audio hardware revisions, and
+ * other hardware in the future
  *
  * Copyright (C)2019 Artemio Urbina
  *
@@ -51,17 +52,15 @@
 
 #define MDVERSION "0.75"
 
-#define PSG_COUNT	40
-#define NOISE_COUNT 100
 
 #define MAX_FREQ_COUNT		22050 	// Number of frequencies to account for (MAX) 
 #define FREQ_COUNT			2000	// Number of frequencies to account for (default)
-#define MAX_NOTES			140		// we have 140 notes in the 240p Test Suite
 
-#define TYPE_NONE	0
-#define TYPE_FM 	1
-#define TYPE_PSG	2
-#define TYPE_NOISE	3
+#define TYPE_SILENCE	0
+#define TYPE_NOTYPE		-1
+
+// to remove
+#define	TYPE_FM			1
 
 // This is the difference allowed between reference and compared
 // amplitudes to match, in dbs
@@ -78,5 +77,127 @@
 
 #define START_HZ	10
 #define END_HZ		MAX_FREQ_COUNT
+
+
+typedef struct abt_st {
+	char		typeName[128];
+	int 		type;
+	int			elementCount;
+	float		seconds;
+} AudioBlockType;
+
+typedef struct abd_st {
+	char			Name[128];
+	int				totalChunks;
+	int				regularChunks;
+	float			framerateAdjust;
+
+	AudioBlockType	*typeArray;
+	int				typeCount;
+} AudioBlockDef;
+
+/********************************************************/
+
+typedef struct FrequencySt {
+	double	hertz;
+	double	magnitude;
+	double	amplitude;
+	double	phase;
+	int		matched;
+} Frequency;
+
+typedef struct fftw_spectrum_st {
+	fftw_complex  	*spectrum;
+	size_t			size;
+	double			seconds;
+} FFTWSpectrum;
+
+typedef struct AudioBlock_st {
+	Frequency		*freq;
+	FFTWSpectrum	fftwValues;
+	int				index;
+	int				type;
+} AudioBlocks;
+
+typedef struct AudioSt {
+	char		SourceFile[1024];
+	int 		hasFloor;
+	double		floorFreq;
+	double		floorAmplitude;
+
+	AudioBlocks *Blocks; 
+}  AudioSignal;
+
+/********************************************************/
+
+typedef struct window_unit_st {
+	float *window;
+	double seconds;
+} windowUnit;
+
+typedef struct window_st {
+	windowUnit *windowArray;
+	int windowCount;
+} windowManager;
+
+/********************************************************/
+
+typedef struct parameters_st {
+	char			referenceFile[1024];
+	char			targetFile[1024];
+	double			tolerance;
+	double			HzWidth;
+	double			HzDiff;
+	int				startHz, endHz;
+	int				showAll;
+	int				extendedResults;
+	int				justResults;
+	int				verbose;
+	char			window;
+	char			channel;
+	int				MaxFreq;
+	int				clock;
+	int				clockBlock;
+	int				debugVerbose;
+	int				spreadsheet;	
+	char			normalize;
+	double			relativeMaxMagnitude;
+	int				ignoreFloor;
+	int				useOutputFilter;
+	int				outputFilterFunction;
+	AudioBlockDef	types;
+} parameters;
+
+/********************************************************/
+
+// WAV data structures
+typedef struct	WAV_HEADER
+{
+	/* RIFF Chunk Descriptor */
+	uint8_t 		RIFF[4];		// RIFF Header Magic header
+	uint32_t		ChunkSize;		// RIFF Chunk Size
+	uint8_t 		WAVE[4];		// WAVE Header
+	/* "fmt" sub-chunk */
+	uint8_t 		fmt[4]; 		// FMT header
+	uint32_t		Subchunk1Size;	// Size of the fmt chunk
+	uint16_t		AudioFormat;	// Audio format 1=PCM,6=mulaw,7=alaw,	  257=IBM Mu-Law, 258=IBM A-Law, 259=ADPCM
+	uint16_t		NumOfChan;		// Number of channels 1=Mono 2=Sterio
+	uint32_t		SamplesPerSec;	// Sampling Frequency in Hz
+	uint32_t		bytesPerSec;	// bytes per second
+	uint16_t		blockAlign; 	// 2=16-bit mono, 4=16-bit stereo
+	uint16_t		bitsPerSample;	// Number of bits per sample
+	/* "data" sub-chunk */
+	uint8_t 		Subchunk2ID[4]; // "data"  string
+	uint32_t		Subchunk2Size;	// Sampled data length
+} wav_hdr;
+
+/********************************************************/
+
+typedef struct msg_buffer_st {
+	char *message;
+	char buffer[1024];
+	int msgPos;
+	int msgSize;
+} msgbuff;
 
 #endif

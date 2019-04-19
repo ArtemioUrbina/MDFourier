@@ -1,7 +1,8 @@
 /* 
  * MDFourier
  * A Fourier Transform analysis tool to compare different 
- * Sega Genesis/Mega Drive audio hardware revisions.
+ * Sega Genesis/Mega Drive audio hardware revisions, and
+ * other hardware in the future
  *
  * Copyright (C)2019 Artemio Urbina
  *
@@ -31,16 +32,14 @@
 #ifndef MDFOURIER_WINDOWS_H
 #define MDFOURIER_WINDOWS_H
 
-typedef struct window_st {
-	float *win1Sec;
-	float *win2Sec;
-} windowManager;
+#include "mdfourier.h"
 
 float *hannWindow(int n);
 float *flattopWindow(int n);
 float *tukeyWindow(int n);
 
-int initWindows(windowManager *windows, int SamplesPerSec, char type);
+int initWindows(windowManager *windows, int SamplesPerSec, parameters *config);
+float *getWindowByLength(windowManager *windows, double length);
 void freeWindows(windowManager *windows);
 
 #endif

@@ -1,7 +1,8 @@
 /* 
  * MDFourier
  * A Fourier Transform analysis tool to compare different 
- * Sega Genesis/Mega Drive audio hardware revisions.
+ * Sega Genesis/Mega Drive audio hardware revisions, and
+ * other hardware in the future
  *
  * Copyright (C)2019 Artemio Urbina
  *
@@ -28,40 +29,13 @@
  *	  gcc -Wall -std=gnu99 -o mdfourier mdfourier.c -lfftw3 -lm
  */
 
-#include "mdfourier.h"
-
 #ifndef MDFOURIER_CMD_H
 #define MDFOURIER_CMD_H
 
-typedef struct parameters_st {
-	char 		referenceFile[1024];
-	char 		targetFile[1024];
-	double		tolerance;
-	double		HzWidth;
-	double		HzDiff;
-	int 		startHz, endHz;
-	int 		showAll;
-	int 		extendedResults;
-	int 		justResults;
-	int 		verbose;
-	char 		window;
-	char		channel;
-	int 		MaxFreq;
-	int 		clock;
-	int 		clockNote;
-	int 		debugVerbose;
-	int 		spreadsheet;	
-	char 		normalize;
-	double		relativeMaxMagnitude;
-	int			ignoreFloor;
-	int			useOutputFilter;
-	int			outputFilterFunction;
-} parameters;
+#include "mdfourier.h"
 
 void CleanParameters(parameters *config);
 int commandline(int argc , char *argv[], parameters *config);
-char *GetRange(int index);
-int GetSubIndex(int index);
 char *GetChannel(char c);
 char *GetWindow(char c);
 void Header(int log);

@@ -1,7 +1,8 @@
 /* 
  * MDFourier
  * A Fourier Transform analysis tool to compare different 
- * Sega Genesis/Mega Drive audio hardware revisions.
+ * Sega Genesis/Mega Drive audio hardware revisions, and
+ * other hardware in the future
  *
  * Copyright (C)2019 Artemio Urbina
  *
@@ -32,72 +33,104 @@
 #include "windows.h"
 #include "log.h"
 
-int initWindows(windowManager *windows, int SamplesPerSec, char type)
+int existsInArray(double element, double *array, int count)
 {
-	if(!windows)
+	if(!array)
 		return 0;
 
-	windows->win1Sec = NULL;
-	windows->win2Sec = NULL;
-
-	if(type != 'n')
+	for(int i = 0; i < count; i++)
 	{
-		if(type == 't')
-		{
-			windows->win2Sec = tukeyWindow(SamplesPerSec*2);
-			if(!windows->win2Sec)
-			{
-				logmsg ("Tukey window creation failed\n");
-				return(0);
-			}
-		
-			windows->win1Sec = tukeyWindow(SamplesPerSec);
-			if(!windows->win2Sec)
-			{
-				logmsg ("Tukey window creation failed\n");
-				return(0);
-			}
-		}
+		if(element == array[i])
+			return 1;
+	}
 
-		if(type == 'f')
-		{
-			windows->win2Sec = flattopWindow(SamplesPerSec*2);
-			if(!windows->win2Sec)
-			{
-				logmsg ("FlatTop window creation failed\n");
-				return(0);
-			}
-		
-			windows->win1Sec = flattopWindow(SamplesPerSec);
-			if(!windows->win1Sec)
-			{
-				logmsg ("FlatTop window creation failed\n");
-				return(0);
-			}
-		}
+	return 0;
+}
 
-		if(type == 'h')
+float *getWindowByLength(windowManager *wm, double length)
+{
+	if(!wm)
+		return 0;
+
+	for(int i = 0; i < wm->windowCount; i++)
+	{
+		if(length == wm->windowArray[i].seconds)
+			return wm->windowArray[i].window;
+	}
+
+	return NULL;
+}
+
+int initWindows(windowManager *wm, int SamplesPerSec, parameters *config)
+{
+	double 	lengths[1024];	// yes, we are lazy
+	int 	count = 0;
+
+	if(!wm || !config)
+		return 0;
+	
+	// Count how many differen window sizes are needed
+	for(int i = 0; i < config->types.typeCount; i++)
+	{
+		double value;
+
+		value = config->types.typeArray[i].seconds;
+		if(!existsInArray(value, lengths, count))
+			lengths[count++] = value;
+	}
+
+	if(!count)
+	{
+		logmsg("There are no blocks with valid lengths\n");
+		return 0;
+	}
+
+	// Create the wm
+	wm->windowArray = (windowUnit*)malloc(sizeof(windowUnit)*count);
+	wm->windowCount = count;
+
+	for(int i = 0; i < count; i++)
+	{
+		wm->windowArray[i].seconds = lengths[i];
+		if(config->window != 'n')
 		{
-			windows->win2Sec = hannWindow(SamplesPerSec*2);
-			if(!windows->win2Sec)
+			if(config->window == 't')
 			{
-				logmsg ("Hann window creation failed\n");
-				return(0);
+				wm->windowArray[i].window = tukeyWindow(SamplesPerSec*lengths[i]);
+				if(!wm->windowArray[i].window)
+				{
+					logmsg ("Tukey window creation failed\n");
+					return(0);
+				}
 			}
-		
-			windows->win1Sec = hannWindow(SamplesPerSec);
-			if(!windows->win1Sec)
+	
+			if(config->window == 'f')
 			{
-				logmsg ("Hann window creation failed\n");
-				return(0);
+				wm->windowArray[i].window = flattopWindow(SamplesPerSec*lengths[i]);
+				if(!wm->windowArray[i].window)
+				{
+					logmsg ("FlatTop window creation failed\n");
+					return(0);
+				}
+			}
+	
+			if(config->window == 'h')
+			{
+				wm->windowArray[i].window = hannWindow(SamplesPerSec*lengths[i]);
+				if(!wm->windowArray[i].window)
+				{
+					logmsg ("Hann window creation failed\n");
+					return(0);
+				}
 			}
 		}
 	}
 
 	/*
-	if(windows->win2Sec)
-		for(int w= 0; w < SamplesPerSec*2; w++)
-			logmsg("%d,%g\n", w, windows->win2Sec[w]);
+	// This is to graph the wm exterally for the docs
+	if(wm->windowArray && wm->windowArray->windowCount && wm->windowArray[0])
+		for(int w= 0; w < SamplesPerSec*lengths[0]; w++)
+			logmsg("%d,%g\n", w, wm->windowArray[i].window[w]);
 	exit(1); 
 	*/
 
@@ -105,15 +138,16 @@ int initWindows(windowManager *windows, int SamplesPerSec, char type)
 }
 
 
-void freeWindows(windowManager *windows)
+void freeWindows(windowManager *wm)
 {
-	if(!windows)
+	if(!wm)
 		return;
 
-	free(windows->win1Sec);
-	windows->win1Sec = NULL;
-	free(windows->win2Sec);
-	windows->win2Sec = NULL;
+	for(int i = 0; i < wm->windowCount; i++)
+		free(wm->windowArray[i].window);
+	free(wm->windowArray);
+	wm->windowArray = NULL;
+	wm->windowCount = 0;
 }
 
 

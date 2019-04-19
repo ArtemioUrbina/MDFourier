@@ -1,7 +1,8 @@
 /* 
  * MDFourier
  * A Fourier Transform analysis tool to compare different 
- * Sega Genesis/Mega Drive audio hardware revisions.
+ * Sega Genesis/Mega Drive audio hardware revisions, and
+ * other hardware in the future
  *
  * Copyright (C)2019 Artemio Urbina
  *
@@ -34,16 +35,16 @@
 #include "windows.h"
 #include "freq.h"
 
-int LoadFile(FILE *file, GenesisAudio *Signal, parameters *config, char *fileName);
-double ProcessSamples(MaxFreq *MaxFreqArray, short *samples, size_t size, long samplerate, float *window, parameters *config);
-double CompareNotes(GenesisAudio *ReferenceSignal, GenesisAudio *TestSignal, parameters *config);
+int LoadFile(FILE *file, AudioSignal *Signal, parameters *config, char *fileName);
+double ExecuteDFFT(AudioBlocks *AudioArray, short *samples, size_t size, long samplerate, float *window, parameters *config);
+double CompareAudioBlocks(AudioSignal *ReferenceSignal, AudioSignal *TestSignal, parameters *config);
 
 int main(int argc , char *argv[])
 {
 	FILE				*reference = NULL;
 	FILE				*compare = NULL;
-	GenesisAudio  		*ReferenceSignal;
-	GenesisAudio  		*TestSignal;
+	AudioSignal  		*ReferenceSignal;
+	AudioSignal  		*TestSignal;
 	parameters			config;
 	double				result1 = 0, result2 = 0;
 
@@ -54,18 +55,21 @@ int main(int argc , char *argv[])
 		return 1;
 	}
 
+	if(!LoadAudioBlockStructure(&config))
+		return 1;
+
 	if(strcmp(config.referenceFile, config.targetFile) == 0)
 	{
 		logmsg("Both inputs are the same file %s, skipping to save time\n",
 			 config.referenceFile);
-		return 0;
+		return 1;
 	}	
 
 	reference = fopen(config.referenceFile, "rb");
 	if(!reference)
 	{
 		logmsg("\tCould not open REFERENCE file: \"%s\"\n", config.referenceFile);
-		return 0;
+		return 1;
 	}
 
 	compare = fopen(config.targetFile, "rb");
@@ -73,23 +77,18 @@ int main(int argc , char *argv[])
 	{
 		fclose(reference);
 		logmsg("\tCould not open COMPARE file: \"%s\"\n", config.targetFile);
-		return 0;
+		return 1;
 	}
-
 	
-	ReferenceSignal = (GenesisAudio*)malloc(sizeof(GenesisAudio));
+	ReferenceSignal = CreateAudioSignal(&config);
 	if(!ReferenceSignal)
-	{
-		logmsg("Not enough memory for Data Structures\n");
-		return 0;
-	}
+		return 1;
 
-	TestSignal = (GenesisAudio*)malloc(sizeof(GenesisAudio));
+	TestSignal = CreateAudioSignal(&config);
 	if(!TestSignal)
 	{
 		free(ReferenceSignal);
-		logmsg("Not enough memory for Data Structures\n");
-		return 0;
+		return 1;
 	}
 
 	logmsg("\nLoading Reference audio file %s\n", config.referenceFile);
@@ -97,7 +96,7 @@ int main(int argc , char *argv[])
 	{
 		free(ReferenceSignal);
 		free(TestSignal);
-		return 0;
+		return 1;
 	}
 
 	logmsg("Loading Compare audio file %s\n", config.targetFile);
@@ -105,19 +104,22 @@ int main(int argc , char *argv[])
 	{
 		free(ReferenceSignal);
 		free(TestSignal);
-		return 0;
+		return 1;
 	}
 
-	result1 = CompareNotes(ReferenceSignal, TestSignal, &config);
+	result1 = CompareAudioBlocks(ReferenceSignal, TestSignal, &config);
 	if(config.normalize == 'r')
 		config.relativeMaxMagnitude = 0.0;
 	CleanMatched(ReferenceSignal, TestSignal, &config);
-	result2 = CompareNotes(TestSignal, ReferenceSignal, &config);
+	result2 = CompareAudioBlocks(TestSignal, ReferenceSignal, &config);
 
 	if(config.spreadsheet)
 		logmsg("Spreadsheet, %s, %s, %g, %g\n",
 				 basename(ReferenceSignal->SourceFile), basename(TestSignal->SourceFile),
 				result1, result2);
+
+	ReleaseAudio(ReferenceSignal, &config);
+	ReleaseAudio(TestSignal, &config);
 
 	free(ReferenceSignal);
 	free(TestSignal);
@@ -133,10 +135,10 @@ int main(int argc , char *argv[])
 	return(0);
 }
 
-int LoadFile(FILE *file, GenesisAudio *Signal, parameters *config, char *fileName)
+int LoadFile(FILE *file, AudioSignal *Signal, parameters *config, char *fileName)
 {
 	int 				i = 0;
-	int 				loadedNoteSize = 0;
+	int 				loadedBlockSize = 0;
 	char				*buffer;
 	size_t			 	buffersize = 0;
 	size_t			 	discardBytes = 0, discardSamples = 0;
@@ -144,7 +146,7 @@ int LoadFile(FILE *file, GenesisAudio *Signal, parameters *config, char *fileNam
 	windowManager		windows;
 	float				*windowUsed = NULL;
 	struct	timespec	start, end;
-	double				seconds = 0;
+	double				seconds = 0, longest = 0;
 	char 				*AllSamples = NULL;
 	long int			pos = 0;
 
@@ -184,19 +186,27 @@ int LoadFile(FILE *file, GenesisAudio *Signal, parameters *config, char *fileNam
 	}
 
 	seconds = (double)header.Subchunk2Size/4.0/(double)header.SamplesPerSec;
-	if(seconds < 180)
+	if(seconds < GetTotalBlockDuration(config))
 		logmsg("File length is smaller than expected\n");
 
 	logmsg("WAV file is PCM %dhz %dbits and %g seconds long\n", 
 		header.SamplesPerSec, header.bitsPerSample, seconds);
 
 	// We need to convert buffersize to the 16.688ms per frame by the Genesis
-	discardSamples = (size_t)round(1.00128*header.SamplesPerSec);
+	// Mega Drive is 1.00128, now loaded fomr file
+	discardSamples = (size_t)round(GetFramerateAdjust(config)*header.SamplesPerSec);
 	if(discardSamples % 2)
 		discardSamples += 1;
 
 	discardSamples -= header.SamplesPerSec;
-	buffersize = header.SamplesPerSec*8*sizeof(char); // 2 bytes per sample, stereo
+	longest = GetLongestBlock(config);
+	if(!longest)
+	{
+		logmsg("Block definitions are invalid, total length is 0\n");
+		return 0;
+	}
+
+	buffersize = header.SamplesPerSec*4*sizeof(char)*(int)longest; // 2 bytes per sample, stereo
 	buffer = (char*)malloc(buffersize);
 	if(!buffer)
 	{
@@ -204,7 +214,7 @@ int LoadFile(FILE *file, GenesisAudio *Signal, parameters *config, char *fileNam
 		return(0);
 	}
 
-	if(!initWindows(&windows, header.SamplesPerSec, config->window))
+	if(!initWindows(&windows, header.SamplesPerSec, config))
 		return 0;
 
 	AllSamples = (char*)malloc(sizeof(char)*header.Subchunk2Size);
@@ -220,43 +230,35 @@ int LoadFile(FILE *file, GenesisAudio *Signal, parameters *config, char *fileNam
 		return(0);
 	}
 
-	CleanAudio(Signal);
-
-	if(seconds >= 181)
+	if(GetSilenceIndex(config))
 		Signal->hasFloor = 1;
 
 	sprintf(Signal->SourceFile, "%s", fileName);
 	if(config->clock)
 		clock_gettime(CLOCK_MONOTONIC, &start);
 
-	while(i < MAX_NOTES+Signal->hasFloor)
+	while(i < config->types.totalChunks)
 	{
-		if(i < PSG_COUNT)
-		{
-			loadedNoteSize = buffersize;   //2 second blocks
-			discardBytes = discardSamples * 8;
-			if(config->window != 'n')
-				windowUsed = windows.win2Sec;
-		}
-		else
-		{
-			loadedNoteSize = buffersize/2; // 1 second block
-			discardBytes = discardSamples * 4;
-			if(config->window != 'n')
-				windowUsed = windows.win1Sec;
-		}
+		double duration = 0;
+
+		duration = GetBlockDuration(config, i);
+		if(config->window != 'n')
+			windowUsed = getWindowByLength(&windows, duration);
+		
+		loadedBlockSize = header.SamplesPerSec*4*sizeof(char)*(int)duration;
+		discardBytes = discardSamples * 4 * duration;
 
 		memset(buffer, 0, buffersize);
-		if(pos + loadedNoteSize > header.Subchunk2Size)
+		if(pos + loadedBlockSize > header.Subchunk2Size)
 		{
 			logmsg("\tunexpected end of File, please record the full Audio Test from the 240p Test Suite\n");
 			break;
 		}
-		memcpy(buffer, AllSamples + pos, loadedNoteSize);
-		pos += loadedNoteSize;
+		memcpy(buffer, AllSamples + pos, loadedBlockSize);
+		pos += loadedBlockSize;
 
-		Signal->Notes[i].index = i < PSG_COUNT ? i : i - PSG_COUNT;
-		Signal->Notes[i].type = i < PSG_COUNT ? TYPE_FM : TYPE_PSG;
+		Signal->Blocks[i].index = GetBlockSubIndex(config, i);
+		Signal->Blocks[i].type = GetBlockType(config, i);
 
 #ifdef SAVE_CHUNKS
 		if(1)
@@ -274,15 +276,15 @@ int LoadFile(FILE *file, GenesisAudio *Signal, parameters *config, char *fileNam
 				return 0;
 			}
 
-			cheader.ChunkSize = loadedNoteSize+36;
-			cheader.Subchunk2Size = loadedNoteSize;
+			cheader.ChunkSize = loadedBlockSize+36;
+			cheader.Subchunk2Size = loadedBlockSize;
 			if(fwrite(&cheader, 1, sizeof(wav_hdr), chunk) != sizeof(wav_hdr))
 			{
 				logmsg("\tCould not write chunk header\n");
 				return(0);
 			}
 		
-			if(fwrite(buffer, 1, sizeof(char)*loadedNoteSize, chunk) != sizeof(char)*loadedNoteSize)
+			if(fwrite(buffer, 1, sizeof(char)*loadedBlockSize, chunk) != sizeof(char)*loadedBlockSize)
 			{
 				logmsg("\tCould not write samples to chunk file\n");
 				return (0);
@@ -292,7 +294,15 @@ int LoadFile(FILE *file, GenesisAudio *Signal, parameters *config, char *fileNam
 		}
 #endif
 
-		ProcessSamples(&Signal->Notes[i], (short*)buffer, loadedNoteSize/2, header.SamplesPerSec, windowUsed, config);
+		ExecuteDFFT(&Signal->Blocks[i], (short*)buffer, loadedBlockSize/2, header.SamplesPerSec, windowUsed, config);
+
+		FillFrequencyStructures(&Signal->Blocks[i], config);
+	
+		if(config->HzWidth > 0.0)
+			CompressFrequencies(&Signal->Blocks[i], config);
+
+		if(config->normalize == 'n')
+			LocalNormalize(&Signal->Blocks[i], config);
 
 		pos += discardBytes;  // Advance to adjust the time for the Sega Genesis Frame Rate
 		i++;
@@ -313,30 +323,29 @@ int LoadFile(FILE *file, GenesisAudio *Signal, parameters *config, char *fileNam
 	if(!config->ignoreFloor && Signal->hasFloor) // analyze silence floor if available
 		FindFloor(Signal, config);
 
+	if(config->verbose)
+		PrintFrequencies(Signal, config);
+
 	fclose(file);
 	free(buffer);
 	free(AllSamples);
 
 	freeWindows(&windows);
 
-	if(config->verbose)
-		PrintFrequencies(Signal, config);
-
 	return i;
 }
 
-double ProcessSamples(MaxFreq *MaxFreqArray, short *samples, size_t size, long samplerate, float *window, parameters *config)
+double ExecuteDFFT(AudioBlocks *AudioArray, short *samples, size_t size, long samplerate, float *window, parameters *config)
 {
 	fftw_plan		p = NULL;
 	long		  	stereoSignalSize = 0;	
 	long		  	i = 0, monoSignalSize = 0; 
 	double		  	*signal = NULL;
 	fftw_complex  	*spectrum = NULL;
-	double		 	boxsize = 0, seconds = 0;
+	double		 	seconds = 0;
 	struct			timespec start, end;
-	double			MaxMagnitude = 0;
 	
-	if(!MaxFreqArray)
+	if(!AudioArray)
 	{
 		logmsg("No Array for results\n");
 		return 0;
@@ -345,7 +354,6 @@ double ProcessSamples(MaxFreq *MaxFreqArray, short *samples, size_t size, long s
 	stereoSignalSize = (long)size;
 	monoSignalSize = stereoSignalSize/2;	 // 4 is 2 16 bit values
 	seconds = size/(samplerate*2);
-	boxsize = seconds;
 
 	signal = (double*)malloc(sizeof(double)*(monoSignalSize+1));
 	if(!signal)
@@ -360,7 +368,7 @@ double ProcessSamples(MaxFreq *MaxFreqArray, short *samples, size_t size, long s
 		return(0);
 	}
 
-	if(config->clockNote)
+	if(config->clockBlock)
 		clock_gettime(CLOCK_MONOTONIC, &start);
 
 	p = fftw_plan_dft_r2c_1d(monoSignalSize, signal, spectrum, FFTW_MEASURE);
@@ -384,141 +392,25 @@ double ProcessSamples(MaxFreq *MaxFreqArray, short *samples, size_t size, long s
 	fftw_execute(p); 
 	fftw_destroy_plan(p);
 
-	//for(i = 1; i < monoSignalSize/2+1; i++)
-	for(i = config->startHz*boxsize; i < config->endHz*boxsize; i++)	// Nyquist at 44.1khz
-	{
-		double r1 = creal(spectrum[i]);
-		double i1 = cimag(spectrum[i]);
-		double magnitude, previous;
-		int    j = 0;
-		double Hertz;
-
-		magnitude = sqrt(r1*r1 + i1*i1)/monoSignalSize;
-		//magnitude = 2*(r1*r1 + i1*i1)/(monoSignalSize*monoSignalSize);
- 		//amplitude = 10 * log10(magnitude+DBL_EPSILON);
-		Hertz = ((double)i/seconds);
-
-		previous = 1.e30;
-		//printf("%g Hz %g m (old %g) %g dbs\n", Hertz, m, magnitude, a);
-		if(!IsCRTNoise(Hertz))
-		{
-			for(j = 0; j < config->MaxFreq; j++)
-			{
-				if(magnitude > MaxFreqArray->freq[j].magnitude && magnitude < previous)
-				{
-					//Move the previous values down the array
-					for(int k = config->MaxFreq-1; k > j; k--)
-						MaxFreqArray->freq[k] = MaxFreqArray->freq[k - 1];
-	
-					MaxFreqArray->freq[j].hertz = Hertz;
-					MaxFreqArray->freq[j].magnitude = magnitude;
-					MaxFreqArray->freq[j].amplitude = 0;
-					MaxFreqArray->freq[j].phase = atan2(i1, r1);
-					break;
-				}
-				previous = MaxFreqArray->freq[j].magnitude;
-			}
-		}
-	}
-	
-	// The following mess compressed adjacent frequencies
-	// Disabled by default and it is not as useful as expected in the current form
-	if(config->HzWidth > 0.0)
-	{
-		for(i = 0; i < config->MaxFreq; i++)
-		{
-			for(int j = 0; j < config->MaxFreq; j++)
-			{
-				double hertzDiff;
-	
-				hertzDiff = fabs(MaxFreqArray->freq[j].hertz - MaxFreqArray->freq[i].hertz);
-				
-				if(MaxFreqArray->freq[i].hertz && MaxFreqArray->freq[j].hertz
-					&& i != j && hertzDiff <= config->HzWidth)
-				{
-					if(MaxFreqArray->freq[i].magnitude > MaxFreqArray->freq[j].magnitude)
-					{
-						MaxFreqArray->freq[i].magnitude += MaxFreqArray->freq[j].magnitude;
-						//MaxFreqArray->freq[i].magnitude/= 2;
-
-						MaxFreqArray->freq[j].hertz = 0;
-						MaxFreqArray->freq[j].magnitude = 0;
-						MaxFreqArray->freq[j].phase = 0;
-						MaxFreqArray->freq[i].amplitude = 0;
-					}
-					else
-					{
-						MaxFreqArray->freq[j].magnitude += MaxFreqArray->freq[i].magnitude;
-						//MaxFreqArray->freq[j].magnitude/= 2;
-
-						MaxFreqArray->freq[i].hertz = 0;
-						MaxFreqArray->freq[i].magnitude = 0;
-						MaxFreqArray->freq[i].phase = 0;
-						MaxFreqArray->freq[i].amplitude = 0;
-					}
-				}
-			}
-		}
-
-		// sort array by magnitude
-		for(i = 0; i < config->MaxFreq; i++)
-		{
-			for(int j = i + 1; j < config->MaxFreq; j++)
-			{
-				if (MaxFreqArray->freq[i].magnitude < MaxFreqArray->freq[j].magnitude) 
-				{
-						Frequency	t;
-					
-						t = MaxFreqArray->freq[i];
-						MaxFreqArray->freq[i] = MaxFreqArray->freq[j];
-						MaxFreqArray->freq[j] = t;
-					}
-			}
-		}
-	}
-
-	// Do per note normalization if requested
-	// This makes it so relative channel/note 
-	// volume is ignored at a global level
-	if(config->normalize == 'n')
-	{
-		MaxMagnitude = 0;
-		// Find MaxMagnitude for Normalization
-		for(i = 0; i < config->MaxFreq; i++)
-		{
-			if(MaxFreqArray->freq[i].hertz)
-			{
-				if(MaxFreqArray->freq[i].magnitude > MaxMagnitude)
-					MaxMagnitude = MaxFreqArray->freq[i].magnitude;
-			}
-		}
-	 
-		// Normalize to 100
-		// Calculate per Note dbs
-		for(i = 0; i < config->MaxFreq; i++)
-		{
-			MaxFreqArray->freq[i].amplitude = 
-				20*log10(MaxFreqArray->freq[i].magnitude/MaxMagnitude);
-			MaxFreqArray->freq[i].magnitude = 
-				MaxFreqArray->freq[i].magnitude*100.0/MaxMagnitude;
-		}
-	}
-
-	if(config->clockNote)
+	if(config->clockBlock)
 	{
 		double			elapsedSeconds;
 		clock_gettime(CLOCK_MONOTONIC, &end);
 		elapsedSeconds = TimeSpecToSeconds(&end) - TimeSpecToSeconds(&start);
-		logmsg("Processing Note took %f\n", elapsedSeconds);
+		logmsg("Processing Audio Block took %f\n", elapsedSeconds);
 	}
 
 	free(signal);
-	fftw_free(spectrum);
+	signal = NULL;
+
+	AudioArray->fftwValues.spectrum = spectrum;
+	AudioArray->fftwValues.size = monoSignalSize;
+	AudioArray->fftwValues.seconds = seconds;
 
 	return(0);
 }
 
-int CalculateMaxCompare(int note, msgbuff *message, GenesisAudio *Signal, parameters *config)
+int CalculateMaxCompare(int block, msgbuff *message, AudioSignal *Signal, parameters *config)
 {
 	int count = config->MaxFreq;
 
@@ -529,20 +421,20 @@ int CalculateMaxCompare(int note, msgbuff *message, GenesisAudio *Signal, parame
 		{
 			double difference = 0;
 
-			if(!Signal->Notes[note].freq[freq].hertz)
+			if(!Signal->Blocks[block].freq[freq].hertz)
 			{
 				count = freq;
 				return count;
 			}
 
-			if(Signal->Notes[note].freq[freq].amplitude <= Signal->floorAmplitude)
+			if(Signal->Blocks[block].freq[freq].amplitude <= Signal->floorAmplitude)
 			{
 				count = freq;
 				return count;
 			}
 
-			difference = fabs(fabs(Signal->floorAmplitude) - fabs(Signal->Notes[note].freq[freq].amplitude));
-			if((Signal->Notes[note].freq[freq].hertz == Signal->floorFreq &&
+			difference = fabs(fabs(Signal->floorAmplitude) - fabs(Signal->Blocks[block].freq[freq].amplitude));
+			if((Signal->Blocks[block].freq[freq].hertz == Signal->floorFreq &&
 				difference <= config->tolerance))  // this in dbs
 			{
 				count = freq;
@@ -554,7 +446,7 @@ int CalculateMaxCompare(int note, msgbuff *message, GenesisAudio *Signal, parame
 	{
 		for(int freq = 0; freq < config->MaxFreq; freq++)
 		{
-			if(!Signal->Notes[note].freq[freq].hertz)
+			if(!Signal->Blocks[block].freq[freq].hertz)
 			{
 				count = freq;
 				return count;
@@ -620,9 +512,9 @@ double CalculateWeightedError(double pError, parameters *config)
 	return pError;
 }
 
-double CompareNotes(GenesisAudio *ReferenceSignal, GenesisAudio *TestSignal, parameters *config)
+double CompareAudioBlocks(AudioSignal *ReferenceSignal, AudioSignal *TestSignal, parameters *config)
 {
-	int			note = 0;
+	int			block = 0;
 	long int 	msg = 0, HadCRTNoise = 0;
 	double		totalDiff = 0, totalError = 0;
 	long int	FM_amplitudes = 0, FMnotfound = 0;
@@ -643,7 +535,7 @@ double CompareNotes(GenesisAudio *ReferenceSignal, GenesisAudio *TestSignal, par
 	message.msgSize = 4096;
 
 	logmsg("\n-- Results --\n\n");
-	for(note = 0; note < MAX_NOTES; note++)
+	for(block = 0; block < config->types.regularChunks; block++)
 	{
 		int refSize = 0, testSize = 0;
 
@@ -651,17 +543,17 @@ double CompareNotes(GenesisAudio *ReferenceSignal, GenesisAudio *TestSignal, par
 		message.msgPos = 0;
 		message.message[0] = '\0';
 
-		sprintf(message.buffer, "Note: %s# %d (%d)\n", GetRange(note), GetSubIndex(note), note);
+		sprintf(message.buffer, "Block: %s# %d (%d)\n", GetBlockName(config, block), GetBlockSubIndex(config, block), block);
 		InsertMessageInBuffer(&message, config);
 
-		refSize = CalculateMaxCompare(note, &message, ReferenceSignal, config);
-		testSize = CalculateMaxCompare(note, &message, TestSignal, config);
+		refSize = CalculateMaxCompare(block, &message, ReferenceSignal, config);
+		testSize = CalculateMaxCompare(block, &message, TestSignal, config);
 
 		for(long int freq = 0; freq < refSize; freq++)
 		{
 			int CRTNoise;
 				
-			CRTNoise = IsCRTNoise(ReferenceSignal->Notes[note].freq[freq].hertz);
+			CRTNoise = IsCRTNoise(ReferenceSignal->Blocks[block].freq[freq].hertz);
 			if(CRTNoise)
 				HadCRTNoise = 1;
 
@@ -670,19 +562,19 @@ double CompareNotes(GenesisAudio *ReferenceSignal, GenesisAudio *TestSignal, par
 			{
 				int found = 0, index = 0;
 
-				if(ReferenceSignal->Notes[note].type == TYPE_FM)
+				if(ReferenceSignal->Blocks[block].type == TYPE_FM)
 					FMcompared ++;
 				else
 					PSGcompared ++;
 
 				for(long int comp = 0; comp < testSize; comp++)
 				{
-					if(!TestSignal->Notes[note].freq[comp].matched && 
-						ReferenceSignal->Notes[note].freq[freq].hertz ==
-						TestSignal->Notes[note].freq[comp].hertz)
+					if(!TestSignal->Blocks[block].freq[comp].matched && 
+						ReferenceSignal->Blocks[block].freq[freq].hertz ==
+						TestSignal->Blocks[block].freq[comp].hertz)
 					{
-						TestSignal->Notes[note].freq[comp].matched = freq + 1;
-						ReferenceSignal->Notes[note].freq[freq].matched = comp + 1;
+						TestSignal->Blocks[block].freq[comp].matched = freq + 1;
+						ReferenceSignal->Blocks[block].freq[freq].matched = comp + 1;
 						found = 1;
 						index = comp;
 						break;
@@ -697,12 +589,12 @@ double CompareNotes(GenesisAudio *ReferenceSignal, GenesisAudio *TestSignal, par
 					// Find closest match
 					for(long int comp = 0; comp < testSize; comp++)
 					{
-						if(!TestSignal->Notes[note].freq[comp].matched)
+						if(!TestSignal->Blocks[block].freq[comp].matched)
 						{
 							double hertzDiff;
 		
-							hertzDiff = fabs(TestSignal->Notes[note].freq[comp].hertz -
-											 ReferenceSignal->Notes[note].freq[freq].hertz);
+							hertzDiff = fabs(TestSignal->Blocks[block].freq[comp].hertz -
+											 ReferenceSignal->Blocks[block].freq[freq].hertz);
 
 							if(hertzDiff <= config->HzDiff)
 							{
@@ -718,13 +610,13 @@ double CompareNotes(GenesisAudio *ReferenceSignal, GenesisAudio *TestSignal, par
 
 					if(lowIndex >= 0)
 					{
-						TestSignal->Notes[note].freq[lowIndex].matched = freq + 1;
-						ReferenceSignal->Notes[note].freq[freq].matched = lowIndex + 1;
+						TestSignal->Blocks[block].freq[lowIndex].matched = freq + 1;
+						ReferenceSignal->Blocks[block].freq[freq].matched = lowIndex + 1;
 
 						found = 2;
 						index = lowIndex;
 
-						if(ReferenceSignal->Notes[note].type == TYPE_FM)
+						if(ReferenceSignal->Blocks[block].type == TYPE_FM)
 						{
 							FMadjHz++;
 							
@@ -745,15 +637,15 @@ double CompareNotes(GenesisAudio *ReferenceSignal, GenesisAudio *TestSignal, par
 				{
 					double test;
 	
-					test = fabs(TestSignal->Notes[note].freq[index].amplitude - ReferenceSignal->Notes[note].freq[freq].amplitude);
-					//if(test > config->tolerance && ReferenceSignal->Notes[note].freq[freq].amplitude > -60.0 && freq < config->MaxFreq*.9) // TEST
+					test = fabs(TestSignal->Blocks[block].freq[index].amplitude - ReferenceSignal->Blocks[block].freq[freq].amplitude);
+					//if(test > config->tolerance && ReferenceSignal->Blocks[block].freq[freq].amplitude > -60.0 && freq < config->MaxFreq*.9) // TEST
 					if(test > config->tolerance)
 					{
 						sprintf(message.buffer, "\tDifferent Amplitude: %g Hz at %0.4fdbs instead of %g Hz at %0.2fdbs {%g}\n",
-							TestSignal->Notes[note].freq[index].hertz,
-							TestSignal->Notes[note].freq[index].amplitude,
-							ReferenceSignal->Notes[note].freq[freq].hertz,
-							ReferenceSignal->Notes[note].freq[freq].amplitude,
+							TestSignal->Blocks[block].freq[index].hertz,
+							TestSignal->Blocks[block].freq[index].amplitude,
+							ReferenceSignal->Blocks[block].freq[freq].hertz,
+							ReferenceSignal->Blocks[block].freq[freq].amplitude,
 							test);	
 						InsertMessageInBuffer(&message, config);
 						msg++;
@@ -763,7 +655,7 @@ double CompareNotes(GenesisAudio *ReferenceSignal, GenesisAudio *TestSignal, par
 							double value = 0;
 							
 							// we get the proportional linear error in range 0-1
-							//value = ReferenceSignal->Notes[note].freq[freq].magnitude/100.0;
+							//value = ReferenceSignal->Blocks[block].freq[freq].magnitude/100.0;
 							value = 1.0 - (double)freq/(double)config->MaxFreq;
 							totalDiff += CalculateWeightedError(value, config);
 							/*
@@ -778,7 +670,7 @@ double CompareNotes(GenesisAudio *ReferenceSignal, GenesisAudio *TestSignal, par
 						else
 							totalDiff ++;
 
-						if(ReferenceSignal->Notes[note].type == TYPE_FM)
+						if(ReferenceSignal->Blocks[block].type == TYPE_FM)
 						{
 							FM_amplitudes ++;
 	
@@ -796,7 +688,7 @@ double CompareNotes(GenesisAudio *ReferenceSignal, GenesisAudio *TestSignal, par
 		
 					if(test && test <= config->tolerance)
 					{
-						if(ReferenceSignal->Notes[note].type == TYPE_FM)
+						if(ReferenceSignal->Blocks[block].type == TYPE_FM)
 						{
 							FMadjAmplitudes++;
 							if(test > FMhighDiffAdj)
@@ -811,12 +703,12 @@ double CompareNotes(GenesisAudio *ReferenceSignal, GenesisAudio *TestSignal, par
 					}
 				}
 
-				//if(!found && ReferenceSignal->Notes[note].freq[freq].amplitude > -60.0 && freq < config->MaxFreq*.9)  //TEST
+				//if(!found && ReferenceSignal->Blocks[block].freq[freq].amplitude > -60.0 && freq < config->MaxFreq*.9)  //TEST
 				if(!found)
 				{
 					sprintf(message.buffer, "\tReference Frequency not found: %g Hz at %5.4f db (index: %ld)\n",
-							ReferenceSignal->Notes[note].freq[freq].hertz,
-							ReferenceSignal->Notes[note].freq[freq].amplitude,
+							ReferenceSignal->Blocks[block].freq[freq].hertz,
+							ReferenceSignal->Blocks[block].freq[freq].amplitude,
 							freq);
 					InsertMessageInBuffer(&message, config);
 					msg ++;
@@ -840,7 +732,7 @@ double CompareNotes(GenesisAudio *ReferenceSignal, GenesisAudio *TestSignal, par
 					else
 						totalDiff ++;
 
-					if(ReferenceSignal->Notes[note].type == TYPE_FM)
+					if(ReferenceSignal->Blocks[block].type == TYPE_FM)
 						FMnotfound ++;
 					else
 						PSGnotfound ++;
@@ -855,8 +747,8 @@ double CompareNotes(GenesisAudio *ReferenceSignal, GenesisAudio *TestSignal, par
 			logmsg("%s\n", message.message);
 			if(config->extendedResults)
 			{
-				logmsg("Unmatched Note Report for %s# %ld (%ld)\n", GetRange(note), GetSubIndex(note), note);
-				PrintComparedNotes(&ReferenceSignal->Notes[note], &TestSignal->Notes[note],
+				logmsg("Unmatched Block Report for %s# %ld (%ld)\n", GetBlockName(config, block), GetBlockSubIndex(config, block), block);
+				PrintComparedBlocks(&ReferenceSignal->Blocks[block], &TestSignal->Blocks[block],
 					config, ReferenceSignal);
 			}
 			if(IsLogEnabled())
@@ -868,8 +760,8 @@ double CompareNotes(GenesisAudio *ReferenceSignal, GenesisAudio *TestSignal, par
 				DisableConsole();
 			if(!config->justResults && config->showAll)
 			{
-				logmsg("Matched Note Report for %s# %ld (%ld)\n", GetRange(note), GetSubIndex(note), note);
-				PrintComparedNotes(&ReferenceSignal->Notes[note], &TestSignal->Notes[note], 
+				logmsg("Matched Block Report for %s# %ld (%ld)\n", GetBlockName(config, block), GetBlockSubIndex(config, block), block);
+				PrintComparedBlocks(&ReferenceSignal->Blocks[block], &TestSignal->Blocks[block], 
 					config, ReferenceSignal);
 			}
 			if(IsLogEnabled())

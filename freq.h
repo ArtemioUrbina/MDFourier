@@ -1,7 +1,8 @@
 /* 
  * MDFourier
  * A Fourier Transform analysis tool to compare different 
- * Sega Genesis/Mega Drive audio hardware revisions.
+ * Sega Genesis/Mega Drive audio hardware revisions, and
+ * other hardware in the future
  *
  * Copyright (C)2019 Artemio Urbina
  *
@@ -31,68 +32,33 @@
 #ifndef MDFOURIER_FREQ_H
 #define MDFOURIER_FREQ_H
 
-#include "cline.h"
+#include "mdfourier.h"
 
-typedef struct FrequencySt {
-	double hertz;
-	double magnitude;
-	double amplitude;
-	double phase;
-	int    matched;
-} Frequency;
+int LoadAudioBlockStructure(parameters *config);
+int GetSilenceIndex(parameters *config);
+int GetTotalAudioBlocks(parameters *config);
+int GetTotalAudioBlocksWithSilence(parameters *config);
+double GetLongestBlock(parameters *config);
+double GetTotalBlockDuration(parameters *config);
+double GetBlockDuration(parameters *config, int pos);
+char *GetBlockName(parameters *config, int pos);
+int GetBlockSubIndex(parameters *config, int pos);
+int GetBlockType(parameters *config, int pos);
+double GetFramerateAdjust(parameters *config);
 
-typedef struct MaxFreqSt {
-	Frequency	freq[MAX_FREQ_COUNT];
-	int 		index;
-	int 		type;
-} MaxFreq;
-
-typedef struct GenesisAudioSt {
-	MaxFreq 	Notes[MAX_NOTES+1]; 
-	char		SourceFile[1024];
-	int 		hasFloor;
-	double		floorFreq;
-	double		floorAmplitude;
-}  GenesisAudio;
-
-
-// WAV data structures
-typedef struct	WAV_HEADER
-{
-	/* RIFF Chunk Descriptor */
-	uint8_t 		RIFF[4];		// RIFF Header Magic header
-	uint32_t		ChunkSize;		// RIFF Chunk Size
-	uint8_t 		WAVE[4];		// WAVE Header
-	/* "fmt" sub-chunk */
-	uint8_t 		fmt[4]; 		// FMT header
-	uint32_t		Subchunk1Size;	// Size of the fmt chunk
-	uint16_t		AudioFormat;	// Audio format 1=PCM,6=mulaw,7=alaw,	  257=IBM Mu-Law, 258=IBM A-Law, 259=ADPCM
-	uint16_t		NumOfChan;		// Number of channels 1=Mono 2=Sterio
-	uint32_t		SamplesPerSec;	// Sampling Frequency in Hz
-	uint32_t		bytesPerSec;	// bytes per second
-	uint16_t		blockAlign; 	// 2=16-bit mono, 4=16-bit stereo
-	uint16_t		bitsPerSample;	// Number of bits per sample
-	/* "data" sub-chunk */
-	uint8_t 		Subchunk2ID[4]; // "data"  string
-	uint32_t		Subchunk2Size;	// Sampled data length
-} wav_hdr;
-
-
-typedef struct msg_buffer_st {
-	char *message;
-	char buffer[1024];
-	int msgPos;
-	int msgSize;
-} msgbuff;
-
-void CleanAudio(GenesisAudio *Signal);
-void CleanMatched(GenesisAudio *ReferenceSignal, GenesisAudio *TestSignal, parameters *config);
-void PrintFrequencies(GenesisAudio *Signal, parameters *config);
-void GlobalNormalize(GenesisAudio *Signal, parameters *config);
-void FindFloor(GenesisAudio *Signal, parameters *config);
+AudioSignal *CreateAudioSignal(parameters *config);
+void CleanAudio(AudioSignal *Signal, parameters *config);
+void ReleaseAudio(AudioSignal *Signal, parameters *config);
+void CleanMatched(AudioSignal *ReferenceSignal, AudioSignal *TestSignal, parameters *config);
+void FillFrequencyStructures(AudioBlocks *AudioArray, parameters *config);
+void PrintFrequencies(AudioSignal *Signal, parameters *config);
+void GlobalNormalize(AudioSignal *Signal, parameters *config);
+void LocalNormalize(AudioBlocks *AudioArray, parameters *config);
+void CompressFrequencies(AudioBlocks *AudioArray, parameters *config);
+void FindFloor(AudioSignal *Signal, parameters *config);
 int IsCRTNoise(double freq);
 
-void PrintComparedNotes(MaxFreq *ReferenceArray, MaxFreq *ComparedArray, parameters *config, GenesisAudio *Signal);
+void PrintComparedBlocks(AudioBlocks *ReferenceArray, AudioBlocks *ComparedArray, parameters *config, AudioSignal *Signal);
 void InsertMessageInBuffer(msgbuff *message, parameters *config);
 
 #endif
