@@ -145,6 +145,16 @@ void ReleaseAudio(AudioSignal *Signal, parameters *config)
 	Signal->floorAmplitude = 0.0;	
 }
 
+void ReleaseAudioBlockStructure(parameters *config)
+{
+	if(config->types.typeCount && config->types.typeArray)
+	{
+		free(config->types.typeArray);
+		config->types.typeArray = NULL;
+		config->types.typeCount = 0;
+	}
+}
+
 int LoadAudioBlockStructure(parameters *config)
 {
 	FILE 	*file;
@@ -187,7 +197,7 @@ int LoadAudioBlockStructure(parameters *config)
 		fclose(file);
 		return 0;
 	}
-	config->types.framerateAdjust = atof(buffer);
+	config->types.framerateAdjust = strtod(buffer, NULL);
 	if(!config->types.framerateAdjust)
 	{
 		printf("Invalid Frame Rate Adjustment '%s'\n", buffer);
@@ -530,7 +540,7 @@ void PrintFrequencies(AudioSignal *Signal, parameters *config)
 		{
 			if(Signal->Blocks[block].freq[j].hertz)
 			{
-				logmsg("Frequency [%2d] %5.4g Hz [Amplitude: %g]",
+				logmsg("Frequency [%2d] %7g Hz [Amplitude: %g]",
 					j, 
 					Signal->Blocks[block].freq[j].hertz,
 					Signal->Blocks[block].freq[j].amplitude);

@@ -45,6 +45,7 @@ char *GetBlockName(parameters *config, int pos);
 int GetBlockSubIndex(parameters *config, int pos);
 int GetBlockType(parameters *config, int pos);
 double GetFramerateAdjust(parameters *config);
+void ReleaseAudioBlockStructure(parameters *config);
 
 AudioSignal *CreateAudioSignal(parameters *config);
 void CleanAudio(AudioSignal *Signal, parameters *config);

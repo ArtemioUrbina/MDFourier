@@ -58,6 +58,7 @@
 
 #define TYPE_SILENCE	0
 #define TYPE_NOTYPE		-1
+#define NO_INDEX 		-1
 
 // to remove
 #define	TYPE_FM			1
@@ -90,7 +91,7 @@ typedef struct abd_st {
 	char			Name[128];
 	int				totalChunks;
 	int				regularChunks;
-	float			framerateAdjust;
+	double			framerateAdjust;
 
 	AudioBlockType	*typeArray;
 	int				typeCount;
@@ -166,6 +167,14 @@ typedef struct parameters_st {
 	int				useOutputFilter;
 	int				outputFilterFunction;
 	AudioBlockDef	types;
+#ifdef MDWAVE
+	int				maxBlanked;
+	int				invert;
+	int				chunks;
+	long int		MaxMagnitude;
+	long int		MinAmplitude;
+	double			floorAmplitude;
+#endif
 } parameters;
 
 /********************************************************/

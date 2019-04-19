@@ -1,7 +1,8 @@
 /* 
  * MDWave
  * A Fourier Transform analysis tool to compare different 
- * Sega Genesis/Mega Drive audio hardware revisions.
+ * Sega Genesis/Mega Drive audio hardware revisions, and
+ * other hardware in the future
  *
  * Copyright (C)2019 Artemio Urbina
  *
@@ -28,216 +29,37 @@
  *	  gcc -Wall -std=gnu99 -o mdwave mdwave.c -lfftw3 -lm
  */
 
+#define MDWAVE
+#define MDWVERSION "0.75"
 
-#include <stdio.h>
-#include <stdarg.h>
-#include <stdlib.h>
-#include <sys/types.h>
-#include <sys/stat.h>
-#include <ctype.h>
-#include <unistd.h>
-#include <stdint.h>
-#include <time.h>
+#include "mdfourier.h"
+#include "log.h"
+#include "windows.h"
+#include "freq.h"
+#include "cline.h"
 
-#include <string.h>
-#include <math.h>
-#include <complex.h>
-#include <fftw3.h>
-#include <libgen.h>
-
-#define MDWVERSION "0.5"
-
-#define PSG_COUNT	40
-#define NOISE_COUNT 100
-
-#define MAX_FREQ_COUNT		22050 	// Number of frequencies to account for (MAX) 
-#define FREQ_COUNT			2000 	// Number of frequencies to account for (default)
-#define MAX_NOTES			140		// we have 140 notes in the 240p Test Suite
-
-#define TYPE_NONE	0
-#define TYPE_FM 	1
-#define TYPE_PSG	2
-#define TYPE_NOISE	3
-
-// This is the percentual difference allowed between reference and compared
-// to be a match
-#define DBS_TOLERANCE		3.0
-
-// Width of each peak
-#define HERTZ_WIDTH			0.0
-
-// +/- Tolerance in frequency Difference to be the same one
-#define HERTZ_DIFF			0.0
-
-//Percentage of normalized magnitude frequencies to match
-#define FREQ_COMPARE		1.0
-
-#define START_HZ	10
-#define END_HZ		MAX_FREQ_COUNT
-
-typedef struct FrequencySt {
-	double hertz;
-	double magnitude;
-	double amplitude;
-	double phase;
-	long   indexFFT;
-	int    matched;
-} Frequency;
-
-typedef struct MaxFreqSt {
-	Frequency	freq[MAX_FREQ_COUNT];
-	int 		index;
-	int 		type;
-} MaxFreq;
-
-typedef struct GenesisAudioSt {
-	MaxFreq 	Notes[MAX_NOTES+1]; 
-	char		SourceFile[1024];
-	int 		hasFloor;
-	double		floorAmplitude;
-}  GenesisAudio;
-
-int IsCRTNoise(double freq)
-{
-	if(freq >= 15620 && freq <= 15710) //Peak around 15697-15698 usualy
-		return 1;
-	return 0;
-}
-
-void CleanAudio(GenesisAudio *Signal)
-{
-	if(!Signal)
-		return;
-	for(int n = 0; n < MAX_NOTES+1; n++)
-	{
-		for(int i = 0; i < MAX_FREQ_COUNT; i++)
-		{
-			Signal->Notes[n].freq[i].hertz = 0;
-			Signal->Notes[n].freq[i].magnitude = 0;
-			Signal->Notes[n].freq[i].amplitude = 0;
-			Signal->Notes[n].freq[i].phase = 0;
-			Signal->Notes[n].freq[i].indexFFT = -1;
-			Signal->Notes[n].freq[i].matched = 0;
-		}
-	}
-	Signal->SourceFile[0] = '\0';
-	Signal->hasFloor = 0;
-	Signal->floorAmplitude = 0.0;
-}
-
-// WAV data structures
-typedef struct	WAV_HEADER
-{
-	/* RIFF Chunk Descriptor */
-	uint8_t 		RIFF[4];		// RIFF Header Magic header
-	uint32_t		ChunkSize;		// RIFF Chunk Size
-	uint8_t 		WAVE[4];		// WAVE Header
-	/* "fmt" sub-chunk */
-	uint8_t 		fmt[4]; 		// FMT header
-	uint32_t		Subchunk1Size;	// Size of the fmt chunk
-	uint16_t		AudioFormat;	// Audio format 1=PCM,6=mulaw,7=alaw,	  257=IBM Mu-Law, 258=IBM A-Law, 259=ADPCM
-	uint16_t		NumOfChan;		// Number of channels 1=Mono 2=Sterio
-	uint32_t		SamplesPerSec;	// Sampling Frequency in Hz
-	uint32_t		bytesPerSec;	// bytes per second
-	uint16_t		blockAlign; 	// 2=16-bit mono, 4=16-bit stereo
-	uint16_t		bitsPerSample;	// Number of bits per sample
-	/* "data" sub-chunk */
-	uint8_t 		Subchunk2ID[4]; // "data"  string
-	uint32_t		Subchunk2Size;	// Sampled data length
-} wav_hdr;
-
-typedef struct window_st {
-	float *win1Sec;
-	float *win2Sec;
-} windowManager;
-
-
-typedef struct parameters_st {
-	char 		referenceFile[1024];
-	char 		targetFile[1024];
-	double		tolerance;
-	double		HzWidth;
-	double		HzDiff;
-	int 		startHz, endHz;
-	int 		showAll;
-	int 		extendedResults;
-	int 		justResults;
-	int 		verbose;
-	char 		window;
-	char		channel;
-	int 		MaxFreq;
-	int 		clock;
-	int 		clockNote;
-	int 		spreadsheet;	
-	double		MaxMagnitude;
-	double		MinAmplitude;
-	double		floorAmplitude;
-	double		useFloor;
-	int			invert;
-	int			maxBlanked;
-	int 		chunks;
-} parameters;
-
-void CleanParameters(parameters *config)
-{
-	config->tolerance = DBS_TOLERANCE;
-	config->startHz = START_HZ;
-	config->endHz = END_HZ;
-	config->verbose = 0;
-	config->window = 't';
-	config->channel = 's';
-	config->MaxFreq = FREQ_COUNT;
-	config->clock = 0;
-	config->clockNote = 0;
-	config->HzWidth = HERTZ_WIDTH;
-	config->HzDiff = HERTZ_DIFF;
-	config->showAll = 0;
-	config->MaxMagnitude = 0;
-	config->MinAmplitude = 0;
-	config->floorAmplitude = 0;
-	config->useFloor = 0;
-	config->invert = 0;
-	config->maxBlanked = 0;
-	config->chunks = 0;
-}
-
-int do_log = 0;
-char log_file[2048];
-
-int LoadFile(FILE *file, GenesisAudio *Signal, parameters *config, char *fileName);
-double ProcessSamples(MaxFreq *MaxFreqArray, short *samples, size_t size, long samplerate, float *window, parameters *config,  int reverse);
-void FindMaxMagnitude(GenesisAudio *Signal, parameters *config);
-int commandline(int argc , char *argv[], parameters *config);
-static double TimeSpecToSeconds(struct timespec* ts);
-void FindFloor(GenesisAudio *Signal, parameters *config);
-float *hannWindow(int n);
-float *flattopWindow(int n);
-float *tukeyWindow(int n);
-void logmsg(char *fmt, ... );
-char *GetRange(int index);
-int GetSubIndex(int index);
-void Header(int log);
-void PrintUsage();
+int LoadFile(FILE *file, AudioSignal *Signal, parameters *config, char *fileName);
+double ProcessSamples(AudioBlocks *AudioArray, short *samples, size_t size, long samplerate, float *window, parameters *config, int reverse);
+int commandline_wave(int argc , char *argv[], parameters *config);
+void FindMaxMagnitude(AudioSignal *Signal, parameters *config);
+void PrintUsage_wave();
+void Header_wave(int log);
 
 int main(int argc , char *argv[])
 {
 	FILE				*reference = NULL;
-	GenesisAudio  		*ReferenceSignal;
+	AudioSignal  		*ReferenceSignal;
 	parameters			config;
 
-	Header(0);
-	if(!commandline(argc, argv, &config))
+	Header_wave(0);
+	if(!commandline_wave(argc, argv, &config))
 	{
 		printf("	 -h: Shows command line help\n");
 		return 1;
 	}
 
-	if(strcmp(config.referenceFile, config.targetFile) == 0)
-	{
-		logmsg("Both inputs are the same file %s, skipping to save time\n",
-			 config.referenceFile);
-		return 0;
-	}	
+	if(!LoadAudioBlockStructure(&config))
+		return 1;
 
 	reference = fopen(config.referenceFile, "rb");
 	if(!reference)
@@ -246,134 +68,53 @@ int main(int argc , char *argv[])
 		return 0;
 	}
 
-	ReferenceSignal = (GenesisAudio*)malloc(sizeof(GenesisAudio));
+	ReferenceSignal = CreateAudioSignal(&config);
 	if(!ReferenceSignal)
 	{
 		logmsg("Not enough memory for Data Structures\n");
 		return 0;
 	}
 
-	config.maxBlanked = 0;
 	logmsg("\nLoading Reference audio file %s\n", config.referenceFile);
 	if(!LoadFile(reference, ReferenceSignal, &config, config.referenceFile))
 	{
 		free(ReferenceSignal);
 		return 0;
 	}
-	logmsg("Max blanked frequencies per note from the spectrum %d\n", config.maxBlanked);
+	logmsg("Max blanked frequencies per block from the spectrum %d\n", config.maxBlanked);
 	
+	ReleaseAudio(ReferenceSignal, &config);
 	free(ReferenceSignal);
 	ReferenceSignal = NULL;
+
+	ReleaseAudioBlockStructure(&config);
 	
 	return(0);
-}
-
-int initWindows(windowManager *windows, int SamplesPerSec, char type)
-{
-	if(!windows)
-		return 0;
-
-	windows->win1Sec = NULL;
-	windows->win2Sec = NULL;
-
-	if(type != 'n')
-	{
-		if(type == 't')
-		{
-			windows->win2Sec = tukeyWindow(SamplesPerSec*2);
-			if(!windows->win2Sec)
-			{
-				logmsg ("Tukey window creation failed\n");
-				return(0);
-			}
-		
-			windows->win1Sec = tukeyWindow(SamplesPerSec);
-			if(!windows->win2Sec)
-			{
-				logmsg ("Tukey window creation failed\n");
-				return(0);
-			}
-		}
-
-		if(type == 'f')
-		{
-			windows->win2Sec = flattopWindow(SamplesPerSec*2);
-			if(!windows->win2Sec)
-			{
-				logmsg ("FlatTop window creation failed\n");
-				return(0);
-			}
-		
-			windows->win1Sec = flattopWindow(SamplesPerSec);
-			if(!windows->win1Sec)
-			{
-				logmsg ("FlatTop window creation failed\n");
-				return(0);
-			}
-		}
-
-		if(type == 'h')
-		{
-			windows->win2Sec = hannWindow(SamplesPerSec*2);
-			if(!windows->win2Sec)
-			{
-				logmsg ("Hann window creation failed\n");
-				return(0);
-			}
-		
-			windows->win1Sec = hannWindow(SamplesPerSec);
-			if(!windows->win1Sec)
-			{
-				logmsg ("Hann window creation failed\n");
-				return(0);
-			}
-		}
-	}
-
-	/*
-	if(windows->win2Sec)
-		for(int w= 0; w < SamplesPerSec*2; w++)
-			logmsg("%d,%g\n", w, windows->win2Sec[w]);
-	exit(1); 
-	*/
-
-	return 1;
-}
-
-void freeWindows(windowManager *windows)
-{
-	if(!windows)
-		return;
-
-	free(windows->win1Sec);
-	windows->win1Sec = NULL;
-	free(windows->win2Sec);
-	windows->win2Sec = NULL;
 }
 
 void GenerateFileName(parameters *config, char *Name, char *Target)
 {
 	char text[200];
 	
-	if(config->useFloor)
+	if(!config->ignoreFloor)
 		sprintf(text, "Floor");
 	else
 		sprintf(text, "F-%04d", config->MaxFreq);
 	sprintf(Target, "%s_%s_%s", config->invert ? "Discarded" : "Used", text, Name);
 }
 
-int LoadFile(FILE *file, GenesisAudio *Signal, parameters *config, char *fileName)
+int LoadFile(FILE *file, AudioSignal *Signal, parameters *config, char *fileName)
 {
 	int 				i = 0;
-	int 				loadedNoteSize = 0;
-	char				*buffer;
+	int 				loadedBlockSize = 0;
+	char				*buffer, silence = -1;
 	size_t			 	buffersize = 0;
 	size_t			 	discardBytes = 0, discardSamples = 0;
 	wav_hdr 			header;
 	windowManager		windows;
 	float				*windowUsed = NULL;
 	struct	timespec	start, end;
-	double				seconds = 0;
+	double				seconds = 0, longest = 0;
 	FILE				*processed = NULL;
 	char				Name[2048];
 	char 				*AllSamples = NULL;
@@ -423,19 +164,27 @@ int LoadFile(FILE *file, GenesisAudio *Signal, parameters *config, char *fileNam
 	}
 
 	seconds = (double)header.Subchunk2Size/4.0/(double)header.SamplesPerSec;
-	if(seconds < 180)
+	if(seconds < GetTotalBlockDuration(config))
 		logmsg("File length is smaller than expected\n");
 
 	logmsg("WAV file is PCM %dhz %dbits and %g seconds long\n", 
 		header.SamplesPerSec, header.bitsPerSample, seconds);
 
-	// We need to align to the 16.688ms per frame by the Genesis
-	discardSamples = (size_t)round(1.00128*header.SamplesPerSec);
+	// We need to convert buffersize to the 16.688ms per frame by the Genesis
+	// Mega Drive is 1.00128, now loaded fomr file
+	discardSamples = (size_t)round(GetFramerateAdjust(config)*header.SamplesPerSec);
 	if(discardSamples % 2)
 		discardSamples += 1;
-	discardSamples -= header.SamplesPerSec;
 
-	buffersize = header.SamplesPerSec*8*sizeof(char); // 2 bytes per sample, stereo
+	discardSamples -= header.SamplesPerSec;
+	longest = GetLongestBlock(config);
+	if(!longest)
+	{
+		logmsg("Block definitions are invalid, total length is 0\n");
+		return 0;
+	}
+
+	buffersize = header.SamplesPerSec*4*sizeof(char)*(int)longest; // 2 bytes per sample, stereo
 	buffer = (char*)malloc(buffersize);
 	if(!buffer)
 	{
@@ -443,7 +192,7 @@ int LoadFile(FILE *file, GenesisAudio *Signal, parameters *config, char *fileNam
 		return(0);
 	}
 
-	if(!initWindows(&windows, header.SamplesPerSec, config->window))
+	if(!initWindows(&windows, header.SamplesPerSec, config))
 		return 0;
 
 	AllSamples = (char*)malloc(sizeof(char)*header.Subchunk2Size);
@@ -459,45 +208,38 @@ int LoadFile(FILE *file, GenesisAudio *Signal, parameters *config, char *fileNam
 		return(0);
 	}
 
-	CleanAudio(Signal);
-
-	if(seconds >= 181)
+	silence = GetSilenceIndex(config);
+	if(silence != NO_INDEX)
 		Signal->hasFloor = 1;
 
 	sprintf(Signal->SourceFile, "%s", fileName);
 	if(config->clock)
 		clock_gettime(CLOCK_MONOTONIC, &start);
 
-	while(i < MAX_NOTES+Signal->hasFloor)
+	while(i < config->types.totalChunks)
 	{
-		if(i < PSG_COUNT)
-		{
-			loadedNoteSize = buffersize;   //2 second blocks
-			discardBytes = discardSamples * 8;
-			if(config->window != 'n')
-				windowUsed = windows.win2Sec;
-		}
-		else
-		{
-			loadedNoteSize = buffersize/2; // 1 second block
-			discardBytes = discardSamples * 4;
-			if(config->window != 'n')
-				windowUsed = windows.win1Sec;
-		}
+		double duration = 0;
+
+		duration = GetBlockDuration(config, i);
+		if(config->window != 'n')
+			windowUsed = getWindowByLength(&windows, duration);
+		
+		loadedBlockSize = header.SamplesPerSec*4*sizeof(char)*(int)duration;
+		discardBytes = discardSamples * 4 * duration;
 
 		memset(buffer, 0, buffersize);
-		if(pos + loadedNoteSize > header.Subchunk2Size)
+		if(pos + loadedBlockSize > header.Subchunk2Size)
 		{
 			logmsg("\tunexpected end of File, please record the full Audio Test from the 240p Test Suite\n");
 			break;
 		}
-		memcpy(buffer, AllSamples + pos, loadedNoteSize);
-		pos += loadedNoteSize;
+		memcpy(buffer, AllSamples + pos, loadedBlockSize);
+		pos += loadedBlockSize;
 		
-		Signal->Notes[i].index = i < PSG_COUNT ? i : i - PSG_COUNT;
-		Signal->Notes[i].type = i < PSG_COUNT ? TYPE_FM : TYPE_PSG;
+		Signal->Blocks[i].index = GetBlockSubIndex(config, i);
+		Signal->Blocks[i].type = GetBlockType(config, i);
 
-		ProcessSamples(&Signal->Notes[i], (short*)buffer, loadedNoteSize/2, header.SamplesPerSec, windowUsed, config, 0);
+		ProcessSamples(&Signal->Blocks[i], (short*)buffer, loadedBlockSize/2, header.SamplesPerSec, windowUsed, config, 0);
 
 		if(config->chunks)
 		{
@@ -513,15 +255,15 @@ int LoadFile(FILE *file, GenesisAudio *Signal, parameters *config, char *fileNam
 				return 0;
 			}
 
-			cheader.ChunkSize = loadedNoteSize+36;
-			cheader.Subchunk2Size = loadedNoteSize;
+			cheader.ChunkSize = loadedBlockSize+36;
+			cheader.Subchunk2Size = loadedBlockSize;
 			if(fwrite(&cheader, 1, sizeof(wav_hdr), chunk) != sizeof(wav_hdr))
 			{
 				logmsg("\tCould not write chunk header\n");
 				return(0);
 			}
 		
-			if(fwrite(buffer, 1, sizeof(char)*loadedNoteSize, chunk) != sizeof(char)*loadedNoteSize)
+			if(fwrite(buffer, 1, sizeof(char)*loadedBlockSize, chunk) != sizeof(char)*loadedBlockSize)
 			{
 				logmsg("\tCould not write samples to chunk file\n");
 				return (0);
@@ -537,7 +279,7 @@ int LoadFile(FILE *file, GenesisAudio *Signal, parameters *config, char *fileNam
 	// Instead of Global Normalization by default, do...
 	FindMaxMagnitude(Signal, config);
 
-	if(Signal->hasFloor && config->useFloor) // analyze noise floor if available
+	if(Signal->hasFloor && !config->ignoreFloor) // analyze noise floor if available
 		FindFloor(Signal, config);
 
 	// Clean up everything again
@@ -545,41 +287,36 @@ int LoadFile(FILE *file, GenesisAudio *Signal, parameters *config, char *fileNam
 	i = 0;
 
 	// redo with Floor
-	while(i < MAX_NOTES+Signal->hasFloor)
+	while(i < config->types.totalChunks)
 	{
-		if(i < PSG_COUNT)
-		{
-			loadedNoteSize = buffersize;   //2 second blocks
-			discardBytes = discardSamples * 8;
-			if(config->window != 'n')
-				windowUsed = windows.win2Sec;
-		}
-		else
-		{
-			loadedNoteSize = buffersize/2; // 1 second block
-			discardBytes = discardSamples * 4;
-			if(config->window != 'n')
-				windowUsed = windows.win1Sec;
-		}
+		double duration = 0;
+
+		duration = GetBlockDuration(config, i);
+		if(config->window != 'n')
+			windowUsed = getWindowByLength(&windows, duration);
+		
+		loadedBlockSize = header.SamplesPerSec*4*sizeof(char)*(int)duration;
+		discardBytes = discardSamples * 4 * duration;
+
 		memset(buffer, 0, buffersize);
-		if(pos + loadedNoteSize > header.Subchunk2Size)
+		if(pos + loadedBlockSize > header.Subchunk2Size)
 		{
 			logmsg("\tunexpected end of File, please record the full Audio Test from the 240p Test Suite\n");
 			break;
 		}
-		memcpy(buffer, AllSamples + pos, loadedNoteSize);
+		memcpy(buffer, AllSamples + pos, loadedBlockSize);
 		
-		Signal->Notes[i].index = i < PSG_COUNT ? i : i - PSG_COUNT;
-		Signal->Notes[i].type = i < PSG_COUNT ? TYPE_FM : TYPE_PSG;
+		Signal->Blocks[i].index = GetBlockSubIndex(config, i);
+		Signal->Blocks[i].type = GetBlockType(config, i);
 
 		// now rewrite array
-		if(i < MAX_NOTES)  // Ignore Silence!
-			ProcessSamples(&Signal->Notes[i], (short*)buffer, loadedNoteSize/2, header.SamplesPerSec, windowUsed, config, 1);
+		if(i != silence)  // Ignore Silence!
+			ProcessSamples(&Signal->Blocks[i], (short*)buffer, loadedBlockSize/2, header.SamplesPerSec, windowUsed, config, 1);
 
 		// Now rewrite global
-		memcpy(AllSamples + pos, buffer, loadedNoteSize);
+		memcpy(AllSamples + pos, buffer, loadedBlockSize);
 
-		pos += loadedNoteSize;
+		pos += loadedBlockSize;
 
 		if(config->chunks)
 		{
@@ -597,15 +334,15 @@ int LoadFile(FILE *file, GenesisAudio *Signal, parameters *config, char *fileNam
 				return 0;
 			}
 
-			cheader.ChunkSize = loadedNoteSize+36;
-			cheader.Subchunk2Size = loadedNoteSize;
+			cheader.ChunkSize = loadedBlockSize+36;
+			cheader.Subchunk2Size = loadedBlockSize;
 			if(fwrite(&cheader, 1, sizeof(wav_hdr), chunk) != sizeof(wav_hdr))
 			{
 				logmsg("\tCould not write chunk header\n");
 				return(0);
 			}
 		
-			if(fwrite(buffer, 1, sizeof(char)*loadedNoteSize, chunk) != sizeof(char)*loadedNoteSize)
+			if(fwrite(buffer, 1, sizeof(char)*loadedBlockSize, chunk) != sizeof(char)*loadedBlockSize)
 			{
 				logmsg("\tCould not write samples to chunk file\n");
 				return (0);
@@ -634,8 +371,10 @@ int LoadFile(FILE *file, GenesisAudio *Signal, parameters *config, char *fileNam
 	}
 
 	if(processed)
+	{
 		fclose(processed);
-
+		processed = NULL;
+	}
 
 	if(config->clock)
 	{
@@ -644,7 +383,6 @@ int LoadFile(FILE *file, GenesisAudio *Signal, parameters *config, char *fileNam
 		elapsedSeconds = TimeSpecToSeconds(&end) - TimeSpecToSeconds(&start);
 		logmsg("Processing WAV took %f\n", elapsedSeconds);
 	}
-
 
 	fclose(file);
 	free(buffer);
@@ -655,120 +393,42 @@ int LoadFile(FILE *file, GenesisAudio *Signal, parameters *config, char *fileNam
 	return i;
 }
 
-void FindFloor(GenesisAudio *Signal, parameters *config)
-{
-	if(!Signal)
-		return;
-	
-	if(!Signal->hasFloor)
-		return;
-
-	for(int i = 0; i < config->MaxFreq; i++)
-	{
-		if(!IsCRTNoise(Signal->Notes[MAX_NOTES].freq[i].hertz))
-		{
-			Signal->floorAmplitude = Signal->Notes[MAX_NOTES].freq[i].amplitude;
-			logmsg("Found 'Silence' block, top: %g Hz at %0.4f.db\n",
-				Signal->Notes[MAX_NOTES].freq[i].hertz, Signal->floorAmplitude);
-			config->floorAmplitude = Signal->floorAmplitude;  // kludge
-			return;
-		}
-	}
-	Signal->hasFloor = 0;  // revoke it if not found
-}
-
-void FindMaxMagnitude(GenesisAudio *Signal, parameters *config)
+void FindMaxMagnitude(AudioSignal *Signal, parameters *config)
 {
 	double MaxMagnitude = 0;
 	double MinAmplitude = 0;
 
 	// Find global peak
-	for(int note = 0; note < MAX_NOTES+Signal->hasFloor; note++)
+	for(int block = 0; block < config->types.totalChunks; block++)
 	{
 		for(int i = 0; i < config->MaxFreq; i++)
 		{
-			if(Signal->Notes[note].freq[i].magnitude > MaxMagnitude)
-				MaxMagnitude = Signal->Notes[note].freq[i].magnitude;
+			if(Signal->Blocks[block].freq[i].magnitude > MaxMagnitude)
+				MaxMagnitude = Signal->Blocks[block].freq[i].magnitude;
 		}
 	}
 
 	config->MaxMagnitude = MaxMagnitude;
 
 	//Calculate Amplitude in dbs
-	for(int note = 0; note < MAX_NOTES+Signal->hasFloor; note++)
+	for(int block = 0; block < config->types.totalChunks; block++)
 	{
 		for(int i = 0; i < config->MaxFreq; i++)
 		{
-			Signal->Notes[note].freq[i].amplitude = 
-				20*log10(Signal->Notes[note].freq[i].magnitude / MaxMagnitude);
-			Signal->Notes[note].freq[i].magnitude = 
-				Signal->Notes[note].freq[i].magnitude * 100.0 / MaxMagnitude;
-			if(Signal->Notes[note].freq[i].amplitude < MinAmplitude)
-				MinAmplitude = Signal->Notes[note].freq[i].amplitude;
+			Signal->Blocks[block].freq[i].amplitude = 
+				20*log10(Signal->Blocks[block].freq[i].magnitude / MaxMagnitude);
+			Signal->Blocks[block].freq[i].magnitude = 
+				Signal->Blocks[block].freq[i].magnitude * 100.0 / MaxMagnitude;
+			if(Signal->Blocks[block].freq[i].amplitude < MinAmplitude)
+				MinAmplitude = Signal->Blocks[block].freq[i].amplitude;
 		}
 	}
 
 	config->MinAmplitude = MinAmplitude;
 }
 
-void PrintFrequencies(GenesisAudio *Signal, parameters *config)
-{
-	for(int note = 0; note < MAX_NOTES+Signal->hasFloor; note++)
-	{
-		logmsg("==================== %s# %d (%d) ===================\n", GetRange(note), GetSubIndex(note), note);
-			if(config->spreadsheet)
-				logmsg("Spreadsheet-%s#%d\n", GetRange(note), GetSubIndex(note));
 
-		for(int j = 0; j < config->MaxFreq; j++)
-		{
-			if(Signal->Notes[note].freq[j].hertz)
-			{
-				logmsg("Frequency [%2d] %5.4g Hz [Amplitude: %g] [Phase: %g]",
-					j, 
-					Signal->Notes[note].freq[j].hertz,
-					Signal->Notes[note].freq[j].amplitude,
-					Signal->Notes[note].freq[j].phase);
-				//detect CRT frequency
-				if(IsCRTNoise(Signal->Notes[note].freq[j].hertz))
-					logmsg(" *** CRT Noise ***");
-				logmsg("\n");
-			}
-	
-			if(config->spreadsheet)
-			{
-				logmsg("Spreadsheet-index-Hz-amplitude, %d, %g, %g\n",
-					j, Signal->Notes[note].freq[j].hertz, Signal->Notes[note].freq[j].amplitude);
-			}
-		}
-	}
-}
-
-void logmsg(char *fmt, ... )
-{
-	va_list arguments; 
-
-	va_start(arguments, fmt);
-	if(do_log != 2)
-		vprintf(fmt, arguments);
-
-	if(do_log)
-	{
-		FILE *logfile = fopen(log_file, "a");
-		if(!logfile)
-			return;
-		vfprintf(logfile, fmt, arguments);
-		fclose(logfile);
-	}
-	va_end(arguments);
-	return;
-}
-
-static double TimeSpecToSeconds(struct timespec* ts)
-{
-	return (double)ts->tv_sec + (double)ts->tv_nsec / 1000000000.0;
-}
-
-double ProcessSamples(MaxFreq *MaxFreqArray, short *samples, size_t size, long samplerate, float *window, parameters *config, int reverse)
+double ProcessSamples(AudioBlocks *AudioArray, short *samples, size_t size, long samplerate, float *window, parameters *config, int reverse)
 {
 	fftw_plan		p = NULL, pBack = NULL;
 	long		  	stereoSignalSize = 0, blanked = 0;	
@@ -779,7 +439,7 @@ double ProcessSamples(MaxFreq *MaxFreqArray, short *samples, size_t size, long s
 	struct			timespec start, end;
 	double			CutOff = 0;
 	
-	if(!MaxFreqArray)
+	if(!AudioArray)
 	{
 		logmsg("No Array for results\n");
 		return 0;
@@ -803,7 +463,7 @@ double ProcessSamples(MaxFreq *MaxFreqArray, short *samples, size_t size, long s
 		return(0);
 	}
 
-	if(config->clockNote)
+	if(config->clockBlock)
 		clock_gettime(CLOCK_MONOTONIC, &start);
 
 	p = fftw_plan_dft_r2c_1d(monoSignalSize, signal, spectrum, FFTW_MEASURE);
@@ -829,7 +489,6 @@ double ProcessSamples(MaxFreq *MaxFreqArray, short *samples, size_t size, long s
 	fftw_execute(p); 
 	fftw_destroy_plan(p);
 
-	//for(i = 1; i < monoSignalSize/2+1; i++)
 	if(!reverse)
 	{
 		for(i = config->startHz*boxsize; i < config->endHz*boxsize; i++)	// Nyquist at 44.1khz
@@ -848,20 +507,19 @@ double ProcessSamples(MaxFreq *MaxFreqArray, short *samples, size_t size, long s
 			{
 				for(j = 0; j < config->MaxFreq; j++)
 				{
-					if(magnitude > MaxFreqArray->freq[j].magnitude && magnitude < previous)
+					if(magnitude > AudioArray->freq[j].magnitude && magnitude < previous)
 					{
 						//Move the previous values down the array
 						for(int k = config->MaxFreq-1; k > j; k--)
-							MaxFreqArray->freq[k] = MaxFreqArray->freq[k - 1];
+							AudioArray->freq[k] = AudioArray->freq[k - 1];
 		
-						MaxFreqArray->freq[j].hertz = Hertz;
-						MaxFreqArray->freq[j].magnitude = magnitude;
-						MaxFreqArray->freq[j].amplitude = 0;
-						MaxFreqArray->freq[j].phase = atan2(i1, r1);
-						MaxFreqArray->freq[j].indexFFT = i;
+						AudioArray->freq[j].hertz = Hertz;
+						AudioArray->freq[j].magnitude = magnitude;
+						AudioArray->freq[j].amplitude = 0;
+						AudioArray->freq[j].phase = atan2(i1, r1);
 						break;
 					}
-					previous = MaxFreqArray->freq[j].magnitude;
+					previous = AudioArray->freq[j].magnitude;
 				}
 			}
 		}
@@ -877,10 +535,10 @@ double ProcessSamples(MaxFreq *MaxFreqArray, short *samples, size_t size, long s
 		// Find the Max magnitude for frequency at -f cuttoff
 		for(int j = 0; j < config->MaxFreq; j++)
 		{
-			if(!MaxFreqArray->freq[j].hertz)
+			if(!AudioArray->freq[j].hertz)
 				break;
-			if(MaxFreqArray->freq[j].amplitude < MinAmplitude)
-				MinAmplitude = MaxFreqArray->freq[j].amplitude;
+			if(AudioArray->freq[j].amplitude < MinAmplitude)
+				MinAmplitude = AudioArray->freq[j].amplitude;
 		}
 		CutOff = MinAmplitude;
 		//logmsg("Cutoff: %g\n", CutOff);
@@ -900,10 +558,10 @@ double ProcessSamples(MaxFreq *MaxFreqArray, short *samples, size_t size, long s
 
 			if(config->invert)
 			{
-				if(config->useFloor && amplitude > config->floorAmplitude)
+				if(!config->ignoreFloor && amplitude > config->floorAmplitude)
 					blank = 1;
 				
-				if(!config->useFloor && amplitude > CutOff)
+				if(config->ignoreFloor && amplitude > CutOff)
 					blank = 1;
 
 				if(IsCRTNoise(Hertz))
@@ -911,10 +569,10 @@ double ProcessSamples(MaxFreq *MaxFreqArray, short *samples, size_t size, long s
 			}
 			else
 			{
-				if(config->useFloor && amplitude <= config->floorAmplitude)
+				if(!config->ignoreFloor && amplitude <= config->floorAmplitude)
 					blank = 1;
 				
-				if(!config->useFloor && amplitude <= CutOff)
+				if(config->ignoreFloor && amplitude <= CutOff)
 					blank = 1;
 
 				if(IsCRTNoise(Hertz))
@@ -983,85 +641,25 @@ double ProcessSamples(MaxFreq *MaxFreqArray, short *samples, size_t size, long s
 			config->maxBlanked = blanked;
 	}
 	
-	if(config->clockNote)
+	if(config->clockBlock)
 	{
 		double			elapsedSeconds;
 		clock_gettime(CLOCK_MONOTONIC, &end);
 		elapsedSeconds = TimeSpecToSeconds(&end) - TimeSpecToSeconds(&start);
-		logmsg("Processing Note took %f\n", elapsedSeconds);
+		logmsg("Processing Block took %f\n", elapsedSeconds);
 	}
 
 	free(signal);
-	fftw_free(spectrum);
+	signal = NULL;
+
+	AudioArray->fftwValues.spectrum = spectrum;
+	AudioArray->fftwValues.size = monoSignalSize;
+	AudioArray->fftwValues.seconds = seconds;
 
 	return(0);
 }
 
-
-char *GetRange(int index)
-{
-	if(index == MAX_NOTES)
-		return("Floor");
-	if(index < PSG_COUNT)
-		return("FM");
-	if(index >= NOISE_COUNT)
-	{
-		if(index - NOISE_COUNT > 20)
-			return("Periodic Noise");
-		else
-			return("White Noise");
-	}
-	if(index - PSG_COUNT < 20)
-		return("PSG 1");
-	if(index - PSG_COUNT < 40)
-		return("PSG 2");
-	return("PSG 3");
-}
-
-int GetSubIndex(int index)
-{
-	if(index == MAX_NOTES)
-		return(0);
-	if(index < PSG_COUNT) // FM
-		return(index + 1);
-	if(index >= NOISE_COUNT) // NOISE
-		return((index - NOISE_COUNT)% 20 + 1);
-	return((index - PSG_COUNT) % 20 + 1);  // PSG
-}
-
-char *GetChannel(char c)
-{
-	switch(c)
-	{
-		case 'l':
-			return "Left";
-		case 'r':
-			return "Right";
-		case 's':
-			return "Stereo";
-		default:
-			return "ERROR";
-	}
-}
-
-char *GetWindow(char c)
-{
-	switch(c)
-	{
-		case 'n':
-			return "No Window/Rectangular";
-		case 't':
-			return "Custom Tukey";
-		case 'f':
-			return "Flattop";
-		case 'h':
-			return "Hann";
-		default:
-			return "ERROR";
-	}
-}
-
-int commandline(int argc , char *argv[], parameters *config)
+int commandline_wave(int argc , char *argv[], parameters *config)
 {
 	int c, index, ref = 0, tar = 0;
 	
@@ -1069,11 +667,18 @@ int commandline(int argc , char *argv[], parameters *config)
 	
 	CleanParameters(config);
 
+	config->maxBlanked = 0;
+	config->invert = 0;
+	config->chunks = 0;
+	config->MaxMagnitude = 0;
+	config->MinAmplitude = 0;
+	config->floorAmplitude = 0;
+
 	while ((c = getopt (argc, argv, "ihvkgclxw:n:d:a:t:r:c:f:b:s:z:")) != -1)
 	switch (c)
 	  {
 	  case 'h':
-		PrintUsage();
+		PrintUsage_wave();
 		return 0;
 		break;
 	  case 'v':
@@ -1086,16 +691,16 @@ int commandline(int argc , char *argv[], parameters *config)
 		config->clock = 1;
 		break;
 	  case 'g':
-		config->clockNote = 1;
+		config->clockBlock = 1;
 		break;
 	  case 'l':
-		do_log = 1;
+		EnableConsole();
 		break;
 	  case 'i':
 		config->invert = 1;   // RELEVANT HERE!
 		break;
 	  case 'x':
-		config->useFloor = 1;   // RELEVANT HERE!
+		config->ignoreFloor = 0;   // RELEVANT HERE!
 		break;
 	  case 's':
 		config->startHz = atoi(optarg);
@@ -1212,20 +817,21 @@ int commandline(int argc , char *argv[], parameters *config)
 		return 0;
 	}
 
-	if(do_log)
+	if(IsLogEnabled())
 	{
 		int len;
+		char tmp[LOG_NAME_LEN];
 		
-		sprintf(log_file, "%s", basename(config->referenceFile));
-		len = strlen(log_file);
-		sprintf(log_file+len-4, "_vs_%s", basename(config->targetFile));
-		len = strlen(log_file);
-		sprintf(log_file+len-4, ".txt");
-		remove(log_file);
-		printf("\tLog enabled to file: %s\n", log_file);
-		do_log = 2;
-		Header(1);
-		do_log = 1;
+		sprintf(tmp, "WAVE_%s", basename(config->referenceFile));
+		len = strlen(tmp);
+		tmp[len-4] = '\0';
+
+		if(!setLogName(tmp))
+			return 0;
+
+		DisableConsole();
+		Header_wave(1);
+		EnableConsole();
 	}
 
 	logmsg("\tAmplitude tolerance while comparing is %0.2f dbs\n", config->tolerance);
@@ -1241,12 +847,12 @@ int commandline(int argc , char *argv[], parameters *config)
 	if(config->HzDiff != HERTZ_DIFF)
 		logmsg("\tHertz Difference tolerance %f (default %d)\n", config->HzDiff, HERTZ_DIFF);
 	if(config->window != 'n')
-		logmsg("\tA %s window will be applied to each note to be compared\n", GetWindow(config->window));
+		logmsg("\tA %s window will be applied to each block to be compared\n", GetWindow(config->window));
 
 	return 1;
 }
 
-void PrintUsage()
+void PrintUsage_wave()
 {
 	// b,d and y options are not documented since they are mostly for testing or found not as usefull as desired
 	logmsg("  usage: mdfourier -r reference.wav -c compare.wav\n\n");
@@ -1259,16 +865,16 @@ void PrintUsage()
 	logmsg("	 -f: Change the number of frequencies to use from FFTW\n");
 	logmsg("   Output options:\n");
 	logmsg("	 -v: Enable <v>erbose mode, spits all the FFTW results\n");
-	logmsg("	 -j: Cuts all the per note information and shows <j>ust the total results\n");
-	logmsg("	 -e: Enables <e>xtended results. Shows a table with all matched\n\tfrequencies for each note with differences\n");
-	logmsg("	 -m: Enables Show all notes compared with <m>atched frequencies\n");
+	logmsg("	 -j: Cuts all the per block information and shows <j>ust the total results\n");
+	logmsg("	 -e: Enables <e>xtended results. Shows a table with all matched\n\tfrequencies for each block with differences\n");
+	logmsg("	 -m: Enables Show all blocks compared with <m>atched frequencies\n");
 	logmsg("	 -x: Enables totaled output for use with grep and spreadsheet\n");
 	logmsg("	 -l: <l>og output to file [reference]_vs_[compare].txt\n");
 	logmsg("	 -k: cloc<k> FFTW operations\n");
 	logmsg("	 -g: clock FFTW operations for each <n>ote\n");
 }
 
-void Header(int log)
+void Header_wave(int log)
 {
 	char title1[] = "== MDWave " MDWVERSION " == (MDFourier Companion)\nSega Genesis/Mega Drive Fourier Audio compare tool for 240p Test Suite\n";
 	char title2[] = "by Artemio Urbina 2019, licensed under GPL\n\n";
@@ -1277,138 +883,4 @@ void Header(int log)
 		logmsg("%s%s", title1, title2);
 	else
 		printf("%s%s", title1, title2);
-}
-
-float *hannWindow(int n)
-{
-	int half, i, idx;
-	float *w;
- 
-	w = (float*) calloc(n, sizeof(float));
-	memset(w, 0, n*sizeof(float));
-
-	if(n%2==0)
-	{
-		half = n/2;
-		for(i=0; i<half; i++) //CALC_HANNING   Calculates Hanning window samples.
-			w[i] = 0.5 * (1 - cos(2*M_PI*(i+1) / (n+1)));
- 
-		idx = half-1;
-		for(i=half; i<n; i++) {
-			w[i] = w[idx];
-			idx--;
-		}
-	}
-	else
-	{
-		half = (n+1)/2;
-		for(i=0; i<half; i++) //CALC_HANNING   Calculates Hanning window samples.
-			w[i] = 0.5 * (1 - cos(2*M_PI*(i+1) / (n+1)));
- 
-		idx = half-2;
-		for(i=half; i<n; i++) {
-			w[i] = w[idx];
-			idx--;
-		}
-	}
- 
-	return(w);
-}
-
-// reduce scalloping loss 
-float *flattopWindow(int n)
-{
-	int half, i, idx;
-	float *w;
- 
-	w = (float*) calloc(n, sizeof(float));
-	memset(w, 0, n*sizeof(float));
- 
-	if(n%2==0)
-	{
-		half = n/2;
-		for(i=0; i<half; i++)
-		{
-			double factor = 2*M_PI*i/(n-1);
-			w[i] = 0.21557895 - 0.41663158*cos(factor) + 0.277263158*cos(2*factor) 
-				  -0.083578947*cos(3*factor) + 0.006947368*cos(4*factor);
-		}
- 
-		idx = half-1;
-		for(i=half; i<n; i++) {
-			w[i] = w[idx];
-			idx--;
-		}
-	}
-	else
-	{
-		half = (n+1)/2;
-		for(i=0; i<half; i++)
-		{
-			double factor = 2*M_PI*i/(n-1);
-			w[i] = 0.21557895 - 0.41663158*cos(factor) + 0.277263158*cos(2*factor) 
-				  -0.083578947*cos(3*factor) + 0.006947368*cos(4*factor);
-		}
- 
-		idx = half-2;
-		for(i=half; i<n; i++) {
-			w[i] = w[idx];
-			idx--;
-		}
-	}
- 
-	return(w);
-}
-
-
-// Only attenuate the edges to reduce errors
-// 2.5% slopes
-float *tukeyWindow(int n)
-{
-	int slope, i, idx;
-	float *w;
- 
-	w = (float*) calloc(n, sizeof(float));
-	memset(w, 0, n*sizeof(float));
- 
-	if(n%2==0)
-	{
-		slope = n/40;
-		for(i=0; i<slope; i++)
-		{
-			w[i] = 85*(1+cos(2*M_PI/(n-1)*(i-(n-1)/2)));
-			if(w[i] > 1.0)
-				w[i] = 1.0;
-		}
-
-		for(i=0; i<n-2*slope; i++)
-			w[i+slope] = 1;
- 
-		idx = slope-1;
-		for(i=n - slope; i<n; i++) {
-			w[i] = w[idx];
-			idx--;
-		}
-	}
-	else
-	{
-		slope = (n+1)/40;
-		for(i=0; i<slope; i++)
-		{
-			w[i] = 85*(1+cos(2*M_PI/(n-1)*(i-(n-1)/2)));
-			if(w[i] > 1.0)
-				w[i] = 1.0;
-		}
-
-		for(i=0; i<n-2*slope; i++)
-			w[i+slope] = 1;
- 
-		idx = slope-2;
-		for(i=n - slope; i<n; i++) {
-			w[i] = w[idx];
-			idx--;
-		}
-	}
- 
-	return(w);
 }

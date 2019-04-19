@@ -131,6 +131,8 @@ int main(int argc , char *argv[])
 		endLog();
 		printf("Check logfile for extended results\n");
 	}
+
+	ReleaseAudioBlockStructure(&config);
 	
 	return(0);
 }
@@ -230,7 +232,7 @@ int LoadFile(FILE *file, AudioSignal *Signal, parameters *config, char *fileName
 		return(0);
 	}
 
-	if(GetSilenceIndex(config))
+	if(GetSilenceIndex(config) != NO_INDEX)
 		Signal->hasFloor = 1;
 
 	sprintf(Signal->SourceFile, "%s", fileName);
