@@ -24,9 +24,7 @@
  *
  * Requires the FFTW library: 
  *	  http://www.fftw.org/
- * 
- * Compile with: 
- *	  gcc -Wall -std=gnu99 -o mdfourier mdfourier.c -lfftw3 -lm
+ *
  */
 
 #include "freq.h"
@@ -166,7 +164,7 @@ int LoadAudioBlockStructure(parameters *config)
 	file = fopen("mdfblocks.mfn", "r");
 	if(!file)
 	{
-		printf("Could not load audio configuiration file mdblocks.mfn\n");
+		printf("Could not load audio configuiration file mdfblocks.mfn\n");
 		return 0;
 	}
 	
@@ -223,11 +221,12 @@ int LoadAudioBlockStructure(parameters *config)
 
 	for(int i = 0; i < config->types.typeCount; i++)
 	{
-		if(fscanf(file, "%s %d %d %f\n", 
+		if(fscanf(file, "%s %d %d %f %s\n", 
 			config->types.typeArray[i].typeName,
 			&config->types.typeArray[i].type,
 			&config->types.typeArray[i].elementCount,
-			&config->types.typeArray[i].seconds) != 4)
+			&config->types.typeArray[i].seconds,
+			&config->types.typeArray[i].color [0]) != 5)
 		{
 			printf("Invalid MD Fourier Audio Blocks File\n");
 			fclose(file);
@@ -383,6 +382,24 @@ int GetBlockType(parameters *config, int pos)
 	return TYPE_NOTYPE;
 }
 
+char *GetBlockColor(parameters *config, int pos)
+{
+	int elementsCounted = 0;
+
+	if(!config)
+		return "white";
+
+	for(int i = 0; i < config->types.typeCount; i++)
+	{
+		elementsCounted += config->types.typeArray[i].elementCount;
+		if(elementsCounted > pos)
+			return(config->types.typeArray[i].color);
+	}
+	
+	return "white";
+}
+
+
 int GetTotalAudioBlocksWithSilence(parameters *config)
 {
 	int count = 0;
@@ -464,9 +481,9 @@ void GlobalNormalize(AudioSignal *Signal, parameters *config)
 			if(!Signal->Blocks[block].freq[i].hertz)
 				break;
 			Signal->Blocks[block].freq[i].amplitude = 
-				20*log10(Signal->Blocks[block].freq[i].magnitude / MaxMagnitude);
+				20*log10(Signal->Blocks[block].freq[i].magnitude/MaxMagnitude);
 			Signal->Blocks[block].freq[i].magnitude = 
-				Signal->Blocks[block].freq[i].magnitude * 100.0 / MaxMagnitude;
+				Signal->Blocks[block].freq[i].magnitude*100.0/MaxMagnitude;
 		}
 	}
 }
@@ -525,6 +542,28 @@ void CleanMatched(AudioSignal *ReferenceSignal, AudioSignal *TestSignal, paramet
 	}
 }
 
+void SortFrequencies(AudioSignal *Signal, parameters *config)
+{
+	for(int block = 0; block < config->types.totalChunks; block++)
+	{
+		for(int i = 0; i < config->MaxFreq - 1; i++)
+		{
+			for(int j = 0; j < config->MaxFreq - i - 1; j++)
+			{
+				if(Signal->Blocks[block].freq[j].hertz > 
+					Signal->Blocks[block].freq[j+1].hertz)
+				{
+					Frequency	t;
+				
+					t = Signal->Blocks[block].freq[j];
+					Signal->Blocks[block].freq[j] = Signal->Blocks[block].freq[j+1];
+					Signal->Blocks[block].freq[j+1] = t;
+				}
+			}
+		}
+	}
+}
+
 void PrintFrequencies(AudioSignal *Signal, parameters *config)
 {
 	if(IsLogEnabled())
@@ -540,10 +579,11 @@ void PrintFrequencies(AudioSignal *Signal, parameters *config)
 		{
 			if(Signal->Blocks[block].freq[j].hertz)
 			{
-				logmsg("Frequency [%2d] %7g Hz [Amplitude: %g]",
+				logmsg("Frequency [%2d] %7g Hz Amplitude: %g Phase: %g",
 					j, 
 					Signal->Blocks[block].freq[j].hertz,
-					Signal->Blocks[block].freq[j].amplitude);
+					Signal->Blocks[block].freq[j].amplitude,
+					Signal->Blocks[block].freq[j].phase);
 				/* detect CRT frequency */
 				if(IsCRTNoise(Signal->Blocks[block].freq[j].hertz))
 					logmsg(" *** CRT Noise ***");
@@ -556,7 +596,7 @@ void PrintFrequencies(AudioSignal *Signal, parameters *config)
 					j, Signal->Blocks[block].freq[j].hertz, Signal->Blocks[block].freq[j].amplitude);
 			}
 
-			if(config->debugVerbose && j == 20)  /* this is just for internal quick debugging */
+			if(config->debugVerbose && j == 100)  /* this is just for internal quick debugging */
 				exit(1);
 		}
 	}
@@ -572,7 +612,7 @@ void FillFrequencyStructures(AudioBlocks *AudioArray, parameters *config)
 
 	size = AudioArray->fftwValues.size;
 	boxsize = AudioArray->fftwValues.seconds;
-	/* for(i = 1; i < monoSignalSize/2+1; i++) */
+	
 	for(i = config->startHz*boxsize; i < config->endHz*boxsize; i++)	/* Nyquist at 44.1khz */
 	{
 		double r1 = creal(AudioArray->fftwValues.spectrum[i]);
@@ -581,13 +621,10 @@ void FillFrequencyStructures(AudioBlocks *AudioArray, parameters *config)
 		int    j = 0;
 		double Hertz;
 
-		/* magnitude = 2*(r1*r1 + i1*i1)/(monoSignalSize*monoSignalSize); */
- 		/* amplitude = 10 * log10(magnitude+DBL_EPSILON); */
-		magnitude = sqrt(r1*r1 + i1*i1)/size;
+		magnitude = sqrt(r1*r1 + i1*i1)/sqrt(size);
 		Hertz = ((double)i/boxsize);
 
 		previous = 1.e30;
-		/* printf("%g Hz %g m (old %g) %g dbs\n", Hertz, m, magnitude, a); */
 		if(!IsCRTNoise(Hertz))
 		{
 			for(j = 0; j < config->MaxFreq; j++)
@@ -601,7 +638,7 @@ void FillFrequencyStructures(AudioBlocks *AudioArray, parameters *config)
 					AudioArray->freq[j].hertz = Hertz;
 					AudioArray->freq[j].magnitude = magnitude;
 					AudioArray->freq[j].amplitude = 0;
-					AudioArray->freq[j].phase = atan2(i1, r1);
+					AudioArray->freq[j].phase = atan2(i1, r1)*180/M_PI;
 					break;
 				}
 				previous = AudioArray->freq[j].magnitude;
@@ -709,16 +746,21 @@ void PrintComparedBlocks(AudioBlocks *ReferenceArray, AudioBlocks *ComparedArray
 			else
 				logmsg("\tCompared:\tNULL");
 			match = ReferenceArray->freq[j].matched - 1;
-			if(match != -1 &&
-				ReferenceArray->freq[j].hertz != 
-				ComparedArray->freq[match].hertz)
-					logmsg("H");
-			else
-					logmsg(" ");
-			if(match != -1 &&
-				ReferenceArray->freq[j].amplitude != 
+			if(match != -1)
+			{
+				if(ReferenceArray->freq[j].amplitude == 
 				ComparedArray->freq[match].amplitude)
-					logmsg("W");
+					logmsg("FA");
+				else
+				{
+					double diff = fabs(fabs(ReferenceArray->freq[j].amplitude) - 
+						fabs(ComparedArray->freq[match].amplitude));
+					if(diff < config->tolerance)
+						logmsg("FT");
+					else
+						logmsg("F-");
+				}
+			}
 			logmsg("\n");
 		}
 	}

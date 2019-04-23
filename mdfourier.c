@@ -25,8 +25,6 @@
  * Requires the FFTW library: 
  *	  http://www.fftw.org/
  * 
- * Compile with: 
- *	  gcc -Wall -std=gnu99 -o mdfourier mdfourier.c -lfftw3 -lm
  */
 
 #include "mdfourier.h"
@@ -34,6 +32,8 @@
 #include "cline.h"
 #include "windows.h"
 #include "freq.h"
+#include "diff.h"
+#include "plot.h"
 
 int LoadFile(FILE *file, AudioSignal *Signal, parameters *config, char *fileName);
 double ExecuteDFFT(AudioBlocks *AudioArray, short *samples, size_t size, long samplerate, float *window, parameters *config);
@@ -111,7 +111,11 @@ int main(int argc , char *argv[])
 	if(config.normalize == 'r')
 		config.relativeMaxMagnitude = 0.0;
 	CleanMatched(ReferenceSignal, TestSignal, &config);
+	ReleaseDifferenceArray(&config);
+	InvertComparedName(&config);
+
 	result2 = CompareAudioBlocks(TestSignal, ReferenceSignal, &config);
+	ReleaseDifferenceArray(&config);
 
 	if(config.spreadsheet)
 		logmsg("Spreadsheet, %s, %s, %g, %g\n",
@@ -129,7 +133,7 @@ int main(int argc , char *argv[])
 	if(IsLogEnabled())
 	{
 		endLog();
-		printf("Check logfile for extended results\n");
+		printf("\nCheck logfile for extended results\n");
 	}
 
 	ReleaseAudioBlockStructure(&config);
@@ -161,19 +165,19 @@ int LoadFile(FILE *file, AudioSignal *Signal, parameters *config, char *fileName
 		return(0);
 	}
 
-	if(header.AudioFormat != 1) // Check for PCM
+	if(header.AudioFormat != 1) /* Check for PCM */
 	{
 		logmsg("\tInvalid WAV File: Only PCM is supported\n\tPlease use WAV PCM 16 bit");
 		return(0);
 	}
 
-	if(header.NumOfChan != 2) // Check for Stereo
+	if(header.NumOfChan != 2) /* Check for Stereo */
 	{
 		logmsg("\tInvalid WAV file: Only Stereo supported\n");
 		return(0);
 	}
 
-	if(header.bitsPerSample != 16) // Check bit depth
+	if(header.bitsPerSample != 16) /* Check bit depth */
 	{
 		logmsg("\tInvalid WAV file: Only 16 bit supported for now\n\tPlease use WAV PCM 16 bit %dhz");
 		return(0);
@@ -194,8 +198,8 @@ int LoadFile(FILE *file, AudioSignal *Signal, parameters *config, char *fileName
 	logmsg("WAV file is PCM %dhz %dbits and %g seconds long\n", 
 		header.SamplesPerSec, header.bitsPerSample, seconds);
 
-	// We need to convert buffersize to the 16.688ms per frame by the Genesis
-	// Mega Drive is 1.00128, now loaded fomr file
+	/* We need to convert buffersize to the 16.688ms per frame by the Genesis */
+	/* Mega Drive is 1.00128, now loaded fomr file */
 	discardSamples = (size_t)round(GetFramerateAdjust(config)*header.SamplesPerSec);
 	if(discardSamples % 2)
 		discardSamples += 1;
@@ -208,7 +212,7 @@ int LoadFile(FILE *file, AudioSignal *Signal, parameters *config, char *fileName
 		return 0;
 	}
 
-	buffersize = header.SamplesPerSec*4*sizeof(char)*(int)longest; // 2 bytes per sample, stereo
+	buffersize = header.SamplesPerSec*4*sizeof(char)*(int)longest; /* 2 bytes per sample, stereo */
 	buffer = (char*)malloc(buffersize);
 	if(!buffer)
 	{
@@ -267,14 +271,15 @@ int LoadFile(FILE *file, AudioSignal *Signal, parameters *config, char *fileName
 		{
 			FILE 		*chunk = NULL;
 			wav_hdr		cheader;
-			char		Name[2048];
+			char		Name[2048], FName[4096];
 
 			cheader = header;
 			sprintf(Name, "%03d_Source_chunk_%s", i, basename(fileName));
-			chunk = fopen(Name, "wb");
+			ComposeFileName(FName, Name, "", config);
+			chunk = fopen(FName, "wb");
 			if(!chunk)
 			{
-				logmsg("\tCould not open chunk file %s\n", Name);
+				logmsg("\tCould not open chunk file %s\n", FName);
 				return 0;
 			}
 
@@ -306,7 +311,7 @@ int LoadFile(FILE *file, AudioSignal *Signal, parameters *config, char *fileName
 		if(config->normalize == 'n')
 			LocalNormalize(&Signal->Blocks[i], config);
 
-		pos += discardBytes;  // Advance to adjust the time for the Sega Genesis Frame Rate
+		pos += discardBytes;  /* Advance to adjust the time for the Sega Genesis Frame Rate */
 		i++;
 	}
 
@@ -318,11 +323,11 @@ int LoadFile(FILE *file, AudioSignal *Signal, parameters *config, char *fileName
 		logmsg("Processing WAV took %f\n", elapsedSeconds);
 	}
 
-	// Global Normalization by default
+	/* Global Normalization by default */
 	if(config->normalize != 'n')
 		GlobalNormalize(Signal, config);
 
-	if(!config->ignoreFloor && Signal->hasFloor) // analyze silence floor if available
+	if(!config->ignoreFloor && Signal->hasFloor) /* analyze silence floor if available */
 		FindFloor(Signal, config);
 
 	if(config->verbose)
@@ -354,7 +359,7 @@ double ExecuteDFFT(AudioBlocks *AudioArray, short *samples, size_t size, long sa
 	}
 
 	stereoSignalSize = (long)size;
-	monoSignalSize = stereoSignalSize/2;	 // 4 is 2 16 bit values
+	monoSignalSize = stereoSignalSize/2;	 /* 4 is 2 16 bit values */
 	seconds = size/(samplerate*2);
 
 	signal = (double*)malloc(sizeof(double)*(monoSignalSize+1));
@@ -412,11 +417,11 @@ double ExecuteDFFT(AudioBlocks *AudioArray, short *samples, size_t size, long sa
 	return(0);
 }
 
-int CalculateMaxCompare(int block, msgbuff *message, AudioSignal *Signal, parameters *config)
+int CalculateMaxCompare(int block, AudioSignal *Signal, parameters *config, int limitRef)
 {
 	int count = config->MaxFreq;
 
-	// find how many to compare
+	/* find how many to compare */
 	if(!config->ignoreFloor && Signal->hasFloor)
 	{
 		for(int freq = 0; freq < config->MaxFreq; freq ++)
@@ -437,7 +442,7 @@ int CalculateMaxCompare(int block, msgbuff *message, AudioSignal *Signal, parame
 
 			difference = fabs(fabs(Signal->floorAmplitude) - fabs(Signal->Blocks[block].freq[freq].amplitude));
 			if((Signal->Blocks[block].freq[freq].hertz == Signal->floorFreq &&
-				difference <= config->tolerance))  // this in dbs
+				difference <= config->tolerance))  /* this in dbs */
 			{
 				count = freq;
 				return count;
@@ -448,6 +453,18 @@ int CalculateMaxCompare(int block, msgbuff *message, AudioSignal *Signal, parame
 	{
 		for(int freq = 0; freq < config->MaxFreq; freq++)
 		{
+			if(limitRef && Signal->Blocks[block].freq[freq].amplitude < config->significantVolume)
+			{
+				count = freq;
+				return count;
+			}
+
+			if(!limitRef && Signal->Blocks[block].freq[freq].amplitude < config->significantVolume - config->tolerance*2)
+			{
+				count = freq;
+				return count;
+			}
+
 			if(!Signal->Blocks[block].freq[freq].hertz)
 			{
 				count = freq;
@@ -466,46 +483,49 @@ double CalculateWeightedError(double pError, parameters *config)
 	option = config->outputFilterFunction;
 	switch(option)
 	{
+		case 0:
+			pError = 1;
+			break;
 		case 1:
-			// The integral of x^1 in the 0-1 Range is 1/2
-			pError *= 2.0;  // compensate for an error of 50%
+			/* The integral of x^1 in the 0-1 Range is 1/2 */
+			pError *= 2.0;  /* compensate for an error of 50% */
 			break;
 		case 2:
-			// Map to Beta function
+			/* Map to Beta function */
 			pError = incbeta(8.0, 8.0, pError);
-			// Compensate for non linear deviation
-			// The integral of Beta above is 1/2
+			/* Compensate for non linear deviation */
+			/* The integral of Beta above is 1/2 */
 			pError *= 2.0;
 			break;
 		case 3:
-			// Map to Beta function
+			/* Map to Beta function */
 			pError = incbeta(3.0, 1.0, pError);
-			// Compensate for non linear deviation
-			// The integral of Beta above in the 0-1 Range is 1/4
+			/* Compensate for non linear deviation */
+			/* The integral of Beta above in the 0-1 Range is 1/4 */
 			pError *= 4.0;
 			break;
 		case 4:
-			// Map to Beta function
+			/* Map to Beta function */
 			pError = incbeta(5.0, 0.5, pError);
-			// Compensate for non linear deviation
+			/* Compensate for non linear deviation */
 			pError *= 10.99;
 			break;
 
 		case 5:
-			// Map to Beta function
+			/* Map to Beta function */
 			pError = incbeta(1.0, 3.0, pError);
-			// Compensate for non linear deviation
-			// The integral of Beta above in the 0-1 Range is 3/4
+			/* Compensate for non linear deviation */
+			/* The integral of Beta above in the 0-1 Range is 3/4 */
 			pError *= 1.33333333;
 			break;
 		case 6:
-			// Map to Beta function
+			/* Map to Beta function */
 			pError = incbeta(0.5, 6, pError);
-			// Compensate for non linear deviation
+			/* Compensate for non linear deviation */
 			pError *= 1.0831;
 			break;
 		default:
-			// This is unexpected behaviour, log it
+			/* This is unexpected behaviour, log it */
 			logmsg("CalculateWeightedError, out of range value %d\n", option);
 			pError = 1;
 			break;
@@ -517,236 +537,154 @@ double CalculateWeightedError(double pError, parameters *config)
 double CompareAudioBlocks(AudioSignal *ReferenceSignal, AudioSignal *TestSignal, parameters *config)
 {
 	int			block = 0;
-	long int 	msg = 0, HadCRTNoise = 0;
-	double		totalDiff = 0, totalError = 0;
-	long int	FM_amplitudes = 0, FMnotfound = 0;
-	long int	FMadjAmplitudes = 0, FMadjHz = 0;
-	long int 	FMcompared = 0, PSGcompared = 0;
-	double		FMhighDiffAdj = 0, FMhighDiff = 0, FMhighHz = 0;
-	long int	PSG_Amplitudes = 0, PSGnotfound = 0;
-	long int	PSGadjAmplitudes = 0, PSGadjHz = 0;
-	double		PSGhighDiffAdj = 0, PSGhighDiff = 0, PSGhighHz = 0;
-	msgbuff message;
 
-	message.message = malloc(sizeof(char)*4096);  // I know this sounds strange, but we are protecting
-	if(!message.message)						   // for when many differences do appear
-	{
-		logmsg("Insufficient memory\n");
+	if(!CreateDifferenceArray(config))
 		return 0;
-	}	
-	message.msgSize = 4096;
 
-	logmsg("\n-- Results --\n\n");
 	for(block = 0; block < config->types.regularChunks; block++)
 	{
 		int refSize = 0, testSize = 0;
 
-		msg = 0;
-		message.msgPos = 0;
-		message.message[0] = '\0';
+		refSize = CalculateMaxCompare(block, ReferenceSignal, config, 1);
+		testSize = CalculateMaxCompare(block, TestSignal, config, 0);
 
-		sprintf(message.buffer, "Block: %s# %d (%d)\n", GetBlockName(config, block), GetBlockSubIndex(config, block), block);
-		InsertMessageInBuffer(&message, config);
-
-		refSize = CalculateMaxCompare(block, &message, ReferenceSignal, config);
-		testSize = CalculateMaxCompare(block, &message, TestSignal, config);
-
-		for(long int freq = 0; freq < refSize; freq++)
+		for(int freq = 0; freq < refSize; freq++)
 		{
-			int CRTNoise;
-				
-			CRTNoise = IsCRTNoise(ReferenceSignal->Blocks[block].freq[freq].hertz);
-			if(CRTNoise)
-				HadCRTNoise = 1;
+			int found = 0, index = 0, type = 0;
 
-			// Ignore CRT noise
-			if(!CRTNoise)
+			/* Ignore Silence blocks */
+			type = GetBlockType(config, block);
+			if(type == TYPE_SILENCE)
+				continue;
+
+			/* Ignore CRT noise */
+			if(IsCRTNoise(ReferenceSignal->Blocks[block].freq[freq].hertz))
+				continue;
+
+			/* One compared item is frequency the other is amplitude */
+			config->Differences.cntTotalCompared ++;
+			for(int comp = 0; comp < testSize; comp++)
 			{
-				int found = 0, index = 0;
+				if(!TestSignal->Blocks[block].freq[comp].matched && 
+					ReferenceSignal->Blocks[block].freq[freq].hertz ==
+					TestSignal->Blocks[block].freq[comp].hertz)
+				{
+					TestSignal->Blocks[block].freq[comp].matched = freq + 1;
+					ReferenceSignal->Blocks[block].freq[freq].matched = comp + 1;
+					found = 1;
+					index = comp;
+					break;
+				}
+			}
 
-				if(ReferenceSignal->Blocks[block].type == TYPE_FM)
-					FMcompared ++;
-				else
-					PSGcompared ++;
+#ifdef	HERTZ_TOLERANCE
+			if(!found && config->HzDiff != 0.0) /* search with tolerance, if done in one pass, false positives emerge */
+			{
+				double	lowest = 22050;
+				int 	lowIndex = -1;
 
+				/* Find closest match */
 				for(long int comp = 0; comp < testSize; comp++)
 				{
-					if(!TestSignal->Blocks[block].freq[comp].matched && 
-						ReferenceSignal->Blocks[block].freq[freq].hertz ==
-						TestSignal->Blocks[block].freq[comp].hertz)
+					if(!TestSignal->Blocks[block].freq[comp].matched)
 					{
-						TestSignal->Blocks[block].freq[comp].matched = freq + 1;
-						ReferenceSignal->Blocks[block].freq[freq].matched = comp + 1;
-						found = 1;
-						index = comp;
-						break;
-					}
-				}
+						double hertzDiff;
+	
+						hertzDiff = fabs(TestSignal->Blocks[block].freq[comp].hertz -
+										 ReferenceSignal->Blocks[block].freq[freq].hertz);
 
-				if(!found && config->HzDiff != 0.0) // search with tolerance, if done in one pass, false positives emerge
-				{
-					double	lowest = 22050, tmpDiff = 0;
-					int 	lowIndex = -1;
-
-					// Find closest match
-					for(long int comp = 0; comp < testSize; comp++)
-					{
-						if(!TestSignal->Blocks[block].freq[comp].matched)
+						if(hertzDiff <= config->HzDiff)
 						{
-							double hertzDiff;
-		
-							hertzDiff = fabs(TestSignal->Blocks[block].freq[comp].hertz -
-											 ReferenceSignal->Blocks[block].freq[freq].hertz);
-
-							if(hertzDiff <= config->HzDiff)
+							if(hertzDiff < lowest)
 							{
-								if(hertzDiff < lowest)
-								{
-									lowest = hertzDiff;
-									lowIndex = comp;
-									tmpDiff = hertzDiff;
-								}
+								lowest = hertzDiff;
+								lowIndex = comp;
 							}
 						}
 					}
-
-					if(lowIndex >= 0)
-					{
-						TestSignal->Blocks[block].freq[lowIndex].matched = freq + 1;
-						ReferenceSignal->Blocks[block].freq[freq].matched = lowIndex + 1;
-
-						found = 2;
-						index = lowIndex;
-
-						if(ReferenceSignal->Blocks[block].type == TYPE_FM)
-						{
-							FMadjHz++;
-							
-							if(tmpDiff > FMhighHz)
-								FMhighHz = tmpDiff;
-						}
-						else
-						{
-							PSGadjHz++;
-							
-							if(tmpDiff > PSGhighHz)
-								PSGhighHz = tmpDiff;
-						}
-					}
 				}
 
-				if(found)  // Now in either case, compare amplitudes
+				if(lowIndex >= 0)
 				{
-					double test;
-	
-					test = fabs(TestSignal->Blocks[block].freq[index].amplitude - ReferenceSignal->Blocks[block].freq[freq].amplitude);
-					//if(test > config->tolerance && ReferenceSignal->Blocks[block].freq[freq].amplitude > -60.0 && freq < config->MaxFreq*.9) // TEST
-					if(test > config->tolerance)
-					{
-						sprintf(message.buffer, "\tDifferent Amplitude: %g Hz at %0.4fdbs instead of %g Hz at %0.2fdbs {%g}\n",
-							TestSignal->Blocks[block].freq[index].hertz,
-							TestSignal->Blocks[block].freq[index].amplitude,
-							ReferenceSignal->Blocks[block].freq[freq].hertz,
-							ReferenceSignal->Blocks[block].freq[freq].amplitude,
-							test);	
-						InsertMessageInBuffer(&message, config);
-						msg++;
+					TestSignal->Blocks[block].freq[lowIndex].matched = freq + 1;
+					ReferenceSignal->Blocks[block].freq[freq].matched = lowIndex + 1;
 
-						if(config->useOutputFilter)
-						{
-							double value = 0;
-							
-							// we get the proportional linear error in range 0-1
-							//value = ReferenceSignal->Blocks[block].freq[freq].magnitude/100.0;
-							value = 1.0 - (double)freq/(double)config->MaxFreq;
-							totalDiff += CalculateWeightedError(value, config);
-							/*
-							sprintf(message.buffer, "Amplitude [%ld/%d] Value: %g Calculated: %g Accum: %g\n",
-								freq, config->MaxFreq, value, CalculateWeightedError(value, config), totalDiff);
-							InsertMessageInBuffer(&message, config);	
-							*/
+					found = 2;
+					index = lowIndex;
 
-							// Keep values to compensate for non linear deviation
-							totalError ++;
-						}
-						else
-							totalDiff ++;
-
-						if(ReferenceSignal->Blocks[block].type == TYPE_FM)
-						{
-							FM_amplitudes ++;
-	
-							if(test > FMhighDiff)
-								FMhighDiff = test;
-						}
-						else
-						{
-							PSG_Amplitudes ++;
-	
-							if(test > PSGhighDiff)
-								PSGhighDiff = test;
-						}
-					}
-		
-					if(test && test <= config->tolerance)
-					{
-						if(ReferenceSignal->Blocks[block].type == TYPE_FM)
-						{
-							FMadjAmplitudes++;
-							if(test > FMhighDiffAdj)
-								FMhighDiffAdj = test;
-						}
-						else
-						{
-							PSGadjAmplitudes++;
-							if(test > PSGhighDiffAdj)
-								PSGhighDiffAdj = test;
-						}
-					}
+					/* Adjusted Frequency to tolerance */
 				}
+			}
+#endif
+			if(found)  /* Now in either case, compare amplitudes */
+			{
+				double test;
 
-				//if(!found && ReferenceSignal->Blocks[block].freq[freq].amplitude > -60.0 && freq < config->MaxFreq*.9)  //TEST
-				if(!found)
+				test = fabs(fabs(TestSignal->Blocks[block].freq[index].amplitude) - fabs(ReferenceSignal->Blocks[block].freq[freq].amplitude));
+				if(test > config->tolerance)
 				{
-					sprintf(message.buffer, "\tReference Frequency not found: %g Hz at %5.4f db (index: %ld)\n",
-							ReferenceSignal->Blocks[block].freq[freq].hertz,
-							ReferenceSignal->Blocks[block].freq[freq].amplitude,
-							freq);
-					InsertMessageInBuffer(&message, config);
-					msg ++;
+					/* Difference in Amplitude */
+					double value = 1;
 
 					if(config->useOutputFilter)
 					{
-						double value = 0;
-						
-						// we get the proportional linear error in range 0-1
-						value = 1.0 - (double)freq/(double)config->MaxFreq;
+						double amplitude;
 
-						totalDiff += CalculateWeightedError(value, config);
-						/*
-						sprintf(message.buffer, "Frequency [%ld/%d] Value: %g Calculated: %g Accum: %g\n",
-								freq, config->MaxFreq, value, CalculateWeightedError(value, config), totalDiff);
-						InsertMessageInBuffer(&message, config);
-						*/
-						// Keep values to compensate for non linear deviation
-						totalError ++;
+						amplitude = ReferenceSignal->Blocks[block].freq[freq].amplitude;
+
+						// we get the proportional linear error in range 0-1
+						if(amplitude >= config->significantVolume)
+						{
+							value = (fabs(config->significantVolume)-fabs(amplitude))/fabs(config->significantVolume);
+							if(value)
+								value = CalculateWeightedError(value, config);
+						}
+						else
+							value = 0;
+					}
+
+					InsertAmplDifference(block, ReferenceSignal->Blocks[block].freq[freq].hertz, 
+							ReferenceSignal->Blocks[block].freq[freq].amplitude,
+							TestSignal->Blocks[block].freq[index].amplitude, value, config);
+				}
+	
+				if(test && test <= config->tolerance)
+				{
+					/* Adjusted Amplitude to tolerance */
+				}
+			}
+
+			if(!found)
+			{
+				/* Frequency Not Found */
+				double value = 1;
+						
+				if(config->useOutputFilter)
+				{
+					double amplitude;
+
+					amplitude = ReferenceSignal->Blocks[block].freq[freq].amplitude;
+
+					// we get the proportional linear error in range 0-1
+					if(amplitude >= config->significantVolume)
+					{
+						value = (fabs(config->significantVolume)-fabs(amplitude))/fabs(config->significantVolume);
+						if(value)
+							value = CalculateWeightedError(value, config);
 					}
 					else
-						totalDiff ++;
-
-					if(ReferenceSignal->Blocks[block].type == TYPE_FM)
-						FMnotfound ++;
-					else
-						PSGnotfound ++;
+						value = 0;
 				}
+
+				InsertFreqNotFound(block, ReferenceSignal->Blocks[block].freq[freq].hertz, 
+					ReferenceSignal->Blocks[block].freq[freq].amplitude, value, config);
 			}
 		}
 
-		if(msg && !config->justResults)
+		if(config->Differences.BlockDiffArray[block].cntFreqBlkDiff && !config->justResults)
 		{
 			if(IsLogEnabled())
 				DisableConsole();
-			logmsg("%s\n", message.message);
 			if(config->extendedResults)
 			{
 				logmsg("Unmatched Block Report for %s# %ld (%ld)\n", GetBlockName(config, block), GetBlockSubIndex(config, block), block);
@@ -771,71 +709,11 @@ double CompareAudioBlocks(AudioSignal *ReferenceSignal, AudioSignal *TestSignal,
 		}
 	}
 
-	if(config->useOutputFilter)
-	{
-		// Compensate error for data deviation with x^2*3.0 or x*2.0
-		//logmsg("Real Diff %g\n", totalDiff);
-		if(totalDiff > totalError)
-			totalDiff = totalError;
-	}
+	PlotAllDifferentAmplitudes(config->compareName, config);
+	PlotAllSpectrogram(basename(ReferenceSignal->SourceFile), ReferenceSignal, config);
 
-	logmsg("============================================================\n");
-	logmsg("Reference: %s\nCompared to: %s\n", ReferenceSignal->SourceFile, TestSignal->SourceFile);
-	if(FMcompared+PSGcompared)
-	{
-		logmsg("Total differences are %g out of %ld [%3.2f%% different]\n============================================================\n",
-				 round(totalDiff), FMcompared+PSGcompared, (double)totalDiff*100.0/(double)(PSGcompared+FMcompared));
-	}	
-	if(!totalDiff && FMcompared+PSGcompared)
-	{
-		if(config->tolerance == 0.0)
-			logmsg("\n== WAV files are acoustically identical  == \n");
-		else
-			logmsg("\n== WAV files are equivalent under these parameters  == \n");
-		logmsg("============================================================\n");
-	}
-
-	if(FMcompared+PSGcompared)
-	{
-		logmsg("FM Sound\n");
-		logmsg("\tFM differences: %ld\n",
-			FMnotfound+FM_amplitudes);
-		logmsg("\t\tNot found: %ld of %ld (%0.2f%%)\n", 
-			FMnotfound, FMcompared, (double)FMnotfound/(double)FMcompared*100);
-		logmsg("\t\tDifferent Amplitudes: %ld of %ld (%0.2f%%) [highest difference: %0.4f dbs]\n",
-			 FM_amplitudes, FMcompared, (double)FM_amplitudes/(double)FMcompared*100, FMhighDiff);
-
-		logmsg("\n\tAdjustments made to match within defined ranges: %ld total\n",
-			FMadjHz+FMadjAmplitudes);
-		//if(config->HzDiff != 0.0)
-		logmsg("\t\tFrequencies adjusted: %ld of %ld (%0.2f%%) [highest difference: %0.4f Hz]\n",
-				FMadjHz, FMcompared, (double)FMadjHz/(double)FMcompared*100, FMhighHz);
-		logmsg("\t\tAmplitudes adjusted: %ld of %ld (%0.2f%%) [highest difference: %0.4f dbs]\n",
-			FMadjAmplitudes, FMcompared, (double)FMadjAmplitudes/(double)FMcompared*100, FMhighDiffAdj);
-
-		logmsg("PSG Sound\n");
-		logmsg("\tPSG differences: %ld\n",
-			PSGnotfound+PSG_Amplitudes);
-		logmsg("\t\tNot found: %ld of %ld (%0.2f%%)\n", 
-			PSGnotfound, PSGcompared, (double)PSGnotfound/(double)PSGcompared*100);
-		logmsg("\t\tDifferent Amplitudes: %ld of %ld (%0.2f%%) [highest difference: %0.4f]\n",
-			PSG_Amplitudes, PSGcompared, (double)PSG_Amplitudes/(double)PSGcompared*100, PSGhighDiff);
-		logmsg("\n\tAdjustments made to match within defined ranges: %ld total\n",
-		PSGadjHz+PSGadjAmplitudes);
-		//if(config->HzDiff != 0.0)
-		logmsg("\t\tFrequencies adjusted: %ld of %ld (%0.2f%%) [highest difference: %0.4f Hz]\n",
-			PSGadjHz, PSGcompared, (double)PSGadjHz/(double)PSGcompared*100, PSGhighHz);
-		logmsg("\t\tAmplitudes adjusted: %ld of %ld (%0.2f%%) [highest difference: %0.4f dbs]\n",
-			PSGadjAmplitudes, PSGcompared, (double)PSGadjAmplitudes/(double)PSGcompared*100, PSGhighDiffAdj);
-	}
-	else
-		logmsg("Reference file has no frequencies at all!\n");
-
-	if(HadCRTNoise)
-		logmsg("\nReference Signal has CRT noise (15697 hz)\n");
-	logmsg("\n");
-
-	if(message.message)
-		free(message.message);
-	return (double)totalDiff*100.0/(double)(PSGcompared+FMcompared);
+	//PlotAllMissingFrequencies(name, config);
+	//PrintDifferenceArray(config);
+	
+	return 0;
 }

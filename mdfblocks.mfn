@@ -2,7 +2,7 @@ MDFourierAudioBlockFile 1.0
 MegaDriveAudio
 1.00128
 4
-FM 1 40 2
-PSG 2 60 1
-Noise 3 40 1
-Silence 0 1 1
+FM 1 40 2 green
+PSG 2 60 1 yellow
+Noise 3 40 1 aquamarine
+Silence 0 1 1 red

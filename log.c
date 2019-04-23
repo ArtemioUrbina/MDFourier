@@ -56,7 +56,7 @@ void logmsg(char *fmt, ... )
 
 int setLogName(char *name)
 {
-	sprintf(log_file, "%s.txt", name);
+	sprintf(log_file, "%s", name);
 
 	remove(log_file);
 

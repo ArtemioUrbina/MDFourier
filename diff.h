@@ -1,7 +1,8 @@
 /* 
  * MDFourier
  * A Fourier Transform analysis tool to compare different 
- * Sega Genesis/Mega Drive audio hardware revisions.
+ * Sega Genesis/Mega Drive audio hardware revisions, and
+ * other hardware in the future
  *
  * Copyright (C)2019 Artemio Urbina
  *
@@ -24,22 +25,21 @@
  * Requires the FFTW library: 
  *	  http://www.fftw.org/
  * 
- * Compile with: 
- *	  gcc -Wall -std=gnu99 -o mdfourier mdfourier.c -lfftw3 -lm
  */
 
-#ifndef MDFOURIER_LOG_H
-#define MDFOURIER_LOG_H
+#ifndef MDFOURIER_DIFF_H
+#define MDFOURIER_DIFF_H
 
-#define LOG_NAME_LEN	8000
+#include "mdfourier.h"
 
-void DisableConsole();
-void EnableConsole();
-int IsLogEnabled();
-
-void logmsg(char *fmt, ... );
-
-int setLogName(char *name);
-void endLog();
+AmplDifference *CreateAmplDifferences(parameters *config);
+FreqDifference *CreateFreqDifferences(parameters *config);
+int CreateDifferenceArray(parameters *config);
+int InsertFreqNotFound(int block, double freq, double amplitude, double weighted, parameters *config);
+int InsertAmplDifference(int block, double freq, double refAmplitude, double compAmplitude, double weighted, parameters *config);
+void PrintDifferentFrequencies(int block, parameters *config);
+void PrintDifferentAmplitudes(int block, parameters *config);
+void PrintDifferenceArray(parameters *config);
+void ReleaseDifferenceArray(parameters *config);
 
 #endif

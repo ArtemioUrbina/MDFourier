@@ -25,8 +25,6 @@
  * Requires the FFTW library: 
  *	  http://www.fftw.org/
  * 
- * Compile with: 
- *	  gcc -Wall -std=gnu99 -o mdfourier mdfourier.c -lfftw3 -lm
  */
 
 #ifndef MDFOURIER_H
@@ -60,21 +58,15 @@
 #define TYPE_NOTYPE		-1
 #define NO_INDEX 		-1
 
-/* to remove */
-#define	TYPE_FM			1
-
 /* This is the difference allowed between reference and compared */
 /* amplitudes to match, in dbs */
-#define DBS_TOLERANCE	3.0
+#define DBS_TOLERANCE	0
 
 /* Width of each peak */
 #define HERTZ_WIDTH			0.0
 
 /* +/- Tolerance in frequency Difference to be the same one */
 #define HERTZ_DIFF			0.0
-
-/*Percentage of normalized magnitude frequencies to match */
-#define FREQ_COMPARE		1.0
 
 #define START_HZ	10
 #define END_HZ		MAX_FREQ_COUNT
@@ -85,6 +77,7 @@ typedef struct abt_st {
 	int 		type;
 	int			elementCount;
 	float		seconds;
+	char		color[20];
 } AudioBlockType;
 
 typedef struct abd_st {
@@ -132,20 +125,62 @@ typedef struct AudioSt {
 /********************************************************/
 
 typedef struct window_unit_st {
-	float *window;
-	double seconds;
+	float		*window;
+	double		seconds;
+	long int	size;
 } windowUnit;
 
 typedef struct window_st {
-	windowUnit *windowArray;
+	windowUnit	*windowArray;
 	int windowCount;
 } windowManager;
+
+/********************************************************/
+
+typedef struct freq_diff_st {
+	double	hertz;
+	double	amplitude;
+	double	weight;
+} FreqDifference;
+
+typedef struct ampl_diff_st {
+	double	hertz;
+	double	refAmplitude;
+	double	diffAmplitude;
+	double	weight;
+} AmplDifference;
+
+typedef struct blk_diff_st {
+	FreqDifference *freqMissArray;
+	int			cntFreqBlkDiff;
+	double		weightedFreqBlkDiff;
+
+	AmplDifference *amplDiffArray;
+	int			cntAmplBlkDiff;
+	double		weightedAmplBlkDiff;
+} BlockDifference;
+
+typedef struct block_diff_st {
+	BlockDifference	*BlockDiffArray;
+
+	long int 		cntFreqAudioDiff;
+	long int		cntAmplAudioDiff;
+	double			weightedFreqAudio;
+	double			weightedAmplAudio;
+
+	long int		cntTotalCompared;
+	long int		cntTotalAudioDiff;
+	double			weightedAudioDiff;
+} AudioDifference;
 
 /********************************************************/
 
 typedef struct parameters_st {
 	char			referenceFile[1024];
 	char			targetFile[1024];
+	char			folderName[2512];
+	char			baseName[2512];
+	char			compareName[2512];
 	double			tolerance;
 	double			HzWidth;
 	double			HzDiff;
@@ -167,6 +202,9 @@ typedef struct parameters_st {
 	int				useOutputFilter;
 	int				outputFilterFunction;
 	AudioBlockDef	types;
+	AudioDifference	Differences;
+	double			significantVolume;
+
 #ifdef MDWAVE
 	int				maxBlanked;
 	int				invert;

@@ -817,20 +817,20 @@ int commandline_wave(int argc , char *argv[], parameters *config)
 		return 0;
 	}
 
+	CreateFolderName_wave(config);
+	CreateBaseName(config);
+
 	if(IsLogEnabled())
 	{
-		int len;
 		char tmp[LOG_NAME_LEN];
-		
-		sprintf(tmp, "WAVE_%s", basename(config->referenceFile));
-		len = strlen(tmp);
-		tmp[len-4] = '\0';
+
+		ComposeFileName(tmp, "WAVE_Log_", ".txt", config);
 
 		if(!setLogName(tmp))
 			return 0;
 
 		DisableConsole();
-		Header_wave(1);
+		Header(1);
 		EnableConsole();
 	}
 

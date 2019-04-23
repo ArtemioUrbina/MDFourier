@@ -61,6 +61,20 @@ float *getWindowByLength(windowManager *wm, double length)
 	return NULL;
 }
 
+long int getWindowSizeByLength(windowManager *wm, double length)
+{
+	if(!wm)
+		return 0;
+
+	for(int i = 0; i < wm->windowCount; i++)
+	{
+		if(length == wm->windowArray[i].seconds)
+			return wm->windowArray[i].size;
+	}
+
+	return 0;
+}
+
 int initWindows(windowManager *wm, int SamplesPerSec, parameters *config)
 {
 	double 	lengths[1024];	// yes, we are lazy
@@ -102,6 +116,7 @@ int initWindows(windowManager *wm, int SamplesPerSec, parameters *config)
 					logmsg ("Tukey window creation failed\n");
 					return(0);
 				}
+				wm->windowArray[i].size = SamplesPerSec*lengths[i];
 			}
 	
 			if(config->window == 'f')
@@ -112,6 +127,7 @@ int initWindows(windowManager *wm, int SamplesPerSec, parameters *config)
 					logmsg ("FlatTop window creation failed\n");
 					return(0);
 				}
+				wm->windowArray[i].size = SamplesPerSec*lengths[i];
 			}
 	
 			if(config->window == 'h')
@@ -122,17 +138,23 @@ int initWindows(windowManager *wm, int SamplesPerSec, parameters *config)
 					logmsg ("Hann window creation failed\n");
 					return(0);
 				}
+				wm->windowArray[i].size = SamplesPerSec*lengths[i];
+			}
+
+			if(config->window == 'm')
+			{
+				wm->windowArray[i].window = hammingWindow(SamplesPerSec*lengths[i]);
+				if(!wm->windowArray[i].window)
+				{
+					logmsg ("Hamming window creation failed\n");
+					return(0);
+				}
+				wm->windowArray[i].size = SamplesPerSec*lengths[i];
 			}
 		}
+		else
+			wm->windowArray[i].window = NULL;
 	}
-
-	/*
-	// This is to graph the wm exterally for the docs
-	if(wm->windowArray && wm->windowArray->windowCount && wm->windowArray[0])
-		for(int w= 0; w < SamplesPerSec*lengths[0]; w++)
-			logmsg("%d,%g\n", w, wm->windowArray[i].window[w]);
-	exit(1); 
-	*/
 
 	return 1;
 }
@@ -144,7 +166,10 @@ void freeWindows(windowManager *wm)
 		return;
 
 	for(int i = 0; i < wm->windowCount; i++)
-		free(wm->windowArray[i].window);
+	{
+		if(wm->windowArray[i].window)
+			free(wm->windowArray[i].window);
+	}
 	free(wm->windowArray);
 	wm->windowArray = NULL;
 	wm->windowCount = 0;
@@ -274,6 +299,42 @@ float *hannWindow(int n)
 		half = (n+1)/2;
 		for(i=0; i<half; i++) //CALC_HANNING   Calculates Hanning window samples.
 			w[i] = 0.5 * (1 - cos(2*M_PI*(i+1) / (n+1)));
+ 
+		idx = half-2;
+		for(i=half; i<n; i++) {
+			w[i] = w[idx];
+			idx--;
+		}
+	}
+ 
+	return(w);
+}
+
+float *hammingWindow(int n)
+{
+	int half, i, idx;
+	float *w;
+ 
+	w = (float*) calloc(n, sizeof(float));
+	memset(w, 0, n*sizeof(float));
+
+	if(n%2==0)
+	{
+		half = n/2;
+		for(i=0; i<half; i++)
+			w[i] = 0.54 -0.46*cos((2*M_PI*i)/(n-1));
+ 
+		idx = half-1;
+		for(i=half; i<n; i++) {
+			w[i] = w[idx];
+			idx--;
+		}
+	}
+	else
+	{
+		half = (n+1)/2;
+		for(i=0; i<half; i++)
+			w[i] = 0.54 -0.46*cos((2*M_PI*i)/(n-1));
  
 		idx = half-2;
 		for(i=half; i<n; i++) {

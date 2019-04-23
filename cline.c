@@ -25,8 +25,6 @@
  * Requires the FFTW library: 
  *	  http://www.fftw.org/
  * 
- * Compile with: 
- *	  gcc -Wall -std=gnu99 -o mdfourier mdfourier.c -lfftw3 -lm
  */
 
 #include "cline.h"
@@ -37,7 +35,7 @@ void PrintUsage()
 	// b,d and y options are not documented since they are mostly for testing or found not as usefull as desired
 	logmsg("  usage: mdfourier -r reference.wav -c compare.wav\n\n");
 	logmsg("   FFT and Analysis options:\n");
-	logmsg("	 -w: enable <w>indowing. Default is a custom Tukey window.\n\tOptions are 'n' for none, 't' for Tukey, 'h' for Hann and 'f' for FlatTop\n");
+	logmsg("	 -w: enable <w>indowing. Default is a custom Tukey window.\n\tOptions are 'n' for none, 't' for Tukey, 'h' for Hann, 'f' for FlatTop\n\t and 'm' for Hamming");
 	logmsg("	 -f: Change the number of frequencies to use from FFTW\n");
 	logmsg("	 -t: Defines the <t>olerance when comparing amplitudes in dbs\n");
 	logmsg("	 -c <l,r,s>: select audio <c>hannel to compare. Default is both channels\n\t's' stereo, 'l' for left or 'r' for right\n");
@@ -87,7 +85,16 @@ void CleanParameters(parameters *config)
 	config->relativeMaxMagnitude = 0;
 	config->ignoreFloor = 1;
 	config->useOutputFilter = 1;
-	config->outputFilterFunction = 2;
+	config->outputFilterFunction = 0;
+	config->Differences.BlockDiffArray = NULL;
+	config->Differences.cntFreqAudioDiff = 0;
+	config->Differences.cntAmplAudioDiff = 0;
+	config->Differences.weightedFreqAudio = 0;
+	config->Differences.weightedAmplAudio = 0;
+	config->Differences.cntTotalCompared = 0;
+	config->Differences.cntTotalAudioDiff = 0;
+	config->Differences.weightedAudioDiff = 0;
+	config->significantVolume = -60.0;
 	
 	config->types.totalChunks = 0;
 	config->types.regularChunks = 0;
@@ -200,11 +207,12 @@ int commandline(int argc , char *argv[], parameters *config)
 			case 'f':
 			case 'h':
 			case 't':
+			case 'm':
 				config->window = optarg[0];
 				break;
 			default:
 				logmsg("Invalid Window for FFT option '%c'\n", optarg[0]);
-				logmsg("\tUse n for None, t for Tukey window (default), f for Flattop or h for Hann window\n");
+				logmsg("\tUse n for None, t for Tukey window (default), f for Flattop, h for Hann or m for Hamming window\n");
 				return 0;
 				break;
 		}
@@ -295,16 +303,14 @@ int commandline(int argc , char *argv[], parameters *config)
 		return 0;
 	}
 
+	CreateFolderName(config);
+	CreateBaseName(config);
+
 	if(IsLogEnabled())
 	{
-		int len;
 		char tmp[LOG_NAME_LEN];
-		
-		sprintf(tmp, "%s", basename(config->referenceFile));
-		len = strlen(tmp);
-		sprintf(tmp+len-4, "_vs_%s", basename(config->targetFile));
-		len = strlen(tmp);
-		tmp[len-4] = '\0';
+
+		ComposeFileName(tmp, "Log", ".txt", config);
 
 		if(!setLogName(tmp))
 			return 0;
@@ -345,6 +351,81 @@ int commandline(int argc , char *argv[], parameters *config)
 	return 1;
 }
 
+void CreateFolderName(parameters *config)
+{
+	int len;
+	char tmp[LOG_NAME_LEN];
+
+	if(!config)
+		return;
+
+	sprintf(tmp, "%s", basename(config->referenceFile));
+	len = strlen(tmp);
+	sprintf(tmp+len-4, "_vs_%s", basename(config->targetFile));
+	len = strlen(tmp);
+	tmp[len-4] = '\0';
+
+	sprintf(config->compareName, "%s", tmp);
+	sprintf(config->folderName, "MDFResults\\%s", tmp);
+
+	mkdir("MDFResults", 0755);
+	mkdir(config->folderName, 0755);
+}
+
+void InvertComparedName(parameters *config)
+{
+	int len;
+	char tmp[LOG_NAME_LEN];
+
+	sprintf(tmp, "%s", basename(config->targetFile));
+	len = strlen(tmp);
+	sprintf(tmp+len-4, "_vs_%s", basename(config->referenceFile));
+	len = strlen(tmp);
+	tmp[len-4] = '\0';
+
+	sprintf(config->compareName, "%s", tmp);
+}
+
+void CreateFolderName_wave(parameters *config)
+{
+	int len;
+	char tmp[LOG_NAME_LEN];
+
+	if(!config)
+		return;
+
+	sprintf(tmp, "MDWave\\%s", basename(config->referenceFile));
+	len = strlen(tmp);
+	tmp[len-4] = '\0';
+
+	sprintf(config->folderName, "%s", tmp);
+
+	mkdir("MDWave", 0755);
+	mkdir(config->folderName, 0755);
+}
+
+void CreateBaseName(parameters *config)
+{
+	if(!config)
+		return;
+	
+	sprintf(config->baseName, "_f%d_t%g_%s_%s_v_%g", 
+			config->MaxFreq,
+			config->tolerance,
+			GetWindow(config->window),
+			GetChannel(config->channel),
+			fabs(config->significantVolume));
+}
+
+void ComposeFileName(char *target, char *subname, char *ext, parameters *config)
+{
+	if(!config)
+		return;
+
+	sprintf(target, "%s\\%s%s%s",
+			config->folderName, subname, config->baseName, ext); 
+}
+
 double TimeSpecToSeconds(struct timespec* ts)
 {
 	return (double)ts->tv_sec + (double)ts->tv_nsec / 1000000000.0;
@@ -370,13 +451,15 @@ char *GetWindow(char c)
 	switch(c)
 	{
 		case 'n':
-			return "No Window/Rectangular";
+			return "Rectangular";
 		case 't':
-			return "Custom Tukey";
+			return "Tukey";
 		case 'f':
 			return "Flattop";
 		case 'h':
 			return "Hann";
+		case 'm':
+			return "Hamming";
 		default:
 			return "ERROR";
 	}
