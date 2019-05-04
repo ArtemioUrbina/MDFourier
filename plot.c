@@ -33,6 +33,9 @@
 #include "cline.h"
 #include "windows.h"
 
+#define PLOT_RES_X 800
+#define PLOT_RES_Y 400
+
 int FillPlot(PlotFile *plot, char *name, int sizex, int sizey, double x0, double y0, double x1, double y1, double penWidth, parameters *config)
 {
 	plot->plotter = NULL;
@@ -114,7 +117,7 @@ void PlotDifferentBlockAmplitudes(int block, parameters *config)
 		return;
 
 	sprintf(name, "Block%3d", block);
-	FillPlot(&plot, name, 1000, 500, 0, -10.0, 20000, 10.0, 0.1, config);
+	FillPlot(&plot, name, PLOT_RES_X, PLOT_RES_Y, 0, -20.0, 20000, 20.0, 1, config);
 
 	CreatePlotFile(&plot);
 	for(int a = 0; a < config->Differences.BlockDiffArray[block].cntAmplBlkDiff; a++)
@@ -127,8 +130,9 @@ void PlotDifferentBlockAmplitudes(int block, parameters *config)
 
 void PlotAllDifferentAmplitudes(char *filename, parameters *config)
 {
-	PlotFile plot;
-	char	 name[2048];
+	PlotFile	plot;
+	char		name[2048];
+	double		dbs = 20;
 
 	if(!config)
 		return;
@@ -137,7 +141,7 @@ void PlotAllDifferentAmplitudes(char *filename, parameters *config)
 		return;
 
 	sprintf(name, "DifferentAmplitudes_%s", filename);
-	FillPlot(&plot, name, 2000, 1000, 0, -12.0, 20000, 12.0, 0.1, config);
+	FillPlot(&plot, name, PLOT_RES_X, PLOT_RES_Y, 0, -1*dbs, 20000, dbs, 1, config);
 
 	CreatePlotFile(&plot);
 
@@ -145,32 +149,60 @@ void PlotAllDifferentAmplitudes(char *filename, parameters *config)
 	pl_fline_r(plot.plotter, 0, 0, 20000, 0);
 
 	pl_pencolor_r (plot.plotter, 0, 0x5555, 0);
-	for(int i = 3; i < 12; i += 3)
+	for(int i = 3; i < dbs; i += 3)
 	{
-		pl_fline_r(plot.plotter, 0, i, 19500, i);
-		pl_fline_r(plot.plotter, 0, -1*i, 19500, -1*i);
+		pl_fline_r(plot.plotter, 0, i, 20000, i);
+		pl_fline_r(plot.plotter, 0, -1*i, 20000, -1*i);
 	}
 
 	pl_pencolor_r (plot.plotter, 0, 0x5555, 0);
 	for(int i = 0; i < 20000; i += 1000)
-		pl_fline_r(plot.plotter, i, -12, i, 12);
+		pl_fline_r(plot.plotter, i, -1*dbs, i, dbs);
 
 	pl_pencolor_r (plot.plotter, 0, 0xFFFF, 0);
-	for(int b = 0; b < config->types.totalChunks; b++)
+	for(int b = config->types.totalChunks - 1; b >= 0 ; b--)
 	{
 		int type;
 
 		type = GetBlockType(config, b);
 		if(type > TYPE_SILENCE)
 		{ 
-			pl_pencolorname_r(plot.plotter, GetBlockColor(config, b));
-			for(int a = 0; a < config->Differences.BlockDiffArray[b].cntAmplBlkDiff; a++)
+			for(int a = config->Differences.BlockDiffArray[b].cntAmplBlkDiff; a >= 0 ; a--)
 			{
+				double range_0_1;
+				long int color;
+				double intensity;
+				double floor = 0;
+
+				range_0_1 = (fabs(config->significantVolume) - fabs(config->Differences.BlockDiffArray[b].amplDiffArray[a].refAmplitude))*(1.0-floor)/fabs(config->significantVolume)+floor;
+				intensity = CalculateWeightedError(range_0_1, config);
+				color = intensity*0xffff;
+
+				switch(GetBlockType(config, b))
+				{
+					case 1:
+						pl_pencolor_r(plot.plotter, 0, color, 0);
+						break;
+					case 2:
+						pl_pencolor_r(plot.plotter, color, color, 0);
+						break;
+					case 3:
+						pl_pencolor_r(plot.plotter, 0, color, color);
+						break;
+				}
 				pl_fpoint_r(plot.plotter, config->Differences.BlockDiffArray[b].amplDiffArray[a].hertz, 
 						config->Differences.BlockDiffArray[b].amplDiffArray[a].diffAmplitude);
 			}
 		}
 	}
+
+	pl_fspace_r (plot.plotter, 0.0, -1*PLOT_RES_Y, PLOT_RES_X, PLOT_RES_Y);
+	pl_pencolor_r (plot.plotter, 0, 0xcccc, 0);
+	pl_ffontsize_r (plot.plotter, PLOT_RES_Y/20);
+
+	pl_fmove_r (plot.plotter, PLOT_RES_X-(PLOT_RES_X/20), 10);
+	pl_alabel_r (plot.plotter, 'c', 'c', "0 db");
+ 
 	ClosePlot(&plot);
 }
 
@@ -186,7 +218,7 @@ void PlotAllMissingFrequencies(char *filename, parameters *config)
 		return;
 
 	sprintf(name, "MissingFrequencies_%s", filename);
-	FillPlot(&plot, name, 2000, 1000, 0, config->significantVolume, 20000, 0.0, 0.1, config);
+	FillPlot(&plot, name, PLOT_RES_X, PLOT_RES_Y, 0, config->significantVolume, 20000, 0.0, 1, config);
 
 	CreatePlotFile(&plot);
 
@@ -209,9 +241,29 @@ void PlotAllMissingFrequencies(char *filename, parameters *config)
 		type = GetBlockType(config, b);
 		if(type > TYPE_SILENCE)
 		{ 
-			pl_pencolorname_r(plot.plotter, GetBlockColor(config, b));
 			for(int f = 0; f < config->Differences.BlockDiffArray[b].cntFreqBlkDiff; f++)
 			{
+				double range_0_1;
+				long int color;
+				double intensity;
+				double floor = 0;
+	
+				range_0_1 = (fabs(config->significantVolume) - fabs(config->Differences.BlockDiffArray[b].freqMissArray[f].amplitude))*(1.0-floor)/fabs(config->significantVolume)+floor;
+				intensity = CalculateWeightedError(range_0_1, config);
+				color = intensity*0xffff;
+	
+				switch(GetBlockType(config, b))
+				{
+					case 1:
+						pl_pencolor_r(plot.plotter, 0, color, 0);
+						break;
+					case 2:
+						pl_pencolor_r(plot.plotter, color, color, 0);
+						break;
+					case 3:
+						pl_pencolor_r(plot.plotter, 0, color, color);
+						break;
+				}
 				pl_fpoint_r(plot.plotter, config->Differences.BlockDiffArray[b].freqMissArray[f].hertz, 
 						config->Differences.BlockDiffArray[b].freqMissArray[f].amplitude);
 			}
@@ -231,7 +283,7 @@ void PlotSpectrogram(char *filename, AudioSignal *Signal, int block, parameters 
 	SortFrequencies(Signal, config);
 
 	sprintf(name, "Spectrogram_%s_block%3d", filename, block);
-	FillPlot(&plot, name, 2000, 1000, 0, config->significantVolume, 20000, 0.0, 0.1, config);
+	FillPlot(&plot, name, PLOT_RES_X, PLOT_RES_Y, 0, config->significantVolume, 20000, 0.0, 1, config);
 
 	CreatePlotFile(&plot);
 
@@ -251,11 +303,82 @@ void PlotSpectrogram(char *filename, AudioSignal *Signal, int block, parameters 
 	pl_fline_r(plot.plotter, 0, -1*config->significantVolume, 1, -1*config->significantVolume);
 	for(int i = 0; i < config->MaxFreq; i++)
 	{
+		double range_0_1;
+		long int color;
+		double intensity;
+		double floor = 0;
+
+		range_0_1 = (fabs(config->significantVolume) - fabs(Signal->Blocks[block].freq[i].amplitude))*(1.0-floor)/fabs(config->significantVolume)+floor;
+		intensity = CalculateWeightedError(range_0_1, config);
+		color = intensity*0xffff;
+
+		switch(GetBlockType(config, block))
+		{
+			case 1:
+				pl_pencolor_r(plot.plotter, 0, color, 0);
+				break;
+			case 2:
+				pl_pencolor_r(plot.plotter, color, color, 0);
+				break;
+			case 3:
+				pl_pencolor_r(plot.plotter, 0, color, color);
+				break;
+		}
 		pl_fcont_r(plot.plotter, Signal->Blocks[block].freq[i].hertz, 
 				Signal->Blocks[block].freq[i].amplitude);
 	}
 	ClosePlot(&plot);
 }
+
+/*
+void PlotAllSpectrogramLineBased(char *filename, AudioSignal *Signal, parameters *config)
+{
+	PlotFile plot;
+	char	 name[2048];
+
+	if(!config)
+		return;
+
+	sprintf(name, "Spectrogram_Line_%s", filename);
+	FillPlot(&plot, name, PLOT_RES_X, PLOT_RES_Y, 0, config->significantVolume, 20000, 0.0, 1, config);
+
+	CreatePlotFile(&plot);
+
+	pl_pencolor_r (plot.plotter, 0, 0xbbbb, 0);
+	pl_fline_r(plot.plotter, 0, 0, 20000, 0);
+
+	pl_pencolor_r (plot.plotter, 0, 0x5555, 0);
+	for(int i = 3; i < fabs(config->significantVolume); i += 3)
+		pl_fline_r(plot.plotter, 0, -1*i, 20000, -1*i);
+
+	pl_pencolor_r (plot.plotter, 0, 0x5555, 0);
+	for(int i = 0; i < 20000; i += 1000)
+		pl_fline_r(plot.plotter, i, config->significantVolume, i, 0);
+
+	pl_pencolor_r (plot.plotter, 0, 0xFFFF, 0);
+	
+	SortFrequencies(Signal, config);
+
+	for(int b = 0; b < config->types.totalChunks; b++)
+	{
+		int type;
+
+		pl_fline_r(plot.plotter, 0, -1*config->significantVolume, 1, -1*config->significantVolume);
+		type = GetBlockType(config, b);
+		if(type > TYPE_SILENCE)
+		{ 
+			pl_pencolorname_r(plot.plotter, GetBlockColor(config, b));
+			for(int i = 0; i < config->MaxFreq; i++)
+			{
+				pl_fcont_r(plot.plotter, Signal->Blocks[b].freq[i].hertz, 
+						Signal->Blocks[b].freq[i].amplitude);
+			}
+			pl_endpath_r(plot.plotter);
+		}
+	}
+	ClosePlot(&plot);
+}
+*/
 
 void PlotAllSpectrogram(char *filename, AudioSignal *Signal, parameters *config)
 {
@@ -266,7 +389,7 @@ void PlotAllSpectrogram(char *filename, AudioSignal *Signal, parameters *config)
 		return;
 
 	sprintf(name, "Spectrogram_%s", filename);
-	FillPlot(&plot, name, 2000, 1000, 0, config->significantVolume, 20000, 0.0, 0.1, config);
+	FillPlot(&plot, name, PLOT_RES_X, PLOT_RES_Y, 0, config->significantVolume, 20000, 0.0, 1, config);
 
 	CreatePlotFile(&plot);
 
@@ -290,9 +413,29 @@ void PlotAllSpectrogram(char *filename, AudioSignal *Signal, parameters *config)
 		type = GetBlockType(config, b);
 		if(type > TYPE_SILENCE)
 		{ 
-			pl_pencolorname_r(plot.plotter, GetBlockColor(config, b));
 			for(int i = 0; i < config->MaxFreq; i++)
 			{
+				double range_0_1;
+				long int color;
+				double intensity;
+				double floor = 0;
+		
+				range_0_1 = (fabs(config->significantVolume) - fabs(Signal->Blocks[b].freq[i].amplitude))*(1.0-floor)/fabs(config->significantVolume)+floor;
+				intensity = CalculateWeightedError(range_0_1, config);
+				color = intensity*0xffff;
+		
+				switch(GetBlockType(config, b))
+				{
+					case 1:
+						pl_pencolor_r(plot.plotter, 0, color, 0);
+						break;
+					case 2:
+						pl_pencolor_r(plot.plotter, color, color, 0);
+						break;
+					case 3:
+						pl_pencolor_r(plot.plotter, 0, color, color);
+						break;
+				}
 				pl_fpoint_r(plot.plotter, Signal->Blocks[b].freq[i].hertz, 
 						Signal->Blocks[b].freq[i].amplitude);
 			}
@@ -318,7 +461,7 @@ void PlotWindow(windowManager *wm, parameters *config)
 	size = getWindowSizeByLength(wm, 1.0);
 
 	sprintf(name, "WindowPlot_%s", GetWindow(config->window));
-	FillPlot(&plot, name, 512, 544, 0, -0.1, 1, 1.1, 0.01, config);
+	FillPlot(&plot, name, 512, 544, 0, -0.1, 1, 1.1, 1, config);
 
 	CreatePlotFile(&plot);
 

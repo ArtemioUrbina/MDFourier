@@ -85,7 +85,7 @@ void CleanParameters(parameters *config)
 	config->relativeMaxMagnitude = 0;
 	config->ignoreFloor = 1;
 	config->useOutputFilter = 1;
-	config->outputFilterFunction = 0;
+	config->outputFilterFunction = 1;
 	config->Differences.BlockDiffArray = NULL;
 	config->Differences.cntFreqAudioDiff = 0;
 	config->Differences.cntAmplAudioDiff = 0;
@@ -110,7 +110,7 @@ int commandline(int argc , char *argv[], parameters *config)
 	
 	CleanParameters(config);
 
-	while ((c = getopt (argc, argv, "hejvkgimlxyo:w:n:d:a:t:r:c:f:b:s:z:")) != -1)
+	while ((c = getopt (argc, argv, "hejvkgimlxyo:w:n:d:a:t:r:c:f:b:s:z:p:")) != -1)
 	switch (c)
 	  {
 	  case 'h':
@@ -162,7 +162,7 @@ int commandline(int argc , char *argv[], parameters *config)
 		break;
 	  case 'z':
 		config->endHz = atoi(optarg);
-		if(config->endHz < 10 || config->endHz > 20000)
+		if(config->endHz < 10 || config->endHz > 22050)
 			config->endHz = END_HZ;
 		break;
 	  case 'f':
@@ -184,6 +184,11 @@ int commandline(int argc , char *argv[], parameters *config)
 		config->tolerance = atof(optarg);
 		if(config->tolerance < 0.0 || config->tolerance > 40.0)
 			config->tolerance = DBS_TOLERANCE;
+		break;
+	  case 'p':
+		config->significantVolume = atof(optarg);
+		if(config->significantVolume > -1.0 || config->significantVolume < -100.0)
+			config->significantVolume = -60.0;
 		break;
 	  case 'a':
 		switch(optarg[0])
@@ -255,6 +260,8 @@ int commandline(int argc , char *argv[], parameters *config)
 		  logmsg("Output curve -%c requires an argument 0-4\n", optopt);
 		else if (optopt == 't')
 		  logmsg("Amplitude tolerance -%c requires an argument: 0.0-40.0 dbs\n", optopt);
+		else if (optopt == 'p')
+		  logmsg("Significant Volume -%c requires an argument: -1.0 to -100.0 dbs\n", optopt);
 		else if (optopt == 'f')
 		  logmsg("Max # of frequencies to use from FFTW -%c requires an argument: 1-%d\n", optopt, MAX_FREQ_COUNT);
 		else if (optopt == 's')
@@ -409,12 +416,13 @@ void CreateBaseName(parameters *config)
 	if(!config)
 		return;
 	
-	sprintf(config->baseName, "_f%d_t%g_%s_%s_v_%g", 
+	sprintf(config->baseName, "_f%d_t%g_%s_%s_v_%g_%s_%d", 
 			config->MaxFreq,
 			config->tolerance,
 			GetWindow(config->window),
 			GetChannel(config->channel),
-			fabs(config->significantVolume));
+			fabs(config->significantVolume),
+			config->useOutputFilter ? "OF" : "LI", config->outputFilterFunction);
 }
 
 void ComposeFileName(char *target, char *subname, char *ext, parameters *config)

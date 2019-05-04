@@ -195,8 +195,8 @@ int LoadAudioBlockStructure(parameters *config)
 		fclose(file);
 		return 0;
 	}
-	config->types.framerateAdjust = strtod(buffer, NULL);
-	if(!config->types.framerateAdjust)
+	config->types.platformMSPerFrame = strtod(buffer, NULL);
+	if(!config->types.platformMSPerFrame)
 	{
 		printf("Invalid Frame Rate Adjustment '%s'\n", buffer);
 		fclose(file);
@@ -221,17 +221,19 @@ int LoadAudioBlockStructure(parameters *config)
 
 	for(int i = 0; i < config->types.typeCount; i++)
 	{
-		if(fscanf(file, "%s %d %d %f %s\n", 
+		if(fscanf(file, "%s %d %d %d %s\n", 
 			config->types.typeArray[i].typeName,
 			&config->types.typeArray[i].type,
 			&config->types.typeArray[i].elementCount,
-			&config->types.typeArray[i].seconds,
+			&config->types.typeArray[i].frames,
 			&config->types.typeArray[i].color [0]) != 5)
 		{
 			printf("Invalid MD Fourier Audio Blocks File\n");
 			fclose(file);
 			return 0;
 		}
+		config->types.typeArray[i].seconds = 
+			config->types.typeArray[i].frames * config->types.platformMSPerFrame/1000;
 	}
 
 	config->types.regularChunks = GetTotalAudioBlocks(config);
@@ -247,9 +249,9 @@ int LoadAudioBlockStructure(parameters *config)
 	return 1;
 }
 
-double GetFramerateAdjust(parameters *config)
+double GetPlatformMSPerFrame(parameters *config)
 {
-	return(config->types.framerateAdjust);
+	return(config->types.platformMSPerFrame);
 }
 
 int GetSilenceIndex(parameters *config)
@@ -444,6 +446,15 @@ void FindFloor(AudioSignal *Signal, parameters *config)
 	Signal->hasFloor = 0;  /* revoke it if not found */
 }
 
+double RoundFloat(double x, int p)
+{
+	if (x != 0.0) {
+		return ((floor((fabs(x)*pow((double)(10.0),p))+0.5))/pow((double)(10.0),p))*(x/fabs(x));
+	} else {
+		return 0.0;
+	}
+}
+
 void GlobalNormalize(AudioSignal *Signal, parameters *config)
 {
 	double MaxMagnitude = 0;
@@ -481,9 +492,9 @@ void GlobalNormalize(AudioSignal *Signal, parameters *config)
 			if(!Signal->Blocks[block].freq[i].hertz)
 				break;
 			Signal->Blocks[block].freq[i].amplitude = 
-				20*log10(Signal->Blocks[block].freq[i].magnitude/MaxMagnitude);
+				RoundFloat(20*log10(Signal->Blocks[block].freq[i].magnitude/MaxMagnitude), 2);
 			Signal->Blocks[block].freq[i].magnitude = 
-				Signal->Blocks[block].freq[i].magnitude*100.0/MaxMagnitude;
+				RoundFloat(Signal->Blocks[block].freq[i].magnitude*100.0/MaxMagnitude, 2);
 		}
 	}
 }
@@ -513,9 +524,9 @@ void LocalNormalize(AudioBlocks *AudioArray, parameters *config)
 	for(long int i = 0; i < config->MaxFreq; i++)
 	{
 		AudioArray->freq[i].amplitude = 
-			20*log10(AudioArray->freq[i].magnitude/MaxMagnitude);
+			RoundFloat(20*log10(AudioArray->freq[i].magnitude/MaxMagnitude), 2);
 		AudioArray->freq[i].magnitude = 
-			AudioArray->freq[i].magnitude*100.0/MaxMagnitude;
+			RoundFloat(AudioArray->freq[i].magnitude*100.0/MaxMagnitude, 2);
 	}
 }
 
@@ -613,7 +624,7 @@ void FillFrequencyStructures(AudioBlocks *AudioArray, parameters *config)
 	size = AudioArray->fftwValues.size;
 	boxsize = AudioArray->fftwValues.seconds;
 	
-	for(i = config->startHz*boxsize; i < config->endHz*boxsize; i++)	/* Nyquist at 44.1khz */
+	for(i = (int)config->startHz*boxsize; i < (int)config->endHz*boxsize; i++)	/* Nyquist at 44.1khz */
 	{
 		double r1 = creal(AudioArray->fftwValues.spectrum[i]);
 		double i1 = cimag(AudioArray->fftwValues.spectrum[i]);
@@ -623,6 +634,7 @@ void FillFrequencyStructures(AudioBlocks *AudioArray, parameters *config)
 
 		magnitude = sqrt(r1*r1 + i1*i1)/sqrt(size);
 		Hertz = ((double)i/boxsize);
+		Hertz = RoundFloat(Hertz, 2);
 
 		previous = 1.e30;
 		if(!IsCRTNoise(Hertz))
@@ -633,7 +645,10 @@ void FillFrequencyStructures(AudioBlocks *AudioArray, parameters *config)
 				{
 					/* Move the previous values down the array */
 					for(int k = config->MaxFreq-1; k > j; k--)
-						AudioArray->freq[k] = AudioArray->freq[k - 1];
+					{
+						if(AudioArray->freq[k].hertz)
+							AudioArray->freq[k] = AudioArray->freq[k - 1];
+					}
 	
 					AudioArray->freq[j].hertz = Hertz;
 					AudioArray->freq[j].magnitude = magnitude;
@@ -768,4 +783,47 @@ void PrintComparedBlocks(AudioBlocks *ReferenceArray, AudioBlocks *ComparedArray
 
 	if(IsLogEnabled())
 		EnableConsole();
+}
+
+double CalculateWeightedError(double pError, parameters *config)
+{
+	int option = 0;
+
+	option = config->outputFilterFunction;
+	switch(option)
+	{
+		case 0:
+			pError = 1;
+			break;
+		case 1:
+			pError = pError;
+			break;
+		case 2:
+			/* Map to Beta function */
+			pError = incbeta(8.0, 8.0, pError);
+			break;
+		case 3:
+			/* Map to Beta function */
+			pError = incbeta(3.0, 1.0, pError);
+			break;
+		case 4:
+			/* Map to Beta function */
+			pError = incbeta(5.0, 0.5, pError);
+			break;
+		case 5:
+			/* Map to Beta function */
+			pError = incbeta(1.0, 3.0, pError);
+			break;
+		case 6:
+			/* Map to Beta function */
+			pError = incbeta(0.5, 6, pError);
+			break;
+		default:
+			/* This is unexpected behaviour, log it */
+			logmsg("CalculateWeightedError, out of range value %d\n", option);
+			pError = 1;
+			break;
+	}
+
+	return pError;
 }

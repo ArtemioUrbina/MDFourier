@@ -48,6 +48,7 @@ void PlotAllDifferentAmplitudes(char *filename, parameters *config);
 void PlotAllMissingFrequencies(char *filename, parameters *config);
 void PlotSpectrogram(char *filename, AudioSignal *Signal, int block, parameters *config);
 void PlotAllSpectrogram(char *filename, AudioSignal *Signal, parameters *config);
+void PlotAllSpectrogramLineBased(char *filename, AudioSignal *Signal, parameters *config);
 void PlotWindow(windowManager *wm, parameters *config);
 int FillPlot(PlotFile *plot, char *name, int sizex, int sizey, double x0, double y0, double x1, double y1, double penWidth, parameters *config);
 int CreatePlotFile(PlotFile *plot);

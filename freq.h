@@ -45,7 +45,7 @@ char *GetBlockName(parameters *config, int pos);
 int GetBlockSubIndex(parameters *config, int pos);
 int GetBlockType(parameters *config, int pos);
 char *GetBlockColor(parameters *config, int pos);
-double GetFramerateAdjust(parameters *config);
+double GetPlatformMSPerFrame(parameters *config);
 void ReleaseAudioBlockStructure(parameters *config);
 
 AudioSignal *CreateAudioSignal(parameters *config);
@@ -63,5 +63,8 @@ int IsCRTNoise(double freq);
 
 void PrintComparedBlocks(AudioBlocks *ReferenceArray, AudioBlocks *ComparedArray, parameters *config, AudioSignal *Signal);
 void InsertMessageInBuffer(msgbuff *message, parameters *config);
+
+double CalculateWeightedError(double pError, parameters *config);
+double RoundFloat(double x, int p);
 
 #endif

@@ -4,10 +4,10 @@ LFLAGS = -lm -lfftw3 -lplot
 
 all: mdfourier mdwave
 
-mdfourier: freq.o windows.o log.o diff.o plot.o cline.o incbeta.o mdfourier.o 
+mdfourier: sync.o freq.o windows.o log.o diff.o plot.o cline.o incbeta.o mdfourier.o 
 	$(CC) $(CCFLAGS) -o $@ $^ $(LFLAGS)
 
-mdwave: freq.o windows.o log.o cline.o mdwave.o
+mdwave: sync.o freq.o windows.o log.o cline.o incbeta.o mdwave.o
 	$(CC) $(CCFLAGS) -o $@ $^ $(LFLAGS)
 
 .c.o:

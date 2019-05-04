@@ -83,6 +83,13 @@ int initWindows(windowManager *wm, int SamplesPerSec, parameters *config)
 	if(!wm || !config)
 		return 0;
 	
+	if(config->window == 'n')
+	{
+		wm->windowArray = NULL;
+		wm->windowCount = 0;
+		return 1;
+	}
+
 	// Count how many differen window sizes are needed
 	for(int i = 0; i < config->types.typeCount; i++)
 	{
@@ -105,55 +112,53 @@ int initWindows(windowManager *wm, int SamplesPerSec, parameters *config)
 
 	for(int i = 0; i < count; i++)
 	{
+		wm->windowArray[i].window = NULL;
 		wm->windowArray[i].seconds = lengths[i];
-		if(config->window != 'n')
-		{
-			if(config->window == 't')
-			{
-				wm->windowArray[i].window = tukeyWindow(SamplesPerSec*lengths[i]);
-				if(!wm->windowArray[i].window)
-				{
-					logmsg ("Tukey window creation failed\n");
-					return(0);
-				}
-				wm->windowArray[i].size = SamplesPerSec*lengths[i];
-			}
-	
-			if(config->window == 'f')
-			{
-				wm->windowArray[i].window = flattopWindow(SamplesPerSec*lengths[i]);
-				if(!wm->windowArray[i].window)
-				{
-					logmsg ("FlatTop window creation failed\n");
-					return(0);
-				}
-				wm->windowArray[i].size = SamplesPerSec*lengths[i];
-			}
-	
-			if(config->window == 'h')
-			{
-				wm->windowArray[i].window = hannWindow(SamplesPerSec*lengths[i]);
-				if(!wm->windowArray[i].window)
-				{
-					logmsg ("Hann window creation failed\n");
-					return(0);
-				}
-				wm->windowArray[i].size = SamplesPerSec*lengths[i];
-			}
+		wm->windowArray[i].size = 0;
 
-			if(config->window == 'm')
+		if(config->window == 't')
+		{
+			wm->windowArray[i].window = tukeyWindow(SamplesPerSec*lengths[i]);
+			if(!wm->windowArray[i].window)
 			{
-				wm->windowArray[i].window = hammingWindow(SamplesPerSec*lengths[i]);
-				if(!wm->windowArray[i].window)
-				{
-					logmsg ("Hamming window creation failed\n");
-					return(0);
-				}
-				wm->windowArray[i].size = SamplesPerSec*lengths[i];
+				logmsg ("Tukey window creation failed\n");
+				return(0);
 			}
+			wm->windowArray[i].size = SamplesPerSec*lengths[i];
 		}
-		else
-			wm->windowArray[i].window = NULL;
+
+		if(config->window == 'f')
+		{
+			wm->windowArray[i].window = flattopWindow(SamplesPerSec*lengths[i]);
+			if(!wm->windowArray[i].window)
+			{
+				logmsg ("FlatTop window creation failed\n");
+				return(0);
+			}
+			wm->windowArray[i].size = SamplesPerSec*lengths[i];
+		}
+
+		if(config->window == 'h')
+		{
+			wm->windowArray[i].window = hannWindow(SamplesPerSec*lengths[i]);
+			if(!wm->windowArray[i].window)
+			{
+				logmsg ("Hann window creation failed\n");
+				return(0);
+			}
+			wm->windowArray[i].size = SamplesPerSec*lengths[i];
+		}
+
+		if(config->window == 'm')
+		{
+			wm->windowArray[i].window = hammingWindow(SamplesPerSec*lengths[i]);
+			if(!wm->windowArray[i].window)
+			{
+				logmsg ("Hamming window creation failed\n");
+				return(0);
+			}
+			wm->windowArray[i].size = SamplesPerSec*lengths[i];
+		}
 	}
 
 	return 1;
@@ -170,7 +175,8 @@ void freeWindows(windowManager *wm)
 		if(wm->windowArray[i].window)
 			free(wm->windowArray[i].window);
 	}
-	free(wm->windowArray);
+	if(wm->windowCount)
+		free(wm->windowArray);
 	wm->windowArray = NULL;
 	wm->windowCount = 0;
 }

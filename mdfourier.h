@@ -51,8 +51,8 @@
 #define MDVERSION "0.75"
 
 
-#define MAX_FREQ_COUNT		22050 	/* Number of frequencies to account for (MAX) */
-#define FREQ_COUNT			2000	/* Number of frequencies to account for (default) */
+#define MAX_FREQ_COUNT		100000 	/* Number of frequencies to compare(MAX) */
+#define FREQ_COUNT			2000	/* Number of frequencies to compare(default) */
 
 #define TYPE_SILENCE	0
 #define TYPE_NOTYPE		-1
@@ -69,14 +69,15 @@
 #define HERTZ_DIFF			0.0
 
 #define START_HZ	10
-#define END_HZ		MAX_FREQ_COUNT
+#define END_HZ		22050
 
 
 typedef struct abt_st {
 	char		typeName[128];
 	int 		type;
 	int			elementCount;
-	float		seconds;
+	int			frames;
+	double		seconds;
 	char		color[20];
 } AudioBlockType;
 
@@ -84,7 +85,7 @@ typedef struct abd_st {
 	char			Name[128];
 	int				totalChunks;
 	int				regularChunks;
-	double			framerateAdjust;
+	double			platformMSPerFrame;
 
 	AudioBlockType	*typeArray;
 	int				typeCount;

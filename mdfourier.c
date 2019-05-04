@@ -34,6 +34,7 @@
 #include "freq.h"
 #include "diff.h"
 #include "plot.h"
+#include "sync.h"
 
 int LoadFile(FILE *file, AudioSignal *Signal, parameters *config, char *fileName);
 double ExecuteDFFT(AudioBlocks *AudioArray, short *samples, size_t size, long samplerate, float *window, parameters *config);
@@ -46,7 +47,6 @@ int main(int argc , char *argv[])
 	AudioSignal  		*ReferenceSignal;
 	AudioSignal  		*TestSignal;
 	parameters			config;
-	double				result1 = 0, result2 = 0;
 
 	Header(0);
 	if(!commandline(argc, argv, &config))
@@ -107,20 +107,27 @@ int main(int argc , char *argv[])
 		return 1;
 	}
 
-	result1 = CompareAudioBlocks(ReferenceSignal, TestSignal, &config);
+	CompareAudioBlocks(ReferenceSignal, TestSignal, &config);
 	if(config.normalize == 'r')
 		config.relativeMaxMagnitude = 0.0;
+
+	PlotAllDifferentAmplitudes(config.compareName, &config);
+	PlotAllSpectrogram(basename(ReferenceSignal->SourceFile), ReferenceSignal, &config);
+	PlotAllMissingFrequencies(config.compareName, &config);
+	//PrintDifferenceArray(config);
+
 	CleanMatched(ReferenceSignal, TestSignal, &config);
 	ReleaseDifferenceArray(&config);
 	InvertComparedName(&config);
 
-	result2 = CompareAudioBlocks(TestSignal, ReferenceSignal, &config);
-	ReleaseDifferenceArray(&config);
+	CompareAudioBlocks(TestSignal, ReferenceSignal, &config);
 
-	if(config.spreadsheet)
-		logmsg("Spreadsheet, %s, %s, %g, %g\n",
-				 basename(ReferenceSignal->SourceFile), basename(TestSignal->SourceFile),
-				result1, result2);
+	PlotAllDifferentAmplitudes(config.compareName, &config);
+	PlotAllSpectrogram(basename(TestSignal->SourceFile), TestSignal, &config);
+	PlotAllMissingFrequencies(config.compareName, &config);
+	//PrintDifferenceArray(config);
+
+	ReleaseDifferenceArray(&config);
 
 	ReleaseAudio(ReferenceSignal, &config);
 	ReleaseAudio(TestSignal, &config);
@@ -144,10 +151,10 @@ int main(int argc , char *argv[])
 int LoadFile(FILE *file, AudioSignal *Signal, parameters *config, char *fileName)
 {
 	int 				i = 0;
-	int 				loadedBlockSize = 0;
+	long int			loadedBlockSize = 0;
 	char				*buffer;
 	size_t			 	buffersize = 0;
-	size_t			 	discardBytes = 0, discardSamples = 0;
+	//size_t			 	discardBytes = 0, discardSamples = 0;
 	wav_hdr 			header;
 	windowManager		windows;
 	float				*windowUsed = NULL;
@@ -200,11 +207,11 @@ int LoadFile(FILE *file, AudioSignal *Signal, parameters *config, char *fileName
 
 	/* We need to convert buffersize to the 16.688ms per frame by the Genesis */
 	/* Mega Drive is 1.00128, now loaded fomr file */
-	discardSamples = (size_t)round(GetFramerateAdjust(config)*header.SamplesPerSec);
-	if(discardSamples % 2)
-		discardSamples += 1;
+	//discardSamples = (size_t)round(GetPlatformMSPerFrame(config)*header.SamplesPerSec);
+	//if(discardSamples % 2)
+		//discardSamples += 1;
 
-	discardSamples -= header.SamplesPerSec;
+	//discardSamples -= header.SamplesPerSec;
 	longest = GetLongestBlock(config);
 	if(!longest)
 	{
@@ -212,7 +219,9 @@ int LoadFile(FILE *file, AudioSignal *Signal, parameters *config, char *fileName
 		return 0;
 	}
 
-	buffersize = header.SamplesPerSec*4*sizeof(char)*(int)longest; /* 2 bytes per sample, stereo */
+	buffersize = header.SamplesPerSec*4*sizeof(char)*longest; /* 2 bytes per sample, stereo */
+	if(buffersize % 2)
+		buffersize += 1;
 	buffer = (char*)malloc(buffersize);
 	if(!buffer)
 	{
@@ -239,6 +248,10 @@ int LoadFile(FILE *file, AudioSignal *Signal, parameters *config, char *fileName
 	if(GetSilenceIndex(config) != NO_INDEX)
 		Signal->hasFloor = 1;
 
+	/* Find the start offset */
+	//DetectPulse(AllSamples, header, 4, 0, config);
+	//exit(1);
+
 	sprintf(Signal->SourceFile, "%s", fileName);
 	if(config->clock)
 		clock_gettime(CLOCK_MONOTONIC, &start);
@@ -248,11 +261,12 @@ int LoadFile(FILE *file, AudioSignal *Signal, parameters *config, char *fileName
 		double duration = 0;
 
 		duration = GetBlockDuration(config, i);
-		if(config->window != 'n')
-			windowUsed = getWindowByLength(&windows, duration);
+		windowUsed = getWindowByLength(&windows, duration);
 		
-		loadedBlockSize = header.SamplesPerSec*4*sizeof(char)*(int)duration;
-		discardBytes = discardSamples * 4 * duration;
+		loadedBlockSize = header.SamplesPerSec*4*sizeof(char)*duration;
+		if(loadedBlockSize % 2)
+			loadedBlockSize += 1;
+		//discardBytes = discardSamples * 4 * duration;
 
 		memset(buffer, 0, buffersize);
 		if(pos + loadedBlockSize > header.Subchunk2Size)
@@ -274,8 +288,8 @@ int LoadFile(FILE *file, AudioSignal *Signal, parameters *config, char *fileName
 			char		Name[2048], FName[4096];
 
 			cheader = header;
-			sprintf(Name, "%03d_Source_chunk_%s", i, basename(fileName));
-			ComposeFileName(FName, Name, "", config);
+			sprintf(Name, "%03d_Source_chunk_%s", i, ComposeFileName);
+			ComposeFileName(FName, Name, ".wav", config);
 			chunk = fopen(FName, "wb");
 			if(!chunk)
 			{
@@ -311,7 +325,7 @@ int LoadFile(FILE *file, AudioSignal *Signal, parameters *config, char *fileName
 		if(config->normalize == 'n')
 			LocalNormalize(&Signal->Blocks[i], config);
 
-		pos += discardBytes;  /* Advance to adjust the time for the Sega Genesis Frame Rate */
+		//pos += discardBytes;  /* Advance to adjust the time for the Sega Genesis Frame Rate */
 		i++;
 	}
 
@@ -359,8 +373,8 @@ double ExecuteDFFT(AudioBlocks *AudioArray, short *samples, size_t size, long sa
 	}
 
 	stereoSignalSize = (long)size;
-	monoSignalSize = stereoSignalSize/2;	 /* 4 is 2 16 bit values */
-	seconds = size/(samplerate*2);
+	monoSignalSize = stereoSignalSize/2;	 // 4 is 2 16 bit values
+	seconds = (double)size/((double)samplerate*2);
 
 	signal = (double*)malloc(sizeof(double)*(monoSignalSize+1));
 	if(!signal)
@@ -392,7 +406,7 @@ double ExecuteDFFT(AudioBlocks *AudioArray, short *samples, size_t size, long sa
 		if(config->channel == 's')
 			signal[i] = ((double)samples[i*2]+(double)samples[i*2+1])/2.0;
 
-		if(config->window != 'n' && window)
+		if(window)
 			signal[i] *= window[i];
 	}
 
@@ -476,64 +490,6 @@ int CalculateMaxCompare(int block, AudioSignal *Signal, parameters *config, int 
 	return count;
 }
 
-double CalculateWeightedError(double pError, parameters *config)
-{
-	int option = 0;
-
-	option = config->outputFilterFunction;
-	switch(option)
-	{
-		case 0:
-			pError = 1;
-			break;
-		case 1:
-			/* The integral of x^1 in the 0-1 Range is 1/2 */
-			pError *= 2.0;  /* compensate for an error of 50% */
-			break;
-		case 2:
-			/* Map to Beta function */
-			pError = incbeta(8.0, 8.0, pError);
-			/* Compensate for non linear deviation */
-			/* The integral of Beta above is 1/2 */
-			pError *= 2.0;
-			break;
-		case 3:
-			/* Map to Beta function */
-			pError = incbeta(3.0, 1.0, pError);
-			/* Compensate for non linear deviation */
-			/* The integral of Beta above in the 0-1 Range is 1/4 */
-			pError *= 4.0;
-			break;
-		case 4:
-			/* Map to Beta function */
-			pError = incbeta(5.0, 0.5, pError);
-			/* Compensate for non linear deviation */
-			pError *= 10.99;
-			break;
-
-		case 5:
-			/* Map to Beta function */
-			pError = incbeta(1.0, 3.0, pError);
-			/* Compensate for non linear deviation */
-			/* The integral of Beta above in the 0-1 Range is 3/4 */
-			pError *= 1.33333333;
-			break;
-		case 6:
-			/* Map to Beta function */
-			pError = incbeta(0.5, 6, pError);
-			/* Compensate for non linear deviation */
-			pError *= 1.0831;
-			break;
-		default:
-			/* This is unexpected behaviour, log it */
-			logmsg("CalculateWeightedError, out of range value %d\n", option);
-			pError = 1;
-			break;
-	}
-
-	return pError;
-}
-
 double CompareAudioBlocks(AudioSignal *ReferenceSignal, AudioSignal *TestSignal, parameters *config)
 {
 	int			block = 0;
@@ -545,17 +501,16 @@ double CompareAudioBlocks(AudioSignal *ReferenceSignal, AudioSignal *TestSignal,
 	{
 		int refSize = 0, testSize = 0;
 
+		/* Ignore Control blocks */
+		if(GetBlockType(config, block) == TYPE_SILENCE)
+			continue;
+
 		refSize = CalculateMaxCompare(block, ReferenceSignal, config, 1);
 		testSize = CalculateMaxCompare(block, TestSignal, config, 0);
 
 		for(int freq = 0; freq < refSize; freq++)
 		{
-			int found = 0, index = 0, type = 0;
-
-			/* Ignore Silence blocks */
-			type = GetBlockType(config, block);
-			if(type == TYPE_SILENCE)
-				continue;
+			int found = 0, index = 0;
 
 			/* Ignore CRT noise */
 			if(IsCRTNoise(ReferenceSignal->Blocks[block].freq[freq].hertz))
@@ -707,13 +662,8 @@ double CompareAudioBlocks(AudioSignal *ReferenceSignal, AudioSignal *TestSignal,
 			if(IsLogEnabled())
 				EnableConsole();
 		}
+		//PlotSpectrogram(basename(ReferenceSignal->SourceFile), ReferenceSignal, block, config);
 	}
-
-	PlotAllDifferentAmplitudes(config->compareName, config);
-	PlotAllSpectrogram(basename(ReferenceSignal->SourceFile), ReferenceSignal, config);
-
-	//PlotAllMissingFrequencies(name, config);
-	//PrintDifferenceArray(config);
 	
 	return 0;
 }

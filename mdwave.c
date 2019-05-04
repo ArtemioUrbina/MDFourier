@@ -92,31 +92,25 @@ int main(int argc , char *argv[])
 	return(0);
 }
 
-void GenerateFileName(parameters *config, char *Name, char *Target)
+char *GenerateFileNamePrefix(parameters *config)
 {
-	char text[200];
-	
-	if(!config->ignoreFloor)
-		sprintf(text, "Floor");
-	else
-		sprintf(text, "F-%04d", config->MaxFreq);
-	sprintf(Target, "%s_%s_%s", config->invert ? "Discarded" : "Used", text, Name);
+	return(config->invert ? "Discarded" : "Used");
 }
 
 int LoadFile(FILE *file, AudioSignal *Signal, parameters *config, char *fileName)
 {
 	int 				i = 0;
-	int 				loadedBlockSize = 0;
+	long int			loadedBlockSize = 0;
 	char				*buffer, silence = -1;
 	size_t			 	buffersize = 0;
-	size_t			 	discardBytes = 0, discardSamples = 0;
+	//size_t			 	discardBytes = 0, discardSamples = 0;
 	wav_hdr 			header;
 	windowManager		windows;
 	float				*windowUsed = NULL;
 	struct	timespec	start, end;
 	double				seconds = 0, longest = 0;
 	FILE				*processed = NULL;
-	char				Name[2048];
+	char				Name[4096], tempName[4096];
 	char 				*AllSamples = NULL;
 	long int			pos = 0;
 
@@ -129,7 +123,7 @@ int LoadFile(FILE *file, AudioSignal *Signal, parameters *config, char *fileName
 		return(0);
 	}
 
-	GenerateFileName(config, basename(fileName), Name);
+	ComposeFileName(Name, GenerateFileNamePrefix(config), ".wav", config);
 	processed = fopen(Name, "wb");
 	if(!processed)
 	{
@@ -172,11 +166,11 @@ int LoadFile(FILE *file, AudioSignal *Signal, parameters *config, char *fileName
 
 	// We need to convert buffersize to the 16.688ms per frame by the Genesis
 	// Mega Drive is 1.00128, now loaded fomr file
-	discardSamples = (size_t)round(GetFramerateAdjust(config)*header.SamplesPerSec);
-	if(discardSamples % 2)
-		discardSamples += 1;
+	//discardSamples = (size_t)round(GetFramerateAdjust(config)*header.SamplesPerSec);
+	//if(discardSamples % 2)
+		//discardSamples += 1;
 
-	discardSamples -= header.SamplesPerSec;
+	//discardSamples -= header.SamplesPerSec;
 	longest = GetLongestBlock(config);
 	if(!longest)
 	{
@@ -184,7 +178,9 @@ int LoadFile(FILE *file, AudioSignal *Signal, parameters *config, char *fileName
 		return 0;
 	}
 
-	buffersize = header.SamplesPerSec*4*sizeof(char)*(int)longest; // 2 bytes per sample, stereo
+	buffersize = header.SamplesPerSec*4*sizeof(char)*longest; // 2 bytes per sample, stereo
+	if(buffersize % 2)
+		buffersize += 1;
 	buffer = (char*)malloc(buffersize);
 	if(!buffer)
 	{
@@ -221,11 +217,12 @@ int LoadFile(FILE *file, AudioSignal *Signal, parameters *config, char *fileName
 		double duration = 0;
 
 		duration = GetBlockDuration(config, i);
-		if(config->window != 'n')
-			windowUsed = getWindowByLength(&windows, duration);
+		windowUsed = getWindowByLength(&windows, duration);
 		
-		loadedBlockSize = header.SamplesPerSec*4*sizeof(char)*(int)duration;
-		discardBytes = discardSamples * 4 * duration;
+		loadedBlockSize = header.SamplesPerSec*4*sizeof(char)*duration;
+		if(loadedBlockSize % 2)
+			loadedBlockSize += 1;
+		//discardBytes = discardSamples * 4 * duration;
 
 		memset(buffer, 0, buffersize);
 		if(pos + loadedBlockSize > header.Subchunk2Size)
@@ -247,7 +244,10 @@ int LoadFile(FILE *file, AudioSignal *Signal, parameters *config, char *fileName
 			wav_hdr		cheader;
 
 			cheader = header;
-			sprintf(Name, "%03d_Source_chunk_%s", i, basename(fileName));
+
+			sprintf(tempName, "%03d_Source_%s_%03d_chunk_", i, GetBlockName(config, i), GetBlockSubIndex(config, i));
+			ComposeFileName(Name, tempName, ".wav", config);
+			
 			chunk = fopen(Name, "wb");
 			if(!chunk)
 			{
@@ -272,7 +272,7 @@ int LoadFile(FILE *file, AudioSignal *Signal, parameters *config, char *fileName
 			fclose(chunk);
 		}
 
-		pos += discardBytes;  // Advance to adjust the time for the Sega Genesis Frame Rate
+		//pos += discardBytes;  // Advance to adjust the time for the Sega Genesis Frame Rate
 		i++;
 	}
 
@@ -292,11 +292,12 @@ int LoadFile(FILE *file, AudioSignal *Signal, parameters *config, char *fileName
 		double duration = 0;
 
 		duration = GetBlockDuration(config, i);
-		if(config->window != 'n')
-			windowUsed = getWindowByLength(&windows, duration);
+		windowUsed = getWindowByLength(&windows, duration);
 		
-		loadedBlockSize = header.SamplesPerSec*4*sizeof(char)*(int)duration;
-		discardBytes = discardSamples * 4 * duration;
+		loadedBlockSize = header.SamplesPerSec*4*sizeof(char)*duration;
+		if(loadedBlockSize % 2)
+			loadedBlockSize += 1;
+		//discardBytes = discardSamples * 4 * duration;
 
 		memset(buffer, 0, buffersize);
 		if(pos + loadedBlockSize > header.Subchunk2Size)
@@ -322,12 +323,13 @@ int LoadFile(FILE *file, AudioSignal *Signal, parameters *config, char *fileName
 		{
 			FILE 		*chunk = NULL;
 			wav_hdr		cheader;
-			char		fName[3096];
 
 			cheader = header;
-			GenerateFileName(config, basename(fileName), Name);
-			sprintf(fName, "%03d_%s", i, Name);
-			chunk = fopen(fName, "wb");
+
+			sprintf(tempName, "%03d_Processed_%s_%03d_chunk_", i, GetBlockName(config, i), GetBlockSubIndex(config, i));
+			ComposeFileName(Name, tempName, ".wav", config);
+			
+			chunk = fopen(Name, "wb");
 			if(!chunk)
 			{
 				logmsg("\tCould not open chunk file %s\n", Name);
@@ -351,8 +353,8 @@ int LoadFile(FILE *file, AudioSignal *Signal, parameters *config, char *fileName
 			fclose(chunk);
 		}
 		// clean this noise since we didn't process it
-		memset(AllSamples + pos, 0, discardBytes);
-		pos += discardBytes;  // Advance to adjust the time for the Sega Genesis Frame Rate
+		//memset(AllSamples + pos, 0, discardBytes);
+		//pos += discardBytes;  // Advance to adjust the time for the Sega Genesis Frame Rate
 		i++;
 	}
 
@@ -447,7 +449,7 @@ double ProcessSamples(AudioBlocks *AudioArray, short *samples, size_t size, long
 
 	stereoSignalSize = (long)size;
 	monoSignalSize = stereoSignalSize/2;	 // 4 is 2 16 bit values
-	seconds = size/(samplerate*2);
+	seconds = (double)size/((double)samplerate*2);
 	boxsize = seconds;
 
 	signal = (double*)malloc(sizeof(double)*(monoSignalSize+1));
@@ -466,12 +468,12 @@ double ProcessSamples(AudioBlocks *AudioArray, short *samples, size_t size, long
 	if(config->clockBlock)
 		clock_gettime(CLOCK_MONOTONIC, &start);
 
+	memset(signal, 0, sizeof(double)*(monoSignalSize+1));
+	memset(spectrum, 0, sizeof(fftw_complex)*(monoSignalSize/2+1));
+
 	p = fftw_plan_dft_r2c_1d(monoSignalSize, signal, spectrum, FFTW_MEASURE);
 	if(reverse)
 		pBack = fftw_plan_dft_c2r_1d(monoSignalSize, spectrum, signal, FFTW_MEASURE);
-
-	memset(signal, 0, sizeof(double)*(monoSignalSize+1));
-	memset(spectrum, 0, sizeof(fftw_complex)*(monoSignalSize/2+1));
 
 	for(i = 0; i < monoSignalSize; i++)
 	{
@@ -482,7 +484,7 @@ double ProcessSamples(AudioBlocks *AudioArray, short *samples, size_t size, long
 		if(config->channel == 's')
 			signal[i] = ((double)samples[i*2]+(double)samples[i*2+1])/2.0;
 
-		if(config->window != 'n' && window)
+		if(window)
 			signal[i] *= window[i];
 	}
 
@@ -491,7 +493,7 @@ double ProcessSamples(AudioBlocks *AudioArray, short *samples, size_t size, long
 
 	if(!reverse)
 	{
-		for(i = config->startHz*boxsize; i < config->endHz*boxsize; i++)	// Nyquist at 44.1khz
+		for(i = (int)config->startHz*boxsize; i < (int)config->endHz*boxsize; i++)	// Nyquist at 44.1khz
 		{
 			double r1 = creal(spectrum[i]);
 			double i1 = cimag(spectrum[i]);
@@ -511,7 +513,10 @@ double ProcessSamples(AudioBlocks *AudioArray, short *samples, size_t size, long
 					{
 						//Move the previous values down the array
 						for(int k = config->MaxFreq-1; k > j; k--)
-							AudioArray->freq[k] = AudioArray->freq[k - 1];
+						{
+							if(AudioArray->freq[k].hertz)
+								AudioArray->freq[k] = AudioArray->freq[k - 1];
+						}
 		
 						AudioArray->freq[j].hertz = Hertz;
 						AudioArray->freq[j].magnitude = magnitude;
@@ -544,7 +549,7 @@ double ProcessSamples(AudioBlocks *AudioArray, short *samples, size_t size, long
 		//logmsg("Cutoff: %g\n", CutOff);
 
 		//Process the whole frequency spectrum
-		for(i = config->startHz*boxsize; i < config->endHz*boxsize; i++)	// Nyquist at 44.1khz
+		for(i = (int)config->startHz*boxsize; i < (int)config->endHz*boxsize; i++)	// Nyquist at 44.1khz
 		{
 			double r1 = creal(spectrum[i]);
 			double i1 = cimag(spectrum[i]);
@@ -598,7 +603,7 @@ double ProcessSamples(AudioBlocks *AudioArray, short *samples, size_t size, long
 		fftw_execute(pBack); 
 		fftw_destroy_plan(pBack);
 	
-		if(config->window != 'n' && window)
+		if(window)
 		{
 			for(i = 0; i < monoSignalSize; i++)
 			{
