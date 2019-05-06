@@ -154,12 +154,11 @@ int LoadFile(FILE *file, AudioSignal *Signal, parameters *config, char *fileName
 	long int			loadedBlockSize = 0;
 	char				*buffer;
 	size_t			 	buffersize = 0;
-	//size_t			 	discardBytes = 0, discardSamples = 0;
 	wav_hdr 			header;
 	windowManager		windows;
 	float				*windowUsed = NULL;
 	struct	timespec	start, end;
-	double				seconds = 0, longest = 0, tail = 0;
+	double				seconds = 0, longest = 0;
 	char 				*AllSamples = NULL;
 	long int			pos = 0;
 	long int			ending = 0;
@@ -235,16 +234,12 @@ int LoadFile(FILE *file, AudioSignal *Signal, parameters *config, char *fileName
 		return 0;
 	}
 
-	framerate = (double)(ending-pos)*1000/((double)header.SamplesPerSec*4*GetLastSyncFrameOffset(header, config));
-	printf("FrameRate detected from WAV file: %g\n", framerate);
+	framerate = (double)(ending-pos)*1000/((double)header.SamplesPerSec*4*
+						GetLastSyncFrameOffset(header, config));
+	framerate = RoundFloat(framerate, 3);
+	printf("FrameRate detected from WAV file: %g ms\n", framerate);
 	SetPlatformMSPerFrame(framerate, config);
 
-	/* We need to convert buffersize to the 16.688ms per frame by the Genesis */
-	/* Mega Drive is 1.00128, now loaded fomr file */
-	//discardSamples = (size_t)round(GetPlatformMSPerFrame(config)*header.SamplesPerSec);
-	//discardSamples = RoundTo4bytes(discardSamples);
-
-	//discardSamples -= header.SamplesPerSec;
 	longest = GetLongestElementDuration(config);
 	if(!longest)
 	{
@@ -290,12 +285,14 @@ int LoadFile(FILE *file, AudioSignal *Signal, parameters *config, char *fileName
 		pos += loadedBlockSize;
 
 		/* Advance to adjust the time for the Sega Genesis Frame Rate */
+		/*
 		tail += GetDecimalValues(size);
 		if(tail >= 1.0)
 		{
 			pos += 4;
 			tail = GetDecimalValues(tail);
 		}
+		*/
 
 		Signal->Blocks[i].index = GetBlockSubIndex(config, i);
 		Signal->Blocks[i].type = GetBlockType(config, i);
@@ -345,7 +342,6 @@ int LoadFile(FILE *file, AudioSignal *Signal, parameters *config, char *fileName
 		if(config->normalize == 'n')
 			LocalNormalize(&Signal->Blocks[i], config);
 
-		//pos += discardBytes; 
 		i++;
 	}
 

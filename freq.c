@@ -203,6 +203,20 @@ int LoadAudioBlockStructure(parameters *config)
 		return 0;
 	}
 
+	if(fscanf(file, "%s\n", buffer) != 1)
+	{
+		printf("Invalid Pulse Sync Frequency '%s'\n", buffer);
+		fclose(file);
+		return 0;
+	}
+	config->types.pulseSyncFreq = atoi(buffer);
+	if(!config->types.pulseSyncFreq)
+	{
+		printf("Invalid Pulse Sync Frequency '%s'\n", buffer);
+		fclose(file);
+		return 0;
+	}
+
 	fscanf(file, "%s\n", buffer);
 	config->types.typeCount = atoi(buffer);
 	if(!config->types.typeCount)
@@ -308,6 +322,11 @@ void PrintAudioBlocks(parameters *config)
 double GetPlatformMSPerFrame(parameters *config)
 {
 	return(config->types.platformMSPerFrame);
+}
+
+double GetPulseSyncFreq(parameters *config)
+{
+	return(config->types.pulseSyncFreq);
 }
 
 int SetPlatformMSPerFrame(double framerate, parameters *config)
@@ -760,13 +779,15 @@ void FillFrequencyStructures(AudioBlocks *AudioArray, parameters *config)
 
 		magnitude = sqrt(r1*r1 + i1*i1)/sqrt(size);
 		Hertz = ((double)i/boxsize);
-		Hertz = RoundFloat(Hertz, 2);
+		Hertz = RoundFloat(Hertz, 0);  // was 2
 
 		previous = 1.e30;
 		if(!IsCRTNoise(Hertz))
 		{
 			for(j = 0; j < config->MaxFreq; j++)
 			{
+				if(Hertz == AudioArray->freq[j].hertz)
+					logmsg("Freq Collision!!!! %g\n", Hertz);
 				if(magnitude > AudioArray->freq[j].magnitude && magnitude < previous)
 				{
 					/* Move the previous values down the array */

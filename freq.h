@@ -53,6 +53,7 @@ void PrintAudioBlocks(parameters *config);
 int SetPlatformMSPerFrame(double framerate, parameters *config);
 long int GetLastSyncFrameOffset(wav_hdr header, parameters *config);
 long int GetBlockFrameOffset(int block, parameters *config);
+double GetPulseSyncFreq(parameters *config);
 
 AudioSignal *CreateAudioSignal(parameters *config);
 void CleanAudio(AudioSignal *Signal, parameters *config);

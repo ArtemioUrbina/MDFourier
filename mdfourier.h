@@ -89,6 +89,7 @@ typedef struct abd_st {
 	int				totalChunks;
 	int				regularChunks;
 	double			platformMSPerFrame;
+	int				pulseSyncFreq;
 
 	AudioBlockType	*typeArray;
 	int				typeCount;
