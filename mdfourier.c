@@ -159,9 +159,11 @@ int LoadFile(FILE *file, AudioSignal *Signal, parameters *config, char *fileName
 	windowManager		windows;
 	float				*windowUsed = NULL;
 	struct	timespec	start, end;
-	double				seconds = 0, longest = 0;
+	double				seconds = 0, longest = 0, tail = 0;
 	char 				*AllSamples = NULL;
 	long int			pos = 0;
+	long int			ending = 0;
+	double				framerate = 0;
 
 	if(!file)
 		return 0;
@@ -205,33 +207,6 @@ int LoadFile(FILE *file, AudioSignal *Signal, parameters *config, char *fileName
 	logmsg("WAV file is PCM %dhz %dbits and %g seconds long\n", 
 		header.SamplesPerSec, header.bitsPerSample, seconds);
 
-	/* We need to convert buffersize to the 16.688ms per frame by the Genesis */
-	/* Mega Drive is 1.00128, now loaded fomr file */
-	//discardSamples = (size_t)round(GetPlatformMSPerFrame(config)*header.SamplesPerSec);
-	//if(discardSamples % 2)
-		//discardSamples += 1;
-
-	//discardSamples -= header.SamplesPerSec;
-	longest = GetLongestBlock(config);
-	if(!longest)
-	{
-		logmsg("Block definitions are invalid, total length is 0\n");
-		return 0;
-	}
-
-	buffersize = header.SamplesPerSec*4*sizeof(char)*longest; /* 2 bytes per sample, stereo */
-	if(buffersize % 2)
-		buffersize += 1;
-	buffer = (char*)malloc(buffersize);
-	if(!buffer)
-	{
-		logmsg("\tmalloc failed\n");
-		return(0);
-	}
-
-	if(!initWindows(&windows, header.SamplesPerSec, config))
-		return 0;
-
 	AllSamples = (char*)malloc(sizeof(char)*header.Subchunk2Size);
 	if(!AllSamples)
 	{
@@ -245,12 +220,51 @@ int LoadFile(FILE *file, AudioSignal *Signal, parameters *config, char *fileName
 		return(0);
 	}
 
-	if(GetSilenceIndex(config) != NO_INDEX)
-		Signal->hasFloor = 1;
-
 	/* Find the start offset */
-	//DetectPulse(AllSamples, header, 4, 0, config);
-	//exit(1);
+	logmsg("Detecting start of signal\n");
+	pos = DetectPulse(AllSamples, header, config);
+	if(pos == -1)
+	{
+		logmsg("Starting Pulse train was not detected\n");
+		return 0;
+	}
+	ending = DetectEndPulse(AllSamples, pos, header, config);
+	if(ending == -1)
+	{
+		logmsg("Ending Pulse train was not detected\n");
+		return 0;
+	}
+
+	framerate = (double)(ending-pos)*1000/((double)header.SamplesPerSec*4*GetLastSyncFrameOffset(header, config));
+	printf("FrameRate detected from WAV file: %g\n", framerate);
+	SetPlatformMSPerFrame(framerate, config);
+
+	/* We need to convert buffersize to the 16.688ms per frame by the Genesis */
+	/* Mega Drive is 1.00128, now loaded fomr file */
+	//discardSamples = (size_t)round(GetPlatformMSPerFrame(config)*header.SamplesPerSec);
+	//discardSamples = RoundTo4bytes(discardSamples);
+
+	//discardSamples -= header.SamplesPerSec;
+	longest = GetLongestElementDuration(config);
+	if(!longest)
+	{
+		logmsg("Block definitions are invalid, total length is 0\n");
+		return 0;
+	}
+
+	buffersize = RoundTo4bytes(header.SamplesPerSec*4*sizeof(char)*longest); /* 2 bytes per sample, stereo */
+	buffer = (char*)malloc(buffersize);
+	if(!buffer)
+	{
+		logmsg("\tmalloc failed\n");
+		return(0);
+	}
+
+	if(!initWindows(&windows, header.SamplesPerSec, config))
+		return 0;
+
+	if(GetFirstSilenceIndex(config) != NO_INDEX)
+		Signal->hasFloor = 1;
 
 	sprintf(Signal->SourceFile, "%s", fileName);
 	if(config->clock)
@@ -258,15 +272,13 @@ int LoadFile(FILE *file, AudioSignal *Signal, parameters *config, char *fileName
 
 	while(i < config->types.totalChunks)
 	{
-		double duration = 0;
+		double duration = 0, size = 0;
 
 		duration = GetBlockDuration(config, i);
 		windowUsed = getWindowByLength(&windows, duration);
 		
-		loadedBlockSize = header.SamplesPerSec*4*sizeof(char)*duration;
-		if(loadedBlockSize % 2)
-			loadedBlockSize += 1;
-		//discardBytes = discardSamples * 4 * duration;
+		size = header.SamplesPerSec*4.0*sizeof(char)*duration;
+		loadedBlockSize = RoundTolower4bytes(size);
 
 		memset(buffer, 0, buffersize);
 		if(pos + loadedBlockSize > header.Subchunk2Size)
@@ -276,6 +288,14 @@ int LoadFile(FILE *file, AudioSignal *Signal, parameters *config, char *fileName
 		}
 		memcpy(buffer, AllSamples + pos, loadedBlockSize);
 		pos += loadedBlockSize;
+
+		/* Advance to adjust the time for the Sega Genesis Frame Rate */
+		tail += GetDecimalValues(size);
+		if(tail >= 1.0)
+		{
+			pos += 4;
+			tail = GetDecimalValues(tail);
+		}
 
 		Signal->Blocks[i].index = GetBlockSubIndex(config, i);
 		Signal->Blocks[i].type = GetBlockType(config, i);
@@ -288,7 +308,7 @@ int LoadFile(FILE *file, AudioSignal *Signal, parameters *config, char *fileName
 			char		Name[2048], FName[4096];
 
 			cheader = header;
-			sprintf(Name, "%03d_Source_chunk_%s", i, ComposeFileName);
+			sprintf(Name, "%03d_SRC_%s_%03d_%s", i, GetBlockName(config, i), GetBlockSubIndex(config, i), basename(fileName));
 			ComposeFileName(FName, Name, ".wav", config);
 			chunk = fopen(FName, "wb");
 			if(!chunk)
@@ -325,7 +345,7 @@ int LoadFile(FILE *file, AudioSignal *Signal, parameters *config, char *fileName
 		if(config->normalize == 'n')
 			LocalNormalize(&Signal->Blocks[i], config);
 
-		//pos += discardBytes;  /* Advance to adjust the time for the Sega Genesis Frame Rate */
+		//pos += discardBytes; 
 		i++;
 	}
 
@@ -502,7 +522,7 @@ double CompareAudioBlocks(AudioSignal *ReferenceSignal, AudioSignal *TestSignal,
 		int refSize = 0, testSize = 0;
 
 		/* Ignore Control blocks */
-		if(GetBlockType(config, block) == TYPE_SILENCE)
+		if(GetBlockType(config, block) <= TYPE_CONTROL)
 			continue;
 
 		refSize = CalculateMaxCompare(block, ReferenceSignal, config, 1);

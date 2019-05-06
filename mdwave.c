@@ -166,21 +166,18 @@ int LoadFile(FILE *file, AudioSignal *Signal, parameters *config, char *fileName
 
 	// We need to convert buffersize to the 16.688ms per frame by the Genesis
 	// Mega Drive is 1.00128, now loaded fomr file
-	//discardSamples = (size_t)round(GetFramerateAdjust(config)*header.SamplesPerSec);
-	//if(discardSamples % 2)
-		//discardSamples += 1;
+	//discardSamples = RoundTo4bytes(discardSamples);
+
 
 	//discardSamples -= header.SamplesPerSec;
-	longest = GetLongestBlock(config);
+	longest = GetLongestElementDuration(config);
 	if(!longest)
 	{
 		logmsg("Block definitions are invalid, total length is 0\n");
 		return 0;
 	}
 
-	buffersize = header.SamplesPerSec*4*sizeof(char)*longest; // 2 bytes per sample, stereo
-	if(buffersize % 2)
-		buffersize += 1;
+	buffersize = RoundTo4bytes(header.SamplesPerSec*4*sizeof(char)*longest); // 2 bytes per sample, stereo
 	buffer = (char*)malloc(buffersize);
 	if(!buffer)
 	{
@@ -204,7 +201,7 @@ int LoadFile(FILE *file, AudioSignal *Signal, parameters *config, char *fileName
 		return(0);
 	}
 
-	silence = GetSilenceIndex(config);
+	silence = GetFirstSilenceIndex(config);
 	if(silence != NO_INDEX)
 		Signal->hasFloor = 1;
 
@@ -219,9 +216,7 @@ int LoadFile(FILE *file, AudioSignal *Signal, parameters *config, char *fileName
 		duration = GetBlockDuration(config, i);
 		windowUsed = getWindowByLength(&windows, duration);
 		
-		loadedBlockSize = header.SamplesPerSec*4*sizeof(char)*duration;
-		if(loadedBlockSize % 2)
-			loadedBlockSize += 1;
+		loadedBlockSize = RoundTo4bytes(header.SamplesPerSec*4*sizeof(char)*duration);
 		//discardBytes = discardSamples * 4 * duration;
 
 		memset(buffer, 0, buffersize);
@@ -294,10 +289,7 @@ int LoadFile(FILE *file, AudioSignal *Signal, parameters *config, char *fileName
 		duration = GetBlockDuration(config, i);
 		windowUsed = getWindowByLength(&windows, duration);
 		
-		loadedBlockSize = header.SamplesPerSec*4*sizeof(char)*duration;
-		if(loadedBlockSize % 2)
-			loadedBlockSize += 1;
-		//discardBytes = discardSamples * 4 * duration;
+		loadedBlockSize = RoundTo4bytes(header.SamplesPerSec*4*sizeof(char)*duration);
 
 		memset(buffer, 0, buffersize);
 		if(pos + loadedBlockSize > header.Subchunk2Size)

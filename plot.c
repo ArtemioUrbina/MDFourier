@@ -165,7 +165,7 @@ void PlotAllDifferentAmplitudes(char *filename, parameters *config)
 		int type;
 
 		type = GetBlockType(config, b);
-		if(type > TYPE_SILENCE)
+		if(type > TYPE_CONTROL)
 		{ 
 			for(int a = config->Differences.BlockDiffArray[b].cntAmplBlkDiff; a >= 0 ; a--)
 			{
@@ -239,7 +239,7 @@ void PlotAllMissingFrequencies(char *filename, parameters *config)
 		int type;
 
 		type = GetBlockType(config, b);
-		if(type > TYPE_SILENCE)
+		if(type > TYPE_CONTROL)
 		{ 
 			for(int f = 0; f < config->Differences.BlockDiffArray[b].cntFreqBlkDiff; f++)
 			{
@@ -365,7 +365,7 @@ void PlotAllSpectrogramLineBased(char *filename, AudioSignal *Signal, parameters
 
 		pl_fline_r(plot.plotter, 0, -1*config->significantVolume, 1, -1*config->significantVolume);
 		type = GetBlockType(config, b);
-		if(type > TYPE_SILENCE)
+		if(type > TYPE_CONTROL)
 		{ 
 			pl_pencolorname_r(plot.plotter, GetBlockColor(config, b));
 			for(int i = 0; i < config->MaxFreq; i++)
@@ -411,7 +411,7 @@ void PlotAllSpectrogram(char *filename, AudioSignal *Signal, parameters *config)
 		int type;
 
 		type = GetBlockType(config, b);
-		if(type > TYPE_SILENCE)
+		if(type > TYPE_CONTROL)
 		{ 
 			for(int i = 0; i < config->MaxFreq; i++)
 			{

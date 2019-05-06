@@ -95,7 +95,7 @@ int initWindows(windowManager *wm, int SamplesPerSec, parameters *config)
 	{
 		double value;
 
-		value = config->types.typeArray[i].seconds;
+		value = config->types.typeArray[i].elementSeconds;
 		if(!existsInArray(value, lengths, count))
 			lengths[count++] = value;
 	}

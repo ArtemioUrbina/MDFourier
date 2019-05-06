@@ -221,23 +221,60 @@ int LoadAudioBlockStructure(parameters *config)
 
 	for(int i = 0; i < config->types.typeCount; i++)
 	{
-		if(fscanf(file, "%s %d %d %d %s\n", 
-			config->types.typeArray[i].typeName,
-			&config->types.typeArray[i].type,
+		char type = 0;
+
+		if(fscanf(file, "%s ", config->types.typeArray[i].typeName) != 1)
+		{
+			printf("Invalid Block Name %s\n", config->types.typeArray[i].typeName);
+			fclose(file);
+			return 0;
+		}
+
+		type = fgetc(file);
+		if(type == EOF)
+		{
+			printf("Config file is too short\n");
+			fclose(file);
+			return 0;
+		}
+
+		switch(type)
+		{
+			case 'n':
+				config->types.typeArray[i].type = TYPE_SILENCE;
+				break;
+			case 's':
+				config->types.typeArray[i].type = TYPE_SYNC;
+				break;
+			default:
+				ungetc(type, file);
+				if(fscanf(file, "%d ", &config->types.typeArray[i].type) != 1)
+				{
+					printf("Invalid MD Fourier Audio Blocks File\n");
+					fclose(file);
+					return 0;
+				}
+				break;
+		}
+		
+		if(fscanf(file, "%d %d %s\n", 
 			&config->types.typeArray[i].elementCount,
 			&config->types.typeArray[i].frames,
-			&config->types.typeArray[i].color [0]) != 5)
+			&config->types.typeArray[i].color [0]) != 3)
 		{
 			printf("Invalid MD Fourier Audio Blocks File\n");
 			fclose(file);
 			return 0;
 		}
-		config->types.typeArray[i].seconds = 
+
+		config->types.typeArray[i].elementSeconds = 
 			config->types.typeArray[i].frames * config->types.platformMSPerFrame/1000;
+		config->types.typeArray[i].blockSeconds = 
+			config->types.typeArray[i].elementCount * config->types.typeArray[i].elementSeconds;
 	}
 
-	config->types.regularChunks = GetTotalAudioBlocks(config);
-	config->types.totalChunks = GetTotalAudioBlocksWithSilence(config);
+	config->types.regularChunks = GetActiveAudioBlocks(config);
+	config->types.totalChunks = GetTotalAudioBlocks(config);
 	if(!config->types.totalChunks)
 	{
 		printf("Total Audio Blocks should be at least 1\n");
@@ -246,7 +283,26 @@ int LoadAudioBlockStructure(parameters *config)
 
 	fclose(file);
 	
+	//PrintAudioBlocks(config);
 	return 1;
+}
+
+void PrintAudioBlocks(parameters *config)
+{
+	if(!config)
+		return;
+
+	for(int i = 0; i < config->types.typeCount; i++)
+	{
+		printf("%s %d %d %d %s %g %g\n", 
+			config->types.typeArray[i].typeName,
+			config->types.typeArray[i].type,
+			config->types.typeArray[i].elementCount,
+			config->types.typeArray[i].frames,
+			config->types.typeArray[i].color,
+			config->types.typeArray[i].elementSeconds,
+			config->types.typeArray[i].blockSeconds);
+	}
 }
 
 double GetPlatformMSPerFrame(parameters *config)
@@ -254,7 +310,24 @@ double GetPlatformMSPerFrame(parameters *config)
 	return(config->types.platformMSPerFrame);
 }
 
-int GetSilenceIndex(parameters *config)
+int SetPlatformMSPerFrame(double framerate, parameters *config)
+{
+	if(!config)
+		return -1;
+
+	config->types.platformMSPerFrame = framerate;
+	for(int i = 0; i < config->types.typeCount; i++)
+	{
+		config->types.typeArray[i].elementSeconds = 
+			config->types.typeArray[i].frames * framerate/1000;
+		config->types.typeArray[i].blockSeconds = 
+			config->types.typeArray[i].elementCount * config->types.typeArray[i].elementSeconds;
+	}
+	
+	return 1;
+}
+
+int GetFirstSilenceIndex(parameters *config)
 {
 	int index = 0;
 
@@ -271,7 +344,70 @@ int GetSilenceIndex(parameters *config)
 	return -1;
 }
 
-int GetTotalAudioBlocks(parameters *config)
+double GetBlockTimeOffset(int block, parameters *config)
+{
+	double offset = 0;
+
+	if(!config)
+		return 0;
+
+	if(block > config->types.typeCount)
+		return 0;
+
+	for(int i = 0; i < block; i++)
+		offset += config->types.typeArray[i].blockSeconds;
+	return offset;
+}
+
+long int GetLastSilenceByteOffset(wav_hdr header, parameters *config)
+{
+	if(!config)
+		return -1;
+
+	for(int i = config->types.typeCount - 1; i >= 0; i--)
+	{
+		if(config->types.typeArray[i].type == TYPE_SILENCE)
+		{
+			double offset = 0;
+
+			offset = GetBlockTimeOffset(i, config);
+			offset *= header.SamplesPerSec*4.0;
+			offset = RoundTo4bytes(offset);
+			return(offset);
+		}
+	}
+	return 0;
+}
+
+long int GetBlockFrameOffset(int block, parameters *config)
+{
+	double offset = 0;
+
+	if(!config)
+		return 0;
+
+	if(block > config->types.typeCount)
+		return 0;
+
+	for(int i = 0; i < block; i++)
+		offset += config->types.typeArray[i].frames * config->types.typeArray[i].elementCount;
+	return offset;
+}
+
+long int GetLastSyncFrameOffset(wav_hdr header, parameters *config)
+{
+	if(!config)
+		return -1;
+
+	for(int i = config->types.typeCount - 1; i >= 0; i--)
+	{
+		if(config->types.typeArray[i].type == TYPE_SYNC)
+			return(GetBlockFrameOffset(i, config));
+	}
+	return 0;
+}
+
+int GetActiveAudioBlocks(parameters *config)
 {
 	int count = 0;
 
@@ -280,13 +416,27 @@ int GetTotalAudioBlocks(parameters *config)
 
 	for(int i = 0; i < config->types.typeCount; i++)
 	{
-		if(config->types.typeArray[i].type != TYPE_SILENCE)
+		if(config->types.typeArray[i].type > TYPE_CONTROL)
 			count += config->types.typeArray[i].elementCount;
 	}
 	return count;
 }
 
-double GetLongestBlock(parameters *config)
+int GetTotalAudioBlocks(parameters *config)
+{
+	int count = 0;
+
+	if(!config)
+		return -1;
+
+	for(int i = 0; i < config->types.typeCount; i++)
+		count += config->types.typeArray[i].elementCount;
+
+	return count;
+}
+
+
+double GetLongestElementDuration(parameters *config)
 {
 	double longest = 0;
 
@@ -295,8 +445,8 @@ double GetLongestBlock(parameters *config)
 
 	for(int i = 0; i < config->types.typeCount; i++)
 	{
-		if(config->types.typeArray[i].seconds > longest)
-			longest = config->types.typeArray[i].seconds;
+		if(config->types.typeArray[i].elementSeconds > longest)
+			longest = config->types.typeArray[i].elementSeconds;
 	}
 	return longest;
 }
@@ -309,8 +459,7 @@ double GetTotalBlockDuration(parameters *config)
 		return 0;
 
 	for(int i = 0; i < config->types.typeCount; i++)
-		total += config->types.typeArray[i].seconds *
-			config->types.typeArray[i].elementCount;
+		total += config->types.typeArray[i].blockSeconds;
 
 	return total;
 }
@@ -326,7 +475,7 @@ double GetBlockDuration(parameters *config, int pos)
 	{
 		elementsCounted += config->types.typeArray[i].elementCount;
 		if(elementsCounted > pos)
-			return(config->types.typeArray[i].seconds);
+			return(config->types.typeArray[i].elementSeconds);
 	}
 	
 	return 0;
@@ -401,20 +550,6 @@ char *GetBlockColor(parameters *config, int pos)
 	return "white";
 }
 
-
-int GetTotalAudioBlocksWithSilence(parameters *config)
-{
-	int count = 0;
-
-	if(!config)
-		return -1;
-
-	for(int i = 0; i < config->types.typeCount; i++)
-		count += config->types.typeArray[i].elementCount;
-
-	return count;
-}
-
 void FindFloor(AudioSignal *Signal, parameters *config)
 {
 	int index;
@@ -425,7 +560,7 @@ void FindFloor(AudioSignal *Signal, parameters *config)
 	if(!Signal->hasFloor)
 		return;
 
-	index = GetSilenceIndex(config);
+	index = GetFirstSilenceIndex(config);
 	if(index == -1)
 	{
 		logmsg("There is no Silence block defined in the current format\n");
@@ -444,15 +579,6 @@ void FindFloor(AudioSignal *Signal, parameters *config)
 		}
 	}
 	Signal->hasFloor = 0;  /* revoke it if not found */
-}
-
-double RoundFloat(double x, int p)
-{
-	if (x != 0.0) {
-		return ((floor((fabs(x)*pow((double)(10.0),p))+0.5))/pow((double)(10.0),p))*(x/fabs(x));
-	} else {
-		return 0.0;
-	}
 }
 
 void GlobalNormalize(AudioSignal *Signal, parameters *config)
@@ -826,4 +952,43 @@ double CalculateWeightedError(double pError, parameters *config)
 	}
 
 	return pError;
+}
+
+double RoundFloat(double x, int p)
+{
+	if (x != 0.0) {
+		return ((floor((fabs(x)*pow((double)(10.0),p))+0.5))/pow((double)(10.0),p))*(x/fabs(x));
+	} else {
+		return 0.0;
+	}
+}
+
+long int RoundTo4bytes(double src)
+{
+	int missign = 0;
+
+	src = ceil(src);
+	missign = ((long int)src) % 4;
+	if(missign != 0)
+		src += 4 - missign;
+	return (src);
+}
+
+long int RoundTolower4bytes(double src)
+{
+	int extra = 0;
+
+	src = floor(src);
+	extra = ((long int)src) % 4;
+	if(extra != 0)
+		src -= extra;
+	return (src);
+}
+
+double GetDecimalValues(double value)
+{
+	double integer = 0;
+
+	value = modf(value, &integer);
+	return value;
 }

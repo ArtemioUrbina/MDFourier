@@ -272,7 +272,7 @@ void PrintDifferenceArray(parameters *config)
 
 	for(int b = 0; b < config->types.totalChunks; b++)
 	{
-		if(GetBlockType(config, b) == TYPE_SILENCE)
+		if(GetBlockType(config, b) <= TYPE_CONTROL)
 			continue;
 
 		if(IsLogEnabled())

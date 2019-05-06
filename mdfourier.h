@@ -55,8 +55,10 @@
 #define FREQ_COUNT			2000	/* Number of frequencies to compare(default) */
 
 #define TYPE_SILENCE	0
-#define TYPE_NOTYPE		-1
-#define NO_INDEX 		-1
+#define TYPE_SYNC		-1
+#define TYPE_NOTYPE		-2
+#define NO_INDEX 		-3
+#define TYPE_CONTROL	TYPE_SILENCE
 
 /* This is the difference allowed between reference and compared */
 /* amplitudes to match, in dbs */
@@ -77,7 +79,8 @@ typedef struct abt_st {
 	int 		type;
 	int			elementCount;
 	int			frames;
-	double		seconds;
+	double		blockSeconds;
+	double		elementSeconds;
 	char		color[20];
 } AudioBlockType;
 

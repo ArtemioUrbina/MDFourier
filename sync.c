@@ -33,29 +33,54 @@
 #include "log.h"
 #include "freq.h"
 
-long int DetectPulse(char *AllSamples, wav_hdr header, int factor, int offset, parameters *config)
+long int DetectPulse(char *AllSamples, wav_hdr header, parameters *config)
+{
+	long int position = 0, offset = 0;
+
+	position = DetectPulseInternal(AllSamples, header, 4, 0, config);
+	if(position == -1)
+		return -1;
+
+	offset = position;
+	if(offset >= 2*44)  // return 2 segments at ratio 4 above
+		offset -= 2*44;
+		
+	position = DetectPulseInternal(AllSamples, header, 9, offset, config);
+	return position;
+}
+
+long int DetectEndPulse(char *AllSamples, long int startpulse, wav_hdr header, parameters *config)
+{
+	long int 	position = 0, offset = 0;
+
+	offset = GetLastSilenceByteOffset(header, config) + startpulse;
+	position = DetectPulseInternal(AllSamples, header, 4, offset, config);
+	if(position == -1)
+		return -1;
+
+	offset = position;
+	if(offset >= 2*44)  // return 2 segments at ratio 4 above
+		offset -= 2*44;
+		
+	position = DetectPulseInternal(AllSamples, header, 9, offset, config);
+	return position;
+}
+
+long int DetectPulseInternal(char *Samples, wav_hdr header, int factor, long int offset, parameters *config)
 {
 	long int			i = 0, TotalMS = 0;
 	long int			loadedBlockSize = 0;
 	char				*buffer;
 	size_t			 	buffersize = 0;
-	//double				seconds = 0;
-	long int			pos = 0, millisecondSize = 0, missing = 0;
+	long int			pos = 0, millisecondSize = 0;
 	Pulses				*pulseArray;
-	//double				hertzArray[10] = { 0, 5011.36, 6013.64, 5880, 4009.09, 4900, 5512.5, 6300, 7350, 8820 };
 	double				hertzArray[10] = { 0, 8018.18, 8018.18, 8820, 8018.18, 9800, 5512.5, 6300, 7350, 8820 };
- 	long int			currCnt = 0, pulseCnt = 0, lastpos = 0, startpos = 0, MaxMagnitude = 0;
-	long int 			fstartpos = 0, silence = 0, lastSilence = 0;
-
-	pos = offset;
-
-	//seconds = (double)header.Subchunk2Size/4.0/(double)header.SamplesPerSec;
+	double				MaxMagnitude = 0;
+ 	//long int			currCnt = 0, pulseCnt = 0, lastpos = 0, startpos = 0;
+	//long int 			fstartpos = 0, silence = 0, lastSilence = 0;
 
 	// Not a real ms, just approximate
-	millisecondSize = (((double)header.SamplesPerSec*4.0)/1000.0)/(double)factor; /* 2 bytes per sample, stereo */
-	missing = millisecondSize % 4;
-	if(missing != 0)
-		millisecondSize += 4 - missing;
+	millisecondSize = RoundTo4bytes(floor((((double)header.SamplesPerSec*4.0)/1000.0)/(double)factor)); /* 2 bytes per sample, stereo */
 	buffersize = millisecondSize*sizeof(char); 
 	buffer = (char*)malloc(buffersize);
 	if(!buffer)
@@ -67,8 +92,9 @@ long int DetectPulse(char *AllSamples, wav_hdr header, int factor, int offset, p
 	// Adjust for a real MS
 	//MSfactor = ((double)factor*1000.0)/((double)header.SamplesPerSec/(double)millisecondSize*4.0);
 
-	//TotalMS = seconds*1000*factor;  // Compleate File
-	TotalMS = GetTotalBlockDuration(config)*1000*factor/4;  // /4 to search only the 4th part of the file for the start
+	//TotalMS = GetTotalBlockDuration(config)*1000*factor;
+	//TotalMS = (double)header.Subchunk2Size/4.0/(double)header.SamplesPerSec*1000*factor;
+	TotalMS = header.Subchunk2Size / buffersize - 1;
 	pulseArray = (Pulses*)malloc(sizeof(Pulses)*TotalMS);
 	if(!pulseArray)
 	{
@@ -76,6 +102,10 @@ long int DetectPulse(char *AllSamples, wav_hdr header, int factor, int offset, p
 		return(0);
 	}
 	memset(pulseArray, 0, sizeof(Pulses)*TotalMS);
+
+	pos = offset;
+	if(offset)
+		i = offset/buffersize;
 
 	while(i < TotalMS)
 	{
@@ -89,17 +119,17 @@ long int DetectPulse(char *AllSamples, wav_hdr header, int factor, int offset, p
 		}
 
 		pulseArray[i].bytes = pos;
-		memcpy(buffer, AllSamples + pos, loadedBlockSize);
+		memcpy(buffer, Samples + pos, loadedBlockSize);
 
 #ifdef SAVE_CHUNKS
-		if(0)
+		if(1)
 		{
 			FILE 		*chunk = NULL;
 			wav_hdr		cheader;
 			char		FName[4096];
 
 			cheader = header;
-			sprintf(FName, "%s_%06ld_Source_chunk.wav", fileName, i);
+			sprintf(FName, "%06ld_Source_chunk.wav", i);
 			chunk = fopen(FName, "wb");
 			if(!chunk)
 			{
@@ -127,19 +157,25 @@ long int DetectPulse(char *AllSamples, wav_hdr header, int factor, int offset, p
 
 		pos += loadedBlockSize;
 
-		ProcessChunkForSyncPulse((short*)buffer, loadedBlockSize/2, header.SamplesPerSec, &pulseArray[i]);
+		ProcessChunkForSyncPulse((short*)buffer, loadedBlockSize/2, header.SamplesPerSec, &pulseArray[i], config);
 		if(pulseArray[i].magnitude > MaxMagnitude)
 			MaxMagnitude = pulseArray[i].magnitude;
 		i++;
 	}
 
 	for(i = 0; i < TotalMS; i++)
-		pulseArray[i].amplitude = RoundFloat(20*log10(pulseArray[i].magnitude/MaxMagnitude), 2);
+	{
+		if(pulseArray[i].hertz)
+			pulseArray[i].amplitude = RoundFloat(20*log10(pulseArray[i].magnitude/MaxMagnitude), 2);
+		else
+			pulseArray[i].amplitude = -100;
+	}
 
 	/*
+	printf("=====================\n");
 	for(i = 0; i < TotalMS; i++)
 	{
-		if(pulseArray[i].amplitude >= -30 && pulseArray[i].hertz >= hertzArray[factor] - 2.0 && pulseArray[i].hertz <= hertzArray[factor] + 2.0)
+		//if(pulseArray[i].amplitude >= -30 && pulseArray[i].hertz >= hertzArray[factor] - 2.0 && pulseArray[i].hertz <= hertzArray[factor] + 2.0)
 			printf("B: %ld Hz: %g A: %g\n", 
 				pulseArray[i].bytes, 
 				pulseArray[i].hertz, 
@@ -147,6 +183,7 @@ long int DetectPulse(char *AllSamples, wav_hdr header, int factor, int offset, p
 	}
 	*/
 
+	/*
 	for(i = 0; i < TotalMS; i++)
 	{
 		if(pulseArray[i].amplitude >= -30 && pulseArray[i].hertz >= hertzArray[factor] - 2.0 && pulseArray[i].hertz <= hertzArray[factor] + 2.0) 
@@ -172,7 +209,14 @@ long int DetectPulse(char *AllSamples, wav_hdr header, int factor, int offset, p
 				pulseCnt++;
 
 				if(lastpos && (lastSilence < 14*factor  || lastSilence > 17*factor))
-					pulseCnt = 0;
+				{
+					printf("Killing sequence with: %ld\n", lastSilence);
+					
+					//startpos = 0;
+					//pulseCnt = 0;
+					//lastSilence = 0;
+					//lastpos = 0;
+				}
 
 				printf("(Lastpos %ld) Startpos %ld Len %ld Sil: %ld\n", 
 					lastpos, 
@@ -198,15 +242,142 @@ long int DetectPulse(char *AllSamples, wav_hdr header, int factor, int offset, p
 		if(pulseArray[i].amplitude <= -30)
 			silence ++;
 	}
+	*/
+
+	long int	inside_pulse = 0, inside_silence = 0;
+	long int	pulse_start = 0, pulse_count = 0, 
+				sequence_start = 0, last_pulse_start = 0, 
+				last_pulse_pos = 0, last_silence_pos = 0;
+	double		pulse_volume = 0, pulse_amplitudes = 0;
+	double		silence_volume = 0, silence_amplitudes = 0;
+
+	for(i = 0; i < TotalMS; i++)
+	{
+		if(pulseArray[i].amplitude >= -30 && pulseArray[i].hertz >= hertzArray[factor] - 2.0 && pulseArray[i].hertz <= hertzArray[factor] + 2.0) 
+		{
+			if(!inside_pulse)
+			{
+				//printf("PULSE Start %ld\n", pulseArray[i].bytes);
+				pulse_start = pulseArray[i].bytes;
+
+				pulse_amplitudes = 0;
+				pulse_volume = 0;
+				silence_amplitudes = 0;
+				silence_volume = 0;
+				last_pulse_start = 0;
+				last_pulse_pos = 0;
+			}
+
+			if(!sequence_start)
+				sequence_start = pulse_start;
+
+			if(last_pulse_pos && i > last_pulse_pos + 2)
+			{
+				//printf("pulse reset due to discontinuity %ld and %ld\n", i, last_pulse_pos);
+
+				pulse_count = 0;
+				sequence_start = 0;
+				inside_silence = 0;
+				inside_pulse = 0;
+			}
+			else
+			{
+				//printf("PULSE Increment at %ld (%ld)\n", pulseArray[i].bytes, i);
+
+				inside_pulse++;
+				last_pulse_pos = i;
+				pulse_amplitudes += pulseArray[i].amplitude;
+			}
+
+			if(inside_pulse >= 17*factor)
+			{
+				//printf("reset pulse too long %ld\n", inside_pulse);
+
+				pulse_count = 0;
+				sequence_start = 0;
+				inside_silence = 0;
+				inside_pulse = 0;
+			}
+		}
+		else
+		{
+			if(inside_pulse >= 14*factor)
+			{
+				if(last_silence_pos && i > last_silence_pos + 2)
+				{
+					//printf("pulse silence due to discontinuity\n");
+	
+					pulse_count = 0;
+					sequence_start = 0;
+					inside_silence = 0;
+					inside_pulse = 0;
+				}
+				else
+				{
+					//printf("SILENCE Increment at %ld (%ld)\n", pulseArray[i].bytes, i);
+					inside_silence++;	
+					silence_amplitudes += pulseArray[i].amplitude;
+				}
+
+				if(pulse_start != last_pulse_start && inside_silence >= 14*factor)
+				{
+					pulse_volume = pulse_amplitudes/inside_pulse;
+					silence_volume = silence_amplitudes/inside_silence;
+					
+					if(fabs(silence_volume) - fabs(pulse_volume) >= 30.0)
+					{
+						pulse_count++;
+						last_pulse_start = pulse_start;
+						//printf("Pulse %ld Start: %ld Volume %g Length %ld Silence: %ld\n", 
+							//pulse_count, pulse_start, pulse_volume, inside_pulse, inside_silence);
+						if(pulse_count == 10)
+							return sequence_start;
+					}
+					else
+					{
+						//printf("Reset Pulse No volume difference\n");
+
+						pulse_count = 0;
+						sequence_start = 0;
+					}
+
+					inside_silence = 0;
+					inside_pulse = 0;
+				}
+
+				if(inside_silence >= 17*factor)
+				{
+					//printf("Reset Pulse too much silence\n");
+
+					pulse_count = 0;
+					sequence_start = 0;
+					inside_silence = 0;
+					inside_pulse = 0;
+				}
+			}
+			else
+			{
+				if(inside_pulse >= 17*factor || inside_silence >= 17*factor)
+				{
+					//printf("Reset Pulse OB\n");
+
+					pulse_count = 0;
+					sequence_start = 0;
+					inside_silence = 0;
+					inside_pulse = 0;
+				}
+			}
+		}
+	}
 
 	free(pulseArray);
 	free(buffer);
 
-	return 0;
+	return -1;
 }
 
 
-double ProcessChunkForSyncPulse(short *samples, size_t size, long samplerate, Pulses *pulse)
+double ProcessChunkForSyncPulse(short *samples, size_t size, long samplerate, Pulses *pulse, parameters *config)
 {
 	fftw_plan		p = NULL;
 	long		  	stereoSignalSize = 0;	
@@ -241,13 +412,11 @@ double ProcessChunkForSyncPulse(short *samples, size_t size, long samplerate, Pu
 
 	for(i = 0; i < monoSignalSize; i++)
 	{
-		/*
 		if(config->channel == 'l')
 			signal[i] = (double)samples[i*2];
 		if(config->channel == 'r')
 			signal[i] = (double)samples[i*2+1];
 		if(config->channel == 's')
-		*/
 			signal[i] = ((double)samples[i*2]+(double)samples[i*2+1])/2.0;
 	}
 

@@ -38,7 +38,9 @@ typedef struct pulses_st {
 	long int bytes;
 } Pulses;
 
-long int DetectPulse(char *AllSamples, wav_hdr header, int factor, int offset, parameters *config);
-double ProcessChunkForSyncPulse(short *samples, size_t size, long samplerate, Pulses *pulse);
+long int DetectPulse(char *AllSamples, wav_hdr header, parameters *config);
+long int DetectEndPulse(char *AllSamples, long int startpulse, wav_hdr header, parameters *config);
+long int DetectPulseInternal(char *Samples, wav_hdr header, int factor, long int offset, parameters *config);
+double ProcessChunkForSyncPulse(short *samples, size_t size, long samplerate, Pulses *pulse, parameters *config);
 
 #endif

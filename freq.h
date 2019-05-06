@@ -35,10 +35,12 @@
 #include "mdfourier.h"
 
 int LoadAudioBlockStructure(parameters *config);
-int GetSilenceIndex(parameters *config);
+int GetFirstSilenceIndex(parameters *config);
+double GetBlockTimeOffset(int block, parameters *config);
+long int GetLastSilenceByteOffset(wav_hdr header, parameters *config);
+int GetActiveAudioBlocks(parameters *config);
 int GetTotalAudioBlocks(parameters *config);
-int GetTotalAudioBlocksWithSilence(parameters *config);
-double GetLongestBlock(parameters *config);
+double GetLongestElementDuration(parameters *config);
 double GetTotalBlockDuration(parameters *config);
 double GetBlockDuration(parameters *config, int pos);
 char *GetBlockName(parameters *config, int pos);
@@ -47,6 +49,10 @@ int GetBlockType(parameters *config, int pos);
 char *GetBlockColor(parameters *config, int pos);
 double GetPlatformMSPerFrame(parameters *config);
 void ReleaseAudioBlockStructure(parameters *config);
+void PrintAudioBlocks(parameters *config);
+int SetPlatformMSPerFrame(double framerate, parameters *config);
+long int GetLastSyncFrameOffset(wav_hdr header, parameters *config);
+long int GetBlockFrameOffset(int block, parameters *config);
 
 AudioSignal *CreateAudioSignal(parameters *config);
 void CleanAudio(AudioSignal *Signal, parameters *config);
@@ -66,5 +72,8 @@ void InsertMessageInBuffer(msgbuff *message, parameters *config);
 
 double CalculateWeightedError(double pError, parameters *config);
 double RoundFloat(double x, int p);
+long int RoundTo4bytes(double src);
+long int RoundTolower4bytes(double src);
+double GetDecimalValues(double value);
 
 #endif
