@@ -201,9 +201,11 @@ int LoadFile(FILE *file, AudioSignal *Signal, parameters *config, char *fileName
 		return(0);
 	}
 
+#ifdef USE_FLOORS
 	silence = GetFirstSilenceIndex(config);
 	if(silence != NO_INDEX)
 		Signal->hasFloor = 1;
+#endif
 
 	sprintf(Signal->SourceFile, "%s", fileName);
 	if(config->clock)
@@ -274,8 +276,10 @@ int LoadFile(FILE *file, AudioSignal *Signal, parameters *config, char *fileName
 	// Instead of Global Normalization by default, do...
 	FindMaxMagnitude(Signal, config);
 
+#ifdef USE_FLOORS
 	if(Signal->hasFloor && !config->ignoreFloor) // analyze noise floor if available
 		FindFloor(Signal, config);
+#endif
 
 	// Clean up everything again
 	pos = 0;
@@ -555,22 +559,31 @@ double ProcessSamples(AudioBlocks *AudioArray, short *samples, size_t size, long
 
 			if(config->invert)
 			{
+#ifdef USE_FLOORS
 				if(!config->ignoreFloor && amplitude > config->floorAmplitude)
 					blank = 1;
 				
 				if(config->ignoreFloor && amplitude > CutOff)
 					blank = 1;
-
+#else
+				if(amplitude > CutOff)
+					blank = 1;
+#endif
 				if(IsCRTNoise(Hertz))
 					blank = 0;	
 			}
 			else
 			{
+#ifdef USE_FLOORS
 				if(!config->ignoreFloor && amplitude <= config->floorAmplitude)
 					blank = 1;
 				
 				if(config->ignoreFloor && amplitude <= CutOff)
 					blank = 1;
+#else
+				if(amplitude <= CutOff)
+					blank = 1;
+#endif
 
 				if(IsCRTNoise(Hertz))
 					blank = 1;	
@@ -671,7 +684,7 @@ int commandline_wave(int argc , char *argv[], parameters *config)
 	config->MinAmplitude = 0;
 	config->floorAmplitude = 0;
 
-	while ((c = getopt (argc, argv, "ihvkgclxw:n:d:a:t:r:c:f:b:s:z:")) != -1)
+	while ((c = getopt (argc, argv, "ihvkgclw:n:d:a:t:r:c:f:b:s:z:")) != -1)
 	switch (c)
 	  {
 	  case 'h':
@@ -696,9 +709,11 @@ int commandline_wave(int argc , char *argv[], parameters *config)
 	  case 'i':
 		config->invert = 1;   // RELEVANT HERE!
 		break;
+#ifdef USE_FLOORS
 	  case 'x':
 		config->ignoreFloor = 0;   // RELEVANT HERE!
 		break;
+#endif
 	  case 's':
 		config->startHz = atoi(optarg);
 		if(config->startHz < 1 || config->startHz > 19900)

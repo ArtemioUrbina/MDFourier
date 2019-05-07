@@ -103,9 +103,20 @@ void CleanAudio(AudioSignal *Signal, parameters *config)
 		Signal->Blocks[n].fftwValues.seconds = 0;
 	}
 	Signal->SourceFile[0] = '\0';
+
+#ifdef USE_FLOORS
 	Signal->hasFloor = 0;
 	Signal->floorFreq = 0.0;
 	Signal->floorAmplitude = 0.0;	
+#endif
+
+	Signal->Samples = NULL;
+	Signal->framerate = 0.0;
+
+	Signal->startOffset = 0;
+	Signal->endOffset = 0;
+
+	memset(&Signal->header, 0, sizeof(wav_hdr));
 }
 
 void ReleaseAudio(AudioSignal *Signal, parameters *config)
@@ -138,9 +149,22 @@ void ReleaseAudio(AudioSignal *Signal, parameters *config)
 	Signal->Blocks = NULL;
 
 	Signal->SourceFile[0] = '\0';
+
+#ifdef USE_FLOORS
 	Signal->hasFloor = 0;
 	Signal->floorFreq = 0.0;
 	Signal->floorAmplitude = 0.0;	
+#endif
+
+	if(Signal->Samples)
+	{
+		free(Signal->Samples);
+		Signal->Samples = NULL;
+	}
+	Signal->framerate = 0.0;
+
+	Signal->startOffset = 0;
+	Signal->endOffset = 0;
 }
 
 void ReleaseAudioBlockStructure(parameters *config)
@@ -569,6 +593,7 @@ char *GetBlockColor(parameters *config, int pos)
 	return "white";
 }
 
+#ifdef USE_FLOORS
 void FindFloor(AudioSignal *Signal, parameters *config)
 {
 	int index;
@@ -599,6 +624,7 @@ void FindFloor(AudioSignal *Signal, parameters *config)
 	}
 	Signal->hasFloor = 0;  /* revoke it if not found */
 }
+#endif
 
 void GlobalNormalize(AudioSignal *Signal, parameters *config)
 {
@@ -865,20 +891,6 @@ void CompressFrequencies(AudioBlocks *AudioArray, parameters *config)
 					AudioArray->freq[j] = t;
 				}
 		}
-	}
-}
-
-void InsertMessageInBuffer(msgbuff *message, parameters *config)
-{
-	if(config->justResults)
-		return;
-
-	strcat(message->message, message->buffer);
-	message->msgPos = strlen(message->message);
-	if(message->msgPos > message->msgSize - 512)
-	{
-		message->message = (char*)realloc(message->message, (message->msgSize+4096)*(sizeof(char)));
-		message->msgSize += 4096;
 	}
 }
 

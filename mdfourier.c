@@ -37,6 +37,8 @@
 #include "sync.h"
 
 int LoadFile(FILE *file, AudioSignal *Signal, parameters *config, char *fileName);
+int CompareWAVCharacteristics(AudioSignal *ReferenceSignal, AudioSignal *TestSignal, parameters *config);
+int ProcessFile(AudioSignal *Signal, parameters *config);
 double ExecuteDFFT(AudioBlocks *AudioArray, short *samples, size_t size, long samplerate, float *window, parameters *config);
 double CompareAudioBlocks(AudioSignal *ReferenceSignal, AudioSignal *TestSignal, parameters *config);
 
@@ -107,6 +109,27 @@ int main(int argc , char *argv[])
 		return 1;
 	}
 
+	if(!CompareWAVCharacteristics(ReferenceSignal, TestSignal, &config))
+	{
+		free(ReferenceSignal);
+		free(TestSignal);
+		return 1;
+	}
+
+	if(!ProcessFile(ReferenceSignal, &config))
+	{
+		free(ReferenceSignal);
+		free(TestSignal);
+		return 1;
+	}
+
+	if(!ProcessFile(TestSignal, &config))
+	{
+		free(ReferenceSignal);
+		free(TestSignal);
+		return 1;
+	}
+
 	CompareAudioBlocks(ReferenceSignal, TestSignal, &config);
 	if(config.normalize == 'r')
 		config.relativeMaxMagnitude = 0.0;
@@ -150,95 +173,151 @@ int main(int argc , char *argv[])
 
 int LoadFile(FILE *file, AudioSignal *Signal, parameters *config, char *fileName)
 {
-	int 				i = 0;
-	long int			loadedBlockSize = 0;
-	char				*buffer;
-	size_t			 	buffersize = 0;
-	wav_hdr 			header;
-	windowManager		windows;
-	float				*windowUsed = NULL;
 	struct	timespec	start, end;
-	double				seconds = 0, longest = 0;
-	char 				*AllSamples = NULL;
-	long int			pos = 0;
-	long int			ending = 0;
-	double				framerate = 0;
+	double				seconds = 0;
+
+	if(config->clock)
+		clock_gettime(CLOCK_MONOTONIC, &start);
 
 	if(!file)
 		return 0;
 
-	if(fread(&header, 1, sizeof(wav_hdr), file) != sizeof(wav_hdr))
+	if(fread(&Signal->header, 1, sizeof(wav_hdr), file) != sizeof(wav_hdr))
 	{
 		logmsg("\tInvalid WAV file: File too small\n");
 		return(0);
 	}
 
-	if(header.AudioFormat != 1) /* Check for PCM */
+	if(Signal->header.AudioFormat != 1) /* Check for PCM */
 	{
 		logmsg("\tInvalid WAV File: Only PCM is supported\n\tPlease use WAV PCM 16 bit");
 		return(0);
 	}
 
-	if(header.NumOfChan != 2) /* Check for Stereo */
+	if(Signal->header.NumOfChan != 2) /* Check for Stereo */
 	{
 		logmsg("\tInvalid WAV file: Only Stereo supported\n");
 		return(0);
 	}
 
-	if(header.bitsPerSample != 16) /* Check bit depth */
+	if(Signal->header.bitsPerSample != 16) /* Check bit depth */
 	{
 		logmsg("\tInvalid WAV file: Only 16 bit supported for now\n\tPlease use WAV PCM 16 bit %dhz");
 		return(0);
 	}
 	
-	if(header.SamplesPerSec/2 < config->endHz)
+	if(Signal->header.SamplesPerSec/2 < config->endHz)
 	{
 		logmsg("%d Hz sample rate was too low for %d-%d Hz analysis\n",
-			 header.SamplesPerSec, config->startHz, config->endHz);
-		config->endHz = header.SamplesPerSec/2;
+			 Signal->header.SamplesPerSec, config->startHz, config->endHz);
+		config->endHz = Signal->header.SamplesPerSec/2;
 		logmsg("changed to %d-%d Hz\n", config->startHz, config->endHz);
 	}
 
-	seconds = (double)header.Subchunk2Size/4.0/(double)header.SamplesPerSec;
+	seconds = (double)Signal->header.Subchunk2Size/4.0/(double)Signal->header.SamplesPerSec;
 	if(seconds < GetTotalBlockDuration(config))
 		logmsg("File length is smaller than expected\n");
 
 	logmsg("WAV file is PCM %dhz %dbits and %g seconds long\n", 
-		header.SamplesPerSec, header.bitsPerSample, seconds);
+		Signal->header.SamplesPerSec, Signal->header.bitsPerSample, seconds);
 
-	AllSamples = (char*)malloc(sizeof(char)*header.Subchunk2Size);
-	if(!AllSamples)
+	Signal->Samples = (char*)malloc(sizeof(char)*Signal->header.Subchunk2Size);
+	if(!Signal->Samples)
 	{
 		logmsg("\tAll Chunks malloc failed!\n");
 		return(0);
 	}
 
-	if(fread(AllSamples, 1, sizeof(char)*header.Subchunk2Size, file) != sizeof(char)*header.Subchunk2Size)
+	if(fread(Signal->Samples, 1, sizeof(char)*Signal->header.Subchunk2Size, file) !=
+			 sizeof(char)*Signal->header.Subchunk2Size)
 	{
 		logmsg("\tCould not read the whole sample block from disk to RAM\n");
 		return(0);
 	}
 
+	fclose(file);
+
 	/* Find the start offset */
-	logmsg("Detecting start of signal\n");
-	pos = DetectPulse(AllSamples, header, config);
-	if(pos == -1)
+	logmsg("Detecting start of signal: ");
+	Signal->startOffset = DetectPulse(Signal->Samples, Signal->header, config);
+	if(Signal->startOffset == -1)
 	{
 		logmsg("Starting Pulse train was not detected\n");
 		return 0;
 	}
-	ending = DetectEndPulse(AllSamples, pos, header, config);
-	if(ending == -1)
+	logmsg(" %ld bytes\n", Signal->startOffset);
+	logmsg("Detecting end of signal: ");
+	Signal->endOffset = DetectEndPulse(Signal->Samples, Signal->startOffset, Signal->header, config);
+	if(Signal->endOffset == -1)
 	{
 		logmsg("Ending Pulse train was not detected\n");
 		return 0;
 	}
+	logmsg(" %ld bytes\n", Signal->endOffset);
+	Signal->framerate = (double)(Signal->endOffset-Signal->startOffset)*1000/((double)Signal->header.SamplesPerSec*4*
+						GetLastSyncFrameOffset(Signal->header, config));
+	Signal->framerate = RoundFloat(Signal->framerate, 3);
+	logmsg("FrameRate detected from WAV file: %g ms\n", Signal->framerate);
+	SetPlatformMSPerFrame(Signal->framerate, config);
 
-	framerate = (double)(ending-pos)*1000/((double)header.SamplesPerSec*4*
-						GetLastSyncFrameOffset(header, config));
-	framerate = RoundFloat(framerate, 3);
-	printf("FrameRate detected from WAV file: %g ms\n", framerate);
-	SetPlatformMSPerFrame(framerate, config);
+#ifdef USE_FLOORS
+	if(GetFirstSilenceIndex(config) != NO_INDEX)
+		Signal->hasFloor = 1;
+#endif
+
+	sprintf(Signal->SourceFile, "%s", fileName);
+
+	logmsg("Block size: %ld\n", 
+		RoundTolower4bytes(Signal->header.SamplesPerSec*4.0*sizeof(char)*
+							GetBlockDuration(config, 3)));
+
+	if(config->clock)
+	{
+		double			elapsedSeconds;
+		clock_gettime(CLOCK_MONOTONIC, &end);
+		elapsedSeconds = TimeSpecToSeconds(&end) - TimeSpecToSeconds(&start);
+		logmsg("Loading WAV took %f\n", elapsedSeconds);
+	}
+
+	return 1;
+}
+
+double GetLowerFrameRate(double framerateA, double framerateB)
+{
+	if(framerateA > framerateB)
+		return framerateB;
+
+	return framerateA;
+}
+
+int CompareWAVCharacteristics(AudioSignal *ReferenceSignal, AudioSignal *TestSignal, parameters *config)
+{
+	if(!ReferenceSignal)
+		return 0;
+	if(!TestSignal)
+		return 0;
+
+	if(ReferenceSignal->framerate != TestSignal->framerate)
+	{
+		config->smallerFramerate = 
+				GetLowerFrameRate(ReferenceSignal->framerate, 
+									TestSignal->framerate);
+	}
+	return 1;
+}
+
+int ProcessFile(AudioSignal *Signal, parameters *config)
+{
+	long int		pos = 0;
+	double			longest = 0;
+	char			*buffer;
+	size_t			buffersize = 0;
+	windowManager	windows;
+	float			*windowUsed = NULL;
+	long int		loadedBlockSize = 0, i = 0;
+	struct timespec	start, end;
+
+	pos = Signal->startOffset;
 
 	longest = GetLongestElementDuration(config);
 	if(!longest)
@@ -247,7 +326,7 @@ int LoadFile(FILE *file, AudioSignal *Signal, parameters *config, char *fileName
 		return 0;
 	}
 
-	buffersize = RoundTo4bytes(header.SamplesPerSec*4*sizeof(char)*longest); /* 2 bytes per sample, stereo */
+	buffersize = RoundTo4bytes(Signal->header.SamplesPerSec*4*sizeof(char)*longest); /* 2 bytes per sample, stereo */
 	buffer = (char*)malloc(buffersize);
 	if(!buffer)
 	{
@@ -255,13 +334,9 @@ int LoadFile(FILE *file, AudioSignal *Signal, parameters *config, char *fileName
 		return(0);
 	}
 
-	if(!initWindows(&windows, header.SamplesPerSec, config))
+	if(!initWindows(&windows, Signal->header.SamplesPerSec, config))
 		return 0;
 
-	if(GetFirstSilenceIndex(config) != NO_INDEX)
-		Signal->hasFloor = 1;
-
-	sprintf(Signal->SourceFile, "%s", fileName);
 	if(config->clock)
 		clock_gettime(CLOCK_MONOTONIC, &start);
 
@@ -272,16 +347,16 @@ int LoadFile(FILE *file, AudioSignal *Signal, parameters *config, char *fileName
 		duration = GetBlockDuration(config, i);
 		windowUsed = getWindowByLength(&windows, duration);
 		
-		size = header.SamplesPerSec*4.0*sizeof(char)*duration;
+		size = Signal->header.SamplesPerSec*4.0*sizeof(char)*duration;
 		loadedBlockSize = RoundTolower4bytes(size);
 
 		memset(buffer, 0, buffersize);
-		if(pos + loadedBlockSize > header.Subchunk2Size)
+		if(pos + loadedBlockSize > Signal->header.Subchunk2Size)
 		{
 			logmsg("\tunexpected end of File, please record the full Audio Test from the 240p Test Suite\n");
 			break;
 		}
-		memcpy(buffer, AllSamples + pos, loadedBlockSize);
+		memcpy(buffer, Signal->Samples + pos, loadedBlockSize);
 		pos += loadedBlockSize;
 
 		/* Advance to adjust the time for the Sega Genesis Frame Rate */
@@ -304,7 +379,7 @@ int LoadFile(FILE *file, AudioSignal *Signal, parameters *config, char *fileName
 			wav_hdr		cheader;
 			char		Name[2048], FName[4096];
 
-			cheader = header;
+			cheader = Signal->header;
 			sprintf(Name, "%03d_SRC_%s_%03d_%s", i, GetBlockName(config, i), GetBlockSubIndex(config, i), basename(fileName));
 			ComposeFileName(FName, Name, ".wav", config);
 			chunk = fopen(FName, "wb");
@@ -332,7 +407,7 @@ int LoadFile(FILE *file, AudioSignal *Signal, parameters *config, char *fileName
 		}
 #endif
 
-		ExecuteDFFT(&Signal->Blocks[i], (short*)buffer, loadedBlockSize/2, header.SamplesPerSec, windowUsed, config);
+		ExecuteDFFT(&Signal->Blocks[i], (short*)buffer, loadedBlockSize/2, Signal->header.SamplesPerSec, windowUsed, config);
 
 		FillFrequencyStructures(&Signal->Blocks[i], config);
 	
@@ -357,16 +432,15 @@ int LoadFile(FILE *file, AudioSignal *Signal, parameters *config, char *fileName
 	if(config->normalize != 'n')
 		GlobalNormalize(Signal, config);
 
+#ifdef USE_FLOORS
 	if(!config->ignoreFloor && Signal->hasFloor) /* analyze silence floor if available */
 		FindFloor(Signal, config);
+#endif
 
 	if(config->verbose)
 		PrintFrequencies(Signal, config);
 
-	fclose(file);
 	free(buffer);
-	free(AllSamples);
-
 	freeWindows(&windows);
 
 	return i;
@@ -451,6 +525,7 @@ int CalculateMaxCompare(int block, AudioSignal *Signal, parameters *config, int 
 {
 	int count = config->MaxFreq;
 
+#ifdef USE_FLOORS
 	/* find how many to compare */
 	if(!config->ignoreFloor && Signal->hasFloor)
 	{
@@ -481,6 +556,7 @@ int CalculateMaxCompare(int block, AudioSignal *Signal, parameters *config, int 
 	}
 	else
 	{
+#endif
 		for(int freq = 0; freq < config->MaxFreq; freq++)
 		{
 			if(limitRef && Signal->Blocks[block].freq[freq].amplitude < config->significantVolume)
@@ -501,7 +577,9 @@ int CalculateMaxCompare(int block, AudioSignal *Signal, parameters *config, int 
 				return count;
 			}
 		}
+#ifdef USE_FLOORS
 	}
+#endif
 
 	return count;
 }

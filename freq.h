@@ -69,7 +69,6 @@ void SortFrequencies(AudioSignal *Signal, parameters *config);
 int IsCRTNoise(double freq);
 
 void PrintComparedBlocks(AudioBlocks *ReferenceArray, AudioBlocks *ComparedArray, parameters *config, AudioSignal *Signal);
-void InsertMessageInBuffer(msgbuff *message, parameters *config);
 
 double CalculateWeightedError(double pError, parameters *config);
 double RoundFloat(double x, int p);

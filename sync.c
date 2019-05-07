@@ -65,6 +65,8 @@ long int DetectEndPulse(char *AllSamples, long int startpulse, wav_hdr header, p
 	position = DetectPulseInternal(AllSamples, header, 9, offset, config);
 	return position;
 }
+	
+//#define DEBUG_SYNC
 
 long int DetectPulseTrainSequence(Pulses *pulseArray, double targetFrequency, long int TotalMS, int factor)
 {
@@ -81,7 +83,9 @@ long int DetectPulseTrainSequence(Pulses *pulseArray, double targetFrequency, lo
 		{
 			if(!inside_pulse)
 			{
-				//logmsg("PULSE Start %ld\n", pulseArray[i].bytes);
+#ifdef DEBUG_SYNC
+				logmsg("PULSE Start %ld\n", pulseArray[i].bytes);
+#endif
 				pulse_start = pulseArray[i].bytes;
 
 				pulse_amplitudes = 0;
@@ -97,7 +101,9 @@ long int DetectPulseTrainSequence(Pulses *pulseArray, double targetFrequency, lo
 
 			if(last_pulse_pos && i > last_pulse_pos + 2)
 			{
-				//logmsg("pulse reset due to discontinuity %ld and %ld\n", i, last_pulse_pos);
+#ifdef DEBUG_SYNC
+				logmsg("pulse reset due to discontinuity %ld and %ld\n", i, last_pulse_pos);
+#endif
 
 				pulse_count = 0;
 				sequence_start = 0;
@@ -106,16 +112,22 @@ long int DetectPulseTrainSequence(Pulses *pulseArray, double targetFrequency, lo
 			}
 			else
 			{
-				//logmsg("PULSE Increment at %ld (%ld)\n", pulseArray[i].bytes, i);
+#ifdef DEBUG_SYNC
+				logmsg("PULSE Increment at %ld (%ld)\n", pulseArray[i].bytes, i);
+#endif
 
 				inside_pulse++;
 				last_pulse_pos = i;
 				pulse_amplitudes += pulseArray[i].amplitude;
 			}
 
-			if(inside_pulse >= 17*factor)
+			// moved form 17 to 18 due to different lengths in
+			// FPGA and emulator implementation
+			if(inside_pulse >= 18*factor)
 			{
-				//logmsg("reset pulse too long %ld\n", inside_pulse);
+#ifdef DEBUG_SYNC
+				logmsg("reset pulse too long %ld\n", inside_pulse);
+#endif
 
 				pulse_count = 0;
 				sequence_start = 0;
@@ -129,7 +141,9 @@ long int DetectPulseTrainSequence(Pulses *pulseArray, double targetFrequency, lo
 			{
 				if(last_silence_pos && i > last_silence_pos + 2)
 				{
-					//logmsg("pulse silence due to discontinuity\n");
+#ifdef DEBUG_SYNC
+					logmsg("pulse silence due to discontinuity\n");
+#endif
 	
 					pulse_count = 0;
 					sequence_start = 0;
@@ -138,7 +152,9 @@ long int DetectPulseTrainSequence(Pulses *pulseArray, double targetFrequency, lo
 				}
 				else
 				{
-					//logmsg("SILENCE Increment at %ld (%ld)\n", pulseArray[i].bytes, i);
+#ifdef DEBUG_SYNC
+					logmsg("SILENCE Increment at %ld (%ld)\n", pulseArray[i].bytes, i);
+#endif
 					inside_silence++;	
 					silence_amplitudes += pulseArray[i].amplitude;
 				}
@@ -152,14 +168,18 @@ long int DetectPulseTrainSequence(Pulses *pulseArray, double targetFrequency, lo
 					{
 						pulse_count++;
 						last_pulse_start = pulse_start;
-						//logmsg("Pulse %ld Start: %ld Volume %g Length %ld Silence: %ld\n", 
-							//pulse_count, pulse_start, pulse_volume, inside_pulse, inside_silence);
+#ifdef DEBUG_SYNC
+						logmsg("Pulse %ld Start: %ld Volume %g Length %ld Silence: %ld\n", 
+							pulse_count, pulse_start, pulse_volume, inside_pulse, inside_silence);
+#endif
 						if(pulse_count == 10)
 							return sequence_start;
 					}
 					else
 					{
-						//logmsg("Reset Pulse No volume difference\n");
+#ifdef DEBUG_SYNC
+						logmsg("Reset Pulse No volume difference\n");
+#endif
 
 						pulse_count = 0;
 						sequence_start = 0;
@@ -169,9 +189,11 @@ long int DetectPulseTrainSequence(Pulses *pulseArray, double targetFrequency, lo
 					inside_pulse = 0;
 				}
 
-				if(inside_silence >= 17*factor)
+				if(inside_silence >= 18*factor)
 				{
-					//logmsg("Reset Pulse too much silence\n");
+#ifdef DEBUG_SYNC
+					logmsg("Reset Pulse too much silence\n");
+#endif
 
 					pulse_count = 0;
 					sequence_start = 0;
@@ -181,9 +203,11 @@ long int DetectPulseTrainSequence(Pulses *pulseArray, double targetFrequency, lo
 			}
 			else
 			{
-				if(inside_pulse >= 17*factor || inside_silence >= 17*factor)
+				if(inside_pulse >= 18*factor || inside_silence >= 18*factor)
 				{
-					//logmsg("Reset Pulse OB\n");
+#ifdef DEBUG_SYNC
+					logmsg("Reset Pulse OB\n");
+#endif
 
 					pulse_count = 0;
 					sequence_start = 0;

@@ -83,7 +83,9 @@ void CleanParameters(parameters *config)
 	config->spreadsheet = 0;
 	config->normalize = 'g';
 	config->relativeMaxMagnitude = 0;
+#ifdef USE_FLOORS
 	config->ignoreFloor = 1;
+#endif
 	config->useOutputFilter = 1;
 	config->outputFilterFunction = 1;
 	config->Differences.BlockDiffArray = NULL;
@@ -95,6 +97,7 @@ void CleanParameters(parameters *config)
 	config->Differences.cntTotalAudioDiff = 0;
 	config->Differences.weightedAudioDiff = 0;
 	config->significantVolume = -60.0;
+	config->smallerFramerate = 0;
 	
 	config->types.totalChunks = 0;
 	config->types.regularChunks = 0;
@@ -110,7 +113,7 @@ int commandline(int argc , char *argv[], parameters *config)
 	
 	CleanParameters(config);
 
-	while ((c = getopt (argc, argv, "hejvkgimlxyo:w:n:d:a:t:r:c:f:b:s:z:p:")) != -1)
+	while ((c = getopt (argc, argv, "hejvkgmlxyo:w:n:d:a:t:r:c:f:b:s:z:p:")) != -1)
 	switch (c)
 	  {
 	  case 'h':
@@ -129,9 +132,11 @@ int commandline(int argc , char *argv[], parameters *config)
 	  case 'v':
 		config->verbose = 1;
 		break;
+#ifdef USE_FLOORS
 	  case 'i':
 		config->ignoreFloor = 0;
 		break;
+#endif
 	  case 'k':
 		config->clock = 1;
 		break;
