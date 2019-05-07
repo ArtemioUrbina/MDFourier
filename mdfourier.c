@@ -116,6 +116,7 @@ int main(int argc , char *argv[])
 		return 1;
 	}
 
+	logmsg("* Executing Discrete Fast Fourier Transforms on Reference file\n");
 	if(!ProcessFile(ReferenceSignal, &config))
 	{
 		free(ReferenceSignal);
@@ -123,6 +124,7 @@ int main(int argc , char *argv[])
 		return 1;
 	}
 
+	logmsg("* Executing Discrete Fast Fourier Transforms on Target file\n");
 	if(!ProcessFile(TestSignal, &config))
 	{
 		free(ReferenceSignal);
@@ -130,10 +132,12 @@ int main(int argc , char *argv[])
 		return 1;
 	}
 
+	logmsg("* Comparing frequencies Reference -> Target\n");
 	CompareAudioBlocks(ReferenceSignal, TestSignal, &config);
 	if(config.normalize == 'r')
 		config.relativeMaxMagnitude = 0.0;
 
+	logmsg("* Plotting results to PNGs\n");
 	PlotAllDifferentAmplitudes(config.compareName, &config);
 	PlotAllSpectrogram(basename(ReferenceSignal->SourceFile), ReferenceSignal, &config);
 	PlotAllMissingFrequencies(config.compareName, &config);
@@ -143,8 +147,10 @@ int main(int argc , char *argv[])
 	ReleaseDifferenceArray(&config);
 	InvertComparedName(&config);
 
+	logmsg("* Comparing frequencies Target -> Reference\n");
 	CompareAudioBlocks(TestSignal, ReferenceSignal, &config);
 
+	logmsg("* Plotting results to PNGs\n");
 	PlotAllDifferentAmplitudes(config.compareName, &config);
 	PlotAllSpectrogram(basename(TestSignal->SourceFile), TestSignal, &config);
 	PlotAllMissingFrequencies(config.compareName, &config);
@@ -208,14 +214,14 @@ int LoadFile(FILE *file, AudioSignal *Signal, parameters *config, char *fileName
 	
 	if(Signal->header.SamplesPerSec/2 < config->endHz)
 	{
-		logmsg("%d Hz sample rate was too low for %d-%d Hz analysis\n",
+		logmsg(" - %d Hz sample rate was too low for %d-%d Hz analysis\n",
 			 Signal->header.SamplesPerSec, config->startHz, config->endHz);
 		config->endHz = Signal->header.SamplesPerSec/2;
-		logmsg("changed to %d-%d Hz\n", config->startHz, config->endHz);
+		logmsg(" - changed to %d-%d Hz\n", config->startHz, config->endHz);
 	}
 
 	seconds = (double)Signal->header.Subchunk2Size/4.0/(double)Signal->header.SamplesPerSec;
-	logmsg("- WAV file is PCM %dhz %dbits and %g seconds long\n", 
+	logmsg(" - WAV file is PCM %dhz %dbits and %g seconds long\n", 
 		Signal->header.SamplesPerSec, Signal->header.bitsPerSample, seconds);
 
 	Signal->Samples = (char*)malloc(sizeof(char)*Signal->header.Subchunk2Size);
@@ -235,29 +241,29 @@ int LoadFile(FILE *file, AudioSignal *Signal, parameters *config, char *fileName
 	fclose(file);
 
 	/* Find the start offset */
-	logmsg("- Detecting start of signal: ");
+	logmsg(" - Detecting start of signal: ");
 	Signal->startOffset = DetectPulse(Signal->Samples, Signal->header, config);
 	if(Signal->startOffset == -1)
 	{
 		logmsg("\nStarting Pulse train was not detected\n");
 		return 0;
 	}
-	logmsg(" %ld bytes\n", Signal->startOffset);
-	logmsg("- Detecting end of signal: ");
+	logmsg(" %gs\n", BytesToSeconds(Signal->header.SamplesPerSec, Signal->startOffset));
+	logmsg(" - Detecting end of signal: ");
 	Signal->endOffset = DetectEndPulse(Signal->Samples, Signal->startOffset, Signal->header, config);
 	if(Signal->endOffset == -1)
 	{
 		logmsg("\nEnding Pulse train was not detected\n");
 		return 0;
 	}
-	logmsg(" %ld bytes\n", Signal->endOffset);
+	logmsg(" %gs\n", BytesToSeconds(Signal->header.SamplesPerSec, Signal->endOffset));
 	Signal->framerate = (double)(Signal->endOffset-Signal->startOffset)*1000/((double)Signal->header.SamplesPerSec*4*
 						GetLastSyncFrameOffset(Signal->header, config));
 	Signal->framerate = RoundFloat(Signal->framerate, 3);
-	logmsg("- Detected %g ms frames from WAV file\n", Signal->framerate);
+	logmsg(" - Detected %gms frames from WAV file\n", Signal->framerate);
 
 	if(seconds < GetSignalTotalDuration(Signal->framerate, config))
-		logmsg("- File length is smaller than expected\n");
+		logmsg(" - File length is smaller than expected\n");
 
 
 #ifdef USE_FLOORS
@@ -272,7 +278,7 @@ int LoadFile(FILE *file, AudioSignal *Signal, parameters *config, char *fileName
 		double			elapsedSeconds;
 		clock_gettime(CLOCK_MONOTONIC, &end);
 		elapsedSeconds = TimeSpecToSeconds(&end) - TimeSpecToSeconds(&start);
-		logmsg("Loading WAV took %f\n", elapsedSeconds);
+		logmsg(" - Loading WAV took %fs\n", elapsedSeconds);
 	}
 
 	return 1;
@@ -417,7 +423,7 @@ int ProcessFile(AudioSignal *Signal, parameters *config)
 		double			elapsedSeconds;
 		clock_gettime(CLOCK_MONOTONIC, &end);
 		elapsedSeconds = TimeSpecToSeconds(&end) - TimeSpecToSeconds(&start);
-		logmsg("Processing WAV took %f\n", elapsedSeconds);
+		logmsg(" - Processing took %fs\n", elapsedSeconds);
 	}
 
 	/* Global Normalization by default */

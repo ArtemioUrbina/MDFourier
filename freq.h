@@ -78,5 +78,6 @@ double CalculateWeightedError(double pError, parameters *config);
 double RoundFloat(double x, int p);
 long int RoundTo4bytes(double src, int *leftover, int *discard);
 double GetDecimalValues(double value);
+double BytesToSeconds(long int samplerate, long int bytes);
 
 #endif

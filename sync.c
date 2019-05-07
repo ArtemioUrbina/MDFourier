@@ -242,9 +242,6 @@ long int DetectPulseInternal(char *Samples, wav_hdr header, int factor, long int
 		return(0);
 	}
 	
-	// Adjust for a real MS
-	//MSfactor = ((double)factor*1000.0)/((double)header.SamplesPerSec/(double)millisecondSize*4.0);
-
 	TotalMS = header.Subchunk2Size / buffersize - 1;
 	pulseArray = (Pulses*)malloc(sizeof(Pulses)*TotalMS);
 	if(!pulseArray)

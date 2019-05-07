@@ -994,6 +994,11 @@ long int SecondsToBytes(long int samplerate, double seconds, int *leftover, int 
 	return(RoundTo4bytes(samplerate*4.0*seconds*sizeof(char), leftover, discard));
 }
 
+double BytesToSeconds(long int samplerate, long int bytes)
+{
+	return((double)bytes/(samplerate*4.0));
+}
+
 long int RoundTo4bytes(double src, int *leftover, int *discard)
 {
 	int extra = 0;
