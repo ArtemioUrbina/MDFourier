@@ -30,7 +30,7 @@
  */
 
 #define MDWAVE
-#define MDWVERSION "0.75"
+#define MDWVERSION "0.85"
 
 #include "mdfourier.h"
 #include "log.h"
@@ -227,6 +227,7 @@ int ProcessFile(AudioSignal *Signal, parameters *config)
 	struct timespec	start, end;
 	FILE			*processed = NULL;
 	char			Name[4096], tempName[4096];
+	int				leftover = 0, discardBytes = 0;
 
 	ComposeFileName(Name, GenerateFileNamePrefix(config), ".wav", config);
 	processed = fopen(Name, "wb");
@@ -245,7 +246,7 @@ int ProcessFile(AudioSignal *Signal, parameters *config)
 		return 0;
 	}
 
-	buffersize = SecondsToBytes(Signal->header.SamplesPerSec, longest);
+	buffersize = SecondsToBytes(Signal->header.SamplesPerSec, longest, NULL, NULL);
 	buffer = (char*)malloc(buffersize);
 	if(!buffer)
 	{
@@ -271,7 +272,7 @@ int ProcessFile(AudioSignal *Signal, parameters *config)
 		duration = FramesToSeconds(Signal->framerate, frames);
 		windowUsed = getWindowByLength(&windows, frames);
 		
-		loadedBlockSize = SecondsToBytes(Signal->header.SamplesPerSec, duration);
+		loadedBlockSize = SecondsToBytes(Signal->header.SamplesPerSec, duration, &leftover, &discardBytes);
 
 		memset(buffer, 0, buffersize);
 		if(pos + loadedBlockSize > Signal->header.Subchunk2Size)
@@ -281,6 +282,7 @@ int ProcessFile(AudioSignal *Signal, parameters *config)
 		}
 		memcpy(buffer, Signal->Samples + pos, loadedBlockSize);
 		pos += loadedBlockSize;
+		pos += discardBytes;
 		
 		Signal->Blocks[i].index = GetBlockSubIndex(config, i);
 		Signal->Blocks[i].type = GetBlockType(config, i);
@@ -334,6 +336,7 @@ int ProcessFile(AudioSignal *Signal, parameters *config)
 
 	// Clean up everything again
 	pos = Signal->startOffset;
+	leftover = 0;
 	i = 0;
 
 	// redo after processing
@@ -346,7 +349,7 @@ int ProcessFile(AudioSignal *Signal, parameters *config)
 		duration = FramesToSeconds(Signal->framerate, frames);
 		windowUsed = getWindowByLength(&windows, frames);
 		
-		loadedBlockSize = SecondsToBytes(Signal->header.SamplesPerSec, duration);
+		loadedBlockSize = SecondsToBytes(Signal->header.SamplesPerSec, duration, &leftover, &discardBytes);
 
 		memset(buffer, 0, buffersize);
 		if(pos + loadedBlockSize > Signal->header.Subchunk2Size)
@@ -364,6 +367,7 @@ int ProcessFile(AudioSignal *Signal, parameters *config)
 		memcpy(Signal->Samples + pos, buffer, loadedBlockSize);
 
 		pos += loadedBlockSize;
+		pos += discardBytes;
 
 		if(config->chunks)
 		{

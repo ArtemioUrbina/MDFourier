@@ -355,8 +355,9 @@ long int GetByteSizeDifferenceByFrameRate(double framerate, long int frames, lon
 		long int SmallerBytes = 0;
 		long int BiggerBytes = 0;
 
-		SmallerBytes = SecondsToBytes(samplerate, FramesToSeconds(config->smallerFramerate, frames));
-		BiggerBytes = SecondsToBytes(samplerate, FramesToSeconds(framerate, frames));
+		SmallerBytes = SecondsToBytes(samplerate, FramesToSeconds(config->smallerFramerate, frames), NULL, NULL);
+		BiggerBytes = SecondsToBytes(samplerate, FramesToSeconds(framerate, frames), NULL, NULL);
+	
 		difference = BiggerBytes - SmallerBytes;
 	}
 	return difference;
@@ -387,16 +388,6 @@ int GetFirstSilenceIndex(parameters *config)
 	return -1;
 }
 
-double FramesToSeconds(double frames, double framerate)
-{
-	return(frames*framerate/1000.0);
-}
-
-long int SecondsToBytes(long int samplerate, double seconds)
-{
-	return(RoundTo4bytes(samplerate*4*seconds*sizeof(char)));
-}
-
 long int GetLastSilenceByteOffset(double framerate, wav_hdr header, parameters *config)
 {
 	if(!config)
@@ -409,7 +400,7 @@ long int GetLastSilenceByteOffset(double framerate, wav_hdr header, parameters *
 			double offset = 0;
 
 			offset = FramesToSeconds(GetBlockFrameOffset(i, config), framerate);
-			offset = SecondsToBytes(header.SamplesPerSec, offset);
+			offset = SecondsToBytes(header.SamplesPerSec, offset, NULL, NULL);
 			return(offset);
 		}
 	}
@@ -783,13 +774,16 @@ void PrintFrequencies(AudioSignal *Signal, parameters *config)
 
 void FillFrequencyStructures(AudioBlocks *AudioArray, parameters *config)
 {
-	long int i = 0;
+	long int i = 0, start= 0, end = 0;
 	double boxsize = 0, size = 0;
 
 	size = AudioArray->fftwValues.size;
-	boxsize = AudioArray->fftwValues.seconds;
-	
-	for(i = (int)config->startHz*boxsize; i < (int)config->endHz*boxsize; i++)	/* Nyquist at 44.1khz */
+	boxsize = RoundFloat(AudioArray->fftwValues.seconds, 4);	
+
+	start = floor(config->startHz*boxsize);
+	end = floor(config->endHz*boxsize);
+
+	for(i = start; i < end; i++)
 	{
 		double r1 = creal(AudioArray->fftwValues.spectrum[i]);
 		double i1 = cimag(AudioArray->fftwValues.spectrum[i]);
@@ -799,10 +793,7 @@ void FillFrequencyStructures(AudioBlocks *AudioArray, parameters *config)
 
 		magnitude = sqrt(r1*r1 + i1*i1)/sqrt(size);
 		Hertz = ((double)i/boxsize);
-		if(config->SamplerateDifference)  // minimize Missing Frequencies by rounding more
-			Hertz = RoundFloat(Hertz, 1);
-		else
-			Hertz = RoundFloat(Hertz, 2);  // default, overkill yes
+		Hertz = RoundFloat(Hertz, 2);  // default, overkill yes
 
 		previous = 1.e30;
 		if(!IsCRTNoise(Hertz))
@@ -993,25 +984,44 @@ double RoundFloat(double x, int p)
 	}
 }
 
-long int RoundTo4bytes(double src)
+double FramesToSeconds(double frames, double framerate)
 {
-	int missign = 0;
-
-	src = ceil(src);
-	missign = ((long int)src) % 4;
-	if(missign != 0)
-		src += 4 - missign;
-	return (src);
+	return(frames*framerate/1000.0);
 }
 
-long int RoundTolower4bytes(double src)
+long int SecondsToBytes(long int samplerate, double seconds, int *leftover, int *discard)
+{
+	return(RoundTo4bytes(samplerate*4.0*seconds*sizeof(char), leftover, discard));
+}
+
+long int RoundTo4bytes(double src, int *leftover, int *discard)
 {
 	int extra = 0;
 
-	src = floor(src);
+	if(!leftover)
+		src = ceil(src);
+	else
+		src = floor(src);
 	extra = ((long int)src) % 4;
 	if(extra != 0)
-		src -= extra;
+	{
+		if(leftover)
+		{
+			src -= extra;
+			if(*leftover + extra >= 4)
+			{
+				*leftover -= 4;
+				*discard = 4;
+			}
+			else
+			{
+				*leftover += extra;
+				*discard = 0;
+			}
+		}
+		else
+			src += 4 - extra;
+	}
 	return (src);
 }
 

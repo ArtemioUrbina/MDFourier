@@ -48,7 +48,7 @@
 
 #include "incbeta.h"
 
-#define MDVERSION "0.75"
+#define MDVERSION "0.85"
 
 
 #define MAX_FREQ_COUNT		100000 	/* Number of frequencies to compare(MAX) */
@@ -241,7 +241,6 @@ typedef struct parameters_st {
 	AudioDifference	Differences;
 	double			significantVolume;
 	double			smallerFramerate;
-	int				SamplerateDifference;
 
 #ifdef MDWAVE
 	int				maxBlanked;

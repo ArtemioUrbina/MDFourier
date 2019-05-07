@@ -35,7 +35,7 @@
 #include "mdfourier.h"
 
 double FramesToSeconds(double frames, double framerate);
-long int SecondsToBytes(long int samplerate, double seconds);
+long int SecondsToBytes(long int samplerate, double seconds, int *leftover, int *discard);
 
 int LoadAudioBlockStructure(parameters *config);
 int GetFirstSilenceIndex(parameters *config);
@@ -76,8 +76,7 @@ void PrintComparedBlocks(AudioBlocks *ReferenceArray, AudioBlocks *ComparedArray
 
 double CalculateWeightedError(double pError, parameters *config);
 double RoundFloat(double x, int p);
-long int RoundTo4bytes(double src);
-long int RoundTolower4bytes(double src);
+long int RoundTo4bytes(double src, int *leftover, int *discard);
 double GetDecimalValues(double value);
 
 #endif

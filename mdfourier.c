@@ -293,12 +293,6 @@ int CompareWAVCharacteristics(AudioSignal *ReferenceSignal, AudioSignal *TestSig
 	if(!TestSignal)
 		return 0;
 
-	if(ReferenceSignal->header.SamplesPerSec != TestSignal->header.SamplesPerSec)
-	{
-		logmsg("==WARNING==\n  Comparing files at %ld khz and %ld khz\n  it will work, but give less accurate results\n", 
-				ReferenceSignal->header.SamplesPerSec, TestSignal->header.SamplesPerSec);
-		config->SamplerateDifference = 1;
-	}
 	if(ReferenceSignal->framerate != TestSignal->framerate)
 	{
 		config->smallerFramerate = 
@@ -318,6 +312,7 @@ int ProcessFile(AudioSignal *Signal, parameters *config)
 	float			*windowUsed = NULL;
 	long int		loadedBlockSize = 0, i = 0;
 	struct timespec	start, end;
+	int				leftover = 0, discardBytes = 0;
 
 	pos = Signal->startOffset;
 
@@ -328,7 +323,7 @@ int ProcessFile(AudioSignal *Signal, parameters *config)
 		return 0;
 	}
 
-	buffersize = SecondsToBytes(Signal->header.SamplesPerSec, longest);
+	buffersize = SecondsToBytes(Signal->header.SamplesPerSec, longest, NULL, NULL);
 	buffer = (char*)malloc(buffersize);
 	if(!buffer)
 	{
@@ -351,9 +346,9 @@ int ProcessFile(AudioSignal *Signal, parameters *config)
 		duration = FramesToSeconds(Signal->framerate, frames);
 		windowUsed = getWindowByLength(&windows, frames);
 		
-		loadedBlockSize = SecondsToBytes(Signal->header.SamplesPerSec, duration);
+		loadedBlockSize = SecondsToBytes(Signal->header.SamplesPerSec, duration, &leftover, &discardBytes);
 
-		difference = GetByteSizeDifferenceByFrameRate(Signal->framerate, frames, Signal->header.SamplesPerSec, config); 
+		difference = GetByteSizeDifferenceByFrameRate(Signal->framerate, frames, Signal->header.SamplesPerSec, config);
 
 		memset(buffer, 0, buffersize);
 		if(pos + loadedBlockSize > Signal->header.Subchunk2Size)
@@ -361,8 +356,10 @@ int ProcessFile(AudioSignal *Signal, parameters *config)
 			logmsg("\tunexpected end of File, please record the full Audio Test from the 240p Test Suite\n");
 			break;
 		}
+		
 		memcpy(buffer, Signal->Samples + pos, loadedBlockSize);
 		pos += loadedBlockSize;
+		pos += discardBytes;
 
 		Signal->Blocks[i].index = GetBlockSubIndex(config, i);
 		Signal->Blocks[i].type = GetBlockType(config, i);

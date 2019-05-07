@@ -233,7 +233,7 @@ long int DetectPulseInternal(char *Samples, wav_hdr header, int factor, long int
 	double				MaxMagnitude = 0, targetFrequency = 0;
 
 	// Not a real ms, just approximate
-	millisecondSize = RoundTo4bytes(floor((((double)header.SamplesPerSec*4.0)/1000.0)/(double)factor)); /* 2 bytes per sample, stereo */
+	millisecondSize = RoundTo4bytes(floor((((double)header.SamplesPerSec*4.0)/1000.0)/(double)factor), NULL, NULL);
 	buffersize = millisecondSize*sizeof(char); 
 	buffer = (char*)malloc(buffersize);
 	if(!buffer)

@@ -54,7 +54,7 @@ void PrintUsage()
 
 void Header(int log)
 {
-	char title1[] = "== MDFourier " MDVERSION " ==\nSega Genesis/Mega Drive Fourier Audio compare tool for 240p Test Suite\n";
+	char title1[] = "== MDFourier " MDVERSION " ==\n240p Test Suite Fourier Audio compare tool\n";
 	char title2[] = "by Artemio Urbina 2019, licensed under GPL\n\n";
 
 	if(log)
@@ -98,7 +98,6 @@ void CleanParameters(parameters *config)
 	config->Differences.weightedAudioDiff = 0;
 	config->significantVolume = -60.0;
 	config->smallerFramerate = 0;
-	config->SamplerateDifference = 0;
 	
 	config->types.totalChunks = 0;
 	config->types.regularChunks = 0;
