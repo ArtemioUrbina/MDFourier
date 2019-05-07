@@ -774,16 +774,16 @@ void PrintFrequencies(AudioSignal *Signal, parameters *config)
 
 void FillFrequencyStructures(AudioBlocks *AudioArray, parameters *config)
 {
-	long int i = 0, start= 0, end = 0;
+	long int i = 0, startBin= 0, endBin = 0;
 	double boxsize = 0, size = 0;
 
 	size = AudioArray->fftwValues.size;
-	boxsize = RoundFloat(AudioArray->fftwValues.seconds, 4);	
+	boxsize = RoundFloat(AudioArray->fftwValues.seconds, 4);
 
-	start = floor(config->startHz*boxsize);
-	end = floor(config->endHz*boxsize);
+	startBin = floor(config->startHz*boxsize);
+	endBin = floor(config->endHz*boxsize);
 
-	for(i = start; i < end; i++)
+	for(i = startBin; i < endBin; i++)
 	{
 		double r1 = creal(AudioArray->fftwValues.spectrum[i]);
 		double i1 = cimag(AudioArray->fftwValues.spectrum[i]);

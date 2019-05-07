@@ -77,7 +77,7 @@ int main(int argc , char *argv[])
 		return 0;
 	}
 
-	logmsg("\nLoading Reference audio file %s\n", config.referenceFile);
+	logmsg("\n* Loading Reference audio file %s\n", config.referenceFile);
 	if(!LoadFile(reference, ReferenceSignal, &config, config.referenceFile))
 	{
 		ReleaseAudio(ReferenceSignal, &config);
@@ -85,6 +85,7 @@ int main(int argc , char *argv[])
 		return 0;
 	}
 
+	logmsg("* Processing WAV file %s\n", config.referenceFile);
 	if(!ProcessFile(ReferenceSignal, &config))
 	{
 		ReleaseAudio(ReferenceSignal, &config);
@@ -145,14 +146,14 @@ int LoadFile(FILE *file, AudioSignal *Signal, parameters *config, char *fileName
 	
 	if(Signal->header.SamplesPerSec/2 < config->endHz)
 	{
-		logmsg("%d Hz sample rate was too low for %d-%d Hz analysis\n",
+		logmsg(" - %d Hz sample rate was too low for %d-%d Hz analysis\n",
 			 Signal->header.SamplesPerSec, config->startHz, config->endHz);
 		config->endHz = Signal->header.SamplesPerSec/2;
-		logmsg("changed to %d-%d Hz\n", config->startHz, config->endHz);
+		logmsg(" - changed to %d-%d Hz\n", config->startHz, config->endHz);
 	}
 
 	seconds = (double)Signal->header.Subchunk2Size/4.0/(double)Signal->header.SamplesPerSec;
-	logmsg("- WAV file is PCM %dhz %dbits and %g seconds long\n", 
+	logmsg(" - WAV file is PCM %dhz %dbits and %g seconds long\n", 
 		Signal->header.SamplesPerSec, Signal->header.bitsPerSample, seconds);
 
 	Signal->Samples = (char*)malloc(sizeof(char)*Signal->header.Subchunk2Size);
@@ -172,29 +173,30 @@ int LoadFile(FILE *file, AudioSignal *Signal, parameters *config, char *fileName
 	fclose(file);
 
 	/* Find the start offset */
-	logmsg("- Detecting start of signal: ");
+	logmsg(" - Detecting start of signal: ");
 	Signal->startOffset = DetectPulse(Signal->Samples, Signal->header, config);
 	if(Signal->startOffset == -1)
 	{
 		logmsg("\nStarting Pulse train was not detected\n");
 		return 0;
 	}
-	logmsg(" %ld bytes\n", Signal->startOffset);
-	logmsg("- Detecting end of signal: ");
+	logmsg(" %gs\n", BytesToSeconds(Signal->header.SamplesPerSec, Signal->startOffset));
+	logmsg(" - Detecting end of signal: ");
 	Signal->endOffset = DetectEndPulse(Signal->Samples, Signal->startOffset, Signal->header, config);
 	if(Signal->endOffset == -1)
 	{
 		logmsg("\nEnding Pulse train was not detected\n");
 		return 0;
 	}
-	logmsg(" %ld bytes\n", Signal->endOffset);
+	logmsg(" %lgs\n", BytesToSeconds(Signal->header.SamplesPerSec, Signal->endOffset));
 	Signal->framerate = (double)(Signal->endOffset-Signal->startOffset)*1000/((double)Signal->header.SamplesPerSec*4*
 						GetLastSyncFrameOffset(Signal->header, config));
-	Signal->framerate = RoundFloat(Signal->framerate, 3);
-	logmsg("- Detected %g ms frames from WAV file\n", Signal->framerate);
+	Signal->framerate = RoundFloat(Signal->framerate, 2);
+	logmsg(" - Detected %g hz video signal (%gms per frame) from WAV file\n", 
+				RoundFloat(1000.0/Signal->framerate, 2), Signal->framerate);
 
 	if(seconds < GetSignalTotalDuration(Signal->framerate, config))
-		logmsg("- File length is smaller than expected\n");
+		logmsg(" - File length is smaller than expected\n");
 
 
 #ifdef USE_FLOORS
@@ -209,7 +211,7 @@ int LoadFile(FILE *file, AudioSignal *Signal, parameters *config, char *fileName
 		double			elapsedSeconds;
 		clock_gettime(CLOCK_MONOTONIC, &end);
 		elapsedSeconds = TimeSpecToSeconds(&end) - TimeSpecToSeconds(&start);
-		logmsg("Loading WAV took %f\n", elapsedSeconds);
+		logmsg(" - Loading WAV took %f\n", elapsedSeconds);
 	}
 
 	return 1;
@@ -486,6 +488,7 @@ double ProcessSamples(AudioBlocks *AudioArray, short *samples, size_t size, long
 	double		 	boxsize = 0, seconds = 0;
 	struct			timespec start, end;
 	double			CutOff = 0;
+	long int 		startBin = 0, endBin = 0;
 	
 	if(!AudioArray)
 	{
@@ -496,7 +499,10 @@ double ProcessSamples(AudioBlocks *AudioArray, short *samples, size_t size, long
 	stereoSignalSize = (long)size;
 	monoSignalSize = stereoSignalSize/2;	 // 4 is 2 16 bit values
 	seconds = (double)size/((double)samplerate*2);
-	boxsize = seconds;
+	boxsize = RoundFloat(seconds, 4);
+
+	startBin = floor(config->startHz*boxsize);
+	endBin = floor(config->endHz*boxsize);
 
 	signal = (double*)malloc(sizeof(double)*(monoSignalSize+1));
 	if(!signal)
@@ -539,7 +545,7 @@ double ProcessSamples(AudioBlocks *AudioArray, short *samples, size_t size, long
 
 	if(!reverse)
 	{
-		for(i = (int)config->startHz*boxsize; i < (int)config->endHz*boxsize; i++)	// Nyquist at 44.1khz
+		for(i = startBin; i < endBin; i++)
 		{
 			double r1 = creal(spectrum[i]);
 			double i1 = cimag(spectrum[i]);
@@ -548,7 +554,7 @@ double ProcessSamples(AudioBlocks *AudioArray, short *samples, size_t size, long
 			double Hertz;
 	
 			magnitude = sqrt(r1*r1 + i1*i1)/monoSignalSize;
-			Hertz = ((double)i/seconds);
+			Hertz = ((double)i/boxsize);
 	
 			previous = 1.e30;
 			if(!IsCRTNoise(Hertz))
@@ -592,10 +598,11 @@ double ProcessSamples(AudioBlocks *AudioArray, short *samples, size_t size, long
 				MinAmplitude = AudioArray->freq[j].amplitude;
 		}
 		CutOff = MinAmplitude;
-		//logmsg("Cutoff: %g\n", CutOff);
+		if(CutOff < config->significantVolume)
+			CutOff = config->significantVolume;
 
 		//Process the whole frequency spectrum
-		for(i = (int)config->startHz*boxsize; i < (int)config->endHz*boxsize; i++)	// Nyquist at 44.1khz
+		for(i = startBin; i < endBin; i++)
 		{
 			double r1 = creal(spectrum[i]);
 			double i1 = cimag(spectrum[i]);
@@ -605,7 +612,7 @@ double ProcessSamples(AudioBlocks *AudioArray, short *samples, size_t size, long
 	
 			magnitude = sqrt(r1*r1 + i1*i1)/monoSignalSize;
 			amplitude = 20*log10(magnitude / config->MaxMagnitude);
-			Hertz = ((double)i/seconds);
+			Hertz = ((double)i/boxsize);
 
 			if(config->invert)
 			{

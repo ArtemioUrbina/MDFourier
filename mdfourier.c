@@ -259,8 +259,9 @@ int LoadFile(FILE *file, AudioSignal *Signal, parameters *config, char *fileName
 	logmsg(" %gs\n", BytesToSeconds(Signal->header.SamplesPerSec, Signal->endOffset));
 	Signal->framerate = (double)(Signal->endOffset-Signal->startOffset)*1000/((double)Signal->header.SamplesPerSec*4*
 						GetLastSyncFrameOffset(Signal->header, config));
-	Signal->framerate = RoundFloat(Signal->framerate, 3);
-	logmsg(" - Detected %gms frames from WAV file\n", Signal->framerate);
+	Signal->framerate = RoundFloat(Signal->framerate, 2);
+	logmsg(" - Detected %g hz video signal (%gms per frame) from WAV file\n", 
+				RoundFloat(1000.0/Signal->framerate, 2), Signal->framerate);
 
 	if(seconds < GetSignalTotalDuration(Signal->framerate, config))
 		logmsg(" - File length is smaller than expected\n");
@@ -545,7 +546,7 @@ int CalculateMaxCompare(int block, AudioSignal *Signal, parameters *config, int 
 
 			difference = fabs(fabs(Signal->floorAmplitude) - fabs(Signal->Blocks[block].freq[freq].amplitude));
 			if((Signal->Blocks[block].freq[freq].hertz == Signal->floorFreq &&
-				difference <= config->tolerance))  /* this in dbs */
+				difference <= config->tolerance))  // this in dbs 
 			{
 				count = freq;
 				return count;

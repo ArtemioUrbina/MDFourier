@@ -57,8 +57,9 @@
 #define TYPE_SILENCE	0
 #define TYPE_SYNC		-1
 #define TYPE_NOTYPE		-2
-#define NO_INDEX 		-3
 #define TYPE_CONTROL	TYPE_SILENCE
+
+#define NO_INDEX 		-100
 
 /* This is the difference allowed between reference and compared */
 /* amplitudes to match, in dbs */

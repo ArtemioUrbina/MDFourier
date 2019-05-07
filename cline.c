@@ -192,7 +192,7 @@ int commandline(int argc , char *argv[], parameters *config)
 		break;
 	  case 'p':
 		config->significantVolume = atof(optarg);
-		if(config->significantVolume > -1.0 || config->significantVolume < -100.0)
+		if(config->significantVolume <= -100.0 || config->significantVolume >= -1.0)
 			config->significantVolume = -60.0;
 		break;
 	  case 'a':
