@@ -32,8 +32,9 @@
 #include "mdfourier.h"
 #include "windows.h"
 #include "log.h"
+#include "freq.h"
 
-int existsInArray(double element, double *array, int count)
+int existsInArray(long int element, double *array, int count)
 {
 	if(!array)
 		return 0;
@@ -47,35 +48,35 @@ int existsInArray(double element, double *array, int count)
 	return 0;
 }
 
-float *getWindowByLength(windowManager *wm, double length)
+float *getWindowByLength(windowManager *wm, long int frames)
 {
 	if(!wm)
 		return 0;
 
 	for(int i = 0; i < wm->windowCount; i++)
 	{
-		if(length == wm->windowArray[i].seconds)
+		if(frames == wm->windowArray[i].frames)
 			return wm->windowArray[i].window;
 	}
 
 	return NULL;
 }
 
-long int getWindowSizeByLength(windowManager *wm, double length)
+long int getWindowSizeByLength(windowManager *wm, long int frames)
 {
 	if(!wm)
 		return 0;
 
 	for(int i = 0; i < wm->windowCount; i++)
 	{
-		if(length == wm->windowArray[i].seconds)
+		if(frames == wm->windowArray[i].frames)
 			return wm->windowArray[i].size;
 	}
 
 	return 0;
 }
 
-int initWindows(windowManager *wm, int SamplesPerSec, parameters *config)
+int initWindows(windowManager *wm, double framerate, int SamplesPerSec, parameters *config)
 {
 	double 	lengths[1024];	// yes, we are lazy
 	int 	count = 0;
@@ -93,11 +94,8 @@ int initWindows(windowManager *wm, int SamplesPerSec, parameters *config)
 	// Count how many differen window sizes are needed
 	for(int i = 0; i < config->types.typeCount; i++)
 	{
-		double value;
-
-		value = config->types.typeArray[i].elementSeconds;
-		if(!existsInArray(value, lengths, count))
-			lengths[count++] = value;
+		if(!existsInArray(config->types.typeArray[i].frames, lengths, count))
+			lengths[count++] = config->types.typeArray[i].frames;
 	}
 
 	if(!count)
@@ -110,54 +108,61 @@ int initWindows(windowManager *wm, int SamplesPerSec, parameters *config)
 	wm->windowArray = (windowUnit*)malloc(sizeof(windowUnit)*count);
 	wm->windowCount = count;
 
+	// Adjust in case they have different frame rates
+	if(config->smallerFramerate != 0 && config->smallerFramerate < framerate)
+		framerate = config->smallerFramerate;
+
 	for(int i = 0; i < count; i++)
 	{
+		double seconds = 0;
+
 		wm->windowArray[i].window = NULL;
-		wm->windowArray[i].seconds = lengths[i];
+		wm->windowArray[i].frames = lengths[i];
 		wm->windowArray[i].size = 0;
 
+		seconds = FramesToSeconds(wm->windowArray[i].frames, framerate);
 		if(config->window == 't')
 		{
-			wm->windowArray[i].window = tukeyWindow(SamplesPerSec*lengths[i]);
+			wm->windowArray[i].window = tukeyWindow(SamplesPerSec*seconds);
 			if(!wm->windowArray[i].window)
 			{
 				logmsg ("Tukey window creation failed\n");
 				return(0);
 			}
-			wm->windowArray[i].size = SamplesPerSec*lengths[i];
+			wm->windowArray[i].size = SamplesPerSec*seconds;
 		}
 
 		if(config->window == 'f')
 		{
-			wm->windowArray[i].window = flattopWindow(SamplesPerSec*lengths[i]);
+			wm->windowArray[i].window = flattopWindow(SamplesPerSec*seconds);
 			if(!wm->windowArray[i].window)
 			{
 				logmsg ("FlatTop window creation failed\n");
 				return(0);
 			}
-			wm->windowArray[i].size = SamplesPerSec*lengths[i];
+			wm->windowArray[i].size = SamplesPerSec*seconds;
 		}
 
 		if(config->window == 'h')
 		{
-			wm->windowArray[i].window = hannWindow(SamplesPerSec*lengths[i]);
+			wm->windowArray[i].window = hannWindow(SamplesPerSec*seconds);
 			if(!wm->windowArray[i].window)
 			{
 				logmsg ("Hann window creation failed\n");
 				return(0);
 			}
-			wm->windowArray[i].size = SamplesPerSec*lengths[i];
+			wm->windowArray[i].size = SamplesPerSec*seconds;
 		}
 
 		if(config->window == 'm')
 		{
-			wm->windowArray[i].window = hammingWindow(SamplesPerSec*lengths[i]);
+			wm->windowArray[i].window = hammingWindow(SamplesPerSec*seconds);
 			if(!wm->windowArray[i].window)
 			{
 				logmsg ("Hamming window creation failed\n");
 				return(0);
 			}
-			wm->windowArray[i].size = SamplesPerSec*lengths[i];
+			wm->windowArray[i].size = SamplesPerSec*seconds;
 		}
 	}
 

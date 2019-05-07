@@ -79,8 +79,6 @@ typedef struct abt_st {
 	int 		type;
 	int			elementCount;
 	int			frames;
-	double		blockSeconds;
-	double		elementSeconds;
 	char		color[20];
 } AudioBlockType;
 
@@ -162,7 +160,7 @@ typedef struct AudioSt {
 
 typedef struct window_unit_st {
 	float		*window;
-	double		seconds;
+	long  int	frames;
 	long int	size;
 } windowUnit;
 
@@ -243,6 +241,7 @@ typedef struct parameters_st {
 	AudioDifference	Differences;
 	double			significantVolume;
 	double			smallerFramerate;
+	int				SamplerateDifference;
 
 #ifdef MDWAVE
 	int				maxBlanked;

@@ -304,11 +304,6 @@ int LoadAudioBlockStructure(parameters *config)
 			fclose(file);
 			return 0;
 		}
-
-		config->types.typeArray[i].elementSeconds = 
-			config->types.typeArray[i].frames * config->types.platformMSPerFrame/1000;
-		config->types.typeArray[i].blockSeconds = 
-			config->types.typeArray[i].elementCount * config->types.typeArray[i].elementSeconds;
 	}
 
 	config->types.regularChunks = GetActiveAudioBlocks(config);
@@ -332,14 +327,12 @@ void PrintAudioBlocks(parameters *config)
 
 	for(int i = 0; i < config->types.typeCount; i++)
 	{
-		printf("%s %d %d %d %s %g %g\n", 
+		printf("%s %d %d %d %s\n", 
 			config->types.typeArray[i].typeName,
 			config->types.typeArray[i].type,
 			config->types.typeArray[i].elementCount,
 			config->types.typeArray[i].frames,
-			config->types.typeArray[i].color,
-			config->types.typeArray[i].elementSeconds,
-			config->types.typeArray[i].blockSeconds);
+			config->types.typeArray[i].color);
 	}
 }
 
@@ -353,21 +346,28 @@ double GetPulseSyncFreq(parameters *config)
 	return(config->types.pulseSyncFreq);
 }
 
-int SetPlatformMSPerFrame(double framerate, parameters *config)
+long int GetByteSizeDifferenceByFrameRate(double framerate, long int frames, long int samplerate, parameters *config)
 {
-	if(!config)
-		return -1;
+	long int difference = 0;
 
-	config->types.platformMSPerFrame = framerate;
-	for(int i = 0; i < config->types.typeCount; i++)
+	if(config->smallerFramerate != 0 && framerate > config->smallerFramerate)
 	{
-		config->types.typeArray[i].elementSeconds = 
-			config->types.typeArray[i].frames * framerate/1000;
-		config->types.typeArray[i].blockSeconds = 
-			config->types.typeArray[i].elementCount * config->types.typeArray[i].elementSeconds;
+		long int SmallerBytes = 0;
+		long int BiggerBytes = 0;
+
+		SmallerBytes = SecondsToBytes(samplerate, FramesToSeconds(config->smallerFramerate, frames));
+		BiggerBytes = SecondsToBytes(samplerate, FramesToSeconds(framerate, frames));
+		difference = BiggerBytes - SmallerBytes;
 	}
-	
-	return 1;
+	return difference;
+}
+
+double GetSignalTotalDuration(double framerate, parameters *config)
+{
+	long int frames = 0;
+
+	frames = GetSignalTotalFrames(config);
+	return(FramesToSeconds(frames, framerate));
 }
 
 int GetFirstSilenceIndex(parameters *config)
@@ -387,22 +387,17 @@ int GetFirstSilenceIndex(parameters *config)
 	return -1;
 }
 
-double GetBlockTimeOffset(int block, parameters *config)
+double FramesToSeconds(double frames, double framerate)
 {
-	double offset = 0;
-
-	if(!config)
-		return 0;
-
-	if(block > config->types.typeCount)
-		return 0;
-
-	for(int i = 0; i < block; i++)
-		offset += config->types.typeArray[i].blockSeconds;
-	return offset;
+	return(frames*framerate/1000.0);
 }
 
-long int GetLastSilenceByteOffset(wav_hdr header, parameters *config)
+long int SecondsToBytes(long int samplerate, double seconds)
+{
+	return(RoundTo4bytes(samplerate*4*seconds*sizeof(char)));
+}
+
+long int GetLastSilenceByteOffset(double framerate, wav_hdr header, parameters *config)
 {
 	if(!config)
 		return -1;
@@ -413,9 +408,8 @@ long int GetLastSilenceByteOffset(wav_hdr header, parameters *config)
 		{
 			double offset = 0;
 
-			offset = GetBlockTimeOffset(i, config);
-			offset *= header.SamplesPerSec*4.0;
-			offset = RoundTo4bytes(offset);
+			offset = FramesToSeconds(GetBlockFrameOffset(i, config), framerate);
+			offset = SecondsToBytes(header.SamplesPerSec, offset);
 			return(offset);
 		}
 	}
@@ -479,7 +473,7 @@ int GetTotalAudioBlocks(parameters *config)
 }
 
 
-double GetLongestElementDuration(parameters *config)
+long int GetLongestElementFrames(parameters *config)
 {
 	double longest = 0;
 
@@ -488,13 +482,13 @@ double GetLongestElementDuration(parameters *config)
 
 	for(int i = 0; i < config->types.typeCount; i++)
 	{
-		if(config->types.typeArray[i].elementSeconds > longest)
-			longest = config->types.typeArray[i].elementSeconds;
+		if(config->types.typeArray[i].frames > longest)
+			longest = config->types.typeArray[i].frames;
 	}
 	return longest;
 }
 
-double GetTotalBlockDuration(parameters *config)
+long int GetSignalTotalFrames(parameters *config)
 {
 	double total = 0;
 
@@ -502,12 +496,12 @@ double GetTotalBlockDuration(parameters *config)
 		return 0;
 
 	for(int i = 0; i < config->types.typeCount; i++)
-		total += config->types.typeArray[i].blockSeconds;
+		total += config->types.typeArray[i].elementCount * config->types.typeArray[i].frames;
 
 	return total;
 }
 
-double GetBlockDuration(parameters *config, int pos)
+long int GetBlockFrames(parameters *config, int pos)
 {
 	int elementsCounted = 0;
 
@@ -518,7 +512,7 @@ double GetBlockDuration(parameters *config, int pos)
 	{
 		elementsCounted += config->types.typeArray[i].elementCount;
 		if(elementsCounted > pos)
-			return(config->types.typeArray[i].elementSeconds);
+			return(config->types.typeArray[i].frames);
 	}
 	
 	return 0;
@@ -805,7 +799,10 @@ void FillFrequencyStructures(AudioBlocks *AudioArray, parameters *config)
 
 		magnitude = sqrt(r1*r1 + i1*i1)/sqrt(size);
 		Hertz = ((double)i/boxsize);
-		Hertz = RoundFloat(Hertz, 0);  // was 2
+		if(config->SamplerateDifference)  // minimize Missing Frequencies by rounding more
+			Hertz = RoundFloat(Hertz, 1);
+		else
+			Hertz = RoundFloat(Hertz, 2);  // default, overkill yes
 
 		previous = 1.e30;
 		if(!IsCRTNoise(Hertz))

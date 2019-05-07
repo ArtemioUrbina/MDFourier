@@ -157,8 +157,10 @@ int LoadFile(FILE *file, AudioSignal *Signal, parameters *config, char *fileName
 		logmsg("changed to %d-%d Hz\n", config->startHz, config->endHz);
 	}
 
+ 	Signal->framerate = GetPlatformMSPerFrame(config);
+
 	seconds = (double)header.Subchunk2Size/4.0/(double)header.SamplesPerSec;
-	if(seconds < GetTotalBlockDuration(config))
+	if(seconds < GetSignalTotalDuration(Signal->framerate, config))
 		logmsg("File length is smaller than expected\n");
 
 	logmsg("WAV file is PCM %dhz %dbits and %g seconds long\n", 
@@ -170,7 +172,7 @@ int LoadFile(FILE *file, AudioSignal *Signal, parameters *config, char *fileName
 
 
 	//discardSamples -= header.SamplesPerSec;
-	longest = GetLongestElementDuration(config);
+	longest = SecondsToBytes(Signal->header.SamplesPerSec, longest);
 	if(!longest)
 	{
 		logmsg("Block definitions are invalid, total length is 0\n");
@@ -185,7 +187,7 @@ int LoadFile(FILE *file, AudioSignal *Signal, parameters *config, char *fileName
 		return(0);
 	}
 
-	if(!initWindows(&windows, header.SamplesPerSec, config))
+	if(!initWindows(&windows, Signal->framerate, header.SamplesPerSec, config))
 		return 0;
 
 	AllSamples = (char*)malloc(sizeof(char)*header.Subchunk2Size);
@@ -214,11 +216,13 @@ int LoadFile(FILE *file, AudioSignal *Signal, parameters *config, char *fileName
 	while(i < config->types.totalChunks)
 	{
 		double duration = 0;
+		long int frames = 0;
 
-		duration = GetBlockDuration(config, i);
-		windowUsed = getWindowByLength(&windows, duration);
+		frames = GetBlockFrames(config, i);
+		duration = FramesToSeconds(Signal->framerate, frames);
+		windowUsed = getWindowByLength(&windows, frames);
 		
-		loadedBlockSize = RoundTo4bytes(header.SamplesPerSec*4*sizeof(char)*duration);
+		loadedBlockSize = SecondsToBytes(Signal->header.SamplesPerSec, duration);
 		//discardBytes = discardSamples * 4 * duration;
 
 		memset(buffer, 0, buffersize);
@@ -289,11 +293,13 @@ int LoadFile(FILE *file, AudioSignal *Signal, parameters *config, char *fileName
 	while(i < config->types.totalChunks)
 	{
 		double duration = 0;
+		long int frames = 0;
 
-		duration = GetBlockDuration(config, i);
-		windowUsed = getWindowByLength(&windows, duration);
+		frames = GetBlockFrames(config, i);
+		duration = FramesToSeconds(Signal->framerate, frames);
+		windowUsed = getWindowByLength(&windows, frames);
 		
-		loadedBlockSize = RoundTo4bytes(header.SamplesPerSec*4*sizeof(char)*duration);
+		loadedBlockSize = SecondsToBytes(Signal->header.SamplesPerSec, duration);
 
 		memset(buffer, 0, buffersize);
 		if(pos + loadedBlockSize > header.Subchunk2Size)

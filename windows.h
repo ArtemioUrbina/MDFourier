@@ -43,9 +43,9 @@ float *flattopWindow(int n);
 float *tukeyWindow(int n);
 float *hammingWindow(int n);
 
-int initWindows(windowManager *windows, int SamplesPerSec, parameters *config);
-float *getWindowByLength(windowManager *windows, double length);
-long int getWindowSizeByLength(windowManager *wm, double length);
+int initWindows(windowManager *wm, double framerate, int SamplesPerSec, parameters *config);
+float *getWindowByLength(windowManager *windows, long int frames);
+long int getWindowSizeByLength(windowManager *wm, long int frames);
 void freeWindows(windowManager *windows);
 
 #endif

@@ -53,7 +53,8 @@ long int DetectEndPulse(char *AllSamples, long int startpulse, wav_hdr header, p
 {
 	long int 	position = 0, offset = 0;
 
-	offset = GetLastSilenceByteOffset(header, config) + startpulse;
+	// Use defaults to calculate real frame rate
+	offset = GetLastSilenceByteOffset(GetPlatformMSPerFrame(config), header, config) + startpulse;
 	position = DetectPulseInternal(AllSamples, header, 4, offset, config);
 	if(position == -1)
 		return -1;

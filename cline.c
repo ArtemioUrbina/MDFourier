@@ -98,6 +98,7 @@ void CleanParameters(parameters *config)
 	config->Differences.weightedAudioDiff = 0;
 	config->significantVolume = -60.0;
 	config->smallerFramerate = 0;
+	config->SamplerateDifference = 0;
 	
 	config->types.totalChunks = 0;
 	config->types.regularChunks = 0;

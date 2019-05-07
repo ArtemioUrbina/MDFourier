@@ -93,7 +93,7 @@ int main(int argc , char *argv[])
 		return 1;
 	}
 
-	logmsg("\nLoading Reference audio file %s\n", config.referenceFile);
+	logmsg("\n* Loading Reference audio file %s\n", config.referenceFile);
 	if(!LoadFile(reference, ReferenceSignal, &config, config.referenceFile))
 	{
 		free(ReferenceSignal);
@@ -101,7 +101,7 @@ int main(int argc , char *argv[])
 		return 1;
 	}
 
-	logmsg("Loading Compare audio file %s\n", config.targetFile);
+	logmsg("* Loading Compare audio file %s\n", config.targetFile);
 	if(!LoadFile(compare, TestSignal, &config, config.targetFile))
 	{
 		free(ReferenceSignal);
@@ -215,10 +215,7 @@ int LoadFile(FILE *file, AudioSignal *Signal, parameters *config, char *fileName
 	}
 
 	seconds = (double)Signal->header.Subchunk2Size/4.0/(double)Signal->header.SamplesPerSec;
-	if(seconds < GetTotalBlockDuration(config))
-		logmsg("File length is smaller than expected\n");
-
-	logmsg("WAV file is PCM %dhz %dbits and %g seconds long\n", 
+	logmsg("- WAV file is PCM %dhz %dbits and %g seconds long\n", 
 		Signal->header.SamplesPerSec, Signal->header.bitsPerSample, seconds);
 
 	Signal->Samples = (char*)malloc(sizeof(char)*Signal->header.Subchunk2Size);
@@ -238,27 +235,30 @@ int LoadFile(FILE *file, AudioSignal *Signal, parameters *config, char *fileName
 	fclose(file);
 
 	/* Find the start offset */
-	logmsg("Detecting start of signal: ");
+	logmsg("- Detecting start of signal: ");
 	Signal->startOffset = DetectPulse(Signal->Samples, Signal->header, config);
 	if(Signal->startOffset == -1)
 	{
-		logmsg("Starting Pulse train was not detected\n");
+		logmsg("\nStarting Pulse train was not detected\n");
 		return 0;
 	}
 	logmsg(" %ld bytes\n", Signal->startOffset);
-	logmsg("Detecting end of signal: ");
+	logmsg("- Detecting end of signal: ");
 	Signal->endOffset = DetectEndPulse(Signal->Samples, Signal->startOffset, Signal->header, config);
 	if(Signal->endOffset == -1)
 	{
-		logmsg("Ending Pulse train was not detected\n");
+		logmsg("\nEnding Pulse train was not detected\n");
 		return 0;
 	}
 	logmsg(" %ld bytes\n", Signal->endOffset);
 	Signal->framerate = (double)(Signal->endOffset-Signal->startOffset)*1000/((double)Signal->header.SamplesPerSec*4*
 						GetLastSyncFrameOffset(Signal->header, config));
 	Signal->framerate = RoundFloat(Signal->framerate, 3);
-	logmsg("FrameRate detected from WAV file: %g ms\n", Signal->framerate);
-	SetPlatformMSPerFrame(Signal->framerate, config);
+	logmsg("- Detected %g ms frames from WAV file\n", Signal->framerate);
+
+	if(seconds < GetSignalTotalDuration(Signal->framerate, config))
+		logmsg("- File length is smaller than expected\n");
+
 
 #ifdef USE_FLOORS
 	if(GetFirstSilenceIndex(config) != NO_INDEX)
@@ -266,10 +266,6 @@ int LoadFile(FILE *file, AudioSignal *Signal, parameters *config, char *fileName
 #endif
 
 	sprintf(Signal->SourceFile, "%s", fileName);
-
-	logmsg("Block size: %ld\n", 
-		RoundTolower4bytes(Signal->header.SamplesPerSec*4.0*sizeof(char)*
-							GetBlockDuration(config, 3)));
 
 	if(config->clock)
 	{
@@ -297,6 +293,12 @@ int CompareWAVCharacteristics(AudioSignal *ReferenceSignal, AudioSignal *TestSig
 	if(!TestSignal)
 		return 0;
 
+	if(ReferenceSignal->header.SamplesPerSec != TestSignal->header.SamplesPerSec)
+	{
+		logmsg("==WARNING==\n  Comparing files at %ld khz and %ld khz\n  it will work, but give less accurate results\n", 
+				ReferenceSignal->header.SamplesPerSec, TestSignal->header.SamplesPerSec);
+		config->SamplerateDifference = 1;
+	}
 	if(ReferenceSignal->framerate != TestSignal->framerate)
 	{
 		config->smallerFramerate = 
@@ -319,14 +321,14 @@ int ProcessFile(AudioSignal *Signal, parameters *config)
 
 	pos = Signal->startOffset;
 
-	longest = GetLongestElementDuration(config);
+	longest = FramesToSeconds(Signal->framerate, GetLongestElementFrames(config));
 	if(!longest)
 	{
 		logmsg("Block definitions are invalid, total length is 0\n");
 		return 0;
 	}
 
-	buffersize = RoundTo4bytes(Signal->header.SamplesPerSec*4*sizeof(char)*longest); /* 2 bytes per sample, stereo */
+	buffersize = SecondsToBytes(Signal->header.SamplesPerSec, longest);
 	buffer = (char*)malloc(buffersize);
 	if(!buffer)
 	{
@@ -334,7 +336,7 @@ int ProcessFile(AudioSignal *Signal, parameters *config)
 		return(0);
 	}
 
-	if(!initWindows(&windows, Signal->header.SamplesPerSec, config))
+	if(!initWindows(&windows, Signal->framerate, Signal->header.SamplesPerSec, config))
 		return 0;
 
 	if(config->clock)
@@ -342,13 +344,16 @@ int ProcessFile(AudioSignal *Signal, parameters *config)
 
 	while(i < config->types.totalChunks)
 	{
-		double duration = 0, size = 0;
+		double duration = 0;
+		long int frames = 0, difference = 0;
 
-		duration = GetBlockDuration(config, i);
-		windowUsed = getWindowByLength(&windows, duration);
+		frames = GetBlockFrames(config, i);
+		duration = FramesToSeconds(Signal->framerate, frames);
+		windowUsed = getWindowByLength(&windows, frames);
 		
-		size = Signal->header.SamplesPerSec*4.0*sizeof(char)*duration;
-		loadedBlockSize = RoundTolower4bytes(size);
+		loadedBlockSize = SecondsToBytes(Signal->header.SamplesPerSec, duration);
+
+		difference = GetByteSizeDifferenceByFrameRate(Signal->framerate, frames, Signal->header.SamplesPerSec, config); 
 
 		memset(buffer, 0, buffersize);
 		if(pos + loadedBlockSize > Signal->header.Subchunk2Size)
@@ -358,16 +363,6 @@ int ProcessFile(AudioSignal *Signal, parameters *config)
 		}
 		memcpy(buffer, Signal->Samples + pos, loadedBlockSize);
 		pos += loadedBlockSize;
-
-		/* Advance to adjust the time for the Sega Genesis Frame Rate */
-		/*
-		tail += GetDecimalValues(size);
-		if(tail >= 1.0)
-		{
-			pos += 4;
-			tail = GetDecimalValues(tail);
-		}
-		*/
 
 		Signal->Blocks[i].index = GetBlockSubIndex(config, i);
 		Signal->Blocks[i].type = GetBlockType(config, i);
@@ -407,7 +402,7 @@ int ProcessFile(AudioSignal *Signal, parameters *config)
 		}
 #endif
 
-		ExecuteDFFT(&Signal->Blocks[i], (short*)buffer, loadedBlockSize/2, Signal->header.SamplesPerSec, windowUsed, config);
+		ExecuteDFFT(&Signal->Blocks[i], (short*)buffer, (loadedBlockSize-difference)/2, Signal->header.SamplesPerSec, windowUsed, config);
 
 		FillFrequencyStructures(&Signal->Blocks[i], config);
 	

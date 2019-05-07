@@ -61,7 +61,7 @@ int CreatePlotFile(PlotFile *plot)
 	plot->file = fopen(plot->FileName, "wb");
 	if(!plot->file)
 	{
-		logmsg("Couldn't create file\n");
+		logmsg("Couldn't create Plot file %s\n", plot->FileName);
 		return 0;
 	}
 
@@ -119,7 +119,9 @@ void PlotDifferentBlockAmplitudes(int block, parameters *config)
 	sprintf(name, "Block%3d", block);
 	FillPlot(&plot, name, PLOT_RES_X, PLOT_RES_Y, 0, -20.0, 20000, 20.0, 1, config);
 
-	CreatePlotFile(&plot);
+	if(!CreatePlotFile(&plot))
+		return;
+
 	for(int a = 0; a < config->Differences.BlockDiffArray[block].cntAmplBlkDiff; a++)
 	{
 		pl_fpoint_r(plot.plotter, config->Differences.BlockDiffArray[block].amplDiffArray[a].hertz, 
@@ -143,7 +145,8 @@ void PlotAllDifferentAmplitudes(char *filename, parameters *config)
 	sprintf(name, "DifferentAmplitudes_%s", filename);
 	FillPlot(&plot, name, PLOT_RES_X, PLOT_RES_Y, 0, -1*dbs, 20000, dbs, 1, config);
 
-	CreatePlotFile(&plot);
+	if(!CreatePlotFile(&plot))
+		return;
 
 	pl_pencolor_r (plot.plotter, 0, 0xcccc, 0);
 	pl_fline_r(plot.plotter, 0, 0, 20000, 0);
@@ -220,7 +223,8 @@ void PlotAllMissingFrequencies(char *filename, parameters *config)
 	sprintf(name, "MissingFrequencies_%s", filename);
 	FillPlot(&plot, name, PLOT_RES_X, PLOT_RES_Y, 0, config->significantVolume, 20000, 0.0, 1, config);
 
-	CreatePlotFile(&plot);
+	if(!CreatePlotFile(&plot))
+		return;
 
 	pl_pencolor_r (plot.plotter, 0, 0xaaaa, 0);
 	pl_fline_r(plot.plotter, 0, 0, 20000, 0);
@@ -285,7 +289,8 @@ void PlotSpectrogram(char *filename, AudioSignal *Signal, int block, parameters 
 	sprintf(name, "Spectrogram_%s_block%3d", filename, block);
 	FillPlot(&plot, name, PLOT_RES_X, PLOT_RES_Y, 0, config->significantVolume, 20000, 0.0, 1, config);
 
-	CreatePlotFile(&plot);
+	if(!CreatePlotFile(&plot))
+		return;
 
 	pl_pencolor_r (plot.plotter, 0, 0xbbbb, 0);
 	pl_fline_r(plot.plotter, 0, 0, 20000, 0);
@@ -342,7 +347,8 @@ void PlotAllSpectrogramLineBased(char *filename, AudioSignal *Signal, parameters
 	sprintf(name, "Spectrogram_Line_%s", filename);
 	FillPlot(&plot, name, PLOT_RES_X, PLOT_RES_Y, 0, config->significantVolume, 20000, 0.0, 1, config);
 
-	CreatePlotFile(&plot);
+	if(!CreatePlotFile(&plot))
+		return;
 
 	pl_pencolor_r (plot.plotter, 0, 0xbbbb, 0);
 	pl_fline_r(plot.plotter, 0, 0, 20000, 0);
@@ -391,7 +397,8 @@ void PlotAllSpectrogram(char *filename, AudioSignal *Signal, parameters *config)
 	sprintf(name, "Spectrogram_%s", filename);
 	FillPlot(&plot, name, PLOT_RES_X, PLOT_RES_Y, 0, config->significantVolume, 20000, 0.0, 1, config);
 
-	CreatePlotFile(&plot);
+	if(!CreatePlotFile(&plot))
+		return;
 
 	pl_pencolor_r (plot.plotter, 0, 0xbbbb, 0);
 	pl_fline_r(plot.plotter, 0, 0, 20000, 0);
@@ -454,16 +461,17 @@ void PlotWindow(windowManager *wm, parameters *config)
 	if(!config || !wm || !wm->windowArray)
 		return;
 
-	window = getWindowByLength(wm, 1.0);
+	window = getWindowByLength(wm, 20);
 	if(!window)
 		return;
 
-	size = getWindowSizeByLength(wm, 1.0);
+	size = getWindowSizeByLength(wm, 20);
 
 	sprintf(name, "WindowPlot_%s", GetWindow(config->window));
 	FillPlot(&plot, name, 512, 544, 0, -0.1, 1, 1.1, 1, config);
 
-	CreatePlotFile(&plot);
+	if(!CreatePlotFile(&plot))
+		return;
 
 	pl_pencolor_r (plot.plotter, 0, 0x5555, 0);
 	pl_fline_r(plot.plotter, 0, 1, 1, 1);

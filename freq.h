@@ -34,15 +34,19 @@
 
 #include "mdfourier.h"
 
+double FramesToSeconds(double frames, double framerate);
+long int SecondsToBytes(long int samplerate, double seconds);
+
 int LoadAudioBlockStructure(parameters *config);
 int GetFirstSilenceIndex(parameters *config);
 double GetBlockTimeOffset(int block, parameters *config);
-long int GetLastSilenceByteOffset(wav_hdr header, parameters *config);
+long int GetLastSilenceByteOffset(double framerate, wav_hdr header, parameters *config);
 int GetActiveAudioBlocks(parameters *config);
 int GetTotalAudioBlocks(parameters *config);
-double GetLongestElementDuration(parameters *config);
-double GetTotalBlockDuration(parameters *config);
-double GetBlockDuration(parameters *config, int pos);
+long int GetLongestElementFrames(parameters *config);
+long int GetSignalTotalFrames(parameters *config);
+double GetSignalTotalDuration(double framerate, parameters *config);
+long int GetBlockFrames(parameters *config, int pos);
 char *GetBlockName(parameters *config, int pos);
 int GetBlockSubIndex(parameters *config, int pos);
 int GetBlockType(parameters *config, int pos);
@@ -50,10 +54,10 @@ char *GetBlockColor(parameters *config, int pos);
 double GetPlatformMSPerFrame(parameters *config);
 void ReleaseAudioBlockStructure(parameters *config);
 void PrintAudioBlocks(parameters *config);
-int SetPlatformMSPerFrame(double framerate, parameters *config);
 long int GetLastSyncFrameOffset(wav_hdr header, parameters *config);
 long int GetBlockFrameOffset(int block, parameters *config);
 double GetPulseSyncFreq(parameters *config);
+long int GetByteSizeDifferenceByFrameRate(double framerate, long int frames, long int samplerate, parameters *config);
 
 AudioSignal *CreateAudioSignal(parameters *config);
 void CleanAudio(AudioSignal *Signal, parameters *config);
