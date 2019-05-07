@@ -83,9 +83,7 @@ void CleanParameters(parameters *config)
 	config->spreadsheet = 0;
 	config->normalize = 'g';
 	config->relativeMaxMagnitude = 0;
-#ifdef USE_FLOORS
-	config->ignoreFloor = 1;
-#endif
+	config->ignoreFloor = 0;
 	config->useOutputFilter = 1;
 	config->outputFilterFunction = 1;
 	config->Differences.BlockDiffArray = NULL;
@@ -96,7 +94,8 @@ void CleanParameters(parameters *config)
 	config->Differences.cntTotalCompared = 0;
 	config->Differences.cntTotalAudioDiff = 0;
 	config->Differences.weightedAudioDiff = 0;
-	config->significantVolume = -60.0;
+	config->origSignificantVolume = SIGNIFICANT_VOLUME;
+	config->significantVolume = SIGNIFICANT_VOLUME;
 	config->smallerFramerate = 0;
 	
 	config->types.totalChunks = 0;
@@ -113,7 +112,7 @@ int commandline(int argc , char *argv[], parameters *config)
 	
 	CleanParameters(config);
 
-	while ((c = getopt (argc, argv, "hejvkgmlxyo:w:n:d:a:t:r:c:f:b:s:z:p:")) != -1)
+	while ((c = getopt (argc, argv, "hejvkgmlixyo:w:n:d:a:t:r:c:f:b:s:z:p:")) != -1)
 	switch (c)
 	  {
 	  case 'h':
@@ -132,11 +131,9 @@ int commandline(int argc , char *argv[], parameters *config)
 	  case 'v':
 		config->verbose = 1;
 		break;
-#ifdef USE_FLOORS
 	  case 'i':
-		config->ignoreFloor = 0;
+		config->ignoreFloor = 1;
 		break;
-#endif
 	  case 'k':
 		config->clock = 1;
 		break;
@@ -156,7 +153,7 @@ int commandline(int argc , char *argv[], parameters *config)
 	  case 'o':
 		config->outputFilterFunction = atoi(optarg);
 		if(config->outputFilterFunction < 0 || config->outputFilterFunction > 6)
-			config->outputFilterFunction = 2;
+			config->outputFilterFunction = 1;
 		if(!config->outputFilterFunction)
 			config->useOutputFilter = 0;
 		break;
@@ -193,7 +190,8 @@ int commandline(int argc , char *argv[], parameters *config)
 	  case 'p':
 		config->significantVolume = atof(optarg);
 		if(config->significantVolume <= -100.0 || config->significantVolume >= -1.0)
-			config->significantVolume = -60.0;
+			config->significantVolume = SIGNIFICANT_VOLUME;
+		config->origSignificantVolume = config->significantVolume;
 		break;
 	  case 'a':
 		switch(optarg[0])
@@ -335,7 +333,8 @@ int commandline(int argc , char *argv[], parameters *config)
 	if(config->normalize == 'r')
 		config->relativeMaxMagnitude = 0.0;
 
-	logmsg("\tAmplitude tolerance while comparing is +/-%0.2f dbs\n", config->tolerance);
+	if(config->tolerance != 0.0)
+		logmsg("\tAmplitude tolerance while comparing is +/-%0.2f dbs\n", config->tolerance);
 	logmsg("\tAudio Channel is: %s\n", GetChannel(config->channel));
 	logmsg("\tMax frequencies to use from FFTW are %d (default %d)\n", config->MaxFreq, FREQ_COUNT);
 	if(config->startHz != START_HZ)
@@ -421,13 +420,14 @@ void CreateBaseName(parameters *config)
 	if(!config)
 		return;
 	
-	sprintf(config->baseName, "_f%d_t%g_%s_%s_v_%g_%s_%d", 
+	sprintf(config->baseName, "_f%d_t%g_%s_%s_v_%g_%d%s", 
 			config->MaxFreq,
 			config->tolerance,
 			GetWindow(config->window),
 			GetChannel(config->channel),
 			fabs(config->significantVolume),
-			config->useOutputFilter ? "OF" : "LI", config->outputFilterFunction);
+			config->outputFilterFunction,
+			config->useOutputFilter ? config->outputFilterFunction == 1 ? "LI" : "BF" : "UF");
 }
 
 void ComposeFileName(char *target, char *subname, char *ext, parameters *config)

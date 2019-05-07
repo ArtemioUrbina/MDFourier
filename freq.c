@@ -104,11 +104,9 @@ void CleanAudio(AudioSignal *Signal, parameters *config)
 	}
 	Signal->SourceFile[0] = '\0';
 
-#ifdef USE_FLOORS
 	Signal->hasFloor = 0;
 	Signal->floorFreq = 0.0;
 	Signal->floorAmplitude = 0.0;	
-#endif
 
 	Signal->Samples = NULL;
 	Signal->framerate = 0.0;
@@ -150,11 +148,9 @@ void ReleaseAudio(AudioSignal *Signal, parameters *config)
 
 	Signal->SourceFile[0] = '\0';
 
-#ifdef USE_FLOORS
 	Signal->hasFloor = 0;
 	Signal->floorFreq = 0.0;
 	Signal->floorAmplitude = 0.0;	
-#endif
 
 	if(Signal->Samples)
 	{
@@ -578,7 +574,6 @@ char *GetBlockColor(parameters *config, int pos)
 	return "white";
 }
 
-#ifdef USE_FLOORS
 void FindFloor(AudioSignal *Signal, parameters *config)
 {
 	int index;
@@ -602,14 +597,13 @@ void FindFloor(AudioSignal *Signal, parameters *config)
 		{
 			Signal->floorAmplitude = Signal->Blocks[index].freq[i].amplitude;
 			Signal->floorFreq = Signal->Blocks[index].freq[i].hertz;
-			logmsg("Found 'Silence' block: %g Hz at %0.4f.db\n",
+			logmsg(" - Silence block max volume: %g Hz at %0.4f.db\n",
 				Signal->floorFreq, Signal->floorAmplitude);
 			return;
 		}
 	}
 	Signal->hasFloor = 0;  /* revoke it if not found */
 }
-#endif
 
 void GlobalNormalize(AudioSignal *Signal, parameters *config)
 {
@@ -951,11 +945,11 @@ double CalculateWeightedError(double pError, parameters *config)
 			break;
 		case 3:
 			/* Map to Beta function */
-			pError = incbeta(3.0, 1.0, pError);
+			pError = incbeta(6.0, 4.0, pError);
 			break;
 		case 4:
 			/* Map to Beta function */
-			pError = incbeta(5.0, 0.5, pError);
+			pError = incbeta(4.0, 2.0, pError);
 			break;
 		case 5:
 			/* Map to Beta function */

@@ -41,7 +41,7 @@
 
 int LoadFile(FILE *file, AudioSignal *Signal, parameters *config, char *fileName);
 int ProcessFile(AudioSignal *Signal, parameters *config);
-double ProcessSamples(AudioBlocks *AudioArray, short *samples, size_t size, long samplerate, float *window, parameters *config, int reverse);
+double ProcessSamples(AudioBlocks *AudioArray, short *samples, size_t size, long samplerate, float *window, parameters *config, int reverse, AudioSignal *Signal);
 int commandline_wave(int argc , char *argv[], parameters *config);
 void FindMaxMagnitude(AudioSignal *Signal, parameters *config);
 void PrintUsage_wave();
@@ -198,11 +198,8 @@ int LoadFile(FILE *file, AudioSignal *Signal, parameters *config, char *fileName
 	if(seconds < GetSignalTotalDuration(Signal->framerate, config))
 		logmsg(" - File length is smaller than expected\n");
 
-
-#ifdef USE_FLOORS
 	if(GetFirstSilenceIndex(config) != NO_INDEX)
 		Signal->hasFloor = 1;
-#endif
 
 	sprintf(Signal->SourceFile, "%s", fileName);
 
@@ -231,14 +228,6 @@ int ProcessFile(AudioSignal *Signal, parameters *config)
 	char			Name[4096], tempName[4096];
 	int				leftover = 0, discardBytes = 0;
 
-	ComposeFileName(Name, GenerateFileNamePrefix(config), ".wav", config);
-	processed = fopen(Name, "wb");
-	if(!processed)
-	{
-		logmsg("\tCould not open processed file %s\n", Name);
-		return 0;
-	}
-
 	pos = Signal->startOffset;
 	
 	longest = FramesToSeconds(Signal->framerate, GetLongestElementFrames(config));
@@ -259,11 +248,8 @@ int ProcessFile(AudioSignal *Signal, parameters *config)
 	if(!initWindows(&windows, Signal->framerate, Signal->header.SamplesPerSec, config))
 		return 0;
 
-#ifdef USE_FLOORS
-	silence = GetFirstSilenceIndex(config);
-	if(silence != NO_INDEX)
+	if(GetFirstSilenceIndex(config) != NO_INDEX)
 		Signal->hasFloor = 1;
-#endif
 
 	while(i < config->types.totalChunks)
 	{
@@ -289,7 +275,7 @@ int ProcessFile(AudioSignal *Signal, parameters *config)
 		Signal->Blocks[i].index = GetBlockSubIndex(config, i);
 		Signal->Blocks[i].type = GetBlockType(config, i);
 
-		ProcessSamples(&Signal->Blocks[i], (short*)buffer, loadedBlockSize/2, Signal->header.SamplesPerSec, windowUsed, config, 0);
+		ProcessSamples(&Signal->Blocks[i], (short*)buffer, loadedBlockSize/2, Signal->header.SamplesPerSec, windowUsed, config, 0, Signal);
 
 		if(config->chunks)
 		{
@@ -331,10 +317,18 @@ int ProcessFile(AudioSignal *Signal, parameters *config)
 	// Instead of Global Normalization by default, do...
 	FindMaxMagnitude(Signal, config);
 
-#ifdef USE_FLOORS
 	if(Signal->hasFloor && !config->ignoreFloor) // analyze noise floor if available
+	{
 		FindFloor(Signal, config);
-#endif
+
+		if(Signal->floorAmplitude > config->significantVolume)
+		{
+			config->significantVolume = Signal->floorAmplitude;
+			logmsg(" - Using as minimum significant volume for analisys\n");
+		}
+	}
+
+	CreateBaseName(config);
 
 	// Clean up everything again
 	pos = Signal->startOffset;
@@ -363,7 +357,7 @@ int ProcessFile(AudioSignal *Signal, parameters *config)
 
 		// now rewrite array
 		if(GetBlockType(config, i) > TYPE_CONTROL)  // Ignore Controls!
-			ProcessSamples(&Signal->Blocks[i], (short*)buffer, loadedBlockSize/2, Signal->header.SamplesPerSec, windowUsed, config, 1);
+			ProcessSamples(&Signal->Blocks[i], (short*)buffer, loadedBlockSize/2, Signal->header.SamplesPerSec, windowUsed, config, 1, Signal);
 
 		// Now rewrite global
 		memcpy(Signal->Samples + pos, buffer, loadedBlockSize);
@@ -410,6 +404,15 @@ int ProcessFile(AudioSignal *Signal, parameters *config)
 
 	// clear the rest of the buffer
 	memset(Signal->Samples + pos, 0, (sizeof(char)*(Signal->header.Subchunk2Size - pos)));
+
+	ComposeFileName(Name, GenerateFileNamePrefix(config), ".wav", config);
+	processed = fopen(Name, "wb");
+	if(!processed)
+	{
+		logmsg("\tCould not open processed file %s\n", Name);
+		return 0;
+	}
+
 	if(fwrite(&Signal->header, 1, sizeof(wav_hdr), processed) != sizeof(wav_hdr))
 	{
 		logmsg("\tCould not write processed header\n");
@@ -478,7 +481,7 @@ void FindMaxMagnitude(AudioSignal *Signal, parameters *config)
 }
 
 
-double ProcessSamples(AudioBlocks *AudioArray, short *samples, size_t size, long samplerate, float *window, parameters *config, int reverse)
+double ProcessSamples(AudioBlocks *AudioArray, short *samples, size_t size, long samplerate, float *window, parameters *config, int reverse, AudioSignal *Signal)
 {
 	fftw_plan		p = NULL, pBack = NULL;
 	long		  	stereoSignalSize = 0, blanked = 0;	
@@ -597,9 +600,13 @@ double ProcessSamples(AudioBlocks *AudioArray, short *samples, size_t size, long
 			if(AudioArray->freq[j].amplitude < MinAmplitude)
 				MinAmplitude = AudioArray->freq[j].amplitude;
 		}
+
 		CutOff = MinAmplitude;
 		if(CutOff < config->significantVolume)
 			CutOff = config->significantVolume;
+
+		if(!config->ignoreFloor && Signal->hasFloor && CutOff < Signal->floorAmplitude)
+			CutOff = Signal->floorAmplitude;
 
 		//Process the whole frequency spectrum
 		for(i = startBin; i < endBin; i++)
@@ -616,31 +623,16 @@ double ProcessSamples(AudioBlocks *AudioArray, short *samples, size_t size, long
 
 			if(config->invert)
 			{
-#ifdef USE_FLOORS
-				if(!config->ignoreFloor && amplitude > config->floorAmplitude)
-					blank = 1;
-				
-				if(config->ignoreFloor && amplitude > CutOff)
-					blank = 1;
-#else
 				if(amplitude > CutOff)
 					blank = 1;
-#endif
+
 				if(IsCRTNoise(Hertz))
 					blank = 0;	
 			}
 			else
 			{
-#ifdef USE_FLOORS
-				if(!config->ignoreFloor && amplitude <= config->floorAmplitude)
-					blank = 1;
-				
-				if(config->ignoreFloor && amplitude <= CutOff)
-					blank = 1;
-#else
 				if(amplitude <= CutOff)
 					blank = 1;
-#endif
 
 				if(IsCRTNoise(Hertz))
 					blank = 1;	
@@ -741,7 +733,7 @@ int commandline_wave(int argc , char *argv[], parameters *config)
 	config->MinAmplitude = 0;
 	config->floorAmplitude = 0;
 
-	while ((c = getopt (argc, argv, "ihvkgclw:n:d:a:t:r:c:f:b:s:z:")) != -1)
+	while ((c = getopt (argc, argv, "ihvkgcxlw:n:d:a:t:r:c:f:b:s:z:")) != -1)
 	switch (c)
 	  {
 	  case 'h':
@@ -766,11 +758,9 @@ int commandline_wave(int argc , char *argv[], parameters *config)
 	  case 'i':
 		config->invert = 1;   // RELEVANT HERE!
 		break;
-#ifdef USE_FLOORS
 	  case 'x':
-		config->ignoreFloor = 0;   // RELEVANT HERE!
+		config->ignoreFloor = 1;   // RELEVANT HERE!
 		break;
-#endif
 	  case 's':
 		config->startHz = atoi(optarg);
 		if(config->startHz < 1 || config->startHz > 19900)

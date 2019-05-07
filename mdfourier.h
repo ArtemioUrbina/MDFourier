@@ -53,6 +53,7 @@
 
 #define MAX_FREQ_COUNT		100000 	/* Number of frequencies to compare(MAX) */
 #define FREQ_COUNT			2000	/* Number of frequencies to compare(default) */
+#define SIGNIFICANT_VOLUME	-60
 
 #define TYPE_SILENCE	0
 #define TYPE_SYNC		-1
@@ -141,11 +142,9 @@ typedef struct AudioBlock_st {
 typedef struct AudioSt {
 	char		SourceFile[1024];
 
-#ifdef USE_FLOORS
 	int 		hasFloor;
 	double		floorFreq;
 	double		floorAmplitude;
-#endif
 
 	char 		*Samples;
 	double		framerate;
@@ -233,13 +232,12 @@ typedef struct parameters_st {
 	int				spreadsheet;	
 	char			normalize;
 	double			relativeMaxMagnitude;
-#ifdef USE_FLOORS
 	int				ignoreFloor;
-#endif
 	int				useOutputFilter;
 	int				outputFilterFunction;
 	AudioBlockDef	types;
 	AudioDifference	Differences;
+	double			origSignificantVolume;
 	double			significantVolume;
 	double			smallerFramerate;
 

@@ -124,6 +124,14 @@ int main(int argc , char *argv[])
 		return 1;
 	}
 
+	if(ReferenceSignal->hasFloor && !config.ignoreFloor && 
+		ReferenceSignal->floorAmplitude > config.significantVolume)
+	{
+		config.significantVolume = ReferenceSignal->floorAmplitude;
+		logmsg(" - Using as minimum significant volume for analisys\n");
+		CreateBaseName(&config);
+	}
+
 	logmsg("* Executing Discrete Fast Fourier Transforms on Target file\n");
 	if(!ProcessFile(TestSignal, &config))
 	{
@@ -146,6 +154,15 @@ int main(int argc , char *argv[])
 	CleanMatched(ReferenceSignal, TestSignal, &config);
 	ReleaseDifferenceArray(&config);
 	InvertComparedName(&config);
+
+	config.significantVolume = config.origSignificantVolume;
+	if(TestSignal->hasFloor && !config.ignoreFloor && 
+		TestSignal->floorAmplitude > config.significantVolume)
+	{
+		config.significantVolume = TestSignal->floorAmplitude;
+		logmsg(" - Using as minimum significant volume for analisys\n");
+		CreateBaseName(&config);
+	}
 
 	logmsg("* Comparing frequencies Target -> Reference\n");
 	CompareAudioBlocks(TestSignal, ReferenceSignal, &config);
@@ -266,11 +283,8 @@ int LoadFile(FILE *file, AudioSignal *Signal, parameters *config, char *fileName
 	if(seconds < GetSignalTotalDuration(Signal->framerate, config))
 		logmsg(" - File length is smaller than expected\n");
 
-
-#ifdef USE_FLOORS
 	if(GetFirstSilenceIndex(config) != NO_INDEX)
 		Signal->hasFloor = 1;
-#endif
 
 	sprintf(Signal->SourceFile, "%s", fileName);
 
@@ -431,10 +445,8 @@ int ProcessFile(AudioSignal *Signal, parameters *config)
 	if(config->normalize != 'n')
 		GlobalNormalize(Signal, config);
 
-#ifdef USE_FLOORS
 	if(!config->ignoreFloor && Signal->hasFloor) /* analyze silence floor if available */
 		FindFloor(Signal, config);
-#endif
 
 	if(config->verbose)
 		PrintFrequencies(Signal, config);
@@ -522,65 +534,22 @@ double ExecuteDFFT(AudioBlocks *AudioArray, short *samples, size_t size, long sa
 
 int CalculateMaxCompare(int block, AudioSignal *Signal, parameters *config, int limitRef)
 {
-	int count = config->MaxFreq;
-
-#ifdef USE_FLOORS
-	/* find how many to compare */
-	if(!config->ignoreFloor && Signal->hasFloor)
+	for(int freq = 0; freq < config->MaxFreq; freq++)
 	{
-		for(int freq = 0; freq < config->MaxFreq; freq ++)
-		{
-			double difference = 0;
+		/* Volumne is too low */
+		if(limitRef && Signal->Blocks[block].freq[freq].amplitude < config->significantVolume)
+			return freq;
 
-			if(!Signal->Blocks[block].freq[freq].hertz)
-			{
-				count = freq;
-				return count;
-			}
+		/* Volume is too low with tolerance */
+		if(!limitRef && Signal->Blocks[block].freq[freq].amplitude < config->significantVolume - config->tolerance*2)
+			return freq;
 
-			if(Signal->Blocks[block].freq[freq].amplitude <= Signal->floorAmplitude)
-			{
-				count = freq;
-				return count;
-			}
-
-			difference = fabs(fabs(Signal->floorAmplitude) - fabs(Signal->Blocks[block].freq[freq].amplitude));
-			if((Signal->Blocks[block].freq[freq].hertz == Signal->floorFreq &&
-				difference <= config->tolerance))  // this in dbs 
-			{
-				count = freq;
-				return count;
-			}
-		}
+		/* Out of valid frequencies */
+		if(!Signal->Blocks[block].freq[freq].hertz)
+			return freq;
 	}
-	else
-	{
-#endif
-		for(int freq = 0; freq < config->MaxFreq; freq++)
-		{
-			if(limitRef && Signal->Blocks[block].freq[freq].amplitude < config->significantVolume)
-			{
-				count = freq;
-				return count;
-			}
 
-			if(!limitRef && Signal->Blocks[block].freq[freq].amplitude < config->significantVolume - config->tolerance*2)
-			{
-				count = freq;
-				return count;
-			}
-
-			if(!Signal->Blocks[block].freq[freq].hertz)
-			{
-				count = freq;
-				return count;
-			}
-		}
-#ifdef USE_FLOORS
-	}
-#endif
-
-	return count;
+	return config->MaxFreq;
 }
 
 double CompareAudioBlocks(AudioSignal *ReferenceSignal, AudioSignal *TestSignal, parameters *config)
