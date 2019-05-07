@@ -37,8 +37,10 @@
 #include "windows.h"
 #include "freq.h"
 #include "cline.h"
+#include "sync.h"
 
 int LoadFile(FILE *file, AudioSignal *Signal, parameters *config, char *fileName);
+int ProcessFile(AudioSignal *Signal, parameters *config);
 double ProcessSamples(AudioBlocks *AudioArray, short *samples, size_t size, long samplerate, float *window, parameters *config, int reverse);
 int commandline_wave(int argc , char *argv[], parameters *config);
 void FindMaxMagnitude(AudioSignal *Signal, parameters *config);
@@ -78,9 +80,18 @@ int main(int argc , char *argv[])
 	logmsg("\nLoading Reference audio file %s\n", config.referenceFile);
 	if(!LoadFile(reference, ReferenceSignal, &config, config.referenceFile))
 	{
+		ReleaseAudio(ReferenceSignal, &config);
 		free(ReferenceSignal);
 		return 0;
 	}
+
+	if(!ProcessFile(ReferenceSignal, &config))
+	{
+		ReleaseAudio(ReferenceSignal, &config);
+		free(ReferenceSignal);
+		return 1;
+	}
+
 	logmsg("Max blanked frequencies per block from the spectrum %d\n", config.maxBlanked);
 	
 	ReleaseAudio(ReferenceSignal, &config);
@@ -99,29 +110,123 @@ char *GenerateFileNamePrefix(parameters *config)
 
 int LoadFile(FILE *file, AudioSignal *Signal, parameters *config, char *fileName)
 {
-	int 				i = 0;
-	long int			loadedBlockSize = 0;
-	char				*buffer, silence = -1;
-	size_t			 	buffersize = 0;
-	//size_t			 	discardBytes = 0, discardSamples = 0;
-	wav_hdr 			header;
-	windowManager		windows;
-	float				*windowUsed = NULL;
 	struct	timespec	start, end;
-	double				seconds = 0, longest = 0;
-	FILE				*processed = NULL;
-	char				Name[4096], tempName[4096];
-	char 				*AllSamples = NULL;
-	long int			pos = 0;
+	double				seconds = 0;
+
+	if(config->clock)
+		clock_gettime(CLOCK_MONOTONIC, &start);
 
 	if(!file)
 		return 0;
 
-	if(fread(&header, 1, sizeof(wav_hdr), file) != sizeof(wav_hdr))
+	if(fread(&Signal->header, 1, sizeof(wav_hdr), file) != sizeof(wav_hdr))
 	{
 		logmsg("\tInvalid WAV file: File too small\n");
 		return(0);
 	}
+
+	if(Signal->header.AudioFormat != 1) /* Check for PCM */
+	{
+		logmsg("\tInvalid WAV File: Only PCM is supported\n\tPlease use WAV PCM 16 bit");
+		return(0);
+	}
+
+	if(Signal->header.NumOfChan != 2) /* Check for Stereo */
+	{
+		logmsg("\tInvalid WAV file: Only Stereo supported\n");
+		return(0);
+	}
+
+	if(Signal->header.bitsPerSample != 16) /* Check bit depth */
+	{
+		logmsg("\tInvalid WAV file: Only 16 bit supported for now\n\tPlease use WAV PCM 16 bit %dhz");
+		return(0);
+	}
+	
+	if(Signal->header.SamplesPerSec/2 < config->endHz)
+	{
+		logmsg("%d Hz sample rate was too low for %d-%d Hz analysis\n",
+			 Signal->header.SamplesPerSec, config->startHz, config->endHz);
+		config->endHz = Signal->header.SamplesPerSec/2;
+		logmsg("changed to %d-%d Hz\n", config->startHz, config->endHz);
+	}
+
+	seconds = (double)Signal->header.Subchunk2Size/4.0/(double)Signal->header.SamplesPerSec;
+	logmsg("- WAV file is PCM %dhz %dbits and %g seconds long\n", 
+		Signal->header.SamplesPerSec, Signal->header.bitsPerSample, seconds);
+
+	Signal->Samples = (char*)malloc(sizeof(char)*Signal->header.Subchunk2Size);
+	if(!Signal->Samples)
+	{
+		logmsg("\tAll Chunks malloc failed!\n");
+		return(0);
+	}
+
+	if(fread(Signal->Samples, 1, sizeof(char)*Signal->header.Subchunk2Size, file) !=
+			 sizeof(char)*Signal->header.Subchunk2Size)
+	{
+		logmsg("\tCould not read the whole sample block from disk to RAM\n");
+		return(0);
+	}
+
+	fclose(file);
+
+	/* Find the start offset */
+	logmsg("- Detecting start of signal: ");
+	Signal->startOffset = DetectPulse(Signal->Samples, Signal->header, config);
+	if(Signal->startOffset == -1)
+	{
+		logmsg("\nStarting Pulse train was not detected\n");
+		return 0;
+	}
+	logmsg(" %ld bytes\n", Signal->startOffset);
+	logmsg("- Detecting end of signal: ");
+	Signal->endOffset = DetectEndPulse(Signal->Samples, Signal->startOffset, Signal->header, config);
+	if(Signal->endOffset == -1)
+	{
+		logmsg("\nEnding Pulse train was not detected\n");
+		return 0;
+	}
+	logmsg(" %ld bytes\n", Signal->endOffset);
+	Signal->framerate = (double)(Signal->endOffset-Signal->startOffset)*1000/((double)Signal->header.SamplesPerSec*4*
+						GetLastSyncFrameOffset(Signal->header, config));
+	Signal->framerate = RoundFloat(Signal->framerate, 3);
+	logmsg("- Detected %g ms frames from WAV file\n", Signal->framerate);
+
+	if(seconds < GetSignalTotalDuration(Signal->framerate, config))
+		logmsg("- File length is smaller than expected\n");
+
+
+#ifdef USE_FLOORS
+	if(GetFirstSilenceIndex(config) != NO_INDEX)
+		Signal->hasFloor = 1;
+#endif
+
+	sprintf(Signal->SourceFile, "%s", fileName);
+
+	if(config->clock)
+	{
+		double			elapsedSeconds;
+		clock_gettime(CLOCK_MONOTONIC, &end);
+		elapsedSeconds = TimeSpecToSeconds(&end) - TimeSpecToSeconds(&start);
+		logmsg("Loading WAV took %f\n", elapsedSeconds);
+	}
+
+	return 1;
+}
+
+int ProcessFile(AudioSignal *Signal, parameters *config)
+{
+	long int		pos = 0;
+	double			longest = 0;
+	char			*buffer;
+	size_t			buffersize = 0;
+	windowManager	windows;
+	float			*windowUsed = NULL;
+	long int		loadedBlockSize = 0, i = 0;
+	struct timespec	start, end;
+	FILE			*processed = NULL;
+	char			Name[4096], tempName[4096];
 
 	ComposeFileName(Name, GenerateFileNamePrefix(config), ".wav", config);
 	processed = fopen(Name, "wb");
@@ -131,55 +236,16 @@ int LoadFile(FILE *file, AudioSignal *Signal, parameters *config, char *fileName
 		return 0;
 	}
 
-	if(header.AudioFormat != 1) // Check for PCM
-	{
-		logmsg("\tInvalid WAV File: Only PCM is supported\n\tPlease use WAV PCM 16 bit");
-		return(0);
-	}
-
-	if(header.NumOfChan != 2) // Check for Stereo
-	{
-		logmsg("\tInvalid WAV file: Only Stereo supported\n");
-		return(0);
-	}
-
-	if(header.bitsPerSample != 16) // Check bit depth
-	{
-		logmsg("\tInvalid WAV file: Only 16 bit supported for now\n\tPlease use WAV PCM 16 bit %dhz");
-		return(0);
-	}
+	pos = Signal->startOffset;
 	
-	if(header.SamplesPerSec/2 < config->endHz)
-	{
-		logmsg("%d Hz sample rate was too low for %d-%d Hz analysis\n",
-			 header.SamplesPerSec, config->startHz, config->endHz);
-		config->endHz = header.SamplesPerSec/2;
-		logmsg("changed to %d-%d Hz\n", config->startHz, config->endHz);
-	}
-
- 	Signal->framerate = GetPlatformMSPerFrame(config);
-
-	seconds = (double)header.Subchunk2Size/4.0/(double)header.SamplesPerSec;
-	if(seconds < GetSignalTotalDuration(Signal->framerate, config))
-		logmsg("File length is smaller than expected\n");
-
-	logmsg("WAV file is PCM %dhz %dbits and %g seconds long\n", 
-		header.SamplesPerSec, header.bitsPerSample, seconds);
-
-	// We need to convert buffersize to the 16.688ms per frame by the Genesis
-	// Mega Drive is 1.00128, now loaded fomr file
-	//discardSamples = RoundTo4bytes(discardSamples);
-
-
-	//discardSamples -= header.SamplesPerSec;
-	longest = SecondsToBytes(Signal->header.SamplesPerSec, longest);
+	longest = FramesToSeconds(Signal->framerate, GetLongestElementFrames(config));
 	if(!longest)
 	{
 		logmsg("Block definitions are invalid, total length is 0\n");
 		return 0;
 	}
 
-	buffersize = RoundTo4bytes(header.SamplesPerSec*4*sizeof(char)*longest); // 2 bytes per sample, stereo
+	buffersize = SecondsToBytes(Signal->header.SamplesPerSec, longest);
 	buffer = (char*)malloc(buffersize);
 	if(!buffer)
 	{
@@ -187,31 +253,14 @@ int LoadFile(FILE *file, AudioSignal *Signal, parameters *config, char *fileName
 		return(0);
 	}
 
-	if(!initWindows(&windows, Signal->framerate, header.SamplesPerSec, config))
+	if(!initWindows(&windows, Signal->framerate, Signal->header.SamplesPerSec, config))
 		return 0;
-
-	AllSamples = (char*)malloc(sizeof(char)*header.Subchunk2Size);
-	if(!AllSamples)
-	{
-		logmsg("\tAll Chunks malloc failed!\n");
-		return(0);
-	}
-
-	if(fread(AllSamples, 1, sizeof(char)*header.Subchunk2Size, file) != sizeof(char)*header.Subchunk2Size)
-	{
-		logmsg("\tCould not read the whole sample block from disk to RAM\n");
-		return(0);
-	}
 
 #ifdef USE_FLOORS
 	silence = GetFirstSilenceIndex(config);
 	if(silence != NO_INDEX)
 		Signal->hasFloor = 1;
 #endif
-
-	sprintf(Signal->SourceFile, "%s", fileName);
-	if(config->clock)
-		clock_gettime(CLOCK_MONOTONIC, &start);
 
 	while(i < config->types.totalChunks)
 	{
@@ -223,30 +272,30 @@ int LoadFile(FILE *file, AudioSignal *Signal, parameters *config, char *fileName
 		windowUsed = getWindowByLength(&windows, frames);
 		
 		loadedBlockSize = SecondsToBytes(Signal->header.SamplesPerSec, duration);
-		//discardBytes = discardSamples * 4 * duration;
 
 		memset(buffer, 0, buffersize);
-		if(pos + loadedBlockSize > header.Subchunk2Size)
+		if(pos + loadedBlockSize > Signal->header.Subchunk2Size)
 		{
 			logmsg("\tunexpected end of File, please record the full Audio Test from the 240p Test Suite\n");
 			break;
 		}
-		memcpy(buffer, AllSamples + pos, loadedBlockSize);
+		memcpy(buffer, Signal->Samples + pos, loadedBlockSize);
 		pos += loadedBlockSize;
 		
 		Signal->Blocks[i].index = GetBlockSubIndex(config, i);
 		Signal->Blocks[i].type = GetBlockType(config, i);
 
-		ProcessSamples(&Signal->Blocks[i], (short*)buffer, loadedBlockSize/2, header.SamplesPerSec, windowUsed, config, 0);
+		ProcessSamples(&Signal->Blocks[i], (short*)buffer, loadedBlockSize/2, Signal->header.SamplesPerSec, windowUsed, config, 0);
 
 		if(config->chunks)
 		{
 			FILE 		*chunk = NULL;
 			wav_hdr		cheader;
 
-			cheader = header;
+			cheader = Signal->header;
 
-			sprintf(tempName, "%03d_Source_%s_%03d_chunk_", i, GetBlockName(config, i), GetBlockSubIndex(config, i));
+			sprintf(tempName, "%03ld_Source_%s_%03d_chunk_", 
+				i, GetBlockName(config, i), GetBlockSubIndex(config, i));
 			ComposeFileName(Name, tempName, ".wav", config);
 			
 			chunk = fopen(Name, "wb");
@@ -272,8 +321,6 @@ int LoadFile(FILE *file, AudioSignal *Signal, parameters *config, char *fileName
 		
 			fclose(chunk);
 		}
-
-		//pos += discardBytes;  // Advance to adjust the time for the Sega Genesis Frame Rate
 		i++;
 	}
 
@@ -286,10 +333,10 @@ int LoadFile(FILE *file, AudioSignal *Signal, parameters *config, char *fileName
 #endif
 
 	// Clean up everything again
-	pos = 0;
+	pos = Signal->startOffset;
 	i = 0;
 
-	// redo with Floor
+	// redo after processing
 	while(i < config->types.totalChunks)
 	{
 		double duration = 0;
@@ -302,22 +349,19 @@ int LoadFile(FILE *file, AudioSignal *Signal, parameters *config, char *fileName
 		loadedBlockSize = SecondsToBytes(Signal->header.SamplesPerSec, duration);
 
 		memset(buffer, 0, buffersize);
-		if(pos + loadedBlockSize > header.Subchunk2Size)
+		if(pos + loadedBlockSize > Signal->header.Subchunk2Size)
 		{
 			logmsg("\tunexpected end of File, please record the full Audio Test from the 240p Test Suite\n");
 			break;
 		}
-		memcpy(buffer, AllSamples + pos, loadedBlockSize);
-		
-		Signal->Blocks[i].index = GetBlockSubIndex(config, i);
-		Signal->Blocks[i].type = GetBlockType(config, i);
+		memcpy(buffer, Signal->Samples + pos, loadedBlockSize);
 
 		// now rewrite array
-		if(i != silence)  // Ignore Silence!
-			ProcessSamples(&Signal->Blocks[i], (short*)buffer, loadedBlockSize/2, header.SamplesPerSec, windowUsed, config, 1);
+		if(GetBlockType(config, i) > TYPE_CONTROL)  // Ignore Controls!
+			ProcessSamples(&Signal->Blocks[i], (short*)buffer, loadedBlockSize/2, Signal->header.SamplesPerSec, windowUsed, config, 1);
 
 		// Now rewrite global
-		memcpy(AllSamples + pos, buffer, loadedBlockSize);
+		memcpy(Signal->Samples + pos, buffer, loadedBlockSize);
 
 		pos += loadedBlockSize;
 
@@ -326,9 +370,10 @@ int LoadFile(FILE *file, AudioSignal *Signal, parameters *config, char *fileName
 			FILE 		*chunk = NULL;
 			wav_hdr		cheader;
 
-			cheader = header;
+			cheader = Signal->header;
 
-			sprintf(tempName, "%03d_Processed_%s_%03d_chunk_", i, GetBlockName(config, i), GetBlockSubIndex(config, i));
+			sprintf(tempName, "%03ld_Processed_%s_%03d_chunk_", i, 
+				GetBlockName(config, i), GetBlockSubIndex(config, i));
 			ComposeFileName(Name, tempName, ".wav", config);
 			
 			chunk = fopen(Name, "wb");
@@ -354,21 +399,19 @@ int LoadFile(FILE *file, AudioSignal *Signal, parameters *config, char *fileName
 		
 			fclose(chunk);
 		}
-		// clean this noise since we didn't process it
-		//memset(AllSamples + pos, 0, discardBytes);
-		//pos += discardBytes;  // Advance to adjust the time for the Sega Genesis Frame Rate
 		i++;
 	}
 
 	// clear the rest of the buffer
-	memset(AllSamples + pos, 0, (sizeof(char)*(header.Subchunk2Size - pos)));
-	if(fwrite(&header, 1, sizeof(wav_hdr), processed) != sizeof(wav_hdr))
+	memset(Signal->Samples + pos, 0, (sizeof(char)*(Signal->header.Subchunk2Size - pos)));
+	if(fwrite(&Signal->header, 1, sizeof(wav_hdr), processed) != sizeof(wav_hdr))
 	{
 		logmsg("\tCould not write processed header\n");
 		return(0);
 	}
 
-	if(fwrite(AllSamples, 1, sizeof(char)*header.Subchunk2Size, processed) != sizeof(char)*header.Subchunk2Size)
+	if(fwrite(Signal->Samples, 1, sizeof(char)*Signal->header.Subchunk2Size, processed) !=
+			 sizeof(char)*Signal->header.Subchunk2Size)
 	{
 		logmsg("\tCould not write samples to processed file\n");
 		return (0);
@@ -388,10 +431,7 @@ int LoadFile(FILE *file, AudioSignal *Signal, parameters *config, char *fileName
 		logmsg("Processing WAV took %f\n", elapsedSeconds);
 	}
 
-	fclose(file);
 	free(buffer);
-	free(AllSamples);
-
 	freeWindows(&windows);
 
 	return i;
