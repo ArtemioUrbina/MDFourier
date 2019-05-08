@@ -185,55 +185,55 @@ int LoadAudioBlockStructure(parameters *config)
 	file = fopen("mdfblocks.mfn", "r");
 	if(!file)
 	{
-		printf("Could not load audio configuiration file mdfblocks.mfn\n");
+		logmsg("Could not load audio configuiration file mdfblocks.mfn\n");
 		return 0;
 	}
 	
 	fscanf(file, "%s ", buffer);
 	if(strcmp(buffer, "MDFourierAudioBlockFile") != 0)
 	{
-		printf("Not an MD Fourier Audio Block File\n");
+		logmsg("Not an MD Fourier Audio Block File\n");
 		fclose(file);
 		return 0;
 	}
 	fscanf(file, "%s\n", buffer);
 	if(atof(buffer) > 1.0)
 	{
-		printf("This executable can parse 1.0 files only\n");
+		logmsg("This executable can parse 1.0 files only\n");
 		fclose(file);
 		return 0;
 	}
 	if(fscanf(file, "%s\n", config->types.Name) != 1)
 	{
-		printf("Invalid Name '%s'\n", buffer);
+		logmsg("Invalid Name '%s'\n", buffer);
 		fclose(file);
 		return 0;
 	}
 
 	if(fscanf(file, "%s\n", buffer) != 1)
 	{
-		printf("Invalid Frame Rate Adjustment '%s'\n", buffer);
+		logmsg("Invalid Frame Rate Adjustment '%s'\n", buffer);
 		fclose(file);
 		return 0;
 	}
 	config->types.platformMSPerFrame = strtod(buffer, NULL);
 	if(!config->types.platformMSPerFrame)
 	{
-		printf("Invalid Frame Rate Adjustment '%s'\n", buffer);
+		logmsg("Invalid Frame Rate Adjustment '%s'\n", buffer);
 		fclose(file);
 		return 0;
 	}
 
 	if(fscanf(file, "%s\n", buffer) != 1)
 	{
-		printf("Invalid Pulse Sync Frequency '%s'\n", buffer);
+		logmsg("Invalid Pulse Sync Frequency '%s'\n", buffer);
 		fclose(file);
 		return 0;
 	}
 	config->types.pulseSyncFreq = atoi(buffer);
 	if(!config->types.pulseSyncFreq)
 	{
-		printf("Invalid Pulse Sync Frequency '%s'\n", buffer);
+		logmsg("Invalid Pulse Sync Frequency '%s'\n", buffer);
 		fclose(file);
 		return 0;
 	}
@@ -242,14 +242,14 @@ int LoadAudioBlockStructure(parameters *config)
 	config->types.typeCount = atoi(buffer);
 	if(!config->types.typeCount)
 	{
-		printf("Invalid type count '%s'\n", buffer);
+		logmsg("Invalid type count '%s'\n", buffer);
 		fclose(file);
 		return 0;
 	}
 	config->types.typeArray = (AudioBlockType*)malloc(sizeof(AudioBlockType)*config->types.typeCount);
 	if(!config->types.typeArray)
 	{
-		printf("Not enough memory\n");
+		logmsg("Not enough memory\n");
 		fclose(file);
 		return 0;
 	}
@@ -260,7 +260,7 @@ int LoadAudioBlockStructure(parameters *config)
 
 		if(fscanf(file, "%s ", config->types.typeArray[i].typeName) != 1)
 		{
-			printf("Invalid Block Name %s\n", config->types.typeArray[i].typeName);
+			logmsg("Invalid Block Name %s\n", config->types.typeArray[i].typeName);
 			fclose(file);
 			return 0;
 		}
@@ -268,7 +268,7 @@ int LoadAudioBlockStructure(parameters *config)
 		type = fgetc(file);
 		if(type == EOF)
 		{
-			printf("Config file is too short\n");
+			logmsg("Config file is too short\n");
 			fclose(file);
 			return 0;
 		}
@@ -285,7 +285,7 @@ int LoadAudioBlockStructure(parameters *config)
 				ungetc(type, file);
 				if(fscanf(file, "%d ", &config->types.typeArray[i].type) != 1)
 				{
-					printf("Invalid MD Fourier Audio Blocks File\n");
+					logmsg("Invalid MD Fourier Audio Blocks File\n");
 					fclose(file);
 					return 0;
 				}
@@ -297,28 +297,28 @@ int LoadAudioBlockStructure(parameters *config)
 			&config->types.typeArray[i].frames,
 			&config->types.typeArray[i].color [0]) != 3)
 		{
-			printf("Invalid MD Fourier Audio Blocks File\n");
+			logmsg("Invalid MD Fourier Audio Blocks File\n");
 			fclose(file);
 			return 0;
 		}
 
 		if(!config->types.typeArray[i].elementCount)
 		{
-			printf("Element Count must have a value > 0\n");
+			logmsg("Element Count must have a value > 0\n");
 			fclose(file);
 			return 0;
 		}
 
 		if(!config->types.typeArray[i].frames)
 		{
-			printf("Frames must have a value > 0\n");
+			logmsg("Frames must have a value > 0\n");
 			fclose(file);
 			return 0;
 		}
 	
 		if(MatchColor(config->types.typeArray[i].color) == COLOR_NONE)
 		{
-			printf("Unrecognized color \"%s\" aborting\n", 
+			logmsg("Unrecognized color \"%s\" aborting\n", 
 				config->types.typeArray[i].color);
 			fclose(file);
 			return 0;
@@ -329,7 +329,7 @@ int LoadAudioBlockStructure(parameters *config)
 	config->types.totalChunks = GetTotalAudioBlocks(config);
 	if(!config->types.totalChunks)
 	{
-		printf("Total Audio Blocks should be at least 1\n");
+		logmsg("Total Audio Blocks should be at least 1\n");
 		return 0;
 	}
 
@@ -346,7 +346,7 @@ void PrintAudioBlocks(parameters *config)
 
 	for(int i = 0; i < config->types.typeCount; i++)
 	{
-		printf("%s %d %d %d %s\n", 
+		logmsg("%s %d %d %d %s\n", 
 			config->types.typeArray[i].typeName,
 			config->types.typeArray[i].type,
 			config->types.typeArray[i].elementCount,
@@ -390,12 +390,45 @@ double GetSignalTotalDuration(double framerate, parameters *config)
 	return(FramesToSeconds(frames, framerate));
 }
 
+int GetFirstSyncIndex(parameters *config)
+{
+	int index = 0;
+
+	if(!config)
+		return NO_INDEX;
+
+	for(int i = 0; i < config->types.typeCount; i++)
+	{
+		if(config->types.typeArray[i].type == TYPE_SYNC)
+			return index;
+		else
+			index += config->types.typeArray[i].elementCount;
+	}
+	return NO_INDEX;
+}
+
+int GetLastSyncIndex(parameters *config)
+{
+	int first = 0;
+
+	if(!config)
+		return NO_INDEX;
+
+	first = GetFirstSyncIndex(config);
+	for(int i = config->types.typeCount - 1; i >= 0; i--)
+	{
+		if(config->types.typeArray[i].type == TYPE_SYNC && i != first)
+			return i;
+	}
+	return NO_INDEX;
+}
+
 int GetFirstSilenceIndex(parameters *config)
 {
 	int index = 0;
 
 	if(!config)
-		return -1;
+		return NO_INDEX;
 
 	for(int i = 0; i < config->types.typeCount; i++)
 	{
@@ -404,13 +437,13 @@ int GetFirstSilenceIndex(parameters *config)
 		else
 			index += config->types.typeArray[i].elementCount;
 	}
-	return -1;
+	return NO_INDEX;
 }
 
 long int GetLastSilenceByteOffset(double framerate, wav_hdr header, parameters *config)
 {
 	if(!config)
-		return -1;
+		return NO_INDEX;
 
 	for(int i = config->types.typeCount - 1; i >= 0; i--)
 	{
@@ -444,7 +477,7 @@ long int GetBlockFrameOffset(int block, parameters *config)
 long int GetLastSyncFrameOffset(wav_hdr header, parameters *config)
 {
 	if(!config)
-		return -1;
+		return 0;
 
 	for(int i = config->types.typeCount - 1; i >= 0; i--)
 	{
@@ -459,7 +492,7 @@ int GetActiveAudioBlocks(parameters *config)
 	int count = 0;
 
 	if(!config)
-		return -1;
+		return 0;
 
 	for(int i = 0; i < config->types.typeCount; i++)
 	{
@@ -474,7 +507,7 @@ int GetTotalAudioBlocks(parameters *config)
 	int count = 0;
 
 	if(!config)
-		return -1;
+		return 0;
 
 	for(int i = 0; i < config->types.typeCount; i++)
 		count += config->types.typeArray[i].elementCount;
@@ -538,7 +571,7 @@ char *GetBlockName(parameters *config, int pos)
 	for(int i = 0; i < config->types.typeCount; i++)
 	{
 		elementsCounted += config->types.typeArray[i].elementCount;
-		if(elementsCounted >= pos)
+		if(elementsCounted > pos)
 			return(config->types.typeArray[i].typeName);
 	}
 	
@@ -555,7 +588,7 @@ int GetBlockSubIndex(parameters *config, int pos)
 	for(int i = 0; i < config->types.typeCount; i++)
 	{
 		elementsCounted += config->types.typeArray[i].elementCount;
-		if(elementsCounted >= pos)
+		if(elementsCounted > pos)
 			return(pos - last);
 		last = elementsCounted;
 	}
@@ -573,7 +606,7 @@ int GetBlockType(parameters *config, int pos)
 	for(int i = 0; i < config->types.typeCount; i++)
 	{
 		elementsCounted += config->types.typeArray[i].elementCount;
-		if(elementsCounted >= pos)
+		if(elementsCounted > pos)
 			return(config->types.typeArray[i].type);
 	}
 	
@@ -590,7 +623,7 @@ char *GetBlockColor(parameters *config, int pos)
 	for(int i = 0; i < config->types.typeCount; i++)
 	{
 		elementsCounted += config->types.typeArray[i].elementCount;
-		if(elementsCounted >= pos)
+		if(elementsCounted > pos)
 			return(config->types.typeArray[i].color);
 	}
 	
@@ -608,7 +641,7 @@ void FindFloor(AudioSignal *Signal, parameters *config)
 		return;
 
 	index = GetFirstSilenceIndex(config);
-	if(index == -1)
+	if(index == NO_INDEX)
 	{
 		logmsg("There is no Silence block defined in the current format\n");
 		return;
@@ -616,7 +649,7 @@ void FindFloor(AudioSignal *Signal, parameters *config)
 
 	for(int i = 0; i < config->MaxFreq; i++)
 	{
-		if(!IsCRTNoise(Signal->Blocks[index].freq[i].hertz))
+		if(Signal->Blocks[index].freq[i].hertz && !IsCRTNoise(Signal->Blocks[index].freq[i].hertz))
 		{
 			Signal->floorAmplitude = Signal->Blocks[index].freq[i].amplitude;
 			Signal->floorFreq = Signal->Blocks[index].freq[i].hertz;
@@ -755,15 +788,19 @@ void PrintFrequencies(AudioSignal *Signal, parameters *config)
 
 	for(int block = 0; block < config->types.totalChunks; block++)
 	{
-		logmsg("==================== %s# %d (%d) ===================\n", GetBlockName(config, block), GetBlockSubIndex(config, block), block);
-			if(config->spreadsheet)
-				logmsg("Spreadsheet-%s#%d\n", GetBlockName(config, block), GetBlockSubIndex(config, block));
+		logmsg("==================== %s# %d (%d) ===================\n", 
+				GetBlockName(config, block), GetBlockSubIndex(config, block), block);
+		if(config->spreadsheet)
+			logmsg("Spreadsheet-%s#%d\n", GetBlockName(config, block), GetBlockSubIndex(config, block));
 
 		for(int j = 0; j < config->MaxFreq; j++)
 		{
+			if(config->significantVolume > Signal->Blocks[block].freq[j].amplitude)
+				break;
+
 			if(Signal->Blocks[block].freq[j].hertz)
 			{
-				logmsg("Frequency [%2d] %7g Hz Amplitude: %g Phase: %g",
+				logmsg("Frequency [%5d] %7g Hz Amplitude: %g Phase: %g",
 					j, 
 					Signal->Blocks[block].freq[j].hertz,
 					Signal->Blocks[block].freq[j].amplitude,
@@ -907,6 +944,9 @@ void PrintComparedBlocks(AudioBlocks *ReferenceArray, AudioBlocks *ComparedArray
 	/* changed Magnitude->amplitude */
 	for(int j = 0; j < config->MaxFreq; j++)
 	{
+		if(config->significantVolume > ReferenceArray->freq[j].amplitude)
+			break;
+
 		if(ReferenceArray->freq[j].hertz)
 		{
 			int match = 0;

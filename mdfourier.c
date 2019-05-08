@@ -257,28 +257,39 @@ int LoadFile(FILE *file, AudioSignal *Signal, parameters *config, char *fileName
 
 	fclose(file);
 
-	/* Find the start offset */
-	logmsg(" - Detecting start of signal: ");
-	Signal->startOffset = DetectPulse(Signal->Samples, Signal->header, config);
-	if(Signal->startOffset == -1)
+	if(GetFirstSyncIndex(config) != NO_INDEX)
 	{
-		logmsg("\nStarting Pulse train was not detected\n");
-		return 0;
+		/* Find the start offset */
+		logmsg(" - Detecting start of signal: ");
+		Signal->startOffset = DetectPulse(Signal->Samples, Signal->header, config);
+		if(Signal->startOffset == -1)
+		{
+			logmsg("\nStarting Pulse train was not detected\n");
+			return 0;
+		}
+		logmsg(" %gs\n", BytesToSeconds(Signal->header.SamplesPerSec, Signal->startOffset));
+
+		if(GetLastSyncIndex(config) != NO_INDEX)
+		{
+			logmsg(" - Detecting end of signal: ");
+			Signal->endOffset = DetectEndPulse(Signal->Samples, Signal->startOffset, Signal->header, config);
+			if(Signal->endOffset == -1)
+			{
+				logmsg("\nEnding Pulse train was not detected\n");
+				return 0;
+			}
+			logmsg(" %gs\n", BytesToSeconds(Signal->header.SamplesPerSec, Signal->endOffset));
+			Signal->framerate = (double)(Signal->endOffset-Signal->startOffset)*1000/((double)Signal->header.SamplesPerSec*4*
+								GetLastSyncFrameOffset(Signal->header, config));
+			Signal->framerate = RoundFloat(Signal->framerate, 2);
+			logmsg(" - Detected %g hz video signal (%gms per frame) from WAV file\n", 
+						RoundFloat(1000.0/Signal->framerate, 2), Signal->framerate);
+		}
+		else
+			Signal->framerate = GetPlatformMSPerFrame(config);
 	}
-	logmsg(" %gs\n", BytesToSeconds(Signal->header.SamplesPerSec, Signal->startOffset));
-	logmsg(" - Detecting end of signal: ");
-	Signal->endOffset = DetectEndPulse(Signal->Samples, Signal->startOffset, Signal->header, config);
-	if(Signal->endOffset == -1)
-	{
-		logmsg("\nEnding Pulse train was not detected\n");
-		return 0;
-	}
-	logmsg(" %gs\n", BytesToSeconds(Signal->header.SamplesPerSec, Signal->endOffset));
-	Signal->framerate = (double)(Signal->endOffset-Signal->startOffset)*1000/((double)Signal->header.SamplesPerSec*4*
-						GetLastSyncFrameOffset(Signal->header, config));
-	Signal->framerate = RoundFloat(Signal->framerate, 2);
-	logmsg(" - Detected %g hz video signal (%gms per frame) from WAV file\n", 
-				RoundFloat(1000.0/Signal->framerate, 2), Signal->framerate);
+	else
+		Signal->framerate = GetPlatformMSPerFrame(config);
 
 	if(seconds < GetSignalTotalDuration(Signal->framerate, config))
 		logmsg(" - File length is smaller than expected\n");

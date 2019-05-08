@@ -58,6 +58,8 @@ long int GetLastSyncFrameOffset(wav_hdr header, parameters *config);
 long int GetBlockFrameOffset(int block, parameters *config);
 double GetPulseSyncFreq(parameters *config);
 long int GetByteSizeDifferenceByFrameRate(double framerate, long int frames, long int samplerate, parameters *config);
+int GetFirstSyncIndex(parameters *config);
+int GetLastSyncIndex(parameters *config);
 
 AudioSignal *CreateAudioSignal(parameters *config);
 void CleanAudio(AudioSignal *Signal, parameters *config);
