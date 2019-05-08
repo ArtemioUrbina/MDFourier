@@ -43,6 +43,19 @@ typedef struct plot_st {
 	double			penWidth;
 } PlotFile;
 
+
+#define COLOR_NONE		0	
+#define COLOR_RED 		1
+#define COLOR_GREEN		2
+#define COLOR_BLUE		3
+#define COLOR_YELLOW	4
+#define COLOR_MAGENTA	5
+#define COLOR_AQUA		6
+#define COLOR_PURPLE	7
+#define COLOR_ORANGE	8
+#define COLOR_GRAY		9
+
+
 void PlotDifferentBlockAmplitudes(int block, parameters *config);
 void PlotAllDifferentAmplitudes(char *filename, parameters *config);
 void PlotAllMissingFrequencies(char *filename, parameters *config);
@@ -53,4 +66,6 @@ void PlotWindow(windowManager *wm, parameters *config);
 int FillPlot(PlotFile *plot, char *name, int sizex, int sizey, double x0, double y0, double x1, double y1, double penWidth, parameters *config);
 int CreatePlotFile(PlotFile *plot);
 int ClosePlot(PlotFile *plot);
+void SetPenColor(char *colorName, long int color, PlotFile *plot);
+int MatchColor(char *color);
 #endif

@@ -30,6 +30,7 @@
 #include "freq.h"
 #include "log.h"
 #include "cline.h"
+#include "plot.h"
 
 int IsCRTNoise(double freq)
 {
@@ -300,6 +301,28 @@ int LoadAudioBlockStructure(parameters *config)
 			fclose(file);
 			return 0;
 		}
+
+		if(!config->types.typeArray[i].elementCount)
+		{
+			printf("Element Count must have a value > 0\n");
+			fclose(file);
+			return 0;
+		}
+
+		if(!config->types.typeArray[i].frames)
+		{
+			printf("Frames must have a value > 0\n");
+			fclose(file);
+			return 0;
+		}
+	
+		if(MatchColor(config->types.typeArray[i].color) == COLOR_NONE)
+		{
+			printf("Unrecognized color \"%s\" aborting\n", 
+				config->types.typeArray[i].color);
+			fclose(file);
+			return 0;
+		}
 	}
 
 	config->types.regularChunks = GetActiveAudioBlocks(config);
@@ -498,7 +521,7 @@ long int GetBlockFrames(parameters *config, int pos)
 	for(int i = 0; i < config->types.typeCount; i++)
 	{
 		elementsCounted += config->types.typeArray[i].elementCount;
-		if(elementsCounted > pos)
+		if(elementsCounted >= pos)
 			return(config->types.typeArray[i].frames);
 	}
 	
@@ -515,7 +538,7 @@ char *GetBlockName(parameters *config, int pos)
 	for(int i = 0; i < config->types.typeCount; i++)
 	{
 		elementsCounted += config->types.typeArray[i].elementCount;
-		if(elementsCounted > pos)
+		if(elementsCounted >= pos)
 			return(config->types.typeArray[i].typeName);
 	}
 	
@@ -532,7 +555,7 @@ int GetBlockSubIndex(parameters *config, int pos)
 	for(int i = 0; i < config->types.typeCount; i++)
 	{
 		elementsCounted += config->types.typeArray[i].elementCount;
-		if(elementsCounted > pos)
+		if(elementsCounted >= pos)
 			return(pos - last);
 		last = elementsCounted;
 	}
@@ -550,7 +573,7 @@ int GetBlockType(parameters *config, int pos)
 	for(int i = 0; i < config->types.typeCount; i++)
 	{
 		elementsCounted += config->types.typeArray[i].elementCount;
-		if(elementsCounted > pos)
+		if(elementsCounted >= pos)
 			return(config->types.typeArray[i].type);
 	}
 	
@@ -562,16 +585,16 @@ char *GetBlockColor(parameters *config, int pos)
 	int elementsCounted = 0;
 
 	if(!config)
-		return "white";
+		return "nconfig";
 
 	for(int i = 0; i < config->types.typeCount; i++)
 	{
 		elementsCounted += config->types.typeArray[i].elementCount;
-		if(elementsCounted > pos)
+		if(elementsCounted >= pos)
 			return(config->types.typeArray[i].color);
 	}
 	
-	return "white";
+	return "black";
 }
 
 void FindFloor(AudioSignal *Signal, parameters *config)

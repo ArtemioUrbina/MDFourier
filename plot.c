@@ -181,18 +181,7 @@ void PlotAllDifferentAmplitudes(char *filename, parameters *config)
 				intensity = CalculateWeightedError(range_0_1, config);
 				color = intensity*0xffff;
 
-				switch(GetBlockType(config, b))
-				{
-					case 1:
-						pl_pencolor_r(plot.plotter, 0, color, 0);
-						break;
-					case 2:
-						pl_pencolor_r(plot.plotter, color, color, 0);
-						break;
-					case 3:
-						pl_pencolor_r(plot.plotter, 0, color, color);
-						break;
-				}
+				SetPenColor(GetBlockColor(config, b), color, &plot);
 				pl_fpoint_r(plot.plotter, config->Differences.BlockDiffArray[b].amplDiffArray[a].hertz, 
 						config->Differences.BlockDiffArray[b].amplDiffArray[a].diffAmplitude);
 			}
@@ -256,18 +245,7 @@ void PlotAllMissingFrequencies(char *filename, parameters *config)
 				intensity = CalculateWeightedError(range_0_1, config);
 				color = intensity*0xffff;
 	
-				switch(GetBlockType(config, b))
-				{
-					case 1:
-						pl_pencolor_r(plot.plotter, 0, color, 0);
-						break;
-					case 2:
-						pl_pencolor_r(plot.plotter, color, color, 0);
-						break;
-					case 3:
-						pl_pencolor_r(plot.plotter, 0, color, color);
-						break;
-				}
+				SetPenColor(GetBlockColor(config, b), color, &plot);
 				pl_fpoint_r(plot.plotter, config->Differences.BlockDiffArray[b].freqMissArray[f].hertz, 
 						config->Differences.BlockDiffArray[b].freqMissArray[f].amplitude);
 			}
@@ -317,18 +295,7 @@ void PlotSpectrogram(char *filename, AudioSignal *Signal, int block, parameters 
 		intensity = CalculateWeightedError(range_0_1, config);
 		color = intensity*0xffff;
 
-		switch(GetBlockType(config, block))
-		{
-			case 1:
-				pl_pencolor_r(plot.plotter, 0, color, 0);
-				break;
-			case 2:
-				pl_pencolor_r(plot.plotter, color, color, 0);
-				break;
-			case 3:
-				pl_pencolor_r(plot.plotter, 0, color, color);
-				break;
-		}
+		SetPenColor(GetBlockColor(config, block), color, &plot);
 		pl_fcont_r(plot.plotter, Signal->Blocks[block].freq[i].hertz, 
 				Signal->Blocks[block].freq[i].amplitude);
 	}
@@ -431,18 +398,7 @@ void PlotAllSpectrogram(char *filename, AudioSignal *Signal, parameters *config)
 				intensity = CalculateWeightedError(range_0_1, config);
 				color = intensity*0xffff;
 		
-				switch(GetBlockType(config, b))
-				{
-					case 1:
-						pl_pencolor_r(plot.plotter, 0, color, 0);
-						break;
-					case 2:
-						pl_pencolor_r(plot.plotter, color, color, 0);
-						break;
-					case 3:
-						pl_pencolor_r(plot.plotter, 0, color, color);
-						break;
-				}
+				SetPenColor(GetBlockColor(config, b), color, &plot);
 				pl_fpoint_r(plot.plotter, Signal->Blocks[b].freq[i].hertz, 
 						Signal->Blocks[b].freq[i].amplitude);
 			}
@@ -482,4 +438,70 @@ void PlotWindow(windowManager *wm, parameters *config)
 		pl_fpoint_r(plot.plotter, (double)i/(double)size, window[i]);
 	
 	ClosePlot(&plot);
+}
+
+int MatchColor(char *color)
+{
+	int i = 0;
+
+	for(i = 0; i < strlen(color); i++)
+		color[i] = tolower(color[i]);
+
+	if(strcmp(color, "red") == 0)
+		return(COLOR_RED);
+	if(strcmp(color, "green") == 0)
+		return(COLOR_GREEN);
+	if(strcmp(color, "blue") == 0)
+		return(COLOR_BLUE);
+	if(strcmp(color, "yellow") == 0)
+		return(COLOR_YELLOW);
+	if(strcmp(color, "magenta") == 0)
+		return(COLOR_MAGENTA);
+	if(strcmp(color, "aqua") == 0 || strcmp(color, "aquamarine") == 0)
+		return(COLOR_AQUA);
+	if(strcmp(color, "orange") == 0)
+		return(COLOR_ORANGE);
+	if(strcmp(color, "purple") == 0)
+		return(COLOR_PURPLE);
+	if(strcmp(color, "gray") == 0 || strcmp(color, "white") == 0)
+		return(COLOR_GRAY);
+	return COLOR_NONE;
+}
+
+void SetPenColor(char *colorName, long int color, PlotFile *plot)
+{
+	switch(MatchColor(colorName))
+	{
+		case COLOR_RED:
+			pl_pencolor_r(plot->plotter, color, 0, 0);
+			break;
+		case COLOR_GREEN:
+			pl_pencolor_r(plot->plotter, 0, color, 0);
+			break;
+		case COLOR_BLUE:
+			pl_pencolor_r(plot->plotter, 0, 0, color);
+			break;
+		case COLOR_YELLOW:
+			pl_pencolor_r(plot->plotter, color, color, 0);
+			break;
+		case COLOR_AQUA:
+			pl_pencolor_r(plot->plotter, 0, color, color);
+			break;
+		case COLOR_MAGENTA:
+			pl_pencolor_r(plot->plotter, color, 0, color);
+			break;
+		case COLOR_PURPLE:
+			pl_pencolor_r(plot->plotter, color/2, 0, color);
+			break;
+		case COLOR_ORANGE:
+			pl_pencolor_r(plot->plotter, color, color/2, 0);
+			break;
+		case COLOR_GRAY:
+			pl_pencolor_r(plot->plotter, color, color, color);
+			break;
+		default:
+			logmsg("Unmatched color %s, using green", colorName);
+			pl_pencolor_r(plot->plotter, 0, color, 0);
+			break;
+	}
 }
