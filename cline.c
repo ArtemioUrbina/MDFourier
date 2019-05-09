@@ -85,7 +85,7 @@ void CleanParameters(parameters *config)
 	config->relativeMaxMagnitude = 0;
 	config->ignoreFloor = 0;
 	config->useOutputFilter = 1;
-	config->outputFilterFunction = 1;
+	config->outputFilterFunction = 2;
 	config->Differences.BlockDiffArray = NULL;
 	config->Differences.cntFreqAudioDiff = 0;
 	config->Differences.cntAmplAudioDiff = 0;
@@ -152,8 +152,8 @@ int commandline(int argc , char *argv[], parameters *config)
 		break;
 	  case 'o':
 		config->outputFilterFunction = atoi(optarg);
-		if(config->outputFilterFunction < 0 || config->outputFilterFunction > 6)
-			config->outputFilterFunction = 1;
+		if(config->outputFilterFunction < 0 || config->outputFilterFunction > 5)
+			config->outputFilterFunction = 2;
 		if(!config->outputFilterFunction)
 			config->useOutputFilter = 0;
 		break;

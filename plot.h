@@ -55,17 +55,47 @@ typedef struct plot_st {
 #define COLOR_ORANGE	8
 #define COLOR_GRAY		9
 
+typedef struct flat_ampl_diff_st {
+	double	hertz;
+	double	refAmplitude;
+	double	diffAmplitude;
+	int		type;
+	int		color;
+} FlatAmplDifference;
 
-void PlotDifferentBlockAmplitudes(int block, parameters *config);
-void PlotAllDifferentAmplitudes(char *filename, parameters *config);
-void PlotAllMissingFrequencies(char *filename, parameters *config);
-void PlotSpectrogram(char *filename, AudioSignal *Signal, int block, parameters *config);
-void PlotAllSpectrogram(char *filename, AudioSignal *Signal, parameters *config);
-void PlotAllSpectrogramLineBased(char *filename, AudioSignal *Signal, parameters *config);
-void PlotWindow(windowManager *wm, parameters *config);
+typedef struct flat_freq_diff_st {
+	double	hertz;
+	double	amplitude;
+	int		type;
+	int		color;
+} FlatFreqDifference;
+
+void PlotResults(AudioSignal *Signal, parameters *config);
+
 int FillPlot(PlotFile *plot, char *name, int sizex, int sizey, double x0, double y0, double x1, double y1, double penWidth, parameters *config);
 int CreatePlotFile(PlotFile *plot);
 int ClosePlot(PlotFile *plot);
-void SetPenColor(char *colorName, long int color, PlotFile *plot);
+void SetPenColorStr(char *colorName, long int color, PlotFile *plot);
+void SetPenColor(int colorIndex, long int color, PlotFile *plot);
 int MatchColor(char *color);
+
+void PlotAllDifferentAmplitudes(FlatAmplDifference *amplDiff, char *filename, parameters *config);
+int PlotEachTypeDifferentAmplitudes(FlatAmplDifference *amplDiff, char *filename, parameters *config);
+void PlotSingleTypeDifferentAmplitudes(FlatAmplDifference *amplDiff, int type, char *filename, parameters *config);
+
+int PlotEachTypeMissingFrequencies(FlatFreqDifference *freqDiff, char *filename, parameters *config);
+void PlotSingleTypeMissingFrequencies(FlatFreqDifference *freqDiff, int type, char *filename, parameters *config);
+void PlotAllMissingFrequencies(FlatFreqDifference *freqDiff, char *filename, parameters *config);
+
+void PlotAllSpectrogram(char *filename, AudioSignal *Signal, parameters *config);
+//void PlotAllSpectrogramLineBased(char *filename, AudioSignal *Signal, parameters *config);
+
+void PlotWindow(windowManager *wm, parameters *config);
+void PlotBetaFunctions(parameters *config);
+
+FlatAmplDifference *CreateFlatDifferences(parameters *config);
+FlatFreqDifference *CreateFlatMissing(parameters *config);
+
+
+
 #endif

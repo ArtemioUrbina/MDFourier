@@ -124,11 +124,13 @@ int main(int argc , char *argv[])
 		return 1;
 	}
 
+	/* Detect Signal Floor */
 	if(ReferenceSignal->hasFloor && !config.ignoreFloor && 
 		ReferenceSignal->floorAmplitude > config.significantVolume)
 	{
 		config.significantVolume = ReferenceSignal->floorAmplitude;
-		logmsg(" - Using as minimum significant volume for analisys\n");
+		logmsg(" - Using %g as minimum significant volume for analisys\n",
+			config.significantVolume);
 		CreateBaseName(&config);
 	}
 
@@ -142,37 +144,34 @@ int main(int argc , char *argv[])
 
 	logmsg("* Comparing frequencies Reference -> Target\n");
 	CompareAudioBlocks(ReferenceSignal, TestSignal, &config);
-	if(config.normalize == 'r')
-		config.relativeMaxMagnitude = 0.0;
 
-	logmsg("* Plotting results to PNGs\n");
-	PlotAllDifferentAmplitudes(config.compareName, &config);
-	PlotAllSpectrogram(basename(ReferenceSignal->SourceFile), ReferenceSignal, &config);
-	PlotAllMissingFrequencies(config.compareName, &config);
-	//PrintDifferenceArray(config);
+	PlotResults(ReferenceSignal, &config);
 
+	/* Clear up everything for inverse compare */
 	CleanMatched(ReferenceSignal, TestSignal, &config);
 	ReleaseDifferenceArray(&config);
 	InvertComparedName(&config);
 
+	if(config.normalize == 'r')
+		config.relativeMaxMagnitude = 0.0;
+
+	/* Detect Signal Floor */
 	config.significantVolume = config.origSignificantVolume;
 	if(TestSignal->hasFloor && !config.ignoreFloor && 
 		TestSignal->floorAmplitude > config.significantVolume)
 	{
 		config.significantVolume = TestSignal->floorAmplitude;
-		logmsg(" - Using as minimum significant volume for analisys\n");
+		logmsg(" - Using %g as minimum significant volume for analisys\n",
+			config.significantVolume);
 		CreateBaseName(&config);
 	}
 
 	logmsg("* Comparing frequencies Target -> Reference\n");
 	CompareAudioBlocks(TestSignal, ReferenceSignal, &config);
 
-	logmsg("* Plotting results to PNGs\n");
-	PlotAllDifferentAmplitudes(config.compareName, &config);
-	PlotAllSpectrogram(basename(TestSignal->SourceFile), TestSignal, &config);
-	PlotAllMissingFrequencies(config.compareName, &config);
-	//PrintDifferenceArray(config);
+	PlotResults(TestSignal, &config);
 
+	/* Clear up everything */
 	ReleaseDifferenceArray(&config);
 
 	ReleaseAudio(ReferenceSignal, &config);

@@ -653,7 +653,7 @@ void FindFloor(AudioSignal *Signal, parameters *config)
 		{
 			Signal->floorAmplitude = Signal->Blocks[index].freq[i].amplitude;
 			Signal->floorFreq = Signal->Blocks[index].freq[i].hertz;
-			logmsg(" - Silence block max volume: %g Hz at %0.4f.db\n",
+			logmsg(" - Silence block max volume: %g Hz at %0.4f db\n",
 				Signal->floorFreq, Signal->floorAmplitude);
 			return;
 		}
@@ -1000,27 +1000,24 @@ double CalculateWeightedError(double pError, parameters *config)
 			pError = 1;
 			break;
 		case 1:
+			// Linear
 			pError = pError;
 			break;
 		case 2:
 			/* Map to Beta function */
-			pError = incbeta(8.0, 8.0, pError);
+			pError = incbeta(4.0, 8.0, pError);
 			break;
 		case 3:
 			/* Map to Beta function */
-			pError = incbeta(6.0, 4.0, pError);
+			pError = incbeta(6.0, 8.0, pError);
 			break;
 		case 4:
-			/* Map to Beta function */
-			pError = incbeta(4.0, 2.0, pError);
+			/* Map to Beta function */			
+			pError = incbeta(8.0, 8.0, pError);
 			break;
 		case 5:
 			/* Map to Beta function */
-			pError = incbeta(1.0, 3.0, pError);
-			break;
-		case 6:
-			/* Map to Beta function */
-			pError = incbeta(0.5, 6, pError);
+			pError = incbeta(8.0, 6.0, pError);
 			break;
 		default:
 			/* This is unexpected behaviour, log it */
