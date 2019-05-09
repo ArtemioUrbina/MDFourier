@@ -37,6 +37,8 @@
 #define LINE_BUFFER_SIZE	1024
 #define PARAM_BUFFER_SIZE	512
 
+#define readLine(buffer, file) if(fgets(buffer, LINE_BUFFER_SIZE, file) == NULL) { logmsg("Invalid mdfblocks.mfn file\n");	return 0;	}
+
 double FramesToSeconds(double frames, double framerate);
 long int SecondsToBytes(long int samplerate, double seconds, int *leftover, int *discard);
 
@@ -74,7 +76,6 @@ void GlobalNormalize(AudioSignal *Signal, parameters *config);
 void LocalNormalize(AudioBlocks *AudioArray, parameters *config);
 void CompressFrequencies(AudioBlocks *AudioArray, parameters *config);
 void FindFloor(AudioSignal *Signal, parameters *config);
-void SortFrequencies(AudioSignal *Signal, parameters *config);
 int IsCRTNoise(double freq);
 
 void PrintComparedBlocks(AudioBlocks *ReferenceArray, AudioBlocks *ComparedArray, parameters *config, AudioSignal *Signal);

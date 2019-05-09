@@ -115,10 +115,48 @@ int ClosePlot(PlotFile *plot)
 	return 1;
 }
 
+void DrawGridZeroDBCentered(PlotFile *plot, int dbs, int dbIncrement, int hz, int hzIncrement, parameters *config)
+{
+	pl_pencolor_r (plot->plotter, 0, 0xcccc, 0);
+	pl_fline_r(plot->plotter, 0, 0, hz, 0);
+
+	pl_pencolor_r (plot->plotter, 0, 0x5555, 0);
+	for(int i = dbIncrement; i < dbs; i += dbIncrement)
+	{
+		pl_fline_r(plot->plotter, 0, i, hz, i);
+		pl_fline_r(plot->plotter, 0, -1*i, hz, -1*i);
+	}
+
+	pl_pencolor_r (plot->plotter, 0, 0x5555, 0);
+	for(int i = 0; i < hz; i += hzIncrement)
+		pl_fline_r(plot->plotter, transformtoLog(i, hz, config), -1*dbs, transformtoLog(i, hz, config), dbs);
+
+	pl_pencolor_r (plot->plotter, 0, 0xFFFF, 0);
+}
+
+void DrawGridZeroToLimit(PlotFile *plot, int dbs, int dbIncrement, int hz, int hzIncrement, parameters *config)
+{
+	pl_pencolor_r (plot->plotter, 0, 0xaaaa, 0);
+	pl_fline_r(plot->plotter, 0, 0, hz, 0);
+
+	pl_pencolor_r (plot->plotter, 0, 0x7777, 0);
+	for(int i = dbIncrement; i < fabs(dbs); i += dbIncrement)
+		pl_fline_r(plot->plotter, 0, -1*i, hz, -1*i);
+
+	pl_pencolor_r (plot->plotter, 0, 0x7777, 0);
+	for(int i = 0; i < hz; i += hzIncrement)
+		pl_fline_r(plot->plotter, transformtoLog(i, hz, config), dbs, transformtoLog(i, hz, config), 0);
+
+	pl_pencolor_r (plot->plotter, 0, 0xFFFF, 0);
+	pl_flinewidth_r(plot->plotter, SPECTR_WIDTH);
+}
+
 void PlotResults(AudioSignal *Signal, parameters *config)
 {
-	FlatAmplDifference *amplDiff;
-	FlatFreqDifference *freqDiff;
+	FlatAmplDifference	*amplDiff = NULL;
+	FlatFreqDifference	*freqDiff = NULL;
+	FlatFrequency		*frequencies = NULL;
+	long int			size = 0;
 
 	logmsg("* Plotting results to PNGs\n");
 
@@ -135,14 +173,19 @@ void PlotResults(AudioSignal *Signal, parameters *config)
 	free(amplDiff);
 	amplDiff = NULL;
 
-	PlotAllSpectrogram(basename(Signal->SourceFile), Signal, config);
-
 	freqDiff = CreateFlatMissing(config);
 	if(PlotEachTypeMissingFrequencies(freqDiff, config->compareName, config) > 1)
 		PlotAllMissingFrequencies(freqDiff, config->compareName, config);
 
 	free(amplDiff);
 	amplDiff = NULL;
+
+	frequencies = CreateFlatFrequencies(Signal, &size, config);
+	if(PlotEachTypeSpectrogram(frequencies, size, basename(Signal->SourceFile), config) > 1)
+		PlotAllSpectrogram(frequencies, size, basename(Signal->SourceFile), config);
+
+	free(frequencies);
+	frequencies = NULL;
 }
 
 void PlotAllDifferentAmplitudes(FlatAmplDifference *amplDiff, char *filename, parameters *config)
@@ -160,27 +203,13 @@ void PlotAllDifferentAmplitudes(FlatAmplDifference *amplDiff, char *filename, pa
 	if(!config->Differences.BlockDiffArray)
 		return;
 
-	sprintf(name, "DifferentAmplitudes_%s", filename);
+	sprintf(name, "DifferentAmplitudes_ALL_%s", filename);
 	FillPlot(&plot, name, PLOT_RES_X, PLOT_RES_Y, 0, -1*dbs, TOP_FREQUENCY, dbs, 1, config);
 
 	if(!CreatePlotFile(&plot))
 		return;
 
-	pl_pencolor_r (plot.plotter, 0, 0xcccc, 0);
-	pl_fline_r(plot.plotter, 0, 0, TOP_FREQUENCY, 0);
-
-	pl_pencolor_r (plot.plotter, 0, 0x5555, 0);
-	for(int i = 3; i < dbs; i += 3)
-	{
-		pl_fline_r(plot.plotter, 0, i, TOP_FREQUENCY, i);
-		pl_fline_r(plot.plotter, 0, -1*i, TOP_FREQUENCY, -1*i);
-	}
-
-	pl_pencolor_r (plot.plotter, 0, 0x5555, 0);
-	for(int i = 0; i < TOP_FREQUENCY; i += 1000)
-		pl_fline_r(plot.plotter, transformtoLog(i, TOP_FREQUENCY, config), -1*dbs, transformtoLog(i, TOP_FREQUENCY, config), dbs);
-
-	pl_pencolor_r (plot.plotter, 0, 0xFFFF, 0);
+	DrawGridZeroDBCentered(&plot, dbs, 3, TOP_FREQUENCY, 1000, config);
 
 	for(int a = 0; a < config->Differences.cntAmplAudioDiff; a++)
 	{
@@ -195,7 +224,6 @@ void PlotAllDifferentAmplitudes(FlatAmplDifference *amplDiff, char *filename, pa
 			color = intensity*0xffff;
 
 			SetPenColor(amplDiff[a].color, color, &plot);
-			//pl_fpoint_r(plot.plotter, amplDiff[a].hertz, amplDiff[a].diffAmplitude);
 			pl_fpoint_r(plot.plotter, transformtoLog(amplDiff[a].hertz, TOP_FREQUENCY, config), amplDiff[a].diffAmplitude);
 		}
 	}
@@ -247,21 +275,7 @@ void PlotSingleTypeDifferentAmplitudes(FlatAmplDifference *amplDiff, int type, c
 	if(!CreatePlotFile(&plot))
 		return;
 
-	pl_pencolor_r (plot.plotter, 0, 0xcccc, 0);
-	pl_fline_r(plot.plotter, 0, 0, TOP_FREQUENCY, 0);
-
-	pl_pencolor_r (plot.plotter, 0, 0x5555, 0);
-	for(int i = 3; i < dbs; i += 3)
-	{
-		pl_fline_r(plot.plotter, 0, i, TOP_FREQUENCY, i);
-		pl_fline_r(plot.plotter, 0, -1*i, TOP_FREQUENCY, -1*i);
-	}
-
-	pl_pencolor_r (plot.plotter, 0, 0x5555, 0);
-	for(int i = 0; i < TOP_FREQUENCY; i += 1000)
-		pl_fline_r(plot.plotter, transformtoLog(i, TOP_FREQUENCY, config), -1*dbs, transformtoLog(i, TOP_FREQUENCY, config), dbs);
-
-	pl_pencolor_r (plot.plotter, 0, 0xFFFF, 0);
+	DrawGridZeroDBCentered(&plot, dbs, 3, TOP_FREQUENCY, 1000, config);
 
 	for(int a = 0; a < config->Differences.cntAmplAudioDiff; a++)
 	{
@@ -301,25 +315,14 @@ void PlotAllMissingFrequencies(FlatFreqDifference *freqDiff, char *filename, par
 	if(!config->Differences.BlockDiffArray)
 		return;
 
-	sprintf(name, "MissingFrequencies_%s", filename);
+	sprintf(name, "MissingFrequencies_ALL_%s", filename);
 	FillPlot(&plot, name, PLOT_RES_X, PLOT_RES_Y, 0, config->significantVolume, TOP_FREQUENCY, 0.0, 1, config);
 
 	if(!CreatePlotFile(&plot))
 		return;
 
-	pl_pencolor_r (plot.plotter, 0, 0xaaaa, 0);
-	pl_fline_r(plot.plotter, 0, 0, TOP_FREQUENCY, 0);
+	DrawGridZeroDBCentered(&plot, config->significantVolume, 3, TOP_FREQUENCY, 1000, config);
 
-	pl_pencolor_r (plot.plotter, 0, 0x7777, 0);
-	for(int i = 3; i < fabs(config->significantVolume); i += 3)
-		pl_fline_r(plot.plotter, 0, -1*i, TOP_FREQUENCY, -1*i);
-
-	pl_pencolor_r (plot.plotter, 0, 0x7777, 0);
-	for(int i = 0; i < TOP_FREQUENCY; i += 1000)
-		pl_fline_r(plot.plotter, transformtoLog(i, TOP_FREQUENCY, config), config->significantVolume, transformtoLog(i, TOP_FREQUENCY, config), 0);
-
-	pl_pencolor_r (plot.plotter, 0, 0xFFFF, 0);
-	pl_flinewidth_r(plot.plotter, SPECTR_WIDTH);
 	for(int f = 0; f < config->Differences.cntFreqAudioDiff; f++)
 	{
 		if(freqDiff[f].type > TYPE_CONTROL)
@@ -336,8 +339,7 @@ void PlotAllMissingFrequencies(FlatFreqDifference *freqDiff, char *filename, par
 			color = intensity*0xffff;
 
 			SetPenColor(freqDiff[f].color, color, &plot);
-			pl_fline_r(plot.plotter, x,	y, x, y+SPECTR_Y_FACTOR);
-			pl_endpath_r(plot.plotter);
+			pl_fline_r(plot.plotter, x,	y, x, config->significantVolume);
 		}
 	}
 	ClosePlot(&plot);
@@ -376,19 +378,8 @@ void PlotSingleTypeMissingFrequencies(FlatFreqDifference *freqDiff, int type, ch
 	if(!CreatePlotFile(&plot))
 		return;
 
-	pl_pencolor_r (plot.plotter, 0, 0xaaaa, 0);
-	pl_fline_r(plot.plotter, 0, 0, TOP_FREQUENCY, 0);
+	DrawGridZeroDBCentered(&plot, config->significantVolume, 3, TOP_FREQUENCY, 1000, config);
 
-	pl_pencolor_r (plot.plotter, 0, 0x7777, 0);
-	for(int i = 3; i < fabs(config->significantVolume); i += 3)
-		pl_fline_r(plot.plotter, 0, -1*i, TOP_FREQUENCY, -1*i);
-
-	pl_pencolor_r (plot.plotter, 0, 0x7777, 0);
-	for(int i = 0; i < TOP_FREQUENCY; i += 1000)
-		pl_fline_r(plot.plotter, transformtoLog(i, TOP_FREQUENCY, config), config->significantVolume, transformtoLog(i, TOP_FREQUENCY, config), 0);
-
-	pl_pencolor_r (plot.plotter, 0, 0xFFFF, 0);
-	pl_flinewidth_r(plot.plotter, SPECTR_WIDTH);
 	for(int f = 0; f < config->Differences.cntFreqAudioDiff; f++)
 	{
 		if(freqDiff[f].type == type)
@@ -404,14 +395,13 @@ void PlotSingleTypeMissingFrequencies(FlatFreqDifference *freqDiff, int type, ch
 			color = intensity*0xffff;
 
 			SetPenColor(freqDiff[f].color, color, &plot);
-			pl_fline_r(plot.plotter, x,	y, x, y+SPECTR_Y_FACTOR);
-			pl_endpath_r(plot.plotter);
+			pl_fline_r(plot.plotter, x,	y, x, config->significantVolume);
 		}
 	}
 	ClosePlot(&plot);
 }
 
-void PlotAllSpectrogram(char *filename, AudioSignal *Signal, parameters *config)
+void PlotAllSpectrogram(FlatFrequency *freqs, long int size, char *filename, parameters *config)
 {
 	PlotFile plot;
 	char	 name[2048];
@@ -419,112 +409,87 @@ void PlotAllSpectrogram(char *filename, AudioSignal *Signal, parameters *config)
 	if(!config)
 		return;
 
-	sprintf(name, "Spectrogram_%s", filename);
+	sprintf(name, "Spectrogram_ALL_%s", filename);
 	FillPlot(&plot, name, PLOT_RES_X, PLOT_RES_Y, 0, config->significantVolume, TOP_FREQUENCY, 0.0, 1, config);
 
 	if(!CreatePlotFile(&plot))
 		return;
 
-	pl_pencolor_r (plot.plotter, 0, 0xbbbb, 0);
-	pl_fline_r(plot.plotter, 0, 0, TOP_FREQUENCY, 0);
+	DrawGridZeroDBCentered(&plot, config->significantVolume, 3, TOP_FREQUENCY, 1000, config);
 
-	pl_pencolor_r (plot.plotter, 0, 0x5555, 0);
-	for(int i = 3; i < fabs(config->significantVolume); i += 3)
-		pl_fline_r(plot.plotter, 0, -1*i, TOP_FREQUENCY, -1*i);
-
-	pl_pencolor_r (plot.plotter, 0, 0x5555, 0);
-	for(int i = 0; i < TOP_FREQUENCY; i += 1000)
-		pl_fline_r(plot.plotter, transformtoLog(i, TOP_FREQUENCY, config), config->significantVolume, transformtoLog(i, TOP_FREQUENCY, config), 0);
-
-	pl_pencolor_r (plot.plotter, 0, 0xFFFF, 0);
-	pl_flinewidth_r(plot.plotter, SPECTR_WIDTH);
-	for(int b = 0; b < config->types.totalChunks; b++)
+	for(int f = 0; f < size; f++)
 	{
-		int type;
-
-		type = GetBlockType(config, b);
-		if(type > TYPE_CONTROL)
+		if(freqs[f].type > TYPE_CONTROL)
 		{ 
-			for(int i = 0; i < config->MaxFreq; i++)
-			{
-				double range_0_1;
-				long int color;
-				double intensity, x, y;
+			double range_0_1;
+			long int color;
+			double intensity, x, y;
 
-				x = transformtoLog(Signal->Blocks[b].freq[i].hertz, TOP_FREQUENCY, config);
-				y = Signal->Blocks[b].freq[i].amplitude;
-				range_0_1 = (fabs(config->significantVolume) - fabs(Signal->Blocks[b].freq[i].amplitude))/fabs(config->significantVolume);
-				intensity = CalculateWeightedError(range_0_1, config);
-				color = intensity*0xffff;
-		
-				SetPenColorStr(GetBlockColor(config, b), color, &plot);
-				pl_fline_r(plot.plotter, x,	y, x, y+SPECTR_Y_FACTOR);
-				pl_endpath_r(plot.plotter);
-			}
-		}
-	}
-	ClosePlot(&plot);
-}
-
-/*
-void PlotAllSpectrogramLineBased(char *filename, AudioSignal *Signal, parameters *config)
-{
-	PlotFile plot;
-	char	 name[2048];
-
-	if(!config)
-		return;
-
-	sprintf(name, "Spectrogram_Line_%s", filename);
-	FillPlot(&plot, name, PLOT_RES_X, PLOT_RES_Y, 0, config->significantVolume, TOP_FREQUENCY, 0.0, 1, config);
-
-	if(!CreatePlotFile(&plot))
-		return;
-
-	pl_pencolor_r (plot.plotter, 0, 0xbbbb, 0);
-	pl_fline_r(plot.plotter, 0, 0, TOP_FREQUENCY, 0);
-
-	pl_pencolor_r (plot.plotter, 0, 0x5555, 0);
-	for(int i = 3; i < fabs(config->significantVolume); i += 3)
-		pl_fline_r(plot.plotter, 0, -1*i, TOP_FREQUENCY, -1*i);
-
-	pl_pencolor_r (plot.plotter, 0, 0x5555, 0);
-	for(int i = 0; i < TOP_FREQUENCY; i += 1000)
-		pl_fline_r(plot.plotter, i, config->significantVolume, i, 0);
-
-	pl_pencolor_r (plot.plotter, 0, 0xFFFF, 0);
+			x = transformtoLog(freqs[f].hertz, TOP_FREQUENCY, config);
+			y = freqs[f].amplitude;
+			range_0_1 = (fabs(config->significantVolume) - fabs(freqs[f].amplitude))/fabs(config->significantVolume);
+			intensity = CalculateWeightedError(range_0_1, config);
+			color = intensity*0xffff;
 	
-	SortFrequencies(Signal, config);
-
-	for(int b = 0; b < config->types.totalChunks; b++)
-	{
-		int type;
-
-		pl_fline_r(plot.plotter, 0, -1*config->significantVolume, 1, -1*config->significantVolume);
-		type = GetBlockType(config, b);
-		if(type > TYPE_CONTROL)
-		{ 
-			pl_pencolorname_r(plot.plotter, GetBlockColor(config, b));
-			for(int i = 0; i < config->MaxFreq; i++)
-			{
-				double range_0_1;
-				long int color;
-				double intensity;
-		
-				range_0_1 = (fabs(config->significantVolume) - fabs(Signal->Blocks[b].freq[i].amplitude))/fabs(config->significantVolume);
-				intensity = CalculateWeightedError(range_0_1, config);
-				color = intensity*0xffff;
-		
-				SetPenColorStr(GetBlockColor(config, b), color, &plot);
-				pl_fcont_r(plot.plotter, Signal->Blocks[b].freq[i].hertz, 
-						Signal->Blocks[b].freq[i].amplitude);
-			}
-			pl_endpath_r(plot.plotter);
+			SetPenColor(freqs[f].color, color, &plot);
+			pl_fline_r(plot.plotter, x,	y, x, config->significantVolume);
 		}
 	}
 	ClosePlot(&plot);
 }
-*/
+
+int PlotEachTypeSpectrogram(FlatFrequency *freqs, long int size, char *filename, parameters *config)
+{
+	int 		i = 0, type = 0, types = 0;
+	char		name[2048];
+
+	for(i = 0; i < config->types.typeCount; i++)
+	{
+		type = config->types.typeArray[i].type;
+		if(type > TYPE_CONTROL)
+		{
+			sprintf(name, "Spectrogram_%s_%s", filename, config->types.typeArray[i].typeName);
+			PlotSingleTypeSpectrogram(freqs, size, type, name, config);
+			types ++;
+		}
+	}
+	return types;
+}
+
+void PlotSingleTypeSpectrogram(FlatFrequency *freqs, long int size, int type, char *filename, parameters *config)
+{
+	PlotFile plot;
+
+	if(!config)
+		return;
+
+	FillPlot(&plot, filename, PLOT_RES_X, PLOT_RES_Y, 0, config->significantVolume, TOP_FREQUENCY, 0.0, 1, config);
+
+	if(!CreatePlotFile(&plot))
+		return;
+
+	DrawGridZeroDBCentered(&plot, config->significantVolume, 3, TOP_FREQUENCY, 1000, config);
+
+	for(int f = 0; f < size; f++)
+	{
+		if(freqs[f].type == type)
+		{ 
+			double range_0_1;
+			long int color;
+			double intensity, x, y;
+
+			x = transformtoLog(freqs[f].hertz, TOP_FREQUENCY, config);
+			y = freqs[f].amplitude;
+			range_0_1 = (fabs(config->significantVolume) - fabs(freqs[f].amplitude))/fabs(config->significantVolume);
+			intensity = CalculateWeightedError(range_0_1, config);
+			color = intensity*0xffff;
+	
+			SetPenColor(freqs[f].color, color, &plot);
+			pl_fline_r(plot.plotter, x,	y, x, config->significantVolume);
+		}
+	}
+	ClosePlot(&plot);
+}
 
 void PlotWindow(windowManager *wm, parameters *config)
 {
@@ -613,30 +578,31 @@ void PlotBetaFunctions(parameters *config)
 
 int MatchColor(char *color)
 {
-	/*
-	int i = 0;
+	int		i = 0;
+	char	colorcopy[512];
 
-	for(i = 0; i < strlen(color); i++)
-		color[i] = tolower(color[i]);
-	*/
+	strncpy(colorcopy, color, 512);
 
-	if(strcmp(color, "red") == 0)
+	for(i = 0; i < strlen(colorcopy); i++)
+		colorcopy[i] = tolower(colorcopy[i]);
+
+	if(strcmp(colorcopy, "red") == 0)
 		return(COLOR_RED);
-	if(strcmp(color, "green") == 0)
+	if(strcmp(colorcopy, "green") == 0)
 		return(COLOR_GREEN);
-	if(strcmp(color, "blue") == 0)
+	if(strcmp(colorcopy, "blue") == 0)
 		return(COLOR_BLUE);
-	if(strcmp(color, "yellow") == 0)
+	if(strcmp(colorcopy, "yellow") == 0)
 		return(COLOR_YELLOW);
-	if(strcmp(color, "magenta") == 0)
+	if(strcmp(colorcopy, "magenta") == 0)
 		return(COLOR_MAGENTA);
-	if(strcmp(color, "aqua") == 0 || strcmp(color, "aquamarine") == 0)
+	if(strcmp(colorcopy, "aqua") == 0 || strcmp(color, "aquamarine") == 0)
 		return(COLOR_AQUA);
-	if(strcmp(color, "orange") == 0)
+	if(strcmp(colorcopy, "orange") == 0)
 		return(COLOR_ORANGE);
-	if(strcmp(color, "purple") == 0)
+	if(strcmp(colorcopy, "purple") == 0)
 		return(COLOR_PURPLE);
-	if(strcmp(color, "gray") == 0 || strcmp(color, "white") == 0)
+	if(strcmp(colorcopy, "gray") == 0 || strcmp(color, "white") == 0)
 		return(COLOR_GRAY);
 
 	logmsg("Unmatched color %s, using green\n", color);
@@ -690,6 +656,9 @@ void SortFlatAmplitudeDifferencesByRefAmplitude(FlatAmplDifference *ADiff, long 
 	long int 			i = 0, j = 0;
 	FlatAmplDifference 	tmp;
 	
+	if(!ADiff)
+		return;
+
 	for (i = 1; i < size; i++)
 	{
 		tmp = ADiff[i];
@@ -707,6 +676,9 @@ FlatAmplDifference *CreateFlatDifferences(parameters *config)
 {
 	long int	count = 0;
 	FlatAmplDifference *ADiff = NULL;
+
+	if(!config)
+		return NULL;
 
 	ADiff = (FlatAmplDifference*)malloc(sizeof(FlatAmplDifference)*config->Differences.cntAmplAudioDiff);
 	if(!ADiff)
@@ -729,16 +701,6 @@ FlatAmplDifference *CreateFlatDifferences(parameters *config)
 		}
 	}
 	SortFlatAmplitudeDifferencesByRefAmplitude(ADiff, config->Differences.cntAmplAudioDiff);
-	/*
-	for(int a = 0; a < config->Differences.cntAmplAudioDiff; a++)
-	{
-		logmsg("Frequency: %7g Hz\tAmplitude: %4.2f dbs\tVolume Difference: %4.2f dbs (%d)\n",
-			ADiff[a].hertz,
-			ADiff[a].refAmplitude,
-			ADiff[a].diffAmplitude,
-			ADiff[a].type);
-	}
-	*/
 	return(ADiff);
 }
 
@@ -747,6 +709,9 @@ void SortFlatMissingDifferencesByAmplitude(FlatFreqDifference *FDiff, long int s
 	long int 			i = 0, j = 0;
 	FlatFreqDifference 	tmp;
 	
+	if(!FDiff)
+		return;
+
 	for (i = 1; i < size; i++)
 	{
 		tmp = FDiff[i];
@@ -764,6 +729,9 @@ FlatFreqDifference *CreateFlatMissing(parameters *config)
 {
 	long int	count = 0;
 	FlatFreqDifference *FDiff = NULL;
+
+	if(!config)
+		return NULL;
 
 	FDiff = (FlatFreqDifference*)malloc(sizeof(FlatFreqDifference)*config->Differences.cntFreqAudioDiff);
 	if(!FDiff)
@@ -786,6 +754,77 @@ FlatFreqDifference *CreateFlatMissing(parameters *config)
 	}
 	SortFlatMissingDifferencesByAmplitude(FDiff, config->Differences.cntFreqAudioDiff);
 	return(FDiff);
+}
+
+void SortFlatFrequenciesByAmplitude(FlatFrequency *Freqs, long int size)
+{
+	long int 			i = 0, j = 0;
+	FlatFrequency 	tmp;
+	
+	if(!Freqs)
+		return;
+
+	for (i = 1; i < size; i++)
+	{
+		tmp = Freqs[i];
+		j = i - 1;
+		while(j >= 0 && tmp.amplitude < Freqs[j].amplitude)
+		{
+			Freqs[j+1] = Freqs[j];
+			j--;
+		}
+		Freqs[j+1] = tmp;
+	}
+}
+
+FlatFrequency *CreateFlatFrequencies(AudioSignal *Signal, long int *size, parameters *config)
+{
+	int 			block = 0, i = 0;
+	long int		count = 0, counter = 0;
+	FlatFrequency	*Freqs = NULL;
+
+	if(!size || !Signal || !config)
+		return NULL;
+
+	*size = 0;
+
+	for(block = 0; block < config->types.totalChunks; block++)
+		for(i = 0; i < config->MaxFreq; i++)
+		{
+			if(Signal->Blocks[block].freq[i].hertz)
+				count ++;
+			else
+				break;
+		}
+
+	Freqs = (FlatFrequency*)malloc(sizeof(FlatFrequency)*count);
+	if(!Freqs)
+		return NULL;
+
+	for(block = 0; block < config->types.totalChunks; block++)
+	{
+		int type = 0, color = 0;
+
+		type = GetBlockType(config, block);
+		color = MatchColor(GetBlockColor(config, block));
+
+		for(i = 0; i < config->MaxFreq; i++)
+		{
+			if(Signal->Blocks[block].freq[i].hertz)
+			{
+				Freqs[counter].hertz = Signal->Blocks[block].freq[i].hertz;
+				Freqs[counter].amplitude = Signal->Blocks[block].freq[i].amplitude;
+				Freqs[counter].type = type;
+				Freqs[counter].color = color;
+				counter ++;
+			}
+			else
+				break;
+		}
+	}
+	SortFlatFrequenciesByAmplitude(Freqs, count);
+	*size = count;
+	return(Freqs);
 }
 
 inline double transformtoLog(double coord, double top, parameters *config)

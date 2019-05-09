@@ -174,8 +174,6 @@ void ReleaseAudioBlockStructure(parameters *config)
 	}
 }
 
-#define readLine(buffer, file) if(fgets(buffer, LINE_BUFFER_SIZE, file) == NULL) { logmsg("Invalid mdfblocks.mfn file\n");	return 0;	}
-
 int LoadAudioBlockStructure(parameters *config)
 {
 	FILE 	*file;
@@ -790,28 +788,6 @@ void CleanMatched(AudioSignal *ReferenceSignal, AudioSignal *TestSignal, paramet
 			if(!TestSignal->Blocks[block].freq[i].hertz)
 				break;
 			TestSignal->Blocks[block].freq[i].matched = 0;
-		}
-	}
-}
-
-void SortFrequencies(AudioSignal *Signal, parameters *config)
-{
-	for(int block = 0; block < config->types.totalChunks; block++)
-	{
-		for(int i = 0; i < config->MaxFreq - 1; i++)
-		{
-			for(int j = 0; j < config->MaxFreq - i - 1; j++)
-			{
-				if(Signal->Blocks[block].freq[j].hertz > 
-					Signal->Blocks[block].freq[j+1].hertz)
-				{
-					Frequency	t;
-				
-					t = Signal->Blocks[block].freq[j];
-					Signal->Blocks[block].freq[j] = Signal->Blocks[block].freq[j+1];
-					Signal->Blocks[block].freq[j+1] = t;
-				}
-			}
 		}
 	}
 }

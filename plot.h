@@ -43,8 +43,7 @@ typedef struct plot_st {
 	double			penWidth;
 } PlotFile;
 
-#define SPECTR_Y_FACTOR	0.1
-#define SPECTR_WIDTH	10
+#define SPECTR_WIDTH	1
 #define TOP_FREQUENCY	20000   // we don't use 22050 for integer scaling
 
 #define COLOR_NONE		0	
@@ -73,6 +72,13 @@ typedef struct flat_freq_diff_st {
 	int		color;
 } FlatFreqDifference;
 
+typedef struct flat_FrequencySt {
+	double	hertz;
+	double	amplitude;
+	int		type;
+	int		color;
+} FlatFrequency;
+
 void PlotResults(AudioSignal *Signal, parameters *config);
 
 int FillPlot(PlotFile *plot, char *name, int sizex, int sizey, double x0, double y0, double x1, double y1, double penWidth, parameters *config);
@@ -90,17 +96,19 @@ int PlotEachTypeMissingFrequencies(FlatFreqDifference *freqDiff, char *filename,
 void PlotSingleTypeMissingFrequencies(FlatFreqDifference *freqDiff, int type, char *filename, parameters *config);
 void PlotAllMissingFrequencies(FlatFreqDifference *freqDiff, char *filename, parameters *config);
 
-void PlotAllSpectrogram(char *filename, AudioSignal *Signal, parameters *config);
-//void PlotAllSpectrogramLineBased(char *filename, AudioSignal *Signal, parameters *config);
+int PlotEachTypeSpectrogram(FlatFrequency *freqs, long int size, char *filename, parameters *config);
+void PlotSingleTypeSpectrogram(FlatFrequency *freqs, long int size, int type, char *filename, parameters *config);
+void PlotAllSpectrogram(FlatFrequency *freqs, long int size, char *filename, parameters *config);
 
 void PlotWindow(windowManager *wm, parameters *config);
 void PlotBetaFunctions(parameters *config);
 
 FlatAmplDifference *CreateFlatDifferences(parameters *config);
 FlatFreqDifference *CreateFlatMissing(parameters *config);
+FlatFrequency *CreateFlatFrequencies(AudioSignal *Signal, long int *size, parameters *config);
 
 double transformtoLog(double coord, double top, parameters *config);
-
+void DrawGridZeroDBCentered(PlotFile *plot, int dbs, int dbIncrement, int hz, int hzIncrement, parameters *config);
 
 
 #endif
