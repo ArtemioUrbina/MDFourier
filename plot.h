@@ -43,6 +43,9 @@ typedef struct plot_st {
 	double			penWidth;
 } PlotFile;
 
+#define SPECTR_Y_FACTOR	0.1
+#define SPECTR_WIDTH	10
+#define TOP_FREQUENCY	20000   // we don't use 22050 for integer scaling
 
 #define COLOR_NONE		0	
 #define COLOR_RED 		1
@@ -95,6 +98,8 @@ void PlotBetaFunctions(parameters *config);
 
 FlatAmplDifference *CreateFlatDifferences(parameters *config);
 FlatFreqDifference *CreateFlatMissing(parameters *config);
+
+double transformtoLog(double coord, double top, parameters *config);
 
 
 

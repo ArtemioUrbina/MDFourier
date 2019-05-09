@@ -161,24 +161,24 @@ void PlotAllDifferentAmplitudes(FlatAmplDifference *amplDiff, char *filename, pa
 		return;
 
 	sprintf(name, "DifferentAmplitudes_%s", filename);
-	FillPlot(&plot, name, PLOT_RES_X, PLOT_RES_Y, 0, -1*dbs, 20000, dbs, 1, config);
+	FillPlot(&plot, name, PLOT_RES_X, PLOT_RES_Y, 0, -1*dbs, TOP_FREQUENCY, dbs, 1, config);
 
 	if(!CreatePlotFile(&plot))
 		return;
 
 	pl_pencolor_r (plot.plotter, 0, 0xcccc, 0);
-	pl_fline_r(plot.plotter, 0, 0, 20000, 0);
+	pl_fline_r(plot.plotter, 0, 0, TOP_FREQUENCY, 0);
 
 	pl_pencolor_r (plot.plotter, 0, 0x5555, 0);
 	for(int i = 3; i < dbs; i += 3)
 	{
-		pl_fline_r(plot.plotter, 0, i, 20000, i);
-		pl_fline_r(plot.plotter, 0, -1*i, 20000, -1*i);
+		pl_fline_r(plot.plotter, 0, i, TOP_FREQUENCY, i);
+		pl_fline_r(plot.plotter, 0, -1*i, TOP_FREQUENCY, -1*i);
 	}
 
 	pl_pencolor_r (plot.plotter, 0, 0x5555, 0);
-	for(int i = 0; i < 20000; i += 1000)
-		pl_fline_r(plot.plotter, i, -1*dbs, i, dbs);
+	for(int i = 0; i < TOP_FREQUENCY; i += 1000)
+		pl_fline_r(plot.plotter, transformtoLog(i, TOP_FREQUENCY, config), -1*dbs, transformtoLog(i, TOP_FREQUENCY, config), dbs);
 
 	pl_pencolor_r (plot.plotter, 0, 0xFFFF, 0);
 
@@ -195,7 +195,8 @@ void PlotAllDifferentAmplitudes(FlatAmplDifference *amplDiff, char *filename, pa
 			color = intensity*0xffff;
 
 			SetPenColor(amplDiff[a].color, color, &plot);
-			pl_fpoint_r(plot.plotter, amplDiff[a].hertz, amplDiff[a].diffAmplitude);
+			//pl_fpoint_r(plot.plotter, amplDiff[a].hertz, amplDiff[a].diffAmplitude);
+			pl_fpoint_r(plot.plotter, transformtoLog(amplDiff[a].hertz, TOP_FREQUENCY, config), amplDiff[a].diffAmplitude);
 		}
 	}
 
@@ -241,24 +242,24 @@ void PlotSingleTypeDifferentAmplitudes(FlatAmplDifference *amplDiff, int type, c
 	if(!config->Differences.BlockDiffArray)
 		return;
 
-	FillPlot(&plot, filename, PLOT_RES_X, PLOT_RES_Y, 0, -1*dbs, 20000, dbs, 1, config);
+	FillPlot(&plot, filename, PLOT_RES_X, PLOT_RES_Y, 0, -1*dbs, TOP_FREQUENCY, dbs, 1, config);
 
 	if(!CreatePlotFile(&plot))
 		return;
 
 	pl_pencolor_r (plot.plotter, 0, 0xcccc, 0);
-	pl_fline_r(plot.plotter, 0, 0, 20000, 0);
+	pl_fline_r(plot.plotter, 0, 0, TOP_FREQUENCY, 0);
 
 	pl_pencolor_r (plot.plotter, 0, 0x5555, 0);
 	for(int i = 3; i < dbs; i += 3)
 	{
-		pl_fline_r(plot.plotter, 0, i, 20000, i);
-		pl_fline_r(plot.plotter, 0, -1*i, 20000, -1*i);
+		pl_fline_r(plot.plotter, 0, i, TOP_FREQUENCY, i);
+		pl_fline_r(plot.plotter, 0, -1*i, TOP_FREQUENCY, -1*i);
 	}
 
 	pl_pencolor_r (plot.plotter, 0, 0x5555, 0);
-	for(int i = 0; i < 20000; i += 1000)
-		pl_fline_r(plot.plotter, i, -1*dbs, i, dbs);
+	for(int i = 0; i < TOP_FREQUENCY; i += 1000)
+		pl_fline_r(plot.plotter, transformtoLog(i, TOP_FREQUENCY, config), -1*dbs, transformtoLog(i, TOP_FREQUENCY, config), dbs);
 
 	pl_pencolor_r (plot.plotter, 0, 0xFFFF, 0);
 
@@ -275,7 +276,7 @@ void PlotSingleTypeDifferentAmplitudes(FlatAmplDifference *amplDiff, int type, c
 			color = intensity*0xffff;
 
 			SetPenColor(amplDiff[a].color, color, &plot);
-			pl_fpoint_r(plot.plotter, amplDiff[a].hertz, amplDiff[a].diffAmplitude);
+			pl_fpoint_r(plot.plotter, transformtoLog(amplDiff[a].hertz, TOP_FREQUENCY, config), amplDiff[a].diffAmplitude);
 		}
 	}
 
@@ -301,38 +302,42 @@ void PlotAllMissingFrequencies(FlatFreqDifference *freqDiff, char *filename, par
 		return;
 
 	sprintf(name, "MissingFrequencies_%s", filename);
-	FillPlot(&plot, name, PLOT_RES_X, PLOT_RES_Y, 0, config->significantVolume, 20000, 0.0, 1, config);
+	FillPlot(&plot, name, PLOT_RES_X, PLOT_RES_Y, 0, config->significantVolume, TOP_FREQUENCY, 0.0, 1, config);
 
 	if(!CreatePlotFile(&plot))
 		return;
 
 	pl_pencolor_r (plot.plotter, 0, 0xaaaa, 0);
-	pl_fline_r(plot.plotter, 0, 0, 20000, 0);
+	pl_fline_r(plot.plotter, 0, 0, TOP_FREQUENCY, 0);
 
 	pl_pencolor_r (plot.plotter, 0, 0x7777, 0);
 	for(int i = 3; i < fabs(config->significantVolume); i += 3)
-		pl_fline_r(plot.plotter, 0, -1*i, 20000, -1*i);
+		pl_fline_r(plot.plotter, 0, -1*i, TOP_FREQUENCY, -1*i);
 
 	pl_pencolor_r (plot.plotter, 0, 0x7777, 0);
-	for(int i = 0; i < 20000; i += 1000)
-		pl_fline_r(plot.plotter, i, config->significantVolume, i, 0);
+	for(int i = 0; i < TOP_FREQUENCY; i += 1000)
+		pl_fline_r(plot.plotter, transformtoLog(i, TOP_FREQUENCY, config), config->significantVolume, transformtoLog(i, TOP_FREQUENCY, config), 0);
 
 	pl_pencolor_r (plot.plotter, 0, 0xFFFF, 0);
+	pl_flinewidth_r(plot.plotter, SPECTR_WIDTH);
 	for(int f = 0; f < config->Differences.cntFreqAudioDiff; f++)
 	{
 		if(freqDiff[f].type > TYPE_CONTROL)
 		{ 
 			double range_0_1;
 			long int color;
-			double intensity;
+			double intensity, x, y;
+
+			x = transformtoLog(freqDiff[f].hertz, TOP_FREQUENCY, config);
+			y = freqDiff[f].amplitude;
 
 			range_0_1 = (fabs(config->significantVolume) - fabs(freqDiff[f].amplitude))/fabs(config->significantVolume);
 			intensity = CalculateWeightedError(range_0_1, config);
 			color = intensity*0xffff;
 
 			SetPenColor(freqDiff[f].color, color, &plot);
-			pl_fpoint_r(plot.plotter, freqDiff[f].hertz, 
-					freqDiff[f].amplitude);
+			pl_fline_r(plot.plotter, x,	y, x, y+SPECTR_Y_FACTOR);
+			pl_endpath_r(plot.plotter);
 		}
 	}
 	ClosePlot(&plot);
@@ -366,38 +371,41 @@ void PlotSingleTypeMissingFrequencies(FlatFreqDifference *freqDiff, int type, ch
 	if(!config->Differences.BlockDiffArray)
 		return;
 
-	FillPlot(&plot, filename, PLOT_RES_X, PLOT_RES_Y, 0, config->significantVolume, 20000, 0.0, 1, config);
+	FillPlot(&plot, filename, PLOT_RES_X, PLOT_RES_Y, 0, config->significantVolume, TOP_FREQUENCY, 0.0, 1, config);
 
 	if(!CreatePlotFile(&plot))
 		return;
 
 	pl_pencolor_r (plot.plotter, 0, 0xaaaa, 0);
-	pl_fline_r(plot.plotter, 0, 0, 20000, 0);
+	pl_fline_r(plot.plotter, 0, 0, TOP_FREQUENCY, 0);
 
 	pl_pencolor_r (plot.plotter, 0, 0x7777, 0);
 	for(int i = 3; i < fabs(config->significantVolume); i += 3)
-		pl_fline_r(plot.plotter, 0, -1*i, 20000, -1*i);
+		pl_fline_r(plot.plotter, 0, -1*i, TOP_FREQUENCY, -1*i);
 
 	pl_pencolor_r (plot.plotter, 0, 0x7777, 0);
-	for(int i = 0; i < 20000; i += 1000)
-		pl_fline_r(plot.plotter, i, config->significantVolume, i, 0);
+	for(int i = 0; i < TOP_FREQUENCY; i += 1000)
+		pl_fline_r(plot.plotter, transformtoLog(i, TOP_FREQUENCY, config), config->significantVolume, transformtoLog(i, TOP_FREQUENCY, config), 0);
 
 	pl_pencolor_r (plot.plotter, 0, 0xFFFF, 0);
+	pl_flinewidth_r(plot.plotter, SPECTR_WIDTH);
 	for(int f = 0; f < config->Differences.cntFreqAudioDiff; f++)
 	{
 		if(freqDiff[f].type == type)
 		{
 			double range_0_1;
 			long int color;
-			double intensity;
+			double intensity, x, y;
 
+			x = transformtoLog(freqDiff[f].hertz, TOP_FREQUENCY, config);;
+			y = freqDiff[f].amplitude;
 			range_0_1 = (fabs(config->significantVolume) - fabs(freqDiff[f].amplitude))/fabs(config->significantVolume);
 			intensity = CalculateWeightedError(range_0_1, config);
 			color = intensity*0xffff;
 
 			SetPenColor(freqDiff[f].color, color, &plot);
-			pl_fpoint_r(plot.plotter, freqDiff[f].hertz, 
-					freqDiff[f].amplitude);
+			pl_fline_r(plot.plotter, x,	y, x, y+SPECTR_Y_FACTOR);
+			pl_endpath_r(plot.plotter);
 		}
 	}
 	ClosePlot(&plot);
@@ -412,24 +420,24 @@ void PlotAllSpectrogram(char *filename, AudioSignal *Signal, parameters *config)
 		return;
 
 	sprintf(name, "Spectrogram_%s", filename);
-	FillPlot(&plot, name, PLOT_RES_X, PLOT_RES_Y, 0, config->significantVolume, 20000, 0.0, 1, config);
+	FillPlot(&plot, name, PLOT_RES_X, PLOT_RES_Y, 0, config->significantVolume, TOP_FREQUENCY, 0.0, 1, config);
 
 	if(!CreatePlotFile(&plot))
 		return;
 
 	pl_pencolor_r (plot.plotter, 0, 0xbbbb, 0);
-	pl_fline_r(plot.plotter, 0, 0, 20000, 0);
+	pl_fline_r(plot.plotter, 0, 0, TOP_FREQUENCY, 0);
 
 	pl_pencolor_r (plot.plotter, 0, 0x5555, 0);
 	for(int i = 3; i < fabs(config->significantVolume); i += 3)
-		pl_fline_r(plot.plotter, 0, -1*i, 20000, -1*i);
+		pl_fline_r(plot.plotter, 0, -1*i, TOP_FREQUENCY, -1*i);
 
 	pl_pencolor_r (plot.plotter, 0, 0x5555, 0);
-	for(int i = 0; i < 20000; i += 1000)
-		pl_fline_r(plot.plotter, i, config->significantVolume, i, 0);
+	for(int i = 0; i < TOP_FREQUENCY; i += 1000)
+		pl_fline_r(plot.plotter, transformtoLog(i, TOP_FREQUENCY, config), config->significantVolume, transformtoLog(i, TOP_FREQUENCY, config), 0);
 
 	pl_pencolor_r (plot.plotter, 0, 0xFFFF, 0);
-	
+	pl_flinewidth_r(plot.plotter, SPECTR_WIDTH);
 	for(int b = 0; b < config->types.totalChunks; b++)
 	{
 		int type;
@@ -441,15 +449,17 @@ void PlotAllSpectrogram(char *filename, AudioSignal *Signal, parameters *config)
 			{
 				double range_0_1;
 				long int color;
-				double intensity;
-		
+				double intensity, x, y;
+
+				x = transformtoLog(Signal->Blocks[b].freq[i].hertz, TOP_FREQUENCY, config);
+				y = Signal->Blocks[b].freq[i].amplitude;
 				range_0_1 = (fabs(config->significantVolume) - fabs(Signal->Blocks[b].freq[i].amplitude))/fabs(config->significantVolume);
 				intensity = CalculateWeightedError(range_0_1, config);
 				color = intensity*0xffff;
 		
 				SetPenColorStr(GetBlockColor(config, b), color, &plot);
-				pl_fpoint_r(plot.plotter, Signal->Blocks[b].freq[i].hertz, 
-						Signal->Blocks[b].freq[i].amplitude);
+				pl_fline_r(plot.plotter, x,	y, x, y+SPECTR_Y_FACTOR);
+				pl_endpath_r(plot.plotter);
 			}
 		}
 	}
@@ -466,20 +476,20 @@ void PlotAllSpectrogramLineBased(char *filename, AudioSignal *Signal, parameters
 		return;
 
 	sprintf(name, "Spectrogram_Line_%s", filename);
-	FillPlot(&plot, name, PLOT_RES_X, PLOT_RES_Y, 0, config->significantVolume, 20000, 0.0, 1, config);
+	FillPlot(&plot, name, PLOT_RES_X, PLOT_RES_Y, 0, config->significantVolume, TOP_FREQUENCY, 0.0, 1, config);
 
 	if(!CreatePlotFile(&plot))
 		return;
 
 	pl_pencolor_r (plot.plotter, 0, 0xbbbb, 0);
-	pl_fline_r(plot.plotter, 0, 0, 20000, 0);
+	pl_fline_r(plot.plotter, 0, 0, TOP_FREQUENCY, 0);
 
 	pl_pencolor_r (plot.plotter, 0, 0x5555, 0);
 	for(int i = 3; i < fabs(config->significantVolume); i += 3)
-		pl_fline_r(plot.plotter, 0, -1*i, 20000, -1*i);
+		pl_fline_r(plot.plotter, 0, -1*i, TOP_FREQUENCY, -1*i);
 
 	pl_pencolor_r (plot.plotter, 0, 0x5555, 0);
-	for(int i = 0; i < 20000; i += 1000)
+	for(int i = 0; i < TOP_FREQUENCY; i += 1000)
 		pl_fline_r(plot.plotter, i, config->significantVolume, i, 0);
 
 	pl_pencolor_r (plot.plotter, 0, 0xFFFF, 0);
@@ -776,4 +786,12 @@ FlatFreqDifference *CreateFlatMissing(parameters *config)
 	}
 	SortFlatMissingDifferencesByAmplitude(FDiff, config->Differences.cntFreqAudioDiff);
 	return(FDiff);
+}
+
+inline double transformtoLog(double coord, double top, parameters *config)
+{
+	if(config->logScale)
+		return(top*log10(coord)/log10(top));
+	else
+		return(coord);
 }

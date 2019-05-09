@@ -239,7 +239,7 @@ int LoadAudioBlockStructure(parameters *config)
 		&config->types.pulseFrameMinLen,
 		&config->types.pulseFrameMaxLen) != 5)
 	{
-		logmsg("Invalid Pulse Parameters '%s'\n", buffer);
+		logmsg("Invalid Pulse Parameters '%s'\n", lineBuffer);
 		fclose(file);
 		return 0;
 	}

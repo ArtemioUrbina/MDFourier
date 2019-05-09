@@ -93,6 +93,7 @@ void CleanParameters(parameters *config)
 	config->origSignificantVolume = SIGNIFICANT_VOLUME;
 	config->significantVolume = SIGNIFICANT_VOLUME;
 	config->smallerFramerate = 0;
+	config->logScale = 1;
 	
 	config->types.totalChunks = 0;
 	config->types.regularChunks = 0;
@@ -430,14 +431,15 @@ void CreateBaseName(parameters *config)
 	if(!config)
 		return;
 	
-	sprintf(config->baseName, "_f%d_t%g_%s_%s_v_%g_%d%s", 
+	sprintf(config->baseName, "_f%d_t%g_%s_%s_v_%g_%d%s_%s", 
 			config->MaxFreq,
 			config->tolerance,
 			GetWindow(config->window),
 			GetChannel(config->channel),
 			fabs(config->significantVolume),
 			config->outputFilterFunction,
-			config->useOutputFilter ? config->outputFilterFunction == 1 ? "LI" : "BF" : "UF");
+			config->useOutputFilter ? config->outputFilterFunction == 1 ? "LI" : "BF" : "UF",
+			config->logScale ? "log" : "lin");
 }
 
 void ComposeFileName(char *target, char *subname, char *ext, parameters *config)

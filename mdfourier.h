@@ -242,6 +242,7 @@ typedef struct parameters_st {
 	double			origSignificantVolume;
 	double			significantVolume;
 	double			smallerFramerate;
+	int				logScale;
 
 #ifdef MDWAVE
 	int				maxBlanked;
