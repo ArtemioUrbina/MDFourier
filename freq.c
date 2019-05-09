@@ -854,8 +854,6 @@ void FillFrequencyStructures(AudioBlocks *AudioArray, parameters *config)
 		{
 			for(j = 0; j < config->MaxFreq; j++)
 			{
-				if(Hertz == AudioArray->freq[j].hertz)
-					logmsg("Freq Collision!!!! %g\n", Hertz);
 				if(magnitude > AudioArray->freq[j].magnitude && magnitude < previous)
 				{
 					/* Move the previous values down the array */

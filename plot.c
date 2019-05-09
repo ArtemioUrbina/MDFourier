@@ -777,9 +777,43 @@ void SortFlatFrequenciesByAmplitude(FlatFrequency *Freqs, long int size)
 	}
 }
 
+int InsertElementInPlace(FlatFrequency *Freqs, FlatFrequency Element, long int currentsize)
+{
+	if(!currentsize)
+	{
+		Freqs[0] = Element;
+		return 1;
+	}
+
+	for(long int j = 0; j < currentsize; j++)
+	{
+		if(Element.hertz == Freqs[j].hertz)
+		{
+			if(Freqs[j].amplitude > Element.amplitude)
+				return 0;
+			else
+				Freqs[j].amplitude = Element.amplitude;
+			return 0;
+		}
+
+		if(Element.hertz > Freqs[j].hertz)
+		{
+			/* Move the previous values down the array */
+			for(int k = currentsize-1; k > j; k--)
+				Freqs[k] = Freqs[k - 1];
+	
+			Freqs[j] = Element;
+			return 1;
+		}
+	}
+
+	Freqs[currentsize] = Element;
+	return 1;
+}
+
 FlatFrequency *CreateFlatFrequencies(AudioSignal *Signal, long int *size, parameters *config)
 {
-	int 			block = 0, i = 0;
+	long int		block = 0, i = 0;
 	long int		count = 0, counter = 0;
 	FlatFrequency	*Freqs = NULL;
 
@@ -791,7 +825,7 @@ FlatFrequency *CreateFlatFrequencies(AudioSignal *Signal, long int *size, parame
 	for(block = 0; block < config->types.totalChunks; block++)
 		for(i = 0; i < config->MaxFreq; i++)
 		{
-			if(Signal->Blocks[block].freq[i].hertz)
+			if(Signal->Blocks[block].freq[i].hertz && Signal->Blocks[block].freq[i].amplitude > config->significantVolume)
 				count ++;
 			else
 				break;
@@ -801,6 +835,7 @@ FlatFrequency *CreateFlatFrequencies(AudioSignal *Signal, long int *size, parame
 	if(!Freqs)
 		return NULL;
 
+	memset(Freqs, 0, sizeof(FlatFrequency)*count);
 	for(block = 0; block < config->types.totalChunks; block++)
 	{
 		int type = 0, color = 0;
@@ -810,20 +845,26 @@ FlatFrequency *CreateFlatFrequencies(AudioSignal *Signal, long int *size, parame
 
 		for(i = 0; i < config->MaxFreq; i++)
 		{
-			if(Signal->Blocks[block].freq[i].hertz)
+			if(Signal->Blocks[block].freq[i].hertz && Signal->Blocks[block].freq[i].amplitude > config->significantVolume)
 			{
-				Freqs[counter].hertz = Signal->Blocks[block].freq[i].hertz;
-				Freqs[counter].amplitude = Signal->Blocks[block].freq[i].amplitude;
-				Freqs[counter].type = type;
-				Freqs[counter].color = color;
-				counter ++;
+				FlatFrequency tmp;
+
+				tmp.hertz = Signal->Blocks[block].freq[i].hertz;
+				tmp.amplitude = Signal->Blocks[block].freq[i].amplitude;
+				tmp.type = type;
+				tmp.color = color;
+
+				if(InsertElementInPlace(Freqs, tmp, counter))
+					counter ++;
 			}
 			else
 				break;
 		}
 	}
+	
 	SortFlatFrequenciesByAmplitude(Freqs, count);
-	*size = count;
+
+	*size = counter;
 	return(Freqs);
 }
 
