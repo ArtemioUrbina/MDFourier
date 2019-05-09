@@ -35,21 +35,20 @@ void PrintUsage()
 	// b,d and y options are not documented since they are mostly for testing or found not as usefull as desired
 	logmsg("  usage: mdfourier -r reference.wav -c compare.wav\n\n");
 	logmsg("   FFT and Analysis options:\n");
+	logmsg("	 -c <l,r,s>: select audio <c>hannel to compare. Default is both channels\n\t's' stereo, 'l' for left or 'r' for right\n");
 	logmsg("	 -w: enable <w>indowing. Default is a custom Tukey window.\n\tOptions are 'n' for none, 't' for Tukey, 'h' for Hann, 'f' for FlatTop\n\t and 'm' for Hamming");
 	logmsg("	 -f: Change the number of frequencies to use from FFTW\n");
-	logmsg("	 -t: Defines the <t>olerance when comparing amplitudes in dbs\n");
-	logmsg("	 -c <l,r,s>: select audio <c>hannel to compare. Default is both channels\n\t's' stereo, 'l' for left or 'r' for right\n");
 	logmsg("	 -s: Defines <s>tart of the frequency range to compare with FFT\n\tA smaller range will compare more frequencies unless changed\n");
 	logmsg("	 -z: Defines end of the frequency range to compare with FFT\n\tA smaller range will compare more frequencies unless changed\n");
+	logmsg("	 -i: <i>gnores the silence block noise floor if present\n");
+	logmsg("	 -t: Defines the <t>olerance when comparing amplitudes in dbs\n");
 	logmsg("   Output options:\n");
 	logmsg("	 -l: <l>og output to file [reference]_vs_[compare].txt\n");
 	logmsg("	 -v: Enable <v>erbose mode, spits all the FFTW results\n");
 	logmsg("	 -j: Cuts all the per block information and shows <j>ust the total results\n");
 	logmsg("	 -e: Enables <e>xtended results. Shows a table with all matched\n\tfrequencies for each block with differences\n");
 	logmsg("	 -m: Enables Show all blocks compared with <m>atched frequencies\n");
-	logmsg("	 -x: Enables totaled output for use with grep and spreadsheet\n");
 	logmsg("	 -k: cloc<k> FFTW operations\n");
-	logmsg("	 -g: clock FFTW operations for each <n>ote\n");
 }
 
 void Header(int log)
@@ -75,17 +74,14 @@ void CleanParameters(parameters *config)
 	config->channel = 's';
 	config->MaxFreq = FREQ_COUNT;
 	config->clock = 0;
-	config->clockBlock = 0;
 	config->HzWidth = HERTZ_WIDTH;
 	config->HzDiff = HERTZ_DIFF;
 	config->showAll = 0;
-	config->debugVerbose = 0;
-	config->spreadsheet = 0;
 	config->normalize = 'g';
 	config->relativeMaxMagnitude = 0;
 	config->ignoreFloor = 0;
 	config->useOutputFilter = 1;
-	config->outputFilterFunction = 2;
+	config->outputFilterFunction = 1;
 	config->Differences.BlockDiffArray = NULL;
 	config->Differences.cntFreqAudioDiff = 0;
 	config->Differences.cntAmplAudioDiff = 0;
@@ -100,19 +96,27 @@ void CleanParameters(parameters *config)
 	
 	config->types.totalChunks = 0;
 	config->types.regularChunks = 0;
+	config->types.platformMSPerFrame = 16.688;
+	config->types.pulseSyncFreq = 8820;
+	config->types.pulseMinVol = -25;
+	config->types.pulseVolDiff = 30;
+	config->types.pulseFrameMinLen = 14;
+	config->types.pulseFrameMaxLen = 18;
 	config->types.typeArray = NULL;
 	config->types.typeCount = 0;
+
 }
 
 int commandline(int argc , char *argv[], parameters *config)
 {
+	FILE *file = NULL;
 	int c, index, ref = 0, tar = 0;
 	
 	opterr = 0;
 	
 	CleanParameters(config);
 
-	while ((c = getopt (argc, argv, "hejvkgmlixyo:w:n:d:a:t:r:c:f:b:s:z:p:")) != -1)
+	while ((c = getopt (argc, argv, "hejmviklo:s:z:f:b:d:t:p:a:w:n:r:c:")) != -1)
 	switch (c)
 	  {
 	  case 'h':
@@ -137,23 +141,13 @@ int commandline(int argc , char *argv[], parameters *config)
 	  case 'k':
 		config->clock = 1;
 		break;
-	  case 'g':
-		config->clockBlock  = 1;
-		break;
 	  case 'l':
 		EnableConsole();
-		break;
-	  case 'x':
-		config->spreadsheet = 1;
-		break;
-	  case 'y':
-		config->debugVerbose = 1;
-		config->verbose = 1;
 		break;
 	  case 'o':
 		config->outputFilterFunction = atoi(optarg);
 		if(config->outputFilterFunction < 0 || config->outputFilterFunction > 5)
-			config->outputFilterFunction = 2;
+			config->outputFilterFunction = 1;
 		if(!config->outputFilterFunction)
 			config->useOutputFilter = 0;
 		break;
@@ -306,12 +300,27 @@ int commandline(int argc , char *argv[], parameters *config)
 		logmsg("Just Results cancels Show All\n");
 		return 0;
 	}
-
 	if(config->endHz <= config->startHz)
 	{
 		logmsg("Invalid frequency range for FFTW (%d Hz to %d Hz)\n", config->startHz, config->endHz);
 		return 0;
 	}
+
+	file = fopen(config->referenceFile, "rb");
+	if(!file)
+	{
+		logmsg("\tCould not open REFERENCE file: \"%s\"\n", config->referenceFile);
+		return 0;
+	}
+	fclose(file);
+
+	file = fopen(config->targetFile, "rb");
+	if(!file)
+	{
+		logmsg("\tCould not open COMPARE file: \"%s\"\n", config->targetFile);
+		return 0;
+	}
+	fclose(file);
 
 	CreateFolderName(config);
 	CreateBaseName(config);
@@ -333,10 +342,11 @@ int commandline(int argc , char *argv[], parameters *config)
 	if(config->normalize == 'r')
 		config->relativeMaxMagnitude = 0.0;
 
+	logmsg("\tAudio Channel is: %s\n", GetChannel(config->channel));
 	if(config->tolerance != 0.0)
 		logmsg("\tAmplitude tolerance while comparing is +/-%0.2f dbs\n", config->tolerance);
-	logmsg("\tAudio Channel is: %s\n", GetChannel(config->channel));
-	logmsg("\tMax frequencies to use from FFTW are %d (default %d)\n", config->MaxFreq, FREQ_COUNT);
+	if(config->MaxFreq != FREQ_COUNT)
+		logmsg("\tMax frequencies to use from FFTW are %d (default %d)\n", config->MaxFreq, FREQ_COUNT);
 	if(config->startHz != START_HZ)
 		logmsg("\tFrequency start range for FFTW is now %d (default %d)\n", config->startHz, START_HZ);
 	if(config->endHz != END_HZ)

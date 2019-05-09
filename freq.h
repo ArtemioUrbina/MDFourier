@@ -34,6 +34,9 @@
 
 #include "mdfourier.h"
 
+#define LINE_BUFFER_SIZE	1024
+#define PARAM_BUFFER_SIZE	512
+
 double FramesToSeconds(double frames, double framerate);
 long int SecondsToBytes(long int samplerate, double seconds, int *leftover, int *discard);
 

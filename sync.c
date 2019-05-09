@@ -69,7 +69,7 @@ long int DetectEndPulse(char *AllSamples, long int startpulse, wav_hdr header, p
 	
 //#define DEBUG_SYNC
 
-long int DetectPulseTrainSequence(Pulses *pulseArray, double targetFrequency, long int TotalMS, int factor)
+long int DetectPulseTrainSequence(Pulses *pulseArray, double targetFrequency, long int TotalMS, int factor, parameters *config)
 {
 	long int			inside_pulse = 0, inside_silence = 0;
 	long int			pulse_start = 0, pulse_count = 0, 
@@ -80,7 +80,7 @@ long int DetectPulseTrainSequence(Pulses *pulseArray, double targetFrequency, lo
 
 	for(i = 0; i < TotalMS; i++)
 	{
-		if(pulseArray[i].amplitude >= -25 && pulseArray[i].hertz >= targetFrequency - 2.0 && pulseArray[i].hertz <= targetFrequency + 2.0) 
+		if(pulseArray[i].amplitude >= config->types.pulseMinVol && pulseArray[i].hertz >= targetFrequency - 2.0 && pulseArray[i].hertz <= targetFrequency + 2.0) 
 		{
 			if(!inside_pulse)
 			{
@@ -122,9 +122,9 @@ long int DetectPulseTrainSequence(Pulses *pulseArray, double targetFrequency, lo
 				pulse_amplitudes += pulseArray[i].amplitude;
 			}
 
-			// moved form 17 to 18 due to different lengths in
+			// moved from 17 to 18 due to different lengths in
 			// FPGA and emulator implementation
-			if(inside_pulse >= 18*factor)
+			if(inside_pulse >= config->types.pulseFrameMaxLen*factor)
 			{
 #ifdef DEBUG_SYNC
 				logmsg("reset pulse too long %ld\n", inside_pulse);
@@ -138,7 +138,7 @@ long int DetectPulseTrainSequence(Pulses *pulseArray, double targetFrequency, lo
 		}
 		else
 		{
-			if(inside_pulse >= 14*factor)
+			if(inside_pulse >= config->types.pulseFrameMinLen*factor)
 			{
 				if(last_silence_pos && i > last_silence_pos + 2)
 				{
@@ -160,12 +160,12 @@ long int DetectPulseTrainSequence(Pulses *pulseArray, double targetFrequency, lo
 					silence_amplitudes += pulseArray[i].amplitude;
 				}
 
-				if(pulse_start != last_pulse_start && inside_silence >= 14*factor)
+				if(pulse_start != last_pulse_start && inside_silence >= config->types.pulseFrameMinLen*factor)
 				{
 					pulse_volume = pulse_amplitudes/inside_pulse;
 					silence_volume = silence_amplitudes/inside_silence;
 					
-					if(fabs(silence_volume) - fabs(pulse_volume) >= 30.0)
+					if(fabs(silence_volume) - fabs(pulse_volume) >= config->types.pulseVolDiff)
 					{
 						pulse_count++;
 						last_pulse_start = pulse_start;
@@ -173,7 +173,7 @@ long int DetectPulseTrainSequence(Pulses *pulseArray, double targetFrequency, lo
 						logmsg("Pulse %ld Start: %ld Volume %g Length %ld Silence: %ld\n", 
 							pulse_count, pulse_start, pulse_volume, inside_pulse, inside_silence);
 #endif
-						if(pulse_count == 10)
+						if(pulse_count == config->types.pulseCount)
 							return sequence_start;
 					}
 					else
@@ -190,7 +190,7 @@ long int DetectPulseTrainSequence(Pulses *pulseArray, double targetFrequency, lo
 					inside_pulse = 0;
 				}
 
-				if(inside_silence >= 18*factor)
+				if(inside_silence >= config->types.pulseFrameMaxLen*factor)
 				{
 #ifdef DEBUG_SYNC
 					logmsg("Reset Pulse too much silence\n");
@@ -204,7 +204,7 @@ long int DetectPulseTrainSequence(Pulses *pulseArray, double targetFrequency, lo
 			}
 			else
 			{
-				if(inside_pulse >= 18*factor || inside_silence >= 18*factor)
+				if(inside_pulse >= config->types.pulseFrameMaxLen*factor || inside_silence >= config->types.pulseFrameMaxLen*factor)
 				{
 #ifdef DEBUG_SYNC
 					logmsg("Reset Pulse OB\n");
@@ -332,7 +332,7 @@ long int DetectPulseInternal(char *Samples, wav_hdr header, int factor, long int
 	*/
 
 	targetFrequency = FindFrequencyBracket(GetPulseSyncFreq(config), millisecondSize/2, header.SamplesPerSec);
-	offset = DetectPulseTrainSequence(pulseArray, targetFrequency, TotalMS, factor);
+	offset = DetectPulseTrainSequence(pulseArray, targetFrequency, TotalMS, factor, config);
 
 	free(pulseArray);
 	free(buffer);

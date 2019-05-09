@@ -489,7 +489,6 @@ double ProcessSamples(AudioBlocks *AudioArray, short *samples, size_t size, long
 	double		  	*signal = NULL;
 	fftw_complex  	*spectrum = NULL;
 	double		 	boxsize = 0, seconds = 0;
-	struct			timespec start, end;
 	double			CutOff = 0;
 	long int 		startBin = 0, endBin = 0;
 	
@@ -519,9 +518,6 @@ double ProcessSamples(AudioBlocks *AudioArray, short *samples, size_t size, long
 		logmsg("Not enough memory\n");
 		return(0);
 	}
-
-	if(config->clockBlock)
-		clock_gettime(CLOCK_MONOTONIC, &start);
 
 	memset(signal, 0, sizeof(double)*(monoSignalSize+1));
 	memset(spectrum, 0, sizeof(fftw_complex)*(monoSignalSize/2+1));
@@ -699,14 +695,6 @@ double ProcessSamples(AudioBlocks *AudioArray, short *samples, size_t size, long
 		if(blanked > config->maxBlanked)
 			config->maxBlanked = blanked;
 	}
-	
-	if(config->clockBlock)
-	{
-		double			elapsedSeconds;
-		clock_gettime(CLOCK_MONOTONIC, &end);
-		elapsedSeconds = TimeSpecToSeconds(&end) - TimeSpecToSeconds(&start);
-		logmsg("Processing Block took %f\n", elapsedSeconds);
-	}
 
 	free(signal);
 	signal = NULL;
@@ -720,6 +708,7 @@ double ProcessSamples(AudioBlocks *AudioArray, short *samples, size_t size, long
 
 int commandline_wave(int argc , char *argv[], parameters *config)
 {
+	FILE *file = NULL;
 	int c, index, ref = 0, tar = 0;
 	
 	opterr = 0;
@@ -733,7 +722,7 @@ int commandline_wave(int argc , char *argv[], parameters *config)
 	config->MinAmplitude = 0;
 	config->floorAmplitude = 0;
 
-	while ((c = getopt (argc, argv, "ihvkgcxlw:n:d:a:t:r:c:f:b:s:z:")) != -1)
+	while ((c = getopt (argc, argv, "hvcklxis:z:f:b:d:t:a:w:r:")) != -1)
 	switch (c)
 	  {
 	  case 'h':
@@ -749,16 +738,13 @@ int commandline_wave(int argc , char *argv[], parameters *config)
 	  case 'k':
 		config->clock = 1;
 		break;
-	  case 'g':
-		config->clockBlock = 1;
-		break;
 	  case 'l':
 		EnableConsole();
 		break;
-	  case 'i':
+	  case 'x':
 		config->invert = 1;   // RELEVANT HERE!
 		break;
-	  case 'x':
+	  case 'i':
 		config->ignoreFloor = 1;   // RELEVANT HERE!
 		break;
 	  case 's':
@@ -876,6 +862,14 @@ int commandline_wave(int argc , char *argv[], parameters *config)
 		return 0;
 	}
 
+	file = fopen(config->referenceFile, "rb");
+	if(!file)
+	{
+		logmsg("\tCould not open REFERENCE file: \"%s\"\n", config->referenceFile);
+		return 1;
+	}
+	fclose(file);
+
 	CreateFolderName_wave(config);
 	CreateBaseName(config);
 
@@ -893,20 +887,23 @@ int commandline_wave(int argc , char *argv[], parameters *config)
 		EnableConsole();
 	}
 
-	logmsg("\tAmplitude tolerance while comparing is %0.2f dbs\n", config->tolerance);
 	logmsg("\tAudio Channel is: %s\n", GetChannel(config->channel));
+	if(config->tolerance != 0.0)
+		logmsg("\tAmplitude tolerance while comparing is +/-%0.2f dbs\n", config->tolerance);
+	if(config->MaxFreq != FREQ_COUNT)
+		logmsg("\tMax frequencies to use from FFTW are %d (default %d)\n", config->MaxFreq, FREQ_COUNT);
 	if(config->startHz != START_HZ)
 		logmsg("\tFrequency start range for FFTW is now %d (default %d)\n", config->startHz, START_HZ);
 	if(config->endHz != END_HZ)
 		logmsg("\tFrequency end range for FFTW is now %d (default %d)\n", config->endHz, END_HZ);
-	if(config->MaxFreq != FREQ_COUNT)
-		logmsg("\tMax frequencies to use from FFTW are %d (default %d)\n", config->MaxFreq, FREQ_COUNT);
 	if(config->HzWidth != HERTZ_WIDTH)
-		logmsg("\tHertz Width Compression changed to %g (default %g)\n", config->HzWidth, HERTZ_WIDTH);
+		logmsg("\tHertz Width Compression changed to %g (default %g Hz)\n", config->HzWidth, HERTZ_WIDTH);
 	if(config->HzDiff != HERTZ_DIFF)
-		logmsg("\tHertz Difference tolerance %f (default %d)\n", config->HzDiff, HERTZ_DIFF);
+		logmsg("\tHertz Difference tolerance +/-%g (default %d Hz)\n", config->HzDiff, HERTZ_DIFF);
 	if(config->window != 'n')
 		logmsg("\tA %s window will be applied to each block to be compared\n", GetWindow(config->window));
+	else
+		logmsg("\tNo window (rectangle) will be applied to each block to be compared\n");
 
 	return 1;
 }
@@ -916,21 +913,20 @@ void PrintUsage_wave()
 	// b,d and y options are not documented since they are mostly for testing or found not as usefull as desired
 	logmsg("  usage: mdfourier -r reference.wav -c compare.wav\n\n");
 	logmsg("   FFT and Analysis options:\n");
-	logmsg("	 -t: Defines the <t>olerance when comparing amplitudes in dbs\n");
-	logmsg("	 -s: Defines <s>tart of the frequency range to compare with FFT\n\tA smaller range will compare more frequencies unless changed\n");
-	logmsg("	 -z: Defines end of the frequency range to compare with FFT\n\tA smaller range will compare more frequencies unless changed\n");
 	logmsg("	 -c <l,r,s>: select audio <c>hannel to compare. Default is both channels\n\t's' stereo, 'l' for left or 'r' for right\n");
 	logmsg("	 -w: enable Hanning <w>indowing. This introduces more differences\n");
 	logmsg("	 -f: Change the number of frequencies to use from FFTW\n");
+	logmsg("	 -x: e<x>cludes results to generate discarded frequencies wav file\n");
+	logmsg("	 -i: <i>gnores the silence block noise floor if present\n");
+	logmsg("	 -s: Defines <s>tart of the frequency range to compare with FFT\n\tA smaller range will compare more frequencies unless changed\n");
+	logmsg("	 -z: Defines end of the frequency range to compare with FFT\n\tA smaller range will compare more frequencies unless changed\n");
+	logmsg("	 -t: Defines the <t>olerance when comparing amplitudes in dbs\n");
 	logmsg("   Output options:\n");
 	logmsg("	 -v: Enable <v>erbose mode, spits all the FFTW results\n");
-	logmsg("	 -j: Cuts all the per block information and shows <j>ust the total results\n");
 	logmsg("	 -e: Enables <e>xtended results. Shows a table with all matched\n\tfrequencies for each block with differences\n");
 	logmsg("	 -m: Enables Show all blocks compared with <m>atched frequencies\n");
-	logmsg("	 -x: Enables totaled output for use with grep and spreadsheet\n");
 	logmsg("	 -l: <l>og output to file [reference]_vs_[compare].txt\n");
 	logmsg("	 -k: cloc<k> FFTW operations\n");
-	logmsg("	 -g: clock FFTW operations for each <n>ote\n");
 }
 
 void Header_wave(int log)

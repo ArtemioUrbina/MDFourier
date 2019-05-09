@@ -90,6 +90,11 @@ typedef struct abd_st {
 	int				regularChunks;
 	double			platformMSPerFrame;
 	int				pulseSyncFreq;
+	int				pulseMinVol;
+	int				pulseVolDiff;
+	int				pulseFrameMinLen;
+	int				pulseFrameMaxLen;
+	int				pulseCount;
 
 	AudioBlockType	*typeArray;
 	int				typeCount;
@@ -227,9 +232,6 @@ typedef struct parameters_st {
 	char			channel;
 	int				MaxFreq;
 	int				clock;
-	int				clockBlock;
-	int				debugVerbose;
-	int				spreadsheet;	
 	char			normalize;
 	double			relativeMaxMagnitude;
 	int				ignoreFloor;

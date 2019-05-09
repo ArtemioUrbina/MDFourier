@@ -266,7 +266,9 @@ int LoadFile(FILE *file, AudioSignal *Signal, parameters *config, char *fileName
 			logmsg("\nStarting Pulse train was not detected\n");
 			return 0;
 		}
-		logmsg(" %gs\n", BytesToSeconds(Signal->header.SamplesPerSec, Signal->startOffset));
+		logmsg(" %gs [%ld bytes]\n", 
+				BytesToSeconds(Signal->header.SamplesPerSec, Signal->startOffset),
+				Signal->startOffset);
 
 		if(GetLastSyncIndex(config) != NO_INDEX)
 		{
@@ -277,7 +279,9 @@ int LoadFile(FILE *file, AudioSignal *Signal, parameters *config, char *fileName
 				logmsg("\nEnding Pulse train was not detected\n");
 				return 0;
 			}
-			logmsg(" %gs\n", BytesToSeconds(Signal->header.SamplesPerSec, Signal->endOffset));
+			logmsg(" %gs [%ld bytes]\n", 
+				BytesToSeconds(Signal->header.SamplesPerSec, Signal->endOffset),
+				Signal->endOffset);
 			Signal->framerate = (double)(Signal->endOffset-Signal->startOffset)*1000/((double)Signal->header.SamplesPerSec*4*
 								GetLastSyncFrameOffset(Signal->header, config));
 			Signal->framerate = RoundFloat(Signal->framerate, 2);
@@ -475,7 +479,6 @@ double ExecuteDFFT(AudioBlocks *AudioArray, short *samples, size_t size, long sa
 	double		  	*signal = NULL;
 	fftw_complex  	*spectrum = NULL;
 	double		 	seconds = 0;
-	struct			timespec start, end;
 	
 	if(!AudioArray)
 	{
@@ -500,9 +503,6 @@ double ExecuteDFFT(AudioBlocks *AudioArray, short *samples, size_t size, long sa
 		return(0);
 	}
 
-	if(config->clockBlock)
-		clock_gettime(CLOCK_MONOTONIC, &start);
-
 	p = fftw_plan_dft_r2c_1d(monoSignalSize, signal, spectrum, FFTW_MEASURE);
 
 	memset(signal, 0, sizeof(double)*(monoSignalSize+1));
@@ -523,14 +523,6 @@ double ExecuteDFFT(AudioBlocks *AudioArray, short *samples, size_t size, long sa
 
 	fftw_execute(p); 
 	fftw_destroy_plan(p);
-
-	if(config->clockBlock)
-	{
-		double			elapsedSeconds;
-		clock_gettime(CLOCK_MONOTONIC, &end);
-		elapsedSeconds = TimeSpecToSeconds(&end) - TimeSpecToSeconds(&start);
-		logmsg("Processing Audio Block took %f\n", elapsedSeconds);
-	}
 
 	free(signal);
 	signal = NULL;
