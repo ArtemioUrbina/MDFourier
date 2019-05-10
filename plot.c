@@ -33,8 +33,8 @@
 #include "cline.h"
 #include "windows.h"
 
-#define PLOT_RES_X 1600
-#define PLOT_RES_Y 800
+#define PLOT_RES_X 1600.0
+#define PLOT_RES_Y 800.0
 
 int FillPlot(PlotFile *plot, char *name, int sizex, int sizey, double x0, double y0, double x1, double y1, double penWidth, parameters *config)
 {
@@ -100,22 +100,22 @@ int ClosePlot(PlotFile *plot)
 		logmsg("Couldn't delete Plotter\n");
 		return 0;
 	}
+	plot->plotter = NULL;
 
 	if(pl_deleteplparams(plot->plotter_params) < 0)
 	{
 		logmsg("Couldn't delete Plotter Params\n");
 		return 0;
 	}
-
-	plot->plotter = NULL;
-	plot->file = NULL;
 	plot->plotter_params = NULL;
 
 	fclose(plot->file);
+	plot->file = NULL;
+
 	return 1;
 }
 
-void DrawGridZeroDBCentered(PlotFile *plot, int dbs, int dbIncrement, int hz, int hzIncrement, parameters *config)
+void DrawGridZeroDBCentered(PlotFile *plot, double dbs, double dbIncrement, double hz, double hzIncrement, parameters *config)
 {
 	pl_pencolor_r (plot->plotter, 0, 0xcccc, 0);
 	pl_fline_r(plot->plotter, 0, 0, hz, 0);
@@ -128,27 +128,126 @@ void DrawGridZeroDBCentered(PlotFile *plot, int dbs, int dbIncrement, int hz, in
 	}
 
 	pl_pencolor_r (plot->plotter, 0, 0x5555, 0);
-	for(int i = 0; i < hz; i += hzIncrement)
+	pl_fline_r(plot->plotter, transformtoLog(10, hz, config), -1*dbs, transformtoLog(10, hz, config), dbs);
+	pl_fline_r(plot->plotter, transformtoLog(100, hz, config), -1*dbs, transformtoLog(100, hz, config), dbs);
+	for(int i = hzIncrement; i < hz; i += hzIncrement)
 		pl_fline_r(plot->plotter, transformtoLog(i, hz, config), -1*dbs, transformtoLog(i, hz, config), dbs);
+		
 
 	pl_pencolor_r (plot->plotter, 0, 0xFFFF, 0);
 }
 
-void DrawGridZeroToLimit(PlotFile *plot, int dbs, int dbIncrement, int hz, int hzIncrement, parameters *config)
+void DrawGridZeroToLimit(PlotFile *plot, double dbs, double dbIncrement, double hz, double hzIncrement, parameters *config)
 {
-	pl_pencolor_r (plot->plotter, 0, 0xaaaa, 0);
-	pl_fline_r(plot->plotter, 0, 0, hz, 0);
-
 	pl_pencolor_r (plot->plotter, 0, 0x7777, 0);
 	for(int i = dbIncrement; i < fabs(dbs); i += dbIncrement)
 		pl_fline_r(plot->plotter, 0, -1*i, hz, -1*i);
 
 	pl_pencolor_r (plot->plotter, 0, 0x7777, 0);
-	for(int i = 0; i < hz; i += hzIncrement)
+	pl_fline_r(plot->plotter, transformtoLog(10, hz, config), dbs, transformtoLog(10, hz, config), 0);
+	pl_fline_r(plot->plotter, transformtoLog(100, hz, config), dbs, transformtoLog(100, hz, config), 0);
+	for(int i = hzIncrement; i < hz; i += hzIncrement)
 		pl_fline_r(plot->plotter, transformtoLog(i, hz, config), dbs, transformtoLog(i, hz, config), 0);
 
 	pl_pencolor_r (plot->plotter, 0, 0xFFFF, 0);
-	pl_flinewidth_r(plot->plotter, SPECTR_WIDTH);
+	pl_flinewidth_r(plot->plotter, 1);
+}
+
+void DrawLabelsZeroDBCentered(PlotFile *plot, double dbs, double dbIncrement, double hz, double hzIncrement,  parameters *config)
+{
+	double segments = 0;
+	char label[20];
+
+	pl_fspace_r(plot->plotter, 0, -1*PLOT_RES_Y/2, PLOT_RES_X, PLOT_RES_Y/2);
+
+	pl_pencolor_r(plot->plotter, 0, 0xaaaa, 0);
+	pl_ffontsize_r(plot->plotter, PLOT_RES_Y/60);
+
+	pl_fmove_r(plot->plotter, PLOT_RES_X/100, PLOT_RES_Y/100);
+	pl_alabel_r(plot->plotter, 'c', 'c', "0db");
+
+	pl_ffontname_r(plot->plotter, "HersheySans");
+	segments = fabs(dbs/dbIncrement);
+	for(int i = 1; i < segments; i ++)
+	{
+		pl_fmove_r(plot->plotter, PLOT_RES_X/100, i*PLOT_RES_Y/segments/2+PLOT_RES_Y/100);
+		sprintf(label, " %gdb", i*dbIncrement);
+		pl_alabel_r(plot->plotter, 'c', 'c', label);
+
+		pl_fmove_r(plot->plotter, PLOT_RES_X/100, -1*i*PLOT_RES_Y/segments/2+PLOT_RES_Y/100);
+		sprintf(label, "-%gdb", i*dbIncrement);
+		pl_alabel_r(plot->plotter, 'c', 'c', label);
+	}
+
+	if(config->logScale)
+	{
+		pl_fmove_r(plot->plotter, PLOT_RES_X/hz*transformtoLog(10, hz, config), PLOT_RES_Y/2-PLOT_RES_Y/100);
+		sprintf(label, "%dHz", 10);
+		pl_alabel_r(plot->plotter, 'c', 'c', label);
+	
+		pl_fmove_r(plot->plotter, PLOT_RES_X/hz*transformtoLog(100, hz, config), PLOT_RES_Y/2-PLOT_RES_Y/100);
+		sprintf(label, "%dHz", 100);
+		pl_alabel_r(plot->plotter, 'c', 'c', label);
+	}
+
+	pl_fmove_r(plot->plotter, PLOT_RES_X/hz*transformtoLog(1000, hz, config), PLOT_RES_Y/2-PLOT_RES_Y/100);
+	sprintf(label, "  %dHz", 1000);
+	pl_alabel_r(plot->plotter, 'c', 'c', label);
+
+	pl_fmove_r(plot->plotter, PLOT_RES_X/hz*transformtoLog(10000, hz, config), PLOT_RES_Y/2-PLOT_RES_Y/100);
+	sprintf(label, "%dkHz", 10);
+	pl_alabel_r(plot->plotter, 'c', 'c', label);
+
+	pl_fspace_r(plot->plotter, plot->x0, plot->y0, plot->x1, plot->y1);
+}
+
+void DrawLabelsMDF(PlotFile *plot)
+{
+	pl_fspace_r(plot->plotter, 0, -1*PLOT_RES_Y/2, PLOT_RES_X, PLOT_RES_Y/2);
+
+	pl_fmove_r(plot->plotter, PLOT_RES_X-PLOT_RES_X/10, -1*PLOT_RES_Y/2+PLOT_RES_Y/100);
+	pl_pencolor_r(plot->plotter, 0, 0xcccc, 0);
+	pl_alabel_r(plot->plotter, 'c', 'c', "MDFourier "MDVERSION"  Artemio Urbina 2019");
+}
+
+void DrawLabelsZeroToLimit(PlotFile *plot, double dbs, double dbIncrement, double hz, double hzIncrement,  parameters *config)
+{
+	double segments = 0;
+	char label[20];
+
+	pl_fspace_r(plot->plotter, 0, -1*PLOT_RES_Y, PLOT_RES_X, 0);
+	pl_pencolor_r(plot->plotter, 0, 0xaaaa, 0);
+	pl_ffontsize_r(plot->plotter, PLOT_RES_Y/60);
+
+	pl_ffontname_r(plot->plotter, "HersheySans");
+	segments = fabs(dbs/dbIncrement);
+	for(int i = 0; i < segments; i ++)
+	{
+		pl_fmove_r(plot->plotter, PLOT_RES_X/50, -1*i*PLOT_RES_Y/segments-PLOT_RES_Y/100);
+		sprintf(label, "%gdb", -1*i*dbIncrement);
+		pl_alabel_r(plot->plotter, 'c', 'c', label);
+	}
+
+	if(config->logScale)
+	{
+		pl_fmove_r(plot->plotter, PLOT_RES_X/hz*transformtoLog(10, hz, config), -PLOT_RES_Y/100);
+		sprintf(label, "%dHz", 10);
+		pl_alabel_r(plot->plotter, 'c', 'c', label);
+	
+		pl_fmove_r(plot->plotter, PLOT_RES_X/hz*transformtoLog(100, hz, config), -PLOT_RES_Y/100);
+		sprintf(label, "%dHz", 100);
+		pl_alabel_r(plot->plotter, 'c', 'c', label);
+	}
+
+	pl_fmove_r(plot->plotter, PLOT_RES_X/hz*transformtoLog(1000, hz, config), -PLOT_RES_Y/100);
+	sprintf(label, "  %dHz", 1000);
+	pl_alabel_r(plot->plotter, 'c', 'c', label);
+
+	pl_fmove_r(plot->plotter, PLOT_RES_X/hz*transformtoLog(10000, hz, config), -PLOT_RES_Y/100);
+	sprintf(label, "%dkHz", 10);
+	pl_alabel_r(plot->plotter, 'c', 'c', label);
+
+	pl_fspace_r(plot->plotter, plot->x0, plot->y0, plot->x1, plot->y1);
 }
 
 void PlotResults(AudioSignal *Signal, parameters *config)
@@ -192,7 +291,7 @@ void PlotAllDifferentAmplitudes(FlatAmplDifference *amplDiff, char *filename, pa
 {
 	PlotFile	plot;
 	char		name[2048];
-	double		dbs = 15;
+	double		dbs = DB_HEIGHT;
 
 	if(!config)
 		return;
@@ -210,6 +309,7 @@ void PlotAllDifferentAmplitudes(FlatAmplDifference *amplDiff, char *filename, pa
 		return;
 
 	DrawGridZeroDBCentered(&plot, dbs, 3, TOP_FREQUENCY, 1000, config);
+	DrawLabelsZeroDBCentered(&plot, dbs, 3, TOP_FREQUENCY, 1000, config);
 
 	for(int a = 0; a < config->Differences.cntAmplAudioDiff; a++)
 	{
@@ -228,13 +328,7 @@ void PlotAllDifferentAmplitudes(FlatAmplDifference *amplDiff, char *filename, pa
 		}
 	}
 
-	pl_fspace_r (plot.plotter, 0.0, -1*PLOT_RES_Y, PLOT_RES_X, PLOT_RES_Y);
-	pl_pencolor_r (plot.plotter, 0, 0xcccc, 0);
-	pl_ffontsize_r (plot.plotter, PLOT_RES_Y/20);
-
-	pl_fmove_r (plot.plotter, PLOT_RES_X-(PLOT_RES_X/20), 10);
-	pl_alabel_r (plot.plotter, 'c', 'c', "0 db");
-
+	DrawLabelsMDF(&plot);
 	ClosePlot(&plot);
 }
 
@@ -259,7 +353,7 @@ int PlotEachTypeDifferentAmplitudes(FlatAmplDifference *amplDiff, char *filename
 void PlotSingleTypeDifferentAmplitudes(FlatAmplDifference *amplDiff, int type, char *filename, parameters *config)
 {
 	PlotFile	plot;
-	double		dbs = 15;
+	double		dbs = DB_HEIGHT;
 
 	if(!config)
 		return;
@@ -276,6 +370,7 @@ void PlotSingleTypeDifferentAmplitudes(FlatAmplDifference *amplDiff, int type, c
 		return;
 
 	DrawGridZeroDBCentered(&plot, dbs, 3, TOP_FREQUENCY, 1000, config);
+	DrawLabelsZeroDBCentered(&plot, dbs, 3, TOP_FREQUENCY, 1000, config);
 
 	for(int a = 0; a < config->Differences.cntAmplAudioDiff; a++)
 	{
@@ -294,13 +389,7 @@ void PlotSingleTypeDifferentAmplitudes(FlatAmplDifference *amplDiff, int type, c
 		}
 	}
 
-	pl_fspace_r (plot.plotter, 0.0, -1*PLOT_RES_Y, PLOT_RES_X, PLOT_RES_Y);
-	pl_pencolor_r (plot.plotter, 0, 0xcccc, 0);
-	pl_ffontsize_r (plot.plotter, PLOT_RES_Y/20);
-
-	pl_fmove_r (plot.plotter, PLOT_RES_X-(PLOT_RES_X/20), 10);
-	pl_alabel_r (plot.plotter, 'c', 'c', "0 db");
-
+	DrawLabelsMDF(&plot);
 	ClosePlot(&plot);
 }
 
@@ -321,7 +410,8 @@ void PlotAllMissingFrequencies(FlatFreqDifference *freqDiff, char *filename, par
 	if(!CreatePlotFile(&plot))
 		return;
 
-	DrawGridZeroDBCentered(&plot, config->significantVolume, 3, TOP_FREQUENCY, 1000, config);
+	DrawGridZeroToLimit(&plot, config->significantVolume, 3, TOP_FREQUENCY, 1000, config);
+	DrawLabelsZeroToLimit(&plot, config->significantVolume, 3, TOP_FREQUENCY, 1000, config);
 
 	for(int f = 0; f < config->Differences.cntFreqAudioDiff; f++)
 	{
@@ -342,6 +432,8 @@ void PlotAllMissingFrequencies(FlatFreqDifference *freqDiff, char *filename, par
 			pl_fline_r(plot.plotter, x,	y, x, config->significantVolume);
 		}
 	}
+	
+	DrawLabelsMDF(&plot);
 	ClosePlot(&plot);
 }
 
@@ -378,7 +470,8 @@ void PlotSingleTypeMissingFrequencies(FlatFreqDifference *freqDiff, int type, ch
 	if(!CreatePlotFile(&plot))
 		return;
 
-	DrawGridZeroDBCentered(&plot, config->significantVolume, 3, TOP_FREQUENCY, 1000, config);
+	DrawGridZeroToLimit(&plot, config->significantVolume, 3, TOP_FREQUENCY, 1000, config);
+	DrawLabelsZeroToLimit(&plot, config->significantVolume, 3, TOP_FREQUENCY, 1000, config);
 
 	for(int f = 0; f < config->Differences.cntFreqAudioDiff; f++)
 	{
@@ -398,6 +491,8 @@ void PlotSingleTypeMissingFrequencies(FlatFreqDifference *freqDiff, int type, ch
 			pl_fline_r(plot.plotter, x,	y, x, config->significantVolume);
 		}
 	}
+	
+	DrawLabelsMDF(&plot);
 	ClosePlot(&plot);
 }
 
@@ -415,7 +510,8 @@ void PlotAllSpectrogram(FlatFrequency *freqs, long int size, char *filename, par
 	if(!CreatePlotFile(&plot))
 		return;
 
-	DrawGridZeroDBCentered(&plot, config->significantVolume, 3, TOP_FREQUENCY, 1000, config);
+	DrawGridZeroToLimit(&plot, config->significantVolume, 3, TOP_FREQUENCY, 1000, config);
+	DrawLabelsZeroToLimit(&plot, config->significantVolume, 3, TOP_FREQUENCY, 1000, config);
 
 	for(int f = 0; f < size; f++)
 	{
@@ -435,6 +531,8 @@ void PlotAllSpectrogram(FlatFrequency *freqs, long int size, char *filename, par
 			pl_fline_r(plot.plotter, x,	y, x, config->significantVolume);
 		}
 	}
+
+	DrawLabelsMDF(&plot);
 	ClosePlot(&plot);
 }
 
@@ -468,7 +566,8 @@ void PlotSingleTypeSpectrogram(FlatFrequency *freqs, long int size, int type, ch
 	if(!CreatePlotFile(&plot))
 		return;
 
-	DrawGridZeroDBCentered(&plot, config->significantVolume, 3, TOP_FREQUENCY, 1000, config);
+	DrawLabelsZeroToLimit(&plot, config->significantVolume, 3, TOP_FREQUENCY, 1000, config);
+	DrawGridZeroToLimit(&plot, config->significantVolume, 3, TOP_FREQUENCY, 1000, config);
 
 	for(int f = 0; f < size; f++)
 	{
@@ -484,10 +583,13 @@ void PlotSingleTypeSpectrogram(FlatFrequency *freqs, long int size, int type, ch
 			intensity = CalculateWeightedError(range_0_1, config);
 			color = intensity*0xffff;
 	
+			//pl_flinewidth_r(plot.plotter, 100*range_0_1);
 			SetPenColor(freqs[f].color, color, &plot);
 			pl_fline_r(plot.plotter, x,	y, x, config->significantVolume);
 		}
 	}
+	
+	DrawLabelsMDF(&plot);
 	ClosePlot(&plot);
 }
 
@@ -521,6 +623,7 @@ void PlotWindow(windowManager *wm, parameters *config)
 	for(int i = 0; i < size; i++)
 		pl_fpoint_r(plot.plotter, (double)i/(double)size, window[i]);
 	
+	DrawLabelsMDF(&plot);
 	ClosePlot(&plot);
 }
 
@@ -572,6 +675,7 @@ void PlotBetaFunctions(parameters *config)
 			pl_fpoint_r(plot.plotter, x, y);
 		}
 		
+		DrawLabelsMDF(&plot);
 		ClosePlot(&plot);
 	}
 }

@@ -43,8 +43,8 @@ typedef struct plot_st {
 	double			penWidth;
 } PlotFile;
 
-#define SPECTR_WIDTH	1
-#define TOP_FREQUENCY	20000   // we don't use 22050 for integer scaling
+#define DB_HEIGHT 18
+#define TOP_FREQUENCY	20000.0		// we don't use 22050 for integer scaling
 
 #define COLOR_NONE		0	
 #define COLOR_RED 		1
@@ -108,7 +108,10 @@ FlatFreqDifference *CreateFlatMissing(parameters *config);
 FlatFrequency *CreateFlatFrequencies(AudioSignal *Signal, long int *size, parameters *config);
 
 double transformtoLog(double coord, double top, parameters *config);
-void DrawGridZeroDBCentered(PlotFile *plot, int dbs, int dbIncrement, int hz, int hzIncrement, parameters *config);
+void DrawGridZeroDBCentered(PlotFile *plot, double dbs, double dbIncrement, double hz, double hzIncrement, parameters *config);
+void DrawLabelsZeroDBCentered(PlotFile *plot, double dbs, double dbIncrement, double hz, double hzIncrement,  parameters *config);
+void DrawGridZeroToLimit(PlotFile *plot, double dbs, double dbIncrement, double hz, double hzIncrement, parameters *config);
+void DrawLabelsZeroToLimit(PlotFile *plot, double dbs, double dbIncrement, double hz, double hzIncrement,  parameters *config);
 
 
 #endif
