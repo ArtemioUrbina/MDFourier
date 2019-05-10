@@ -683,7 +683,7 @@ void PlotBetaFunctions(parameters *config)
 int MatchColor(char *color)
 {
 	int		i = 0;
-	char	colorcopy[512];
+	char	colorcopy[640];
 
 	strncpy(colorcopy, color, 512);
 

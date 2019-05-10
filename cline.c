@@ -93,7 +93,10 @@ void CleanParameters(parameters *config)
 	config->origSignificantVolume = SIGNIFICANT_VOLUME;
 	config->significantVolume = SIGNIFICANT_VOLUME;
 	config->smallerFramerate = 0;
+
+	/* Non exposed */
 	config->logScale = 1;
+	config->debugSync = 0;
 	
 	config->types.totalChunks = 0;
 	config->types.regularChunks = 0;
@@ -103,6 +106,7 @@ void CleanParameters(parameters *config)
 	config->types.pulseVolDiff = 30;
 	config->types.pulseFrameMinLen = 14;
 	config->types.pulseFrameMaxLen = 18;
+	config->types.pulseCount = 10;
 	config->types.typeArray = NULL;
 	config->types.typeCount = 0;
 
@@ -376,7 +380,7 @@ int commandline(int argc , char *argv[], parameters *config)
 void CreateFolderName(parameters *config)
 {
 	int len;
-	char tmp[LOG_NAME_LEN];
+	char tmp[2500];
 
 	if(!config)
 		return;
@@ -390,14 +394,19 @@ void CreateFolderName(parameters *config)
 	sprintf(config->compareName, "%s", tmp);
 	sprintf(config->folderName, "MDFResults\\%s", tmp);
 
+#if defined (WIN32)
+	mkdir("MDFResults");
+	mkdir(config->folderName);
+#else
 	mkdir("MDFResults", 0755);
 	mkdir(config->folderName, 0755);
+#endif
 }
 
 void InvertComparedName(parameters *config)
 {
 	int len;
-	char tmp[LOG_NAME_LEN];
+	char tmp[2500];
 
 	sprintf(tmp, "%s", basename(config->targetFile));
 	len = strlen(tmp);
@@ -411,7 +420,7 @@ void InvertComparedName(parameters *config)
 void CreateFolderName_wave(parameters *config)
 {
 	int len;
-	char tmp[LOG_NAME_LEN];
+	char tmp[2500];
 
 	if(!config)
 		return;
@@ -422,8 +431,13 @@ void CreateFolderName_wave(parameters *config)
 
 	sprintf(config->folderName, "%s", tmp);
 
+#if defined (WIN32)
+	mkdir("MDWave");
+	mkdir(config->folderName);
+#else
 	mkdir("MDWave", 0755);
 	mkdir(config->folderName, 0755);
+#endif
 }
 
 void CreateBaseName(parameters *config)

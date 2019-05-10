@@ -230,12 +230,13 @@ int LoadAudioBlockStructure(parameters *config)
 	}
 
 	readLine(lineBuffer, file);
-	if(sscanf(lineBuffer, "%d %d %d %d %d\n", 
+	if(sscanf(lineBuffer, "%d %d %d %d %d %d\n", 
 		&config->types.pulseSyncFreq,
 		&config->types.pulseMinVol,
 		&config->types.pulseVolDiff,
 		&config->types.pulseFrameMinLen,
-		&config->types.pulseFrameMaxLen) != 5)
+		&config->types.pulseFrameMaxLen,
+		&config->types.pulseCount) != 6)
 	{
 		logmsg("Invalid Pulse Parameters '%s'\n", lineBuffer);
 		fclose(file);
@@ -267,6 +268,13 @@ int LoadAudioBlockStructure(parameters *config)
 		config->types.pulseFrameMinLen >= config->types.pulseFrameMaxLen)
 	{
 		logmsg("Invalid Pulse Min Max Range:\n%s\n", lineBuffer);
+		fclose(file);
+		return 0;
+	}
+
+	if(!config->types.pulseCount)
+	{
+		logmsg("Invalid Pulse Count value:\n%s\n", lineBuffer);
 		fclose(file);
 		return 0;
 	}
@@ -330,7 +338,7 @@ int LoadAudioBlockStructure(parameters *config)
 			&config->types.typeArray[i].frames,
 			&config->types.typeArray[i].color [0]) != 3)
 		{
-			logmsg("Invalid MD Fourier Audio Blocks File\n");
+			logmsg("Invalid MD Fourier Audio Blocks File (Element Count, frames, color): %s\n", lineBuffer);
 			fclose(file);
 			return 0;
 		}
