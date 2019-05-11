@@ -50,6 +50,7 @@ int main(int argc , char *argv[])
 	FILE				*reference = NULL;
 	AudioSignal  		*ReferenceSignal;
 	parameters			config;
+	struct	timespec	start, end;
 
 	Header_wave(0);
 	if(!commandline_wave(argc, argv, &config))
@@ -57,6 +58,9 @@ int main(int argc , char *argv[])
 		printf("	 -h: Shows command line help\n");
 		return 1;
 	}
+
+	if(config.clock)
+		clock_gettime(CLOCK_MONOTONIC, &start);
 
 	if(!LoadAudioBlockStructure(&config))
 		return 1;
@@ -91,13 +95,21 @@ int main(int argc , char *argv[])
 		return 1;
 	}
 
-	logmsg("Max blanked frequencies per block %d\n", config.maxBlanked);
+	logmsg("* Max blanked frequencies per block %d\n", config.maxBlanked);
 	
 	ReleaseAudio(ReferenceSignal, &config);
 	free(ReferenceSignal);
 	ReferenceSignal = NULL;
 
 	ReleaseAudioBlockStructure(&config);
+
+	if(config.clock)
+	{
+		double	elapsedSeconds;
+		clock_gettime(CLOCK_MONOTONIC, &end);
+		elapsedSeconds = TimeSpecToSeconds(&end) - TimeSpecToSeconds(&start);
+		logmsg(" - clk: MDWave took %0.2fs\n", elapsedSeconds);
+	}
 	
 	return(0);
 }
@@ -170,6 +182,14 @@ int LoadFile(FILE *file, AudioSignal *Signal, parameters *config, char *fileName
 
 	fclose(file);
 
+	if(config->clock)
+	{
+		double	elapsedSeconds;
+		clock_gettime(CLOCK_MONOTONIC, &end);
+		elapsedSeconds = TimeSpecToSeconds(&end) - TimeSpecToSeconds(&start);
+		logmsg(" - clk: Loading WAV took %0.2fs\n", elapsedSeconds);
+	}
+
 	if(GetFirstSyncIndex(config) != NO_INDEX)
 	{
 		if(config->clock)
@@ -210,10 +230,10 @@ int LoadFile(FILE *file, AudioSignal *Signal, parameters *config, char *fileName
 
 		if(config->clock)
 		{
-			double			elapsedSeconds;
+			double	elapsedSeconds;
 			clock_gettime(CLOCK_MONOTONIC, &end);
 			elapsedSeconds = TimeSpecToSeconds(&end) - TimeSpecToSeconds(&start);
-			logmsg(" - Detecting sync took %fs\n", elapsedSeconds);
+			logmsg(" - clk: Detecting sync took %0.2fs\n", elapsedSeconds);
 		}
 	}
 	else
@@ -226,14 +246,6 @@ int LoadFile(FILE *file, AudioSignal *Signal, parameters *config, char *fileName
 		Signal->hasFloor = 1;
 
 	sprintf(Signal->SourceFile, "%s", fileName);
-
-	if(config->clock)
-	{
-		double			elapsedSeconds;
-		clock_gettime(CLOCK_MONOTONIC, &end);
-		elapsedSeconds = TimeSpecToSeconds(&end) - TimeSpecToSeconds(&start);
-		logmsg(" - Loading WAV took %f\n", elapsedSeconds);
-	}
 
 	return 1;
 }
@@ -254,6 +266,9 @@ int ProcessFile(AudioSignal *Signal, parameters *config)
 
 	pos = Signal->startOffset;
 	
+	if(config->clock)
+		clock_gettime(CLOCK_MONOTONIC, &start);
+
 	longest = FramesToSeconds(Signal->framerate, GetLongestElementFrames(config));
 	if(!longest)
 	{
@@ -351,6 +366,17 @@ int ProcessFile(AudioSignal *Signal, parameters *config)
 			logmsg(" - Using as minimum significant volume for analisys\n");
 		}
 	}
+
+	if(config->clock)
+	{
+		double	elapsedSeconds;
+		clock_gettime(CLOCK_MONOTONIC, &end);
+		elapsedSeconds = TimeSpecToSeconds(&end) - TimeSpecToSeconds(&start);
+		logmsg(" - clk: FFTW on WAV chunks took %0.2fs\n", elapsedSeconds);
+	}
+
+	if(config->clock)
+		clock_gettime(CLOCK_MONOTONIC, &start);
 
 	CreateBaseName(config);
 
@@ -458,10 +484,10 @@ int ProcessFile(AudioSignal *Signal, parameters *config)
 
 	if(config->clock)
 	{
-		double			elapsedSeconds;
+		double	elapsedSeconds;
 		clock_gettime(CLOCK_MONOTONIC, &end);
 		elapsedSeconds = TimeSpecToSeconds(&end) - TimeSpecToSeconds(&start);
-		logmsg("Processing WAV took %f\n", elapsedSeconds);
+		logmsg(" - clk: iFFTW on WAV chunks took %0.2fs\n", elapsedSeconds);
 	}
 
 	free(buffer);

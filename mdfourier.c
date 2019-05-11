@@ -260,10 +260,10 @@ int LoadFile(FILE *file, AudioSignal *Signal, parameters *config, char *fileName
 
 	if(config->clock)
 	{
-		double			elapsedSeconds;
+		double	elapsedSeconds;
 		clock_gettime(CLOCK_MONOTONIC, &end);
 		elapsedSeconds = TimeSpecToSeconds(&end) - TimeSpecToSeconds(&start);
-		logmsg(" - Loading WAV took %fs\n", elapsedSeconds);
+		logmsg(" - clk: Loading WAV took %0.2fs\n", elapsedSeconds);
 	}
 
 	if(GetFirstSyncIndex(config) != NO_INDEX)
@@ -306,10 +306,10 @@ int LoadFile(FILE *file, AudioSignal *Signal, parameters *config, char *fileName
 
 		if(config->clock)
 		{
-			double			elapsedSeconds;
+			double	elapsedSeconds;
 			clock_gettime(CLOCK_MONOTONIC, &end);
 			elapsedSeconds = TimeSpecToSeconds(&end) - TimeSpecToSeconds(&start);
-			logmsg(" - Detecting sync took %fs\n", elapsedSeconds);
+			logmsg(" - clk: Detecting sync took %0.2fs\n", elapsedSeconds);
 		}
 	}
 	else
@@ -462,10 +462,10 @@ int ProcessFile(AudioSignal *Signal, parameters *config)
 
 	if(config->clock)
 	{
-		double			elapsedSeconds;
+		double	elapsedSeconds;
 		clock_gettime(CLOCK_MONOTONIC, &end);
 		elapsedSeconds = TimeSpecToSeconds(&end) - TimeSpecToSeconds(&start);
-		logmsg(" - Processing took %fs\n", elapsedSeconds);
+		logmsg(" - clk: Processing took %0.2fs\n", elapsedSeconds);
 	}
 
 	/* Global Normalization by default */
@@ -748,10 +748,10 @@ double CompareAudioBlocks(AudioSignal *ReferenceSignal, AudioSignal *TestSignal,
 	
 	if(config->clock)
 	{
-		double			elapsedSeconds;
+		double	elapsedSeconds;
 		clock_gettime(CLOCK_MONOTONIC, &end);
 		elapsedSeconds = TimeSpecToSeconds(&end) - TimeSpecToSeconds(&start);
-		logmsg(" - Comparing frequecnies took %fs\n", elapsedSeconds);
+		logmsg(" - clk: Comparing frequecnies took %0.2fs\n", elapsedSeconds);
 	}
 	return 0;
 }

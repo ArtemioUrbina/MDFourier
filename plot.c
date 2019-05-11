@@ -437,10 +437,10 @@ void PlotResults(AudioSignal *Signal, parameters *config)
 
 	if(config->clock)
 	{
-		double			elapsedSeconds;
+		double	elapsedSeconds;
 		clock_gettime(CLOCK_MONOTONIC, &end);
 		elapsedSeconds = TimeSpecToSeconds(&end) - TimeSpecToSeconds(&start);
-		logmsg(" - Plotting PNGs took %fs\n", elapsedSeconds);
+		logmsg(" - Plotting PNGs took %0.2fs\n", elapsedSeconds);
 	}
 }
 
