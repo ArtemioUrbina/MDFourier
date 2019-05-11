@@ -671,6 +671,20 @@ char *GetBlockColor(parameters *config, int pos)
 	return "black";
 }
 
+char *GetTypeColor(parameters *config, int type)
+{
+	if(!config)
+		return "nconfig";
+
+	for(int i = 0; i < config->types.typeCount; i++)
+	{
+		if(config->types.typeArray[i].type == type)
+			return(config->types.typeArray[i].color);
+	}
+	
+	return "black";
+}
+
 void FindFloor(AudioSignal *Signal, parameters *config)
 {
 	int index;

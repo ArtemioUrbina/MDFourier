@@ -722,7 +722,7 @@ int commandline_wave(int argc , char *argv[], parameters *config)
 	config->MinAmplitude = 0;
 	config->floorAmplitude = 0;
 
-	while ((c = getopt (argc, argv, "hvcklxis:z:f:b:d:t:a:w:r:")) != -1)
+	while ((c = getopt (argc, argv, "hvcklxis:z:f:b:d:t:p:a:w:r:")) != -1)
 	switch (c)
 	  {
 	  case 'h':
@@ -776,6 +776,12 @@ int commandline_wave(int argc , char *argv[], parameters *config)
 		config->tolerance = atof(optarg);
 		if(config->tolerance < 0.0 || config->tolerance > 100.0)
 			config->tolerance = DBS_TOLERANCE;
+		break;
+	  case 'p':
+		config->significantVolume = atof(optarg);
+		if(config->significantVolume <= -100.0 || config->significantVolume >= -1.0)
+			config->significantVolume = SIGNIFICANT_VOLUME;
+		config->origSignificantVolume = config->significantVolume;
 		break;
 	  case 'a':
 		switch(optarg[0])

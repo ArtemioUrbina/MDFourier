@@ -86,6 +86,7 @@ int CreatePlotFile(PlotFile *plot);
 int ClosePlot(PlotFile *plot);
 void SetPenColorStr(char *colorName, long int color, PlotFile *plot);
 void SetPenColor(int colorIndex, long int color, PlotFile *plot);
+void SetFillColor(int colorIndex, long int color, PlotFile *plot);
 int MatchColor(char *color);
 
 void PlotAllDifferentAmplitudes(FlatAmplDifference *amplDiff, char *filename, parameters *config);
@@ -112,6 +113,9 @@ void DrawGridZeroDBCentered(PlotFile *plot, double dbs, double dbIncrement, doub
 void DrawLabelsZeroDBCentered(PlotFile *plot, double dbs, double dbIncrement, double hz, double hzIncrement,  parameters *config);
 void DrawGridZeroToLimit(PlotFile *plot, double dbs, double dbIncrement, double hz, double hzIncrement, parameters *config);
 void DrawLabelsZeroToLimit(PlotFile *plot, double dbs, double dbIncrement, double hz, double hzIncrement,  parameters *config);
+void DrawColorScale(PlotFile *plot, int color, double x, double y, double width, double height, double endDbs, double dbIncrement, parameters *config);
 
+void PlotTest(char *filename, parameters *config);
+void PlotTestZL(char *filename, parameters *config);
 
 #endif

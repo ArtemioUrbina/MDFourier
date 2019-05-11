@@ -163,18 +163,18 @@ void DrawLabelsZeroDBCentered(PlotFile *plot, double dbs, double dbIncrement, do
 	pl_pencolor_r(plot->plotter, 0, 0xaaaa, 0);
 	pl_ffontsize_r(plot->plotter, PLOT_RES_Y/60);
 
-	pl_fmove_r(plot->plotter, PLOT_RES_X/100, PLOT_RES_Y/100);
+	pl_fmove_r(plot->plotter, PLOT_RES_X-PLOT_RES_X/80, PLOT_RES_Y/100);
 	pl_alabel_r(plot->plotter, 'c', 'c', "0db");
 
 	pl_ffontname_r(plot->plotter, "HersheySans");
 	segments = fabs(dbs/dbIncrement);
 	for(int i = 1; i < segments; i ++)
 	{
-		pl_fmove_r(plot->plotter, PLOT_RES_X/100, i*PLOT_RES_Y/segments/2+PLOT_RES_Y/100);
+		pl_fmove_r(plot->plotter, PLOT_RES_X-PLOT_RES_X/80, i*PLOT_RES_Y/segments/2+PLOT_RES_Y/100);
 		sprintf(label, " %gdb", i*dbIncrement);
 		pl_alabel_r(plot->plotter, 'c', 'c', label);
 
-		pl_fmove_r(plot->plotter, PLOT_RES_X/100, -1*i*PLOT_RES_Y/segments/2+PLOT_RES_Y/100);
+		pl_fmove_r(plot->plotter, PLOT_RES_X-PLOT_RES_X/80, -1*i*PLOT_RES_Y/segments/2+PLOT_RES_Y/100);
 		sprintf(label, "-%gdb", i*dbIncrement);
 		pl_alabel_r(plot->plotter, 'c', 'c', label);
 	}
@@ -205,7 +205,7 @@ void DrawLabelsMDF(PlotFile *plot)
 {
 	pl_fspace_r(plot->plotter, 0, -1*PLOT_RES_Y/2, PLOT_RES_X, PLOT_RES_Y/2);
 
-	pl_fmove_r(plot->plotter, PLOT_RES_X-PLOT_RES_X/10, -1*PLOT_RES_Y/2+PLOT_RES_Y/100);
+	pl_fmove_r(plot->plotter, PLOT_RES_X/10, -1*PLOT_RES_Y/2+PLOT_RES_Y/100);
 	pl_pencolor_r(plot->plotter, 0, 0xcccc, 0);
 	pl_alabel_r(plot->plotter, 'c', 'c', "MDFourier "MDVERSION"  Artemio Urbina 2019");
 }
@@ -223,7 +223,7 @@ void DrawLabelsZeroToLimit(PlotFile *plot, double dbs, double dbIncrement, doubl
 	segments = fabs(dbs/dbIncrement);
 	for(int i = 0; i < segments; i ++)
 	{
-		pl_fmove_r(plot->plotter, PLOT_RES_X/50, -1*i*PLOT_RES_Y/segments-PLOT_RES_Y/100);
+		pl_fmove_r(plot->plotter, PLOT_RES_X-PLOT_RES_X/50, -1*i*PLOT_RES_Y/segments-PLOT_RES_Y/100);
 		sprintf(label, "%gdb", -1*i*dbIncrement);
 		pl_alabel_r(plot->plotter, 'c', 'c', label);
 	}
@@ -250,14 +250,108 @@ void DrawLabelsZeroToLimit(PlotFile *plot, double dbs, double dbIncrement, doubl
 	pl_fspace_r(plot->plotter, plot->x0, plot->y0, plot->x1, plot->y1);
 }
 
+void DrawColorScale(PlotFile *plot, int colorName, double x, double y, double width, double height, double endDbs, double dbIncrement, parameters *config)
+{
+	double segments = 0;
+
+	pl_fspace_r(plot->plotter, 0, 0, PLOT_RES_X, PLOT_RES_Y);
+	pl_filltype_r(plot->plotter, 1);
+
+	segments = floor(fabs(endDbs/dbIncrement));
+	for(double i = 0; i < segments; i ++)
+	{
+		double range_0_1;
+		long int color;
+		double intensity;	
+
+		range_0_1 = i/segments;
+		intensity = CalculateWeightedError(range_0_1, config);
+		color = intensity*0xffff;
+
+		SetPenColor(colorName, color, plot);
+		SetFillColor(colorName, color, plot);
+		pl_fbox_r(plot->plotter, x, y+i*height/segments, x+width, y+i*height/segments+height/segments);
+		pl_endsubpath_r(plot->plotter);
+	}
+
+	pl_pencolor_r(plot->plotter, 0xaaaa, 0xaaaa, 0xaaaa);
+	pl_filltype_r(plot->plotter, 0);
+	pl_fbox_r(plot->plotter, x, y, x+width, y+height);
+
+	SetPenColor(colorName, 0xaaaa, plot);
+	pl_ffontsize_r(plot->plotter, PLOT_RES_Y/60);
+	pl_ffontname_r(plot->plotter, "HersheySans");
+
+	for(double i = 0; i < segments; i++)
+	{
+		char label[20];
+
+		pl_fmove_r(plot->plotter, x+width*2.2, y+height-i*height/segments-height/segments/2);
+		sprintf(label, "%gdb", -1*i*dbIncrement);
+		pl_alabel_r(plot->plotter, 'c', 'c', label);
+	}
+
+}
+
+void PlotTest(char *filename, parameters *config)
+{
+	PlotFile	plot;
+	char		name[2048];
+	double		dbs = DB_HEIGHT;
+
+	if(!config)
+		return;
+
+	sprintf(name, "Test_%s", filename);
+	FillPlot(&plot, name, PLOT_RES_X, PLOT_RES_Y, 0, -1*dbs, TOP_FREQUENCY, dbs, 1, config);
+
+	if(!CreatePlotFile(&plot))
+		return;
+
+	DrawGridZeroDBCentered(&plot, dbs, 3, TOP_FREQUENCY, 1000, config);
+	DrawLabelsZeroDBCentered(&plot, dbs, 3, TOP_FREQUENCY, 1000, config);
+	DrawLabelsMDF(&plot);
+	DrawColorScale(&plot, COLOR_ORANGE, PLOT_RES_X/50, PLOT_RES_Y/15, 20, 700, -60, 3, config);
+	
+
+	ClosePlot(&plot);
+}
+
+void PlotTestZL(char *filename, parameters *config)
+{
+	PlotFile	plot;
+	char		name[2048];
+
+	if(!config)
+		return;
+
+	sprintf(name, "Test_ZL_%s", filename);
+	FillPlot(&plot, name, PLOT_RES_X, PLOT_RES_Y, 0, config->significantVolume, TOP_FREQUENCY, 0.0, 1, config);
+
+	if(!CreatePlotFile(&plot))
+		return;
+
+	DrawGridZeroToLimit(&plot, config->significantVolume, 3, TOP_FREQUENCY, 1000, config);
+	DrawLabelsZeroToLimit(&plot, config->significantVolume, 3, TOP_FREQUENCY, 1000, config);
+
+	DrawColorScale(&plot, COLOR_ORANGE, PLOT_RES_X/50, PLOT_RES_Y/15, 20, 700, -60, 3, config);
+	
+	DrawLabelsMDF(&plot);
+	ClosePlot(&plot);
+}
+
 void PlotResults(AudioSignal *Signal, parameters *config)
 {
 	FlatAmplDifference	*amplDiff = NULL;
 	FlatFreqDifference	*freqDiff = NULL;
 	FlatFrequency		*frequencies = NULL;
 	long int			size = 0;
+	struct	timespec	start, end;
 
 	logmsg("* Plotting results to PNGs\n");
+
+	if(config->clock)
+		clock_gettime(CLOCK_MONOTONIC, &start);
 
 	amplDiff = CreateFlatDifferences(config);
 	if(!amplDiff)
@@ -285,6 +379,14 @@ void PlotResults(AudioSignal *Signal, parameters *config)
 
 	free(frequencies);
 	frequencies = NULL;
+
+	if(config->clock)
+	{
+		double			elapsedSeconds;
+		clock_gettime(CLOCK_MONOTONIC, &end);
+		elapsedSeconds = TimeSpecToSeconds(&end) - TimeSpecToSeconds(&start);
+		logmsg(" - Plotting PNGs took %fs\n", elapsedSeconds);
+	}
 }
 
 void PlotAllDifferentAmplitudes(FlatAmplDifference *amplDiff, char *filename, parameters *config)
@@ -389,6 +491,7 @@ void PlotSingleTypeDifferentAmplitudes(FlatAmplDifference *amplDiff, int type, c
 		}
 	}
 
+	DrawColorScale(&plot, MatchColor(GetTypeColor(config, type)), PLOT_RES_X/50, PLOT_RES_Y/15, 20, 700, config->significantVolume, 3, config);
 	DrawLabelsMDF(&plot);
 	ClosePlot(&plot);
 }
@@ -751,6 +854,43 @@ void SetPenColor(int colorIndex, long int color, PlotFile *plot)
 			break;
 		default:
 			pl_pencolor_r(plot->plotter, 0, color, 0);
+			break;
+	}
+}
+
+void SetFillColor(int colorIndex, long int color, PlotFile *plot)
+{
+	switch(colorIndex)
+	{
+		case COLOR_RED:
+			pl_fillcolor_r(plot->plotter, color, 0, 0);
+			break;
+		case COLOR_GREEN:
+			pl_fillcolor_r(plot->plotter, 0, color, 0);
+			break;
+		case COLOR_BLUE:
+			pl_fillcolor_r(plot->plotter, 0, 0, color);
+			break;
+		case COLOR_YELLOW:
+			pl_fillcolor_r(plot->plotter, color, color, 0);
+			break;
+		case COLOR_AQUA:
+			pl_fillcolor_r(plot->plotter, 0, color, color);
+			break;
+		case COLOR_MAGENTA:
+			pl_fillcolor_r(plot->plotter, color, 0, color);
+			break;
+		case COLOR_PURPLE:
+			pl_fillcolor_r(plot->plotter, color/2, 0, color);
+			break;
+		case COLOR_ORANGE:
+			pl_fillcolor_r(plot->plotter, color, color/2, 0);
+			break;
+		case COLOR_GRAY:
+			pl_fillcolor_r(plot->plotter, color, color, color);
+			break;
+		default:
+			pl_fillcolor_r(plot->plotter, 0, color, 0);
 			break;
 	}
 }

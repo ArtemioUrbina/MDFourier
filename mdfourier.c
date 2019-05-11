@@ -155,6 +155,8 @@ int main(int argc , char *argv[])
 	if(config.normalize == 'r')
 		config.relativeMaxMagnitude = 0.0;
 
+	logmsg("* Comparing frequencies Target -> Reference\n");
+
 	/* Detect Signal Floor */
 	config.significantVolume = config.origSignificantVolume;
 	if(TestSignal->hasFloor && !config.ignoreFloor && 
@@ -166,7 +168,6 @@ int main(int argc , char *argv[])
 		CreateBaseName(&config);
 	}
 
-	logmsg("* Comparing frequencies Target -> Reference\n");
 	CompareAudioBlocks(TestSignal, ReferenceSignal, &config);
 
 	PlotResults(TestSignal, &config);
@@ -189,6 +190,7 @@ int main(int argc , char *argv[])
 	}
 
 	ReleaseAudioBlockStructure(&config);
+	printf("Results stored in %s\n", config.folderName);
 	
 	return(0);
 }
@@ -256,14 +258,25 @@ int LoadFile(FILE *file, AudioSignal *Signal, parameters *config, char *fileName
 
 	fclose(file);
 
+	if(config->clock)
+	{
+		double			elapsedSeconds;
+		clock_gettime(CLOCK_MONOTONIC, &end);
+		elapsedSeconds = TimeSpecToSeconds(&end) - TimeSpecToSeconds(&start);
+		logmsg(" - Loading WAV took %fs\n", elapsedSeconds);
+	}
+
 	if(GetFirstSyncIndex(config) != NO_INDEX)
 	{
+		if(config->clock)
+			clock_gettime(CLOCK_MONOTONIC, &start);
+
 		/* Find the start offset */
-		logmsg(" - Detecting start of signal: ");
+		logmsg(" - Starting sync pulse train: ");
 		Signal->startOffset = DetectPulse(Signal->Samples, Signal->header, config);
 		if(Signal->startOffset == -1)
 		{
-			logmsg("\nStarting Pulse train was not detected\n");
+			logmsg("\nStarting pulse train was not detected\n");
 			return 0;
 		}
 		logmsg(" %gs [%ld bytes]\n", 
@@ -272,11 +285,11 @@ int LoadFile(FILE *file, AudioSignal *Signal, parameters *config, char *fileName
 
 		if(GetLastSyncIndex(config) != NO_INDEX)
 		{
-			logmsg(" - Detecting end of signal: ");
+			logmsg(" - Trailing sync pulse train: ");
 			Signal->endOffset = DetectEndPulse(Signal->Samples, Signal->startOffset, Signal->header, config);
 			if(Signal->endOffset == -1)
 			{
-				logmsg("\nEnding Pulse train was not detected\n");
+				logmsg("\nTrailing sync pulse train was not detected\n");
 				return 0;
 			}
 			logmsg(" %gs [%ld bytes]\n", 
@@ -290,6 +303,14 @@ int LoadFile(FILE *file, AudioSignal *Signal, parameters *config, char *fileName
 		}
 		else
 			Signal->framerate = GetPlatformMSPerFrame(config);
+
+		if(config->clock)
+		{
+			double			elapsedSeconds;
+			clock_gettime(CLOCK_MONOTONIC, &end);
+			elapsedSeconds = TimeSpecToSeconds(&end) - TimeSpecToSeconds(&start);
+			logmsg(" - Detecting sync took %fs\n", elapsedSeconds);
+		}
 	}
 	else
 		Signal->framerate = GetPlatformMSPerFrame(config);
@@ -301,14 +322,6 @@ int LoadFile(FILE *file, AudioSignal *Signal, parameters *config, char *fileName
 		Signal->hasFloor = 1;
 
 	sprintf(Signal->SourceFile, "%s", fileName);
-
-	if(config->clock)
-	{
-		double			elapsedSeconds;
-		clock_gettime(CLOCK_MONOTONIC, &end);
-		elapsedSeconds = TimeSpecToSeconds(&end) - TimeSpecToSeconds(&start);
-		logmsg(" - Loading WAV took %fs\n", elapsedSeconds);
-	}
 
 	return 1;
 }
@@ -557,6 +570,10 @@ int CalculateMaxCompare(int block, AudioSignal *Signal, parameters *config, int 
 double CompareAudioBlocks(AudioSignal *ReferenceSignal, AudioSignal *TestSignal, parameters *config)
 {
 	int			block = 0;
+	struct	timespec	start, end;
+
+	if(config->clock)
+		clock_gettime(CLOCK_MONOTONIC, &start);
 
 	if(!CreateDifferenceArray(config))
 		return 0;
@@ -729,5 +746,12 @@ double CompareAudioBlocks(AudioSignal *ReferenceSignal, AudioSignal *TestSignal,
 		//PlotSpectrogram(basename(ReferenceSignal->SourceFile), ReferenceSignal, block, config);
 	}
 	
+	if(config->clock)
+	{
+		double			elapsedSeconds;
+		clock_gettime(CLOCK_MONOTONIC, &end);
+		elapsedSeconds = TimeSpecToSeconds(&end) - TimeSpecToSeconds(&start);
+		logmsg(" - Comparing frequecnies took %fs\n", elapsedSeconds);
+	}
 	return 0;
 }
