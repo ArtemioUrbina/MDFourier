@@ -25,8 +25,6 @@
  * Requires the FFTW library: 
  *	  http://www.fftw.org/
  * 
- * Compile with: 
- *	  gcc -Wall -std=gnu99 -o mdwave mdwave.c -lfftw3 -lm
  */
 
 #define MDWAVE
@@ -93,7 +91,7 @@ int main(int argc , char *argv[])
 		return 1;
 	}
 
-	logmsg("Max blanked frequencies per block from the spectrum %d\n", config.maxBlanked);
+	logmsg("Max blanked frequencies per block %d\n", config.maxBlanked);
 	
 	ReleaseAudio(ReferenceSignal, &config);
 	free(ReferenceSignal);
@@ -172,28 +170,54 @@ int LoadFile(FILE *file, AudioSignal *Signal, parameters *config, char *fileName
 
 	fclose(file);
 
-	/* Find the start offset */
-	logmsg(" - Detecting start of signal: ");
-	Signal->startOffset = DetectPulse(Signal->Samples, Signal->header, config);
-	if(Signal->startOffset == -1)
+	if(GetFirstSyncIndex(config) != NO_INDEX)
 	{
-		logmsg("\nStarting Pulse train was not detected\n");
-		return 0;
+		if(config->clock)
+			clock_gettime(CLOCK_MONOTONIC, &start);
+
+		/* Find the start offset */
+		logmsg(" - Starting sync pulse train: ");
+		Signal->startOffset = DetectPulse(Signal->Samples, Signal->header, config);
+		if(Signal->startOffset == -1)
+		{
+			logmsg("\nStarting pulse train was not detected\n");
+			return 0;
+		}
+		logmsg(" %gs [%ld bytes]\n", 
+				BytesToSeconds(Signal->header.SamplesPerSec, Signal->startOffset),
+				Signal->startOffset);
+
+		if(GetLastSyncIndex(config) != NO_INDEX)
+		{
+			logmsg(" - Trailing sync pulse train: ");
+			Signal->endOffset = DetectEndPulse(Signal->Samples, Signal->startOffset, Signal->header, config);
+			if(Signal->endOffset == -1)
+			{
+				logmsg("\nTrailing sync pulse train was not detected\n");
+				return 0;
+			}
+			logmsg(" %gs [%ld bytes]\n", 
+				BytesToSeconds(Signal->header.SamplesPerSec, Signal->endOffset),
+				Signal->endOffset);
+			Signal->framerate = (double)(Signal->endOffset-Signal->startOffset)*1000/((double)Signal->header.SamplesPerSec*4*
+								GetLastSyncFrameOffset(Signal->header, config));
+			Signal->framerate = RoundFloat(Signal->framerate, 2);
+			logmsg(" - Detected %g hz video signal (%gms per frame) from WAV file\n", 
+						RoundFloat(1000.0/Signal->framerate, 2), Signal->framerate);
+		}
+		else
+			Signal->framerate = GetPlatformMSPerFrame(config);
+
+		if(config->clock)
+		{
+			double			elapsedSeconds;
+			clock_gettime(CLOCK_MONOTONIC, &end);
+			elapsedSeconds = TimeSpecToSeconds(&end) - TimeSpecToSeconds(&start);
+			logmsg(" - Detecting sync took %fs\n", elapsedSeconds);
+		}
 	}
-	logmsg(" %gs\n", BytesToSeconds(Signal->header.SamplesPerSec, Signal->startOffset));
-	logmsg(" - Detecting end of signal: ");
-	Signal->endOffset = DetectEndPulse(Signal->Samples, Signal->startOffset, Signal->header, config);
-	if(Signal->endOffset == -1)
-	{
-		logmsg("\nEnding Pulse train was not detected\n");
-		return 0;
-	}
-	logmsg(" %lgs\n", BytesToSeconds(Signal->header.SamplesPerSec, Signal->endOffset));
-	Signal->framerate = (double)(Signal->endOffset-Signal->startOffset)*1000/((double)Signal->header.SamplesPerSec*4*
-						GetLastSyncFrameOffset(Signal->header, config));
-	Signal->framerate = RoundFloat(Signal->framerate, 2);
-	logmsg(" - Detected %g hz video signal (%gms per frame) from WAV file\n", 
-				RoundFloat(1000.0/Signal->framerate, 2), Signal->framerate);
+	else
+		Signal->framerate = GetPlatformMSPerFrame(config);
 
 	if(seconds < GetSignalTotalDuration(Signal->framerate, config))
 		logmsg(" - File length is smaller than expected\n");
@@ -937,7 +961,7 @@ void PrintUsage_wave()
 
 void Header_wave(int log)
 {
-	char title1[] = "== MDWave " MDWVERSION " == (MDFourier Companion)\nSega Genesis/Mega Drive Fourier Audio compare tool for 240p Test Suite\n";
+	char title1[] = "== MDWave " MDWVERSION " == (MDFourier Companion)\n240p Test Suite Fourier Audio compare tool\n";
 	char title2[] = "by Artemio Urbina 2019, licensed under GPL\n\n";
 
 	if(log)
