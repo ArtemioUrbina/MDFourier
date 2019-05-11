@@ -66,6 +66,7 @@ double GetPulseSyncFreq(parameters *config);
 long int GetByteSizeDifferenceByFrameRate(double framerate, long int frames, long int samplerate, parameters *config);
 int GetFirstSyncIndex(parameters *config);
 int GetLastSyncIndex(parameters *config);
+int GetActiveBlockTypes(parameters *config);
 
 AudioSignal *CreateAudioSignal(parameters *config);
 void CleanAudio(AudioSignal *Signal, parameters *config);

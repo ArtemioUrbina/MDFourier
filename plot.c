@@ -260,16 +260,12 @@ void DrawColorScale(PlotFile *plot, int colorName, double x, double y, double wi
 	segments = floor(fabs(endDbs/dbIncrement));
 	for(double i = 0; i < segments; i ++)
 	{
-		double range_0_1;
-		long int color;
-		double intensity;	
+		long int intensity;
 
-		range_0_1 = i/segments;
-		intensity = CalculateWeightedError(range_0_1, config);
-		color = intensity*0xffff;
+		intensity = CalculateWeightedError(i/segments, config)*0xffff;
 
-		SetPenColor(colorName, color, plot);
-		SetFillColor(colorName, color, plot);
+		SetPenColor(colorName, intensity, plot);
+		SetFillColor(colorName, intensity, plot);
 		pl_fbox_r(plot->plotter, x, y+i*height/segments, x+width, y+i*height/segments+height/segments);
 		pl_endsubpath_r(plot->plotter);
 	}
@@ -286,11 +282,70 @@ void DrawColorScale(PlotFile *plot, int colorName, double x, double y, double wi
 	{
 		char label[20];
 
-		pl_fmove_r(plot->plotter, x+width*2.2, y+height-i*height/segments-height/segments/2);
-		sprintf(label, "%gdb", -1*i*dbIncrement);
+		pl_fmove_r(plot->plotter, x+width+PLOT_RES_X/80, y+height-i*height/segments-height/segments/2);
+		sprintf(label, " %gdb", -1*i*dbIncrement);
 		pl_alabel_r(plot->plotter, 'c', 'c', label);
 	}
+}
 
+void DrawColorAllTypeScale(PlotFile *plot, double x, double y, double width, double height, double endDbs, double dbIncrement, parameters *config)
+{
+	double 	segments = 0;
+	int		*colorName = NULL, numTypes = 0, t = 0;
+
+	pl_fspace_r(plot->plotter, 0, 0, PLOT_RES_X, PLOT_RES_Y);
+	pl_filltype_r(plot->plotter, 1);
+
+	numTypes = GetActiveBlockTypes(config);
+	segments = floor(fabs(endDbs/dbIncrement));
+
+	width *= numTypes;
+	colorName = (int*)malloc(sizeof(int)*numTypes);
+	if(!colorName)
+		return;
+
+	for(int i = 0; i < config->types.typeCount; i++)
+		if(config->types.typeArray[i].type > TYPE_CONTROL)
+			colorName[t++] = MatchColor(GetTypeColor(config, config->types.typeArray[i].type));
+
+	for(double i = 0; i < segments; i ++)
+	{
+		long int intensity;
+
+		intensity = CalculateWeightedError(i/segments, config)*0xffff;
+
+		for(int t = 0; t < numTypes; t++)
+		{
+			double bx, by;
+
+			bx = x+(double)t*width/(double)numTypes;
+			by = y+i*height/segments;
+			SetPenColor(colorName[t], intensity, plot);
+			SetFillColor(colorName[t], intensity, plot);
+			pl_fbox_r(plot->plotter, bx, by, bx+width/(double)numTypes, by+height/segments);
+			pl_endsubpath_r(plot->plotter);
+		}
+	}
+
+	free(colorName);
+	colorName = NULL;
+
+	pl_pencolor_r(plot->plotter, 0xaaaa, 0xaaaa, 0xaaaa);
+	pl_filltype_r(plot->plotter, 0);
+	pl_fbox_r(plot->plotter, x, y, x+width, y+height);
+
+	SetPenColor(COLOR_GRAY, 0xaaaa, plot);
+	pl_ffontsize_r(plot->plotter, PLOT_RES_Y/60);
+	pl_ffontname_r(plot->plotter, "HersheySans");
+
+	for(double i = 0; i < segments; i++)
+	{
+		char label[20];
+
+		pl_fmove_r(plot->plotter, x+width+PLOT_RES_X/80, y+height-i*height/segments-height/segments/2);
+		sprintf(label, " %gdb", -1*i*dbIncrement);
+		pl_alabel_r(plot->plotter, 'c', 'c', label);
+	}
 }
 
 void PlotTest(char *filename, parameters *config)
@@ -417,20 +472,17 @@ void PlotAllDifferentAmplitudes(FlatAmplDifference *amplDiff, char *filename, pa
 	{
 		if(amplDiff[a].type > TYPE_CONTROL)
 		{ 
-			double range_0_1;
-			long int color;
-			double intensity;	
+			long int intensity;
 
-			range_0_1 = (fabs(config->significantVolume) - fabs(amplDiff[a].refAmplitude))/fabs(config->significantVolume);
-			intensity = CalculateWeightedError(range_0_1, config);
-			color = intensity*0xffff;
+			intensity = CalculateWeightedError((fabs(config->significantVolume) - fabs(amplDiff[a].refAmplitude))/fabs(config->significantVolume), config)*0xffff;
 
-			SetPenColor(amplDiff[a].color, color, &plot);
+			SetPenColor(amplDiff[a].color, intensity, &plot);
 			pl_fpoint_r(plot.plotter, transformtoLog(amplDiff[a].hertz, TOP_FREQUENCY, config), amplDiff[a].diffAmplitude);
 		}
 	}
 
 	DrawLabelsMDF(&plot);
+	DrawColorAllTypeScale(&plot, PLOT_RES_X/50, PLOT_RES_Y/15, 20, 700, config->significantVolume, 3, config);
 	ClosePlot(&plot);
 }
 
@@ -478,15 +530,11 @@ void PlotSingleTypeDifferentAmplitudes(FlatAmplDifference *amplDiff, int type, c
 	{
 		if(amplDiff[a].type == type)
 		{ 
-			double range_0_1;
-			long int color;
-			double intensity;	
+			long int intensity;
 
-			range_0_1 = (fabs(config->significantVolume) - fabs(amplDiff[a].refAmplitude))/fabs(config->significantVolume);
-			intensity = CalculateWeightedError(range_0_1, config);
-			color = intensity*0xffff;
+			intensity = CalculateWeightedError((fabs(config->significantVolume) - fabs(amplDiff[a].refAmplitude))/fabs(config->significantVolume), config)*0xffff;
 
-			SetPenColor(amplDiff[a].color, color, &plot);
+			SetPenColor(amplDiff[a].color, intensity, &plot);
 			pl_fpoint_r(plot.plotter, transformtoLog(amplDiff[a].hertz, TOP_FREQUENCY, config), amplDiff[a].diffAmplitude);
 		}
 	}
@@ -520,18 +568,15 @@ void PlotAllMissingFrequencies(FlatFreqDifference *freqDiff, char *filename, par
 	{
 		if(freqDiff[f].type > TYPE_CONTROL)
 		{ 
-			double range_0_1;
-			long int color;
-			double intensity, x, y;
+			long int intensity;
+			double x, y;
 
 			x = transformtoLog(freqDiff[f].hertz, TOP_FREQUENCY, config);
 			y = freqDiff[f].amplitude;
 
-			range_0_1 = (fabs(config->significantVolume) - fabs(freqDiff[f].amplitude))/fabs(config->significantVolume);
-			intensity = CalculateWeightedError(range_0_1, config);
-			color = intensity*0xffff;
+			intensity = CalculateWeightedError((fabs(config->significantVolume) - fabs(freqDiff[f].amplitude))/fabs(config->significantVolume), config)*0xffff;
 
-			SetPenColor(freqDiff[f].color, color, &plot);
+			SetPenColor(freqDiff[f].color, intensity, &plot);
 			pl_fline_r(plot.plotter, x,	y, x, config->significantVolume);
 		}
 	}
@@ -580,17 +625,15 @@ void PlotSingleTypeMissingFrequencies(FlatFreqDifference *freqDiff, int type, ch
 	{
 		if(freqDiff[f].type == type)
 		{
-			double range_0_1;
-			long int color;
-			double intensity, x, y;
+			long int intensity;
+			double x, y;
 
 			x = transformtoLog(freqDiff[f].hertz, TOP_FREQUENCY, config);;
 			y = freqDiff[f].amplitude;
-			range_0_1 = (fabs(config->significantVolume) - fabs(freqDiff[f].amplitude))/fabs(config->significantVolume);
-			intensity = CalculateWeightedError(range_0_1, config);
-			color = intensity*0xffff;
+			intensity = CalculateWeightedError((fabs(config->significantVolume) - fabs(freqDiff[f].amplitude))/fabs(config->significantVolume), config)*0xffff;
 
-			SetPenColor(freqDiff[f].color, color, &plot);
+
+			SetPenColor(freqDiff[f].color, intensity, &plot);
 			pl_fline_r(plot.plotter, x,	y, x, config->significantVolume);
 		}
 	}
@@ -620,17 +663,14 @@ void PlotAllSpectrogram(FlatFrequency *freqs, long int size, char *filename, par
 	{
 		if(freqs[f].type > TYPE_CONTROL)
 		{ 
-			double range_0_1;
-			long int color;
-			double intensity, x, y;
+			long int intensity;
+			double x, y;
 
 			x = transformtoLog(freqs[f].hertz, TOP_FREQUENCY, config);
 			y = freqs[f].amplitude;
-			range_0_1 = (fabs(config->significantVolume) - fabs(freqs[f].amplitude))/fabs(config->significantVolume);
-			intensity = CalculateWeightedError(range_0_1, config);
-			color = intensity*0xffff;
+			intensity = CalculateWeightedError((fabs(config->significantVolume) - fabs(freqs[f].amplitude))/fabs(config->significantVolume), config)*0xffff;
 	
-			SetPenColor(freqs[f].color, color, &plot);
+			SetPenColor(freqs[f].color, intensity, &plot);
 			pl_fline_r(plot.plotter, x,	y, x, config->significantVolume);
 		}
 	}
@@ -676,18 +716,15 @@ void PlotSingleTypeSpectrogram(FlatFrequency *freqs, long int size, int type, ch
 	{
 		if(freqs[f].type == type)
 		{ 
-			double range_0_1;
-			long int color;
-			double intensity, x, y;
+			long int intensity;
+			double x, y;
 
 			x = transformtoLog(freqs[f].hertz, TOP_FREQUENCY, config);
 			y = freqs[f].amplitude;
-			range_0_1 = (fabs(config->significantVolume) - fabs(freqs[f].amplitude))/fabs(config->significantVolume);
-			intensity = CalculateWeightedError(range_0_1, config);
-			color = intensity*0xffff;
+			intensity = CalculateWeightedError((fabs(config->significantVolume) - fabs(freqs[f].amplitude))/fabs(config->significantVolume), config)*0xffff;
 	
 			//pl_flinewidth_r(plot.plotter, 100*range_0_1);
-			SetPenColor(freqs[f].color, color, &plot);
+			SetPenColor(freqs[f].color, intensity, &plot);
 			pl_fline_r(plot.plotter, x,	y, x, config->significantVolume);
 		}
 	}

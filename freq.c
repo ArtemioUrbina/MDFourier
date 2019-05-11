@@ -528,6 +528,21 @@ long int GetLastSyncFrameOffset(wav_hdr header, parameters *config)
 	return 0;
 }
 
+int GetActiveBlockTypes(parameters *config)
+{
+	int count = 0;
+
+	if(!config)
+		return 0;
+
+	for(int i = 0; i < config->types.typeCount; i++)
+	{
+		if(config->types.typeArray[i].type > TYPE_CONTROL)
+			count ++;
+	}
+	return count;
+}
+
 int GetActiveAudioBlocks(parameters *config)
 {
 	int count = 0;
