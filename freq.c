@@ -481,7 +481,7 @@ int GetFirstSilenceIndex(parameters *config)
 	return NO_INDEX;
 }
 
-long int GetLastSilenceByteOffset(double framerate, wav_hdr header, parameters *config)
+long int GetLastSilenceByteOffset(double framerate, wav_hdr header, int frameAdjust, parameters *config)
 {
 	if(!config)
 		return NO_INDEX;
@@ -492,7 +492,8 @@ long int GetLastSilenceByteOffset(double framerate, wav_hdr header, parameters *
 		{
 			double offset = 0;
 
-			offset = FramesToSeconds(GetBlockFrameOffset(i, config), framerate);
+			// We remove 10 frames in order to not miss it due to frame rate differences
+			offset = FramesToSeconds(GetBlockFrameOffset(i, config) - frameAdjust, framerate);
 			offset = SecondsToBytes(header.SamplesPerSec, offset, NULL, NULL);
 			return(offset);
 		}

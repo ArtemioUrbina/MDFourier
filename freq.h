@@ -45,7 +45,7 @@ long int SecondsToBytes(long int samplerate, double seconds, int *leftover, int 
 int LoadAudioBlockStructure(parameters *config);
 int GetFirstSilenceIndex(parameters *config);
 double GetBlockTimeOffset(int block, parameters *config);
-long int GetLastSilenceByteOffset(double framerate, wav_hdr header, parameters *config);
+long int GetLastSilenceByteOffset(double framerate, wav_hdr header, int frameAdjust, parameters *config);
 int GetActiveAudioBlocks(parameters *config);
 int GetTotalAudioBlocks(parameters *config);
 long int GetLongestElementFrames(parameters *config);

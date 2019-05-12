@@ -266,6 +266,8 @@ int LoadFile(FILE *file, AudioSignal *Signal, parameters *config, char *fileName
 		logmsg(" - clk: Loading WAV took %0.2fs\n", elapsedSeconds);
 	}
 
+	// Default if none is found
+	Signal->framerate = GetPlatformMSPerFrame(config);
 	if(GetFirstSyncIndex(config) != NO_INDEX)
 	{
 		if(config->clock)
@@ -289,7 +291,7 @@ int LoadFile(FILE *file, AudioSignal *Signal, parameters *config, char *fileName
 			Signal->endOffset = DetectEndPulse(Signal->Samples, Signal->startOffset, Signal->header, config);
 			if(Signal->endOffset == -1)
 			{
-				logmsg("\nTrailing sync pulse train was not detected\n");
+				logmsg("\nTrailing sync pulse train was not detected, aborting\n");
 				return 0;
 			}
 			logmsg(" %gs [%ld bytes]\n", 
@@ -297,12 +299,17 @@ int LoadFile(FILE *file, AudioSignal *Signal, parameters *config, char *fileName
 				Signal->endOffset);
 			Signal->framerate = (double)(Signal->endOffset-Signal->startOffset)*1000/((double)Signal->header.SamplesPerSec*4*
 								GetLastSyncFrameOffset(Signal->header, config));
-			Signal->framerate = RoundFloat(Signal->framerate, 2);
+			// Rounding destroys everything in this case!
+			//Signal->framerate = RoundFloat(Signal->framerate, 2);
 			logmsg(" - Detected %g hz video signal (%gms per frame) from WAV file\n", 
-						RoundFloat(1000.0/Signal->framerate, 2), Signal->framerate);
+						1000.0/Signal->framerate, Signal->framerate);
 		}
 		else
-			Signal->framerate = GetPlatformMSPerFrame(config);
+		{
+			logmsg(" - Trailing sync pulse train not defined in config file, aborting\n");
+			PrintAudioBlocks(config);
+			return 0;
+		}
 
 		if(config->clock)
 		{

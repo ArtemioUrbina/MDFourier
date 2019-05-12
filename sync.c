@@ -35,12 +35,13 @@
 
 long int DetectPulse(char *AllSamples, wav_hdr header, parameters *config)
 {
-	long int position = 0, offset = 0;
+	int			maxdetected = 0;
+	long int	position = 0, offset = 0;
 
 	if(config->debugSync)
 		logmsg("\nStarting Detect start pulse\n");
 
-	position = DetectPulseInternal(AllSamples, header, 4, 0, config);
+	position = DetectPulseInternal(AllSamples, header, 4, 0, &maxdetected, config);
 	if(position == -1)
 	{
 		if(config->debugSync)
@@ -55,7 +56,7 @@ long int DetectPulse(char *AllSamples, wav_hdr header, parameters *config)
 	if(config->debugSync)
 		logmsg("First round start pulse detected at %ld, refinement\n", offset);
 
-	position = DetectPulseInternal(AllSamples, header, 9, offset, config);
+	position = DetectPulseInternal(AllSamples, header, 9, offset, &maxdetected, config);
 	if(config->debugSync)
 		logmsg("Start pulse return value %ld\n", position);
 	return position;
@@ -63,21 +64,30 @@ long int DetectPulse(char *AllSamples, wav_hdr header, parameters *config)
 
 long int DetectEndPulse(char *AllSamples, long int startpulse, wav_hdr header, parameters *config)
 {
+	int			maxdetected = 0, frameAdjust = 0, tries = 0;
 	long int 	position = 0, offset = 0;
 
-	// Use defaults to calculate real frame rate
-	offset = GetLastSilenceByteOffset(GetPlatformMSPerFrame(config), header, config) + startpulse;
-
-	if(config->debugSync)
-		logmsg("Starting Detect end pulse with offset %ld\n", offset);
-
-	position = DetectPulseInternal(AllSamples, header, 4, offset, config);
-	if(position == -1)
+	do
 	{
+		// Use defaults to calculate real frame rate
+		offset = GetLastSilenceByteOffset(GetPlatformMSPerFrame(config), header, frameAdjust, config) + startpulse;
+	
+		frameAdjust = 0;
 		if(config->debugSync)
-			logmsg("First round end pulse failed\n", offset);
-		return -1;
-	}
+			logmsg("Starting Detect end pulse with offset %ld\n", offset);
+	
+		position = DetectPulseInternal(AllSamples, header, 4, offset, &maxdetected, config);
+		if(position == -1 && !maxdetected)
+		{
+			if(config->debugSync)
+				logmsg("First round end pulse failed, started search at %ld bytes\n", offset);
+			return -1;
+		}
+
+		if(position == -1 && maxdetected)
+			frameAdjust = config->types.pulseCount - maxdetected/2;
+		tries ++;
+	}while(position == -1 && tries < 4);
 
 	offset = position;
 	if(offset >= 2*44)  // return 2 segments at ratio 4 above
@@ -86,13 +96,13 @@ long int DetectEndPulse(char *AllSamples, long int startpulse, wav_hdr header, p
 	if(config->debugSync)
 		logmsg("First round end pulse detected at %ld, refinement\n", offset);
 
-	position = DetectPulseInternal(AllSamples, header, 9, offset, config);
+	position = DetectPulseInternal(AllSamples, header, 9, offset, &maxdetected, config);
 	if(config->debugSync)
 		logmsg("End pulse return value %ld\n", position);
 	return position;
 }
 
-long int DetectPulseTrainSequence(Pulses *pulseArray, double targetFrequency, long int TotalMS, int factor, parameters *config)
+long int DetectPulseTrainSequence(Pulses *pulseArray, double targetFrequency, long int TotalMS, int factor, int *maxdetected, parameters *config)
 {
 	long int			inside_pulse = 0, inside_silence = 0;
 	long int			pulse_start = 0, pulse_count = 0, 
@@ -101,6 +111,7 @@ long int DetectPulseTrainSequence(Pulses *pulseArray, double targetFrequency, lo
 	double				pulse_volume = 0, pulse_amplitudes = 0;
 	double				silence_volume = 0, silence_amplitudes = 0;
 
+	*maxdetected = 0;
 	for(i = 0; i < TotalMS; i++)
 	{
 		if(pulseArray[i].amplitude >= config->types.pulseMinVol && pulseArray[i].hertz >= targetFrequency - 2.0 && pulseArray[i].hertz <= targetFrequency + 2.0) 
@@ -235,10 +246,11 @@ long int DetectPulseTrainSequence(Pulses *pulseArray, double targetFrequency, lo
 		}
 	}
 
+	*maxdetected = pulse_count;
 	return -1;
 }
 
-long int DetectPulseInternal(char *Samples, wav_hdr header, int factor, long int offset, parameters *config)
+long int DetectPulseInternal(char *Samples, wav_hdr header, int factor, long int offset, int *maxdetected, parameters *config)
 {
 	long int			i = 0, TotalMS = 0;
 	long int			loadedBlockSize = 0;
@@ -337,6 +349,7 @@ long int DetectPulseInternal(char *Samples, wav_hdr header, int factor, long int
 
 	targetFrequency = FindFrequencyBracket(GetPulseSyncFreq(config), millisecondSize/2, header.SamplesPerSec);
 
+	/*
 	if(config->debugSync)
 	{
 		logmsg("===== Searching for %gHz at %gdbs =======\n", targetFrequency, config->types.pulseMinVol);
@@ -350,8 +363,9 @@ long int DetectPulseInternal(char *Samples, wav_hdr header, int factor, long int
 		}
 		logmsg("========  End listing =========\n");
 	}
+	*/
 
-	offset = DetectPulseTrainSequence(pulseArray, targetFrequency, TotalMS, factor, config);
+	offset = DetectPulseTrainSequence(pulseArray, targetFrequency, TotalMS, factor, maxdetected, config);
 
 	free(pulseArray);
 	free(buffer);

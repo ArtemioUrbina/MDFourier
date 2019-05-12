@@ -190,6 +190,8 @@ int LoadFile(FILE *file, AudioSignal *Signal, parameters *config, char *fileName
 		logmsg(" - clk: Loading WAV took %0.2fs\n", elapsedSeconds);
 	}
 
+	// Default if none is found
+	Signal->framerate = GetPlatformMSPerFrame(config);
 	if(GetFirstSyncIndex(config) != NO_INDEX)
 	{
 		if(config->clock)
@@ -213,7 +215,7 @@ int LoadFile(FILE *file, AudioSignal *Signal, parameters *config, char *fileName
 			Signal->endOffset = DetectEndPulse(Signal->Samples, Signal->startOffset, Signal->header, config);
 			if(Signal->endOffset == -1)
 			{
-				logmsg("\nTrailing sync pulse train was not detected\n");
+				logmsg("\nTrailing sync pulse train was not detected, aborting\n");
 				return 0;
 			}
 			logmsg(" %gs [%ld bytes]\n", 
@@ -221,12 +223,17 @@ int LoadFile(FILE *file, AudioSignal *Signal, parameters *config, char *fileName
 				Signal->endOffset);
 			Signal->framerate = (double)(Signal->endOffset-Signal->startOffset)*1000/((double)Signal->header.SamplesPerSec*4*
 								GetLastSyncFrameOffset(Signal->header, config));
-			Signal->framerate = RoundFloat(Signal->framerate, 2);
+			// Rounding destroys everything in this case!
+			//Signal->framerate = RoundFloat(Signal->framerate, 2);
 			logmsg(" - Detected %g hz video signal (%gms per frame) from WAV file\n", 
-						RoundFloat(1000.0/Signal->framerate, 2), Signal->framerate);
+						1000.0/Signal->framerate, Signal->framerate);
 		}
 		else
-			Signal->framerate = GetPlatformMSPerFrame(config);
+		{
+			logmsg(" - Trailing sync pulse train not defined in config file, aborting\n");
+			PrintAudioBlocks(config);
+			return 0;
+		}
 
 		if(config->clock)
 		{
@@ -363,7 +370,9 @@ int ProcessFile(AudioSignal *Signal, parameters *config)
 		if(Signal->floorAmplitude > config->significantVolume)
 		{
 			config->significantVolume = Signal->floorAmplitude;
-			logmsg(" - Using as minimum significant volume for analisys\n");
+			logmsg(" - Using %g as minimum significant volume for analisys\n",
+				config->significantVolume);
+			CreateBaseName(config);
 		}
 	}
 
@@ -519,7 +528,7 @@ void FindMaxMagnitude(AudioSignal *Signal, parameters *config)
 		for(int i = 0; i < config->MaxFreq; i++)
 		{
 			Signal->Blocks[block].freq[i].amplitude = 
-				20*log10(Signal->Blocks[block].freq[i].magnitude / MaxMagnitude);
+				RoundFloat(20*log10(Signal->Blocks[block].freq[i].magnitude / MaxMagnitude), 2);
 			Signal->Blocks[block].freq[i].magnitude = 
 				Signal->Blocks[block].freq[i].magnitude * 100.0 / MaxMagnitude;
 			if(Signal->Blocks[block].freq[i].amplitude < MinAmplitude)
@@ -603,7 +612,7 @@ double ProcessSamples(AudioBlocks *AudioArray, short *samples, size_t size, long
 			double Hertz;
 	
 			magnitude = sqrt(r1*r1 + i1*i1)/monoSignalSize;
-			Hertz = ((double)i/boxsize);
+			Hertz = RoundFloat(((double)i/boxsize), 2);
 	
 			previous = 1.e30;
 			if(!IsCRTNoise(Hertz))
