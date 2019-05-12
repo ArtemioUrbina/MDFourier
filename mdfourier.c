@@ -419,6 +419,7 @@ int ProcessFile(AudioSignal *Signal, parameters *config)
 		Signal->Blocks[i].index = GetBlockSubIndex(config, i);
 		Signal->Blocks[i].type = GetBlockType(config, i);
 
+		ExecuteDFFT(&Signal->Blocks[i], (short*)buffer, (loadedBlockSize-difference)/2, Signal->header.SamplesPerSec, windowUsed, config);
 #ifdef SAVE_CHUNKS
 		if(1)
 		{
@@ -427,7 +428,7 @@ int ProcessFile(AudioSignal *Signal, parameters *config)
 			char		Name[2048], FName[4096];
 
 			cheader = Signal->header;
-			sprintf(Name, "%03d_SRC_%s_%03d_%s", i, GetBlockName(config, i), GetBlockSubIndex(config, i), basename(fileName));
+			sprintf(Name, "%03ld_SRC_%s_%03d_%s", i, GetBlockName(config, i), GetBlockSubIndex(config, i), basename(Signal->SourceFile));
 			ComposeFileName(FName, Name, ".wav", config);
 			chunk = fopen(FName, "wb");
 			if(!chunk)
@@ -453,8 +454,6 @@ int ProcessFile(AudioSignal *Signal, parameters *config)
 			fclose(chunk);
 		}
 #endif
-
-		ExecuteDFFT(&Signal->Blocks[i], (short*)buffer, (loadedBlockSize-difference)/2, Signal->header.SamplesPerSec, windowUsed, config);
 
 		FillFrequencyStructures(&Signal->Blocks[i], config);
 	

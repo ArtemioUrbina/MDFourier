@@ -195,7 +195,7 @@ long int DetectPulseTrainSequence(Pulses *pulseArray, double targetFrequency, lo
 					pulse_volume = pulse_amplitudes/inside_pulse;
 					silence_volume = silence_amplitudes/inside_silence;
 					
-					if(fabs(silence_volume) - fabs(pulse_volume) >= config->types.pulseVolDiff)
+					if(floor(fabs(silence_volume)) - floor(fabs(pulse_volume)) >= config->types.pulseVolDiff)
 					{
 						pulse_count++;
 						last_pulse_start = pulse_start;
@@ -209,7 +209,8 @@ long int DetectPulseTrainSequence(Pulses *pulseArray, double targetFrequency, lo
 					else
 					{
 						if(config->debugSync)
-							logmsg("reset Pulse No volume difference\n");
+							logmsg("reset Pulse No volume difference S: %g P: %g Compare: %d\n",
+									silence_volume, pulse_volume, config->types.pulseVolDiff);
 
 						pulse_count = 0;
 						sequence_start = 0;

@@ -588,11 +588,21 @@ double ProcessSamples(AudioBlocks *AudioArray, short *samples, size_t size, long
 	for(i = 0; i < monoSignalSize; i++)
 	{
 		if(config->channel == 'l')
+		{
 			signal[i] = (double)samples[i*2];
+			samples[i*2+1] = 0;
+		}
 		if(config->channel == 'r')
+		{
 			signal[i] = (double)samples[i*2+1];
+			samples[i*2] = 0;
+		}
 		if(config->channel == 's')
+		{
 			signal[i] = ((double)samples[i*2]+(double)samples[i*2+1])/2.0;
+			samples[i*2] = signal[i];
+			samples[i*2+1] = signal[i];
+		}
 
 		if(window)
 			signal[i] *= window[i];
@@ -722,9 +732,15 @@ double ProcessSamples(AudioBlocks *AudioArray, short *samples, size_t size, long
 				//value = (signal[i]/window[i])/monoSignalSize;
 				value = signal[i]/monoSignalSize;
 				if(config->channel == 'l')
+				{
 					samples[i*2] = round(value);
+					samples[i*2+1] = 0;
+				}
 				if(config->channel == 'r')
+				{
+					samples[i*2] = 0;
 					samples[i*2+1] = round(value);
+				}
 				if(config->channel == 's')
 				{
 					samples[i*2] = round(value);
@@ -740,9 +756,15 @@ double ProcessSamples(AudioBlocks *AudioArray, short *samples, size_t size, long
 		
 				value = signal[i]/monoSignalSize;
 				if(config->channel == 'l')
+				{
 					samples[i*2] = round(value);
+					samples[i*2+1] = 0;
+				}
 				if(config->channel == 'r')
+				{
+					samples[i*2] = 0;
 					samples[i*2+1] = round(value);
+				}
 				if(config->channel == 's')
 				{
 					samples[i*2] = round(value);
