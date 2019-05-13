@@ -366,7 +366,7 @@ void PlotTest(char *filename, parameters *config)
 	DrawGridZeroDBCentered(&plot, dbs, 3, TOP_FREQUENCY, 1000, config);
 	DrawLabelsZeroDBCentered(&plot, dbs, 3, TOP_FREQUENCY, 1000, config);
 	DrawLabelsMDF(&plot);
-	DrawColorScale(&plot, COLOR_ORANGE, PLOT_RES_X/50, PLOT_RES_Y/15, 20, 700, -60, 3, config);
+	DrawColorScale(&plot, COLOR_ORANGE, PLOT_RES_X/50, PLOT_RES_Y/15, PLOT_RES_X/80, PLOT_RES_Y/1.15, -60, 3, config);
 	
 
 	ClosePlot(&plot);
@@ -389,7 +389,7 @@ void PlotTestZL(char *filename, parameters *config)
 	DrawGridZeroToLimit(&plot, config->significantVolume, 3, TOP_FREQUENCY, 1000, config);
 	DrawLabelsZeroToLimit(&plot, config->significantVolume, 3, TOP_FREQUENCY, 1000, config);
 
-	DrawColorScale(&plot, COLOR_ORANGE, PLOT_RES_X/50, PLOT_RES_Y/15, 20, 700, -60, 3, config);
+	DrawColorScale(&plot, COLOR_ORANGE, PLOT_RES_X/50, PLOT_RES_Y/15, PLOT_RES_X/80, PLOT_RES_Y/1.15, -60, 3, config);
 	
 	DrawLabelsMDF(&plot);
 	ClosePlot(&plot);
@@ -482,7 +482,7 @@ void PlotAllDifferentAmplitudes(FlatAmplDifference *amplDiff, char *filename, pa
 	}
 
 	DrawLabelsMDF(&plot);
-	DrawColorAllTypeScale(&plot, PLOT_RES_X/50, PLOT_RES_Y/15, 20, 700, config->significantVolume, 3, config);
+	DrawColorAllTypeScale(&plot, PLOT_RES_X/50, PLOT_RES_Y/15, PLOT_RES_X/80, PLOT_RES_Y/1.15, config->significantVolume, 3, config);
 	ClosePlot(&plot);
 }
 
@@ -539,7 +539,7 @@ void PlotSingleTypeDifferentAmplitudes(FlatAmplDifference *amplDiff, int type, c
 		}
 	}
 
-	DrawColorScale(&plot, MatchColor(GetTypeColor(config, type)), PLOT_RES_X/50, PLOT_RES_Y/15, 20, 700, config->significantVolume, 3, config);
+	DrawColorScale(&plot, MatchColor(GetTypeColor(config, type)), PLOT_RES_X/50, PLOT_RES_Y/15, PLOT_RES_X/80, PLOT_RES_Y/1.15, config->significantVolume, 3, config);
 	DrawLabelsMDF(&plot);
 	ClosePlot(&plot);
 }

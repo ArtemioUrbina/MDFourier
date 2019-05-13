@@ -121,7 +121,7 @@ int commandline(int argc , char *argv[], parameters *config)
 	
 	CleanParameters(config);
 
-	while ((c = getopt (argc, argv, "hejmviklo:s:z:f:b:d:t:p:a:w:n:r:c:")) != -1)
+	while ((c = getopt (argc, argv, "hejmviklyo:s:z:f:b:d:t:p:a:w:n:r:c:")) != -1)
 	switch (c)
 	  {
 	  case 'h':
@@ -145,6 +145,9 @@ int commandline(int argc , char *argv[], parameters *config)
 		break;
 	  case 'k':
 		config->clock = 1;
+		break;
+	  case 'y':
+		config->debugSync = 1;
 		break;
 	  case 'l':
 		EnableConsole();

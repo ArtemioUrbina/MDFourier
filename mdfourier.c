@@ -238,9 +238,16 @@ int LoadFile(FILE *file, AudioSignal *Signal, parameters *config, char *fileName
 		logmsg(" - changed to %d-%d Hz\n", config->startHz, config->endHz);
 	}
 
+	// Default if none is found
+	Signal->framerate = GetPlatformMSPerFrame(config);
+
 	seconds = (double)Signal->header.Subchunk2Size/4.0/(double)Signal->header.SamplesPerSec;
 	logmsg(" - WAV file is PCM %dhz %dbits and %g seconds long\n", 
 		Signal->header.SamplesPerSec, Signal->header.bitsPerSample, seconds);
+
+	if(seconds < GetSignalTotalDuration(Signal->framerate, config))
+		logmsg(" - Estimated file length is smaller than the expected %gs\n",
+				GetSignalTotalDuration(Signal->framerate, config));
 
 	Signal->Samples = (char*)malloc(sizeof(char)*Signal->header.Subchunk2Size);
 	if(!Signal->Samples)
@@ -266,8 +273,6 @@ int LoadFile(FILE *file, AudioSignal *Signal, parameters *config, char *fileName
 		logmsg(" - clk: Loading WAV took %0.2fs\n", elapsedSeconds);
 	}
 
-	// Default if none is found
-	Signal->framerate = GetPlatformMSPerFrame(config);
 	if(GetFirstSyncIndex(config) != NO_INDEX)
 	{
 		if(config->clock)
@@ -299,10 +304,9 @@ int LoadFile(FILE *file, AudioSignal *Signal, parameters *config, char *fileName
 				Signal->endOffset);
 			Signal->framerate = (double)(Signal->endOffset-Signal->startOffset)*1000/((double)Signal->header.SamplesPerSec*4*
 								GetLastSyncFrameOffset(Signal->header, config));
-			// Rounding destroys everything in this case!
-			//Signal->framerate = RoundFloat(Signal->framerate, 2);
+			Signal->framerate = RoundFloat(Signal->framerate, 2);
 			logmsg(" - Detected %g hz video signal (%gms per frame) from WAV file\n", 
-						1000.0/Signal->framerate, Signal->framerate);
+						RoundFloat(1000.0/Signal->framerate, 2), Signal->framerate);
 		}
 		else
 		{
@@ -323,7 +327,8 @@ int LoadFile(FILE *file, AudioSignal *Signal, parameters *config, char *fileName
 		Signal->framerate = GetPlatformMSPerFrame(config);
 
 	if(seconds < GetSignalTotalDuration(Signal->framerate, config))
-		logmsg(" - File length is smaller than expected\n");
+		logmsg(" - Adjusted File length is smaller than the expected %gs\n",
+				GetSignalTotalDuration(Signal->framerate, config));
 
 	if(GetFirstSilenceIndex(config) != NO_INDEX)
 		Signal->hasFloor = 1;
@@ -413,15 +418,13 @@ int ProcessFile(AudioSignal *Signal, parameters *config)
 		}
 		
 		memcpy(buffer, Signal->Samples + pos, loadedBlockSize);
-		pos += loadedBlockSize;
-		pos += discardBytes;
 
 		Signal->Blocks[i].index = GetBlockSubIndex(config, i);
 		Signal->Blocks[i].type = GetBlockType(config, i);
 
 		ExecuteDFFT(&Signal->Blocks[i], (short*)buffer, (loadedBlockSize-difference)/2, Signal->header.SamplesPerSec, windowUsed, config);
-#ifdef SAVE_CHUNKS
-		if(1)
+		/*
+		if(1)  // save chunks for checking, use MDWave instead
 		{
 			FILE 		*chunk = NULL;
 			wav_hdr		cheader;
@@ -453,7 +456,7 @@ int ProcessFile(AudioSignal *Signal, parameters *config)
 		
 			fclose(chunk);
 		}
-#endif
+		*/
 
 		FillFrequencyStructures(&Signal->Blocks[i], config);
 	
@@ -463,6 +466,8 @@ int ProcessFile(AudioSignal *Signal, parameters *config)
 		if(config->normalize == 'n')
 			LocalNormalize(&Signal->Blocks[i], config);
 
+		pos += loadedBlockSize;
+		pos += discardBytes;
 		i++;
 	}
 
