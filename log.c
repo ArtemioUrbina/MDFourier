@@ -45,7 +45,12 @@ void logmsg(char *fmt, ... )
 
 	va_start(arguments, fmt);
 	if(do_log != 2)
+	{
 		vprintf(fmt, arguments);
+#if defined (WIN32)
+		fflush(stdout);  // output to Front end ASAP
+#endif
+	}
 
 	if(do_log && logfile)
 		vfprintf(logfile, fmt, arguments);

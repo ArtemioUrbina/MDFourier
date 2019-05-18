@@ -371,7 +371,7 @@ int commandline(int argc , char *argv[], parameters *config)
 	{
 		if(config->outputFilterFunction >= 2)
 			logmsg("\tA Beta function #%d filter will be applied to the results\n", 
-				config->outputFilterFunction);
+				config->outputFilterFunction - 1);
 		else
 			logmsg("\tA linear function filter will be applied to the results\n");
 	}

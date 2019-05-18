@@ -348,53 +348,6 @@ void DrawColorAllTypeScale(PlotFile *plot, double x, double y, double width, dou
 	}
 }
 
-void PlotTest(char *filename, parameters *config)
-{
-	PlotFile	plot;
-	char		name[2048];
-	double		dbs = DB_HEIGHT;
-
-	if(!config)
-		return;
-
-	sprintf(name, "Test_%s", filename);
-	FillPlot(&plot, name, PLOT_RES_X, PLOT_RES_Y, 0, -1*dbs, TOP_FREQUENCY, dbs, 1, config);
-
-	if(!CreatePlotFile(&plot))
-		return;
-
-	DrawGridZeroDBCentered(&plot, dbs, 3, TOP_FREQUENCY, 1000, config);
-	DrawLabelsZeroDBCentered(&plot, dbs, 3, TOP_FREQUENCY, 1000, config);
-	DrawLabelsMDF(&plot);
-	DrawColorScale(&plot, COLOR_ORANGE, PLOT_RES_X/50, PLOT_RES_Y/15, PLOT_RES_X/80, PLOT_RES_Y/1.15, -60, 3, config);
-	
-
-	ClosePlot(&plot);
-}
-
-void PlotTestZL(char *filename, parameters *config)
-{
-	PlotFile	plot;
-	char		name[2048];
-
-	if(!config)
-		return;
-
-	sprintf(name, "Test_ZL_%s", filename);
-	FillPlot(&plot, name, PLOT_RES_X, PLOT_RES_Y, 0, config->significantVolume, TOP_FREQUENCY, 0.0, 1, config);
-
-	if(!CreatePlotFile(&plot))
-		return;
-
-	DrawGridZeroToLimit(&plot, config->significantVolume, 3, TOP_FREQUENCY, 1000, config);
-	DrawLabelsZeroToLimit(&plot, config->significantVolume, 3, TOP_FREQUENCY, 1000, config);
-
-	DrawColorScale(&plot, COLOR_ORANGE, PLOT_RES_X/50, PLOT_RES_Y/15, PLOT_RES_X/80, PLOT_RES_Y/1.15, -60, 3, config);
-	
-	DrawLabelsMDF(&plot);
-	ClosePlot(&plot);
-}
-
 void PlotResults(AudioSignal *Signal, parameters *config)
 {
 	FlatAmplDifference	*amplDiff = NULL;
@@ -1148,6 +1101,55 @@ FlatFrequency *CreateFlatFrequencies(AudioSignal *Signal, long int *size, parame
 	*size = counter;
 	return(Freqs);
 }
+
+
+void PlotTest(char *filename, parameters *config)
+{
+	PlotFile	plot;
+	char		name[2048];
+	double		dbs = DB_HEIGHT;
+
+	if(!config)
+		return;
+
+	sprintf(name, "Test_%s", filename);
+	FillPlot(&plot, name, PLOT_RES_X, PLOT_RES_Y, 0, -1*dbs, TOP_FREQUENCY, dbs, 1, config);
+
+	if(!CreatePlotFile(&plot))
+		return;
+
+	DrawGridZeroDBCentered(&plot, dbs, 3, TOP_FREQUENCY, 1000, config);
+	DrawLabelsZeroDBCentered(&plot, dbs, 3, TOP_FREQUENCY, 1000, config);
+	DrawLabelsMDF(&plot);
+	DrawColorScale(&plot, COLOR_ORANGE, PLOT_RES_X/50, PLOT_RES_Y/15, PLOT_RES_X/80, PLOT_RES_Y/1.15, -60, 3, config);
+	
+
+	ClosePlot(&plot);
+}
+
+void PlotTestZL(char *filename, parameters *config)
+{
+	PlotFile	plot;
+	char		name[2048];
+
+	if(!config)
+		return;
+
+	sprintf(name, "Test_ZL_%s", filename);
+	FillPlot(&plot, name, PLOT_RES_X, PLOT_RES_Y, 0, config->significantVolume, TOP_FREQUENCY, 0.0, 1, config);
+
+	if(!CreatePlotFile(&plot))
+		return;
+
+	DrawGridZeroToLimit(&plot, config->significantVolume, 3, TOP_FREQUENCY, 1000, config);
+	DrawLabelsZeroToLimit(&plot, config->significantVolume, 3, TOP_FREQUENCY, 1000, config);
+
+	DrawColorScale(&plot, COLOR_ORANGE, PLOT_RES_X/50, PLOT_RES_Y/15, PLOT_RES_X/80, PLOT_RES_Y/1.15, -60, 3, config);
+	
+	DrawLabelsMDF(&plot);
+	ClosePlot(&plot);
+}
+
 
 inline double transformtoLog(double coord, double top, parameters *config)
 {

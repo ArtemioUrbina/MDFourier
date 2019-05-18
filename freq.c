@@ -1033,10 +1033,12 @@ double CalculateWeightedError(double pError, parameters *config)
 	switch(option)
 	{
 		case 0:
+			// No weighting
 			pError = 1;
 			break;
 		case 1:
-			// Linear
+			// Linear equivalent to or do nothing
+			// pError = incbeta(1.0, 1.0, pError);
 			pError = pError;
 			break;
 		case 2:
@@ -1058,7 +1060,7 @@ double CalculateWeightedError(double pError, parameters *config)
 		default:
 			/* This is unexpected behaviour, log it */
 			logmsg("CalculateWeightedError, out of range value %d\n", option);
-			pError = 1;
+			pError = pError;
 			break;
 	}
 
