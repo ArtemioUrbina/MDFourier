@@ -81,7 +81,7 @@ void CleanParameters(parameters *config)
 	config->relativeMaxMagnitude = 0;
 	config->ignoreFloor = 0;
 	config->useOutputFilter = 1;
-	config->outputFilterFunction = 1;
+	config->outputFilterFunction = 3;
 	config->Differences.BlockDiffArray = NULL;
 	config->Differences.cntFreqAudioDiff = 0;
 	config->Differences.cntAmplAudioDiff = 0;
@@ -156,7 +156,7 @@ int commandline(int argc , char *argv[], parameters *config)
 	  case 'o':
 		config->outputFilterFunction = atoi(optarg);
 		if(config->outputFilterFunction < 0 || config->outputFilterFunction > 5)
-			config->outputFilterFunction = 1;
+			config->outputFilterFunction = 3;
 		if(!config->outputFilterFunction)
 			config->useOutputFilter = 0;
 		break;
@@ -370,11 +370,8 @@ int commandline(int argc , char *argv[], parameters *config)
 		logmsg("\tNo window (rectangle) will be applied to each block to be compared\n");
 	if(config->useOutputFilter)
 	{
-		if(config->outputFilterFunction >= 2)
-			logmsg("\tA Beta function #%d filter will be applied to the results\n", 
+		logmsg("\tA Optup Filter function #%d will be applied to the results\n", 
 				config->outputFilterFunction - 1);
-		else
-			logmsg("\tA linear function filter will be applied to the results\n");
 	}
 	else
 		logmsg("\tNo filtering will be applied to the results\n");
@@ -449,14 +446,13 @@ void CreateBaseName(parameters *config)
 	if(!config)
 		return;
 	
-	sprintf(config->baseName, "_f%d_t%g_%s_%s_v_%g_%d%s_%s", 
+	sprintf(config->baseName, "_f%d_t%g_%s_%s_v_%g_OF%d_%s", 
 			config->MaxFreq,
 			config->tolerance,
 			GetWindow(config->window),
 			GetChannel(config->channel),
 			fabs(config->significantVolume),
 			config->outputFilterFunction,
-			config->useOutputFilter ? config->outputFilterFunction == 1 ? "LI" : "BF" : "UF",
 			config->logScale ? "log" : "lin");
 }
 

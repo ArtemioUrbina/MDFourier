@@ -145,7 +145,7 @@ long int DetectPulseTrainSequence(Pulses *pulseArray, double targetFrequency, lo
 			if(last_pulse_pos && i > last_pulse_pos + 2)
 			{
 				if(config->debugSync)
-					logmsg("pulse reset due to discontinuity %ld and %ld\n", i, last_pulse_pos);
+					logmsg("pulse reset due to discontinuity at %ld: %ld and %ld\n", pulseArray[i].bytes, i, last_pulse_pos);
 
 				pulse_count = 0;
 				sequence_start = 0;
@@ -167,7 +167,7 @@ long int DetectPulseTrainSequence(Pulses *pulseArray, double targetFrequency, lo
 			if(inside_pulse >= config->types.pulseFrameMaxLen*factor)
 			{
 				if(config->debugSync)
-					logmsg("reset pulse too long %ld\n", inside_pulse);
+					logmsg("reset pulse too long %ld at %ld\n", inside_pulse, pulseArray[i].bytes);
 
 				pulse_count = 0;
 				sequence_start = 0;
@@ -217,8 +217,8 @@ long int DetectPulseTrainSequence(Pulses *pulseArray, double targetFrequency, lo
 					else
 					{
 						if(config->debugSync)
-							logmsg("reset Pulse No volume difference S: %g P: %g Compare: %d\n",
-									silence_volume, pulse_volume, config->types.pulseVolDiff);
+							logmsg("reset Pulse No volume difference S: %g P: %g Compare: %d at %ld\n",
+									silence_volume, pulse_volume, config->types.pulseVolDiff, pulseArray[i].bytes);
 
 						pulse_count = 0;
 						sequence_start = 0;
@@ -231,7 +231,7 @@ long int DetectPulseTrainSequence(Pulses *pulseArray, double targetFrequency, lo
 				if(inside_silence >= config->types.pulseFrameMaxLen*factor)
 				{
 					if(config->debugSync)
-						logmsg("reset Pulse too much silence\n");
+						logmsg("reset Pulse too much silence at %ld\n", pulseArray[i].bytes);
 
 					pulse_count = 0;
 					sequence_start = 0;
@@ -244,7 +244,7 @@ long int DetectPulseTrainSequence(Pulses *pulseArray, double targetFrequency, lo
 				if(inside_pulse >= config->types.pulseFrameMaxLen*factor || inside_silence >= config->types.pulseFrameMaxLen*factor)
 				{
 					if(config->debugSync)
-						logmsg("reset Pulse OB\n");
+						logmsg("reset Pulse OB at %ld\n", pulseArray[i].bytes);
 
 					pulse_count = 0;
 					sequence_start = 0;
@@ -363,7 +363,6 @@ long int DetectPulseInternal(char *Samples, wav_hdr header, int factor, long int
 
 	targetFrequency = FindFrequencyBracket(GetPulseSyncFreq(config), millisecondSize/2, header.SamplesPerSec);
 
-	/*
 	if(config->debugSync)
 	{
 		logmsg("===== Searching for %gHz at %ddBFS =======\n", targetFrequency, config->types.pulseMinVol);
@@ -377,7 +376,6 @@ long int DetectPulseInternal(char *Samples, wav_hdr header, int factor, long int
 		}
 		logmsg("========  End listing =========\n");
 	}
-	*/
 
 	offset = DetectPulseTrainSequence(pulseArray, targetFrequency, TotalMS, factor, maxdetected, config);
 

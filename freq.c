@@ -1085,31 +1085,28 @@ double CalculateWeightedError(double pError, parameters *config)
 	switch(option)
 	{
 		case 0:
-			// No weighting
+			/* No weighting, paint everything equally */
 			pError = 1;
 			break;
 		case 1:
-			/* Map to Beta function */
-			pError = incbeta(8.0, 16.0, pError);
+			/* square root */
+			pError = sqrt(fabs(pError));
 			break;
 		case 2:
-			// Linear equivalent to do nothing
-			// pError = incbeta(1.0, 1.0, pError);
-			pError = pError;
+			/* Map to Beta function */
+			pError = incbeta(3.0, 3.0, pError);
 			break;
 		case 3:
-			/* Map to Beta function */
-			pError = pError*pError;
+			/* Linear from input anged 0 - 1*/
+			pError = pError;
 			break;
 		case 4:
-			/* Map to Beta function */
-			//pError = incbeta(4.0, 4.0, pError);
-			pError = 1.0 - pError*pError;
+			/* x^2 */
+			pError = pError*pError;
 			break;
 		case 5:
-			/* Map to Beta function */			
-			//pError = incbeta(4.0, 8.0, pError);
-			pError = pError*pError*pError;
+			/* Map to Beta function */
+			pError = incbeta(16.0, 2.0, pError);
 			break;
 		default:
 			/* This is unexpected behaviour, log it */
