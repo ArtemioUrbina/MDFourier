@@ -238,7 +238,7 @@ void PrintDifferentAmplitudes(int block, parameters *config)
 
 	for(int a = 0; a < config->Differences.BlockDiffArray[block].cntAmplBlkDiff; a++)
 	{
-		logmsg("Frequency: %7g Hz\tAmplitude: %4.2f dbs\tVolume Difference: %4.2f dbs (%g)\n",
+		logmsg("Frequency: %7g Hz\tAmplitude: %4.2f dBFS\tVolume Difference: %4.2f dBFS (%g)\n",
 			config->Differences.BlockDiffArray[block].amplDiffArray[a].hertz,
 			config->Differences.BlockDiffArray[block].amplDiffArray[a].refAmplitude,
 			config->Differences.BlockDiffArray[block].amplDiffArray[a].diffAmplitude,

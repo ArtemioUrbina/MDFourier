@@ -36,6 +36,92 @@
 #define PLOT_RES_X 1600.0
 #define PLOT_RES_Y 800.0
 
+
+void PlotResults(AudioSignal *Signal, parameters *config)
+{
+	struct	timespec	start, end;
+
+	if(config->clock)
+		clock_gettime(CLOCK_MONOTONIC, &start);
+
+	PlotAmpDifferences(config);
+	PlotFreqMissing(config);
+	PlotSpectrograms(Signal, config);
+
+	if(config->clock)
+	{
+		double	elapsedSeconds;
+		clock_gettime(CLOCK_MONOTONIC, &end);
+		elapsedSeconds = TimeSpecToSeconds(&end) - TimeSpecToSeconds(&start);
+		logmsg(" - Plotting PNGs took %0.2fs\n", elapsedSeconds);
+	}
+}
+
+void PlotAmpDifferences(parameters *config)
+{
+	FlatAmplDifference	*amplDiff = NULL;
+	
+	amplDiff = CreateFlatDifferences(config);
+	if(!amplDiff)
+	{
+		logmsg("Not enough memory for plotting\n");
+		return;
+	}
+
+	if(PlotEachTypeDifferentAmplitudes(amplDiff, config->compareName, config) > 1)
+		PlotAllDifferentAmplitudes(amplDiff, config->compareName, config);
+	
+	free(amplDiff);
+	amplDiff = NULL;
+}
+
+void PlotDifferentAmplitudesWithBetaFunctions(parameters *config)
+{
+	FlatAmplDifference	*amplDiff = NULL;
+	
+	amplDiff = CreateFlatDifferences(config);
+	if(!amplDiff)
+	{
+		logmsg("Not enough memory for plotting\n");
+		return;
+	}
+
+	for(int o = 0; o < 6; o++)
+	{
+		config->outputFilterFunction = o;
+		CreateBaseName(config);
+		PlotAllDifferentAmplitudes(amplDiff, config->compareName, config);
+	}
+
+	free(amplDiff);
+	amplDiff = NULL;
+}
+
+void PlotFreqMissing(parameters *config)
+{
+	FlatFreqDifference	*freqDiff = NULL;
+	
+	freqDiff = CreateFlatMissing(config);
+	if(PlotEachTypeMissingFrequencies(freqDiff, config->compareName, config) > 1)
+		PlotAllMissingFrequencies(freqDiff, config->compareName, config);
+
+	free(freqDiff);
+	freqDiff = NULL;
+}
+
+void PlotSpectrograms(AudioSignal *Signal, parameters *config)
+{
+	long int			size = 0;
+	FlatFrequency		*frequencies = NULL;
+
+	frequencies = CreateFlatFrequencies(Signal, &size, config);
+	if(PlotEachTypeSpectrogram(frequencies, size, basename(Signal->SourceFile), config) > 1)
+		PlotAllSpectrogram(frequencies, size, basename(Signal->SourceFile), config);
+
+	free(frequencies);
+	frequencies = NULL;
+}
+
 int FillPlot(PlotFile *plot, char *name, int sizex, int sizey, double x0, double y0, double x1, double y1, double penWidth, parameters *config)
 {
 	plot->plotter = NULL;
@@ -115,45 +201,44 @@ int ClosePlot(PlotFile *plot)
 	return 1;
 }
 
-void DrawGridZeroDBCentered(PlotFile *plot, double dbs, double dbIncrement, double hz, double hzIncrement, parameters *config)
+void DrawGridZeroDBCentered(PlotFile *plot, double dBFS, double dbIncrement, double hz, double hzIncrement, parameters *config)
 {
 	pl_pencolor_r (plot->plotter, 0, 0xcccc, 0);
 	pl_fline_r(plot->plotter, 0, 0, hz, 0);
 
 	pl_pencolor_r (plot->plotter, 0, 0x5555, 0);
-	for(int i = dbIncrement; i < dbs; i += dbIncrement)
+	for(int i = dbIncrement; i < dBFS; i += dbIncrement)
 	{
 		pl_fline_r(plot->plotter, 0, i, hz, i);
 		pl_fline_r(plot->plotter, 0, -1*i, hz, -1*i);
 	}
 
 	pl_pencolor_r (plot->plotter, 0, 0x5555, 0);
-	pl_fline_r(plot->plotter, transformtoLog(10, hz, config), -1*dbs, transformtoLog(10, hz, config), dbs);
-	pl_fline_r(plot->plotter, transformtoLog(100, hz, config), -1*dbs, transformtoLog(100, hz, config), dbs);
+	pl_fline_r(plot->plotter, transformtoLog(10, hz, config), -1*dBFS, transformtoLog(10, hz, config), dBFS);
+	pl_fline_r(plot->plotter, transformtoLog(100, hz, config), -1*dBFS, transformtoLog(100, hz, config), dBFS);
 	for(int i = hzIncrement; i < hz; i += hzIncrement)
-		pl_fline_r(plot->plotter, transformtoLog(i, hz, config), -1*dbs, transformtoLog(i, hz, config), dbs);
-		
+		pl_fline_r(plot->plotter, transformtoLog(i, hz, config), -1*dBFS, transformtoLog(i, hz, config), dBFS);
 
 	pl_pencolor_r (plot->plotter, 0, 0xFFFF, 0);
 }
 
-void DrawGridZeroToLimit(PlotFile *plot, double dbs, double dbIncrement, double hz, double hzIncrement, parameters *config)
+void DrawGridZeroToLimit(PlotFile *plot, double dBFS, double dbIncrement, double hz, double hzIncrement, parameters *config)
 {
 	pl_pencolor_r (plot->plotter, 0, 0x7777, 0);
-	for(int i = dbIncrement; i < fabs(dbs); i += dbIncrement)
+	for(int i = dbIncrement; i < fabs(dBFS); i += dbIncrement)
 		pl_fline_r(plot->plotter, 0, -1*i, hz, -1*i);
 
 	pl_pencolor_r (plot->plotter, 0, 0x7777, 0);
-	pl_fline_r(plot->plotter, transformtoLog(10, hz, config), dbs, transformtoLog(10, hz, config), 0);
-	pl_fline_r(plot->plotter, transformtoLog(100, hz, config), dbs, transformtoLog(100, hz, config), 0);
+	pl_fline_r(plot->plotter, transformtoLog(10, hz, config), dBFS, transformtoLog(10, hz, config), 0);
+	pl_fline_r(plot->plotter, transformtoLog(100, hz, config), dBFS, transformtoLog(100, hz, config), 0);
 	for(int i = hzIncrement; i < hz; i += hzIncrement)
-		pl_fline_r(plot->plotter, transformtoLog(i, hz, config), dbs, transformtoLog(i, hz, config), 0);
+		pl_fline_r(plot->plotter, transformtoLog(i, hz, config), dBFS, transformtoLog(i, hz, config), 0);
 
 	pl_pencolor_r (plot->plotter, 0, 0xFFFF, 0);
 	pl_flinewidth_r(plot->plotter, 1);
 }
 
-void DrawLabelsZeroDBCentered(PlotFile *plot, double dbs, double dbIncrement, double hz, double hzIncrement,  parameters *config)
+void DrawLabelsZeroDBCentered(PlotFile *plot, double dBFS, double dbIncrement, double hz, double hzIncrement,  parameters *config)
 {
 	double segments = 0;
 	char label[20];
@@ -164,18 +249,18 @@ void DrawLabelsZeroDBCentered(PlotFile *plot, double dbs, double dbIncrement, do
 	pl_ffontsize_r(plot->plotter, PLOT_RES_Y/60);
 
 	pl_fmove_r(plot->plotter, PLOT_RES_X-PLOT_RES_X/80, PLOT_RES_Y/100);
-	pl_alabel_r(plot->plotter, 'c', 'c', "0db");
+	pl_alabel_r(plot->plotter, 'c', 'c', "0dBFS");
 
 	pl_ffontname_r(plot->plotter, "HersheySans");
-	segments = fabs(dbs/dbIncrement);
+	segments = fabs(dBFS/dbIncrement);
 	for(int i = 1; i < segments; i ++)
 	{
-		pl_fmove_r(plot->plotter, PLOT_RES_X-PLOT_RES_X/80, i*PLOT_RES_Y/segments/2+PLOT_RES_Y/100);
-		sprintf(label, " %gdb", i*dbIncrement);
+		pl_fmove_r(plot->plotter, PLOT_RES_X-PLOT_RES_X/50, i*PLOT_RES_Y/segments/2+PLOT_RES_Y/100);
+		sprintf(label, " %gdBFS", i*dbIncrement);
 		pl_alabel_r(plot->plotter, 'c', 'c', label);
 
-		pl_fmove_r(plot->plotter, PLOT_RES_X-PLOT_RES_X/80, -1*i*PLOT_RES_Y/segments/2+PLOT_RES_Y/100);
-		sprintf(label, "-%gdb", i*dbIncrement);
+		pl_fmove_r(plot->plotter, PLOT_RES_X-PLOT_RES_X/50, -1*i*PLOT_RES_Y/segments/2+PLOT_RES_Y/100);
+		sprintf(label, "-%gdBFS", i*dbIncrement);
 		pl_alabel_r(plot->plotter, 'c', 'c', label);
 	}
 
@@ -210,7 +295,7 @@ void DrawLabelsMDF(PlotFile *plot)
 	pl_alabel_r(plot->plotter, 'c', 'c', "MDFourier "MDVERSION"  Artemio Urbina 2019");
 }
 
-void DrawLabelsZeroToLimit(PlotFile *plot, double dbs, double dbIncrement, double hz, double hzIncrement,  parameters *config)
+void DrawLabelsZeroToLimit(PlotFile *plot, double dBFS, double dbIncrement, double hz, double hzIncrement,  parameters *config)
 {
 	double segments = 0;
 	char label[20];
@@ -220,11 +305,11 @@ void DrawLabelsZeroToLimit(PlotFile *plot, double dbs, double dbIncrement, doubl
 	pl_ffontsize_r(plot->plotter, PLOT_RES_Y/60);
 
 	pl_ffontname_r(plot->plotter, "HersheySans");
-	segments = fabs(dbs/dbIncrement);
+	segments = fabs(dBFS/dbIncrement);
 	for(int i = 0; i < segments; i ++)
 	{
 		pl_fmove_r(plot->plotter, PLOT_RES_X-PLOT_RES_X/50, -1*i*PLOT_RES_Y/segments-PLOT_RES_Y/100);
-		sprintf(label, "%gdb", -1*i*dbIncrement);
+		sprintf(label, "%gdBFS", -1*i*dbIncrement);
 		pl_alabel_r(plot->plotter, 'c', 'c', label);
 	}
 
@@ -283,7 +368,7 @@ void DrawColorScale(PlotFile *plot, int colorName, double x, double y, double wi
 		char label[20];
 
 		pl_fmove_r(plot->plotter, x+width+PLOT_RES_X/80, y+height-i*height/segments-height/segments/2);
-		sprintf(label, " %gdb", -1*i*dbIncrement);
+		sprintf(label, " %c%gdBFS", i*dbIncrement > 0 ? '-' : ' ', i*dbIncrement);
 		pl_alabel_r(plot->plotter, 'c', 'c', label);
 	}
 }
@@ -343,57 +428,8 @@ void DrawColorAllTypeScale(PlotFile *plot, double x, double y, double width, dou
 		char label[20];
 
 		pl_fmove_r(plot->plotter, x+width+PLOT_RES_X/80, y+height-i*height/segments-height/segments/2);
-		sprintf(label, " %gdb", -1*i*dbIncrement);
+		sprintf(label, " %c%gdBFS", i*dbIncrement > 0 ? '-' : ' ', i*dbIncrement);
 		pl_alabel_r(plot->plotter, 'c', 'c', label);
-	}
-}
-
-void PlotResults(AudioSignal *Signal, parameters *config)
-{
-	FlatAmplDifference	*amplDiff = NULL;
-	FlatFreqDifference	*freqDiff = NULL;
-	FlatFrequency		*frequencies = NULL;
-	long int			size = 0;
-	struct	timespec	start, end;
-
-	logmsg("* Plotting results to PNGs\n");
-
-	if(config->clock)
-		clock_gettime(CLOCK_MONOTONIC, &start);
-
-	amplDiff = CreateFlatDifferences(config);
-	if(!amplDiff)
-	{
-		logmsg("Not enough memory for plotting\n");
-		return;
-	}
-
-	if(PlotEachTypeDifferentAmplitudes(amplDiff, config->compareName, config) > 1)
-		PlotAllDifferentAmplitudes(amplDiff, config->compareName, config);
-
-	free(amplDiff);
-	amplDiff = NULL;
-
-	freqDiff = CreateFlatMissing(config);
-	if(PlotEachTypeMissingFrequencies(freqDiff, config->compareName, config) > 1)
-		PlotAllMissingFrequencies(freqDiff, config->compareName, config);
-
-	free(amplDiff);
-	amplDiff = NULL;
-
-	frequencies = CreateFlatFrequencies(Signal, &size, config);
-	if(PlotEachTypeSpectrogram(frequencies, size, basename(Signal->SourceFile), config) > 1)
-		PlotAllSpectrogram(frequencies, size, basename(Signal->SourceFile), config);
-
-	free(frequencies);
-	frequencies = NULL;
-
-	if(config->clock)
-	{
-		double	elapsedSeconds;
-		clock_gettime(CLOCK_MONOTONIC, &end);
-		elapsedSeconds = TimeSpecToSeconds(&end) - TimeSpecToSeconds(&start);
-		logmsg(" - Plotting PNGs took %0.2fs\n", elapsedSeconds);
 	}
 }
 
@@ -401,7 +437,7 @@ void PlotAllDifferentAmplitudes(FlatAmplDifference *amplDiff, char *filename, pa
 {
 	PlotFile	plot;
 	char		name[2048];
-	double		dbs = DB_HEIGHT;
+	double		dBFS = DB_HEIGHT;
 
 	if(!config)
 		return;
@@ -413,13 +449,13 @@ void PlotAllDifferentAmplitudes(FlatAmplDifference *amplDiff, char *filename, pa
 		return;
 
 	sprintf(name, "DifferentAmplitudes_ALL_%s", filename);
-	FillPlot(&plot, name, PLOT_RES_X, PLOT_RES_Y, 0, -1*dbs, TOP_FREQUENCY, dbs, 1, config);
+	FillPlot(&plot, name, PLOT_RES_X, PLOT_RES_Y, 0, -1*dBFS, TOP_FREQUENCY, dBFS, 1, config);
 
 	if(!CreatePlotFile(&plot))
 		return;
 
-	DrawGridZeroDBCentered(&plot, dbs, 3, TOP_FREQUENCY, 1000, config);
-	DrawLabelsZeroDBCentered(&plot, dbs, 3, TOP_FREQUENCY, 1000, config);
+	DrawGridZeroDBCentered(&plot, dBFS, 3, TOP_FREQUENCY, 1000, config);
+	DrawLabelsZeroDBCentered(&plot, dBFS, 3, TOP_FREQUENCY, 1000, config);
 
 	for(int a = 0; a < config->Differences.cntAmplAudioDiff; a++)
 	{
@@ -460,7 +496,7 @@ int PlotEachTypeDifferentAmplitudes(FlatAmplDifference *amplDiff, char *filename
 void PlotSingleTypeDifferentAmplitudes(FlatAmplDifference *amplDiff, int type, char *filename, parameters *config)
 {
 	PlotFile	plot;
-	double		dbs = DB_HEIGHT;
+	double		dBFS = DB_HEIGHT;
 
 	if(!config)
 		return;
@@ -471,13 +507,13 @@ void PlotSingleTypeDifferentAmplitudes(FlatAmplDifference *amplDiff, int type, c
 	if(!config->Differences.BlockDiffArray)
 		return;
 
-	FillPlot(&plot, filename, PLOT_RES_X, PLOT_RES_Y, 0, -1*dbs, TOP_FREQUENCY, dbs, 1, config);
+	FillPlot(&plot, filename, PLOT_RES_X, PLOT_RES_Y, 0, -1*dBFS, TOP_FREQUENCY, dBFS, 1, config);
 
 	if(!CreatePlotFile(&plot))
 		return;
 
-	DrawGridZeroDBCentered(&plot, dbs, 3, TOP_FREQUENCY, 1000, config);
-	DrawLabelsZeroDBCentered(&plot, dbs, 3, TOP_FREQUENCY, 1000, config);
+	DrawGridZeroDBCentered(&plot, dBFS, 3, TOP_FREQUENCY, 1000, config);
+	DrawLabelsZeroDBCentered(&plot, dBFS, 3, TOP_FREQUENCY, 1000, config);
 
 	for(int a = 0; a < config->Differences.cntAmplAudioDiff; a++)
 	{
@@ -686,28 +722,51 @@ void PlotSingleTypeSpectrogram(FlatFrequency *freqs, long int size, int type, ch
 	ClosePlot(&plot);
 }
 
-void PlotWindow(windowManager *wm, parameters *config)
+void VisualizeWindows(windowManager *wm, parameters *config)
+{
+	if(!wm)
+		return;
+
+	for(int i = 0; i < wm->windowCount; i++)
+	{
+		logmsg("Factor len %ld: %g\n", wm->windowArray[i].frames,
+			CalculateCorrectionFactor(wm, wm->windowArray[i].frames));
+
+		//for(long int j = 0; j < wm->windowArray[i].size; j++)
+			//logmsg("Window %ld %g\n", j, wm->windowArray[i].window[j]);
+
+		PlotWindow(wm, wm->windowArray[i].frames, config);
+	}
+}
+
+void PlotWindow(windowManager *wm, long int frames, parameters *config)
 {
 	PlotFile plot;
 	char	 name[2048];
-	float 	 *window = NULL;
+	double 	 *window = NULL;
 	long int size;
 
 	if(!config || !wm || !wm->windowArray)
 		return;
 
-	window = getWindowByLength(wm, 20);
+	window = getWindowByLength(wm, frames);
 	if(!window)
 		return;
 
-	size = getWindowSizeByLength(wm, 20);
+	size = getWindowSizeByLength(wm, frames);
 
 	sprintf(name, "WindowPlot_%s", GetWindow(config->window));
-	FillPlot(&plot, name, 512, 544, 0, -0.1, 1, 1.1, 0.001, config);
+	FillPlot(&plot, name, 320, 384, 0, -0.1, 1, 1.1, 0.001, config);
 
 	if(!CreatePlotFile(&plot))
 		return;
 
+	// Frames Grid
+	pl_pencolor_r (plot.plotter, 0, 0x3333, 0);
+	for(long int i = 0; i < frames; i++)
+		pl_fline_r(plot.plotter, (double)i*1/(double)frames, -0.1, (double)i*1/(double)frames, 1.1);
+
+	// horizontal grid
 	pl_pencolor_r (plot.plotter, 0, 0x5555, 0);
 	pl_fline_r(plot.plotter, 0, 1, 1, 1);
 	pl_fline_r(plot.plotter, 0, 0, 1, 0);
@@ -716,7 +775,6 @@ void PlotWindow(windowManager *wm, parameters *config)
 	for(int i = 0; i < size; i++)
 		pl_fpoint_r(plot.plotter, (double)i/(double)size, window[i]);
 	
-	DrawLabelsMDF(&plot);
 	ClosePlot(&plot);
 }
 
@@ -734,7 +792,7 @@ void PlotBetaFunctions(parameters *config)
 
 		config->outputFilterFunction = type;
 		sprintf(name, "BetaFunctionPlot_%d", type);
-		FillPlot(&plot, name, 512, 544, 0, -0.1, 1, 1.1, 0.01, config);
+		FillPlot(&plot, name, 320, 384, 0, -0.1, 1, 1.1, 0.001, config);
 	
 		if(!CreatePlotFile(&plot))
 			return;
@@ -743,7 +801,7 @@ void PlotBetaFunctions(parameters *config)
 		pl_fline_r(plot.plotter, 0, 1, 1, 1);
 		pl_fline_r(plot.plotter, 0, 0, 1, 0);
 
-		pl_flinewidth_r(plot.plotter, 0.005);
+		pl_pencolor_r (plot.plotter, 0, 0x3333, 0);
 		pl_fline_r(plot.plotter, .5, -0.1, .5, 1.1);
 		pl_fline_r(plot.plotter, .25, -0.1, .25, 1.1);
 		pl_fline_r(plot.plotter, .75, -0.1, .75, 1.1);
@@ -753,22 +811,21 @@ void PlotBetaFunctions(parameters *config)
 		pl_fline_r(plot.plotter, 0, .75, 1, .75);
 	
 		pl_pencolor_r (plot.plotter, 0, 0xFFFF, 0);	
-		for(int i = 0; i < 512; i++)
+		for(int i = 0; i < 320; i++)
 		{
 			double x, y;
 			long int color;
 
-			x = (double)i/(double)512;
-			y = CalculateWeightedError((double)i/(double)512, config);
+			x = (double)i/(double)320;
+			y = CalculateWeightedError((double)i/(double)320, config);
 			
 			color = y*0xffff;
 	
-			SetPenColorStr("aqua", color, &plot);
+			SetPenColor(COLOR_AQUA, color, &plot);
 			//logmsg("x: %g (%g) y: %g (%g) c:%ld\n", x, x*60, y, y*60, color);
 			pl_fpoint_r(plot.plotter, x, y);
 		}
 		
-		DrawLabelsMDF(&plot);
 		ClosePlot(&plot);
 	}
 }
@@ -1107,19 +1164,19 @@ void PlotTest(char *filename, parameters *config)
 {
 	PlotFile	plot;
 	char		name[2048];
-	double		dbs = DB_HEIGHT;
+	double		dBFS = DB_HEIGHT;
 
 	if(!config)
 		return;
 
 	sprintf(name, "Test_%s", filename);
-	FillPlot(&plot, name, PLOT_RES_X, PLOT_RES_Y, 0, -1*dbs, TOP_FREQUENCY, dbs, 1, config);
+	FillPlot(&plot, name, PLOT_RES_X, PLOT_RES_Y, 0, -1*dBFS, TOP_FREQUENCY, dBFS, 1, config);
 
 	if(!CreatePlotFile(&plot))
 		return;
 
-	DrawGridZeroDBCentered(&plot, dbs, 3, TOP_FREQUENCY, 1000, config);
-	DrawLabelsZeroDBCentered(&plot, dbs, 3, TOP_FREQUENCY, 1000, config);
+	DrawGridZeroDBCentered(&plot, dBFS, 3, TOP_FREQUENCY, 1000, config);
+	DrawLabelsZeroDBCentered(&plot, dBFS, 3, TOP_FREQUENCY, 1000, config);
 	DrawLabelsMDF(&plot);
 	DrawColorScale(&plot, COLOR_ORANGE, PLOT_RES_X/50, PLOT_RES_Y/15, PLOT_RES_X/80, PLOT_RES_Y/1.15, -60, 3, config);
 	

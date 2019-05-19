@@ -38,6 +38,8 @@ long int DetectPulse(char *AllSamples, wav_hdr header, parameters *config)
 	int			maxdetected = 0;
 	long int	position = 0, offset = 0;
 
+	DisableConsole();
+
 	if(config->debugSync)
 		logmsg("\nStarting Detect start pulse\n");
 
@@ -46,6 +48,8 @@ long int DetectPulse(char *AllSamples, wav_hdr header, parameters *config)
 	{
 		if(config->debugSync)
 			logmsg("First round start pulse failed\n", offset);
+
+		EnableConsole();
 		return -1;
 	}
 
@@ -59,6 +63,7 @@ long int DetectPulse(char *AllSamples, wav_hdr header, parameters *config)
 	position = DetectPulseInternal(AllSamples, header, 9, offset, &maxdetected, config);
 	if(config->debugSync)
 		logmsg("Start pulse return value %ld\n", position);
+	EnableConsole();
 	return position;
 }
 
@@ -67,6 +72,7 @@ long int DetectEndPulse(char *AllSamples, long int startpulse, wav_hdr header, p
 	int			maxdetected = 0, frameAdjust = 0, tries = 0;
 	long int 	position = 0, offset = 0;
 
+	DisableConsole();
 	do
 	{
 		// Use defaults to calculate real frame rate
@@ -81,6 +87,7 @@ long int DetectEndPulse(char *AllSamples, long int startpulse, wav_hdr header, p
 		{
 			if(config->debugSync)
 				logmsg("First round end pulse failed, started search at %ld bytes\n", offset);
+			EnableConsole();
 			return -1;
 		}
 
@@ -99,6 +106,7 @@ long int DetectEndPulse(char *AllSamples, long int startpulse, wav_hdr header, p
 	position = DetectPulseInternal(AllSamples, header, 9, offset, &maxdetected, config);
 	if(config->debugSync)
 		logmsg("End pulse return value %ld\n", position);
+	EnableConsole();
 	return position;
 }
 
@@ -340,6 +348,11 @@ long int DetectPulseInternal(char *Samples, wav_hdr header, int factor, long int
 		i++;
 	}
 
+	/*
+	if(config->debugSync)
+		logmsg("MaxMagnitude: %g\n", MaxMagnitude);
+	*/
+
 	for(i = 0; i < TotalMS; i++)
 	{
 		if(pulseArray[i].hertz)
@@ -353,7 +366,7 @@ long int DetectPulseInternal(char *Samples, wav_hdr header, int factor, long int
 	/*
 	if(config->debugSync)
 	{
-		logmsg("===== Searching for %gHz at %gdbs =======\n", targetFrequency, config->types.pulseMinVol);
+		logmsg("===== Searching for %gHz at %ddBFS =======\n", targetFrequency, config->types.pulseMinVol);
 		for(i = 0; i < TotalMS; i++)
 		{
 			if(pulseArray[i].amplitude >= config->types.pulseMinVol && pulseArray[i].hertz >= targetFrequency - 2.0 && pulseArray[i].hertz <= targetFrequency + 2.0)

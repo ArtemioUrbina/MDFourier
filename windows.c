@@ -24,9 +24,6 @@
  *
  * Requires the FFTW library: 
  *	  http://www.fftw.org/
- * 
- * Compile with: 
- *	  gcc -Wall -std=gnu99 -o mdfourier mdfourier.c -lfftw3 -lm
  */
 
 #include "mdfourier.h"
@@ -48,7 +45,7 @@ int existsInArray(long int element, double *array, int count)
 	return 0;
 }
 
-float *getWindowByLength(windowManager *wm, long int frames)
+double *getWindowByLength(windowManager *wm, long int frames)
 {
 	if(!wm)
 		return 0;
@@ -188,13 +185,13 @@ void freeWindows(windowManager *wm)
 
 
 // reduce scalloping loss 
-float *flattopWindow(int n)
+double *flattopWindow(int n)
 {
 	int half, i, idx;
-	float *w;
+	double *w;
  
-	w = (float*) calloc(n, sizeof(float));
-	memset(w, 0, n*sizeof(float));
+	w = (double*) calloc(n, sizeof(double));
+	memset(w, 0, n*sizeof(double));
  
 	if(n%2==0)
 	{
@@ -234,21 +231,31 @@ float *flattopWindow(int n)
 
 
 // Only attenuate the edges to reduce errors
-// 2.5% slopes
-float *tukeyWindow(int n)
+// 2.5% slopes 20-25, half a frame in 20
+//#define TUKEY_5
+// 5.0% slopes 40-85, 1 frame in 20
+double *tukeyWindow(int n)
 {
 	int slope, i, idx;
-	float *w;
+	double *w;
  
-	w = (float*) calloc(n, sizeof(float));
-	memset(w, 0, n*sizeof(float));
+	w = (double*) calloc(n, sizeof(double));
+	memset(w, 0, n*sizeof(double));
  
 	if(n%2==0)
 	{
-		slope = n/40;
+#ifdef	TUKEY_5
+		slope = n/20;
+#else
+		slope = (n+1)/40;
+#endif
 		for(i=0; i<slope; i++)
 		{
+#ifdef	TUKEY_5
+			w[i] = 25*(1+cos(2*M_PI/(n-1)*(i-(n-1)/2)));
+#else
 			w[i] = 85*(1+cos(2*M_PI/(n-1)*(i-(n-1)/2)));
+#endif
 			if(w[i] > 1.0)
 				w[i] = 1.0;
 		}
@@ -264,10 +271,18 @@ float *tukeyWindow(int n)
 	}
 	else
 	{
+#ifdef	TUKEY_5
+		slope = (n+1)/20;
+#else
 		slope = (n+1)/40;
+#endif
 		for(i=0; i<slope; i++)
 		{
+#ifdef	TUKEY_5
+			w[i] = 25*(1+cos(2*M_PI/(n-1)*(i-(n-1)/2)));
+#else
 			w[i] = 85*(1+cos(2*M_PI/(n-1)*(i-(n-1)/2)));
+#endif
 			if(w[i] > 1.0)
 				w[i] = 1.0;
 		}
@@ -285,13 +300,13 @@ float *tukeyWindow(int n)
 	return(w);
 }
 
-float *hannWindow(int n)
+double *hannWindow(int n)
 {
 	int half, i, idx;
-	float *w;
+	double *w;
  
-	w = (float*) calloc(n, sizeof(float));
-	memset(w, 0, n*sizeof(float));
+	w = (double*) calloc(n, sizeof(double));
+	memset(w, 0, n*sizeof(double));
 
 	if(n%2==0)
 	{
@@ -321,13 +336,13 @@ float *hannWindow(int n)
 	return(w);
 }
 
-float *hammingWindow(int n)
+double *hammingWindow(int n)
 {
 	int half, i, idx;
-	float *w;
+	double *w;
  
-	w = (float*) calloc(n, sizeof(float));
-	memset(w, 0, n*sizeof(float));
+	w = (double*) calloc(n, sizeof(double));
+	memset(w, 0, n*sizeof(double));
 
 	if(n%2==0)
 	{
@@ -355,4 +370,57 @@ float *hammingWindow(int n)
 	}
  
 	return(w);
+}
+
+double CalculateCorrectionFactor(windowManager *wm, long int frames)
+{
+	double		*window = NULL;
+	double		factor = 0, sum = 0;
+	long int	size = 0;
+
+	if(!wm)
+		return 1;
+
+	for(int i = 0; i < wm->windowCount; i++)
+	{
+		if(frames == wm->windowArray[i].frames)
+		{
+			window = wm->windowArray[i].window;
+			size = wm->windowArray[i].size;
+			break;
+		}
+	}
+
+	if(!window)
+		return 1;
+
+	for(long int i = 0; i < size; i++)
+		sum += window[i];
+	
+	factor = (double)size/sum;
+
+	return factor;
+}
+
+double CompensateValueForWindow(double value, parameters *config)
+{
+	switch(config->window)
+	{
+		case 'n':
+			break;
+		case 't':
+			value *= 1.03366;
+			break;
+		case 'f':
+			value *= 4.63899;
+			break;
+		case 'h':
+			value *= 1.99986;
+			break;
+		case 'm':
+			value *= 1.85196;
+			break;
+	}
+
+	return value;
 }

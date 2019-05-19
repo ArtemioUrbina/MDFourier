@@ -41,7 +41,7 @@ void PrintUsage()
 	logmsg("	 -s: Defines <s>tart of the frequency range to compare with FFT\n\tA smaller range will compare more frequencies unless changed\n");
 	logmsg("	 -z: Defines end of the frequency range to compare with FFT\n\tA smaller range will compare more frequencies unless changed\n");
 	logmsg("	 -i: <i>gnores the silence block noise floor if present\n");
-	logmsg("	 -t: Defines the <t>olerance when comparing amplitudes in dbs\n");
+	logmsg("	 -t: Defines the <t>olerance when comparing amplitudes in dBFS\n");
 	logmsg("   Output options:\n");
 	logmsg("	 -l: <l>og output to file [reference]_vs_[compare].txt\n");
 	logmsg("	 -v: Enable <v>erbose mode, spits all the FFTW results\n");
@@ -53,8 +53,8 @@ void PrintUsage()
 
 void Header(int log)
 {
-	char title1[] = "== MDFourier " MDVERSION " ==\n240p Test Suite Fourier Audio compare tool\n";
-	char title2[] = "by Artemio Urbina 2019, licensed under GPL\n\n";
+	char title1[] = "MDFourier " MDVERSION " [240p Test Suite Fourier Audio compare tool]\n";
+	char title2[] = "Artemio Urbina 2019 free software under GPL\n\n";
 
 	if(log)
 		logmsg("%s%s", title1, title2);
@@ -97,6 +97,7 @@ void CleanParameters(parameters *config)
 	/* Non exposed */
 	config->logScale = 1;
 	config->debugSync = 0;
+	config->reverseCompare = 0;
 	
 	config->types.totalChunks = 0;
 	config->types.regularChunks = 0;
@@ -264,9 +265,9 @@ int commandline(int argc , char *argv[], parameters *config)
 		else if (optopt == 'o')
 		  logmsg("Output curve -%c requires an argument 0-4\n", optopt);
 		else if (optopt == 't')
-		  logmsg("Amplitude tolerance -%c requires an argument: 0.0-40.0 dbs\n", optopt);
+		  logmsg("Amplitude tolerance -%c requires an argument: 0.0-40.0 dBFS\n", optopt);
 		else if (optopt == 'p')
-		  logmsg("Significant Volume -%c requires an argument: -1.0 to -100.0 dbs\n", optopt);
+		  logmsg("Significant Volume -%c requires an argument: -1.0 to -100.0 dBFS\n", optopt);
 		else if (optopt == 'f')
 		  logmsg("Max # of frequencies to use from FFTW -%c requires an argument: 1-%d\n", optopt, MAX_FREQ_COUNT);
 		else if (optopt == 's')
@@ -352,7 +353,7 @@ int commandline(int argc , char *argv[], parameters *config)
 
 	logmsg("\tAudio Channel is: %s\n", GetChannel(config->channel));
 	if(config->tolerance != 0.0)
-		logmsg("\tAmplitude tolerance while comparing is +/-%0.2f dbs\n", config->tolerance);
+		logmsg("\tAmplitude tolerance while comparing is +/-%0.2f dBFS\n", config->tolerance);
 	if(config->MaxFreq != FREQ_COUNT)
 		logmsg("\tMax frequencies to use from FFTW are %d (default %d)\n", config->MaxFreq, FREQ_COUNT);
 	if(config->startHz != START_HZ)

@@ -48,12 +48,13 @@
 
 #include "incbeta.h"
 
-#define MDVERSION "0.85"
+#define MDVERSION "0.90"
 
 
 #define MAX_FREQ_COUNT		100000 	/* Number of frequencies to compare(MAX) */
 #define FREQ_COUNT			2000	/* Number of frequencies to compare(default) */
-#define SIGNIFICANT_VOLUME	-60
+#define SIGNIFICANT_VOLUME	-96		/* ~20.0f * log10f( 1.0f / 65536.0f ) */
+#define	REFRESH_RATE_NOISE_DETECT_TOLERANCE	1.0
 
 #define TYPE_SILENCE	0
 #define TYPE_SYNC		-1
@@ -164,8 +165,8 @@ typedef struct AudioSt {
 /********************************************************/
 
 typedef struct window_unit_st {
-	float		*window;
-	long  int	frames;
+	double		*window;
+	long int	frames;
 	long int	size;
 } windowUnit;
 
@@ -244,6 +245,7 @@ typedef struct parameters_st {
 	double			smallerFramerate;
 	int				logScale;
 	int				debugSync;
+	int				reverseCompare;
 
 #ifdef MDWAVE
 	int				maxBlanked;

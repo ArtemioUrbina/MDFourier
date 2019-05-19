@@ -703,7 +703,9 @@ char *GetTypeColor(parameters *config, int type)
 
 void FindFloor(AudioSignal *Signal, parameters *config)
 {
-	int index;
+	int 		index;
+	double		refreshNoise = 0;
+	Frequency	loudest;
 
 	if(!Signal)
 		return;
@@ -718,23 +720,47 @@ void FindFloor(AudioSignal *Signal, parameters *config)
 		return;
 	}
 
+	memset(&loudest, 0, sizeof(Frequency));
+	refreshNoise = fabs(RoundFloat(1000.0/Signal->framerate, 2));
+
+	if(config->verbose)
+		logmsg(" - Frame Rate %g RefreshNoise %g tolerance %g\n",
+			Signal->framerate, refreshNoise, REFRESH_RATE_NOISE_DETECT_TOLERANCE);
+
 	for(int i = 0; i < config->MaxFreq; i++)
 	{
-		if(Signal->Blocks[index].freq[i].hertz && !IsCRTNoise(Signal->Blocks[index].freq[i].hertz))
+		double difference;
+
+		difference = fabs(fabs(Signal->Blocks[index].freq[i].hertz) - refreshNoise);
+		if(difference < REFRESH_RATE_NOISE_DETECT_TOLERANCE)
 		{
 			Signal->floorAmplitude = Signal->Blocks[index].freq[i].amplitude;
 			Signal->floorFreq = Signal->Blocks[index].freq[i].hertz;
-			logmsg(" - Silence block max volume: %g Hz at %g db\n",
+			logmsg(" - Silence block mains noise: %g Hz at %g dBFS\n",
 				Signal->floorFreq, Signal->floorAmplitude);
 			return;
 		}
+
+		if(!loudest.hertz && Signal->Blocks[index].freq[i].hertz && !IsCRTNoise(Signal->Blocks[index].freq[i].hertz))
+			loudest = Signal->Blocks[index].freq[i];
 	}
+
+	if(loudest.hertz)
+	{
+		Signal->floorAmplitude = loudest.amplitude;
+		Signal->floorFreq = loudest.hertz;
+		logmsg(" - Silence block max volume: %g Hz at %g dBFS\n",
+			Signal->floorFreq, Signal->floorAmplitude);
+	}
+
 	Signal->hasFloor = 0;  /* revoke it if not found */
 }
 
 void GlobalNormalize(AudioSignal *Signal, parameters *config)
 {
-	double MaxMagnitude = 0;
+	double 		MaxMagnitude = 0;
+	double		MaxFreq = 0;
+	int			MaxBlock = -1;
 
 	if(!Signal)
 		return;
@@ -750,7 +776,11 @@ void GlobalNormalize(AudioSignal *Signal, parameters *config)
 				if(!Signal->Blocks[block].freq[i].hertz)
 					break;
 				if(Signal->Blocks[block].freq[i].magnitude > MaxMagnitude)
+				{
 					MaxMagnitude = Signal->Blocks[block].freq[i].magnitude;
+					MaxFreq = Signal->Blocks[block].freq[i].hertz;
+					MaxBlock = block;
+				}
 			}
 		}
 
@@ -758,10 +788,16 @@ void GlobalNormalize(AudioSignal *Signal, parameters *config)
 			config->relativeMaxMagnitude = MaxMagnitude;
 	}
 
+	if(config->verbose)
+	{
+		if(MaxBlock != -1)
+			logmsg(" - Max Volume found in block %d at %g Hz with %g magnitude\n", MaxBlock, MaxFreq, MaxMagnitude);
+	}
+
 	if(config->normalize == 'r' && config->relativeMaxMagnitude != 0.0)
 		MaxMagnitude = config->relativeMaxMagnitude;
 
-	/* Normalize and calculate Amplitude in dbs */
+	/* Normalize and calculate Amplitude in dBFSs */
 	for(int block = 0; block < config->types.totalChunks; block++)
 	{
 		for(int i = 0; i < config->MaxFreq; i++)
@@ -797,7 +833,7 @@ void LocalNormalize(AudioBlocks *AudioArray, parameters *config)
 	}
  
 	/* Normalize to 100 */
-	/* Calculate per Block dbs */
+	/* Calculate per Block dBFSs */
 	for(long int i = 0; i < config->MaxFreq; i++)
 	{
 		AudioArray->freq[i].amplitude = 
@@ -832,17 +868,18 @@ void CleanMatched(AudioSignal *ReferenceSignal, AudioSignal *TestSignal, paramet
 
 void PrintFrequencies(AudioSignal *Signal, parameters *config)
 {
-	if(IsLogEnabled())
-			DisableConsole();
+	DisableConsole();
 
 	for(int block = 0; block < config->types.totalChunks; block++)
 	{
+		int type = TYPE_NOTYPE;
 		logmsg("==================== %s# %d (%d) ===================\n", 
 				GetBlockName(config, block), GetBlockSubIndex(config, block), block);
 
+		type = GetBlockType(config, block);
 		for(int j = 0; j < config->MaxFreq; j++)
 		{
-			if(config->significantVolume > Signal->Blocks[block].freq[j].amplitude)
+			if(type != TYPE_SILENCE && config->significantVolume > Signal->Blocks[block].freq[j].amplitude)
 				break;
 
 			if(Signal->Blocks[block].freq[j].hertz)
@@ -860,8 +897,7 @@ void PrintFrequencies(AudioSignal *Signal, parameters *config)
 		}
 	}
 
-	if(IsLogEnabled())
-		EnableConsole();
+	EnableConsole();
 }
 
 void FillFrequencyStructures(AudioBlocks *AudioArray, parameters *config)
@@ -911,6 +947,22 @@ void FillFrequencyStructures(AudioBlocks *AudioArray, parameters *config)
 			}
 		}
 	}
+
+	/*
+	// Used to print out frequency bins, debugging if needed
+	// varies due to block frame size and console frame rate
+	if(config->verbose)
+	{
+		DisableConsole();
+
+		logmsg("Bins s: %ld e: %ld b: %g size: %g\n",
+				startBin, endBin, boxsize, size);
+		for(i = startBin; i < endBin; i++)
+			logmsg("%g\n", ((double)i/boxsize));
+
+		EnableConsole();
+	}
+	*/
 }
 
 void CompressFrequencies(AudioBlocks *AudioArray, parameters *config)
@@ -987,14 +1039,14 @@ void PrintComparedBlocks(AudioBlocks *ReferenceArray, AudioBlocks *ComparedArray
 		{
 			int match = 0;
 
-			logmsg("[%5d] Ref: %7g Hz %6.2fdb [>%3d]", 
+			logmsg("[%5d] Ref: %7g Hz %6.2fdBFS [>%3d]", 
 						j,
 						ReferenceArray->freq[j].hertz,
 						ReferenceArray->freq[j].amplitude,
 						ReferenceArray->freq[j].matched - 1);
 
 			if(ComparedArray->freq[j].hertz)
-				logmsg("\tComp: %7g Hz %6.2fdb [<%3d]", 
+				logmsg("\tComp: %7g Hz %6.2fdBFS [<%3d]", 
 						ComparedArray->freq[j].hertz,
 						ComparedArray->freq[j].amplitude,
 						ComparedArray->freq[j].matched - 1);
@@ -1037,25 +1089,27 @@ double CalculateWeightedError(double pError, parameters *config)
 			pError = 1;
 			break;
 		case 1:
-			// Linear equivalent to or do nothing
+			/* Map to Beta function */
+			pError = incbeta(8.0, 16.0, pError);
+			break;
+		case 2:
+			// Linear equivalent to do nothing
 			// pError = incbeta(1.0, 1.0, pError);
 			pError = pError;
 			break;
-		case 2:
-			/* Map to Beta function */
-			pError = incbeta(4.0, 8.0, pError);
-			break;
 		case 3:
 			/* Map to Beta function */
-			pError = incbeta(6.0, 8.0, pError);
+			pError = pError*pError;
 			break;
 		case 4:
-			/* Map to Beta function */			
-			pError = incbeta(8.0, 8.0, pError);
+			/* Map to Beta function */
+			//pError = incbeta(4.0, 4.0, pError);
+			pError = 1.0 - pError*pError;
 			break;
 		case 5:
-			/* Map to Beta function */
-			pError = incbeta(8.0, 6.0, pError);
+			/* Map to Beta function */			
+			//pError = incbeta(4.0, 8.0, pError);
+			pError = pError*pError*pError;
 			break;
 		default:
 			/* This is unexpected behaviour, log it */

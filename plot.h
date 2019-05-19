@@ -80,6 +80,11 @@ typedef struct flat_FrequencySt {
 } FlatFrequency;
 
 void PlotResults(AudioSignal *Signal, parameters *config);
+void PlotAmpDifferences(parameters *config);
+void PlotAllWeightedAmpDifferences(parameters *config);
+void PlotFreqMissing(parameters *config);
+void PlotSpectrograms(AudioSignal *Signal, parameters *config);
+void PlotDifferentAmplitudesWithBetaFunctions(parameters *config);
 
 int FillPlot(PlotFile *plot, char *name, int sizex, int sizey, double x0, double y0, double x1, double y1, double penWidth, parameters *config);
 int CreatePlotFile(PlotFile *plot);
@@ -101,7 +106,7 @@ int PlotEachTypeSpectrogram(FlatFrequency *freqs, long int size, char *filename,
 void PlotSingleTypeSpectrogram(FlatFrequency *freqs, long int size, int type, char *filename, parameters *config);
 void PlotAllSpectrogram(FlatFrequency *freqs, long int size, char *filename, parameters *config);
 
-void PlotWindow(windowManager *wm, parameters *config);
+void PlotWindow(windowManager *wm, long int frames, parameters *config);
 void PlotBetaFunctions(parameters *config);
 
 FlatAmplDifference *CreateFlatDifferences(parameters *config);
@@ -117,5 +122,6 @@ void DrawColorScale(PlotFile *plot, int color, double x, double y, double width,
 
 void PlotTest(char *filename, parameters *config);
 void PlotTestZL(char *filename, parameters *config);
+void VisualizeWindows(windowManager *wm, parameters *config);
 
 #endif

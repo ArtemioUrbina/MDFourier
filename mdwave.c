@@ -28,7 +28,7 @@
  */
 
 #define MDWAVE
-#define MDWVERSION "0.85"
+#define MDWVERSION "0.90"
 
 #include "mdfourier.h"
 #include "log.h"
@@ -39,16 +39,18 @@
 
 int LoadFile(FILE *file, AudioSignal *Signal, parameters *config, char *fileName);
 int ProcessFile(AudioSignal *Signal, parameters *config);
-double ProcessSamples(AudioBlocks *AudioArray, short *samples, size_t size, long samplerate, float *window, parameters *config, int reverse, AudioSignal *Signal);
+double ProcessSamples(AudioBlocks *AudioArray, short *samples, size_t size, long samplerate, double *window, parameters *config, int reverse, AudioSignal *Signal);
 int commandline_wave(int argc , char *argv[], parameters *config);
 void FindMaxMagnitude(AudioSignal *Signal, parameters *config);
 void PrintUsage_wave();
 void Header_wave(int log);
+void CleanUp(AudioSignal **ReferenceSignal, parameters *config);
+void CloseFiles(FILE **ref);
 
 int main(int argc , char *argv[])
 {
 	FILE				*reference = NULL;
-	AudioSignal  		*ReferenceSignal;
+	AudioSignal  		*ReferenceSignal = NULL;
 	parameters			config;
 	struct	timespec	start, end;
 
@@ -69,12 +71,15 @@ int main(int argc , char *argv[])
 	if(!reference)
 	{
 		logmsg("\tCould not open REFERENCE file: \"%s\"\n", config.referenceFile);
+		CleanUp(&ReferenceSignal, &config);
 		return 0;
 	}
 
 	ReferenceSignal = CreateAudioSignal(&config);
 	if(!ReferenceSignal)
 	{
+		CloseFiles(&reference);
+		CleanUp(&ReferenceSignal, &config);
 		logmsg("Not enough memory for Data Structures\n");
 		return 0;
 	}
@@ -82,26 +87,21 @@ int main(int argc , char *argv[])
 	logmsg("\n* Loading Reference audio file %s\n", config.referenceFile);
 	if(!LoadFile(reference, ReferenceSignal, &config, config.referenceFile))
 	{
-		ReleaseAudio(ReferenceSignal, &config);
-		free(ReferenceSignal);
+		CloseFiles(&reference);
+		CleanUp(&ReferenceSignal, &config);
 		return 0;
 	}
 
 	logmsg("* Processing WAV file %s\n", config.referenceFile);
 	if(!ProcessFile(ReferenceSignal, &config))
 	{
-		ReleaseAudio(ReferenceSignal, &config);
-		free(ReferenceSignal);
+		CleanUp(&ReferenceSignal, &config);
 		return 1;
 	}
 
 	logmsg("* Max blanked frequencies per block %d\n", config.maxBlanked);
 	
-	ReleaseAudio(ReferenceSignal, &config);
-	free(ReferenceSignal);
-	ReferenceSignal = NULL;
-
-	ReleaseAudioBlockStructure(&config);
+	CleanUp(&ReferenceSignal, &config);
 
 	if(config.clock)
 	{
@@ -113,6 +113,28 @@ int main(int argc , char *argv[])
 	
 	return(0);
 }
+
+void CleanUp(AudioSignal **ReferenceSignal, parameters *config)
+{
+	if(*ReferenceSignal)
+	{
+		ReleaseAudio(*ReferenceSignal, config);
+		free(*ReferenceSignal);
+		*ReferenceSignal = NULL;
+	}
+
+	ReleaseAudioBlockStructure(config);
+}
+
+void CloseFiles(FILE **ref)
+{
+	if(*ref)
+	{
+		fclose(*ref);
+		*ref = NULL;
+	}
+}
+
 
 char *GenerateFileNamePrefix(parameters *config)
 {
@@ -269,7 +291,7 @@ int ProcessFile(AudioSignal *Signal, parameters *config)
 	char			*buffer;
 	size_t			buffersize = 0;
 	windowManager	windows;
-	float			*windowUsed = NULL;
+	double			*windowUsed = NULL;
 	long int		loadedBlockSize = 0, i = 0;
 	struct timespec	start, end;
 	FILE			*processed = NULL;
@@ -527,7 +549,7 @@ void FindMaxMagnitude(AudioSignal *Signal, parameters *config)
 
 	config->MaxMagnitude = MaxMagnitude;
 
-	//Calculate Amplitude in dbs
+	//Calculate Amplitude in dBFS 
 	for(int block = 0; block < config->types.totalChunks; block++)
 	{
 		for(int i = 0; i < config->MaxFreq; i++)
@@ -545,7 +567,7 @@ void FindMaxMagnitude(AudioSignal *Signal, parameters *config)
 }
 
 
-double ProcessSamples(AudioBlocks *AudioArray, short *samples, size_t size, long samplerate, float *window, parameters *config, int reverse, AudioSignal *Signal)
+double ProcessSamples(AudioBlocks *AudioArray, short *samples, size_t size, long samplerate, double *window, parameters *config, int reverse, AudioSignal *Signal)
 {
 	fftw_plan		p = NULL, pBack = NULL;
 	long		  	stereoSignalSize = 0, blanked = 0;	
@@ -981,7 +1003,7 @@ int commandline_wave(int argc , char *argv[], parameters *config)
 
 	logmsg("\tAudio Channel is: %s\n", GetChannel(config->channel));
 	if(config->tolerance != 0.0)
-		logmsg("\tAmplitude tolerance while comparing is +/-%0.2f dbs\n", config->tolerance);
+		logmsg("\tAmplitude tolerance while comparing is +/-%0.2f dBFS\n", config->tolerance);
 	if(config->MaxFreq != FREQ_COUNT)
 		logmsg("\tMax frequencies to use from FFTW are %d (default %d)\n", config->MaxFreq, FREQ_COUNT);
 	if(config->startHz != START_HZ)
@@ -1012,7 +1034,7 @@ void PrintUsage_wave()
 	logmsg("	 -i: <i>gnores the silence block noise floor if present\n");
 	logmsg("	 -s: Defines <s>tart of the frequency range to compare with FFT\n\tA smaller range will compare more frequencies unless changed\n");
 	logmsg("	 -z: Defines end of the frequency range to compare with FFT\n\tA smaller range will compare more frequencies unless changed\n");
-	logmsg("	 -t: Defines the <t>olerance when comparing amplitudes in dbs\n");
+	logmsg("	 -t: Defines the <t>olerance when comparing amplitudes in dBFS\n");
 	logmsg("   Output options:\n");
 	logmsg("	 -v: Enable <v>erbose mode, spits all the FFTW results\n");
 	logmsg("	 -e: Enables <e>xtended results. Shows a table with all matched\n\tfrequencies for each block with differences\n");
@@ -1023,8 +1045,8 @@ void PrintUsage_wave()
 
 void Header_wave(int log)
 {
-	char title1[] = "== MDWave " MDWVERSION " == (MDFourier Companion)\n240p Test Suite Fourier Audio compare tool\n";
-	char title2[] = "by Artemio Urbina 2019, licensed under GPL\n\n";
+	char title1[] = " MDWave " MDWVERSION " (MDFourier Companion)\n [240p Test Suite Fourier Audio compare tool]\n";
+	char title2[] = "Artemio Urbina 2019 free software under GPL\n\n";
 
 	if(log)
 		logmsg("%s%s", title1, title2);
