@@ -491,9 +491,6 @@ int ProcessFile(AudioSignal *Signal, parameters *config)
 		*/
 
 		FillFrequencyStructures(&Signal->Blocks[i], config);
-	
-		if(config->HzWidth > 0.0)
-			CompressFrequencies(&Signal->Blocks[i], config);
 
 		if(config->normalize == 'n')
 			LocalNormalize(&Signal->Blocks[i], config);
@@ -531,7 +528,7 @@ double ExecuteDFFT(AudioBlocks *AudioArray, short *samples, size_t size, long sa
 {
 	fftw_plan		p = NULL;
 	long		  	stereoSignalSize = 0;	
-	long		  	i = 0, monoSignalSize = 0; 
+	long		  	i = 0, monoSignalSize = 0, zeropadding = 0;
 	double		  	*signal = NULL;
 	fftw_complex  	*spectrum = NULL;
 	double		 	seconds = 0;
@@ -545,6 +542,29 @@ double ExecuteDFFT(AudioBlocks *AudioArray, short *samples, size_t size, long sa
 	stereoSignalSize = (long)size;
 	monoSignalSize = stereoSignalSize/2;	 // 4 is 2 16 bit values
 	seconds = (double)size/((double)samplerate*2);
+
+	if(config->ZeroPad)
+	{
+		// Align frequency bins to 1hz
+		if(monoSignalSize != samplerate)
+		{
+			if(monoSignalSize < samplerate)
+			{
+				zeropadding = samplerate - monoSignalSize;
+				monoSignalSize += zeropadding;
+				seconds = 1;
+			}
+			else
+			{
+				int times;
+	
+				times = ceil((double)monoSignalSize/(double)samplerate);
+				zeropadding = times*samplerate - monoSignalSize;
+				monoSignalSize += zeropadding;
+				seconds = times;
+			}
+		}
+	}
 
 	signal = (double*)malloc(sizeof(double)*(monoSignalSize+1));
 	if(!signal)
@@ -564,7 +584,7 @@ double ExecuteDFFT(AudioBlocks *AudioArray, short *samples, size_t size, long sa
 	memset(signal, 0, sizeof(double)*(monoSignalSize+1));
 	memset(spectrum, 0, sizeof(fftw_complex)*(monoSignalSize/2+1));
 
-	for(i = 0; i < monoSignalSize; i++)
+	for(i = 0; i < monoSignalSize - zeropadding; i++)
 	{
 		if(config->channel == 'l')
 			signal[i] = (double)samples[i*2];

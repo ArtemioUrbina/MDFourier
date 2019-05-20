@@ -813,7 +813,7 @@ void GlobalNormalize(AudioSignal *Signal, parameters *config)
 			if(!Signal->Blocks[block].freq[i].hertz)
 				break;
 			Signal->Blocks[block].freq[i].amplitude = 
-				RoundFloat(20*log10(Signal->Blocks[block].freq[i].magnitude/MaxMagnitude), 2);
+				CalculateAmplitude(Signal->Blocks[block].freq[i].magnitude, MaxMagnitude);
 			Signal->Blocks[block].freq[i].magnitude = 
 				RoundFloat(Signal->Blocks[block].freq[i].magnitude*100.0/MaxMagnitude, 2);
 		}
@@ -845,7 +845,7 @@ void LocalNormalize(AudioBlocks *AudioArray, parameters *config)
 	for(long int i = 0; i < config->MaxFreq; i++)
 	{
 		AudioArray->freq[i].amplitude = 
-			RoundFloat(20*log10(AudioArray->freq[i].magnitude/MaxMagnitude), 2);
+			CalculateAmplitude(AudioArray->freq[i].magnitude, MaxMagnitude);
 		AudioArray->freq[i].magnitude = 
 			RoundFloat(AudioArray->freq[i].magnitude*100.0/MaxMagnitude, 2);
 	}
@@ -908,6 +908,49 @@ void PrintFrequencies(AudioSignal *Signal, parameters *config)
 	EnableConsole();
 }
 
+inline double CalculateMagnitude(fftw_complex value, long int size)
+{
+	double r1 = 0;
+	double i1 = 0;
+	double magnitude = 0;
+
+	r1 = creal(value);
+	i1 = cimag(value);
+	magnitude = sqrt(r1*r1 + i1*i1)/size;
+	return magnitude;
+}
+
+inline double CalculatePhase(fftw_complex value)
+{
+	double r1 = 0;
+	double i1 = 0;
+	double phase = 0;
+
+	r1 = creal(value);
+	i1 = cimag(value);
+	phase = atan2(i1, r1)*180/M_PI;
+	return phase;
+}
+
+inline double CalculateAmplitude(double magnitude, double MaxMagnitude)
+{
+	double amplitude = 0;
+
+	amplitude = 20*log10(magnitude/MaxMagnitude);
+	amplitude = RoundFloat(amplitude, 2);
+	return amplitude;
+}
+
+inline double CalculateFrequency(double boxindex, double boxsize, int HertzAligned)
+{
+	double Hertz = 0;
+
+	Hertz = boxindex/boxsize;
+	if(!HertzAligned) // if zero padded (Hertz Aligned), we are using 1hz integer bins
+		Hertz = RoundFloat(Hertz, 2);  // default, overkill yes
+	return Hertz;
+}
+
 void FillFrequencyStructures(AudioBlocks *AudioArray, parameters *config)
 {
 	long int i = 0, startBin= 0, endBin = 0;
@@ -921,15 +964,12 @@ void FillFrequencyStructures(AudioBlocks *AudioArray, parameters *config)
 
 	for(i = startBin; i < endBin; i++)
 	{
-		double r1 = creal(AudioArray->fftwValues.spectrum[i]);
-		double i1 = cimag(AudioArray->fftwValues.spectrum[i]);
 		double magnitude, previous;
 		int    j = 0;
 		double Hertz;
 
-		magnitude = sqrt(r1*r1 + i1*i1)/sqrt(size);
-		Hertz = ((double)i/boxsize);
-		Hertz = RoundFloat(Hertz, 2);  // default, overkill yes
+		magnitude = CalculateMagnitude(AudioArray->fftwValues.spectrum[i], size);
+		Hertz = CalculateFrequency(i, boxsize, config->ZeroPad);
 
 		previous = 1.e30;
 		if(!IsCRTNoise(Hertz))
@@ -948,7 +988,7 @@ void FillFrequencyStructures(AudioBlocks *AudioArray, parameters *config)
 					AudioArray->freq[j].hertz = Hertz;
 					AudioArray->freq[j].magnitude = magnitude;
 					AudioArray->freq[j].amplitude = 0;
-					AudioArray->freq[j].phase = atan2(i1, r1)*180/M_PI;
+					AudioArray->freq[j].phase = CalculatePhase(AudioArray->fftwValues.spectrum[i]);
 					break;
 				}
 				previous = AudioArray->freq[j].magnitude;
@@ -966,70 +1006,11 @@ void FillFrequencyStructures(AudioBlocks *AudioArray, parameters *config)
 		logmsg("Bins s: %ld e: %ld b: %g size: %g\n",
 				startBin, endBin, boxsize, size);
 		for(i = startBin; i < endBin; i++)
-			logmsg("%g\n", ((double)i/boxsize));
+			logmsg("%g\n", CalculateFrequency(i, boxsize, config->ZeroPad);
 
 		EnableConsole();
 	}
 	*/
-}
-
-void CompressFrequencies(AudioBlocks *AudioArray, parameters *config)
-{
-	long int i = 0;
-
-	/* The following mess compressed adjacent frequencies */
-	/* Disabled by default and it is not as useful as expected in the current form */
-	
-	for(i = 0; i < config->MaxFreq; i++)
-	{
-		for(int j = 0; j < config->MaxFreq; j++)
-		{
-			double hertzDiff;
-
-			hertzDiff = fabs(AudioArray->freq[j].hertz - AudioArray->freq[i].hertz);
-			
-			if(AudioArray->freq[i].hertz && AudioArray->freq[j].hertz
-				&& i != j && hertzDiff <= config->HzWidth)
-			{
-				if(AudioArray->freq[i].magnitude > AudioArray->freq[j].magnitude)
-				{
-					AudioArray->freq[i].magnitude += AudioArray->freq[j].magnitude;
-					/* AudioArray->freq[i].magnitude/= 2; */
-
-					AudioArray->freq[j].hertz = 0;
-					AudioArray->freq[j].magnitude = 0;
-					AudioArray->freq[j].phase = 0;
-					AudioArray->freq[i].amplitude = 0;
-				}
-				else
-				{
-					AudioArray->freq[j].magnitude += AudioArray->freq[i].magnitude;
-					/* AudioArray->freq[j].magnitude/= 2; */
-
-					AudioArray->freq[i].hertz = 0;
-					AudioArray->freq[i].magnitude = 0;
-					AudioArray->freq[i].phase = 0;
-					AudioArray->freq[i].amplitude = 0;
-				}
-			}
-		}
-	}
-
-	/* sort array by magnitude */
-	for(i = 0; i < config->MaxFreq; i++)
-	{
-		for(int j = i + 1; j < config->MaxFreq; j++)
-		{
-			if (AudioArray->freq[i].magnitude < AudioArray->freq[j].magnitude) 
-			{
-					Frequency	t;
-				
-					t = AudioArray->freq[i];
-					AudioArray->freq[i] = AudioArray->freq[j];
-					AudioArray->freq[j] = t;
-				}
-		}
-	}
 }
 
 void PrintComparedBlocks(AudioBlocks *ReferenceArray, AudioBlocks *ComparedArray, parameters *config, AudioSignal *Signal)
@@ -1126,7 +1107,7 @@ double CalculateWeightedError(double pError, parameters *config)
 	return pError;
 }
 
-double RoundFloat(double x, int p)
+inline double RoundFloat(double x, int p)
 {
 	if (x != 0.0) {
 		return ((floor((fabs(x)*pow((double)(10.0),p))+0.5))/pow((double)(10.0),p))*(x/fabs(x));
@@ -1135,22 +1116,22 @@ double RoundFloat(double x, int p)
 	}
 }
 
-double FramesToSeconds(double frames, double framerate)
+inline double FramesToSeconds(double frames, double framerate)
 {
 	return(frames*framerate/1000.0);
 }
 
-long int SecondsToBytes(long int samplerate, double seconds, int *leftover, int *discard)
+inline long int SecondsToBytes(long int samplerate, double seconds, int *leftover, int *discard)
 {
 	return(RoundTo4bytes(samplerate*4.0*seconds*sizeof(char), leftover, discard));
 }
 
-double BytesToSeconds(long int samplerate, long int bytes)
+inline double BytesToSeconds(long int samplerate, long int bytes)
 {
 	return((double)bytes/(samplerate*4.0));
 }
 
-long int RoundTo4bytes(double src, int *leftover, int *discard)
+inline long int RoundTo4bytes(double src, int *leftover, int *discard)
 {
 	int extra = 0;
 
@@ -1181,7 +1162,7 @@ long int RoundTo4bytes(double src, int *leftover, int *discard)
 	return (src);
 }
 
-double GetDecimalValues(double value)
+inline double GetDecimalValues(double value)
 {
 	double integer = 0;
 

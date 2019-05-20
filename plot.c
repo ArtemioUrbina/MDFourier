@@ -367,7 +367,7 @@ void DrawColorScale(PlotFile *plot, int colorName, double x, double y, double wi
 	{
 		char label[20];
 
-		pl_fmove_r(plot->plotter, x+width+PLOT_RES_X/80, y+height-i*height/segments-height/segments/2);
+		pl_fmove_r(plot->plotter, x+width+PLOT_RES_X/60, y+height-i*height/segments-height/segments/2);
 		sprintf(label, " %c%gdBFS", i*dbIncrement > 0 ? '-' : ' ', i*dbIncrement);
 		pl_alabel_r(plot->plotter, 'c', 'c', label);
 	}
@@ -427,7 +427,7 @@ void DrawColorAllTypeScale(PlotFile *plot, double x, double y, double width, dou
 	{
 		char label[20];
 
-		pl_fmove_r(plot->plotter, x+width+PLOT_RES_X/80, y+height-i*height/segments-height/segments/2);
+		pl_fmove_r(plot->plotter, x+width+PLOT_RES_X/60, y+height-i*height/segments-height/segments/2);
 		sprintf(label, " %c%gdBFS", i*dbIncrement > 0 ? '-' : ' ', i*dbIncrement);
 		pl_alabel_r(plot->plotter, 'c', 'c', label);
 	}
@@ -485,7 +485,8 @@ int PlotEachTypeDifferentAmplitudes(FlatAmplDifference *amplDiff, char *filename
 		type = config->types.typeArray[i].type;
 		if(type > TYPE_CONTROL)
 		{
-			sprintf(name, "DifferentAmplitudes_%s_%s", filename, config->types.typeArray[i].typeName);
+			sprintf(name, "DifferentAmplitudes_%s_%02d%s", filename, 
+							config->types.typeArray[i].type, config->types.typeArray[i].typeName);
 			PlotSingleTypeDifferentAmplitudes(amplDiff, type, name, config);
 			types ++;
 		}
@@ -584,7 +585,8 @@ int PlotEachTypeMissingFrequencies(FlatFreqDifference *freqDiff, char *filename,
 		type = config->types.typeArray[i].type;
 		if(type > TYPE_CONTROL)
 		{
-			sprintf(name, "MissingFrequencies_%s_%s", filename, config->types.typeArray[i].typeName);
+			sprintf(name, "MissingFrequencies_%s_%02d%s", filename, 
+							config->types.typeArray[i].type, config->types.typeArray[i].typeName);
 			PlotSingleTypeMissingFrequencies(freqDiff, type, name, config);
 			types ++;
 		}
@@ -678,7 +680,8 @@ int PlotEachTypeSpectrogram(FlatFrequency *freqs, long int size, char *filename,
 		type = config->types.typeArray[i].type;
 		if(type > TYPE_CONTROL)
 		{
-			sprintf(name, "Spectrogram_%s_%s", filename, config->types.typeArray[i].typeName);
+			sprintf(name, "Spectrogram_%s_%02d%s", filename, 
+					config->types.typeArray[i].type, config->types.typeArray[i].typeName);
 			PlotSingleTypeSpectrogram(freqs, size, type, name, config);
 			types ++;
 		}
@@ -1078,7 +1081,7 @@ int InsertElementInPlace(FlatFrequency *Freqs, FlatFrequency Element, long int c
 
 	for(long int j = 0; j < currentsize; j++)
 	{
-		if(Element.hertz == Freqs[j].hertz)
+		if(Element.type == Freqs[j].type && Element.hertz == Freqs[j].hertz)
 		{
 			if(Freqs[j].amplitude > Element.amplitude)
 				return 0;

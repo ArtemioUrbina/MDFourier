@@ -566,7 +566,7 @@ void FindMaxMagnitude(AudioSignal *Signal, parameters *config)
 		for(int i = 0; i < config->MaxFreq; i++)
 		{
 			Signal->Blocks[block].freq[i].amplitude = 
-				RoundFloat(20*log10(Signal->Blocks[block].freq[i].magnitude / MaxMagnitude), 2);
+				CalculateAmplitude(Signal->Blocks[block].freq[i].magnitude, MaxMagnitude);
 			Signal->Blocks[block].freq[i].magnitude = 
 				Signal->Blocks[block].freq[i].magnitude * 100.0 / MaxMagnitude;
 			if(Signal->Blocks[block].freq[i].amplitude < MinAmplitude)
@@ -582,7 +582,7 @@ double ProcessSamples(AudioBlocks *AudioArray, short *samples, size_t size, long
 {
 	fftw_plan		p = NULL, pBack = NULL;
 	long		  	stereoSignalSize = 0, blanked = 0;	
-	long		  	i = 0, monoSignalSize = 0; 
+	long		  	i = 0, monoSignalSize = 0, zeropadding = 0; 
 	double		  	*signal = NULL;
 	fftw_complex  	*spectrum = NULL;
 	double		 	boxsize = 0, seconds = 0;
@@ -598,6 +598,30 @@ double ProcessSamples(AudioBlocks *AudioArray, short *samples, size_t size, long
 	stereoSignalSize = (long)size;
 	monoSignalSize = stereoSignalSize/2;	 // 4 is 2 16 bit values
 	seconds = (double)size/((double)samplerate*2);
+
+	if(config->ZeroPad)
+	{
+		// Align frequency bins to 1hz
+		if(monoSignalSize != samplerate)
+		{
+			if(monoSignalSize < samplerate)
+			{
+				zeropadding = samplerate - monoSignalSize;
+				monoSignalSize += zeropadding;
+				seconds = 1;
+			}
+			else
+			{
+				int times;
+	
+				times = ceil((double)monoSignalSize/(double)samplerate);
+				zeropadding = times*samplerate - monoSignalSize;
+				monoSignalSize += zeropadding;
+				seconds = times;
+			}
+		}
+	}
+
 	boxsize = RoundFloat(seconds, 4);
 
 	startBin = floor(config->startHz*boxsize);
@@ -623,7 +647,7 @@ double ProcessSamples(AudioBlocks *AudioArray, short *samples, size_t size, long
 	if(reverse)
 		pBack = fftw_plan_dft_c2r_1d(monoSignalSize, spectrum, signal, FFTW_MEASURE);
 
-	for(i = 0; i < monoSignalSize; i++)
+	for(i = 0; i < monoSignalSize - zeropadding; i++)
 	{
 		if(config->channel == 'l')
 		{
@@ -653,14 +677,12 @@ double ProcessSamples(AudioBlocks *AudioArray, short *samples, size_t size, long
 	{
 		for(i = startBin; i < endBin; i++)
 		{
-			double r1 = creal(spectrum[i]);
-			double i1 = cimag(spectrum[i]);
 			double magnitude, previous;
 			int    j = 0;
 			double Hertz;
 	
-			magnitude = sqrt(r1*r1 + i1*i1)/monoSignalSize;
-			Hertz = RoundFloat(((double)i/boxsize), 2);
+			magnitude = CalculateMagnitude(spectrum[i], monoSignalSize);
+			Hertz = CalculateFrequency(i, boxsize, config->ZeroPad);
 	
 			previous = 1.e30;
 			if(!IsCRTNoise(Hertz))
@@ -679,7 +701,7 @@ double ProcessSamples(AudioBlocks *AudioArray, short *samples, size_t size, long
 						AudioArray->freq[j].hertz = Hertz;
 						AudioArray->freq[j].magnitude = magnitude;
 						AudioArray->freq[j].amplitude = 0;
-						AudioArray->freq[j].phase = atan2(i1, r1);
+						AudioArray->freq[j].phase = CalculatePhase(spectrum[i]);
 						break;
 					}
 					previous = AudioArray->freq[j].magnitude;
@@ -714,15 +736,13 @@ double ProcessSamples(AudioBlocks *AudioArray, short *samples, size_t size, long
 		//Process the whole frequency spectrum
 		for(i = startBin; i < endBin; i++)
 		{
-			double r1 = creal(spectrum[i]);
-			double i1 = cimag(spectrum[i]);
 			double amplitude = 0, magnitude = 0;
 			int blank = 0;
 			double Hertz;
 	
-			magnitude = sqrt(r1*r1 + i1*i1)/monoSignalSize;
-			amplitude = 20*log10(magnitude / config->MaxMagnitude);
-			Hertz = ((double)i/boxsize);
+			magnitude = CalculateMagnitude(spectrum[i], monoSignalSize);
+			amplitude = CalculateAmplitude(magnitude, config->MaxMagnitude);
+			Hertz = CalculateFrequency(i, boxsize, config->ZeroPad);
 
 			if(config->invert)
 			{
@@ -762,7 +782,7 @@ double ProcessSamples(AudioBlocks *AudioArray, short *samples, size_t size, long
 	
 		if(window)
 		{
-			for(i = 0; i < monoSignalSize; i++)
+			for(i = 0; i < monoSignalSize - zeropadding; i++)
 			{
 				double value;
 	
@@ -788,7 +808,7 @@ double ProcessSamples(AudioBlocks *AudioArray, short *samples, size_t size, long
 		}
 		else
 		{
-			for(i = 0; i < monoSignalSize; i++)
+			for(i = 0; i < monoSignalSize - zeropadding; i++)
 			{
 				double value = 0;
 		
@@ -841,7 +861,7 @@ int commandline_wave(int argc , char *argv[], parameters *config)
 	config->MinAmplitude = 0;
 	config->floorAmplitude = 0;
 
-	while ((c = getopt (argc, argv, "hvcklxis:z:f:b:d:t:p:a:w:r:")) != -1)
+	while ((c = getopt (argc, argv, "hvzcklxis:e:f:t:p:a:w:r:")) != -1)
 	switch (c)
 	  {
 	  case 'h':
@@ -860,6 +880,9 @@ int commandline_wave(int argc , char *argv[], parameters *config)
 	  case 'l':
 		EnableConsole();
 		break;
+	  case 'z':
+		config->ZeroPad = 1;
+		break;
 	  case 'x':
 		config->invert = 1;   // RELEVANT HERE!
 		break;
@@ -871,7 +894,7 @@ int commandline_wave(int argc , char *argv[], parameters *config)
 		if(config->startHz < 1 || config->startHz > 19900)
 			config->startHz = START_HZ;
 		break;
-	  case 'z':
+	  case 'e':
 		config->endHz = atoi(optarg);
 		if(config->endHz < 10 || config->endHz > 20000)
 			config->endHz = END_HZ;
@@ -880,16 +903,6 @@ int commandline_wave(int argc , char *argv[], parameters *config)
 		config->MaxFreq = atoi(optarg);
 		if(config->MaxFreq < 1 || config->MaxFreq > MAX_FREQ_COUNT)
 			config->MaxFreq = MAX_FREQ_COUNT;
-		break;
-	  case 'b':
-		config->HzWidth = atof(optarg);
-		if(config->HzWidth < 0.0 || config->HzWidth > 5000.0)
-			config->HzWidth = HERTZ_WIDTH;
-		break;
-	  case 'd':
-		config->HzDiff = atof(optarg);
-		if(config->HzDiff < 0.0 || config->HzDiff > 5000.0)
-			config->HzDiff = HERTZ_DIFF;
 		break;
 	  case 't':
 		config->tolerance = atof(optarg);
@@ -1021,10 +1034,6 @@ int commandline_wave(int argc , char *argv[], parameters *config)
 		logmsg("\tFrequency start range for FFTW is now %d (default %d)\n", config->startHz, START_HZ);
 	if(config->endHz != END_HZ)
 		logmsg("\tFrequency end range for FFTW is now %d (default %d)\n", config->endHz, END_HZ);
-	if(config->HzWidth != HERTZ_WIDTH)
-		logmsg("\tHertz Width Compression changed to %g (default %g Hz)\n", config->HzWidth, HERTZ_WIDTH);
-	if(config->HzDiff != HERTZ_DIFF)
-		logmsg("\tHertz Difference tolerance +/-%g (default %d Hz)\n", config->HzDiff, HERTZ_DIFF);
 	if(config->window != 'n')
 		logmsg("\tA %s window will be applied to each block to be compared\n", GetWindow(config->window));
 	else
@@ -1044,12 +1053,10 @@ void PrintUsage_wave()
 	logmsg("	 -x: e<x>cludes results to generate discarded frequencies wav file\n");
 	logmsg("	 -i: <i>gnores the silence block noise floor if present\n");
 	logmsg("	 -s: Defines <s>tart of the frequency range to compare with FFT\n\tA smaller range will compare more frequencies unless changed\n");
-	logmsg("	 -z: Defines end of the frequency range to compare with FFT\n\tA smaller range will compare more frequencies unless changed\n");
+	logmsg("	 -e: Defines end of the frequency range to compare with FFT\n\tA smaller range will compare more frequencies unless changed\n");
 	logmsg("	 -t: Defines the <t>olerance when comparing amplitudes in dBFS\n");
 	logmsg("   Output options:\n");
 	logmsg("	 -v: Enable <v>erbose mode, spits all the FFTW results\n");
-	logmsg("	 -e: Enables <e>xtended results. Shows a table with all matched\n\tfrequencies for each block with differences\n");
-	logmsg("	 -m: Enables Show all blocks compared with <m>atched frequencies\n");
 	logmsg("	 -l: <l>og output to file [reference]_vs_[compare].txt\n");
 	logmsg("	 -k: cloc<k> FFTW operations\n");
 }

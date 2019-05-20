@@ -356,7 +356,7 @@ long int DetectPulseInternal(char *Samples, wav_hdr header, int factor, long int
 	for(i = 0; i < TotalMS; i++)
 	{
 		if(pulseArray[i].hertz)
-			pulseArray[i].amplitude = RoundFloat(20*log10(pulseArray[i].magnitude/MaxMagnitude), 2);
+			pulseArray[i].amplitude = CalculateAmplitude(pulseArray[i].magnitude, MaxMagnitude);
 		else
 			pulseArray[i].amplitude = -100;
 	}
@@ -400,7 +400,7 @@ double FindFrequencyBracket(int frequency, size_t size, long samplerate)
 	{
 		double Hertz = 0, difference = 0;
 
-		Hertz = ((double)i/seconds);
+		Hertz = CalculateFrequency(i, seconds, 0);
 		difference = abs(Hertz - frequency);
 		if(difference < minDiff)
 		{
@@ -460,13 +460,11 @@ double ProcessChunkForSyncPulse(short *samples, size_t size, long samplerate, Pu
 
 	for(i = 1; i < monoSignalSize/2+1; i++)
 	{
-		double r1 = creal(spectrum[i]);
-		double i1 = cimag(spectrum[i]);
 		double magnitude;
 		double Hertz;
 
-		magnitude = sqrt(r1*r1 + i1*i1)/sqrt(size);
-		Hertz = ((double)i/boxsize);
+		magnitude = CalculateMagnitude(spectrum[i], size);
+		Hertz = CalculateFrequency(i, boxsize, config->ZeroPad);
 
 		if(magnitude > maxMag)
 		{

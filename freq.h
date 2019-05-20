@@ -89,4 +89,9 @@ long int RoundTo4bytes(double src, int *leftover, int *discard);
 double GetDecimalValues(double value);
 double BytesToSeconds(long int samplerate, long int bytes);
 
+double CalculateMagnitude(fftw_complex value, long int size);
+double CalculateAmplitude(double magnitude, double MaxMagnitude);
+double CalculatePhase(fftw_complex value);
+double CalculateFrequency(double boxindex, double boxsize, int HertzAligned);
+
 #endif

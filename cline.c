@@ -37,16 +37,16 @@ void PrintUsage()
 	logmsg("   FFT and Analysis options:\n");
 	logmsg("	 -c <l,r,s>: select audio <c>hannel to compare. Default is both channels\n\t's' stereo, 'l' for left or 'r' for right\n");
 	logmsg("	 -w: enable <w>indowing. Default is a custom Tukey window.\n\tOptions are 'n' for none, 't' for Tukey, 'h' for Hann, 'f' for FlatTop\n\t and 'm' for Hamming");
-	logmsg("	 -f: Change the number of frequencies to use from FFTW\n");
+	logmsg("	 -f: Change the number of analyzed frequencies to use from FFTW\n");
 	logmsg("	 -s: Defines <s>tart of the frequency range to compare with FFT\n\tA smaller range will compare more frequencies unless changed\n");
-	logmsg("	 -z: Defines end of the frequency range to compare with FFT\n\tA smaller range will compare more frequencies unless changed\n");
+	logmsg("	 -e: Defines end of the frequency range to compare with FFT\n\tA smaller range will compare more frequencies unless changed\n");
 	logmsg("	 -i: <i>gnores the silence block noise floor if present\n");
 	logmsg("	 -t: Defines the <t>olerance when comparing amplitudes in dBFS\n");
 	logmsg("   Output options:\n");
 	logmsg("	 -l: <l>og output to file [reference]_vs_[compare].txt\n");
 	logmsg("	 -v: Enable <v>erbose mode, spits all the FFTW results\n");
 	logmsg("	 -j: Cuts all the per block information and shows <j>ust the total results\n");
-	logmsg("	 -e: Enables <e>xtended results. Shows a table with all matched\n\tfrequencies for each block with differences\n");
+	logmsg("	 -x: Enables e<x>tended results. Shows a table with all matched\n\tfrequencies for each block with differences\n");
 	logmsg("	 -m: Enables Show all blocks compared with <m>atched frequencies\n");
 	logmsg("	 -k: cloc<k> FFTW operations\n");
 }
@@ -64,6 +64,8 @@ void Header(int log)
 
 void CleanParameters(parameters *config)
 {
+	memset(config, 0, sizeof(parameters));
+
 	config->tolerance = DBS_TOLERANCE;
 	config->startHz = START_HZ;
 	config->endHz = END_HZ;
@@ -74,8 +76,6 @@ void CleanParameters(parameters *config)
 	config->channel = 's';
 	config->MaxFreq = FREQ_COUNT;
 	config->clock = 0;
-	config->HzWidth = HERTZ_WIDTH;
-	config->HzDiff = HERTZ_DIFF;
 	config->showAll = 0;
 	config->normalize = 'g';
 	config->relativeMaxMagnitude = 0;
@@ -93,6 +93,7 @@ void CleanParameters(parameters *config)
 	config->origSignificantVolume = SIGNIFICANT_VOLUME;
 	config->significantVolume = SIGNIFICANT_VOLUME;
 	config->smallerFramerate = 0;
+	config->ZeroPad = 0;
 
 	/* Non exposed */
 	config->logScale = 1;
@@ -101,10 +102,10 @@ void CleanParameters(parameters *config)
 	
 	config->types.totalChunks = 0;
 	config->types.regularChunks = 0;
-	config->types.platformMSPerFrame = 16.688;
+	config->types.platformMSPerFrame = 16.6905;
 	config->types.pulseSyncFreq = 8820;
 	config->types.pulseMinVol = -25;
-	config->types.pulseVolDiff = 30;
+	config->types.pulseVolDiff = 25;
 	config->types.pulseFrameMinLen = 14;
 	config->types.pulseFrameMaxLen = 18;
 	config->types.pulseCount = 10;
@@ -122,14 +123,14 @@ int commandline(int argc , char *argv[], parameters *config)
 	
 	CleanParameters(config);
 
-	while ((c = getopt (argc, argv, "hejmviklyo:s:z:f:b:d:t:p:a:w:n:r:c:")) != -1)
+	while ((c = getopt (argc, argv, "hxjzmviklyo:s:f:t:p:a:w:n:r:c:")) != -1)
 	switch (c)
 	  {
 	  case 'h':
 		PrintUsage();
 		return 0;
 		break;
-	  case 'e':
+	  case 'x':
 		config->extendedResults = 1;
 		break;
 	  case 'j':
@@ -137,6 +138,9 @@ int commandline(int argc , char *argv[], parameters *config)
 		break;
 	  case 'm':
 		config->showAll = 1;
+		break;
+	  case 'z':
+		config->ZeroPad = 1;
 		break;
 	  case 'v':
 		config->verbose = 1;
@@ -165,7 +169,7 @@ int commandline(int argc , char *argv[], parameters *config)
 		if(config->startHz < 1 || config->startHz > 19900)
 			config->startHz = START_HZ;
 		break;
-	  case 'z':
+	  case 'e':
 		config->endHz = atoi(optarg);
 		if(config->endHz < 10 || config->endHz > 22050)
 			config->endHz = END_HZ;
@@ -174,16 +178,6 @@ int commandline(int argc , char *argv[], parameters *config)
 		config->MaxFreq = atoi(optarg);
 		if(config->MaxFreq < 1 || config->MaxFreq > MAX_FREQ_COUNT)
 			config->MaxFreq = MAX_FREQ_COUNT;
-		break;
-	  case 'b':
-		config->HzWidth = atof(optarg);
-		if(config->HzWidth < 0.0 || config->HzWidth > 5000.0)
-			config->HzWidth = HERTZ_WIDTH;
-		break;
-	  case 'd':
-		config->HzDiff = atof(optarg);
-		if(config->HzDiff < 0.0 || config->HzDiff > 5000.0)
-			config->HzDiff = HERTZ_DIFF;
 		break;
 	  case 't':
 		config->tolerance = atof(optarg);
@@ -272,7 +266,7 @@ int commandline(int argc , char *argv[], parameters *config)
 		  logmsg("Max # of frequencies to use from FFTW -%c requires an argument: 1-%d\n", optopt, MAX_FREQ_COUNT);
 		else if (optopt == 's')
 		  logmsg("Min frequency range for FFTW -%c requires an argument: 0-19900\n", optopt);
-		else if (optopt == 'z')
+		else if (optopt == 'e')
 		  logmsg("Max frequency range for FFTW -%c requires an argument: 10-20000\n", optopt);
 		else if (isprint (optopt))
 		  logmsg("Unknown option `-%c'.\n", optopt);
@@ -360,10 +354,6 @@ int commandline(int argc , char *argv[], parameters *config)
 		logmsg("\tFrequency start range for FFTW is now %d (default %d)\n", config->startHz, START_HZ);
 	if(config->endHz != END_HZ)
 		logmsg("\tFrequency end range for FFTW is now %d (default %d)\n", config->endHz, END_HZ);
-	if(config->HzWidth != HERTZ_WIDTH)
-		logmsg("\tHertz Width Compression changed to %g (default %g Hz)\n", config->HzWidth, HERTZ_WIDTH);
-	if(config->HzDiff != HERTZ_DIFF)
-		logmsg("\tHertz Difference tolerance +/-%g (default %d Hz)\n", config->HzDiff, HERTZ_DIFF);
 	if(config->window != 'n')
 		logmsg("\tA %s window will be applied to each block to be compared\n", GetWindow(config->window));
 	else
@@ -446,13 +436,14 @@ void CreateBaseName(parameters *config)
 	if(!config)
 		return;
 	
-	sprintf(config->baseName, "_f%d_t%g_%s_%s_v_%g_OF%d_%s", 
+	sprintf(config->baseName, "_f%d_t%g_%s_%s_v_%g_OF%d_%s_%s", 
 			config->MaxFreq,
 			config->tolerance,
 			GetWindow(config->window),
 			GetChannel(config->channel),
 			fabs(config->significantVolume),
 			config->outputFilterFunction,
+			config->ZeroPad ? "ZP" : "NP",
 			config->logScale ? "log" : "lin");
 }
 

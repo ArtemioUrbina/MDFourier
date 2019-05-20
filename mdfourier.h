@@ -222,8 +222,6 @@ typedef struct parameters_st {
 	char			baseName[2512];
 	char			compareName[2512];
 	double			tolerance;
-	double			HzWidth;
-	double			HzDiff;
 	int				startHz, endHz;
 	int				showAll;
 	int				extendedResults;
@@ -246,6 +244,7 @@ typedef struct parameters_st {
 	int				logScale;
 	int				debugSync;
 	int				reverseCompare;
+	int				ZeroPad;
 
 #ifdef MDWAVE
 	int				maxBlanked;
