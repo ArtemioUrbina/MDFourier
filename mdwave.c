@@ -324,16 +324,25 @@ int ProcessFile(AudioSignal *Signal, parameters *config)
 	if(GetFirstSilenceIndex(config) != NO_INDEX)
 		Signal->hasFloor = 1;
 
+	if(Signal->framerate != GetPlatformMSPerFrame(config))
+	{
+		config->smallerFramerate = 
+				GetLowerFrameRate(Signal->framerate, 
+									GetPlatformMSPerFrame(config));
+	}
+
 	while(i < config->types.totalChunks)
 	{
 		double duration = 0;
-		long int frames = 0;
+		long int frames = 0, difference = 0;
 
 		frames = GetBlockFrames(config, i);
 		duration = FramesToSeconds(Signal->framerate, frames);
 		windowUsed = getWindowByLength(&windows, frames);
 		
 		loadedBlockSize = SecondsToBytes(Signal->header.SamplesPerSec, duration, &leftover, &discardBytes);
+
+		difference = GetByteSizeDifferenceByFrameRate(Signal->framerate, frames, Signal->header.SamplesPerSec, config);
 
 		memset(buffer, 0, buffersize);
 		if(pos + loadedBlockSize > Signal->header.Subchunk2Size)
@@ -346,7 +355,7 @@ int ProcessFile(AudioSignal *Signal, parameters *config)
 		Signal->Blocks[i].index = GetBlockSubIndex(config, i);
 		Signal->Blocks[i].type = GetBlockType(config, i);
 
-		ProcessSamples(&Signal->Blocks[i], (short*)buffer, loadedBlockSize/2, Signal->header.SamplesPerSec, windowUsed, config, 0, Signal);
+		ProcessSamples(&Signal->Blocks[i], (short*)buffer, (loadedBlockSize-difference)/2, Signal->header.SamplesPerSec, windowUsed, config, 0, Signal);
 
 		if(config->chunks)
 		{
@@ -425,13 +434,15 @@ int ProcessFile(AudioSignal *Signal, parameters *config)
 	while(i < config->types.totalChunks)
 	{
 		double duration = 0;
-		long int frames = 0;
+		long int frames = 0, difference = 0;
 
 		frames = GetBlockFrames(config, i);
 		duration = FramesToSeconds(Signal->framerate, frames);
 		windowUsed = getWindowByLength(&windows, frames);
 		
 		loadedBlockSize = SecondsToBytes(Signal->header.SamplesPerSec, duration, &leftover, &discardBytes);
+
+		difference = GetByteSizeDifferenceByFrameRate(Signal->framerate, frames, Signal->header.SamplesPerSec, config);
 
 		memset(buffer, 0, buffersize);
 		if(pos + loadedBlockSize > Signal->header.Subchunk2Size)
@@ -443,7 +454,7 @@ int ProcessFile(AudioSignal *Signal, parameters *config)
 
 		// now rewrite array
 		if(GetBlockType(config, i) > TYPE_CONTROL)  // Ignore Controls!
-			ProcessSamples(&Signal->Blocks[i], (short*)buffer, loadedBlockSize/2, Signal->header.SamplesPerSec, windowUsed, config, 1, Signal);
+			ProcessSamples(&Signal->Blocks[i], (short*)buffer, (loadedBlockSize-difference)/2, Signal->header.SamplesPerSec, windowUsed, config, 1, Signal);
 
 		// Now rewrite global
 		memcpy(Signal->Samples + pos, buffer, loadedBlockSize);

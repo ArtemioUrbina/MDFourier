@@ -254,19 +254,19 @@ int LoadFile(FILE *file, AudioSignal *Signal, parameters *config, char *fileName
 
 	if(Signal->header.AudioFormat != 1) /* Check for PCM */
 	{
-		logmsg("\tInvalid WAV File: Only PCM is supported\n\tPlease use WAV PCM 16 bit");
+		logmsg("\tInvalid WAV File: Only PCM is supported\n\tPlease convert file to WAV PCM 16 bit 44/48khz ");
 		return(0);
 	}
 
 	if(Signal->header.NumOfChan != 2) /* Check for Stereo */
 	{
-		logmsg("\tInvalid WAV file: Only Stereo supported\n");
+		logmsg("\tInvalid WAV file: Only Stereo is supported\n");
 		return(0);
 	}
 
 	if(Signal->header.bitsPerSample != 16) /* Check bit depth */
 	{
-		logmsg("\tInvalid WAV file: Only 16 bit supported for now\n\tPlease use WAV PCM 16 bit %dhz");
+		logmsg("\tInvalid WAV file: Only 16 bit supported for now\n\tPlease use WAV PCM 16 bit 44/48khz ");
 		return(0);
 	}
 	
@@ -376,14 +376,6 @@ int LoadFile(FILE *file, AudioSignal *Signal, parameters *config, char *fileName
 	sprintf(Signal->SourceFile, "%s", fileName);
 
 	return 1;
-}
-
-double GetLowerFrameRate(double framerateA, double framerateB)
-{
-	if(framerateA > framerateB)
-		return framerateB;
-
-	return framerateA;
 }
 
 int CompareWAVCharacteristics(AudioSignal *ReferenceSignal, AudioSignal *TestSignal, parameters *config)

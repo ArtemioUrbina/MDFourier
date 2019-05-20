@@ -63,7 +63,10 @@ BOOL CMDFourierGUIDlg::OnInitDialog()
 	SetIcon(m_hIcon, FALSE);		// Set small icon
 
 	if(!CheckDependencies())
+	{
+		EndDialog(IDCANCEL);
 		return FALSE;
+	}
 
 	FillComboBoxes();
 
@@ -303,11 +306,15 @@ int CMDFourierGUIDlg::CheckDependencies()
 {
 	FILE *file;
 	errno_t err;
+	CString	msg;
+	TCHAR	pwd[MAX_PATH];
 
 	err = _wfopen_s(&file, L"mdfourier.exe", L"r");
 	if(err != 0)
 	{
-		MessageBox(L"mdfourier.exe not found, aborting", L"Error");
+		GetCurrentDirectory(MAX_PATH, pwd);
+		msg.Format(L"Please place mdfourier.exe in:\n %s", pwd);
+		MessageBox(msg, L"Error mdfourier.exe not found");
 		return FALSE;
 	}
 	fclose(file);
@@ -315,7 +322,9 @@ int CMDFourierGUIDlg::CheckDependencies()
 	err = _wfopen_s(&file, L"mdfblocks.mfn", L"r");
 	if(err != 0)
 	{
-		MessageBox(L"mdfblocks.mfn not found, aborting", L"Error");
+		GetCurrentDirectory(MAX_PATH, pwd);
+		msg.Format(L"Please place mdfblocks.mfn in:\n %s", pwd);
+		MessageBox(msg, L"Error mdfblocks.mfn not found");
 		return FALSE;
 	}
 	fclose(file);
@@ -335,5 +344,5 @@ void CMDFourierGUIDlg::ManageWindows(BOOL Enable)
 
 void CMDFourierGUIDlg::OnBnClickedAbout()
 {
-	MessageBox(L"MDFourier Front End\nArtemio Urbina 2019\nCode available under GPL", L"About MDFourier");
+	MessageBox(L"MDFourier Front End\nArtemio Urbina 2019\nCode available under GPL\nhttp://junkerhq.net/mdfourier/", L"About MDFourier");
 }

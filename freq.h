@@ -79,6 +79,7 @@ void LocalNormalize(AudioBlocks *AudioArray, parameters *config);
 void CompressFrequencies(AudioBlocks *AudioArray, parameters *config);
 void FindFloor(AudioSignal *Signal, parameters *config);
 int IsCRTNoise(double freq);
+double GetLowerFrameRate(double framerateA, double framerateB);
 
 void PrintComparedBlocks(AudioBlocks *ReferenceArray, AudioBlocks *ComparedArray, parameters *config, AudioSignal *Signal);
 

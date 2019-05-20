@@ -186,7 +186,7 @@ int LoadAudioBlockStructure(parameters *config)
 	file = fopen("mdfblocks.mfn", "r");
 	if(!file)
 	{
-		logmsg("Could not load audio configuiration file mdfblocks.mfn\n");
+		logmsg("Could not load audio configuration file mdfblocks.mfn\n");
 		return 0;
 	}
 	
@@ -404,6 +404,14 @@ double GetPlatformMSPerFrame(parameters *config)
 double GetPulseSyncFreq(parameters *config)
 {
 	return(config->types.pulseSyncFreq);
+}
+
+double GetLowerFrameRate(double framerateA, double framerateB)
+{
+	if(framerateA > framerateB)
+		return framerateB;
+
+	return framerateA;
 }
 
 long int GetByteSizeDifferenceByFrameRate(double framerate, long int frames, long int samplerate, parameters *config)
