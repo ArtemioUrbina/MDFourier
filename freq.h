@@ -94,4 +94,6 @@ double CalculateAmplitude(double magnitude, double MaxMagnitude);
 double CalculatePhase(fftw_complex value);
 double CalculateFrequency(double boxindex, double boxsize, int HertzAligned);
 
+long int GetZeroPadValues(long int *monoSignalSize, double *seconds, long int samplerate);
+
 #endif

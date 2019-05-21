@@ -365,7 +365,8 @@ int ProcessFile(AudioSignal *Signal, parameters *config)
 			cheader = Signal->header;
 
 			sprintf(tempName, "%03ld_Source_%010ld_%s_%03d_chunk_", 
-				i, pos, GetBlockName(config, i), GetBlockSubIndex(config, i));
+				i, pos, 
+				GetBlockName(config, i), GetBlockSubIndex(config, i));
 			ComposeFileName(Name, tempName, ".wav", config);
 			
 			chunk = fopen(Name, "wb");
@@ -469,8 +470,9 @@ int ProcessFile(AudioSignal *Signal, parameters *config)
 
 			cheader = Signal->header;
 
-			sprintf(tempName, "%03ld_Processed_%s_%03d_chunk_", i, 
-				GetBlockName(config, i), GetBlockSubIndex(config, i));
+			sprintf(tempName, "%03ld_%s_Processed_%s_%03d_chunk_", i, 
+				GenerateFileNamePrefix(config), GetBlockName(config, i), 
+				GetBlockSubIndex(config, i));
 			ComposeFileName(Name, tempName, ".wav", config);
 			
 			chunk = fopen(Name, "wb");
@@ -599,28 +601,8 @@ double ProcessSamples(AudioBlocks *AudioArray, short *samples, size_t size, long
 	monoSignalSize = stereoSignalSize/2;	 // 4 is 2 16 bit values
 	seconds = (double)size/((double)samplerate*2);
 
-	if(config->ZeroPad)
-	{
-		// Align frequency bins to 1hz
-		if(monoSignalSize != samplerate)
-		{
-			if(monoSignalSize < samplerate)
-			{
-				zeropadding = samplerate - monoSignalSize;
-				monoSignalSize += zeropadding;
-				seconds = 1;
-			}
-			else
-			{
-				int times;
-	
-				times = ceil((double)monoSignalSize/(double)samplerate);
-				zeropadding = times*samplerate - monoSignalSize;
-				monoSignalSize += zeropadding;
-				seconds = times;
-			}
-		}
-	}
+	if(config->ZeroPad)  /* disabled by default */
+		zeropadding = GetZeroPadValues(&monoSignalSize, &seconds, samplerate);
 
 	boxsize = RoundFloat(seconds, 4);
 
@@ -738,7 +720,7 @@ double ProcessSamples(AudioBlocks *AudioArray, short *samples, size_t size, long
 		{
 			double amplitude = 0, magnitude = 0;
 			int blank = 0;
-			double Hertz;
+			double Hertz = 0;
 	
 			magnitude = CalculateMagnitude(spectrum[i], monoSignalSize);
 			amplitude = CalculateAmplitude(magnitude, config->MaxMagnitude);
@@ -786,9 +768,11 @@ double ProcessSamples(AudioBlocks *AudioArray, short *samples, size_t size, long
 			{
 				double value;
 	
-				// reversing window causes distortion since we have the genesis discontiuity above!
+				// reversing window causes distortion since we have zeroes
+				// but we do want t see the windows in the iFFT anyway
+				// uncomment if needed
 				//value = (signal[i]/window[i])/monoSignalSize;
-				value = signal[i]/monoSignalSize;
+				value = signal[i]/monoSignalSize; /* check CalculateMagnitude if changed */
 				if(config->channel == 'l')
 				{
 					samples[i*2] = round(value);

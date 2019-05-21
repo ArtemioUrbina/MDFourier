@@ -360,7 +360,7 @@ int commandline(int argc , char *argv[], parameters *config)
 		logmsg("\tNo window (rectangle) will be applied to each block to be compared\n");
 	if(config->useOutputFilter)
 	{
-		logmsg("\tA Optup Filter function #%d will be applied to the results\n", 
+		logmsg("\tOutput Filter function #%d will be applied to the results\n", 
 				config->outputFilterFunction - 1);
 	}
 	else

@@ -540,31 +540,11 @@ double ExecuteDFFT(AudioBlocks *AudioArray, short *samples, size_t size, long sa
 	}
 
 	stereoSignalSize = (long)size;
-	monoSignalSize = stereoSignalSize/2;	 // 4 is 2 16 bit values
+	monoSignalSize = stereoSignalSize/2;	 /* 4 is 2 16 bit values */
 	seconds = (double)size/((double)samplerate*2);
 
-	if(config->ZeroPad)
-	{
-		// Align frequency bins to 1hz
-		if(monoSignalSize != samplerate)
-		{
-			if(monoSignalSize < samplerate)
-			{
-				zeropadding = samplerate - monoSignalSize;
-				monoSignalSize += zeropadding;
-				seconds = 1;
-			}
-			else
-			{
-				int times;
-	
-				times = ceil((double)monoSignalSize/(double)samplerate);
-				zeropadding = times*samplerate - monoSignalSize;
-				monoSignalSize += zeropadding;
-				seconds = times;
-			}
-		}
-	}
+	if(config->ZeroPad)  /* disabled by default */
+		zeropadding = GetZeroPadValues(&monoSignalSize, &seconds, samplerate);
 
 	signal = (double*)malloc(sizeof(double)*(monoSignalSize+1));
 	if(!signal)

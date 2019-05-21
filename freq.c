@@ -908,6 +908,7 @@ void PrintFrequencies(AudioSignal *Signal, parameters *config)
 	EnableConsole();
 }
 
+/* check ProcessSamples in mdwave if changed, for reverse FFTW */
 inline double CalculateMagnitude(fftw_complex value, long int size)
 {
 	double r1 = 0;
@@ -1168,4 +1169,30 @@ inline double GetDecimalValues(double value)
 
 	value = modf(value, &integer);
 	return value;
+}
+
+long int GetZeroPadValues(long int *monoSignalSize, double *seconds, long int samplerate)
+{
+	long int zeropadding = 0;
+
+	// Align frequency bins to 1hz
+	if(*monoSignalSize != samplerate)
+	{
+		if(*monoSignalSize < samplerate)
+		{
+			zeropadding = samplerate - *monoSignalSize;
+			*monoSignalSize += zeropadding;
+			*seconds = 1;
+		}
+		else
+		{
+			int times;
+
+			times = ceil((double)*monoSignalSize/(double)samplerate);
+			zeropadding = times*samplerate - *monoSignalSize;
+			*monoSignalSize += zeropadding;
+			*seconds = times;
+		}
+	}
+	return zeropadding;
 }
