@@ -73,7 +73,7 @@
 /* +/- Tolerance in frequency Difference to be the same one */
 #define HERTZ_DIFF			0.0
 
-#define START_HZ	10
+#define START_HZ	1
 #define END_HZ		22050
 
 

@@ -743,20 +743,23 @@ void FindFloor(AudioSignal *Signal, parameters *config)
 
 	for(int i = 0; i < config->MaxFreq; i++)
 	{
-		double difference;
-
-		difference = fabs(fabs(Signal->Blocks[index].freq[i].hertz) - refreshNoise);
-		if(difference < REFRESH_RATE_NOISE_DETECT_TOLERANCE)
+		if(Signal->Blocks[index].freq[i].hertz)
 		{
-			Signal->floorAmplitude = Signal->Blocks[index].freq[i].amplitude;
-			Signal->floorFreq = Signal->Blocks[index].freq[i].hertz;
-			logmsg(" - Silence block mains noise: %g Hz at %g dBFS\n",
-				Signal->floorFreq, Signal->floorAmplitude);
-			return;
+			double difference;
+	
+			difference = fabs(fabs(Signal->Blocks[index].freq[i].hertz) - refreshNoise);
+			if(difference < REFRESH_RATE_NOISE_DETECT_TOLERANCE)
+			{
+				Signal->floorAmplitude = Signal->Blocks[index].freq[i].amplitude;
+				Signal->floorFreq = Signal->Blocks[index].freq[i].hertz;
+				logmsg(" - Silence block mains noise: %g Hz at %g dBFS\n",
+					Signal->floorFreq, Signal->floorAmplitude);
+				return;
+			}
+	
+			if(!loudest.hertz && Signal->Blocks[index].freq[i].hertz && !IsCRTNoise(Signal->Blocks[index].freq[i].hertz))
+				loudest = Signal->Blocks[index].freq[i];
 		}
-
-		if(!loudest.hertz && Signal->Blocks[index].freq[i].hertz && !IsCRTNoise(Signal->Blocks[index].freq[i].hertz))
-			loudest = Signal->Blocks[index].freq[i];
 	}
 
 	if(loudest.hertz)
