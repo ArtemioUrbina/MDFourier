@@ -24,8 +24,6 @@
  * Requires the FFTW library: 
  *	  http://www.fftw.org/
  * 
- * Compile with: 
- *	  gcc -Wall -std=gnu99 -o mdfourier mdfourier.c -lfftw3 -lm
  */
 
 #ifndef MDFOURIER_LOG_H
@@ -33,9 +31,12 @@
 
 #define LOG_NAME_LEN	8000
 
+void EnableLog();
 void DisableConsole();
 void EnableConsole();
 int IsLogEnabled();
+void OutputFileOnlyStart();
+void OutputFileOnlyEnd();
 
 void logmsg(char *fmt, ... );
 

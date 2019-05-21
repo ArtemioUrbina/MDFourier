@@ -836,7 +836,7 @@ void CleanMatched(AudioSignal *ReferenceSignal, AudioSignal *TestSignal, paramet
 
 void PrintFrequencies(AudioSignal *Signal, parameters *config)
 {
-	DisableConsole();
+	OutputFileOnlyStart();
 
 	for(int block = 0; block < config->types.totalChunks; block++)
 	{
@@ -865,7 +865,7 @@ void PrintFrequencies(AudioSignal *Signal, parameters *config)
 		}
 	}
 
-	EnableConsole();
+	OutputFileOnlyEnd();
 }
 
 /* check ProcessSamples in mdwave if changed, for reverse FFTW */
@@ -962,22 +962,21 @@ void FillFrequencyStructures(AudioBlocks *AudioArray, parameters *config)
 	// varies due to block frame size and console frame rate
 	if(config->verbose)
 	{
-		DisableConsole();
+		OutputFileOnlyStart();
 
 		logmsg("Bins s: %ld e: %ld b: %g size: %g\n",
 				startBin, endBin, boxsize, size);
 		for(i = startBin; i < endBin; i++)
 			logmsg("%g\n", CalculateFrequency(i, boxsize, config->ZeroPad);
 
-		EnableConsole();
+		OutputFileOnlyEnd();
 	}
 	*/
 }
 
 void PrintComparedBlocks(AudioBlocks *ReferenceArray, AudioBlocks *ComparedArray, parameters *config, AudioSignal *Signal)
 {
-	if(IsLogEnabled())
-		DisableConsole();
+	OutputFileOnlyStart();
 
 	/* changed Magnitude->amplitude */
 	for(int j = 0; j < config->MaxFreq; j++)
@@ -1023,8 +1022,7 @@ void PrintComparedBlocks(AudioBlocks *ReferenceArray, AudioBlocks *ComparedArray
 	}
 	logmsg("\n\n");
 
-	if(IsLogEnabled())
-		EnableConsole();
+	OutputFileOnlyEnd();
 }
 
 double CalculateWeightedError(double pError, parameters *config)

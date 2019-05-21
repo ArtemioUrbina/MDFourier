@@ -204,8 +204,7 @@ void PrintDifferentFrequencies(int block, parameters *config)
 	if(!config->Differences.BlockDiffArray)
 		return;
 
-	if(IsLogEnabled())
-		DisableConsole();
+	OutputFileOnlyStart();
 
 	if(config->Differences.BlockDiffArray[block].cntFreqBlkDiff)
 		logmsg("Frequencies not found:\n");
@@ -218,8 +217,7 @@ void PrintDifferentFrequencies(int block, parameters *config)
 			config->Differences.BlockDiffArray[block].freqMissArray[f].weight);
 	}
 
-	if(IsLogEnabled())
-		EnableConsole();
+	OutputFileOnlyEnd();
 }
 
 void PrintDifferentAmplitudes(int block, parameters *config)
@@ -230,8 +228,7 @@ void PrintDifferentAmplitudes(int block, parameters *config)
 	if(!config->Differences.BlockDiffArray)
 		return;
 
-	if(IsLogEnabled())
-		DisableConsole();
+	OutputFileOnlyStart();
 
 	if(config->Differences.BlockDiffArray[block].cntFreqBlkDiff)
 		logmsg("\nDifferent Amplitudes:\n");
@@ -245,8 +242,7 @@ void PrintDifferentAmplitudes(int block, parameters *config)
 			config->Differences.BlockDiffArray[block].amplDiffArray[a].weight);
 	}
 
-	if(IsLogEnabled())
-		EnableConsole();
+	OutputFileOnlyEnd();
 }
 
 void PrintDifferenceArray(parameters *config)
@@ -275,8 +271,7 @@ void PrintDifferenceArray(parameters *config)
 		if(GetBlockType(config, b) <= TYPE_CONTROL)
 			continue;
 
-		if(IsLogEnabled())
-			DisableConsole();
+		OutputFileOnlyStart();
 
 		if(config->Differences.BlockDiffArray[b].cntAmplBlkDiff)
 			logmsg("\n\nBlock: %s# %d (%d) Not Found: %d Differences: %d FW: %g AW: %g\n", 
@@ -286,8 +281,7 @@ void PrintDifferenceArray(parameters *config)
 					config->Differences.BlockDiffArray[b].weightedFreqBlkDiff,
 					config->Differences.BlockDiffArray[b].weightedAmplBlkDiff);
 
-		if(IsLogEnabled())
-			EnableConsole();
+		OutputFileOnlyEnd();
 
 		PrintDifferentFrequencies(b, config);
 		PrintDifferentAmplitudes(b, config);

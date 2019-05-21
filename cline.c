@@ -155,7 +155,7 @@ int commandline(int argc , char *argv[], parameters *config)
 		config->debugSync = 1;
 		break;
 	  case 'l':
-		EnableConsole();
+		EnableLog();
 		break;
 	  case 'o':
 		config->outputFilterFunction = atoi(optarg);

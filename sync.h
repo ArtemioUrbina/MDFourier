@@ -23,9 +23,6 @@
  *
  * Requires the FFTW library: 
  *	  http://www.fftw.org/
- * 
- * Compile with: 
- *	  gcc -Wall -std=gnu99 -o mdfourier mdfourier.c -lfftw3 -lm
  */
 
 #ifndef MDFOURIER_SYNC_H

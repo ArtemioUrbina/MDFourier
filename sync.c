@@ -23,9 +23,6 @@
  *
  * Requires the FFTW library: 
  *	  http://www.fftw.org/
- * 
- * Compile with: 
- *	  gcc -Wall -std=gnu99 -o mdfourier mdfourier.c -lfftw3 -lm
  */
 
 #include "mdfourier.h"
@@ -38,7 +35,7 @@ long int DetectPulse(char *AllSamples, wav_hdr header, parameters *config)
 	int			maxdetected = 0;
 	long int	position = 0, offset = 0;
 
-	DisableConsole();
+	OutputFileOnlyStart();
 
 	if(config->debugSync)
 		logmsg("\nStarting Detect start pulse\n");
@@ -49,7 +46,7 @@ long int DetectPulse(char *AllSamples, wav_hdr header, parameters *config)
 		if(config->debugSync)
 			logmsg("First round start pulse failed\n", offset);
 
-		EnableConsole();
+		OutputFileOnlyEnd();
 		return -1;
 	}
 
@@ -63,7 +60,7 @@ long int DetectPulse(char *AllSamples, wav_hdr header, parameters *config)
 	position = DetectPulseInternal(AllSamples, header, 9, offset, &maxdetected, config);
 	if(config->debugSync)
 		logmsg("Start pulse return value %ld\n", position);
-	EnableConsole();
+	OutputFileOnlyEnd();
 	return position;
 }
 
@@ -72,7 +69,7 @@ long int DetectEndPulse(char *AllSamples, long int startpulse, wav_hdr header, p
 	int			maxdetected = 0, frameAdjust = 0, tries = 0;
 	long int 	position = 0, offset = 0;
 
-	DisableConsole();
+	OutputFileOnlyStart();
 	do
 	{
 		// Use defaults to calculate real frame rate
@@ -87,7 +84,7 @@ long int DetectEndPulse(char *AllSamples, long int startpulse, wav_hdr header, p
 		{
 			if(config->debugSync)
 				logmsg("First round end pulse failed, started search at %ld bytes\n", offset);
-			EnableConsole();
+			OutputFileOnlyEnd();
 			return -1;
 		}
 
@@ -106,7 +103,7 @@ long int DetectEndPulse(char *AllSamples, long int startpulse, wav_hdr header, p
 	position = DetectPulseInternal(AllSamples, header, 9, offset, &maxdetected, config);
 	if(config->debugSync)
 		logmsg("End pulse return value %ld\n", position);
-	EnableConsole();
+	OutputFileOnlyEnd();
 	return position;
 }
 

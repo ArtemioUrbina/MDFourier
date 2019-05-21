@@ -24,8 +24,6 @@
  * Requires the FFTW library: 
  *	  http://www.fftw.org/
  * 
- * Compile with: 
- *	  gcc -Wall -std=gnu99 -o mdfourier mdfourier.c -lfftw3 -lm
  */
 
 #include "log.h"
@@ -35,16 +33,22 @@ int do_log = 0;
 char log_file[LOG_NAME_LEN];
 FILE *logfile = NULL;
 
-void DisableConsole() { do_log = 2; }
-void EnableConsole() { do_log = 1; }
+#define	CONSOLE_ENABLED		1
+#define	CONSOLE_DISABLED	2
+
+void EnableLog() { do_log = CONSOLE_ENABLED; }
+void DisableConsole() { do_log = CONSOLE_DISABLED; }
+void EnableConsole() { do_log = CONSOLE_ENABLED; }
 int IsLogEnabled() { return do_log; }
+void OutputFileOnlyStart() { if(IsLogEnabled()) DisableConsole();}
+void OutputFileOnlyEnd() { if(IsLogEnabled()) EnableConsole();}
 
 void logmsg(char *fmt, ... )
 {
 	va_list arguments;
 
 	va_start(arguments, fmt);
-	if(do_log != 2)
+	if(do_log != CONSOLE_DISABLED)
 	{
 		vprintf(fmt, arguments);
 #if defined (WIN32)

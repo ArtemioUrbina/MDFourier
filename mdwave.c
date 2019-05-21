@@ -862,7 +862,7 @@ int commandline_wave(int argc , char *argv[], parameters *config)
 		config->clock = 1;
 		break;
 	  case 'l':
-		EnableConsole();
+		EnableLog();
 		break;
 	  case 'z':
 		config->ZeroPad = 1;

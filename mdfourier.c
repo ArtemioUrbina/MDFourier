@@ -188,6 +188,7 @@ int main(int argc , char *argv[])
 		endLog();
 		printf("\nCheck logfile for extended results\n");
 	}
+
 	printf("\nResults stored in %s\n", config.folderName);
 
 	/* Clear up everything */
@@ -755,29 +756,25 @@ double CompareAudioBlocks(AudioSignal *ReferenceSignal, AudioSignal *TestSignal,
 
 		if(config->Differences.BlockDiffArray[block].cntFreqBlkDiff && !config->justResults)
 		{
-			if(IsLogEnabled())
-				DisableConsole();
+			OutputFileOnlyStart();
 			if(config->extendedResults)
 			{
 				logmsg("Unmatched Block Report for %s# %ld (%ld)\n", GetBlockName(config, block), GetBlockSubIndex(config, block), block);
 				PrintComparedBlocks(&ReferenceSignal->Blocks[block], &TestSignal->Blocks[block],
 					config, ReferenceSignal);
 			}
-			if(IsLogEnabled())
-				EnableConsole();
+			OutputFileOnlyEnd();
 		}
 		else
 		{
-			if(IsLogEnabled())
-				DisableConsole();
+			OutputFileOnlyStart();
 			if(!config->justResults && config->showAll)
 			{
 				logmsg("Matched Block Report for %s# %ld (%ld)\n", GetBlockName(config, block), GetBlockSubIndex(config, block), block);
 				PrintComparedBlocks(&ReferenceSignal->Blocks[block], &TestSignal->Blocks[block], 
 					config, ReferenceSignal);
 			}
-			if(IsLogEnabled())
-				EnableConsole();
+			OutputFileOnlyEnd();
 		}
 	}
 	
