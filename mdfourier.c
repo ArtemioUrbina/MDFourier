@@ -163,9 +163,6 @@ int main(int argc , char *argv[])
 		ReleaseDifferenceArray(&config);
 		InvertComparedName(&config);
 	
-		if(config.normalize == 'r')
-			config.relativeMaxMagnitude = 0.0;
-	
 		logmsg("* Comparing frequencies Target -> Reference\n");
 	
 		/* Detect Signal Floor */
@@ -492,17 +489,13 @@ int ProcessFile(AudioSignal *Signal, parameters *config)
 
 		FillFrequencyStructures(&Signal->Blocks[i], config);
 
-		if(config->normalize == 'n')
-			LocalNormalize(&Signal->Blocks[i], config);
-
 		pos += loadedBlockSize;
 		pos += discardBytes;
 		i++;
 	}
 
 	/* Global Normalization by default */
-	if(config->normalize != 'n')
-		GlobalNormalize(Signal, config);
+	GlobalNormalize(Signal, config);
 
 	if(!config->ignoreFloor && Signal->hasFloor) /* analyze silence floor if available */
 		FindFloor(Signal, config);
@@ -637,8 +630,8 @@ double CompareAudioBlocks(AudioSignal *ReferenceSignal, AudioSignal *TestSignal,
 			int found = 0, index = 0;
 
 			/* Ignore CRT noise */
-			if(IsCRTNoise(ReferenceSignal->Blocks[block].freq[freq].hertz))
-				continue;
+			//if(IsCRTNoise(ReferenceSignal->Blocks[block].freq[freq].hertz))
+				//continue;
 
 			/* One compared item is frequency the other is amplitude */
 			config->Differences.cntTotalCompared ++;

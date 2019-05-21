@@ -33,20 +33,22 @@
 void PrintUsage()
 {
 	// b,d and y options are not documented since they are mostly for testing or found not as usefull as desired
-	logmsg("  usage: mdfourier -r reference.wav -c compare.wav\n\n");
+	logmsg("  usage: mdfourier -r reference.wav -c compare.wav\n");
 	logmsg("   FFT and Analysis options:\n");
-	logmsg("	 -c <l,r,s>: select audio <c>hannel to compare. Default is both channels\n\t's' stereo, 'l' for left or 'r' for right\n");
-	logmsg("	 -w: enable <w>indowing. Default is a custom Tukey window.\n\tOptions are 'n' for none, 't' for Tukey, 'h' for Hann, 'f' for FlatTop\n\t and 'm' for Hamming");
+	logmsg("	 -a: select <a>udio channel to compare. 's', 'l' or 'r'\n");
+	logmsg("	 -w: enable <w>indowing. Default is a custom Tukey window.\n");
+	logmsg("		'n' none, 't' Tukey, 'h' Hann, 'f' FlatTop & 'm' Hamming\n");
 	logmsg("	 -f: Change the number of analyzed frequencies to use from FFTW\n");
-	logmsg("	 -s: Defines <s>tart of the frequency range to compare with FFT\n\tA smaller range will compare more frequencies unless changed\n");
-	logmsg("	 -e: Defines end of the frequency range to compare with FFT\n\tA smaller range will compare more frequencies unless changed\n");
+	logmsg("	 -s: Defines <s>tart of the frequency range to compare with FFT\n");
+	logmsg("	 -e: Defines <e>nd of the frequency range to compare with FFT\n");
 	logmsg("	 -i: <i>gnores the silence block noise floor if present\n");
 	logmsg("	 -t: Defines the <t>olerance when comparing amplitudes in dBFS\n");
+	logmsg("	 -z: Uses Zero Padding to equal 1 hz FFT bins\n");
 	logmsg("   Output options:\n");
 	logmsg("	 -l: <l>og output to file [reference]_vs_[compare].txt\n");
 	logmsg("	 -v: Enable <v>erbose mode, spits all the FFTW results\n");
-	logmsg("	 -j: Cuts all the per block information and shows <j>ust the total results\n");
-	logmsg("	 -x: Enables e<x>tended results. Shows a table with all matched\n\tfrequencies for each block with differences\n");
+	logmsg("	 -j: Cuts per block information and shows <j>ust total results\n");
+	logmsg("	 -x: Enables e<x>tended results. Shows a table with all matches\n");
 	logmsg("	 -m: Enables Show all blocks compared with <m>atched frequencies\n");
 	logmsg("	 -k: cloc<k> FFTW operations\n");
 }
@@ -77,11 +79,19 @@ void CleanParameters(parameters *config)
 	config->MaxFreq = FREQ_COUNT;
 	config->clock = 0;
 	config->showAll = 0;
-	config->normalize = 'g';
-	config->relativeMaxMagnitude = 0;
 	config->ignoreFloor = 0;
 	config->useOutputFilter = 1;
 	config->outputFilterFunction = 3;
+	config->origSignificantVolume = SIGNIFICANT_VOLUME;
+	config->significantVolume = SIGNIFICANT_VOLUME;
+	config->smallerFramerate = 0;
+	config->ZeroPad = 0;
+	config->debugSync = 0;
+
+	/* Non exposed */
+	config->logScale = 1;
+	config->reverseCompare = 0;
+
 	config->Differences.BlockDiffArray = NULL;
 	config->Differences.cntFreqAudioDiff = 0;
 	config->Differences.cntAmplAudioDiff = 0;
@@ -90,15 +100,6 @@ void CleanParameters(parameters *config)
 	config->Differences.cntTotalCompared = 0;
 	config->Differences.cntTotalAudioDiff = 0;
 	config->Differences.weightedAudioDiff = 0;
-	config->origSignificantVolume = SIGNIFICANT_VOLUME;
-	config->significantVolume = SIGNIFICANT_VOLUME;
-	config->smallerFramerate = 0;
-	config->ZeroPad = 0;
-
-	/* Non exposed */
-	config->logScale = 1;
-	config->debugSync = 0;
-	config->reverseCompare = 0;
 	
 	config->types.totalChunks = 0;
 	config->types.regularChunks = 0;
@@ -111,7 +112,6 @@ void CleanParameters(parameters *config)
 	config->types.pulseCount = 10;
 	config->types.typeArray = NULL;
 	config->types.typeCount = 0;
-
 }
 
 int commandline(int argc , char *argv[], parameters *config)
@@ -123,7 +123,7 @@ int commandline(int argc , char *argv[], parameters *config)
 	
 	CleanParameters(config);
 
-	while ((c = getopt (argc, argv, "hxjzmviklyo:s:f:t:p:a:w:n:r:c:")) != -1)
+	while ((c = getopt (argc, argv, "hxjzmviklyo:s:f:t:p:a:w:r:c:")) != -1)
 	switch (c)
 	  {
 	  case 'h':
@@ -222,21 +222,6 @@ int commandline(int argc , char *argv[], parameters *config)
 				break;
 		}
 		break;
-	  case 'n':
-		switch(optarg[0])
-		{
-			case 'n':
-			case 'g':
-			case 'r':
-				config->normalize = optarg[0];
-				break;
-			default:
-				logmsg("Invalid Normalization option '%c'\n", optarg[0]);
-				logmsg("\tUse n for per block normalization, default is g for global\n");
-				return 0;
-				break;
-		}
-		break;
 	  case 'r':
 		sprintf(config->referenceFile, "%s", optarg);
 		ref = 1;
@@ -250,8 +235,6 @@ int commandline(int argc , char *argv[], parameters *config)
 		  logmsg("Reference File -%c requires an argument.\n", optopt);
 		else if (optopt == 'c')
 		  logmsg("Compare File -%c requires an argument.\n", optopt);
-		else if (optopt == 'n')
-		  logmsg("Normalization option -%c requires an argument: g,n or r\n", optopt);
 		else if (optopt == 'a')
 		  logmsg("Audio channel option -%c requires an argument: l,r or s\n", optopt);
 		else if (optopt == 'w')
@@ -341,9 +324,6 @@ int commandline(int argc , char *argv[], parameters *config)
 		Header(1);
 		EnableConsole();
 	}
-
-	if(config->normalize == 'r')
-		config->relativeMaxMagnitude = 0.0;
 
 	logmsg("\tAudio Channel is: %s\n", GetChannel(config->channel));
 	if(config->tolerance != 0.0)
@@ -453,7 +433,7 @@ void ComposeFileName(char *target, char *subname, char *ext, parameters *config)
 		return;
 
 	sprintf(target, "%s\\%s%s%s",
-			config->folderName, subname, config->baseName, ext); 
+		config->folderName, subname, config->baseName, ext); 
 }
 
 double TimeSpecToSeconds(struct timespec* ts)

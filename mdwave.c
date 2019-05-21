@@ -667,7 +667,7 @@ double ProcessSamples(AudioBlocks *AudioArray, short *samples, size_t size, long
 			Hertz = CalculateFrequency(i, boxsize, config->ZeroPad);
 	
 			previous = 1.e30;
-			if(!IsCRTNoise(Hertz))
+			//if(!IsCRTNoise(Hertz))
 			{
 				for(j = 0; j < config->MaxFreq; j++)
 				{
@@ -720,27 +720,27 @@ double ProcessSamples(AudioBlocks *AudioArray, short *samples, size_t size, long
 		{
 			double amplitude = 0, magnitude = 0;
 			int blank = 0;
-			double Hertz = 0;
+			//double Hertz = 0;
 	
 			magnitude = CalculateMagnitude(spectrum[i], monoSignalSize);
 			amplitude = CalculateAmplitude(magnitude, config->MaxMagnitude);
-			Hertz = CalculateFrequency(i, boxsize, config->ZeroPad);
+			//Hertz = CalculateFrequency(i, boxsize, config->ZeroPad);
 
 			if(config->invert)
 			{
 				if(amplitude > CutOff)
 					blank = 1;
 
-				if(IsCRTNoise(Hertz))
-					blank = 0;	
+				//if(IsCRTNoise(Hertz))
+					//blank = 0;	
 			}
 			else
 			{
 				if(amplitude <= CutOff)
 					blank = 1;
 
-				if(IsCRTNoise(Hertz))
-					blank = 1;	
+				//if(IsCRTNoise(Hertz))
+					//blank = 1;	
 			}
 
 			if(blank)
@@ -832,7 +832,7 @@ double ProcessSamples(AudioBlocks *AudioArray, short *samples, size_t size, long
 int commandline_wave(int argc , char *argv[], parameters *config)
 {
 	FILE *file = NULL;
-	int c, index, ref = 0, tar = 0;
+	int c, index, ref = 0;
 	
 	opterr = 0;
 	
@@ -937,8 +937,6 @@ int commandline_wave(int argc , char *argv[], parameters *config)
 	  case '?':
 		if (optopt == 'r')
 		  logmsg("Reference File -%c requires an argument.\n", optopt);
-		else if (optopt == 'n')
-		  logmsg("Normalization option -%c requires an argument: g,n or r\n", optopt);
 		else if (optopt == 'a')
 		  logmsg("Audio channel option -%c requires an argument: l,r or s\n", optopt);
 		else if (optopt == 'w')
@@ -949,7 +947,7 @@ int commandline_wave(int argc , char *argv[], parameters *config)
 		  logmsg("Max # of frequencies to use from FFTW -%c requires an argument: 1-%d\n", optopt, MAX_FREQ_COUNT);
 		else if (optopt == 's')
 		  logmsg("Min frequency range for FFTW -%c requires an argument: 0-19900\n", optopt);
-		else if (optopt == 'z')
+		else if (optopt == 'e')
 		  logmsg("Max frequency range for FFTW -%c requires an argument: 10-20000\n", optopt);
 		else if (isprint (optopt))
 		  logmsg("Unknown option `-%c'.\n", optopt);
@@ -974,9 +972,6 @@ int commandline_wave(int argc , char *argv[], parameters *config)
 		logmsg("Please define the reference audio file\n");
 		return 0;
 	}
-
-	if(tar)
-		logmsg("Target file will be ignored\n");
 
 	if(config->endHz <= config->startHz)
 	{
@@ -1028,17 +1023,19 @@ int commandline_wave(int argc , char *argv[], parameters *config)
 
 void PrintUsage_wave()
 {
-	// b,d and y options are not documented since they are mostly for testing or found not as usefull as desired
-	logmsg("  usage: mdfourier -r reference.wav -c compare.wav\n\n");
+	logmsg("  usage: mdwave -r reference.wav\n");
 	logmsg("   FFT and Analysis options:\n");
-	logmsg("	 -c <l,r,s>: select audio <c>hannel to compare. Default is both channels\n\t's' stereo, 'l' for left or 'r' for right\n");
-	logmsg("	 -w: enable Hanning <w>indowing. This introduces more differences\n");
-	logmsg("	 -f: Change the number of frequencies to use from FFTW\n");
+	logmsg("	 -a: select <a>udio channel to compare. 's', 'l' or 'r'\n");
+	logmsg("	 -c: Enable Audio <c>hunk creation, an individual WAV for each block\n");
+	logmsg("	 -w: enable <w>indowing. Default is a custom Tukey window.\n");
+	logmsg("		'n' none, 't' Tukey, 'h' Hann, 'f' FlatTop & 'm' Hamming\n");
 	logmsg("	 -x: e<x>cludes results to generate discarded frequencies wav file\n");
 	logmsg("	 -i: <i>gnores the silence block noise floor if present\n");
-	logmsg("	 -s: Defines <s>tart of the frequency range to compare with FFT\n\tA smaller range will compare more frequencies unless changed\n");
-	logmsg("	 -e: Defines end of the frequency range to compare with FFT\n\tA smaller range will compare more frequencies unless changed\n");
+	logmsg("	 -f: Change the number of <f>requencies to use from FFTW\n");
+	logmsg("	 -s: Defines <s>tart of the frequency range to compare with FFT\n");
+	logmsg("	 -e: Defines <e>nd of the frequency range to compare with FFT\n");
 	logmsg("	 -t: Defines the <t>olerance when comparing amplitudes in dBFS\n");
+	logmsg("	 -z: Uses Zero Padding to equal 1 hz FFT bins\n");
 	logmsg("   Output options:\n");
 	logmsg("	 -v: Enable <v>erbose mode, spits all the FFTW results\n");
 	logmsg("	 -l: <l>og output to file [reference]_vs_[compare].txt\n");
@@ -1048,7 +1045,7 @@ void PrintUsage_wave()
 void Header_wave(int log)
 {
 	char title1[] = " MDWave " MDWVERSION " (MDFourier Companion)\n [240p Test Suite Fourier Audio compare tool]\n";
-	char title2[] = "Artemio Urbina 2019 free software under GPL\n\n";
+	char title2[] = " Artemio Urbina 2019 free software under GPL\n\n";
 
 	if(log)
 		logmsg("%s%s", title1, title2);

@@ -232,7 +232,6 @@ typedef struct parameters_st {
 	int				MaxFreq;
 	int				clock;
 	char			normalize;
-	double			relativeMaxMagnitude;
 	int				ignoreFloor;
 	int				useOutputFilter;
 	int				outputFilterFunction;

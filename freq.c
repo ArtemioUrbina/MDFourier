@@ -774,26 +774,20 @@ void GlobalNormalize(AudioSignal *Signal, parameters *config)
 		return;
 
 	/* Find global peak */
-	if(config->normalize == 'g' ||
-	  (config->normalize == 'r' && config->relativeMaxMagnitude == 0.0))
+	
+	for(int block = 0; block < config->types.totalChunks; block++)
 	{
-		for(int block = 0; block < config->types.totalChunks; block++)
+		for(int i = 0; i < config->MaxFreq; i++)
 		{
-			for(int i = 0; i < config->MaxFreq; i++)
+			if(!Signal->Blocks[block].freq[i].hertz)
+				break;
+			if(Signal->Blocks[block].freq[i].magnitude > MaxMagnitude)
 			{
-				if(!Signal->Blocks[block].freq[i].hertz)
-					break;
-				if(Signal->Blocks[block].freq[i].magnitude > MaxMagnitude)
-				{
-					MaxMagnitude = Signal->Blocks[block].freq[i].magnitude;
-					MaxFreq = Signal->Blocks[block].freq[i].hertz;
-					MaxBlock = block;
-				}
+				MaxMagnitude = Signal->Blocks[block].freq[i].magnitude;
+				MaxFreq = Signal->Blocks[block].freq[i].hertz;
+				MaxBlock = block;
 			}
 		}
-
-		if(config->normalize == 'r')
-			config->relativeMaxMagnitude = MaxMagnitude;
 	}
 
 	if(config->verbose)
@@ -801,9 +795,6 @@ void GlobalNormalize(AudioSignal *Signal, parameters *config)
 		if(MaxBlock != -1)
 			logmsg(" - Max Volume found in block %d at %g Hz with %g magnitude\n", MaxBlock, MaxFreq, MaxMagnitude);
 	}
-
-	if(config->normalize == 'r' && config->relativeMaxMagnitude != 0.0)
-		MaxMagnitude = config->relativeMaxMagnitude;
 
 	/* Normalize and calculate Amplitude in dBFSs */
 	for(int block = 0; block < config->types.totalChunks; block++)
@@ -817,37 +808,6 @@ void GlobalNormalize(AudioSignal *Signal, parameters *config)
 			Signal->Blocks[block].freq[i].magnitude = 
 				RoundFloat(Signal->Blocks[block].freq[i].magnitude*100.0/MaxMagnitude, 2);
 		}
-	}
-}
-
-/* Do per block normalization if requested */
-/* This makes it so relative channel/block */
-/* volume is ignored at a global level */
-void LocalNormalize(AudioBlocks *AudioArray, parameters *config)
-{
-	double MaxMagnitude = 0;
-
-	if(!AudioArray)
-		return;
-
-	/* Find MaxMagnitude for Normalization */
-	for(long int i = 0; i < config->MaxFreq; i++)
-	{
-		if(AudioArray->freq[i].hertz)
-		{
-			if(AudioArray->freq[i].magnitude > MaxMagnitude)
-				MaxMagnitude = AudioArray->freq[i].magnitude;
-		}
-	}
- 
-	/* Normalize to 100 */
-	/* Calculate per Block dBFSs */
-	for(long int i = 0; i < config->MaxFreq; i++)
-	{
-		AudioArray->freq[i].amplitude = 
-			CalculateAmplitude(AudioArray->freq[i].magnitude, MaxMagnitude);
-		AudioArray->freq[i].magnitude = 
-			RoundFloat(AudioArray->freq[i].magnitude*100.0/MaxMagnitude, 2);
 	}
 }
 
@@ -973,7 +933,7 @@ void FillFrequencyStructures(AudioBlocks *AudioArray, parameters *config)
 		Hertz = CalculateFrequency(i, boxsize, config->ZeroPad);
 
 		previous = 1.e30;
-		if(!IsCRTNoise(Hertz))
+		//if(!IsCRTNoise(Hertz))
 		{
 			for(j = 0; j < config->MaxFreq; j++)
 			{

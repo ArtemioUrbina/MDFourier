@@ -75,8 +75,6 @@ void CleanMatched(AudioSignal *ReferenceSignal, AudioSignal *TestSignal, paramet
 void FillFrequencyStructures(AudioBlocks *AudioArray, parameters *config);
 void PrintFrequencies(AudioSignal *Signal, parameters *config);
 void GlobalNormalize(AudioSignal *Signal, parameters *config);
-void LocalNormalize(AudioBlocks *AudioArray, parameters *config);
-void CompressFrequencies(AudioBlocks *AudioArray, parameters *config);
 void FindFloor(AudioSignal *Signal, parameters *config);
 int IsCRTNoise(double freq);
 double GetLowerFrameRate(double framerateA, double framerateB);
