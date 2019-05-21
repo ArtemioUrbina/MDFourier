@@ -115,6 +115,9 @@ void CleanAudio(AudioSignal *Signal, parameters *config)
 	Signal->startOffset = 0;
 	Signal->endOffset = 0;
 
+	Signal->MaxMagnitude = 0;
+	Signal->MinAmplitude = 0;
+
 	memset(&Signal->header, 0, sizeof(wav_hdr));
 }
 
@@ -162,6 +165,9 @@ void ReleaseAudio(AudioSignal *Signal, parameters *config)
 
 	Signal->startOffset = 0;
 	Signal->endOffset = 0;
+
+	Signal->MaxMagnitude = 0;
+	Signal->MinAmplitude = 0;
 }
 
 void ReleaseAudioBlockStructure(parameters *config)
@@ -766,7 +772,8 @@ void FindFloor(AudioSignal *Signal, parameters *config)
 
 void GlobalNormalize(AudioSignal *Signal, parameters *config)
 {
-	double 		MaxMagnitude = 0;
+	double		MaxMagnitude = 0;
+	double		MinAmplitude = 0;
 	double		MaxFreq = 0;
 	int			MaxBlock = -1;
 
@@ -795,6 +802,7 @@ void GlobalNormalize(AudioSignal *Signal, parameters *config)
 		if(MaxBlock != -1)
 			logmsg(" - Max Volume found in block %d at %g Hz with %g magnitude\n", MaxBlock, MaxFreq, MaxMagnitude);
 	}
+	Signal->MaxMagnitude = MaxMagnitude;
 
 	/* Normalize and calculate Amplitude in dBFSs */
 	for(int block = 0; block < config->types.totalChunks; block++)
@@ -803,13 +811,69 @@ void GlobalNormalize(AudioSignal *Signal, parameters *config)
 		{
 			if(!Signal->Blocks[block].freq[i].hertz)
 				break;
+
 			Signal->Blocks[block].freq[i].amplitude = 
 				CalculateAmplitude(Signal->Blocks[block].freq[i].magnitude, MaxMagnitude);
 			Signal->Blocks[block].freq[i].magnitude = 
-				RoundFloat(Signal->Blocks[block].freq[i].magnitude*100.0/MaxMagnitude, 2);
+				Signal->Blocks[block].freq[i].magnitude*100.0/MaxMagnitude;
+
+			if(Signal->Blocks[block].freq[i].amplitude < MinAmplitude)
+				MinAmplitude = Signal->Blocks[block].freq[i].amplitude;
 		}
 	}
+	Signal->MinAmplitude = MinAmplitude;
 }
+
+void FindMaxMagnitude(AudioSignal *Signal, parameters *config)
+{
+	double MaxMagnitude = 0;
+
+	if(!Signal)
+		return;
+
+	// Find global peak
+	for(int block = 0; block < config->types.totalChunks; block++)
+	{
+		for(int i = 0; i < config->MaxFreq; i++)
+		{
+			if(!Signal->Blocks[block].freq[i].hertz)
+				break;
+			if(Signal->Blocks[block].freq[i].magnitude > MaxMagnitude)
+				MaxMagnitude = Signal->Blocks[block].freq[i].magnitude;
+		}
+	}
+
+	Signal->MaxMagnitude = MaxMagnitude;
+}
+
+void CalculateAmplitudes(AudioSignal *Signal, double ZeroDbMagReference, parameters *config)
+{
+	double MinAmplitude = 0;
+
+	if(!Signal)
+		return;
+
+	//Calculate Amplitude in dBFS 
+	for(int block = 0; block < config->types.totalChunks; block++)
+	{
+		for(int i = 0; i < config->MaxFreq; i++)
+		{
+			if(!Signal->Blocks[block].freq[i].hertz)
+				break;
+
+			Signal->Blocks[block].freq[i].amplitude = 
+				CalculateAmplitude(Signal->Blocks[block].freq[i].magnitude, ZeroDbMagReference);
+			Signal->Blocks[block].freq[i].magnitude = 
+				Signal->Blocks[block].freq[i].magnitude*100.0/ZeroDbMagReference;
+
+			if(Signal->Blocks[block].freq[i].amplitude < MinAmplitude)
+				MinAmplitude = Signal->Blocks[block].freq[i].amplitude;
+		}
+	}
+
+	Signal->MinAmplitude = MinAmplitude;
+}
+
 
 void CleanMatched(AudioSignal *ReferenceSignal, AudioSignal *TestSignal, parameters *config)
 {

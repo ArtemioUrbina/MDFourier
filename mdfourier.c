@@ -39,6 +39,8 @@
 int LoadFile(FILE *file, AudioSignal *Signal, parameters *config, char *fileName);
 int CompareWAVCharacteristics(AudioSignal *ReferenceSignal, AudioSignal *TestSignal, parameters *config);
 int ProcessFile(AudioSignal *Signal, parameters *config);
+int SaveWAVEChunk(AudioSignal *Signal, char *buffer, long int block, long int loadedBlockSize, wav_hdr header, parameters *config);
+void PrepareSignal(AudioSignal *Signal, double ZeroDbMagReference, parameters *config);
 double ExecuteDFFT(AudioBlocks *AudioArray, short *samples, size_t size, long samplerate, double *window, parameters *config);
 double CompareAudioBlocks(AudioSignal *ReferenceSignal, AudioSignal *TestSignal, parameters *config);
 void CleanUp(AudioSignal **ReferenceSignal, AudioSignal **TestSignal, parameters *config);
@@ -52,6 +54,7 @@ int main(int argc , char *argv[])
 	AudioSignal  		*ReferenceSignal = NULL;
 	AudioSignal  		*TestSignal = NULL;
 	parameters			config;
+	double				ZeroDbMagnitudeRef = 0;
 
 	Header(0);
 	if(!commandline(argc, argv, &config))
@@ -133,21 +136,40 @@ int main(int argc , char *argv[])
 		return 1;
 	}
 
+	logmsg("* Executing Discrete Fast Fourier Transforms on Target file\n");
+	if(!ProcessFile(TestSignal, &config))
+	{
+		CleanUp(&ReferenceSignal, &TestSignal, &config);
+		return 1;
+	}
+
+	logmsg("* Processing Signal Frequencies and Amplitudes\n");
+	if(ReferenceSignal->MaxMagnitude < TestSignal->MaxMagnitude)
+	{
+		ZeroDbMagnitudeRef = TestSignal->MaxMagnitude;
+		if(config.verbose)
+			logmsg(" - Target file has the highest peak at %g vs %g\n",
+				ZeroDbMagnitudeRef, ReferenceSignal->MaxMagnitude);
+	}
+	else
+	{
+		ZeroDbMagnitudeRef = ReferenceSignal->MaxMagnitude;
+		if(config.verbose)
+			logmsg(" - Reference file has the highest peak at %g vs %g\n",
+				ZeroDbMagnitudeRef, TestSignal->MaxMagnitude);
+	}
+
+	PrepareSignal(ReferenceSignal, ZeroDbMagnitudeRef, &config);
+	PrepareSignal(TestSignal, ZeroDbMagnitudeRef, &config);
+
 	/* Detect Signal Floor */
 	if(ReferenceSignal->hasFloor && !config.ignoreFloor && 
 		ReferenceSignal->floorAmplitude > config.significantVolume)
 	{
 		config.significantVolume = ReferenceSignal->floorAmplitude;
-		logmsg(" - Using %g as minimum significant volume for analisys\n",
+		logmsg(" - Using Reference Signal\'s %g as minimum significant volume for analisys\n",
 			config.significantVolume);
 		CreateBaseName(&config);
-	}
-
-	logmsg("\n* Executing Discrete Fast Fourier Transforms on Target file\n");
-	if(!ProcessFile(TestSignal, &config))
-	{
-		CleanUp(&ReferenceSignal, &TestSignal, &config);
-		return 1;
 	}
 
 	logmsg("\n* Comparing frequencies\n");
@@ -373,6 +395,9 @@ int LoadFile(FILE *file, AudioSignal *Signal, parameters *config, char *fileName
 
 	sprintf(Signal->SourceFile, "%s", fileName);
 
+	if(config->normalizeWAV)
+		NormalizeAudio(Signal, config);
+
 	return 1;
 }
 
@@ -453,40 +478,8 @@ int ProcessFile(AudioSignal *Signal, parameters *config)
 		Signal->Blocks[i].type = GetBlockType(config, i);
 
 		ExecuteDFFT(&Signal->Blocks[i], (short*)buffer, (loadedBlockSize-difference)/2, Signal->header.SamplesPerSec, windowUsed, config);
-		/*
-		if(1)  // save chunks for checking, use MDWave instead
-		{
-			FILE 		*chunk = NULL;
-			wav_hdr		cheader;
-			char		Name[2048], FName[4096];
-
-			cheader = Signal->header;
-			sprintf(Name, "%03ld_SRC_%s_%03d_%s", i, GetBlockName(config, i), GetBlockSubIndex(config, i), basename(Signal->SourceFile));
-			ComposeFileName(FName, Name, ".wav", config);
-			chunk = fopen(FName, "wb");
-			if(!chunk)
-			{
-				logmsg("\tCould not open chunk file %s\n", FName);
-				return 0;
-			}
-
-			cheader.ChunkSize = loadedBlockSize+36;
-			cheader.Subchunk2Size = loadedBlockSize;
-			if(fwrite(&cheader, 1, sizeof(wav_hdr), chunk) != sizeof(wav_hdr))
-			{
-				logmsg("\tCould not write chunk header\n");
-				return(0);
-			}
-		
-			if(fwrite(buffer, 1, sizeof(char)*loadedBlockSize, chunk) != sizeof(char)*loadedBlockSize)
-			{
-				logmsg("\tCould not write samples to chunk file\n");
-				return (0);
-			}
-		
-			fclose(chunk);
-		}
-		*/
+		// MDWAVE exoists for this, but just in case it is ever needed within MDFourier
+		//SaveWAVEChunk(Signal, buffer, i, loadedBlockSize, Signal->header, config);
 
 		FillFrequencyStructures(&Signal->Blocks[i], config);
 
@@ -496,10 +489,8 @@ int ProcessFile(AudioSignal *Signal, parameters *config)
 	}
 
 	/* Global Normalization by default */
-	GlobalNormalize(Signal, config);
-
-	if(!config->ignoreFloor && Signal->hasFloor) /* analyze silence floor if available */
-		FindFloor(Signal, config);
+	//GlobalNormalize(Signal, config);
+	FindMaxMagnitude(Signal, config);
 
 	if(config->clock)
 	{
@@ -509,13 +500,58 @@ int ProcessFile(AudioSignal *Signal, parameters *config)
 		logmsg(" - clk: Processing took %0.2fs\n", elapsedSeconds);
 	}
 
-	if(config->verbose)
-		PrintFrequencies(Signal, config);
-
 	free(buffer);
 	freeWindows(&windows);
 
 	return i;
+}
+
+void PrepareSignal(AudioSignal *Signal, double ZeroDbMagReference, parameters *config)
+{
+	CalculateAmplitudes(Signal, ZeroDbMagReference, config);
+
+	/* analyze silence floor if available */
+	if(!config->ignoreFloor && Signal->hasFloor)
+		FindFloor(Signal, config);
+
+	if(config->verbose)
+		PrintFrequencies(Signal, config);
+}
+
+int SaveWAVEChunk(AudioSignal *Signal, char *buffer, long int block, long int loadedBlockSize, wav_hdr header, parameters *config)
+{
+	FILE 		*chunk = NULL;
+	wav_hdr		cheader;
+	char		Name[2048], FName[4096];
+
+	cheader = Signal->header;
+	sprintf(Name, "%03ld_SRC_%s_%03d_%s", 
+		block, GetBlockName(config, block), GetBlockSubIndex(config, block), 
+		basename(Signal->SourceFile));
+	ComposeFileName(FName, Name, ".wav", config);
+	chunk = fopen(FName, "wb");
+	if(!chunk)
+	{
+		logmsg("\tCould not open chunk file %s\n", FName);
+		return 0;
+	}
+
+	cheader.ChunkSize = loadedBlockSize+36;
+	cheader.Subchunk2Size = loadedBlockSize;
+	if(fwrite(&cheader, 1, sizeof(wav_hdr), chunk) != sizeof(wav_hdr))
+	{
+		logmsg("\tCould not write chunk header\n");
+		return(0);
+	}
+
+	if(fwrite(buffer, 1, sizeof(char)*loadedBlockSize, chunk) != sizeof(char)*loadedBlockSize)
+	{
+		logmsg("\tCould not write samples to chunk file\n");
+		return (0);
+	}
+
+	fclose(chunk);
+	return 1;
 }
 
 double ExecuteDFFT(AudioBlocks *AudioArray, short *samples, size_t size, long samplerate, double *window, parameters *config)
@@ -804,15 +840,18 @@ void NormalizeAudio(AudioSignal *Signal, parameters *config)
 	samples = (short*)Signal->Samples;
 	for(i = 0; i < size; i++)
 	{
-		if(abs(samples[i]) > maxSampleValue)
-			maxSampleValue = abs(samples[i]);
+		short sample;
+
+		sample = abs(samples[i]);
+		if(sample > maxSampleValue)
+			maxSampleValue = sample;
 	}
-	
+
 	if(!maxSampleValue)
 		return;
 
 	ratio = (double)0x7FFF/(double)maxSampleValue;
 
 	for(i = 0; i < size; i++)
-		samples[i] = (double)samples[i]*ratio;
+		samples[i] = (short)((double)samples[i])*ratio;
 }

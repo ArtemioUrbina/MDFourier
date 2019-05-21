@@ -41,7 +41,6 @@ int LoadFile(FILE *file, AudioSignal *Signal, parameters *config, char *fileName
 int ProcessFile(AudioSignal *Signal, parameters *config);
 double ProcessSamples(AudioBlocks *AudioArray, short *samples, size_t size, long samplerate, double *window, parameters *config, int reverse, AudioSignal *Signal);
 int commandline_wave(int argc , char *argv[], parameters *config);
-void FindMaxMagnitude(AudioSignal *Signal, parameters *config);
 void PrintUsage_wave();
 void Header_wave(int log);
 void CleanUp(AudioSignal **ReferenceSignal, parameters *config);
@@ -397,8 +396,7 @@ int ProcessFile(AudioSignal *Signal, parameters *config)
 		i++;
 	}
 
-	// Instead of Global Normalization by default, do...
-	FindMaxMagnitude(Signal, config);
+	GlobalNormalize(Signal, config);
 
 	if(Signal->hasFloor && !config->ignoreFloor) // analyze noise floor if available
 	{
@@ -545,41 +543,6 @@ int ProcessFile(AudioSignal *Signal, parameters *config)
 	return i;
 }
 
-void FindMaxMagnitude(AudioSignal *Signal, parameters *config)
-{
-	double MaxMagnitude = 0;
-	double MinAmplitude = 0;
-
-	// Find global peak
-	for(int block = 0; block < config->types.totalChunks; block++)
-	{
-		for(int i = 0; i < config->MaxFreq; i++)
-		{
-			if(Signal->Blocks[block].freq[i].magnitude > MaxMagnitude)
-				MaxMagnitude = Signal->Blocks[block].freq[i].magnitude;
-		}
-	}
-
-	config->MaxMagnitude = MaxMagnitude;
-
-	//Calculate Amplitude in dBFS 
-	for(int block = 0; block < config->types.totalChunks; block++)
-	{
-		for(int i = 0; i < config->MaxFreq; i++)
-		{
-			Signal->Blocks[block].freq[i].amplitude = 
-				CalculateAmplitude(Signal->Blocks[block].freq[i].magnitude, MaxMagnitude);
-			Signal->Blocks[block].freq[i].magnitude = 
-				Signal->Blocks[block].freq[i].magnitude * 100.0 / MaxMagnitude;
-			if(Signal->Blocks[block].freq[i].amplitude < MinAmplitude)
-				MinAmplitude = Signal->Blocks[block].freq[i].amplitude;
-		}
-	}
-
-	config->MinAmplitude = MinAmplitude;
-}
-
-
 double ProcessSamples(AudioBlocks *AudioArray, short *samples, size_t size, long samplerate, double *window, parameters *config, int reverse, AudioSignal *Signal)
 {
 	fftw_plan		p = NULL, pBack = NULL;
@@ -723,7 +686,7 @@ double ProcessSamples(AudioBlocks *AudioArray, short *samples, size_t size, long
 			//double Hertz = 0;
 	
 			magnitude = CalculateMagnitude(spectrum[i], monoSignalSize);
-			amplitude = CalculateAmplitude(magnitude, config->MaxMagnitude);
+			amplitude = CalculateAmplitude(magnitude, Signal->MaxMagnitude);
 			//Hertz = CalculateFrequency(i, boxsize, config->ZeroPad);
 
 			if(config->invert)
@@ -841,8 +804,6 @@ int commandline_wave(int argc , char *argv[], parameters *config)
 	config->maxBlanked = 0;
 	config->invert = 0;
 	config->chunks = 0;
-	config->MaxMagnitude = 0;
-	config->MinAmplitude = 0;
 	config->floorAmplitude = 0;
 
 	while ((c = getopt (argc, argv, "hvzcklxis:e:f:t:p:a:w:r:")) != -1)

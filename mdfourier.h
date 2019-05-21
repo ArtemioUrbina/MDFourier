@@ -159,6 +159,9 @@ typedef struct AudioSt {
 	long int	startOffset;
 	long int	endOffset;
 
+	double	MaxMagnitude;
+	double	MinAmplitude;
+
 	AudioBlocks *Blocks; 
 }  AudioSignal;
 
@@ -244,13 +247,12 @@ typedef struct parameters_st {
 	int				debugSync;
 	int				reverseCompare;
 	int				ZeroPad;
+	int				normalizeWAV;
 
 #ifdef MDWAVE
 	int				maxBlanked;
 	int				invert;
 	int				chunks;
-	long int		MaxMagnitude;
-	long int		MinAmplitude;
 	double			floorAmplitude;
 #endif
 } parameters;
