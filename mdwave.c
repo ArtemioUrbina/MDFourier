@@ -39,7 +39,7 @@
 
 int LoadFile(FILE *file, AudioSignal *Signal, parameters *config, char *fileName);
 int ProcessFile(AudioSignal *Signal, parameters *config);
-double ProcessSamples(AudioBlocks *AudioArray, short *samples, size_t size, long samplerate, double *window, parameters *config, int reverse, AudioSignal *Signal);
+double ProcessSamples(AudioBlocks *AudioArray, int16_t *samples, size_t size, long samplerate, double *window, parameters *config, int reverse, AudioSignal *Signal);
 int commandline_wave(int argc , char *argv[], parameters *config);
 void PrintUsage_wave();
 void Header_wave(int log);
@@ -354,7 +354,7 @@ int ProcessFile(AudioSignal *Signal, parameters *config)
 		Signal->Blocks[i].index = GetBlockSubIndex(config, i);
 		Signal->Blocks[i].type = GetBlockType(config, i);
 
-		ProcessSamples(&Signal->Blocks[i], (short*)buffer, (loadedBlockSize-difference)/2, Signal->header.SamplesPerSec, windowUsed, config, 0, Signal);
+		ProcessSamples(&Signal->Blocks[i], (int16_t*)buffer, (loadedBlockSize-difference)/2, Signal->header.SamplesPerSec, windowUsed, config, 0, Signal);
 
 		if(config->chunks)
 		{
@@ -453,7 +453,7 @@ int ProcessFile(AudioSignal *Signal, parameters *config)
 
 		// now rewrite array
 		if(GetBlockType(config, i) > TYPE_CONTROL)  // Ignore Controls!
-			ProcessSamples(&Signal->Blocks[i], (short*)buffer, (loadedBlockSize-difference)/2, Signal->header.SamplesPerSec, windowUsed, config, 1, Signal);
+			ProcessSamples(&Signal->Blocks[i], (int16_t*)buffer, (loadedBlockSize-difference)/2, Signal->header.SamplesPerSec, windowUsed, config, 1, Signal);
 
 		// Now rewrite global
 		memcpy(Signal->Samples + pos, buffer, loadedBlockSize);
@@ -543,7 +543,7 @@ int ProcessFile(AudioSignal *Signal, parameters *config)
 	return i;
 }
 
-double ProcessSamples(AudioBlocks *AudioArray, short *samples, size_t size, long samplerate, double *window, parameters *config, int reverse, AudioSignal *Signal)
+double ProcessSamples(AudioBlocks *AudioArray, int16_t *samples, size_t size, long samplerate, double *window, parameters *config, int reverse, AudioSignal *Signal)
 {
 	fftw_plan		p = NULL, pBack = NULL;
 	long		  	stereoSignalSize = 0, blanked = 0;	

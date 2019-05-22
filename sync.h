@@ -39,7 +39,7 @@ long int DetectPulse(char *AllSamples, wav_hdr header, parameters *config);
 long int DetectEndPulse(char *AllSamples, long int startpulse, wav_hdr header, parameters *config);
 long int DetectPulseInternal(char *Samples, wav_hdr header, int factor, long int offset, int *maxdetected, parameters *config);
 double FindFrequencyBracket(int frequency, size_t size, long samplerate);
-double ProcessChunkForSyncPulse(short *samples, size_t size, long samplerate, Pulses *pulse, parameters *config);
+double ProcessChunkForSyncPulse(int16_t *samples, size_t size, long samplerate, Pulses *pulse, parameters *config);
 long int DetectPulseTrainSequence(Pulses *pulseArray, double targetFrequency, long int TotalMS, int factor, int *maxdetected, parameters *config);
 
 #endif

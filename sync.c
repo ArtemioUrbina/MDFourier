@@ -339,7 +339,7 @@ long int DetectPulseInternal(char *Samples, wav_hdr header, int factor, long int
 
 		pos += loadedBlockSize;
 
-		ProcessChunkForSyncPulse((short*)buffer, loadedBlockSize/2, header.SamplesPerSec, &pulseArray[i], config);
+		ProcessChunkForSyncPulse((int16_t*)buffer, loadedBlockSize/2, header.SamplesPerSec, &pulseArray[i], config);
 		if(pulseArray[i].magnitude > MaxMagnitude)
 			MaxMagnitude = pulseArray[i].magnitude;
 		i++;
@@ -409,7 +409,7 @@ double FindFrequencyBracket(int frequency, size_t size, long samplerate)
 }
 
 
-double ProcessChunkForSyncPulse(short *samples, size_t size, long samplerate, Pulses *pulse, parameters *config)
+double ProcessChunkForSyncPulse(int16_t *samples, size_t size, long samplerate, Pulses *pulse, parameters *config)
 {
 	fftw_plan		p = NULL;
 	long		  	stereoSignalSize = 0;	

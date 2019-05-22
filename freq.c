@@ -743,7 +743,7 @@ void FindFloor(AudioSignal *Signal, parameters *config)
 
 	for(int i = 0; i < config->MaxFreq; i++)
 	{
-		if(Signal->Blocks[index].freq[i].hertz)
+		if(Signal->Blocks[index].freq[i].hertz && Signal->Blocks[index].freq[i].amplitude != NO_AMPLITUDE)
 		{
 			double difference;
 	
@@ -829,7 +829,9 @@ void GlobalNormalize(AudioSignal *Signal, parameters *config)
 
 void FindMaxMagnitude(AudioSignal *Signal, parameters *config)
 {
-	double MaxMagnitude = 0;
+	double		MaxMagnitude = 0;
+	double		MaxFreq = 0;
+	int			MaxBlock = -1;
 
 	if(!Signal)
 		return;
@@ -842,11 +844,22 @@ void FindMaxMagnitude(AudioSignal *Signal, parameters *config)
 			if(!Signal->Blocks[block].freq[i].hertz)
 				break;
 			if(Signal->Blocks[block].freq[i].magnitude > MaxMagnitude)
+			{
 				MaxMagnitude = Signal->Blocks[block].freq[i].magnitude;
+				MaxFreq = Signal->Blocks[block].freq[i].hertz;
+				MaxBlock = block;
+			}
 		}
 	}
 
 	Signal->MaxMagnitude = MaxMagnitude;
+
+	if(config->verbose)
+	{
+		if(MaxBlock != -1)
+			logmsg(" - Max Volume found in block %d (%s %d) at %g Hz with %g magnitude\n", 
+					MaxBlock, GetBlockName(config, MaxBlock), GetBlockSubIndex(config, MaxBlock), MaxFreq, MaxMagnitude);
+	}
 }
 
 void CalculateAmplitudes(AudioSignal *Signal, double ZeroDbMagReference, parameters *config)
@@ -916,6 +929,9 @@ void PrintFrequencies(AudioSignal *Signal, parameters *config)
 		{
 			if(type != TYPE_SILENCE && config->significantVolume > Signal->Blocks[block].freq[j].amplitude)
 				break;
+
+			//if(Signal->Blocks[block].freq[j].amplitude == NO_AMPLITUDE)
+				//break;
 
 			if(Signal->Blocks[block].freq[j].hertz)
 			{
@@ -1001,6 +1017,7 @@ void FillFrequencyStructures(AudioBlocks *AudioArray, parameters *config)
 
 		previous = 1.e30;
 		//if(!IsCRTNoise(Hertz))
+		if(Hertz)
 		{
 			for(j = 0; j < config->MaxFreq; j++)
 			{
@@ -1015,7 +1032,7 @@ void FillFrequencyStructures(AudioBlocks *AudioArray, parameters *config)
 	
 					AudioArray->freq[j].hertz = Hertz;
 					AudioArray->freq[j].magnitude = magnitude;
-					AudioArray->freq[j].amplitude = 0;
+					AudioArray->freq[j].amplitude = NO_AMPLITUDE;
 					AudioArray->freq[j].phase = CalculatePhase(AudioArray->fftwValues.spectrum[i]);
 					break;
 				}

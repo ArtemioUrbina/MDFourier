@@ -37,12 +37,8 @@
 
 #define readLine(buffer, file) if(fgets(buffer, LINE_BUFFER_SIZE, file) == NULL) { logmsg("Invalid mdfblocks.mfn file\n");	return 0;	}
 
-double FramesToSeconds(double frames, double framerate);
-long int SecondsToBytes(long int samplerate, double seconds, int *leftover, int *discard);
-
 int LoadAudioBlockStructure(parameters *config);
 int GetFirstSilenceIndex(parameters *config);
-double GetBlockTimeOffset(int block, parameters *config);
 long int GetLastSilenceByteOffset(double framerate, wav_hdr header, int frameAdjust, parameters *config);
 int GetActiveAudioBlocks(parameters *config);
 int GetTotalAudioBlocks(parameters *config);
@@ -86,6 +82,8 @@ double RoundFloat(double x, int p);
 long int RoundTo4bytes(double src, int *leftover, int *discard);
 double GetDecimalValues(double value);
 double BytesToSeconds(long int samplerate, long int bytes);
+double FramesToSeconds(double frames, double framerate);
+long int SecondsToBytes(long int samplerate, double seconds, int *leftover, int *discard);
 
 double CalculateMagnitude(fftw_complex value, long int size);
 double CalculateAmplitude(double magnitude, double MaxMagnitude);

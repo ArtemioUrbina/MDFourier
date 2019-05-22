@@ -62,6 +62,7 @@
 #define TYPE_CONTROL	TYPE_SILENCE
 
 #define NO_INDEX 		-100
+#define	NO_AMPLITUDE	-1000
 
 /* This is the difference allowed between reference and compared */
 /* amplitudes to match, in dbs */
@@ -73,9 +74,15 @@
 /* +/- Tolerance in frequency Difference to be the same one */
 #define HERTZ_DIFF			0.0
 
-#define START_HZ	1
+#define START_HZ	5
 #define END_HZ		22050
 
+typedef struct max_vol {
+	int16_t		magnitude;
+	uint32_t	offset;
+	uint32_t	samplerate;
+	double		framerate;
+} MaximumVolume;
 
 typedef struct abt_st {
 	char		typeName[128];
