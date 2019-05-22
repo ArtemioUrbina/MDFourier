@@ -118,7 +118,7 @@ void DrawGridZeroDBCentered(PlotFile *plot, double dbs, double dbIncrement, doub
 void DrawLabelsZeroDBCentered(PlotFile *plot, double dbs, double dbIncrement, double hz, double hzIncrement,  parameters *config);
 void DrawGridZeroToLimit(PlotFile *plot, double dbs, double dbIncrement, double hz, double hzIncrement, parameters *config);
 void DrawLabelsZeroToLimit(PlotFile *plot, double dbs, double dbIncrement, double hz, double hzIncrement,  parameters *config);
-void DrawColorScale(PlotFile *plot, int color, double x, double y, double width, double height, double endDbs, double dbIncrement, parameters *config);
+void DrawColorScale(PlotFile *plot, char *label, int color, double x, double y, double width, double height, double endDbs, double dbIncrement, parameters *config);
 
 void PlotTest(char *filename, parameters *config);
 void PlotTestZL(char *filename, parameters *config);

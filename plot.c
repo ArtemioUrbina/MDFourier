@@ -290,9 +290,9 @@ void DrawLabelsMDF(PlotFile *plot)
 {
 	pl_fspace_r(plot->plotter, 0, -1*PLOT_RES_Y/2, PLOT_RES_X, PLOT_RES_Y/2);
 
-	pl_fmove_r(plot->plotter, PLOT_RES_X/10, -1*PLOT_RES_Y/2+PLOT_RES_Y/100);
+	pl_fmove_r(plot->plotter, PLOT_RES_X/40, -1*PLOT_RES_Y/2+PLOT_RES_Y/100);
 	pl_pencolor_r(plot->plotter, 0, 0xcccc, 0);
-	pl_alabel_r(plot->plotter, 'c', 'c', "MDFourier "MDVERSION"  Artemio Urbina 2019");
+	pl_alabel_r(plot->plotter, 'l', 'l', "MDFourier "MDVERSION" for 240p Test Suite by Artemio Urbina");
 }
 
 void DrawLabelsZeroToLimit(PlotFile *plot, double dBFS, double dbIncrement, double hz, double hzIncrement,  parameters *config)
@@ -335,7 +335,7 @@ void DrawLabelsZeroToLimit(PlotFile *plot, double dBFS, double dbIncrement, doub
 	pl_fspace_r(plot->plotter, plot->x0, plot->y0, plot->x1, plot->y1);
 }
 
-void DrawColorScale(PlotFile *plot, int colorName, double x, double y, double width, double height, double endDbs, double dbIncrement, parameters *config)
+void DrawColorScale(PlotFile *plot, char *label, int colorName, double x, double y, double width, double height, double endDbs, double dbIncrement, parameters *config)
 {
 	double segments = 0;
 
@@ -365,18 +365,23 @@ void DrawColorScale(PlotFile *plot, int colorName, double x, double y, double wi
 
 	for(double i = 0; i < segments; i++)
 	{
-		char label[20];
+		char labeldbs[20];
 
 		pl_fmove_r(plot->plotter, x+width+PLOT_RES_X/60, y+height-i*height/segments-height/segments/2);
-		sprintf(label, " %c%gdBFS", i*dbIncrement > 0 ? '-' : ' ', i*dbIncrement);
-		pl_alabel_r(plot->plotter, 'c', 'c', label);
+		sprintf(labeldbs, " %c%gdBFS", i*dbIncrement > 0 ? '-' : ' ', i*dbIncrement);
+		pl_alabel_r(plot->plotter, 'c', 'c', labeldbs);
 	}
+
+	SetPenColor(colorName, 0xaaaa, plot);
+	pl_fmove_r(plot->plotter, x+width/2, y+height+PLOT_RES_Y/100);
+	pl_alabel_r(plot->plotter, 'c', 'c', label);
 }
 
 void DrawColorAllTypeScale(PlotFile *plot, double x, double y, double width, double height, double endDbs, double dbIncrement, parameters *config)
 {
 	double 	segments = 0;
-	int		*colorName = NULL, numTypes = 0, t = 0;
+	int		*colorName = NULL, *typeID = NULL;
+	int		numTypes = 0, t = 0;
 
 	pl_fspace_r(plot->plotter, 0, 0, PLOT_RES_X, PLOT_RES_Y);
 	pl_filltype_r(plot->plotter, 1);
@@ -388,10 +393,22 @@ void DrawColorAllTypeScale(PlotFile *plot, double x, double y, double width, dou
 	colorName = (int*)malloc(sizeof(int)*numTypes);
 	if(!colorName)
 		return;
+	typeID = (int*)malloc(sizeof(int)*numTypes);
+	if(!typeID)
+	{
+		free(colorName);
+		return;
+	}
 
 	for(int i = 0; i < config->types.typeCount; i++)
+	{
 		if(config->types.typeArray[i].type > TYPE_CONTROL)
-			colorName[t++] = MatchColor(GetTypeColor(config, config->types.typeArray[i].type));
+		{
+			colorName[t] = MatchColor(GetTypeColor(config, config->types.typeArray[i].type));
+			typeID[t] = config->types.typeArray[i].type;
+			t++;
+		}
+	}
 
 	for(double i = 0; i < segments; i ++)
 	{
@@ -412,9 +429,6 @@ void DrawColorAllTypeScale(PlotFile *plot, double x, double y, double width, dou
 		}
 	}
 
-	free(colorName);
-	colorName = NULL;
-
 	pl_pencolor_r(plot->plotter, 0xaaaa, 0xaaaa, 0xaaaa);
 	pl_filltype_r(plot->plotter, 0);
 	pl_fbox_r(plot->plotter, x, y, x+width, y+height);
@@ -431,6 +445,18 @@ void DrawColorAllTypeScale(PlotFile *plot, double x, double y, double width, dou
 		sprintf(label, " %c%gdBFS", i*dbIncrement > 0 ? '-' : ' ', i*dbIncrement);
 		pl_alabel_r(plot->plotter, 'c', 'c', label);
 	}
+
+	for(int t = 0; t < numTypes; t++)
+	{
+		SetPenColor(colorName[t], 0xaaaa, plot);
+		pl_fmove_r(plot->plotter, x+2*width+PLOT_RES_X/60, y+(numTypes-1)*PLOT_RES_Y/50-t*PLOT_RES_Y/50);
+		pl_alabel_r(plot->plotter, 'l', 'l', GetTypeName(config, typeID[t]));
+	}
+
+	free(colorName);
+	colorName = NULL;
+	free(typeID);
+	typeID = NULL;
 }
 
 void PlotAllDifferentAmplitudes(FlatAmplDifference *amplDiff, char *filename, parameters *config)
@@ -529,7 +555,7 @@ void PlotSingleTypeDifferentAmplitudes(FlatAmplDifference *amplDiff, int type, c
 		}
 	}
 
-	DrawColorScale(&plot, MatchColor(GetTypeColor(config, type)), PLOT_RES_X/50, PLOT_RES_Y/15, PLOT_RES_X/80, PLOT_RES_Y/1.15, config->significantVolume, 3, config);
+	DrawColorScale(&plot, GetTypeName(config, type), MatchColor(GetTypeColor(config, type)), PLOT_RES_X/50, PLOT_RES_Y/15, PLOT_RES_X/80, PLOT_RES_Y/1.15, config->significantVolume, 3, config);
 	DrawLabelsMDF(&plot);
 	ClosePlot(&plot);
 }
@@ -571,6 +597,7 @@ void PlotAllMissingFrequencies(FlatFreqDifference *freqDiff, char *filename, par
 		}
 	}
 	
+	DrawColorAllTypeScale(&plot, PLOT_RES_X/50, PLOT_RES_Y/15, PLOT_RES_X/80, PLOT_RES_Y/1.15, config->significantVolume, 3, config);
 	DrawLabelsMDF(&plot);
 	ClosePlot(&plot);
 }
@@ -629,6 +656,7 @@ void PlotSingleTypeMissingFrequencies(FlatFreqDifference *freqDiff, int type, ch
 		}
 	}
 	
+	DrawColorScale(&plot, GetTypeName(config, type), MatchColor(GetTypeColor(config, type)), PLOT_RES_X/50, PLOT_RES_Y/15, PLOT_RES_X/80, PLOT_RES_Y/1.15, config->significantVolume, 3, config);
 	DrawLabelsMDF(&plot);
 	ClosePlot(&plot);
 }
@@ -666,6 +694,7 @@ void PlotAllSpectrogram(FlatFrequency *freqs, long int size, char *filename, par
 		}
 	}
 
+	DrawColorAllTypeScale(&plot, PLOT_RES_X/50, PLOT_RES_Y/15, PLOT_RES_X/80, PLOT_RES_Y/1.15, config->significantVolume, 3, config);
 	DrawLabelsMDF(&plot);
 	ClosePlot(&plot);
 }
@@ -721,6 +750,7 @@ void PlotSingleTypeSpectrogram(FlatFrequency *freqs, long int size, int type, ch
 		}
 	}
 	
+	DrawColorScale(&plot, GetTypeName(config, type), MatchColor(GetTypeColor(config, type)), PLOT_RES_X/50, PLOT_RES_Y/15, PLOT_RES_X/80, PLOT_RES_Y/1.15, config->significantVolume, 3, config);
 	DrawLabelsMDF(&plot);
 	ClosePlot(&plot);
 }
@@ -1181,7 +1211,7 @@ void PlotTest(char *filename, parameters *config)
 	DrawGridZeroDBCentered(&plot, dBFS, 3, TOP_FREQUENCY, 1000, config);
 	DrawLabelsZeroDBCentered(&plot, dBFS, 3, TOP_FREQUENCY, 1000, config);
 	DrawLabelsMDF(&plot);
-	DrawColorScale(&plot, COLOR_ORANGE, PLOT_RES_X/50, PLOT_RES_Y/15, PLOT_RES_X/80, PLOT_RES_Y/1.15, -60, 3, config);
+	DrawColorScale(&plot, "Test", COLOR_ORANGE, PLOT_RES_X/50, PLOT_RES_Y/15, PLOT_RES_X/80, PLOT_RES_Y/1.15, -60, 3, config);
 	
 
 	ClosePlot(&plot);
@@ -1204,7 +1234,7 @@ void PlotTestZL(char *filename, parameters *config)
 	DrawGridZeroToLimit(&plot, config->significantVolume, 3, TOP_FREQUENCY, 1000, config);
 	DrawLabelsZeroToLimit(&plot, config->significantVolume, 3, TOP_FREQUENCY, 1000, config);
 
-	DrawColorScale(&plot, COLOR_ORANGE, PLOT_RES_X/50, PLOT_RES_Y/15, PLOT_RES_X/80, PLOT_RES_Y/1.15, -60, 3, config);
+	DrawColorScale(&plot, "Test", COLOR_ORANGE, PLOT_RES_X/50, PLOT_RES_Y/15, PLOT_RES_X/80, PLOT_RES_Y/1.15, -60, 3, config);
 	
 	DrawLabelsMDF(&plot);
 	ClosePlot(&plot);

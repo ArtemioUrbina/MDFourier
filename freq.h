@@ -51,6 +51,7 @@ int GetBlockSubIndex(parameters *config, int pos);
 int GetBlockType(parameters *config, int pos);
 char *GetBlockColor(parameters *config, int pos);
 char *GetTypeColor(parameters *config, int type);
+char *GetTypeName(parameters *config, int type);
 double GetPlatformMSPerFrame(parameters *config);
 void ReleaseAudioBlockStructure(parameters *config);
 void PrintAudioBlocks(parameters *config);
