@@ -456,11 +456,6 @@ int LoadFile(FILE *file, AudioSignal *Signal, parameters *config, char *fileName
 
 	sprintf(Signal->SourceFile, "%s", fileName);
 
-/*
-	if(config->normalizeWAV)
-		NormalizeAudio(Signal, config);
-*/
-
 	return 1;
 }
 

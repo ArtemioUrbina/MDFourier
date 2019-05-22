@@ -91,7 +91,6 @@ void CleanParameters(parameters *config)
 	/* Non exposed */
 	config->logScale = 1;
 	config->reverseCompare = 0;
-	config->normalizeWAV = 1;
 
 	config->Differences.BlockDiffArray = NULL;
 	config->Differences.cntFreqAudioDiff = 0;
@@ -342,10 +341,12 @@ int commandline(int argc , char *argv[], parameters *config)
 	if(config->useOutputFilter)
 	{
 		logmsg("\tOutput Filter function #%d will be applied to the results\n", 
-				config->outputFilterFunction - 1);
+				config->outputFilterFunction);
 	}
 	else
 		logmsg("\tNo filtering will be applied to the results\n");
+	if(config->ZeroPad)
+		logmsg("\tFFT bins will be aligned to 1hz, this is slower\n");
 	return 1;
 }
 

@@ -36,6 +36,7 @@ void CMDFourierGUIDlg::DoDataExchange(CDataExchange* pDX)
 	DDX_Control(pDX, IDC_CURVEADJUST, m_CurveAdjustSelect);
 	DDX_Control(pDX, IDC_SELECT_REFERENCE_FILE, m_ReferenceFileBttn);
 	DDX_Control(pDX, IDC_SELECT_REFERENCE_COMPARE, m_TargetFileBttn);
+	DDX_Control(pDX, IDC_ALIGN, m_AlignFFTW);
 }
 
 BEGIN_MESSAGE_MAP(CMDFourierGUIDlg, CDialogEx)
@@ -194,6 +195,9 @@ void CMDFourierGUIDlg::OnBnClickedOk()
 
 	command.Format(L"mdfourier.exe -r \"%s\" -c \"%s\" -w %c -o %c", m_Reference, m_TargetFile, window, adjust);
 
+	if(m_AlignFFTW.GetCheck() == BST_CHECKED)
+		command += " -z";
+
 	ManageWindows(FALSE);
 
 	SetTimer(IDT_DOS, 250, 0);
@@ -339,10 +343,14 @@ void CMDFourierGUIDlg::ManageWindows(BOOL Enable)
 	m_TargetFileBttn.EnableWindow(Enable);
 	m_WindowTypeSelect.EnableWindow(Enable);
 	m_CurveAdjustSelect.EnableWindow(Enable);
+	m_AlignFFTW.EnableWindow(Enable);
 }
 
 
 void CMDFourierGUIDlg::OnBnClickedAbout()
 {
-	MessageBox(L"MDFourier Front End\nArtemio Urbina 2019\nCode available under GPL\nhttp://junkerhq.net/mdfourier/", L"About MDFourier");
+	if(MessageBox(L"MDFourier Front End\n\nArtemio Urbina 2019\nCode available under GPL\n\nhttp://junkerhq.net/MDFourier/\n\nOpen website?", L"About MDFourier", MB_OKCANCEL | MB_ICONQUESTION) == IDOK)
+	{
+		ShellExecute(0, 0, L"http://junkerhq.net/MDFourier/", 0, 0 , SW_SHOW );
+	}
 }

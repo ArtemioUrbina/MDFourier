@@ -47,6 +47,7 @@ protected:
 	CButton m_ExecuteBttn;
 	CButton m_ReferenceFileBttn;
 	CButton m_TargetFileBttn;
+	CButton m_AlignFFTW;
 
 	CComboBox m_WindowTypeSelect;
 	CComboBox m_CurveAdjustSelect;

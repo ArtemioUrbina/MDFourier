@@ -942,7 +942,7 @@ void PrintFrequencies(AudioSignal *Signal, parameters *config)
 					Signal->Blocks[block].freq[j].phase);
 				/* detect CRT frequency */
 				if(IsCRTNoise(Signal->Blocks[block].freq[j].hertz))
-					logmsg(" *** CRT Noise ***");
+					logmsg(" [CRT Noise?]");
 				logmsg("\n");
 			}
 		}

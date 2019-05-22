@@ -254,7 +254,6 @@ typedef struct parameters_st {
 	int				debugSync;
 	int				reverseCompare;
 	int				ZeroPad;
-	int				normalizeWAV;
 
 #ifdef MDWAVE
 	int				maxBlanked;
