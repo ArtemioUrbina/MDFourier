@@ -178,6 +178,16 @@ void ReleaseAudioBlockStructure(parameters *config)
 		config->types.typeArray = NULL;
 		config->types.typeCount = 0;
 	}
+	if(config->model_plan)
+	{
+		fftw_destroy_plan(config->model_plan);
+		config->model_plan = NULL;
+	}
+	if(config->reverse_plan)
+	{
+		fftw_destroy_plan(config->reverse_plan);
+		config->reverse_plan = NULL;
+	}
 }
 
 int LoadAudioBlockStructure(parameters *config)

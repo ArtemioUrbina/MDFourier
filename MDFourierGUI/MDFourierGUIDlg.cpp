@@ -14,7 +14,7 @@
 // CMDFourierGUIDlg dialog
 CMDFourierGUIDlg::CMDFourierGUIDlg(CWnd* pParent /*=NULL*/)
 	: CDialogEx(CMDFourierGUIDlg::IDD, pParent)
-	, m_TargetFile(_T(""))
+	, m_ComparisonFile(_T(""))
 	, m_Reference(_T(""))
 	, m_Output(_T(""))
 {
@@ -24,18 +24,18 @@ CMDFourierGUIDlg::CMDFourierGUIDlg(CWnd* pParent /*=NULL*/)
 void CMDFourierGUIDlg::DoDataExchange(CDataExchange* pDX)
 {
 	CDialogEx::DoDataExchange(pDX);
-	DDX_Text(pDX, IDC_TARGET_FILE, m_TargetFile);
+	DDX_Text(pDX, IDC_COMPARISON_FILE, m_ComparisonFile);
 	DDX_Text(pDX, IDC_REFERENCE_FILE, m_Reference);
 	DDX_Text(pDX, IDC_OUTPUT, m_Output);
 	DDX_Control(pDX, IDC_REFERENCE_FILE, m_ReferenceLbl);
-	DDX_Control(pDX, IDC_TARGET_FILE, m_TargetLbl);
+	DDX_Control(pDX, IDC_COMPARISON_FILE, m_ComparisonLbl);
 	DDX_Control(pDX, IDC_OUTPUT, m_OutputCtrl);
 	DDX_Control(pDX, ID_OPENRESULTS, m_OpenResultsBttn);
 	DDX_Control(pDX, IDOK, m_ExecuteBttn);
 	DDX_Control(pDX, IDC_WINDOW, m_WindowTypeSelect);
 	DDX_Control(pDX, IDC_CURVEADJUST, m_CurveAdjustSelect);
 	DDX_Control(pDX, IDC_SELECT_REFERENCE_FILE, m_ReferenceFileBttn);
-	DDX_Control(pDX, IDC_SELECT_REFERENCE_COMPARE, m_TargetFileBttn);
+	DDX_Control(pDX, IDC_SELECT_REFERENCE_COMPARE, m_ComparisonFileBttn);
 	DDX_Control(pDX, IDC_ALIGN, m_AlignFFTW);
 }
 
@@ -154,8 +154,8 @@ void CMDFourierGUIDlg::OnBnClickedSelectReferenceCompare()
 	}
 
 	fileName.ReleaseBuffer();
-	m_TargetFile = fileName;
-	m_TargetLbl.SetWindowText(m_TargetFile); 
+	m_ComparisonFile = fileName;
+	m_ComparisonLbl.SetWindowText(m_ComparisonFile); 
 }
 
 
@@ -179,21 +179,21 @@ void CMDFourierGUIDlg::OnBnClickedOk()
 		MessageBox(L"Please select a reference WAV file", L"Error");
 		return;
 	}
-	if(!m_TargetFile.GetLength())
+	if(!m_ComparisonFile.GetLength())
 	{
 		MessageBox(L"Please select a WAV file to compare", L"Error");
 		return;
 	}
-	if(m_Reference == m_TargetFile)
+	if(m_Reference == m_ComparisonFile)
 	{
-		MessageBox(L"Reference and compare file are the same.\nPlease select a different file.", L"Error");
+		MessageBox(L"Reference and Comparison file are the same.\nPlease select a different file.", L"Error");
 		return;
 	}
 
 	window = GetSelectedCommandLineValue(WindowConvert, m_WindowTypeSelect, COUNT_WINDOWS);
 	adjust = GetSelectedCommandLineValue(CurveConvert, m_CurveAdjustSelect, COUNT_CURVES);
 
-	command.Format(L"mdfourier.exe -r \"%s\" -c \"%s\" -w %c -o %c", m_Reference, m_TargetFile, window, adjust);
+	command.Format(L"mdfourier.exe -r \"%s\" -c \"%s\" -w %c -o %c", m_Reference, m_ComparisonFile, window, adjust);
 
 	if(m_AlignFFTW.GetCheck() == BST_CHECKED)
 		command += " -z";
@@ -340,7 +340,7 @@ void CMDFourierGUIDlg::ManageWindows(BOOL Enable)
 {
 	m_ExecuteBttn.EnableWindow(Enable);
 	m_ReferenceFileBttn.EnableWindow(Enable);
-	m_TargetFileBttn.EnableWindow(Enable);
+	m_ComparisonFileBttn.EnableWindow(Enable);
 	m_WindowTypeSelect.EnableWindow(Enable);
 	m_CurveAdjustSelect.EnableWindow(Enable);
 	m_AlignFFTW.EnableWindow(Enable);

@@ -113,6 +113,9 @@ void CleanParameters(parameters *config)
 	config->types.pulseCount = 10;
 	config->types.typeArray = NULL;
 	config->types.typeCount = 0;
+
+	config->model_plan = NULL;
+	config->reverse_plan = NULL;
 }
 
 int commandline(int argc , char *argv[], parameters *config)

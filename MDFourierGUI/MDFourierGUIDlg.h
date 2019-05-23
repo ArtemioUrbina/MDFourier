@@ -35,18 +35,18 @@ public:
 protected:
 	HICON m_hIcon;
 
-	CString m_TargetFile;
+	CString m_ComparisonFile;
 	CString m_Reference;
 	CString m_Output;
 	CString resultsFolder;
 
 	CStatic m_ReferenceLbl;
-	CStatic m_TargetLbl;
+	CStatic m_ComparisonLbl;
 	CEdit	m_OutputCtrl;
 	CButton m_OpenResultsBttn;
 	CButton m_ExecuteBttn;
 	CButton m_ReferenceFileBttn;
-	CButton m_TargetFileBttn;
+	CButton m_ComparisonFileBttn;
 	CButton m_AlignFFTW;
 
 	CComboBox m_WindowTypeSelect;

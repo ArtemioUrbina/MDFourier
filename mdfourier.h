@@ -262,6 +262,9 @@ typedef struct parameters_st {
 	int				ZeroPad;
 	int				timeDomainNormalize;
 
+	fftw_plan		model_plan;
+	fftw_plan		reverse_plan;
+
 #ifdef MDWAVE
 	int				maxBlanked;
 	int				invert;

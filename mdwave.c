@@ -39,7 +39,7 @@
 
 int LoadFile(FILE *file, AudioSignal *Signal, parameters *config, char *fileName);
 int ProcessFile(AudioSignal *Signal, parameters *config);
-double ProcessSamples(AudioBlocks *AudioArray, int16_t *samples, size_t size, long samplerate, double *window, parameters *config, int reverse, AudioSignal *Signal);
+int ProcessSamples(AudioBlocks *AudioArray, int16_t *samples, size_t size, long samplerate, double *window, parameters *config, int reverse, AudioSignal *Signal);
 int commandline_wave(int argc , char *argv[], parameters *config);
 void PrintUsage_wave();
 void Header_wave(int log);
@@ -354,7 +354,8 @@ int ProcessFile(AudioSignal *Signal, parameters *config)
 		Signal->Blocks[i].index = GetBlockSubIndex(config, i);
 		Signal->Blocks[i].type = GetBlockType(config, i);
 
-		ProcessSamples(&Signal->Blocks[i], (int16_t*)buffer, (loadedBlockSize-difference)/2, Signal->header.SamplesPerSec, windowUsed, config, 0, Signal);
+		if(!ProcessSamples(&Signal->Blocks[i], (int16_t*)buffer, (loadedBlockSize-difference)/2, Signal->header.SamplesPerSec, windowUsed, config, 0, Signal))
+			return 0;
 
 		if(config->chunks)
 		{
@@ -453,7 +454,8 @@ int ProcessFile(AudioSignal *Signal, parameters *config)
 
 		// now rewrite array
 		if(GetBlockType(config, i) > TYPE_CONTROL)  // Ignore Controls!
-			ProcessSamples(&Signal->Blocks[i], (int16_t*)buffer, (loadedBlockSize-difference)/2, Signal->header.SamplesPerSec, windowUsed, config, 1, Signal);
+			if(!ProcessSamples(&Signal->Blocks[i], (int16_t*)buffer, (loadedBlockSize-difference)/2, Signal->header.SamplesPerSec, windowUsed, config, 1, Signal))
+				return 0;
 
 		// Now rewrite global
 		memcpy(Signal->Samples + pos, buffer, loadedBlockSize);
@@ -540,10 +542,10 @@ int ProcessFile(AudioSignal *Signal, parameters *config)
 	free(buffer);
 	freeWindows(&windows);
 
-	return i;
+	return 1;
 }
 
-double ProcessSamples(AudioBlocks *AudioArray, int16_t *samples, size_t size, long samplerate, double *window, parameters *config, int reverse, AudioSignal *Signal)
+int ProcessSamples(AudioBlocks *AudioArray, int16_t *samples, size_t size, long samplerate, double *window, parameters *config, int reverse, AudioSignal *Signal)
 {
 	fftw_plan		p = NULL, pBack = NULL;
 	long		  	stereoSignalSize = 0, blanked = 0;	
@@ -588,9 +590,49 @@ double ProcessSamples(AudioBlocks *AudioArray, int16_t *samples, size_t size, lo
 	memset(signal, 0, sizeof(double)*(monoSignalSize+1));
 	memset(spectrum, 0, sizeof(fftw_complex)*(monoSignalSize/2+1));
 
-	p = fftw_plan_dft_r2c_1d(monoSignalSize, signal, spectrum, FFTW_MEASURE);
+	if(!config->model_plan)
+	{
+		config->model_plan = fftw_plan_dft_r2c_1d(monoSignalSize, signal, spectrum, FFTW_MEASURE);
+		if(!config->model_plan)
+		{
+			logmsg("FFTW failed to create FFTW_MEASURE plan\n");
+			free(signal);
+			signal = NULL;
+			return 0;
+		}
+	}
+
+	p = fftw_plan_dft_r2c_1d(monoSignalSize, signal, spectrum, FFTW_WISDOM_ONLY);
+	if(!p)
+	{
+		logmsg("FFTW failed to create FFTW_WISDOM_ONLY plan\n");
+		free(signal);
+		signal = NULL;
+		return 0;
+	}
+
 	if(reverse)
-		pBack = fftw_plan_dft_c2r_1d(monoSignalSize, spectrum, signal, FFTW_MEASURE);
+	{
+		if(!config->reverse_plan)
+		{
+			config->reverse_plan = fftw_plan_dft_c2r_1d(monoSignalSize, spectrum, signal, FFTW_MEASURE);
+			if(!config->reverse_plan)
+			{
+				logmsg("FFTW failed to create FFTW_MEASURE plan\n");
+				free(signal);
+				signal = NULL;
+				return 0;
+			}
+		}
+		pBack = fftw_plan_dft_c2r_1d(monoSignalSize, spectrum, signal, FFTW_WISDOM_ONLY);
+		if(!pBack)
+		{
+			logmsg("FFTW failed to create FFTW_WISDOM_ONLY plan\n");
+			free(signal);
+			signal = NULL;
+			return 0;
+		}
+	}
 
 	for(i = 0; i < monoSignalSize - zeropadding; i++)
 	{
@@ -789,7 +831,7 @@ double ProcessSamples(AudioBlocks *AudioArray, int16_t *samples, size_t size, lo
 	AudioArray->fftwValues.size = monoSignalSize;
 	AudioArray->fftwValues.seconds = seconds;
 
-	return(0);
+	return(1);
 }
 
 int commandline_wave(int argc , char *argv[], parameters *config)
