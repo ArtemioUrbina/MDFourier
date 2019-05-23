@@ -84,6 +84,12 @@ typedef struct max_vol {
 	double		framerate;
 } MaximumVolume;
 
+typedef struct max_mag {
+	double		magnitude;
+	double		hertz;
+	long int	block;
+} MaximumMagnitude;
+
 typedef struct abt_st {
 	char		typeName[128];
 	int 		type;
@@ -254,6 +260,7 @@ typedef struct parameters_st {
 	int				debugSync;
 	int				reverseCompare;
 	int				ZeroPad;
+	int				timeDomainNormalize;
 
 #ifdef MDWAVE
 	int				maxBlanked;

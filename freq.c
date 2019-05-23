@@ -94,7 +94,7 @@ void CleanAudio(AudioSignal *Signal, parameters *config)
 			{
 				Signal->Blocks[n].freq[i].hertz = 0;
 				Signal->Blocks[n].freq[i].magnitude = 0;
-				Signal->Blocks[n].freq[i].amplitude = 0;
+				Signal->Blocks[n].freq[i].amplitude = NO_AMPLITUDE;
 				Signal->Blocks[n].freq[i].phase = 0;
 				Signal->Blocks[n].freq[i].matched = 0;
 			}
@@ -831,9 +831,7 @@ void GlobalNormalize(AudioSignal *Signal, parameters *config)
 
 			Signal->Blocks[block].freq[i].amplitude = 
 				CalculateAmplitude(Signal->Blocks[block].freq[i].magnitude, MaxMagnitude);
-			Signal->Blocks[block].freq[i].magnitude = 
-				Signal->Blocks[block].freq[i].magnitude*100.0/MaxMagnitude;
-
+			
 			if(Signal->Blocks[block].freq[i].amplitude < MinAmplitude)
 				MinAmplitude = Signal->Blocks[block].freq[i].amplitude;
 		}
@@ -866,7 +864,8 @@ void FindMaxMagnitude(AudioSignal *Signal, parameters *config)
 		}
 	}
 
-	Signal->MaxMagnitude = MaxMagnitude;
+	if(MaxBlock != -1)
+		Signal->MaxMagnitude = MaxMagnitude;
 
 	if(config->verbose)
 	{
@@ -893,8 +892,6 @@ void CalculateAmplitudes(AudioSignal *Signal, double ZeroDbMagReference, paramet
 
 			Signal->Blocks[block].freq[i].amplitude = 
 				CalculateAmplitude(Signal->Blocks[block].freq[i].magnitude, ZeroDbMagReference);
-			Signal->Blocks[block].freq[i].magnitude = 
-				Signal->Blocks[block].freq[i].magnitude*100.0/ZeroDbMagReference;
 
 			if(Signal->Blocks[block].freq[i].amplitude < MinAmplitude)
 				MinAmplitude = Signal->Blocks[block].freq[i].amplitude;
@@ -1022,15 +1019,12 @@ void FillFrequencyStructures(AudioBlocks *AudioArray, parameters *config)
 
 	for(i = startBin; i < endBin; i++)
 	{
-		double magnitude, previous;
 		int    j = 0;
-		double Hertz;
+		double Hertz, magnitude, previous = 1.e30;
 
 		magnitude = CalculateMagnitude(AudioArray->fftwValues.spectrum[i], size);
 		Hertz = CalculateFrequency(i, boxsize, config->ZeroPad);
 
-		previous = 1.e30;
-		//if(!IsCRTNoise(Hertz))
 		if(Hertz)
 		{
 			for(j = 0; j < config->MaxFreq; j++)
@@ -1054,22 +1048,6 @@ void FillFrequencyStructures(AudioBlocks *AudioArray, parameters *config)
 			}
 		}
 	}
-
-	/*
-	// Used to print out frequency bins, debugging if needed
-	// varies due to block frame size and console frame rate
-	if(config->verbose)
-	{
-		OutputFileOnlyStart();
-
-		logmsg("Bins s: %ld e: %ld b: %g size: %g\n",
-				startBin, endBin, boxsize, size);
-		for(i = startBin; i < endBin; i++)
-			logmsg("%g\n", CalculateFrequency(i, boxsize, config->ZeroPad);
-
-		OutputFileOnlyEnd();
-	}
-	*/
 }
 
 void PrintComparedBlocks(AudioBlocks *ReferenceArray, AudioBlocks *ComparedArray, parameters *config, AudioSignal *Signal)

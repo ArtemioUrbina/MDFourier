@@ -48,10 +48,15 @@ void CleanUp(AudioSignal **ReferenceSignal, AudioSignal **TestSignal, parameters
 void CloseFiles(FILE **ref, FILE **comp);
 void NormalizeAudio(AudioSignal *Signal, parameters *config);
 
-
+// Time domain
 MaximumVolume FindMaxVolume(AudioSignal *Signal, parameters *config);
 void NormalizeAudioByRatio(AudioSignal *Signal, double ratio, parameters *config);
 int16_t FindLocalMaximumAroundSample(AudioSignal *Signal, MaximumVolume refMax, parameters *config);
+
+// Frequency domain
+void NormalizeMagnitudesByRatio(AudioSignal *Signal, double ratio, parameters *config);
+MaximumMagnitude FindMaxMagnitudeBlock(AudioSignal *Signal, parameters *config);
+double FindLocalMaximumInBlock(AudioSignal *Signal, MaximumMagnitude refMax, parameters *config);
 
 int main(int argc , char *argv[])
 {
@@ -134,9 +139,6 @@ int LoadAndProcessAudioFiles(AudioSignal **ReferenceSignal, AudioSignal **TestSi
 	FILE				*reference = NULL;
 	FILE				*compare = NULL;
 	double				ZeroDbMagnitudeRef = 0;
-	MaximumVolume		MaxRef, MaxTar;
-	int16_t				TargetLocalMaximum = 0;
-	double				ratioTar = 0, ratioRef = 0;
 
 	reference = fopen(config->referenceFile, "rb");
 	if(!reference)
@@ -187,42 +189,54 @@ int LoadAndProcessAudioFiles(AudioSignal **ReferenceSignal, AudioSignal **TestSi
 		return 0;
 	}
 
-	// Find Normalization factors
-	MaxRef = FindMaxVolume(*ReferenceSignal, config);
-	if(!MaxRef.magnitude)
+	/* Although dithering woudl be better, theer has been no need */
+	/* We go with time domain normalization because different bin */
+	/* size caused by different frame rates cghanges the relative */
+	/* volumes, this can be fixed by using zero paddng by default */
+	/* but that seems to be less favored */
+	if(config->timeDomainNormalize)
 	{
-		logmsg("Could not detect Max volume in Reference File for normalization\n");
-		CloseFiles(&reference, &compare);
-		CleanUp(ReferenceSignal, TestSignal, config);
-		return 0;
+		MaximumVolume		MaxRef, MaxTar;
+		double				TargetLocalMaximum = 0;
+		double				ratioTar = 0, ratioRef = 0;
+
+		// Find Normalization factors
+		MaxRef = FindMaxVolume(*ReferenceSignal, config);
+		if(!MaxRef.magnitude)
+		{
+			logmsg("Could not detect Max volume in Reference File for normalization\n");
+			CloseFiles(&reference, &compare);
+			CleanUp(ReferenceSignal, TestSignal, config);
+			return 0;
+		}
+		MaxTar = FindMaxVolume(*TestSignal, config);
+		if(!MaxTar.magnitude)
+		{
+			logmsg("Could not detect Max volume in Target file for normalization\n");
+			CloseFiles(&reference, &compare);
+			CleanUp(ReferenceSignal, TestSignal, config);
+			return 0;
+		}
+	
+		TargetLocalMaximum = FindLocalMaximumAroundSample(*TestSignal, MaxRef, config);
+		if(!TargetLocalMaximum)
+		{
+			logmsg("Could not detect Max volume in Target file for normalization\n");
+			CloseFiles(&reference, &compare);
+			CleanUp(ReferenceSignal, TestSignal, config);
+			return 0;
+		}
+	
+		ratioTar = (double)0x7FFF/(double)MaxTar.magnitude;
+		ratioRef = ((double)TargetLocalMaximum/(double)MaxRef.magnitude)*ratioTar;
+	
+		NormalizeAudioByRatio(*ReferenceSignal, ratioRef, config);
+		NormalizeAudioByRatio(*TestSignal, ratioTar, config);
+
+		// Uncomment if you want to check the WAV files as normalized
+		//SaveWAVEChunk(*ReferenceSignal, (*ReferenceSignal)->Samples, 0, (*ReferenceSignal)->header.Subchunk2Size, config); 
+		//SaveWAVEChunk(*TestSignal, (*TestSignal)->Samples, 0, (*TestSignal)->header.Subchunk2Size, config); 
 	}
-	MaxTar = FindMaxVolume(*TestSignal, config);
-	if(!MaxTar.magnitude)
-	{
-		logmsg("Could not detect Max volume in Target file for normalization\n");
-		CloseFiles(&reference, &compare);
-		CleanUp(ReferenceSignal, TestSignal, config);
-		return 0;
-	}
-
-	TargetLocalMaximum = FindLocalMaximumAroundSample(*TestSignal, MaxRef, config);
-	if(!TargetLocalMaximum)
-	{
-		logmsg("Could not detect Max volume in Target file for normalization\n");
-		CloseFiles(&reference, &compare);
-		CleanUp(ReferenceSignal, TestSignal, config);
-		return 0;
-	}
-
-	ratioTar = (double)0x7FFF/(double)MaxTar.magnitude;
-	ratioRef = ((double)TargetLocalMaximum/(double)MaxRef.magnitude)*ratioTar;
-
-	NormalizeAudioByRatio(*ReferenceSignal, ratioRef, config);
-	NormalizeAudioByRatio(*TestSignal, ratioTar, config);
-
-	// Uncomment if you want to check the WAV files as normalized
-	//SaveWAVEChunk(*ReferenceSignal, (*ReferenceSignal)->Samples, 0, (*ReferenceSignal)->header.Subchunk2Size, config); 
-	//SaveWAVEChunk(*TestSignal, (*TestSignal)->Samples, 0, (*TestSignal)->header.Subchunk2Size, config); 
 
 	if(!CompareWAVCharacteristics(*ReferenceSignal, *TestSignal, config))
 	{
@@ -245,6 +259,44 @@ int LoadAndProcessAudioFiles(AudioSignal **ReferenceSignal, AudioSignal **TestSi
 		return 0;
 	}
 
+	if(!config->timeDomainNormalize)
+	{
+		MaximumMagnitude	MaxRef, MaxTar;
+		double				TargetLocalMaximum = 0;
+		double				ratioRef = 0;
+
+		// Find Normalization factors
+		MaxRef = FindMaxMagnitudeBlock(*ReferenceSignal, config);
+		if(!MaxRef.magnitude)
+		{
+			logmsg("Could not detect Max volume in Reference File for normalization\n");
+			CloseFiles(&reference, &compare);
+			CleanUp(ReferenceSignal, TestSignal, config);
+			return 0;
+		}
+		MaxTar = FindMaxMagnitudeBlock(*TestSignal, config);
+		if(!MaxTar.magnitude)
+		{
+			logmsg("Could not detect Max volume in Target file for normalization\n");
+			CloseFiles(&reference, &compare);
+			CleanUp(ReferenceSignal, TestSignal, config);
+			return 0;
+		}
+	
+		TargetLocalMaximum = FindLocalMaximumInBlock(*TestSignal, MaxRef, config);
+		if(!TargetLocalMaximum)
+		{
+			logmsg("Could not detect Max volume in Target file for normalization\n");
+			CloseFiles(&reference, &compare);
+			CleanUp(ReferenceSignal, TestSignal, config);
+			return 0;
+		}
+	
+		ratioRef = TargetLocalMaximum/MaxRef.magnitude;
+	
+		NormalizeMagnitudesByRatio(*ReferenceSignal, ratioRef, config);
+	}
+	
 	logmsg("* Processing Signal Frequencies and Amplitudes\n");
 	if((*ReferenceSignal)->MaxMagnitude < (*TestSignal)->MaxMagnitude)
 	{
@@ -546,9 +598,8 @@ int ProcessFile(AudioSignal *Signal, parameters *config)
 		i++;
 	}
 
-	/* Global Normalization by default */
-	//GlobalNormalize(Signal, config);
-	FindMaxMagnitude(Signal, config);
+	if(config->timeDomainNormalize)
+		FindMaxMagnitude(Signal, config);
 
 	if(config->clock)
 	{
@@ -879,6 +930,8 @@ double CompareAudioBlocks(AudioSignal *ReferenceSignal, AudioSignal *TestSignal,
 	return 0;
 }
 
+/* Time domain normalization functions */
+
 // this is never used
 void NormalizeAudio(AudioSignal *Signal, parameters *config)
 {
@@ -910,6 +963,7 @@ void NormalizeAudio(AudioSignal *Signal, parameters *config)
 		samples[i] = (int16_t)((double)samples[i])*ratio;
 }
 
+// These work in the time domain
 void NormalizeAudioByRatio(AudioSignal *Signal, double ratio, parameters *config)
 {
 	long int 	i = 0, start = 0, end = 0;
@@ -1001,7 +1055,7 @@ int16_t FindLocalMaximumAroundSample(AudioSignal *Signal, MaximumVolume refMax, 
 	if(end >= pos + Signal->header.SamplesPerSec/20)
 		end = pos + Signal->header.SamplesPerSec/20;
 
-	samples = (int16_t*)Signal->Samples;		
+	samples = (int16_t*)Signal->Samples;
 	for(i = start; i < end; i++)
 	{
 		int16_t sample;
@@ -1012,4 +1066,95 @@ int16_t FindLocalMaximumAroundSample(AudioSignal *Signal, MaximumVolume refMax, 
 	}
 
 	return MaxLocalSample;
+}
+
+/**********************************************************/
+// Frequency domain normalization functions
+
+void NormalizeMagnitudesByRatio(AudioSignal *Signal, double ratio, parameters *config)
+{
+	if(!Signal)
+		return;
+
+	if(!ratio)
+		return;
+
+	for(int block = 0; block < config->types.totalChunks; block++)
+	{
+		for(int i = 0; i < config->MaxFreq; i++)
+		{
+			if(!Signal->Blocks[block].freq[i].hertz)
+				break;
+
+			Signal->Blocks[block].freq[i].magnitude *= ratio;
+		}
+	}
+	Signal->MaxMagnitude *= ratio;
+}
+
+MaximumMagnitude FindMaxMagnitudeBlock(AudioSignal *Signal, parameters *config)
+{
+	MaximumMagnitude	MaxMag;
+
+	MaxMag.magnitude = 0;
+	MaxMag.hertz = 0;
+	MaxMag.block = -1;
+
+	if(!Signal)
+		return MaxMag;
+
+	// Find global peak
+	for(int block = 0; block < config->types.totalChunks; block++)
+	{
+		for(int i = 0; i < config->MaxFreq; i++)
+		{
+			if(!Signal->Blocks[block].freq[i].hertz)
+				break;
+			if(Signal->Blocks[block].freq[i].magnitude > MaxMag.magnitude)
+			{
+				MaxMag.magnitude = Signal->Blocks[block].freq[i].magnitude;
+				MaxMag.hertz = Signal->Blocks[block].freq[i].hertz;
+				MaxMag.block = block;
+			}
+		}
+	}
+
+	if(MaxMag.block != -1)
+		Signal->MaxMagnitude = MaxMag.magnitude;
+
+	if(config->verbose)
+	{
+		if(MaxMag.block != -1)
+			logmsg(" - Max Volume found in %s# %d (%d) at %g Hz with %g magnitude\n", 
+					GetBlockName(config, MaxMag.block), GetBlockSubIndex(config, MaxMag.block),
+					MaxMag.block, MaxMag.hertz, MaxMag.magnitude);
+	}
+
+	return MaxMag;
+}
+
+double FindLocalMaximumInBlock(AudioSignal *Signal, MaximumMagnitude refMax, parameters *config)
+{
+	double		highest = 0;
+
+	if(!Signal)
+		return highest;
+
+	for(int i = 0; i < config->MaxFreq; i++)
+	{
+		double magnitude = 0;
+
+		magnitude = Signal->Blocks[refMax.block].freq[i].magnitude;
+		if(!Signal->Blocks[refMax.block].freq[i].hertz)
+			break;
+		if(Signal->Blocks[refMax.block].freq[i].hertz == refMax.hertz)
+		{
+			logmsg(" - Target Local Maximum %g Hz with %g magnitude at %d [%d]\n",
+					refMax.hertz, magnitude, refMax.block, i);
+			return (magnitude);
+		}
+		if(magnitude > highest)
+			highest = magnitude;
+	}
+	return highest;
 }

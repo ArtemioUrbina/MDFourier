@@ -91,6 +91,7 @@ void CleanParameters(parameters *config)
 	/* Non exposed */
 	config->logScale = 1;
 	config->reverseCompare = 0;
+	config->timeDomainNormalize = 1;
 
 	config->Differences.BlockDiffArray = NULL;
 	config->Differences.cntFreqAudioDiff = 0;
