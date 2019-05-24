@@ -321,14 +321,7 @@ int ProcessFile(AudioSignal *Signal, parameters *config)
 	if(GetFirstSilenceIndex(config) != NO_INDEX)
 		Signal->hasFloor = 1;
 
-	if(Signal->framerate != GetPlatformMSPerFrame(config))
-	{
-		config->smallerFramerate = 
-				GetLowerFrameRate(Signal->framerate, 
-									GetPlatformMSPerFrame(config));
-		logmsg("\n = Different frame rate found, compensating to %g=\n", 
-				config->smallerFramerate);
-	}
+	CompareFrameRates(Signal->framerate, GetPlatformMSPerFrame(config), config);
 
 	while(i < config->types.totalChunks)
 	{

@@ -38,7 +38,6 @@
 
 int LoadAndProcessAudioFiles(AudioSignal **ReferenceSignal, AudioSignal **ComparisonSignal, parameters *config);
 int LoadFile(FILE *file, AudioSignal *Signal, parameters *config, char *fileName);
-int CompareWAVCharacteristics(AudioSignal *ReferenceSignal, AudioSignal *ComparisonSignal, parameters *config);
 int ProcessFile(AudioSignal *Signal, parameters *config);
 void PrepareSignal(AudioSignal *Signal, double ZeroDbMagReference, parameters *config);
 int ExecuteDFFT(AudioBlocks *AudioArray, int16_t *samples, size_t size, long samplerate, double *window, parameters *config);
@@ -252,12 +251,8 @@ int LoadAndProcessAudioFiles(AudioSignal **ReferenceSignal, AudioSignal **Compar
 		//SaveWAVEChunk(NULL, *ComparisonSignal, (*ComparisonSignal)->Samples, 0, (*ComparisonSignal)->header.Subchunk2Size, config); 
 	}
 
-	if(!CompareWAVCharacteristics(*ReferenceSignal, *ComparisonSignal, config))
-	{
-		CleanUp(ReferenceSignal, ComparisonSignal, config);
-		return 0;
-	}
-
+	CompareFrameRates((*ReferenceSignal)->framerate, (*ComparisonSignal)->framerate, config);
+	
 	logmsg("\n* Executing Discrete Fast Fourier Transforms on 'Reference' file\n");
 	if(!ProcessFile(*ReferenceSignal, config))
 	{
@@ -520,24 +515,6 @@ int LoadFile(FILE *file, AudioSignal *Signal, parameters *config, char *fileName
 
 	sprintf(Signal->SourceFile, "%s", fileName);
 
-	return 1;
-}
-
-int CompareWAVCharacteristics(AudioSignal *ReferenceSignal, AudioSignal *ComparisonSignal, parameters *config)
-{
-	if(!ReferenceSignal)
-		return 0;
-	if(!ComparisonSignal)
-		return 0;
-
-	if(ReferenceSignal->framerate != ComparisonSignal->framerate)
-	{
-		config->smallerFramerate = 
-				GetLowerFrameRate(ReferenceSignal->framerate, 
-									ComparisonSignal->framerate);
-		logmsg("\n= Different frame rates found, compensating to %g =\n", 
-				config->smallerFramerate);
-	}
 	return 1;
 }
 

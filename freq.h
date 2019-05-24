@@ -75,6 +75,7 @@ void CalculateAmplitudes(AudioSignal *Signal, double ZeroDbMagReference, paramet
 void FindFloor(AudioSignal *Signal, parameters *config);
 int IsCRTNoise(double freq);
 double GetLowerFrameRate(double framerateA, double framerateB);
+void CompareFrameRates(double framerate1, double framerate2, parameters *config);
 
 void PrintComparedBlocks(AudioBlocks *ReferenceArray, AudioBlocks *ComparedArray, parameters *config, AudioSignal *Signal);
 

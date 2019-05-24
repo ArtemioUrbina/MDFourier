@@ -438,6 +438,18 @@ double GetLowerFrameRate(double framerateA, double framerateB)
 	return framerateA;
 }
 
+void CompareFrameRates(double framerate1, double framerate2, parameters *config)
+{
+	if(framerate1 != framerate2)
+	{
+		config->smallerFramerate = 
+				GetLowerFrameRate(framerate1, 
+									framerate2);
+		logmsg("\n= Different frame rates found, compensating to %g =\n", 
+				config->smallerFramerate);
+	}
+}
+
 long int GetByteSizeDifferenceByFrameRate(double framerate, long int frames, long int samplerate, parameters *config)
 {
 	long int difference = 0;
