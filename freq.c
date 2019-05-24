@@ -178,8 +178,11 @@ void ReleaseAudioBlockStructure(parameters *config)
 		config->types.typeArray = NULL;
 		config->types.typeCount = 0;
 	}
+
 	if(config->model_plan)
 	{
+		fftw_export_wisdom_to_filename("wisdom.fftw");
+
 		fftw_destroy_plan(config->model_plan);
 		config->model_plan = NULL;
 	}
@@ -187,6 +190,11 @@ void ReleaseAudioBlockStructure(parameters *config)
 	{
 		fftw_destroy_plan(config->reverse_plan);
 		config->reverse_plan = NULL;
+	}
+	if(config->sync_plan)
+	{
+		fftw_destroy_plan(config->sync_plan);
+		config->sync_plan = NULL;
 	}
 }
 
@@ -1240,3 +1248,23 @@ long int GetZeroPadValues(long int *monoSignalSize, double *seconds, long int sa
 	}
 	return zeropadding;
 }
+
+double CalculateFrameRate(AudioSignal *Signal, parameters *config)
+{
+	double framerate = 0, endOffset = 0, startOffset = 0, samplerate = 0;
+
+	startOffset = Signal->startOffset;
+	endOffset = Signal->endOffset;
+	samplerate = Signal->header.SamplesPerSec;
+
+	framerate = (endOffset-startOffset)*1000.0/(samplerate*4.0*(double)GetLastSyncFrameOffset(Signal->header, config));
+	framerate = RoundFloat(framerate, 3);
+
+	return framerate;
+}
+
+double CalculateScanRate(AudioSignal *Signal)
+{
+	return(RoundFloat(1000.0/Signal->framerate, 4));
+}
+

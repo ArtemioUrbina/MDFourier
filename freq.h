@@ -90,6 +90,8 @@ double CalculateMagnitude(fftw_complex value, long int size);
 double CalculateAmplitude(double magnitude, double MaxMagnitude);
 double CalculatePhase(fftw_complex value);
 double CalculateFrequency(double boxindex, double boxsize, int HertzAligned);
+double CalculateFrameRate(AudioSignal *Signal, parameters *config);
+double CalculateScanRate(AudioSignal *Signal);
 
 long int GetZeroPadValues(long int *monoSignalSize, double *seconds, long int samplerate);
 

@@ -40,7 +40,6 @@ int LoadAndProcessAudioFiles(AudioSignal **ReferenceSignal, AudioSignal **Compar
 int LoadFile(FILE *file, AudioSignal *Signal, parameters *config, char *fileName);
 int CompareWAVCharacteristics(AudioSignal *ReferenceSignal, AudioSignal *ComparisonSignal, parameters *config);
 int ProcessFile(AudioSignal *Signal, parameters *config);
-int SaveWAVEChunk(AudioSignal *Signal, char *buffer, long int block, long int loadedBlockSize, parameters *config);
 void PrepareSignal(AudioSignal *Signal, double ZeroDbMagReference, parameters *config);
 int ExecuteDFFT(AudioBlocks *AudioArray, int16_t *samples, size_t size, long samplerate, double *window, parameters *config);
 double CompareAudioBlocks(AudioSignal *ReferenceSignal, AudioSignal *ComparisonSignal, parameters *config);
@@ -249,8 +248,8 @@ int LoadAndProcessAudioFiles(AudioSignal **ReferenceSignal, AudioSignal **Compar
 		NormalizeAudioByRatio(*ComparisonSignal, ratioTar, config);
 
 		// Uncomment if you want to check the WAV files as normalized
-		//SaveWAVEChunk(*ReferenceSignal, (*ReferenceSignal)->Samples, 0, (*ReferenceSignal)->header.Subchunk2Size, config); 
-		//SaveWAVEChunk(*ComparisonSignal, (*ComparisonSignal)->Samples, 0, (*ComparisonSignal)->header.Subchunk2Size, config); 
+		//SaveWAVEChunk(NULL, *ReferenceSignal, (*ReferenceSignal)->Samples, 0, (*ReferenceSignal)->header.Subchunk2Size, config); 
+		//SaveWAVEChunk(NULL, *ComparisonSignal, (*ComparisonSignal)->Samples, 0, (*ComparisonSignal)->header.Subchunk2Size, config); 
 	}
 
 	if(!CompareWAVCharacteristics(*ReferenceSignal, *ComparisonSignal, config))
@@ -490,11 +489,9 @@ int LoadFile(FILE *file, AudioSignal *Signal, parameters *config, char *fileName
 			logmsg(" %gs [%ld bytes]\n", 
 				BytesToSeconds(Signal->header.SamplesPerSec, Signal->endOffset),
 				Signal->endOffset);
-			Signal->framerate = (double)(Signal->endOffset-Signal->startOffset)*1000/((double)Signal->header.SamplesPerSec*4*
-								GetLastSyncFrameOffset(Signal->header, config));
-			Signal->framerate = RoundFloat(Signal->framerate, 3);
+			Signal->framerate = CalculateFrameRate(Signal, config);
 			logmsg(" - Detected %g hz video signal (%gms per frame) from WAV file\n", 
-						RoundFloat(1000.0/Signal->framerate, 3), Signal->framerate);
+						CalculateScanRate(Signal), Signal->framerate);
 		}
 		else
 		{
@@ -538,6 +535,8 @@ int CompareWAVCharacteristics(AudioSignal *ReferenceSignal, AudioSignal *Compari
 		config->smallerFramerate = 
 				GetLowerFrameRate(ReferenceSignal->framerate, 
 									ComparisonSignal->framerate);
+		logmsg("\n= Different frame rates found, compensating to %g =\n", 
+				config->smallerFramerate);
 	}
 	return 1;
 }
@@ -605,7 +604,7 @@ int ProcessFile(AudioSignal *Signal, parameters *config)
 		if(!ExecuteDFFT(&Signal->Blocks[i], (int16_t*)buffer, (loadedBlockSize-difference)/2, Signal->header.SamplesPerSec, windowUsed, config))
 			return 0;
 		// MDWAVE exists for this, but just in case it is ever needed within MDFourier
-		//SaveWAVEChunk(Signal, buffer, i, loadedBlockSize, config);
+		//SaveWAVEChunk(NULL, Signal, buffer, i, loadedBlockSize, config);
 
 		FillFrequencyStructures(&Signal->Blocks[i], config);
 
@@ -638,42 +637,6 @@ void PrepareSignal(AudioSignal *Signal, double ZeroDbMagReference, parameters *c
 	/* analyze silence floor if available */
 	if(!config->ignoreFloor && Signal->hasFloor)
 		FindFloor(Signal, config);
-}
-
-int SaveWAVEChunk(AudioSignal *Signal, char *buffer, long int block, long int loadedBlockSize, parameters *config)
-{
-	FILE 		*chunk = NULL;
-	wav_hdr		cheader;
-	char		Name[2048], FName[4096];
-
-	cheader = Signal->header;
-	sprintf(Name, "%03ld_SRC_%s_%03d_%s", 
-		block, GetBlockName(config, block), GetBlockSubIndex(config, block), 
-		basename(Signal->SourceFile));
-	ComposeFileName(FName, Name, ".wav", config);
-	chunk = fopen(FName, "wb");
-	if(!chunk)
-	{
-		logmsg("\tCould not open chunk file %s\n", FName);
-		return 0;
-	}
-
-	cheader.ChunkSize = loadedBlockSize+36;
-	cheader.Subchunk2Size = loadedBlockSize;
-	if(fwrite(&cheader, 1, sizeof(wav_hdr), chunk) != sizeof(wav_hdr))
-	{
-		logmsg("\tCould not write chunk header\n");
-		return(0);
-	}
-
-	if(fwrite(buffer, 1, sizeof(char)*loadedBlockSize, chunk) != sizeof(char)*loadedBlockSize)
-	{
-		logmsg("\tCould not write samples to chunk file\n");
-		return (0);
-	}
-
-	fclose(chunk);
-	return 1;
 }
 
 int ExecuteDFFT(AudioBlocks *AudioArray, int16_t *samples, size_t size, long samplerate, double *window, parameters *config)
@@ -713,7 +676,7 @@ int ExecuteDFFT(AudioBlocks *AudioArray, int16_t *samples, size_t size, long sam
 
 	if(!config->model_plan)
 	{
-		config->model_plan = fftw_plan_dft_r2c_1d(monoSignalSize, signal, spectrum, FFTW_MEASURE  );
+		config->model_plan = fftw_plan_dft_r2c_1d(monoSignalSize, signal, spectrum, FFTW_MEASURE);
 		if(!config->model_plan)
 		{
 			logmsg("FFTW failed to create FFTW_MEASURE plan\n");
@@ -723,10 +686,10 @@ int ExecuteDFFT(AudioBlocks *AudioArray, int16_t *samples, size_t size, long sam
 		}
 	}
 
-	p = fftw_plan_dft_r2c_1d(monoSignalSize, signal, spectrum, FFTW_WISDOM_ONLY);
+	p = fftw_plan_dft_r2c_1d(monoSignalSize, signal, spectrum, FFTW_MEASURE);
 	if(!p)
 	{
-		logmsg("FFTW failed to create FFTW_WISDOM_ONLY plan\n");
+		logmsg("FFTW failed to create FFTW_MEASURE plan\n");
 		free(signal);
 		signal = NULL;
 		return 0;
@@ -750,6 +713,7 @@ int ExecuteDFFT(AudioBlocks *AudioArray, int16_t *samples, size_t size, long sam
 
 	fftw_execute(p); 
 	fftw_destroy_plan(p);
+	p = NULL;
 
 	free(signal);
 	signal = NULL;

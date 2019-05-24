@@ -28,7 +28,7 @@
  */
 
 #define MDWAVE
-#define MDWVERSION "0.90"
+#define MDWVERSION "0.91"
 
 #include "mdfourier.h"
 #include "log.h"
@@ -247,11 +247,9 @@ int LoadFile(FILE *file, AudioSignal *Signal, parameters *config, char *fileName
 			logmsg(" %gs [%ld bytes]\n", 
 				BytesToSeconds(Signal->header.SamplesPerSec, Signal->endOffset),
 				Signal->endOffset);
-			Signal->framerate = (double)(Signal->endOffset-Signal->startOffset)*1000/((double)Signal->header.SamplesPerSec*4*
-								GetLastSyncFrameOffset(Signal->header, config));
-			Signal->framerate = RoundFloat(Signal->framerate, 2);
+			Signal->framerate = CalculateFrameRate(Signal, config);
 			logmsg(" - Detected %g hz video signal (%gms per frame) from WAV file\n", 
-						RoundFloat(1000.0/Signal->framerate, 2), Signal->framerate);
+						CalculateScanRate(Signal), Signal->framerate);
 		}
 		else
 		{
@@ -328,6 +326,8 @@ int ProcessFile(AudioSignal *Signal, parameters *config)
 		config->smallerFramerate = 
 				GetLowerFrameRate(Signal->framerate, 
 									GetPlatformMSPerFrame(config));
+		logmsg("\n = Different frame rate found, compensating to %g=\n", 
+				config->smallerFramerate);
 	}
 
 	while(i < config->types.totalChunks)
@@ -359,38 +359,11 @@ int ProcessFile(AudioSignal *Signal, parameters *config)
 
 		if(config->chunks)
 		{
-			FILE 		*chunk = NULL;
-			wav_hdr		cheader;
-
-			cheader = Signal->header;
-
 			sprintf(tempName, "%03ld_Source_%010ld_%s_%03d_chunk_", 
 				i, pos, 
 				GetBlockName(config, i), GetBlockSubIndex(config, i));
 			ComposeFileName(Name, tempName, ".wav", config);
-			
-			chunk = fopen(Name, "wb");
-			if(!chunk)
-			{
-				logmsg("\tCould not open chunk file %s\n", Name);
-				return 0;
-			}
-
-			cheader.ChunkSize = loadedBlockSize+36;
-			cheader.Subchunk2Size = loadedBlockSize;
-			if(fwrite(&cheader, 1, sizeof(wav_hdr), chunk) != sizeof(wav_hdr))
-			{
-				logmsg("\tCould not write chunk header\n");
-				return(0);
-			}
-		
-			if(fwrite(buffer, 1, sizeof(char)*loadedBlockSize, chunk) != sizeof(char)*loadedBlockSize)
-			{
-				logmsg("\tCould not write samples to chunk file\n");
-				return (0);
-			}
-		
-			fclose(chunk);
+			SaveWAVEChunk(Name, Signal, Signal->Samples, 0, Signal->header.Subchunk2Size, config); 
 		}
 		pos += loadedBlockSize;
 		pos += discardBytes;
@@ -465,38 +438,11 @@ int ProcessFile(AudioSignal *Signal, parameters *config)
 
 		if(config->chunks)
 		{
-			FILE 		*chunk = NULL;
-			wav_hdr		cheader;
-
-			cheader = Signal->header;
-
 			sprintf(tempName, "%03ld_%s_Processed_%s_%03d_chunk_", i, 
 				GenerateFileNamePrefix(config), GetBlockName(config, i), 
 				GetBlockSubIndex(config, i));
 			ComposeFileName(Name, tempName, ".wav", config);
-			
-			chunk = fopen(Name, "wb");
-			if(!chunk)
-			{
-				logmsg("\tCould not open chunk file %s\n", Name);
-				return 0;
-			}
-
-			cheader.ChunkSize = loadedBlockSize+36;
-			cheader.Subchunk2Size = loadedBlockSize;
-			if(fwrite(&cheader, 1, sizeof(wav_hdr), chunk) != sizeof(wav_hdr))
-			{
-				logmsg("\tCould not write chunk header\n");
-				return(0);
-			}
-		
-			if(fwrite(buffer, 1, sizeof(char)*loadedBlockSize, chunk) != sizeof(char)*loadedBlockSize)
-			{
-				logmsg("\tCould not write samples to chunk file\n");
-				return (0);
-			}
-		
-			fclose(chunk);
+			SaveWAVEChunk(Name, Signal, Signal->Samples, 0, Signal->header.Subchunk2Size, config);
 		}
 		i++;
 	}
@@ -602,10 +548,10 @@ int ProcessSamples(AudioBlocks *AudioArray, int16_t *samples, size_t size, long 
 		}
 	}
 
-	p = fftw_plan_dft_r2c_1d(monoSignalSize, signal, spectrum, FFTW_WISDOM_ONLY);
+	p = fftw_plan_dft_r2c_1d(monoSignalSize, signal, spectrum, FFTW_MEASURE);
 	if(!p)
 	{
-		logmsg("FFTW failed to create FFTW_WISDOM_ONLY plan\n");
+		logmsg("FFTW failed to create FFTW_MEASURE plan\n");
 		free(signal);
 		signal = NULL;
 		return 0;
@@ -624,10 +570,10 @@ int ProcessSamples(AudioBlocks *AudioArray, int16_t *samples, size_t size, long 
 				return 0;
 			}
 		}
-		pBack = fftw_plan_dft_c2r_1d(monoSignalSize, spectrum, signal, FFTW_WISDOM_ONLY);
+		pBack = fftw_plan_dft_c2r_1d(monoSignalSize, spectrum, signal, FFTW_MEASURE);
 		if(!pBack)
 		{
-			logmsg("FFTW failed to create FFTW_WISDOM_ONLY plan\n");
+			logmsg("FFTW failed to create FFTW_MEASURE plan\n");
 			free(signal);
 			signal = NULL;
 			return 0;
@@ -659,6 +605,7 @@ int ProcessSamples(AudioBlocks *AudioArray, int16_t *samples, size_t size, long 
 
 	fftw_execute(p); 
 	fftw_destroy_plan(p);
+	p = NULL;
 
 	if(!reverse)
 	{
@@ -766,6 +713,7 @@ int ProcessSamples(AudioBlocks *AudioArray, int16_t *samples, size_t size, long 
 		// Magic! iFFTW
 		fftw_execute(pBack); 
 		fftw_destroy_plan(pBack);
+		pBack = NULL;
 	
 		if(window)
 		{

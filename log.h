@@ -31,6 +31,8 @@
 
 #define LOG_NAME_LEN	8000
 
+#include "mdfourier.h"
+
 void EnableLog();
 void DisableConsole();
 void EnableConsole();
@@ -42,5 +44,7 @@ void logmsg(char *fmt, ... );
 
 int setLogName(char *name);
 void endLog();
+
+int SaveWAVEChunk(char *filename, AudioSignal *Signal, char *buffer, long int block, long int loadedBlockSize, parameters *config);
 
 #endif

@@ -114,6 +114,7 @@ void CleanParameters(parameters *config)
 	config->types.typeArray = NULL;
 	config->types.typeCount = 0;
 
+	config->sync_plan = NULL;
 	config->model_plan = NULL;
 	config->reverse_plan = NULL;
 }

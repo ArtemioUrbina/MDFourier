@@ -28,6 +28,8 @@
 
 #include "log.h"
 #include "mdfourier.h"
+#include "freq.h"
+#include "cline.h"
 
 int do_log = 0;
 char log_file[LOG_NAME_LEN];
@@ -89,3 +91,48 @@ void endLog()
 	}
 }
 
+
+
+int SaveWAVEChunk(char *filename, AudioSignal *Signal, char *buffer, long int block, long int loadedBlockSize, parameters *config)
+{
+	FILE 		*chunk = NULL;
+	wav_hdr		cheader;
+	char 		FName[4096];
+
+	cheader = Signal->header;
+	if(!filename)
+	{
+		char Name[2048];
+
+		sprintf(Name, "%03ld_SRC_%s_%03d_%s", 
+			block, GetBlockName(config, block), GetBlockSubIndex(config, block), 
+			basename(Signal->SourceFile));
+		ComposeFileName(FName, Name, ".wav", config);
+		chunk = fopen(FName, "wb");
+		filename = FName;
+	}
+	
+	chunk = fopen(filename, "wb");
+	if(!chunk)
+	{
+		logmsg("\tCould not open chunk file %s\n", filename);
+		return 0;
+	}
+
+	cheader.ChunkSize = loadedBlockSize+36;
+	cheader.Subchunk2Size = loadedBlockSize;
+	if(fwrite(&cheader, 1, sizeof(wav_hdr), chunk) != sizeof(wav_hdr))
+	{
+		logmsg("\tCould not write chunk header\n");
+		return(0);
+	}
+
+	if(fwrite(buffer, 1, sizeof(char)*loadedBlockSize, chunk) != sizeof(char)*loadedBlockSize)
+	{
+		logmsg("\tCould not write samples to chunk file\n");
+		return (0);
+	}
+
+	fclose(chunk);
+	return 1;
+}

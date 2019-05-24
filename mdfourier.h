@@ -48,7 +48,7 @@
 
 #include "incbeta.h"
 
-#define MDVERSION "0.90"
+#define MDVERSION "0.91"
 
 
 #define MAX_FREQ_COUNT		100000 	/* Number of frequencies to compare(MAX) */
@@ -262,6 +262,7 @@ typedef struct parameters_st {
 	int				ZeroPad;
 	int				timeDomainNormalize;
 
+	fftw_plan		sync_plan;
 	fftw_plan		model_plan;
 	fftw_plan		reverse_plan;
 

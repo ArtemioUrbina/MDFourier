@@ -437,7 +437,34 @@ double ProcessChunkForSyncPulse(int16_t *samples, size_t size, long samplerate, 
 		return(0);
 	}
 
+	if(!config->sync_plan)
+	{
+ 		fftw_import_wisdom_from_filename("wisdom.fftw");
+
+		config->sync_plan = fftw_plan_dft_r2c_1d(monoSignalSize, signal, spectrum, FFTW_MEASURE);
+		if(!config->sync_plan)
+		{
+			logmsg("FFTW failed to create FFTW_MEASURE plan\n");
+			free(signal);
+			signal = NULL;
+			fftw_free(spectrum);
+			spectrum = NULL;
+			return 0;
+		}
+	}
+
 	p = fftw_plan_dft_r2c_1d(monoSignalSize, signal, spectrum, FFTW_MEASURE);
+	if(!p)
+	{
+		logmsg("FFTW failed to create FFTW_MEASURE plan\n");
+
+		free(signal);
+		signal = NULL;
+
+		fftw_free(spectrum);
+		spectrum = NULL;
+		return 0;
+	}
 
 	memset(signal, 0, sizeof(double)*(monoSignalSize+1));
 	memset(spectrum, 0, sizeof(fftw_complex)*(monoSignalSize/2+1));
@@ -454,6 +481,7 @@ double ProcessChunkForSyncPulse(int16_t *samples, size_t size, long samplerate, 
 
 	fftw_execute(p); 
 	fftw_destroy_plan(p);
+	p = NULL;
 
 	for(i = 1; i < monoSignalSize/2+1; i++)
 	{
@@ -471,6 +499,7 @@ double ProcessChunkForSyncPulse(int16_t *samples, size_t size, long samplerate, 
 	}
 
 	fftw_free(spectrum);
+	spectrum = NULL;
 
 	free(signal);
 	signal = NULL;
