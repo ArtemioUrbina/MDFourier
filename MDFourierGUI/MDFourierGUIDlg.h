@@ -75,4 +75,6 @@ public:
 	afx_msg void OnBnClickedOpenresults();
 	afx_msg void OnTimer(UINT_PTR nIDEvent);
 	afx_msg void OnBnClickedAbout();
+	CButton m_AveragePlot_Bttn;
+	CButton m_VerboseLog_Bttn;
 };

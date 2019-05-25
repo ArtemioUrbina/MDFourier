@@ -37,6 +37,8 @@ void CMDFourierGUIDlg::DoDataExchange(CDataExchange* pDX)
 	DDX_Control(pDX, IDC_SELECT_REFERENCE_FILE, m_ReferenceFileBttn);
 	DDX_Control(pDX, IDC_SELECT_REFERENCE_COMPARE, m_ComparisonFileBttn);
 	DDX_Control(pDX, IDC_ALIGN, m_AlignFFTW);
+	DDX_Control(pDX, IDC_AVERAGE, m_AveragePlot_Bttn);
+	DDX_Control(pDX, IDC_VERBOSE, m_VerboseLog_Bttn);
 }
 
 BEGIN_MESSAGE_MAP(CMDFourierGUIDlg, CDialogEx)
@@ -186,17 +188,23 @@ void CMDFourierGUIDlg::OnBnClickedOk()
 	}
 	if(m_Reference == m_ComparisonFile)
 	{
-		MessageBox(L"Reference and Comparison file are the same.\nPlease select a different file.", L"Error");
+		MessageBox(L"Reference and compare file are the same.\nPlease select a different file.", L"Error");
 		return;
 	}
 
 	window = GetSelectedCommandLineValue(WindowConvert, m_WindowTypeSelect, COUNT_WINDOWS);
 	adjust = GetSelectedCommandLineValue(CurveConvert, m_CurveAdjustSelect, COUNT_CURVES);
 
-	command.Format(L"mdfourier.exe -r \"%s\" -c \"%s\" -w %c -o %c", m_Reference, m_ComparisonFile, window, adjust);
+	command.Format(L"mdfourier.exe -r \"%s\" -c \"%s\" -w %c -o %c -l", m_Reference, m_ComparisonFile, window, adjust);
 
 	if(m_AlignFFTW.GetCheck() == BST_CHECKED)
 		command += " -z";
+
+	if(m_AveragePlot_Bttn.GetCheck() == BST_CHECKED)
+		command += " -g";
+
+	if(m_VerboseLog_Bttn.GetCheck() == BST_CHECKED)
+		command += " -v";
 
 	ManageWindows(FALSE);
 
@@ -344,6 +352,8 @@ void CMDFourierGUIDlg::ManageWindows(BOOL Enable)
 	m_WindowTypeSelect.EnableWindow(Enable);
 	m_CurveAdjustSelect.EnableWindow(Enable);
 	m_AlignFFTW.EnableWindow(Enable);
+	m_AveragePlot_Bttn.EnableWindow(Enable);
+	m_VerboseLog_Bttn.EnableWindow(Enable);
 }
 
 

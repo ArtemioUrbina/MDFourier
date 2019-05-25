@@ -48,13 +48,13 @@
 
 #include "incbeta.h"
 
-#define MDVERSION "0.91"
+#define MDVERSION "0.911"
 
 
 #define MAX_FREQ_COUNT		100000 	/* Number of frequencies to compare(MAX) */
 #define FREQ_COUNT			2000	/* Number of frequencies to compare(default) */
 #define SIGNIFICANT_VOLUME	-96		/* ~20.0f * log10f( 1.0f / 65536.0f ) */
-#define	REFRESH_RATE_NOISE_DETECT_TOLERANCE	1.0
+#define	REFRESH_RATE_NOISE_DETECT_TOLERANCE	2.0
 
 #define TYPE_SILENCE	0
 #define TYPE_SYNC		-1
@@ -172,8 +172,12 @@ typedef struct AudioSt {
 	long int	startOffset;
 	long int	endOffset;
 
-	double	MaxMagnitude;
-	double	MinAmplitude;
+	double		MaxMagnitude;
+	double		MinAmplitude;
+
+	double		RefreshNoise;
+	double		CRTLow;
+	double		CRTHigh;
 
 	AudioBlocks *Blocks; 
 }  AudioSignal;
@@ -261,6 +265,7 @@ typedef struct parameters_st {
 	int				reverseCompare;
 	int				ZeroPad;
 	int				timeDomainNormalize;
+	int				averagePlot;
 
 	fftw_plan		sync_plan;
 	fftw_plan		model_plan;

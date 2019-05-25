@@ -47,6 +47,7 @@ void PrintUsage()
 	logmsg("   Output options:\n");
 	logmsg("	 -l: <l>og output to file [reference]_vs_[compare].txt\n");
 	logmsg("	 -v: Enable <v>erbose mode, spits all the FFTW results\n");
+	logmsg("	 -g: Create avera<g>e points over the plotted graphs\n");
 	logmsg("	 -j: Cuts per block information and shows <j>ust total results\n");
 	logmsg("	 -x: Enables e<x>tended results. Shows a table with all matches\n");
 	logmsg("	 -m: Enables Show all blocks compared with <m>atched frequencies\n");
@@ -92,6 +93,7 @@ void CleanParameters(parameters *config)
 	config->logScale = 1;
 	config->reverseCompare = 0;
 	config->timeDomainNormalize = 1;
+	config->averagePlot = 0;
 
 	config->Differences.BlockDiffArray = NULL;
 	config->Differences.cntFreqAudioDiff = 0;
@@ -128,7 +130,7 @@ int commandline(int argc , char *argv[], parameters *config)
 	
 	CleanParameters(config);
 
-	while ((c = getopt (argc, argv, "hxjzmviklyo:s:f:t:p:a:w:r:c:")) != -1)
+	while ((c = getopt (argc, argv, "hxjzmviklygo:s:f:t:p:a:w:r:c:")) != -1)
 	switch (c)
 	  {
 	  case 'h':
@@ -158,6 +160,9 @@ int commandline(int argc , char *argv[], parameters *config)
 		break;
 	  case 'y':
 		config->debugSync = 1;
+		break;
+	  case 'g':
+		config->averagePlot = 1;
 		break;
 	  case 'l':
 		EnableLog();

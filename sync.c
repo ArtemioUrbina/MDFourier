@@ -267,7 +267,7 @@ long int DetectPulseInternal(char *Samples, wav_hdr header, int factor, long int
 	double				MaxMagnitude = 0, targetFrequency = 0;
 
 	// Not a real ms, just approximate
-	millisecondSize = RoundTo4bytes(floor((((double)header.SamplesPerSec*4.0)/1000.0)/(double)factor), NULL, NULL);
+	millisecondSize = RoundTo4bytes(floor((((double)header.SamplesPerSec*4.0)/1000.0)/(double)factor), NULL, NULL, NULL);
 	buffersize = millisecondSize*sizeof(char); 
 	buffer = (char*)malloc(buffersize);
 	if(!buffer)
@@ -305,35 +305,14 @@ long int DetectPulseInternal(char *Samples, wav_hdr header, int factor, long int
 
 #ifdef SAVE_CHUNKS
 		if(1)
-		{
-			FILE 		*chunk = NULL;
-			wav_hdr		cheader;
-			char		FName[4096];
+		{	
+			char FName[4096];
+			AudioSignal s;
 
-			cheader = header;
-			sprintf(FName, "%06ld_Source_chunk.wav", i);
-			chunk = fopen(FName, "wb");
-			if(!chunk)
-			{
-				logmsg("\tCould not open chunk file %s\n", FName);
-				return 0;
-			}
+			s.header = header;
+			sprintf(FName,	 "%06ld_SYNC_chunk.wav", i);
 
-			cheader.ChunkSize = loadedBlockSize+36;
-			cheader.Subchunk2Size = loadedBlockSize;
-			if(fwrite(&cheader, 1, sizeof(wav_hdr), chunk) != sizeof(wav_hdr))
-			{
-				logmsg("\tCould not write chunk header\n");
-				return(0);
-			}
-		
-			if(fwrite(buffer, 1, sizeof(char)*loadedBlockSize, chunk) != sizeof(char)*loadedBlockSize)
-			{
-				logmsg("\tCould not write samples to chunk file\n");
-				return (0);
-			}
-		
-			fclose(chunk);
+			SaveWAVEChunk(FName, &s, buffer, 0, loadedBlockSize, config); 
 		}
 #endif
 
@@ -381,33 +360,6 @@ long int DetectPulseInternal(char *Samples, wav_hdr header, int factor, long int
 
 	return offset;
 }
-
-
-double FindFrequencyBracket(int frequency, size_t size, long samplerate)
-{
-	double seconds = 0, minDiff = 0, targetFreq = 0;
-	long int monoSignalSize;
-
-	minDiff = samplerate/2;
-	targetFreq = frequency;
-	monoSignalSize = size/2;
-	seconds = (double)size/((double)samplerate*2);
-
-	for(int i = 1; i < monoSignalSize/2+1; i++)
-	{
-		double Hertz = 0, difference = 0;
-
-		Hertz = CalculateFrequency(i, seconds, 0);
-		difference = abs(Hertz - frequency);
-		if(difference < minDiff)
-		{
-			targetFreq = Hertz;
-			minDiff = difference;
-		}
-	}
-	return targetFreq;
-}
-
 
 double ProcessChunkForSyncPulse(int16_t *samples, size_t size, long samplerate, Pulses *pulse, parameters *config)
 {

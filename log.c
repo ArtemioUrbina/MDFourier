@@ -91,8 +91,6 @@ void endLog()
 	}
 }
 
-
-
 int SaveWAVEChunk(char *filename, AudioSignal *Signal, char *buffer, long int block, long int loadedBlockSize, parameters *config)
 {
 	FILE 		*chunk = NULL;
@@ -123,13 +121,13 @@ int SaveWAVEChunk(char *filename, AudioSignal *Signal, char *buffer, long int bl
 	cheader.Subchunk2Size = loadedBlockSize;
 	if(fwrite(&cheader, 1, sizeof(wav_hdr), chunk) != sizeof(wav_hdr))
 	{
-		logmsg("\tCould not write chunk header\n");
+		logmsg("\tCould not write chunk header to file %s\n", filename);
 		return(0);
 	}
 
 	if(fwrite(buffer, 1, sizeof(char)*loadedBlockSize, chunk) != sizeof(char)*loadedBlockSize)
 	{
-		logmsg("\tCould not write samples to chunk file\n");
+		logmsg("\tCould not write samples to chunk file %s\n", filename);
 		return (0);
 	}
 

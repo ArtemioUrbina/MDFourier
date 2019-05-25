@@ -43,6 +43,11 @@ typedef struct plot_st {
 	double			penWidth;
 } PlotFile;
 
+typedef struct averaged_freq{
+	double		avgfreq;
+	double		avgvol;
+} AveragedFrequencies;
+
 #define DB_HEIGHT 18
 #define TOP_FREQUENCY	20000.0		// we don't use 22050 for integer scaling
 
@@ -119,6 +124,11 @@ void DrawLabelsZeroDBCentered(PlotFile *plot, double dbs, double dbIncrement, do
 void DrawGridZeroToLimit(PlotFile *plot, double dbs, double dbIncrement, double hz, double hzIncrement, parameters *config);
 void DrawLabelsZeroToLimit(PlotFile *plot, double dbs, double dbIncrement, double hz, double hzIncrement,  parameters *config);
 void DrawColorScale(PlotFile *plot, char *label, int color, double x, double y, double width, double height, double endDbs, double dbIncrement, parameters *config);
+
+
+AveragedFrequencies *BestFit_CreateFlatDifferencesBestFit(int matchType, long int *avgSize, int chunks, parameters *config);
+void PlotSingleTypeDifferentAmplitudesBestFit(FlatAmplDifference *amplDiff, int type, char *filename, AveragedFrequencies *averaged, long int avgsize, parameters *config);
+
 
 void PlotTest(char *filename, parameters *config);
 void PlotTestZL(char *filename, parameters *config);

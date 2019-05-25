@@ -73,7 +73,7 @@ void GlobalNormalize(AudioSignal *Signal, parameters *config);
 void FindMaxMagnitude(AudioSignal *Signal, parameters *config);
 void CalculateAmplitudes(AudioSignal *Signal, double ZeroDbMagReference, parameters *config);
 void FindFloor(AudioSignal *Signal, parameters *config);
-int IsCRTNoise(double freq);
+int IsCRTNoise(AudioSignal *Signal, double freq);
 double GetLowerFrameRate(double framerateA, double framerateB);
 void CompareFrameRates(double framerate1, double framerate2, parameters *config);
 
@@ -81,11 +81,11 @@ void PrintComparedBlocks(AudioBlocks *ReferenceArray, AudioBlocks *ComparedArray
 
 double CalculateWeightedError(double pError, parameters *config);
 double RoundFloat(double x, int p);
-long int RoundTo4bytes(double src, int *leftover, int *discard);
+long int RoundTo4bytes(double src, int *leftover, int *discard, double *leftDecimals);
 double GetDecimalValues(double value);
 double BytesToSeconds(long int samplerate, long int bytes);
 double FramesToSeconds(double frames, double framerate);
-long int SecondsToBytes(long int samplerate, double seconds, int *leftover, int *discard);
+long int SecondsToBytes(long int samplerate, double seconds, int *leftover, int *discard, double *leftDecimals);
 
 double CalculateMagnitude(fftw_complex value, long int size);
 double CalculateAmplitude(double magnitude, double MaxMagnitude);
@@ -95,5 +95,7 @@ double CalculateFrameRate(AudioSignal *Signal, parameters *config);
 double CalculateScanRate(AudioSignal *Signal);
 
 long int GetZeroPadValues(long int *monoSignalSize, double *seconds, long int samplerate);
+void CalcuateFrequencyBrackets(AudioSignal *signal);
+double FindFrequencyBracket(int frequency, size_t size, long samplerate);
 
 #endif

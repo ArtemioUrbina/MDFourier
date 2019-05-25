@@ -32,10 +32,52 @@
 #include "cline.h"
 #include "plot.h"
 
-int IsCRTNoise(double freq)
+double FindFrequencyBracket(int frequency, size_t size, long samplerate)
 {
-	/* Peak around 15697-15698 usualy */
-	if(freq >= 15620 && freq <= 15710)
+	double seconds = 0, minDiff = 0, targetFreq = 0;
+	long int monoSignalSize;
+
+	minDiff = samplerate/2;
+	targetFreq = frequency;
+	monoSignalSize = size/2;
+	seconds = (double)size/((double)samplerate*2);
+
+	for(int i = 1; i < monoSignalSize/2+1; i++)
+	{
+		double Hertz = 0, difference = 0;
+
+		Hertz = CalculateFrequency(i, seconds, 0);
+		difference = abs(Hertz - frequency);
+		if(difference < minDiff)
+		{
+			targetFreq = Hertz;
+			minDiff = difference;
+		}
+	}
+	return targetFreq;
+}
+
+
+void CalcuateFrequencyBrackets(AudioSignal *Signal)
+{
+	if(!Signal)
+		return;
+	if(!Signal->Blocks)
+		return;
+
+	Signal->RefreshNoise = FindFrequencyBracket(RoundFloat(1000.0/Signal->framerate, 2), Signal->Blocks[0].fftwValues.size, Signal->header.SamplesPerSec);
+	Signal->CRTLow = FindFrequencyBracket(15680, Signal->Blocks[0].fftwValues.size, Signal->header.SamplesPerSec);
+	Signal->CRTHigh = FindFrequencyBracket(15710, Signal->Blocks[0].fftwValues.size, Signal->header.SamplesPerSec);
+	//logmsg("Mains noise %g CRT Noise %g-%g\n", mains,  CRTLow, CRTHigh);
+}
+
+int IsCRTNoise(AudioSignal *Signal, double freq)
+{
+	if(!Signal)
+		return 0;
+
+	/* Peak around 15697-15698 usually */
+	if(freq >= Signal->CRTLow && freq <= Signal->CRTHigh)
 		return 1;
 	return 0;
 }
@@ -117,6 +159,10 @@ void CleanAudio(AudioSignal *Signal, parameters *config)
 
 	Signal->MaxMagnitude = 0;
 	Signal->MinAmplitude = 0;
+
+	Signal->RefreshNoise = 0;
+	Signal->CRTLow = 0;
+	Signal->CRTHigh = 0;
 
 	memset(&Signal->header, 0, sizeof(wav_hdr));
 }
@@ -422,7 +468,7 @@ void PrintAudioBlocks(parameters *config)
 
 double GetPlatformMSPerFrame(parameters *config)
 {
-	return(config->types.platformMSPerFrame);
+	return(RoundFloat(config->types.platformMSPerFrame, 3));
 }
 
 double GetPulseSyncFreq(parameters *config)
@@ -459,8 +505,8 @@ long int GetByteSizeDifferenceByFrameRate(double framerate, long int frames, lon
 		long int SmallerBytes = 0;
 		long int BiggerBytes = 0;
 
-		SmallerBytes = SecondsToBytes(samplerate, FramesToSeconds(config->smallerFramerate, frames), NULL, NULL);
-		BiggerBytes = SecondsToBytes(samplerate, FramesToSeconds(framerate, frames), NULL, NULL);
+		SmallerBytes = SecondsToBytes(samplerate, FramesToSeconds(config->smallerFramerate, frames), NULL, NULL, NULL);
+		BiggerBytes = SecondsToBytes(samplerate, FramesToSeconds(framerate, frames), NULL, NULL, NULL);
 	
 		difference = BiggerBytes - SmallerBytes;
 	}
@@ -538,7 +584,7 @@ long int GetLastSilenceByteOffset(double framerate, wav_hdr header, int frameAdj
 
 			// We remove 10 frames in order to not miss it due to frame rate differences
 			offset = FramesToSeconds(GetBlockFrameOffset(i, config) - frameAdjust, framerate);
-			offset = SecondsToBytes(header.SamplesPerSec, offset, NULL, NULL);
+			offset = SecondsToBytes(header.SamplesPerSec, offset, NULL, NULL, NULL);
 			return(offset);
 		}
 	}
@@ -762,7 +808,6 @@ char *GetTypeName(parameters *config, int type)
 void FindFloor(AudioSignal *Signal, parameters *config)
 {
 	int 		index;
-	double		refreshNoise = 0;
 	Frequency	loudest;
 
 	if(!Signal)
@@ -779,20 +824,20 @@ void FindFloor(AudioSignal *Signal, parameters *config)
 	}
 
 	memset(&loudest, 0, sizeof(Frequency));
-	refreshNoise = fabs(RoundFloat(1000.0/Signal->framerate, 2));
 
 	if(config->verbose)
 		logmsg(" - Frame Rate %g RefreshNoise %g tolerance %g\n",
-			Signal->framerate, refreshNoise, REFRESH_RATE_NOISE_DETECT_TOLERANCE);
+			Signal->framerate, Signal->RefreshNoise, REFRESH_RATE_NOISE_DETECT_TOLERANCE);
 
 	for(int i = 0; i < config->MaxFreq; i++)
 	{
 		if(Signal->Blocks[index].freq[i].hertz && Signal->Blocks[index].freq[i].amplitude != NO_AMPLITUDE)
 		{
-			double difference;
+			//double difference;
 	
-			difference = fabs(fabs(Signal->Blocks[index].freq[i].hertz) - refreshNoise);
-			if(difference < REFRESH_RATE_NOISE_DETECT_TOLERANCE)
+			//difference = fabs(fabs(Signal->Blocks[index].freq[i].hertz) - Signal->RefreshNoise);
+			//if(difference < REFRESH_RATE_NOISE_DETECT_TOLERANCE)
+			if(Signal->Blocks[index].freq[i].hertz == Signal->RefreshNoise)
 			{
 				Signal->floorAmplitude = Signal->Blocks[index].freq[i].amplitude;
 				Signal->floorFreq = Signal->Blocks[index].freq[i].hertz;
@@ -800,8 +845,23 @@ void FindFloor(AudioSignal *Signal, parameters *config)
 					Signal->floorFreq, Signal->floorAmplitude);
 				return;
 			}
+		}
+	}
+
+	for(int i = 0; i < config->MaxFreq; i++)
+	{
+		if(Signal->Blocks[index].freq[i].hertz && Signal->Blocks[index].freq[i].amplitude != NO_AMPLITUDE)
+		{
+			if(IsCRTNoise(Signal, Signal->Blocks[index].freq[i].hertz))
+			{
+				Signal->floorAmplitude = Signal->Blocks[index].freq[i].amplitude;
+				Signal->floorFreq = Signal->Blocks[index].freq[i].hertz;
+				logmsg(" - Silence block possible Video/CRT noise: %g Hz at %g dBFS\n",
+					Signal->floorFreq, Signal->floorAmplitude);
+				return;
+			}
 	
-			if(!loudest.hertz && Signal->Blocks[index].freq[i].hertz && !IsCRTNoise(Signal->Blocks[index].freq[i].hertz))
+			if(!loudest.hertz && Signal->Blocks[index].freq[i].hertz)
 				loudest = Signal->Blocks[index].freq[i];
 		}
 	}
@@ -812,8 +872,10 @@ void FindFloor(AudioSignal *Signal, parameters *config)
 		Signal->floorFreq = loudest.hertz;
 		logmsg(" - Silence block max volume: %g Hz at %g dBFS\n",
 			Signal->floorFreq, Signal->floorAmplitude);
+		return;
 	}
 
+	logmsg(" - No meaninful Noise floor found, using the whole range\n");
 	Signal->hasFloor = 0;  /* revoke it if not found */
 }
 
@@ -982,7 +1044,7 @@ void PrintFrequencies(AudioSignal *Signal, parameters *config)
 					Signal->Blocks[block].freq[j].amplitude,
 					Signal->Blocks[block].freq[j].phase);
 				/* detect CRT frequency */
-				if(IsCRTNoise(Signal->Blocks[block].freq[j].hertz))
+				if(IsCRTNoise(Signal, Signal->Blocks[block].freq[j].hertz))
 					logmsg(" [CRT Noise?]");
 				logmsg("\n");
 			}
@@ -1186,9 +1248,9 @@ inline double FramesToSeconds(double frames, double framerate)
 	return(frames*framerate/1000.0);
 }
 
-inline long int SecondsToBytes(long int samplerate, double seconds, int *leftover, int *discard)
+inline long int SecondsToBytes(long int samplerate, double seconds, int *leftover, int *discard, double *leftDecimals)
 {
-	return(RoundTo4bytes(samplerate*4.0*seconds*sizeof(char), leftover, discard));
+	return(RoundTo4bytes(samplerate*4.0*seconds*sizeof(char), leftover, discard, leftDecimals));
 }
 
 inline double BytesToSeconds(long int samplerate, long int bytes)
@@ -1196,34 +1258,50 @@ inline double BytesToSeconds(long int samplerate, long int bytes)
 	return((double)bytes/(samplerate*4.0));
 }
 
-inline long int RoundTo4bytes(double src, int *leftover, int *discard)
+long int RoundTo4bytes(double src, int *leftover, int *discard, double *leftDecimals)
 {
 	int extra = 0;
+
+	if(discard)
+		*discard = 0;
 
 	if(!leftover)
 		src = ceil(src);
 	else
+	{
+		if(leftDecimals)
+			*leftDecimals += GetDecimalValues(src);
 		src = floor(src);
+	}
+
 	extra = ((long int)src) % 4;
 	if(extra != 0)
 	{
-		if(leftover)
+		if(leftover && discard)
 		{
 			src -= extra;
-			if(*leftover + extra >= 4)
+			(*leftover) += extra;
+			if(*leftover >= 4)
 			{
 				*leftover -= 4;
 				*discard = 4;
 			}
 			else
-			{
-				*leftover += extra;
 				*discard = 0;
-			}
 		}
 		else
 			src += 4 - extra;
 	}
+
+	if(leftDecimals)
+	{
+		if(*leftDecimals >= 4.0)
+		{
+			*discard += 4;
+			*leftDecimals -= 4.0;
+		}
+	}
+
 	return (src);
 }
 
@@ -1264,13 +1342,22 @@ long int GetZeroPadValues(long int *monoSignalSize, double *seconds, long int sa
 double CalculateFrameRate(AudioSignal *Signal, parameters *config)
 {
 	double framerate = 0, endOffset = 0, startOffset = 0, samplerate = 0;
+	double LastSyncFrameOffset = 0;
+	double expectedFR = 0, diff = 0;
 
 	startOffset = Signal->startOffset;
 	endOffset = Signal->endOffset;
 	samplerate = Signal->header.SamplesPerSec;
+	LastSyncFrameOffset = GetLastSyncFrameOffset(Signal->header, config);
+	expectedFR = GetPlatformMSPerFrame(config);
 
-	framerate = (endOffset-startOffset)*1000.0/(samplerate*4.0*(double)GetLastSyncFrameOffset(Signal->header, config));
-	framerate = RoundFloat(framerate, 3);
+	framerate = (endOffset-startOffset)/(samplerate*LastSyncFrameOffset);
+	framerate = framerate*1000.0/4.0;  // 1000 ms and 4 bytes per stereo sample
+	//framerate = RoundFloat(framerate, 4);
+
+	diff = RoundFloat(fabs(expectedFR - framerate), 3);
+	if(config->verbose)
+		logmsg(" - Framerate difference is %g (Audio card timing?)\n", diff);
 
 	return framerate;
 }

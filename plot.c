@@ -511,9 +511,27 @@ int PlotEachTypeDifferentAmplitudes(FlatAmplDifference *amplDiff, char *filename
 		type = config->types.typeArray[i].type;
 		if(type > TYPE_CONTROL)
 		{
-			sprintf(name, "DifferentAmplitudes_%s_%02d%s", filename, 
-							config->types.typeArray[i].type, config->types.typeArray[i].typeName);
+			sprintf(name, "DifferentAmplitudes_%s_%02d%s_", filename, 
+						config->types.typeArray[i].type, config->types.typeArray[i].typeName);
 			PlotSingleTypeDifferentAmplitudes(amplDiff, type, name, config);
+			
+			if(config->averagePlot)
+			{
+				long int chunks = 30, bestFitSize = 0;
+				AveragedFrequencies	*bestFit = NULL;
+	
+				sprintf(name, "DifferentAmplitudes_%s_%02d%s_AVG_", filename, 
+						config->types.typeArray[i].type, config->types.typeArray[i].typeName);
+
+				bestFit = BestFit_CreateFlatDifferencesBestFit(type, &bestFitSize, chunks, config);
+
+				if(bestFit)
+					PlotSingleTypeDifferentAmplitudesBestFit(amplDiff, type, name, bestFit, bestFitSize, config);
+		
+				if(bestFit)
+					free(bestFit);
+			}
+			
 			types ++;
 		}
 	}
@@ -1247,4 +1265,200 @@ inline double transformtoLog(double coord, double top, parameters *config)
 		return(top*log10(coord)/log10(top));
 	else
 		return(coord);
+}
+
+/* =============Best Fit ================ */
+
+void BestFit_SortFlatAmplitudeDifferencesByFrequency(FlatAmplDifference *ADiff, long int size)
+{
+	long int 			i = 0, j = 0;
+	FlatAmplDifference 	tmp;
+	
+	if(!ADiff)
+		return;
+
+	for (i = 1; i < size; i++)
+	{
+		tmp = ADiff[i];
+		j = i - 1;
+		while(j >= 0 && tmp.hertz < ADiff[j].hertz)
+		{
+			ADiff[j+1] = ADiff[j];
+			j--;
+		}
+		ADiff[j+1] = tmp;
+	}
+}
+
+AveragedFrequencies *BestFit_CreateFlatDifferencesBestFit(int matchType, long int *avgSize, int chunks, parameters *config)
+{
+	long int			count = 0, size = 0, interval = 0;
+	FlatAmplDifference	*ADiff = NULL;
+	AveragedFrequencies	*averaged = NULL;
+
+	if(!config)
+		return NULL;
+
+	if(!avgSize)
+		return NULL;
+
+	*avgSize = 0;
+
+	// Count how many we have
+	for(int b = 0; b < config->types.totalChunks; b++)
+	{
+		if(GetBlockType(config, b) == matchType)
+			count += config->Differences.BlockDiffArray[b].cntAmplBlkDiff;
+	}
+
+	if(!count)
+		return NULL;
+
+	interval = ceil((double)count/(double)chunks);
+	ADiff = (FlatAmplDifference*)malloc(sizeof(FlatAmplDifference)*count);
+	if(!ADiff)
+		return NULL;
+
+	size = ceil((double)count/(double)interval);
+	averaged = (AveragedFrequencies*)malloc(sizeof(AveragedFrequencies)*size);
+	if(!averaged)
+	{
+		free(ADiff);
+		return NULL;
+	}
+
+	memset(ADiff, 0, sizeof(FlatAmplDifference)*count);
+	memset(averaged, 0, sizeof(AveragedFrequencies)*size);
+	count = 0;
+
+	for(int b = 0; b < config->types.totalChunks; b++)
+	{
+		int type = 0;
+		
+		type = GetBlockType(config, b);
+		if(type == matchType)
+		{
+			int color = 0;
+
+			color = MatchColor(GetBlockColor(config, b));
+			for(int a = 0; a < config->Differences.BlockDiffArray[b].cntAmplBlkDiff; a++)
+			{
+				ADiff[count].hertz = config->Differences.BlockDiffArray[b].amplDiffArray[a].hertz;
+				ADiff[count].refAmplitude = config->Differences.BlockDiffArray[b].amplDiffArray[a].refAmplitude;
+				ADiff[count].diffAmplitude = config->Differences.BlockDiffArray[b].amplDiffArray[a].diffAmplitude;
+				ADiff[count].type = type;
+				ADiff[count].color = color;
+				count ++;
+			}
+		}
+	}
+
+	BestFit_SortFlatAmplitudeDifferencesByFrequency(ADiff, count);
+
+	OutputFileOnlyStart();
+	logmsg("===================\n");
+	logmsg("Averaged Size %ld Difference Size %ld INterval %d\n", size, count, interval);
+
+	for(long int a = 0; a < size; a++)
+	{
+		long int 	start, end, elements = 0;
+
+		start = a*interval;
+		end = start+interval;
+
+		for(long int c = start; c < end; c++)
+		{
+			if(c == count)
+				break;
+
+			averaged[a].avgfreq += ADiff[c].hertz;
+			averaged[a].avgvol += ADiff[c].diffAmplitude;
+			elements++;
+		}
+		averaged[a].avgfreq /= elements;
+		averaged[a].avgvol /= elements;
+
+		logmsg("averaged[%ld]: %ghz %gdbfs (elems:%ld)\n", a, averaged[a].avgfreq, averaged[a].avgvol, elements);
+	}
+
+	OutputFileOnlyEnd();
+
+	free(ADiff);
+	*avgSize = size;
+
+	return(averaged);
+}
+
+void PlotSingleTypeDifferentAmplitudesBestFit(FlatAmplDifference *amplDiff, int type, char *filename, AveragedFrequencies *averaged, long int avgsize, parameters *config)
+{
+	PlotFile	plot;
+	double		dbs = DB_HEIGHT;
+	int			color = 0;
+
+	if(!config)
+		return;
+
+	if(!amplDiff)
+		return;
+
+	if(!config->Differences.BlockDiffArray)
+		return;
+
+	FillPlot(&plot, filename, PLOT_RES_X, PLOT_RES_Y, 0, -1*dbs, TOP_FREQUENCY, dbs, 1, config);
+
+	if(!CreatePlotFile(&plot))
+		return;
+
+	DrawGridZeroDBCentered(&plot, dbs, 3, TOP_FREQUENCY, 1000, config);
+	DrawLabelsZeroDBCentered(&plot, dbs, 3, TOP_FREQUENCY, 1000, config);
+
+	for(long int a = 0; a < config->Differences.cntAmplAudioDiff; a++)
+	{
+		if(amplDiff[a].type == type)
+		{ 
+			long int intensity;
+
+			intensity = CalculateWeightedError((fabs(config->significantVolume) - fabs(amplDiff[a].refAmplitude))/fabs(config->significantVolume), config)*0xffff;
+
+			SetPenColor(amplDiff[a].color, intensity, &plot);
+			pl_fpoint_r(plot.plotter, transformtoLog(amplDiff[a].hertz, TOP_FREQUENCY, config), amplDiff[a].diffAmplitude);
+		}
+	}
+
+	color = MatchColor(GetTypeColor(config, type));
+	pl_endpath_r(plot.plotter);
+
+	if(averaged && avgsize > 1)
+	{
+		SetPenColor(color, 0xffff, &plot);
+		for(long int a = 0; a < avgsize; a+=2)
+		{
+			if(a + 2 < avgsize)
+			{
+				pl_fbezier2_r(plot.plotter,
+					transformtoLog(averaged[a].avgfreq, 20000, config), averaged[a].avgvol,
+					transformtoLog(averaged[a+1].avgfreq, 20000, config), averaged[a+1].avgvol,
+					transformtoLog(averaged[a+2].avgfreq, 20000, config), averaged[a+2].avgvol);
+				logmsg("Plot [%ld] %g->%g\n", a, averaged[a].avgfreq, averaged[a].avgvol);
+			}
+		}
+		pl_endpath_r(plot.plotter);
+
+		/*
+		SetPenColor(color, 0xffff, &plot);
+		for(long int a = 0; a < avgsize; a++)
+		{
+			if(a == 0)
+				pl_fline_r(plot.plotter, transformtoLog(averaged[a].avgfreq, 20000, config), averaged[a].avgvol,
+							transformtoLog(averaged[a+1].avgfreq, 20000, config), averaged[a+1].avgvol);
+			else
+				pl_fcont_r(plot.plotter, transformtoLog(averaged[a].avgfreq, 20000, config), averaged[a].avgvol);
+		}
+		pl_endpath_r(plot.plotter);
+		*/
+	}
+
+	DrawColorScale(&plot, GetTypeName(config, type), MatchColor(GetTypeColor(config, type)), PLOT_RES_X/50, PLOT_RES_Y/15, PLOT_RES_X/80, PLOT_RES_Y/1.15, config->significantVolume, 3, config);
+	DrawLabelsMDF(&plot);
+	ClosePlot(&plot);
 }

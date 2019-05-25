@@ -268,6 +268,9 @@ int LoadAndProcessAudioFiles(AudioSignal **ReferenceSignal, AudioSignal **Compar
 		return 0;
 	}
 
+	CalcuateFrequencyBrackets(*ReferenceSignal);
+	CalcuateFrequencyBrackets(*ComparisonSignal);
+
 	if(!config->timeDomainNormalize)
 	{
 		MaximumMagnitude	MaxRef, MaxTar;
@@ -529,6 +532,7 @@ int ProcessFile(AudioSignal *Signal, parameters *config)
 	long int		loadedBlockSize = 0, i = 0;
 	struct timespec	start, end;
 	int				leftover = 0, discardBytes = 0;
+	double			leftDecimals = 0;
 
 	pos = Signal->startOffset;
 
@@ -539,7 +543,7 @@ int ProcessFile(AudioSignal *Signal, parameters *config)
 		return 0;
 	}
 
-	buffersize = SecondsToBytes(Signal->header.SamplesPerSec, longest, NULL, NULL);
+	buffersize = SecondsToBytes(Signal->header.SamplesPerSec, longest, NULL, NULL, NULL);
 	buffer = (char*)malloc(buffersize);
 	if(!buffer)
 	{
@@ -562,7 +566,7 @@ int ProcessFile(AudioSignal *Signal, parameters *config)
 		duration = FramesToSeconds(Signal->framerate, frames);
 		windowUsed = getWindowByLength(&windows, frames);
 		
-		loadedBlockSize = SecondsToBytes(Signal->header.SamplesPerSec, duration, &leftover, &discardBytes);
+		loadedBlockSize = SecondsToBytes(Signal->header.SamplesPerSec, duration, &leftover, &discardBytes, &leftDecimals);
 
 		difference = GetByteSizeDifferenceByFrameRate(Signal->framerate, frames, Signal->header.SamplesPerSec, config);
 
@@ -972,7 +976,7 @@ int16_t FindLocalMaximumAroundSample(AudioSignal *Signal, MaximumVolume refMax, 
 		refFrames = refSeconds/(refMax.framerate/1000);
 	
 		tarSeconds = FramesToSeconds(refFrames, Signal->framerate);
-		pos = start + SecondsToBytes(Signal->header.SamplesPerSec, tarSeconds, NULL, NULL);
+		pos = start + SecondsToBytes(Signal->header.SamplesPerSec, tarSeconds, NULL, NULL, NULL);
 	}
 	else
 	{

@@ -28,7 +28,7 @@
  */
 
 #define MDWAVE
-#define MDWVERSION "0.91"
+#define MDWVERSION "0.911"
 
 #include "mdfourier.h"
 #include "log.h"
@@ -294,6 +294,7 @@ int ProcessFile(AudioSignal *Signal, parameters *config)
 	FILE			*processed = NULL;
 	char			Name[4096], tempName[4096];
 	int				leftover = 0, discardBytes = 0;
+	double			leftDecimals = 0;
 
 	pos = Signal->startOffset;
 	
@@ -307,7 +308,7 @@ int ProcessFile(AudioSignal *Signal, parameters *config)
 		return 0;
 	}
 
-	buffersize = SecondsToBytes(Signal->header.SamplesPerSec, longest, NULL, NULL);
+	buffersize = SecondsToBytes(Signal->header.SamplesPerSec, longest, NULL, NULL, NULL);
 	buffer = (char*)malloc(buffersize);
 	if(!buffer)
 	{
@@ -332,10 +333,11 @@ int ProcessFile(AudioSignal *Signal, parameters *config)
 		duration = FramesToSeconds(Signal->framerate, frames);
 		windowUsed = getWindowByLength(&windows, frames);
 		
-		loadedBlockSize = SecondsToBytes(Signal->header.SamplesPerSec, duration, &leftover, &discardBytes);
+		loadedBlockSize = SecondsToBytes(Signal->header.SamplesPerSec, duration, &leftover, &discardBytes, &leftDecimals);
 
 		difference = GetByteSizeDifferenceByFrameRate(Signal->framerate, frames, Signal->header.SamplesPerSec, config);
 
+		//logmsg("Loaded %ld Left %ld Discard %ld difference %ld Decimals %g\n", loadedBlockSize, leftover, discardBytes, difference, leftDecimals);
 		memset(buffer, 0, buffersize);
 		if(pos + loadedBlockSize > Signal->header.Subchunk2Size)
 		{
@@ -356,7 +358,7 @@ int ProcessFile(AudioSignal *Signal, parameters *config)
 				i, pos, 
 				GetBlockName(config, i), GetBlockSubIndex(config, i));
 			ComposeFileName(Name, tempName, ".wav", config);
-			SaveWAVEChunk(Name, Signal, Signal->Samples, 0, Signal->header.Subchunk2Size, config); 
+			SaveWAVEChunk(Name, Signal, buffer, 0, loadedBlockSize, config); 
 		}
 		pos += loadedBlockSize;
 		pos += discardBytes;
@@ -394,6 +396,8 @@ int ProcessFile(AudioSignal *Signal, parameters *config)
 	// Clean up everything again
 	pos = Signal->startOffset;
 	leftover = 0;
+	discardBytes = 0;
+	leftDecimals = 0;
 	i = 0;
 
 	// redo after processing
@@ -406,7 +410,7 @@ int ProcessFile(AudioSignal *Signal, parameters *config)
 		duration = FramesToSeconds(Signal->framerate, frames);
 		windowUsed = getWindowByLength(&windows, frames);
 		
-		loadedBlockSize = SecondsToBytes(Signal->header.SamplesPerSec, duration, &leftover, &discardBytes);
+		loadedBlockSize = SecondsToBytes(Signal->header.SamplesPerSec, duration, &leftover, &discardBytes, &leftDecimals);
 
 		difference = GetByteSizeDifferenceByFrameRate(Signal->framerate, frames, Signal->header.SamplesPerSec, config);
 
@@ -435,7 +439,7 @@ int ProcessFile(AudioSignal *Signal, parameters *config)
 				GenerateFileNamePrefix(config), GetBlockName(config, i), 
 				GetBlockSubIndex(config, i));
 			ComposeFileName(Name, tempName, ".wav", config);
-			SaveWAVEChunk(Name, Signal, Signal->Samples, 0, Signal->header.Subchunk2Size, config);
+			SaveWAVEChunk(Name, Signal, buffer, 0, loadedBlockSize, config);
 		}
 		i++;
 	}
@@ -789,7 +793,7 @@ int commandline_wave(int argc , char *argv[], parameters *config)
 	config->chunks = 0;
 	config->floorAmplitude = 0;
 
-	while ((c = getopt (argc, argv, "hvzcklxis:e:f:t:p:a:w:r:")) != -1)
+	while ((c = getopt (argc, argv, "hvzcklyxis:e:f:t:p:a:w:r:")) != -1)
 	switch (c)
 	  {
 	  case 'h':
@@ -816,6 +820,9 @@ int commandline_wave(int argc , char *argv[], parameters *config)
 		break;
 	  case 'i':
 		config->ignoreFloor = 1;   // RELEVANT HERE!
+		break;
+	  case 'y':
+		config->debugSync = 1;
 		break;
 	  case 's':
 		config->startHz = atoi(optarg);
