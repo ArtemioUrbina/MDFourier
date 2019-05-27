@@ -28,7 +28,7 @@
  */
 
 #define MDWAVE
-#define MDWVERSION "0.911"
+#define MDWVERSION MDVERSION
 
 #include "mdfourier.h"
 #include "log.h"

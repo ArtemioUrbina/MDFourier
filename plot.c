@@ -1127,6 +1127,13 @@ int InsertElementInPlace(FlatFrequency *Freqs, FlatFrequency Element, long int c
 		return 1;
 	}
 
+	// worst case scenario
+	if(Freqs[currentsize-1].hertz >= Element.hertz)
+	{
+		Freqs[currentsize] = Element;
+		return 1;
+	}
+
 	for(long int j = 0; j < currentsize; j++)
 	{
 		if(Element.type == Freqs[j].type && Element.hertz == Freqs[j].hertz)
@@ -1141,7 +1148,7 @@ int InsertElementInPlace(FlatFrequency *Freqs, FlatFrequency Element, long int c
 		if(Element.hertz > Freqs[j].hertz)
 		{
 			/* Move the previous values down the array */
-			for(int k = currentsize-1; k > j; k--)
+			for(int k = currentsize; k > j; k--)
 				Freqs[k] = Freqs[k - 1];
 	
 			Freqs[j] = Element;
@@ -1149,8 +1156,8 @@ int InsertElementInPlace(FlatFrequency *Freqs, FlatFrequency Element, long int c
 		}
 	}
 
-	Freqs[currentsize] = Element;
-	return 1;
+	logmsg("WARNING InsertElementInPlace No match found!\n");
+	return 0;
 }
 
 FlatFrequency *CreateFlatFrequencies(AudioSignal *Signal, long int *size, parameters *config)
@@ -1356,8 +1363,8 @@ AveragedFrequencies *BestFit_CreateFlatDifferencesBestFit(int matchType, long in
 	BestFit_SortFlatAmplitudeDifferencesByFrequency(ADiff, count);
 
 	OutputFileOnlyStart();
-	logmsg("===================\n");
-	logmsg("Averaged Size %ld Difference Size %ld INterval %d\n", size, count, interval);
+	//logmsg("===================\n");
+	//logmsg("Averaged Size %ld Difference Size %ld INterval %d\n", size, count, interval);
 
 	for(long int a = 0; a < size; a++)
 	{
@@ -1378,7 +1385,7 @@ AveragedFrequencies *BestFit_CreateFlatDifferencesBestFit(int matchType, long in
 		averaged[a].avgfreq /= elements;
 		averaged[a].avgvol /= elements;
 
-		logmsg("averaged[%ld]: %ghz %gdbfs (elems:%ld)\n", a, averaged[a].avgfreq, averaged[a].avgvol, elements);
+		//logmsg("averaged[%ld]: %ghz %gdbfs (elems:%ld)\n", a, averaged[a].avgfreq, averaged[a].avgvol, elements);
 	}
 
 	OutputFileOnlyEnd();
@@ -1439,7 +1446,7 @@ void PlotSingleTypeDifferentAmplitudesBestFit(FlatAmplDifference *amplDiff, int 
 					transformtoLog(averaged[a].avgfreq, 20000, config), averaged[a].avgvol,
 					transformtoLog(averaged[a+1].avgfreq, 20000, config), averaged[a+1].avgvol,
 					transformtoLog(averaged[a+2].avgfreq, 20000, config), averaged[a+2].avgvol);
-				logmsg("Plot [%ld] %g->%g\n", a, averaged[a].avgfreq, averaged[a].avgvol);
+				//logmsg("Plot [%ld] %g->%g\n", a, averaged[a].avgfreq, averaged[a].avgvol);
 			}
 		}
 		pl_endpath_r(plot.plotter);

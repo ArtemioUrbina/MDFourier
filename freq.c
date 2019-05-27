@@ -486,13 +486,17 @@ double GetLowerFrameRate(double framerateA, double framerateB)
 
 void CompareFrameRates(double framerate1, double framerate2, parameters *config)
 {
-	if(framerate1 != framerate2)
+	double diff = 0;
+
+	diff = fabs(framerate1 - framerate2);
+	if(diff > 0.0)
 	{
 		config->smallerFramerate = 
 				GetLowerFrameRate(framerate1, 
 									framerate2);
-		logmsg("\n= Different frame rates found, compensating to %g =\n", 
-				config->smallerFramerate);
+		if(diff > 0.001)
+		logmsg("\n= Different frame rates found (%g), compensating to %g =\n", 
+				diff, config->smallerFramerate);
 	}
 }
 
@@ -1098,9 +1102,44 @@ inline double CalculateFrequency(double boxindex, double boxsize, int HertzAlign
 	return Hertz;
 }
 
+int InsertFrequencySorted(AudioBlocks *AudioArray, Frequency element, long int currentsize)
+{
+	if(!AudioArray || !AudioArray->freq)
+		return 0;
+
+	if(!currentsize)
+	{
+		AudioArray->freq[0] = element;
+		return 1;
+	}
+
+	// worst case scenario
+	if(AudioArray->freq[currentsize-1].magnitude >= element.magnitude)
+	{
+		AudioArray->freq[currentsize] = element;
+		return 1;
+	}
+
+	for(long int j = 0; j < currentsize; j++)
+	{
+		if(element.magnitude > AudioArray->freq[j].magnitude)
+		{
+			// Move the previous values down the array 
+			for(int k = currentsize; k > j; k--)
+				AudioArray->freq[k] = AudioArray->freq[k - 1];
+	
+			AudioArray->freq[j] = element;
+			return 1;
+		}
+	}
+
+ 	logmsg("WARNING InsertFrequencySorted No match found!\n");
+	return 0;
+}
+
 void FillFrequencyStructures(AudioBlocks *AudioArray, parameters *config)
 {
-	long int i = 0, startBin= 0, endBin = 0;
+	long int i = 0, startBin= 0, endBin = 0, count = 0;
 	double boxsize = 0, size = 0;
 
 	size = AudioArray->fftwValues.size;
@@ -1111,32 +1150,24 @@ void FillFrequencyStructures(AudioBlocks *AudioArray, parameters *config)
 
 	for(i = startBin; i < endBin; i++)
 	{
-		int    j = 0;
-		double Hertz, magnitude, previous = 1.e30;
+		double		Hertz;
 
-		magnitude = CalculateMagnitude(AudioArray->fftwValues.spectrum[i], size);
 		Hertz = CalculateFrequency(i, boxsize, config->ZeroPad);
 
 		if(Hertz)
 		{
-			for(j = 0; j < config->MaxFreq; j++)
+			Frequency	element;
+
+			memset(&element, 0, sizeof(Frequency));
+			element.hertz = Hertz;
+			element.magnitude = CalculateMagnitude(AudioArray->fftwValues.spectrum[i], size);
+			element.amplitude = NO_AMPLITUDE;
+			element.phase = CalculatePhase(AudioArray->fftwValues.spectrum[i]);
+
+			if(InsertFrequencySorted(AudioArray, element, count))
 			{
-				if(magnitude > AudioArray->freq[j].magnitude && magnitude < previous)
-				{
-					/* Move the previous values down the array */
-					for(int k = config->MaxFreq-1; k > j; k--)
-					{
-						if(AudioArray->freq[k].hertz)
-							AudioArray->freq[k] = AudioArray->freq[k - 1];
-					}
-	
-					AudioArray->freq[j].hertz = Hertz;
-					AudioArray->freq[j].magnitude = magnitude;
-					AudioArray->freq[j].amplitude = NO_AMPLITUDE;
-					AudioArray->freq[j].phase = CalculatePhase(AudioArray->fftwValues.spectrum[i]);
-					break;
-				}
-				previous = AudioArray->freq[j].magnitude;
+				if(count < config->MaxFreq - 1)
+					count++;
 			}
 		}
 	}
@@ -1356,7 +1387,7 @@ double CalculateFrameRate(AudioSignal *Signal, parameters *config)
 	//framerate = RoundFloat(framerate, 4);
 
 	diff = RoundFloat(fabs(expectedFR - framerate), 3);
-	if(config->verbose)
+	if(diff > 0.002 && diff < 0.02)
 		logmsg(" - Framerate difference is %g (Audio card timing?)\n", diff);
 
 	return framerate;
