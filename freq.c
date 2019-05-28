@@ -32,7 +32,7 @@
 #include "cline.h"
 #include "plot.h"
 
-double FindFrequencyBracket(int frequency, size_t size, long samplerate)
+double FindFrequencyBracket(double frequency, size_t size, long samplerate)
 {
 	double seconds = 0, minDiff = 0, targetFreq = 0;
 	long int monoSignalSize;
@@ -47,7 +47,7 @@ double FindFrequencyBracket(int frequency, size_t size, long samplerate)
 		double Hertz = 0, difference = 0;
 
 		Hertz = CalculateFrequency(i, seconds, 0);
-		difference = abs(Hertz - frequency);
+		difference = fabs(Hertz - frequency);
 		if(difference < minDiff)
 		{
 			targetFreq = Hertz;
@@ -68,7 +68,7 @@ void CalcuateFrequencyBrackets(AudioSignal *Signal)
 	Signal->RefreshNoise = FindFrequencyBracket(RoundFloat(1000.0/Signal->framerate, 2), Signal->Blocks[0].fftwValues.size, Signal->header.SamplesPerSec);
 	Signal->CRTLow = FindFrequencyBracket(15680, Signal->Blocks[0].fftwValues.size, Signal->header.SamplesPerSec);
 	Signal->CRTHigh = FindFrequencyBracket(15710, Signal->Blocks[0].fftwValues.size, Signal->header.SamplesPerSec);
-	//logmsg("Mains noise %g CRT Noise %g-%g\n", mains,  CRTLow, CRTHigh);
+	//logmsg("Searching for mains noise %g CRT Noise %g-%g\n", Signal->RefreshNoise,  Signal->CRTLow, Signal->CRTHigh);
 }
 
 int IsCRTNoise(AudioSignal *Signal, double freq)
@@ -1384,9 +1384,9 @@ double CalculateFrameRate(AudioSignal *Signal, parameters *config)
 
 	framerate = (endOffset-startOffset)/(samplerate*LastSyncFrameOffset);
 	framerate = framerate*1000.0/4.0;  // 1000 ms and 4 bytes per stereo sample
-	//framerate = RoundFloat(framerate, 4);
+	framerate = RoundFloat(framerate, 4);
 
-	diff = RoundFloat(fabs(expectedFR - framerate), 3);
+	diff = RoundFloat(fabs(expectedFR - framerate), 4);
 	if(diff > 0.002 && diff < 0.02)
 		logmsg(" - Framerate difference is %g (Audio card timing?)\n", diff);
 

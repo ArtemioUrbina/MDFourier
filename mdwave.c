@@ -319,9 +319,6 @@ int ProcessFile(AudioSignal *Signal, parameters *config)
 	if(!initWindows(&windows, Signal->framerate, Signal->header.SamplesPerSec, config))
 		return 0;
 
-	if(GetFirstSilenceIndex(config) != NO_INDEX)
-		Signal->hasFloor = 1;
-
 	CompareFrameRates(Signal->framerate, GetPlatformMSPerFrame(config), config);
 
 	while(i < config->types.totalChunks)
@@ -366,12 +363,13 @@ int ProcessFile(AudioSignal *Signal, parameters *config)
 	}
 
 	GlobalNormalize(Signal, config);
+	CalcuateFrequencyBrackets(Signal);
 
 	if(Signal->hasFloor && !config->ignoreFloor) // analyze noise floor if available
 	{
 		FindFloor(Signal, config);
 
-		if(Signal->floorAmplitude > config->significantVolume)
+		if(Signal->floorAmplitude != 0.0 && Signal->floorAmplitude > config->significantVolume)
 		{
 			config->significantVolume = Signal->floorAmplitude;
 			logmsg(" - Using %g as minimum significant volume for analisys\n",
@@ -379,6 +377,9 @@ int ProcessFile(AudioSignal *Signal, parameters *config)
 			CreateBaseName(config);
 		}
 	}
+
+	if(config->verbose)
+		PrintFrequencies(Signal, config);
 
 	if(config->clock)
 	{
@@ -606,47 +607,16 @@ int ProcessSamples(AudioBlocks *AudioArray, int16_t *samples, size_t size, long 
 
 	if(!reverse)
 	{
-		for(i = startBin; i < endBin; i++)
-		{
-			double magnitude, previous;
-			int    j = 0;
-			double Hertz;
-	
-			magnitude = CalculateMagnitude(spectrum[i], monoSignalSize);
-			Hertz = CalculateFrequency(i, boxsize, config->ZeroPad);
-	
-			previous = 1.e30;
-			//if(!IsCRTNoise(Hertz))
-			{
-				for(j = 0; j < config->MaxFreq; j++)
-				{
-					if(magnitude > AudioArray->freq[j].magnitude && magnitude < previous)
-					{
-						//Move the previous values down the array
-						for(int k = config->MaxFreq-1; k > j; k--)
-						{
-							if(AudioArray->freq[k].hertz)
-								AudioArray->freq[k] = AudioArray->freq[k - 1];
-						}
-		
-						AudioArray->freq[j].hertz = Hertz;
-						AudioArray->freq[j].magnitude = magnitude;
-						AudioArray->freq[j].amplitude = 0;
-						AudioArray->freq[j].phase = CalculatePhase(spectrum[i]);
-						break;
-					}
-					previous = AudioArray->freq[j].magnitude;
-				}
-			}
-		}
+		AudioArray->fftwValues.spectrum = spectrum;
+		AudioArray->fftwValues.size = monoSignalSize;
+		AudioArray->fftwValues.seconds = seconds;
+
+		FillFrequencyStructures(AudioArray, config);
 	}
 
 	if(reverse)
 	{
 		double MinAmplitude = 0;
-
-		// This needs exploring, global minimum at that frequency count
-		//CutOff = config->MinAmplitude;
 
 		// Find the Max magnitude for frequency at -f cuttoff
 		for(int j = 0; j < config->MaxFreq; j++)
@@ -661,7 +631,8 @@ int ProcessSamples(AudioBlocks *AudioArray, int16_t *samples, size_t size, long 
 		if(CutOff < config->significantVolume)
 			CutOff = config->significantVolume;
 
-		if(!config->ignoreFloor && Signal->hasFloor && CutOff < Signal->floorAmplitude)
+		if(!config->ignoreFloor && Signal->hasFloor &&
+			CutOff < Signal->floorAmplitude && Signal->floorAmplitude != 0.0)
 			CutOff = Signal->floorAmplitude;
 
 		//Process the whole frequency spectrum
@@ -669,27 +640,19 @@ int ProcessSamples(AudioBlocks *AudioArray, int16_t *samples, size_t size, long 
 		{
 			double amplitude = 0, magnitude = 0;
 			int blank = 0;
-			//double Hertz = 0;
 	
 			magnitude = CalculateMagnitude(spectrum[i], monoSignalSize);
 			amplitude = CalculateAmplitude(magnitude, Signal->MaxMagnitude);
-			//Hertz = CalculateFrequency(i, boxsize, config->ZeroPad);
 
 			if(config->invert)
 			{
 				if(amplitude > CutOff)
 					blank = 1;
-
-				//if(IsCRTNoise(Hertz))
-					//blank = 0;	
 			}
 			else
 			{
 				if(amplitude <= CutOff)
 					blank = 1;
-
-				//if(IsCRTNoise(Hertz))
-					//blank = 1;	
 			}
 
 			if(blank)
@@ -771,10 +734,6 @@ int ProcessSamples(AudioBlocks *AudioArray, int16_t *samples, size_t size, long 
 
 	free(signal);
 	signal = NULL;
-
-	AudioArray->fftwValues.spectrum = spectrum;
-	AudioArray->fftwValues.size = monoSignalSize;
-	AudioArray->fftwValues.seconds = seconds;
 
 	return(1);
 }
@@ -955,7 +914,8 @@ int commandline_wave(int argc , char *argv[], parameters *config)
 		EnableConsole();
 	}
 
-	logmsg("\tAudio Channel is: %s\n", GetChannel(config->channel));
+	if(config->channel != 's')
+		logmsg("\tAudio Channel is: %s\n", GetChannel(config->channel));
 	if(config->tolerance != 0.0)
 		logmsg("\tAmplitude tolerance while comparing is +/-%0.2f dBFS\n", config->tolerance);
 	if(config->MaxFreq != FREQ_COUNT)
@@ -968,6 +928,14 @@ int commandline_wave(int argc , char *argv[], parameters *config)
 		logmsg("\tA %s window will be applied to each block to be compared\n", GetWindow(config->window));
 	else
 		logmsg("\tNo window (rectangle) will be applied to each block to be compared\n");
+	if(config->ZeroPad)
+		logmsg("\tFFT bins will be aligned to 1hz, this is slower\n");
+	if(config->ignoreFloor)
+		logmsg("\tIgnoring Silence block noise floor\n");
+	if(config->invert)
+		logmsg("\tSaving Discarded part fo the signal to WAV file\n");
+	if(config->chunks)
+		logmsg("\tSaving WAv chunks to individual files\n");
 
 	return 1;
 }

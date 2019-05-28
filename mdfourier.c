@@ -105,7 +105,7 @@ int main(int argc , char *argv[])
 		/* Detect Signal Floor */
 		config.significantVolume = config.origSignificantVolume;
 		if(ComparisonSignal->hasFloor && !config.ignoreFloor && 
-			ComparisonSignal->floorAmplitude > config.significantVolume)
+			ComparisonSignal->floorAmplitude != 0.0 && ComparisonSignal->floorAmplitude > config.significantVolume)
 		{
 			config.significantVolume = ComparisonSignal->floorAmplitude;
 			logmsg(" - Using %g as minimum significant volume for analisys\n",
@@ -330,7 +330,7 @@ int LoadAndProcessAudioFiles(AudioSignal **ReferenceSignal, AudioSignal **Compar
 
 	/* Detect Signal Floor */
 	if((*ReferenceSignal)->hasFloor && !config->ignoreFloor && 
-		(*ReferenceSignal)->floorAmplitude > config->significantVolume)
+		(*ReferenceSignal)->floorAmplitude != 0.0 && (*ReferenceSignal)->floorAmplitude > config->significantVolume)
 	{
 		config->significantVolume = (*ReferenceSignal)->floorAmplitude;
 		logmsg(" - Using 'Reference' Signal\'s %g as minimum significant volume for analisys\n",

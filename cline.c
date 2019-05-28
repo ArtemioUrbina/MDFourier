@@ -335,7 +335,8 @@ int commandline(int argc , char *argv[], parameters *config)
 		EnableConsole();
 	}
 
-	logmsg("\tAudio Channel is: %s\n", GetChannel(config->channel));
+	if(config->channel != 's')
+		logmsg("\tAudio Channel is: %s\n", GetChannel(config->channel));
 	if(config->tolerance != 0.0)
 		logmsg("\tAmplitude tolerance while comparing is +/-%0.2f dBFS\n", config->tolerance);
 	if(config->MaxFreq != FREQ_COUNT)
@@ -357,6 +358,8 @@ int commandline(int argc , char *argv[], parameters *config)
 		logmsg("\tNo filtering will be applied to the results\n");
 	if(config->ZeroPad)
 		logmsg("\tFFT bins will be aligned to 1hz, this is slower\n");
+	if(config->ignoreFloor)
+		logmsg("\tIgnoring Silence block noise floor\n");
 	return 1;
 }
 

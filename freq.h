@@ -96,6 +96,6 @@ double CalculateScanRate(AudioSignal *Signal);
 
 long int GetZeroPadValues(long int *monoSignalSize, double *seconds, long int samplerate);
 void CalcuateFrequencyBrackets(AudioSignal *signal);
-double FindFrequencyBracket(int frequency, size_t size, long samplerate);
+double FindFrequencyBracket(double frequency, size_t size, long samplerate);
 
 #endif
