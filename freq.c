@@ -68,7 +68,7 @@ void CalcuateFrequencyBrackets(AudioSignal *Signal)
 	Signal->RefreshNoise = FindFrequencyBracket(RoundFloat(1000.0/Signal->framerate, 2), Signal->Blocks[0].fftwValues.size, Signal->header.SamplesPerSec);
 	Signal->CRTLow = FindFrequencyBracket(15680, Signal->Blocks[0].fftwValues.size, Signal->header.SamplesPerSec);
 	Signal->CRTHigh = FindFrequencyBracket(15710, Signal->Blocks[0].fftwValues.size, Signal->header.SamplesPerSec);
-	//logmsg("Searching for mains noise %g CRT Noise %g-%g\n", Signal->RefreshNoise,  Signal->CRTLow, Signal->CRTHigh);
+	//logmsg("Searching for grid power frequency noise %g CRT Noise %g-%g\n", Signal->RefreshNoise,  Signal->CRTLow, Signal->CRTHigh);
 }
 
 int IsCRTNoise(AudioSignal *Signal, double freq)
@@ -845,7 +845,7 @@ void FindFloor(AudioSignal *Signal, parameters *config)
 			{
 				Signal->floorAmplitude = Signal->Blocks[index].freq[i].amplitude;
 				Signal->floorFreq = Signal->Blocks[index].freq[i].hertz;
-				logmsg(" - Silence block mains noise: %g Hz at %g dBFS\n",
+				logmsg(" - Silence block grid power frequency noise: %g Hz at %g dBFS\n",
 					Signal->floorFreq, Signal->floorAmplitude);
 				return;
 			}
