@@ -570,6 +570,8 @@ int ProcessFile(AudioSignal *Signal, parameters *config)
 
 		difference = GetByteSizeDifferenceByFrameRate(Signal->framerate, frames, Signal->header.SamplesPerSec, config);
 
+		//logmsg("loadedBlockSize -diff %ld leftover %ld discardBytes %ld leftDecimals %g\n",
+			//	loadedBlockSize - difference, leftover, discardBytes, leftDecimals);
 		memset(buffer, 0, buffersize);
 		if(pos + loadedBlockSize > Signal->header.Subchunk2Size)
 		{
@@ -577,7 +579,7 @@ int ProcessFile(AudioSignal *Signal, parameters *config)
 			break;
 		}
 		
-		memcpy(buffer, Signal->Samples + pos, loadedBlockSize);
+		memcpy(buffer, Signal->Samples + pos, loadedBlockSize-difference);
 
 		Signal->Blocks[i].index = GetBlockSubIndex(config, i);
 		Signal->Blocks[i].type = GetBlockType(config, i);
@@ -585,7 +587,7 @@ int ProcessFile(AudioSignal *Signal, parameters *config)
 		if(!ExecuteDFFT(&Signal->Blocks[i], (int16_t*)buffer, (loadedBlockSize-difference)/2, Signal->header.SamplesPerSec, windowUsed, config))
 			return 0;
 		// MDWAVE exists for this, but just in case it is ever needed within MDFourier
-		//SaveWAVEChunk(NULL, Signal, buffer, i, loadedBlockSize, config);
+		//SaveWAVEChunk(NULL, Signal, buffer, i, loadedBlockSize-difference, config);
 
 		FillFrequencyStructures(&Signal->Blocks[i], config);
 
@@ -839,26 +841,33 @@ double CompareAudioBlocks(AudioSignal *ReferenceSignal, AudioSignal *ComparisonS
 
 		if(config->Differences.BlockDiffArray[block].cntFreqBlkDiff && !config->justResults)
 		{
-			OutputFileOnlyStart();
 			if(config->extendedResults)
 			{
+				OutputFileOnlyStart();
 				logmsg("Unmatched Block Report for %s# %ld (%ld)\n", GetBlockName(config, block), GetBlockSubIndex(config, block), block);
 				PrintComparedBlocks(&ReferenceSignal->Blocks[block], &ComparisonSignal->Blocks[block],
 					config, ReferenceSignal);
+				OutputFileOnlyEnd();
 			}
-			OutputFileOnlyEnd();
 		}
 		else
 		{
-			OutputFileOnlyStart();
 			if(!config->justResults && config->showAll)
 			{
+				OutputFileOnlyStart();
 				logmsg("Matched Block Report for %s# %ld (%ld)\n", GetBlockName(config, block), GetBlockSubIndex(config, block), block);
 				PrintComparedBlocks(&ReferenceSignal->Blocks[block], &ComparisonSignal->Blocks[block], 
 					config, ReferenceSignal);
+				OutputFileOnlyEnd();
 			}
-			OutputFileOnlyEnd();
 		}
+	}
+
+	if(config->extendedResults)
+	{
+		OutputFileOnlyStart();
+		PrintDifferenceArray(config);
+		OutputFileOnlyEnd();
 	}
 	
 	if(config->clock)
