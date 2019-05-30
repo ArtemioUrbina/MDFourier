@@ -35,6 +35,8 @@ The intention is not to disparage any particular implementation; but to help und
 
 These results can be used to determine if the signals are indeed different, and how they differ across the human hearing frequency spectrum. Such information can then be used for different means, such as recreating specific audio signatures, tuning to a different taste, etc; based on an objective, repeatable and measurable data set and framework.
 
+It can also be used to evaluate audio equipment, such as switchers and upscalers that have passthrough audio, by comparing a recording with and without the equipment in the audio chain.
+
 Although I believe any present and future implementation of a gaming platform should offer a configuration based on vintage retail hardware, that doesn't mean there isn't room for improvement upon those configurations. Reducing noise while keeping the original sound signature is one such case.
 
 This project was born from my curiosity to compare the audio signatures of different revisions of the  \textit{Mega Drive/Genesis}, and verify them myself with a tool assisted analysis. I was also curious about \textit{FPGA} and software implementations, and how similar they were to vintage console audio signatures.
@@ -260,78 +262,7 @@ The currently available options in the Front End are:
 
 In order to reduce \textit{spectral leakage} a filtering window is applied to each element compared between both signals. Since we are generating the signal ourselves from the custom binary for each hardware platform, the signal can be analyzed as periodic and has a natural attack and decay rate.
 
-By default we use a custom \textit{Tukey window} with very steep slopes. \textit{MDFourier} does offer alternate windows as options for further analysis. You can read more about windows and their usage in the reference web page\cite{windowtypes}.
-
-\subsection{Tukey}
-
-The default is a Tukey window specifically designed for this purpose. It uses a 2.5\% slope on each side of the signal, zeroing just a few samples and with minimal amplitude and frequency distortion.
-
-The following equation is used to create the slopes:
-
-\begin{equation}
-tukey(x)=85(1+\cos(\frac{2\pi}{n-1}\frac{x-(n-1)}{2}))
-\end{equation}
-
-And this is the resulting plot of the Tukey window, tanges are 0-1 horizontally and -0.1 to 1.1 vertically.
-
-\begin{figure}[H]
-	\centering
-	\includegraphics[width=0.4\linewidth]{plots/window-tukey.png}
-	\caption[Tukey Window]{This is the custom Tukey window used by MDFourier}
-	\label{fig:window-tukey}
-\end{figure}
-
-
-\subsection{Flattop}
-A typical Flat top window is used.
-
-\begin{align*}
-flattop(x)=0.21557895 - 0.41663158\cos(2\pi\frac{x}{n-1})+ 0.277263158\cos(4\pi\frac{x}{n-1})\\
- - 0.083578947\cos(6\pi\frac{x}{n-1}) + 0.006947368\cos(8\pi\frac{x}{n-1})
-\end{align*}
-
-\begin{figure}[H]
-	\centering
-	\includegraphics[width=0.4\linewidth]{plots/window-flattop.png}
-	\caption[Flat Top window]{Flat Top window}
-	\label{fig:window-flattop}
-\end{figure}
-
-
-\subsection{Hann}
-A typical Hann window is used.
-
-\begin{equation}
-hann[x] = \frac{1}{2}(1 - \cos(\frac{2\pi(x+1)}{n+1}))
-\end{equation}
-
-\begin{figure}[H]
-	\centering
-	\includegraphics[width=0.4\linewidth]{plots/window-hann.png}
-	\caption[Hann Window]{Hann Window}
-	\label{fig:window-hann}
-\end{figure}
-
-
-\subsection{Hamming}
-A typical Hamming window is used.
-
-\begin{equation}
-hamming[x] = 0.54 - 0.46\cos(\frac{2\pi x}{n-1})
-\end{equation}
-
-\begin{figure}[H]
-	\centering
-	\includegraphics[width=0.4\linewidth]{plots/window-hamming.png}
-	\caption[Hamming window]{Hamming window}
-	\label{fig:window-hamming}
-\end{figure}
-
-
-\subsection{No Window}
-
-No window is applied, equivalent to a rectangular window. This leaves the signal unprocessed and any uncontrolled decay and audio card noise will be factored in as part of the periodic signal.
-
+By default we use a custom \textit{Tukey window} with very steep slopes. \textit{MDFourier} does offer alternate windows as options for further analysis. All details regarding the windows used, their formulas and graphs are in section \ref{windowfunctiondetails}.
 
 \section{Color Filter Functions}
 \label{colorfilter}
@@ -354,118 +285,7 @@ The options are useful to highlight or attenuate these differences by applying t
 
 They are sorted in descending order. The topmost option will highlight all differences; and the bottom one will attenuate most of them, and show just the ones with highest amplitudes in the \textit{Reference} signal.
 
-\subsection{None} 
-
-No filtering is applied, as a result all differences are plotted with the brightest color. 
-
-\begin{figure}[H]
-	\centering
-	\includegraphics[width=0.4\linewidth]{plots/BetaFunctionPlot_0}
-	\caption[No Filter]{No Filter}
-	\label{fig:betafunctionplot0}
-\end{figure}
-
-\begin{figure}[H]
-	\centering
-	\includegraphics[width=1\linewidth]{plots/BetaFunctionPlot_0_Data}
-	\caption[No Filter]{No Filter Applied}
-	\label{fig:betafunctionplot0data}
-\end{figure}
-
-\newpage
-\subsection{$\sqrt{dbFS}$} 
-
-A square root function will only attenuate the lowest amplitude differences.
-
-\begin{figure}[H]
-	\centering
-	\includegraphics[width=0.4\linewidth]{plots/BetaFunctionPlot_1}
-	\caption[Square Root filter]{Square Root filter}
-	\label{fig:betafunctionplot1}
-\end{figure}
-
-\begin{figure}[H]
-	\centering
-	\includegraphics[width=1\linewidth]{plots/BetaFunctionPlot_1_Data}
-	\caption[Square Root filter]{Square Root filter Applied}
-	\label{fig:betafunctionplot1data}
-\end{figure}
-
-\newpage
-\subsection{$\beta(3,3)$}
-
-A Beta Function filter with parameters (3, 3) will attenuate a bit more from the lower range, still showing most of the differences.
-
-\begin{figure}[H]
-	\centering
-	\includegraphics[width=0.4\linewidth]{plots/BetaFunctionPlot_2}
-	\caption[Beta Function(3,3)]{Beta Function(3,3)}
-	\label{fig:betafunctionplot2}
-\end{figure}
-
-\begin{figure}[H]
-	\centering
-	\includegraphics[width=1\linewidth]{plots/BetaFunctionPlot_2_Data}
-	\caption[Beta Function(3,3)]{Beta Function(3,3) Applied}
-	\label{fig:betafunctionplot2data}
-\end{figure}
-
-\newpage
-\subsection{$Linear$} 
-
-The linear function is the default, and has no bias. Half the dinamic range corresponds to half the color rage.
-
-\begin{figure}[H]
-	\centering
-	\includegraphics[width=0.4\linewidth]{plots/BetaFunctionPlot_3}
-	\caption[Linear]{Linear Function}
-	\label{fig:betafunctionplot3}
-\end{figure}
-
-\begin{figure}[H]
-	\centering
-	\includegraphics[width=1\linewidth]{plots/BetaFunctionPlot_3_Data}
-	\caption[Linear Applied]{Linear Function Applied}
-	\label{fig:betafunctionplot3data}
-\end{figure}
-
-\newpage
-\subsection{$dBFS^2$}
-
-A squared function will attenuate a lot more differences, as a result frequencies with the highest amplitude in the reference signal will be brighter.
-
-\begin{figure}[H]
-	\centering
-	\includegraphics[width=0.4\linewidth]{plots/BetaFunctionPlot_4}
-	\caption[Linear]{Linear Function}
-	\label{fig:betafunctionplot4}
-\end{figure}
-
-\begin{figure}[H]
-	\centering
-	\includegraphics[width=1\linewidth]{plots/BetaFunctionPlot_4_Data}
-	\caption[Linear Applied]{Linear Function Applied}
-	\label{fig:betafunctionplot4data}
-\end{figure}
-
-\newpage
-\subsection{$\beta(16,2)$} 
-
-A Beta Function filter with parameters (16,2) will attenuate almost all the differences, and only the frequencies with the highest amplitude in the reference signal will be brighter.
-
-\begin{figure}[H]
-	\centering
-	\includegraphics[width=0.4\linewidth]{plots/BetaFunctionPlot_5}
-	\caption[Beta Function(16,2)]{Beta Function(16,2)}
-	\label{fig:betafunctionplot5}
-\end{figure}
-
-\begin{figure}[H]
-	\centering
-	\includegraphics[width=1\linewidth]{plots/BetaFunctionPlot_5_Data}
-	\caption[Beta Function(16,2)]{Beta Function(16,2) Applied}
-	\label{fig:betafunctionplot5data}
-\end{figure}
+All filters, their graphs and effects are listed under section \ref{filterfunctions}.
 
 \chapter{How to interpret the plots}
 \label{howtoplots}
@@ -761,6 +581,198 @@ In \textit{Linux} or \textit{UN*X} based systems, you can link it against the la
 The \textit{makefiles} to compile either version are provided with the source code\cite{sourcecode}.
 
 \chapter{Appendix}
+
+\section{Window Function details}
+\label{windowfunctiondetails}
+
+\subsection{Tukey}
+
+The default is a Tukey window specifically designed for this purpose. It uses a 2.5\% slope on each side of the signal, zeroing just a few samples and with minimal amplitude and frequency distortion.
+
+The following equation is used to create the slopes:
+
+\begin{equation}
+tukey(x)=85(1+\cos(\frac{2\pi}{n-1}\frac{x-(n-1)}{2}))
+\end{equation}
+
+And this is the resulting plot of the Tukey window, tanges are 0-1 horizontally and -0.1 to 1.1 vertically.
+
+\begin{figure}[H]
+	\centering
+	\includegraphics[width=0.4\linewidth]{plots/window-tukey.png}
+	\caption[Tukey Window]{This is the custom Tukey window used by MDFourier}
+	\label{fig:window-tukey}
+\end{figure}
+
+
+\subsection{Flattop}
+A typical Flat top window is used.
+
+\begin{align*}
+flattop(x)=0.21557895 - 0.41663158\cos(2\pi\frac{x}{n-1})+ 0.277263158\cos(4\pi\frac{x}{n-1})\\
+- 0.083578947\cos(6\pi\frac{x}{n-1}) + 0.006947368\cos(8\pi\frac{x}{n-1})
+\end{align*}
+
+\begin{figure}[H]
+	\centering
+	\includegraphics[width=0.4\linewidth]{plots/window-flattop.png}
+	\caption[Flat Top window]{Flat Top window}
+	\label{fig:window-flattop}
+\end{figure}
+
+
+\subsection{Hann}
+A typical Hann window is used.
+
+\begin{equation}
+hann[x] = \frac{1}{2}(1 - \cos(\frac{2\pi(x+1)}{n+1}))
+\end{equation}
+
+\begin{figure}[H]
+	\centering
+	\includegraphics[width=0.4\linewidth]{plots/window-hann.png}
+	\caption[Hann Window]{Hann Window}
+	\label{fig:window-hann}
+\end{figure}
+
+
+\subsection{Hamming}
+A typical Hamming window is used.
+
+\begin{equation}
+hamming[x] = 0.54 - 0.46\cos(\frac{2\pi x}{n-1})
+\end{equation}
+
+\begin{figure}[H]
+	\centering
+	\includegraphics[width=0.4\linewidth]{plots/window-hamming.png}
+	\caption[Hamming window]{Hamming window}
+	\label{fig:window-hamming}
+\end{figure}
+
+
+\subsection{No Window}
+
+No window is applied, equivalent to a rectangular window. This leaves the signal unprocessed and any uncontrolled decay and audio card noise will be factored in as part of the periodic signal.
+
+There is more information on windows and their usage in the reference webpage \cite{windowtypes}.
+
+\section{Color Filter Function details}
+\label{filterfunctions}
+
+\subsection{None} 
+
+No filtering is applied, as a result all differences are plotted with the brightest color. 
+
+\begin{figure}[H]
+	\centering
+	\includegraphics[width=0.4\linewidth]{plots/BetaFunctionPlot_0}
+	\caption[No Filter]{No Filter}
+	\label{fig:betafunctionplot0}
+\end{figure}
+
+\begin{figure}[H]
+	\centering
+	\includegraphics[width=1\linewidth]{plots/BetaFunctionPlot_0_Data}
+	\caption[No Filter]{No Filter Applied}
+	\label{fig:betafunctionplot0data}
+\end{figure}
+
+\newpage
+\subsection{$\sqrt{dbFS}$} 
+
+A square root function will only attenuate the lowest amplitude differences.
+
+\begin{figure}[H]
+	\centering
+	\includegraphics[width=0.4\linewidth]{plots/BetaFunctionPlot_1}
+	\caption[Square Root filter]{Square Root filter}
+	\label{fig:betafunctionplot1}
+\end{figure}
+
+\begin{figure}[H]
+	\centering
+	\includegraphics[width=1\linewidth]{plots/BetaFunctionPlot_1_Data}
+	\caption[Square Root filter]{Square Root filter Applied}
+	\label{fig:betafunctionplot1data}
+\end{figure}
+
+\newpage
+\subsection{$\beta(3,3)$}
+
+A Beta Function filter with parameters (3, 3) will attenuate a bit more from the lower range, still showing most of the differences.
+
+\begin{figure}[H]
+	\centering
+	\includegraphics[width=0.4\linewidth]{plots/BetaFunctionPlot_2}
+	\caption[Beta Function(3,3)]{Beta Function(3,3)}
+	\label{fig:betafunctionplot2}
+\end{figure}
+
+\begin{figure}[H]
+	\centering
+	\includegraphics[width=1\linewidth]{plots/BetaFunctionPlot_2_Data}
+	\caption[Beta Function(3,3)]{Beta Function(3,3) Applied}
+	\label{fig:betafunctionplot2data}
+\end{figure}
+
+\newpage
+\subsection{$Linear$} 
+
+The linear function is the default, and has no bias. Half the dinamic range corresponds to half the color rage.
+
+\begin{figure}[H]
+	\centering
+	\includegraphics[width=0.4\linewidth]{plots/BetaFunctionPlot_3}
+	\caption[Linear]{Linear Function}
+	\label{fig:betafunctionplot3}
+\end{figure}
+
+\begin{figure}[H]
+	\centering
+	\includegraphics[width=1\linewidth]{plots/BetaFunctionPlot_3_Data}
+	\caption[Linear Applied]{Linear Function Applied}
+	\label{fig:betafunctionplot3data}
+\end{figure}
+
+\newpage
+\subsection{$dBFS^2$}
+
+A squared function will attenuate a lot more differences, as a result frequencies with the highest amplitude in the reference signal will be brighter.
+
+\begin{figure}[H]
+	\centering
+	\includegraphics[width=0.4\linewidth]{plots/BetaFunctionPlot_4}
+	\caption[Linear]{Linear Function}
+	\label{fig:betafunctionplot4}
+\end{figure}
+
+\begin{figure}[H]
+	\centering
+	\includegraphics[width=1\linewidth]{plots/BetaFunctionPlot_4_Data}
+	\caption[Linear Applied]{Linear Function Applied}
+	\label{fig:betafunctionplot4data}
+\end{figure}
+
+\newpage
+\subsection{$\beta(16,2)$} 
+
+A Beta Function filter with parameters (16,2) will attenuate almost all the differences, and only the frequencies with the highest amplitude in the reference signal will be brighter.
+
+\begin{figure}[H]
+	\centering
+	\includegraphics[width=0.4\linewidth]{plots/BetaFunctionPlot_5}
+	\caption[Beta Function(16,2)]{Beta Function(16,2)}
+	\label{fig:betafunctionplot5}
+\end{figure}
+
+\begin{figure}[H]
+	\centering
+	\includegraphics[width=1\linewidth]{plots/BetaFunctionPlot_5_Data}
+	\caption[Beta Function(16,2)]{Beta Function(16,2) Applied}
+	\label{fig:betafunctionplot5data}
+\end{figure}
+
 
 \section{Contact the author}
 \label{contact}
