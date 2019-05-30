@@ -996,7 +996,7 @@ int16_t FindLocalMaximumAroundSample(AudioSignal *Signal, MaximumVolume refMax, 
 	if(pos > end)
 		return 0;
 
-	// Search in 1/10 of Signal->header.SamplesPerSec
+	// Search in 2/faction of Signal->header.SamplesPerSec
 	// around the position of the sample
 
 	fraction = 60.0; // around 1 frame

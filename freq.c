@@ -883,6 +883,7 @@ void FindFloor(AudioSignal *Signal, parameters *config)
 	Signal->hasFloor = 0;  /* revoke it if not found */
 }
 
+/// Now only called by MDWave
 void GlobalNormalize(AudioSignal *Signal, parameters *config)
 {
 	double		MaxMagnitude = 0;
@@ -893,7 +894,7 @@ void GlobalNormalize(AudioSignal *Signal, parameters *config)
 	if(!Signal)
 		return;
 
-	/* Find global peak */
+	// Find global peak 
 	
 	for(int block = 0; block < config->types.totalChunks; block++)
 	{
@@ -913,11 +914,11 @@ void GlobalNormalize(AudioSignal *Signal, parameters *config)
 	if(config->verbose)
 	{
 		if(MaxBlock != -1)
-			logmsg(" - Max Volume found in block %d at %g Hz with %g magnitude\n", MaxBlock, MaxFreq, MaxMagnitude);
+			logmsg(" - MAX Volume found in block %d at %g Hz with %g magnitude\n", MaxBlock, MaxFreq, MaxMagnitude);
 	}
 	Signal->MaxMagnitude = MaxMagnitude;
 
-	/* Normalize and calculate Amplitude in dBFSs */
+	// Normalize and calculate Amplitude in dBFSs 
 	for(int block = 0; block < config->types.totalChunks; block++)
 	{
 		for(int i = 0; i < config->MaxFreq; i++)

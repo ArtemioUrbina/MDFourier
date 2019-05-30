@@ -125,9 +125,10 @@ void DrawGridZeroToLimit(PlotFile *plot, double dbs, double dbIncrement, double 
 void DrawLabelsZeroToLimit(PlotFile *plot, double dbs, double dbIncrement, double hz, double hzIncrement,  parameters *config);
 void DrawColorScale(PlotFile *plot, char *label, int color, double x, double y, double width, double height, double endDbs, double dbIncrement, parameters *config);
 
-
-AveragedFrequencies *BestFit_CreateFlatDifferencesBestFit(int matchType, long int *avgSize, int chunks, parameters *config);
-void PlotSingleTypeDifferentAmplitudesBestFit(FlatAmplDifference *amplDiff, int type, char *filename, AveragedFrequencies *averaged, long int avgsize, parameters *config);
+int PlotDifferentAmplitudesAveraged(FlatAmplDifference *amplDiff, char *filename, parameters *config);
+AveragedFrequencies *CreateFlatDifferencesAveraged(int matchType, long int *avgSize, int chunks, parameters *config);
+void PlotSingleTypeDifferentAmplitudesAveraged(FlatAmplDifference *amplDiff, int type, char *filename, AveragedFrequencies *averaged, long int avgsize, parameters *config);
+void PlotAllDifferentAmplitudesAveraged(FlatAmplDifference *amplDiff, char *filename, AveragedFrequencies **averaged, long int *avgsize, parameters *config);
 
 
 void PlotTest(char *filename, parameters *config);

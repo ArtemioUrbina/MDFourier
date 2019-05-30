@@ -266,6 +266,7 @@ typedef struct parameters_st {
 	int				ZeroPad;
 	int				timeDomainNormalize;
 	int				averagePlot;
+	int				weightedAveragePlot;
 
 	fftw_plan		sync_plan;
 	fftw_plan		model_plan;

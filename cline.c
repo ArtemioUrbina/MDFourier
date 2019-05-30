@@ -94,6 +94,7 @@ void CleanParameters(parameters *config)
 	config->reverseCompare = 0;
 	config->timeDomainNormalize = 1;
 	config->averagePlot = 0;
+	config->weightedAveragePlot = 1;
 
 	config->Differences.BlockDiffArray = NULL;
 	config->Differences.cntFreqAudioDiff = 0;
