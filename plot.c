@@ -1332,7 +1332,6 @@ long int movingAverage(AveragedFrequencies *data, AveragedFrequencies *averages,
 
 // parameters for the Average plot
 
-#define	AVERAGE_MINIMUM_INTENSITY 0.5	// between 0 and 1
 #define	SMA_SIZE					4	// Size for the Simple Moving average period
 #define	AVERAGE_CHUNKS				60	// How many chunks across the frequency spectrum
 
@@ -1360,6 +1359,8 @@ AveragedFrequencies *CreateFlatDifferencesAveraged(int matchType, long int *avgS
 	if(!count)
 		return NULL;
 
+	if(config->weightedAveragePlot)
+		count *= 10;
 	ADiff = (FlatAmplDifference*)malloc(sizeof(FlatAmplDifference)*count);
 	if(!ADiff)
 		return NULL;
@@ -1375,14 +1376,21 @@ AveragedFrequencies *CreateFlatDifferencesAveraged(int matchType, long int *avgS
 		{
 			for(int a = 0; a < config->Differences.BlockDiffArray[b].cntAmplBlkDiff; a++)
 			{
-				double intensity = 0;
-
 				if(config->weightedAveragePlot)
-					intensity = CalculateWeightedError((fabs(config->significantVolume) - fabs(ADiff[a].refAmplitude))/fabs(config->significantVolume), config);
+				{
+					double intensity = 0;
+
+					intensity = CalculateWeightedError(
+									(fabs(config->significantVolume) - fabs(config->Differences.BlockDiffArray[b].amplDiffArray[a].refAmplitude))/
+									fabs(config->significantVolume), config);
+					for(int i = 0; i < floor(intensity*10); i++)
+					{
+						ADiff[count].hertz = config->Differences.BlockDiffArray[b].amplDiffArray[a].hertz;
+						ADiff[count].diffAmplitude = config->Differences.BlockDiffArray[b].amplDiffArray[a].diffAmplitude;
+						count ++;
+					}
+				}
 				else
-					intensity = 1;
-	
-				if(intensity >= AVERAGE_MINIMUM_INTENSITY)
 				{
 					ADiff[count].hertz = config->Differences.BlockDiffArray[b].amplDiffArray[a].hertz;
 					ADiff[count].diffAmplitude = config->Differences.BlockDiffArray[b].amplDiffArray[a].diffAmplitude;
@@ -1409,6 +1417,11 @@ AveragedFrequencies *CreateFlatDifferencesAveraged(int matchType, long int *avgS
 	SortFlatAmplitudeDifferencesByFrequencyAveraged(ADiff, count);
 
 	interval = ceil((double)count/(double)chunks);
+	if(interval < 1)
+	{
+		interval = 1;
+		chunks = count;
+	}
 
 	for(long int a = 0; a < chunks; a++)
 	{
@@ -1457,6 +1470,9 @@ AveragedFrequencies *CreateFlatDifferencesAveraged(int matchType, long int *avgS
 	averaged = NULL;
 
 	return(averagedSMA);
+	
+	//*avgSize = realResults;
+	//return averaged;
 }
 
 int PlotDifferentAmplitudesAveraged(FlatAmplDifference *amplDiff, char *filename, parameters *config)
