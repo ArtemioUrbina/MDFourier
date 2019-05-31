@@ -115,48 +115,26 @@ HCURSOR CMDFourierGUIDlg::OnQueryDragIcon()
 
 void CMDFourierGUIDlg::OnBnClickedSelectReferenceFile()
 {
-	CString fileName;
 	TCHAR szFilters[]= L"Audio Files (*.wav)|*.wav";
 	CFileDialog dlgFile(TRUE, L"wav", L"*.wav", OFN_FILEMUSTEXIST, szFilters);
-	wchar_t* p = NULL;
-
-	p = fileName.GetBuffer(BUFFER_SIZE);
-	OPENFILENAME& ofn = dlgFile.GetOFN();
-	ofn.lpstrFile = p;
-	ofn.nMaxFile = BUFFER_SIZE;
-
+	
 	if(dlgFile.DoModal() != IDOK)
-	{
-		fileName.ReleaseBuffer();
 		return;
-	}
 
-	fileName.ReleaseBuffer();
-	m_Reference = fileName;
+	m_Reference = dlgFile.GetPathName();
 	m_ReferenceLbl.SetWindowText(m_Reference); 
 }
 
 
 void CMDFourierGUIDlg::OnBnClickedSelectReferenceCompare()
 {
-	CString fileName;
 	TCHAR szFilters[]= L"Audio Files (*.wav)|*.wav";
 	CFileDialog dlgFile(TRUE, L"wav", L"*.wav", OFN_FILEMUSTEXIST, szFilters);
-	wchar_t* p = NULL;
-
-	p = fileName.GetBuffer(BUFFER_SIZE);
-	OPENFILENAME& ofn = dlgFile.GetOFN();
-	ofn.lpstrFile = p;
-	ofn.nMaxFile = BUFFER_SIZE;
 
 	if(dlgFile.DoModal() != IDOK)
-	{
-		fileName.ReleaseBuffer();
 		return;
-	}
 
-	fileName.ReleaseBuffer();
-	m_ComparisonFile = fileName;
+	m_ComparisonFile = dlgFile.GetPathName();
 	m_ComparisonLbl.SetWindowText(m_ComparisonFile); 
 }
 
