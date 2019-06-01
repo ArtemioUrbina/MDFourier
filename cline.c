@@ -48,8 +48,10 @@ void PrintUsage()
 	logmsg("	 -l: <l>og output to file [reference]_vs_[compare].txt\n");
 	logmsg("	 -v: Enable <v>erbose mode, spits all the FFTW results\n");
 	logmsg("	 -g: Create avera<g>e points over the plotted graphs\n");
+	logmsg("	 -L: Create 800x400 plots as shown in the manual\n");
+	logmsg("	 -H: Create 1920x1080 plots\n");
 	logmsg("	 -j: Cuts per block information and shows <j>ust total results\n");
-	logmsg("	 -x: Enables e<x>tended results. Shows a table with all matches\n");
+	logmsg("	 -x: Enables e<x>tended log results. Shows a table with all matches\n");
 	logmsg("	 -m: Enables Show all blocks compared with <m>atched frequencies\n");
 	logmsg("	 -k: cloc<k> FFTW operations\n");
 }
@@ -69,6 +71,7 @@ void CleanParameters(parameters *config)
 {
 	memset(config, 0, sizeof(parameters));
 
+	sprintf(config->profileFile, "mdfblocks.mfn");
 	config->tolerance = DBS_TOLERANCE;
 	config->startHz = START_HZ;
 	config->endHz = END_HZ;
@@ -95,6 +98,9 @@ void CleanParameters(parameters *config)
 	config->timeDomainNormalize = 1;
 	config->averagePlot = 0;
 	config->weightedAveragePlot = 1;
+
+	config->plotResX = PLOT_RES_X;
+	config->plotResY = PLOT_RES_Y;
 
 	config->Differences.BlockDiffArray = NULL;
 	config->Differences.cntFreqAudioDiff = 0;
@@ -131,7 +137,7 @@ int commandline(int argc , char *argv[], parameters *config)
 	
 	CleanParameters(config);
 
-	while ((c = getopt (argc, argv, "hxjzmviklygo:s:f:t:p:a:w:r:c:")) != -1)
+	while ((c = getopt (argc, argv, "hxjzmviklygLHo:s:f:t:p:a:w:r:c:P:")) != -1)
 	switch (c)
 	  {
 	  case 'h':
@@ -167,6 +173,14 @@ int commandline(int argc , char *argv[], parameters *config)
 		break;
 	  case 'l':
 		EnableLog();
+		break;
+	  case 'L':
+		config->plotResX = 800;
+		config->plotResY = 400;
+		break;
+	  case 'H':
+		config->plotResX = 1920;
+		config->plotResY = 1080;
 		break;
 	  case 'o':
 		config->outputFilterFunction = atoi(optarg);
@@ -241,6 +255,9 @@ int commandline(int argc , char *argv[], parameters *config)
 		sprintf(config->targetFile, "%s", optarg);
 		tar = 1;
 		break;
+	  case 'P':
+		sprintf(config->profileFile, "%s", optarg);
+		break;
 	  case '?':
 		if (optopt == 'r')
 		  logmsg("Reference File -%c requires an argument.\n", optopt);
@@ -264,6 +281,8 @@ int commandline(int argc , char *argv[], parameters *config)
 		  logmsg("Max frequency range for FFTW -%c requires an argument: 10-20000\n", optopt);
 		else if (isprint (optopt))
 		  logmsg("Unknown option `-%c'.\n", optopt);
+		else if (optopt == 'P')
+		  logmsg("Profile File -%c requires a file argument\n", optopt);
 		else
 		  logmsg("Unknown option character `\\x%x'.\n", optopt);
 		return 0;

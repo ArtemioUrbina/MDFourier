@@ -90,7 +90,7 @@ int main(int argc , char *argv[])
 	logmsg("\n* Comparing frequencies\n");
 	CompareAudioBlocks(ReferenceSignal, ComparisonSignal, &config);
 
-	logmsg("* Plotting results to PNGs\n");
+	logmsg("* Plotting results to PNGs:\n");
 	PlotResults(ReferenceSignal, &config);
 
 	if(config.reverseCompare)
@@ -118,15 +118,17 @@ int main(int argc , char *argv[])
 		PlotResults(ComparisonSignal, &config);
 	}
 	else
+	{
+		logmsg(" - Spectrogram Comparison");
 		PlotSpectrograms(ComparisonSignal, &config);
+		logmsg("\n");
+	}
 
 	if(IsLogEnabled())
 	{
 		endLog();
 		printf("\nCheck logfile for extended results\n");
 	}
-
-	printf("\nResults stored in %s\n", config.folderName);
 
 	/* Clear up everything */
 	ReleaseDifferenceArray(&config);
@@ -140,6 +142,8 @@ int main(int argc , char *argv[])
 		elapsedSeconds = TimeSpecToSeconds(&end) - TimeSpecToSeconds(&start);
 		logmsg(" - clk: MDFourier took %0.2fs\n", elapsedSeconds);
 	}
+
+	printf("\nResults stored in %s\n", config.folderName);
 	
 	return(0);
 }

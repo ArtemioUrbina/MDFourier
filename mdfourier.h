@@ -77,6 +77,11 @@
 #define START_HZ	5
 #define END_HZ		22050
 
+#define PLOT_RES_X 1600.0
+#define PLOT_RES_Y 800.0
+
+#define PROFILE_FILE	"mdfblocks.mfn"
+
 typedef struct max_vol {
 	int16_t		magnitude;
 	uint32_t	offset;
@@ -241,6 +246,7 @@ typedef struct parameters_st {
 	char			folderName[2512];
 	char			baseName[2512];
 	char			compareName[2512];
+	char			profileFile[2512];
 	double			tolerance;
 	int				startHz, endHz;
 	int				showAll;
@@ -267,6 +273,9 @@ typedef struct parameters_st {
 	int				timeDomainNormalize;
 	int				averagePlot;
 	int				weightedAveragePlot;
+
+	double 			plotResX;
+	double			plotResY;
 
 	fftw_plan		sync_plan;
 	fftw_plan		model_plan;

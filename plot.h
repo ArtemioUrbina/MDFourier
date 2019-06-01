@@ -33,6 +33,9 @@
 #include "mdfourier.h"
 #include <plot.h>
 
+#define PLOT_PROCESS_CHAR "-"
+#define PLOT_ADVANCE_CHAR ">"
+
 typedef struct plot_st {
 	char			FileName[2048];
 	plPlotter		*plotter;

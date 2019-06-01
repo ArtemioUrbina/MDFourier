@@ -253,10 +253,10 @@ int LoadAudioBlockStructure(parameters *config)
 	if(!config)
 		return 0;
 
-	file = fopen("mdfblocks.mfn", "r");
+	file = fopen(config->profileFile, "r");
 	if(!file)
 	{
-		logmsg("Could not load audio configuration file mdfblocks.mfn\n");
+		logmsg("Could not load audio configuration file %s\n", config->profileFile);
 		return 0;
 	}
 	

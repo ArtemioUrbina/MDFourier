@@ -77,4 +77,7 @@ public:
 	afx_msg void OnBnClickedAbout();
 	CButton m_AveragePlot_Bttn;
 	CButton m_VerboseLog_Bttn;
+	CEdit m_ExtraParamsEditBox;
+	CButton m_EnableExtraBttn;
+	afx_msg void OnBnClickedEnableextra();
 };

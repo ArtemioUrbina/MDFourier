@@ -50,7 +50,10 @@ int CDOSExecute::ExecuteExternalFile()
 	PROCESS_INFORMATION pInfo; 
 	SECURITY_ATTRIBUTES secattr; 
 
+	Lock();
 	m_Output = L"";
+	Release();
+
 	ZeroMemory(&secattr,sizeof(secattr));
 	secattr.nLength = sizeof(secattr);
 	secattr.bInheritHandle = TRUE;

@@ -752,7 +752,7 @@ int commandline_wave(int argc , char *argv[], parameters *config)
 	config->chunks = 0;
 	config->floorAmplitude = 0;
 
-	while ((c = getopt (argc, argv, "hvzcklyxis:e:f:t:p:a:w:r:")) != -1)
+	while ((c = getopt (argc, argv, "hvzcklyxis:e:f:t:p:a:w:r:P:")) != -1)
 	switch (c)
 	  {
 	  case 'h':
@@ -844,6 +844,9 @@ int commandline_wave(int argc , char *argv[], parameters *config)
 		sprintf(config->referenceFile, "%s", optarg);
 		ref = 1;
 		break;
+	  case 'P':
+		sprintf(config->profileFile, "%s", optarg);
+		break;
 	  case '?':
 		if (optopt == 'r')
 		  logmsg("Reference File -%c requires an argument.\n", optopt);
@@ -859,6 +862,8 @@ int commandline_wave(int argc , char *argv[], parameters *config)
 		  logmsg("Min frequency range for FFTW -%c requires an argument: 0-19900\n", optopt);
 		else if (optopt == 'e')
 		  logmsg("Max frequency range for FFTW -%c requires an argument: 10-20000\n", optopt);
+		else if (optopt == 'P')
+		  logmsg("Profile File -%c requires a file argument\n", optopt);
 		else if (isprint (optopt))
 		  logmsg("Unknown option `-%c'.\n", optopt);
 		else

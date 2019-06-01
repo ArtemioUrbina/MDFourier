@@ -39,6 +39,8 @@ void CMDFourierGUIDlg::DoDataExchange(CDataExchange* pDX)
 	DDX_Control(pDX, IDC_ALIGN, m_AlignFFTW);
 	DDX_Control(pDX, IDC_AVERAGE, m_AveragePlot_Bttn);
 	DDX_Control(pDX, IDC_VERBOSE, m_VerboseLog_Bttn);
+	DDX_Control(pDX, IDC_EXTRACLPARAMS, m_ExtraParamsEditBox);
+	DDX_Control(pDX, IDC_ENABLEEXTRA, m_EnableExtraBttn);
 }
 
 BEGIN_MESSAGE_MAP(CMDFourierGUIDlg, CDialogEx)
@@ -51,6 +53,7 @@ BEGIN_MESSAGE_MAP(CMDFourierGUIDlg, CDialogEx)
 	ON_WM_TIMER()
 	ON_BN_CLICKED(ID_OPENRESULTS, &CMDFourierGUIDlg::OnBnClickedOpenresults)
 	ON_BN_CLICKED(IDC_ABOUT, &CMDFourierGUIDlg::OnBnClickedAbout)
+	ON_BN_CLICKED(IDC_ENABLEEXTRA, &CMDFourierGUIDlg::OnBnClickedEnableextra)
 END_MESSAGE_MAP()
 
 
@@ -64,6 +67,8 @@ BOOL CMDFourierGUIDlg::OnInitDialog()
 	//  when the application's main window is not a dialog
 	SetIcon(m_hIcon, TRUE);			// Set big icon
 	SetIcon(m_hIcon, FALSE);		// Set small icon
+
+	m_ExtraParamsEditBox.EnableWindow(FALSE);
 
 	if(!CheckDependencies())
 	{
@@ -141,7 +146,7 @@ void CMDFourierGUIDlg::OnBnClickedSelectReferenceCompare()
 
 void CMDFourierGUIDlg::OnBnClickedOk()
 {
-	CString	command;
+	CString	command, extraCmd;
 	char	window, adjust;
 
 	UpdateWindow();
@@ -184,6 +189,14 @@ void CMDFourierGUIDlg::OnBnClickedOk()
 	if(m_VerboseLog_Bttn.GetCheck() == BST_CHECKED)
 		command += " -v";
 
+	if(m_EnableExtraBttn.GetCheck() == BST_CHECKED)
+		m_ExtraParamsEditBox.GetWindowText(extraCmd);
+	if(extraCmd.GetLength())
+	{
+		command += L" ";
+		command += extraCmd;
+	}
+
 	ManageWindows(FALSE);
 
 	SetTimer(IDT_DOS, 250, 0);
@@ -213,6 +226,11 @@ void CMDFourierGUIDlg::OnTimer(UINT_PTR nIDEvent)
 	cDos.Lock();
 	m_OutputCtrl.SetWindowText(cDos.m_Output);
 	cDos.Release();
+
+	m_OutputCtrl.SendMessage(EM_SETSEL, 0, -1); //Select all. 
+	m_OutputCtrl.SendMessage(EM_SETSEL, -1, -1);//Unselect and stay at the end pos
+	m_OutputCtrl.SendMessage(EM_SCROLLCARET, 0, 0); //Set scrollcaret to the current Pos
+
     if (cDos.m_fDone)
 	{
 		int		pos = 0;
@@ -222,7 +240,10 @@ void CMDFourierGUIDlg::OnTimer(UINT_PTR nIDEvent)
         ManageWindows(TRUE);
 
 		// Check is we enable the results button
+		cDos.Lock();
 		pos = cDos.m_Output.Find(searchFor, 0);
+		cDos.Release();
+
 		if(pos != -1)
 		{
 			TCHAR	pwd[MAX_PATH];
@@ -332,13 +353,25 @@ void CMDFourierGUIDlg::ManageWindows(BOOL Enable)
 	m_AlignFFTW.EnableWindow(Enable);
 	m_AveragePlot_Bttn.EnableWindow(Enable);
 	m_VerboseLog_Bttn.EnableWindow(Enable);
+	if(m_EnableExtraBttn.GetCheck() == BST_CHECKED)
+		m_ExtraParamsEditBox.EnableWindow(Enable);
+	m_EnableExtraBttn.EnableWindow(Enable);
 }
 
 
 void CMDFourierGUIDlg::OnBnClickedAbout()
 {
-	if(MessageBox(L"MDFourier Front End\n\nArtemio Urbina 2019\nCode available under GPL\n\nhttp://junkerhq.net/MDFourier/\n\nOpen website?", L"About MDFourier", MB_OKCANCEL | MB_ICONQUESTION) == IDOK)
+	if(MessageBox(L"MDFourier Front End\n\nArtemio Urbina 2019\nCode available under GPL\n\nhttp://junkerhq.net/MDFourier/\n\nOpen website and manual?", L"About MDFourier", MB_OKCANCEL | MB_ICONQUESTION) == IDOK)
 	{
 		ShellExecute(0, 0, L"http://junkerhq.net/MDFourier/", 0, 0 , SW_SHOW );
 	}
+}
+
+
+void CMDFourierGUIDlg::OnBnClickedEnableextra()
+{
+	if(m_EnableExtraBttn.GetCheck() == BST_CHECKED)
+		m_ExtraParamsEditBox.EnableWindow(TRUE);
+	else
+		m_ExtraParamsEditBox.EnableWindow(FALSE);
 }
