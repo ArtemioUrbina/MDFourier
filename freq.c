@@ -967,7 +967,7 @@ void FindMaxMagnitude(AudioSignal *Signal, parameters *config)
 	if(config->verbose)
 	{
 		if(MaxBlock != -1)
-			logmsg(" - Max Volume found in block %d (%s %d) at %g Hz with %g magnitude\n", 
+			logmsg(" - Max Volume found in block %d (%s %d) at %g Hz with magnitude [%g]\n", 
 					MaxBlock, GetBlockName(config, MaxBlock), GetBlockSubIndex(config, MaxBlock), MaxFreq, MaxMagnitude);
 	}
 }

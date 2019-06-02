@@ -95,7 +95,7 @@ void CleanParameters(parameters *config)
 	/* Non exposed */
 	config->logScale = 1;
 	config->reverseCompare = 0;
-	config->timeDomainNormalize = 1;
+	config->timeDomainNormalize = 0;
 	config->averagePlot = 0;
 	config->weightedAveragePlot = 1;
 
