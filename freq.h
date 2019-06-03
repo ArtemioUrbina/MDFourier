@@ -94,8 +94,9 @@ double CalculateFrequency(double boxindex, double boxsize, int HertzAligned);
 double CalculateFrameRate(AudioSignal *Signal, parameters *config);
 double CalculateScanRate(AudioSignal *Signal);
 
+double FindFrequencyBinSizeForBlock(AudioSignal *Signal, long int block);
 long int GetZeroPadValues(long int *monoSignalSize, double *seconds, long int samplerate);
-void CalcuateFrequencyBrackets(AudioSignal *signal);
+void CalcuateFrequencyBrackets(AudioSignal *signal, parameters *config);
 double FindFrequencyBracket(double frequency, size_t size, long samplerate);
 
 #endif

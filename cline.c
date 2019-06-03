@@ -43,17 +43,22 @@ void PrintUsage()
 	logmsg("	 -e: Defines <e>nd of the frequency range to compare with FFT\n");
 	logmsg("	 -i: <i>gnores the silence block noise floor if present\n");
 	logmsg("	 -t: Defines the <t>olerance when comparing amplitudes in dBFS\n");
-	logmsg("	 -z: Uses Zero Padding to equal 1 hz FFT bins\n");
+	logmsg("	 -z: Uses <z>ero Padding to equal 1 hz FFT bins\n");
+	logmsg("	 -T: Use <T>ime Domain normalization for both signals\n");
 	logmsg("   Output options:\n");
 	logmsg("	 -l: <l>og output to file [reference]_vs_[compare].txt\n");
 	logmsg("	 -v: Enable <v>erbose mode, spits all the FFTW results\n");
 	logmsg("	 -g: Create avera<g>e points over the plotted graphs\n");
+	logmsg("	 -W: Do not <w>eight values in Averaged Plot (implies -g)\n");
 	logmsg("	 -L: Create 800x400 plots as shown in the manual\n");
 	logmsg("	 -H: Create 1920x1080 plots\n");
-	logmsg("	 -j: Cuts per block information and shows <j>ust total results\n");
-	logmsg("	 -x: Enables e<x>tended log results. Shows a table with all matches\n");
-	logmsg("	 -m: Enables Show all blocks compared with <m>atched frequencies\n");
+	logmsg("	 -D: Do not create <D>ifferences Plots\n");
+	logmsg("	 -M: Do not create <M>issing Plots\n");
+	logmsg("	 -S: Do not create <S>pectrogram Plots\n");
 	logmsg("	 -k: cloc<k> FFTW operations\n");
+	logmsg("	 -j: (text) Cuts per block information and shows <j>ust total results\n");
+	logmsg("	 -x: (text) Enables e<x>tended log results. Shows a table with all matches\n");
+	logmsg("	 -m: (text) Enables Show all blocks compared with <m>atched frequencies\n");
 }
 
 void Header(int log)
@@ -92,15 +97,18 @@ void CleanParameters(parameters *config)
 	config->ZeroPad = 0;
 	config->debugSync = 0;
 
-	/* Non exposed */
 	config->logScale = 1;
 	config->reverseCompare = 0;
 	config->timeDomainNormalize = 0;
-	config->averagePlot = 0;
-	config->weightedAveragePlot = 1;
 
 	config->plotResX = PLOT_RES_X;
 	config->plotResY = PLOT_RES_Y;
+
+	config->plotDifferences = 1;
+	config->plotMissing = 1;
+	config->plotSpectrogram = 1;
+	config->averagePlot = 0;
+	config->weightedAveragePlot = 1;
 
 	config->Differences.BlockDiffArray = NULL;
 	config->Differences.cntFreqAudioDiff = 0;
@@ -137,7 +145,7 @@ int commandline(int argc , char *argv[], parameters *config)
 	
 	CleanParameters(config);
 
-	while ((c = getopt (argc, argv, "hxjzmviklygLHo:s:f:t:p:a:w:r:c:P:")) != -1)
+	while ((c = getopt (argc, argv, "hxjzmviklygLHo:s:f:t:p:a:w:r:c:P:SDMNRTW")) != -1)
 	switch (c)
 	  {
 	  case 'h':
@@ -258,6 +266,27 @@ int commandline(int argc , char *argv[], parameters *config)
 	  case 'P':
 		sprintf(config->profileFile, "%s", optarg);
 		break;
+	  case 'D':
+		config->plotDifferences = 0;
+		break;
+	  case 'M':
+		config->plotMissing = 0;
+		break;
+	  case 'S':
+		config->plotSpectrogram = 0;
+		break;
+	  case 'N':
+		config->logScale = 0;
+		break;
+	  case 'R':
+		config->reverseCompare = 1;
+		break;
+	  case 'T':
+		config->timeDomainNormalize = 1;
+		break;
+	  case 'W':
+		config->weightedAveragePlot = 0;
+		break;
 	  case '?':
 		if (optopt == 'r')
 		  logmsg("Reference File -%c requires an argument.\n", optopt);
@@ -322,6 +351,13 @@ int commandline(int argc , char *argv[], parameters *config)
 		return 0;
 	}
 
+	if(!config->plotDifferences && !config->plotMissing &&
+		!config->plotSpectrogram && !config->averagePlot)
+	{
+		logmsg("It makes no sense to process everything and plot nothing\nAborting.\n");
+		return 0;
+	}
+
 	file = fopen(config->referenceFile, "rb");
 	if(!file)
 	{
@@ -355,16 +391,7 @@ int commandline(int argc , char *argv[], parameters *config)
 		EnableConsole();
 	}
 
-	if(config->channel != 's')
-		logmsg("\tAudio Channel is: %s\n", GetChannel(config->channel));
-	if(config->tolerance != 0.0)
-		logmsg("\tAmplitude tolerance while comparing is +/-%0.2f dBFS\n", config->tolerance);
-	if(config->MaxFreq != FREQ_COUNT)
-		logmsg("\tMax frequencies to use from FFTW are %d (default %d)\n", config->MaxFreq, FREQ_COUNT);
-	if(config->startHz != START_HZ)
-		logmsg("\tFrequency start range for FFTW is now %d (default %d)\n", config->startHz, START_HZ);
-	if(config->endHz != END_HZ)
-		logmsg("\tFrequency end range for FFTW is now %d (default %d)\n", config->endHz, END_HZ);
+	logmsg("\tUsing %s profile configuration file\n", config->profileFile);
 	if(config->window != 'n')
 		logmsg("\tA %s window will be applied to each block to be compared\n", GetWindow(config->window));
 	else
@@ -380,6 +407,22 @@ int commandline(int argc , char *argv[], parameters *config)
 		logmsg("\tFFT bins will be aligned to 1hz, this is slower\n");
 	if(config->ignoreFloor)
 		logmsg("\tIgnoring Silence block noise floor\n");
+	if(config->channel != 's')
+		logmsg("\tAudio Channel is: %s\n", GetChannel(config->channel));
+	if(config->tolerance != 0.0)
+		logmsg("\tAmplitude tolerance while comparing is +/-%0.2f dBFS\n", config->tolerance);
+	if(config->MaxFreq != FREQ_COUNT)
+		logmsg("\tMax frequencies to use from FFTW are %d (default %d)\n", config->MaxFreq, FREQ_COUNT);
+	if(config->startHz != START_HZ)
+		logmsg("\tFrequency start range for FFTW is now %d (default %d)\n", config->startHz, START_HZ);
+	if(config->endHz != END_HZ)
+		logmsg("\tFrequency end range for FFTW is now %d (default %d)\n", config->endHz, END_HZ);
+	if(config->timeDomainNormalize)
+		logmsg("\tUsing Time Domain Normalization\n");
+	if(!config->logScale)
+		logmsg("\tPlots will not be adjusted to log scale\n");
+	if(config->averagePlot && !config->weightedAveragePlot)
+		logmsg("\tAveraged Plots will not be weighted\n");
 	return 1;
 }
 

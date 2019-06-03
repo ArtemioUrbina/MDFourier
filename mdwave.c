@@ -363,7 +363,7 @@ int ProcessFile(AudioSignal *Signal, parameters *config)
 	}
 
 	GlobalNormalize(Signal, config);
-	CalcuateFrequencyBrackets(Signal);
+	CalcuateFrequencyBrackets(Signal, config);
 
 	if(Signal->hasFloor && !config->ignoreFloor) // analyze noise floor if available
 	{

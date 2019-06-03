@@ -40,12 +40,22 @@ void PlotResults(AudioSignal *Signal, parameters *config)
 	if(config->clock)
 		clock_gettime(CLOCK_MONOTONIC, &start);
 
-	logmsg(" - Difference");
-	PlotAmpDifferences(config);
-	logmsg(" Missing");
-	PlotFreqMissing(config);
-	logmsg(" Spectrogram");
-	PlotSpectrograms(Signal, config);
+	logmsg(" -");
+	if(config->plotDifferences || config->averagePlot)
+	{
+		logmsg(" Difference");
+		PlotAmpDifferences(config);
+	}
+	if(config->plotMissing)
+	{
+		logmsg(" Missing");
+		PlotFreqMissing(config);
+	}
+	if(config->plotSpectrogram)
+	{
+		logmsg(" Spectrogram");
+		PlotSpectrograms(Signal, config);
+	}
 	logmsg("\n");
 
 	if(config->clock)
@@ -68,10 +78,13 @@ void PlotAmpDifferences(parameters *config)
 		return;
 	}
 
-	if(PlotEachTypeDifferentAmplitudes(amplDiff, config->compareName, config) > 1)
+	if(config->plotDifferences)
 	{
-		PlotAllDifferentAmplitudes(amplDiff, config->compareName, config);
-		logmsg(PLOT_ADVANCE_CHAR);
+		if(PlotEachTypeDifferentAmplitudes(amplDiff, config->compareName, config) > 1)
+		{
+			PlotAllDifferentAmplitudes(amplDiff, config->compareName, config);
+			logmsg(PLOT_ADVANCE_CHAR);
+		}
 	}
 
 	if(config->averagePlot)

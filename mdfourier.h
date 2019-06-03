@@ -271,6 +271,10 @@ typedef struct parameters_st {
 	int				reverseCompare;
 	int				ZeroPad;
 	int				timeDomainNormalize;
+
+	int				plotDifferences;
+	int				plotMissing;
+	int				plotSpectrogram;
 	int				averagePlot;
 	int				weightedAveragePlot;
 

@@ -32,15 +32,25 @@
 #include "cline.h"
 #include "plot.h"
 
+double FindFrequencyBinSizeForBlock(AudioSignal *Signal, long int block)
+{
+	if(!Signal)
+		return 0;
+	if(!Signal->Blocks)
+		return 0;
+	
+	return((double)Signal->header.SamplesPerSec/(double)Signal->Blocks[block].fftwValues.size);
+}
+
 double FindFrequencyBracket(double frequency, size_t size, long samplerate)
 {
 	double seconds = 0, minDiff = 0, targetFreq = 0;
 	long int monoSignalSize;
 
-	minDiff = samplerate/2;
+	minDiff = (double)samplerate/2.0;
 	targetFreq = frequency;
 	monoSignalSize = size/2;
-	seconds = (double)size/((double)samplerate*2);
+	seconds = (double)size/((double)samplerate*2.0);
 
 	for(int i = 1; i < monoSignalSize/2+1; i++)
 	{
@@ -58,17 +68,28 @@ double FindFrequencyBracket(double frequency, size_t size, long samplerate)
 }
 
 
-void CalcuateFrequencyBrackets(AudioSignal *Signal)
+void CalcuateFrequencyBrackets(AudioSignal *Signal, parameters *config)
 {
+	long int index = 0;
+
 	if(!Signal)
 		return;
 	if(!Signal->Blocks)
 		return;
 
-	Signal->RefreshNoise = FindFrequencyBracket(RoundFloat(1000.0/Signal->framerate, 2), Signal->Blocks[0].fftwValues.size, Signal->header.SamplesPerSec);
-	Signal->CRTLow = FindFrequencyBracket(15680, Signal->Blocks[0].fftwValues.size, Signal->header.SamplesPerSec);
-	Signal->CRTHigh = FindFrequencyBracket(15710, Signal->Blocks[0].fftwValues.size, Signal->header.SamplesPerSec);
-	//logmsg("Searching for grid power frequency noise %g CRT Noise %g-%g\n", Signal->RefreshNoise,  Signal->CRTLow, Signal->CRTHigh);
+	index = GetFirstSilenceIndex(config);
+	if(index != NO_INDEX)
+	{
+		Signal->RefreshNoise = FindFrequencyBracket(RoundFloat(1000.0/Signal->framerate, 2), Signal->Blocks[index].fftwValues.size, Signal->header.SamplesPerSec);
+		Signal->CRTLow = FindFrequencyBracket(15680, Signal->Blocks[index].fftwValues.size, Signal->header.SamplesPerSec);
+		Signal->CRTHigh = FindFrequencyBracket(15710, Signal->Blocks[index].fftwValues.size, Signal->header.SamplesPerSec);
+		/*
+		if(config->verbose)
+			logmsg(" - Searching for grid power frequency noise %g CRT Noise %g-%g\n", Signal->RefreshNoise,  Signal->CRTLow, Signal->CRTHigh);
+		*/
+	}
+	else
+		logmsg(" - WARNING: Frequency Brackets can't be found since there is no Silence block in MFN file\n");
 }
 
 int IsCRTNoise(AudioSignal *Signal, double freq)
@@ -494,8 +515,8 @@ void CompareFrameRates(double framerate1, double framerate2, parameters *config)
 		config->smallerFramerate = 
 				GetLowerFrameRate(framerate1, 
 									framerate2);
-		if(diff > 0.001)
-		logmsg("\n= Different frame rates found (%g), compensating to %g =\n", 
+		if(config->verbose && diff > 0.001)
+			logmsg("\n= Different frame rates found (%g), compensating to %g =\n", 
 				diff, config->smallerFramerate);
 	}
 }
@@ -1388,7 +1409,7 @@ double CalculateFrameRate(AudioSignal *Signal, parameters *config)
 	framerate = RoundFloat(framerate, 4);
 
 	diff = RoundFloat(fabs(expectedFR - framerate), 4);
-	if(diff > 0.002 && diff < 0.02)
+	if(config->verbose && diff > 0.002 && diff < 0.02)
 		logmsg(" - Framerate difference is %g (Audio card timing?)\n", diff);
 
 	return framerate;
