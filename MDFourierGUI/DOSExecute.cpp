@@ -47,8 +47,8 @@ int CDOSExecute::ExecuteExternalFile()
 	DWORD reDword; 
 	CString csTemp;
 	STARTUPINFO sInfo; 
-	PROCESS_INFORMATION pInfo; 
 	SECURITY_ATTRIBUTES secattr; 
+	COMMTIMEOUTS t = { 200, 2, 200, 2, 200 };
 
 	Lock();
 	m_Output = L"";
@@ -113,6 +113,16 @@ int CDOSExecute::ExecuteExternalFile()
 			Lock();
 			m_Output += csTemp.Left(reDword);
 			Release();
+
+			if(m_fAbortNow && pInfo.hProcess != NULL)
+			{
+				TerminateProcess(pInfo.hProcess, -1);
+				result = FALSE;
+
+				Lock();
+				m_Output = L"Process Closed";
+				Release();
+			}	
 		}
 	}while(result);
 

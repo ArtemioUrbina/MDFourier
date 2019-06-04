@@ -54,7 +54,6 @@
 #define MAX_FREQ_COUNT		100000 	/* Number of frequencies to compare(MAX) */
 #define FREQ_COUNT			2000	/* Number of frequencies to compare(default) */
 #define SIGNIFICANT_VOLUME	-96		/* ~20.0f * log10f( 1.0f / 65536.0f ) */
-#define	REFRESH_RATE_NOISE_DETECT_TOLERANCE	2.0
 
 #define TYPE_SILENCE	0
 #define TYPE_SYNC		-1
@@ -80,6 +79,19 @@
 #define PLOT_RES_X 1600.0
 #define PLOT_RES_Y 800.0
 
+#define PLOT_RES_X_HIGH 1920.0
+#define PLOT_RES_Y_HIGH 1080.0
+
+#define PLOT_RES_X_LOW 800.0
+#define PLOT_RES_Y_LOW 400.0
+
+enum normalize
+{
+	max_time,
+	max_frequency,
+	average
+};
+
 #define PROFILE_FILE	"mdfblocks.mfn"
 
 typedef struct max_vol {
@@ -87,13 +99,13 @@ typedef struct max_vol {
 	uint32_t	offset;
 	uint32_t	samplerate;
 	double		framerate;
-} MaximumVolume;
+} MaxVolum;
 
 typedef struct max_mag {
 	double		magnitude;
 	double		hertz;
 	long int	block;
-} MaximumMagnitude;
+} MaxMagn;
 
 typedef struct abt_st {
 	char		typeName[128];
@@ -177,7 +189,7 @@ typedef struct AudioSt {
 	long int	startOffset;
 	long int	endOffset;
 
-	double		MaxMagnitude;
+	MaxMagn		MaxMagnitude;
 	double		MinAmplitude;
 
 	double		RefreshNoise;
@@ -257,7 +269,6 @@ typedef struct parameters_st {
 	char			channel;
 	int				MaxFreq;
 	int				clock;
-	char			normalize;
 	int				ignoreFloor;
 	int				useOutputFilter;
 	int				outputFilterFunction;
@@ -270,7 +281,7 @@ typedef struct parameters_st {
 	int				debugSync;
 	int				reverseCompare;
 	int				ZeroPad;
-	int				timeDomainNormalize;
+	enum normalize	normType;
 
 	int				plotDifferences;
 	int				plotMissing;

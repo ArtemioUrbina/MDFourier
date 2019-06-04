@@ -43,24 +43,38 @@ protected:
 	CStatic m_ReferenceLbl;
 	CStatic m_ComparisonLbl;
 	CEdit	m_OutputCtrl;
+	CEdit	m_ExtraParamsEditBox;
 	CButton m_OpenResultsBttn;
 	CButton m_ExecuteBttn;
 	CButton m_ReferenceFileBttn;
 	CButton m_ComparisonFileBttn;
 	CButton m_AlignFFTW;
+	CButton m_AveragePlot_Bttn;
+	CButton m_VerboseLog_Bttn;
+	CButton m_EnableExtraBttn;
+	CButton m_DiffBttn;
+	CButton m_MissBttn;
+	CButton m_SpectrBttn;
 
 	CComboBox m_WindowTypeSelect;
 	CComboBox m_CurveAdjustSelect;
 
+	int			DosWaitCount;
 	CDOSExecute	cDos;
 	CommandLineArray WindowConvert[COUNT_WINDOWS];
 	CommandLineArray CurveConvert[COUNT_CURVES];
+
+	CString listName;
+	CString	*elements;
+	int		elementCount;
+	int		elementPos;
 
 	void FillComboBoxes();
 	int CheckDependencies();
 	void ManageWindows(BOOL Enable);
 	void InsertValueInCombo(CString Name, char value, CommandLineArray &Data, CComboBox &Combo);
 	char GetSelectedCommandLineValue(CommandLineArray *Data, CComboBox &Combo, int size);
+	void ExecuteCommand(CString Compare);
 
 	// Generated message map functions
 	virtual BOOL OnInitDialog();
@@ -75,9 +89,9 @@ public:
 	afx_msg void OnBnClickedOpenresults();
 	afx_msg void OnTimer(UINT_PTR nIDEvent);
 	afx_msg void OnBnClickedAbout();
-	CButton m_AveragePlot_Bttn;
-	CButton m_VerboseLog_Bttn;
-	CEdit m_ExtraParamsEditBox;
-	CButton m_EnableExtraBttn;
 	afx_msg void OnBnClickedEnableextra();
+	afx_msg void OnBnClickedDifferences();
+	afx_msg void OnBnClickedDifferences2();
+	afx_msg void OnBnClickedSpectrogram();
+	afx_msg void OnBnClickedAverage();
 };

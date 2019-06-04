@@ -334,20 +334,23 @@ int ProcessFile(AudioSignal *Signal, parameters *config)
 
 		difference = GetByteSizeDifferenceByFrameRate(Signal->framerate, frames, Signal->header.SamplesPerSec, config);
 
-		//logmsg("Loaded %ld Left %ld Discard %ld difference %ld Decimals %g\n", loadedBlockSize, leftover, discardBytes, difference, leftDecimals);
-		memset(buffer, 0, buffersize);
-		if(pos + loadedBlockSize > Signal->header.Subchunk2Size)
-		{
-			logmsg("\tunexpected end of File, please record the full Audio Test from the 240p Test Suite\n");
-			break;
-		}
-		memcpy(buffer, Signal->Samples + pos, loadedBlockSize);
-		
 		Signal->Blocks[i].index = GetBlockSubIndex(config, i);
 		Signal->Blocks[i].type = GetBlockType(config, i);
 
-		if(!ProcessSamples(&Signal->Blocks[i], (int16_t*)buffer, (loadedBlockSize-difference)/2, Signal->header.SamplesPerSec, windowUsed, config, 0, Signal))
-			return 0;
+		if(Signal->Blocks[i].type >= TYPE_SILENCE)
+		{
+			//logmsg("Loaded %ld Left %ld Discard %ld difference %ld Decimals %g\n", loadedBlockSize, leftover, discardBytes, difference, leftDecimals);
+			memset(buffer, 0, buffersize);
+			if(pos + loadedBlockSize > Signal->header.Subchunk2Size)
+			{
+				logmsg("\tunexpected end of File, please record the full Audio Test from the 240p Test Suite\n");
+				break;
+			}
+			memcpy(buffer, Signal->Samples + pos, loadedBlockSize);
+		
+			if(!ProcessSamples(&Signal->Blocks[i], (int16_t*)buffer, (loadedBlockSize-difference)/2, Signal->header.SamplesPerSec, windowUsed, config, 0, Signal))
+				return 0;
+		}
 
 		if(config->chunks)
 		{
@@ -357,6 +360,7 @@ int ProcessFile(AudioSignal *Signal, parameters *config)
 			ComposeFileName(Name, tempName, ".wav", config);
 			SaveWAVEChunk(Name, Signal, buffer, 0, loadedBlockSize, config); 
 		}
+
 		pos += loadedBlockSize;
 		pos += discardBytes;
 		i++;
@@ -415,21 +419,23 @@ int ProcessFile(AudioSignal *Signal, parameters *config)
 
 		difference = GetByteSizeDifferenceByFrameRate(Signal->framerate, frames, Signal->header.SamplesPerSec, config);
 
-		memset(buffer, 0, buffersize);
-		if(pos + loadedBlockSize > Signal->header.Subchunk2Size)
+		if(Signal->Blocks[i].type >= TYPE_SILENCE)
 		{
-			logmsg("\tunexpected end of File, please record the full Audio Test from the 240p Test Suite\n");
-			break;
-		}
-		memcpy(buffer, Signal->Samples + pos, loadedBlockSize);
-
-		// now rewrite array
-		if(GetBlockType(config, i) > TYPE_CONTROL)  // Ignore Controls!
+			memset(buffer, 0, buffersize);
+			if(pos + loadedBlockSize > Signal->header.Subchunk2Size)
+			{
+				logmsg("\tunexpected end of File, please record the full Audio Test from the 240p Test Suite\n");
+				break;
+			}
+			memcpy(buffer, Signal->Samples + pos, loadedBlockSize);
+	
+			// now rewrite array
 			if(!ProcessSamples(&Signal->Blocks[i], (int16_t*)buffer, (loadedBlockSize-difference)/2, Signal->header.SamplesPerSec, windowUsed, config, 1, Signal))
 				return 0;
 
-		// Now rewrite global
-		memcpy(Signal->Samples + pos, buffer, loadedBlockSize);
+			// Now rewrite global
+			memcpy(Signal->Samples + pos, buffer, loadedBlockSize);
+		}
 
 		pos += loadedBlockSize;
 		pos += discardBytes;
@@ -642,7 +648,7 @@ int ProcessSamples(AudioBlocks *AudioArray, int16_t *samples, size_t size, long 
 			int blank = 0;
 	
 			magnitude = CalculateMagnitude(spectrum[i], monoSignalSize);
-			amplitude = CalculateAmplitude(magnitude, Signal->MaxMagnitude);
+			amplitude = CalculateAmplitude(magnitude, Signal->MaxMagnitude.magnitude);
 
 			if(config->invert)
 			{

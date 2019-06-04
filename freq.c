@@ -178,7 +178,7 @@ void CleanAudio(AudioSignal *Signal, parameters *config)
 	Signal->startOffset = 0;
 	Signal->endOffset = 0;
 
-	Signal->MaxMagnitude = 0;
+	memset(&Signal->MaxMagnitude, 0, sizeof(MaxMagn));
 	Signal->MinAmplitude = 0;
 
 	Signal->RefreshNoise = 0;
@@ -233,7 +233,7 @@ void ReleaseAudio(AudioSignal *Signal, parameters *config)
 	Signal->startOffset = 0;
 	Signal->endOffset = 0;
 
-	Signal->MaxMagnitude = 0;
+	memset(&Signal->MaxMagnitude, 0, sizeof(MaxMagn));
 	Signal->MinAmplitude = 0;
 }
 
@@ -851,17 +851,13 @@ void FindFloor(AudioSignal *Signal, parameters *config)
 	memset(&loudest, 0, sizeof(Frequency));
 
 	if(config->verbose)
-		logmsg(" - Frame Rate %g RefreshNoise %g tolerance %g\n",
-			Signal->framerate, Signal->RefreshNoise, REFRESH_RATE_NOISE_DETECT_TOLERANCE);
+		logmsg(" - Frame Rate %g RefreshNoise %g\n",
+			Signal->framerate, Signal->RefreshNoise);
 
 	for(int i = 0; i < config->MaxFreq; i++)
 	{
 		if(Signal->Blocks[index].freq[i].hertz && Signal->Blocks[index].freq[i].amplitude != NO_AMPLITUDE)
 		{
-			//double difference;
-	
-			//difference = fabs(fabs(Signal->Blocks[index].freq[i].hertz) - Signal->RefreshNoise);
-			//if(difference < REFRESH_RATE_NOISE_DETECT_TOLERANCE)
 			if(Signal->Blocks[index].freq[i].hertz == Signal->RefreshNoise)
 			{
 				Signal->floorAmplitude = Signal->Blocks[index].freq[i].amplitude;
@@ -900,7 +896,7 @@ void FindFloor(AudioSignal *Signal, parameters *config)
 		return;
 	}
 
-	logmsg(" - No meaninful Noise floor found, using the whole range\n");
+	logmsg(" - No meaningful Noise floor found, using the whole range\n");
 	Signal->hasFloor = 0;  /* revoke it if not found */
 }
 
@@ -916,18 +912,23 @@ void GlobalNormalize(AudioSignal *Signal, parameters *config)
 		return;
 
 	// Find global peak 
-	
 	for(int block = 0; block < config->types.totalChunks; block++)
 	{
-		for(int i = 0; i < config->MaxFreq; i++)
+		int type = TYPE_NOTYPE;
+
+		type = GetBlockType(config, block);
+		if(type >= TYPE_SILENCE)
 		{
-			if(!Signal->Blocks[block].freq[i].hertz)
-				break;
-			if(Signal->Blocks[block].freq[i].magnitude > MaxMagnitude)
+			for(int i = 0; i < config->MaxFreq; i++)
 			{
-				MaxMagnitude = Signal->Blocks[block].freq[i].magnitude;
-				MaxFreq = Signal->Blocks[block].freq[i].hertz;
-				MaxBlock = block;
+				if(!Signal->Blocks[block].freq[i].hertz)
+					break;
+				if(Signal->Blocks[block].freq[i].magnitude > MaxMagnitude)
+				{
+					MaxMagnitude = Signal->Blocks[block].freq[i].magnitude;
+					MaxFreq = Signal->Blocks[block].freq[i].hertz;
+					MaxBlock = block;
+				}
 			}
 		}
 	}
@@ -937,21 +938,30 @@ void GlobalNormalize(AudioSignal *Signal, parameters *config)
 		if(MaxBlock != -1)
 			logmsg(" - MAX Volume found in block %d at %g Hz with %g magnitude\n", MaxBlock, MaxFreq, MaxMagnitude);
 	}
-	Signal->MaxMagnitude = MaxMagnitude;
+
+	Signal->MaxMagnitude.magnitude = MaxMagnitude;
+	Signal->MaxMagnitude.hertz = MaxFreq;
+	Signal->MaxMagnitude.block = MaxBlock;
 
 	// Normalize and calculate Amplitude in dBFSs 
 	for(int block = 0; block < config->types.totalChunks; block++)
 	{
-		for(int i = 0; i < config->MaxFreq; i++)
-		{
-			if(!Signal->Blocks[block].freq[i].hertz)
-				break;
+		int type = TYPE_NOTYPE;
 
-			Signal->Blocks[block].freq[i].amplitude = 
-				CalculateAmplitude(Signal->Blocks[block].freq[i].magnitude, MaxMagnitude);
-			
-			if(Signal->Blocks[block].freq[i].amplitude < MinAmplitude)
-				MinAmplitude = Signal->Blocks[block].freq[i].amplitude;
+		type = GetBlockType(config, block);
+		if(type >= TYPE_SILENCE)
+		{
+			for(int i = 0; i < config->MaxFreq; i++)
+			{
+				if(!Signal->Blocks[block].freq[i].hertz)
+					break;
+	
+				Signal->Blocks[block].freq[i].amplitude = 
+					CalculateAmplitude(Signal->Blocks[block].freq[i].magnitude, MaxMagnitude);
+				
+				if(Signal->Blocks[block].freq[i].amplitude < MinAmplitude)
+					MinAmplitude = Signal->Blocks[block].freq[i].amplitude;
+			}
 		}
 	}
 	Signal->MinAmplitude = MinAmplitude;
@@ -969,21 +979,31 @@ void FindMaxMagnitude(AudioSignal *Signal, parameters *config)
 	// Find global peak
 	for(int block = 0; block < config->types.totalChunks; block++)
 	{
-		for(int i = 0; i < config->MaxFreq; i++)
+		int type = TYPE_NOTYPE;
+
+		type = GetBlockType(config, block);
+		if(type > TYPE_SILENCE)
 		{
-			if(!Signal->Blocks[block].freq[i].hertz)
-				break;
-			if(Signal->Blocks[block].freq[i].magnitude > MaxMagnitude)
+			for(int i = 0; i < config->MaxFreq; i++)
 			{
-				MaxMagnitude = Signal->Blocks[block].freq[i].magnitude;
-				MaxFreq = Signal->Blocks[block].freq[i].hertz;
-				MaxBlock = block;
+				if(!Signal->Blocks[block].freq[i].hertz)
+					break;
+				if(Signal->Blocks[block].freq[i].magnitude > MaxMagnitude)
+				{
+					MaxMagnitude = Signal->Blocks[block].freq[i].magnitude;
+					MaxFreq = Signal->Blocks[block].freq[i].hertz;
+					MaxBlock = block;
+				}
 			}
 		}
 	}
 
 	if(MaxBlock != -1)
-		Signal->MaxMagnitude = MaxMagnitude;
+	{
+		Signal->MaxMagnitude.magnitude = MaxMagnitude;
+		Signal->MaxMagnitude.hertz = MaxFreq;
+		Signal->MaxMagnitude.block = MaxBlock;
+	}
 
 	if(config->verbose)
 	{
@@ -1003,16 +1023,22 @@ void CalculateAmplitudes(AudioSignal *Signal, double ZeroDbMagReference, paramet
 	//Calculate Amplitude in dBFS 
 	for(int block = 0; block < config->types.totalChunks; block++)
 	{
-		for(int i = 0; i < config->MaxFreq; i++)
+		int type = TYPE_NOTYPE;
+
+		type = GetBlockType(config, block);
+		if(type >= TYPE_SILENCE)
 		{
-			if(!Signal->Blocks[block].freq[i].hertz)
-				break;
-
-			Signal->Blocks[block].freq[i].amplitude = 
-				CalculateAmplitude(Signal->Blocks[block].freq[i].magnitude, ZeroDbMagReference);
-
-			if(Signal->Blocks[block].freq[i].amplitude < MinAmplitude)
-				MinAmplitude = Signal->Blocks[block].freq[i].amplitude;
+			for(int i = 0; i < config->MaxFreq; i++)
+			{
+				if(!Signal->Blocks[block].freq[i].hertz)
+					break;
+	
+				Signal->Blocks[block].freq[i].amplitude = 
+					CalculateAmplitude(Signal->Blocks[block].freq[i].magnitude, ZeroDbMagReference);
+	
+				if(Signal->Blocks[block].freq[i].amplitude < MinAmplitude)
+					MinAmplitude = Signal->Blocks[block].freq[i].amplitude;
+			}
 		}
 	}
 

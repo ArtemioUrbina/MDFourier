@@ -77,18 +77,29 @@ int CreateDifferenceArray(parameters *config)
 
 	for(int i = 0; i < config->types.totalChunks; i++)
 	{
-		BlockDiffArray[i].freqMissArray = CreateFreqDifferences(config);
-		if(!BlockDiffArray[i].freqMissArray)
-		{
-			free(BlockDiffArray);
-			return 0;
-		}
+		int type = TYPE_NOTYPE;
 
-		BlockDiffArray[i].amplDiffArray = CreateAmplDifferences(config);
-		if(!BlockDiffArray[i].amplDiffArray)
+		type = GetBlockType(config, i);
+		if(type > TYPE_SILENCE)
 		{
-			free(BlockDiffArray);
-			return 0;
+			BlockDiffArray[i].freqMissArray = CreateFreqDifferences(config);
+			if(!BlockDiffArray[i].freqMissArray)
+			{
+				free(BlockDiffArray);
+				return 0;
+			}
+	
+			BlockDiffArray[i].amplDiffArray = CreateAmplDifferences(config);
+			if(!BlockDiffArray[i].amplDiffArray)
+			{
+				free(BlockDiffArray);
+				return 0;
+			}
+		}
+		else
+		{
+			BlockDiffArray[i].freqMissArray = NULL;
+			BlockDiffArray[i].amplDiffArray = NULL;
 		}
 	}
 	

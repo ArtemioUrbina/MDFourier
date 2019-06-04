@@ -44,7 +44,7 @@ void PrintUsage()
 	logmsg("	 -i: <i>gnores the silence block noise floor if present\n");
 	logmsg("	 -t: Defines the <t>olerance when comparing amplitudes in dBFS\n");
 	logmsg("	 -z: Uses <z>ero Padding to equal 1 hz FFT bins\n");
-	logmsg("	 -T: Use <T>ime Domain normalization for both signals\n");
+	logmsg("	 -n: <N>ormalize: 't' Time Domain Max, 'f' Frequency Domain Max or 'a' Average\n");
 	logmsg("   Output options:\n");
 	logmsg("	 -l: <l>og output to file [reference]_vs_[compare].txt\n");
 	logmsg("	 -v: Enable <v>erbose mode, spits all the FFTW results\n");
@@ -52,9 +52,9 @@ void PrintUsage()
 	logmsg("	 -W: Do not <w>eight values in Averaged Plot (implies -g)\n");
 	logmsg("	 -L: Create 800x400 plots as shown in the manual\n");
 	logmsg("	 -H: Create 1920x1080 plots\n");
-	logmsg("	 -D: Do not create <D>ifferences Plots\n");
-	logmsg("	 -M: Do not create <M>issing Plots\n");
-	logmsg("	 -S: Do not create <S>pectrogram Plots\n");
+	logmsg("	 -D: Don't create <D>ifferences Plots\n");
+	logmsg("	 -M: Don't create <M>issing Plots\n");
+	logmsg("	 -S: Don't create <S>pectrogram Plots\n");
 	logmsg("	 -k: cloc<k> FFTW operations\n");
 	logmsg("	 -j: (text) Cuts per block information and shows <j>ust total results\n");
 	logmsg("	 -x: (text) Enables e<x>tended log results. Shows a table with all matches\n");
@@ -99,7 +99,7 @@ void CleanParameters(parameters *config)
 
 	config->logScale = 1;
 	config->reverseCompare = 0;
-	config->timeDomainNormalize = 0;
+	config->normType = max_frequency;
 
 	config->plotResX = PLOT_RES_X;
 	config->plotResY = PLOT_RES_Y;
@@ -145,7 +145,7 @@ int commandline(int argc , char *argv[], parameters *config)
 	
 	CleanParameters(config);
 
-	while ((c = getopt (argc, argv, "hxjzmviklygLHo:s:f:t:p:a:w:r:c:P:SDMNRTW")) != -1)
+	while ((c = getopt (argc, argv, "hxjzmviklygLHo:s:f:t:p:a:w:r:c:P:SDMNRWn:")) != -1)
 	switch (c)
 	  {
 	  case 'h':
@@ -183,12 +183,12 @@ int commandline(int argc , char *argv[], parameters *config)
 		EnableLog();
 		break;
 	  case 'L':
-		config->plotResX = 800;
-		config->plotResY = 400;
+		config->plotResX = PLOT_RES_X_LOW;
+		config->plotResY = PLOT_RES_Y_LOW;
 		break;
 	  case 'H':
-		config->plotResX = 1920;
-		config->plotResY = 1080;
+		config->plotResX = PLOT_RES_X_HIGH;
+		config->plotResY = PLOT_RES_Y_HIGH;
 		break;
 	  case 'o':
 		config->outputFilterFunction = atoi(optarg);
@@ -281,8 +281,25 @@ int commandline(int argc , char *argv[], parameters *config)
 	  case 'R':
 		config->reverseCompare = 1;
 		break;
-	  case 'T':
-		config->timeDomainNormalize = 1;
+	  case 'n':
+		switch(optarg[0])
+		{
+			case 't':
+				config->normType = max_time;
+				break;
+			case 'f':
+				config->normType = max_frequency;
+				break;
+			case 'a':
+				config->normType = average;
+				break;
+			default:
+				logmsg("Invalid Normalization option '%c'\n", optarg[0]);
+				logmsg("\tUse 't' Time Domain Max, 'f' Frequency Domain Max or 'a' Average\n");
+				return 0;
+				break;
+		}
+		break;
 		break;
 	  case 'W':
 		config->weightedAveragePlot = 0;
@@ -417,8 +434,13 @@ int commandline(int argc , char *argv[], parameters *config)
 		logmsg("\tFrequency start range for FFTW is now %d (default %d)\n", config->startHz, START_HZ);
 	if(config->endHz != END_HZ)
 		logmsg("\tFrequency end range for FFTW is now %d (default %d)\n", config->endHz, END_HZ);
-	if(config->timeDomainNormalize)
-		logmsg("\tUsing Time Domain Normalization\n");
+	if(config->normType != max_frequency)
+	{
+		if(config->normType == max_time)
+			logmsg("\tUsing Time Domain Normalization\n");
+		if(config->normType == average)
+			logmsg("\tUsing Average Fundamental Frequency Normalization\n");
+	}
 	if(!config->logScale)
 		logmsg("\tPlots will not be adjusted to log scale\n");
 	if(config->averagePlot && !config->weightedAveragePlot)
@@ -489,20 +511,34 @@ void CreateFolderName_wave(parameters *config)
 #endif
 }
 
+char *GetNormalization(enum normalize n)
+{
+	switch(n)
+	{
+		case max_time:
+			return "TD";
+		case max_frequency:
+			return "FD";
+		case average:
+			return "AV";
+		default:
+			return "ERROR";
+	}
+}
+
 void CreateBaseName(parameters *config)
 {
 	if(!config)
 		return;
 	
-	sprintf(config->baseName, "_f%d_t%g_%s_%s_v_%g_OF%d_%s_%s", 
+	sprintf(config->baseName, "_f%d_%s_%s_v_%g_OF%d_%s_%s",
 			config->MaxFreq,
-			config->tolerance,
 			GetWindow(config->window),
 			GetChannel(config->channel),
 			fabs(config->significantVolume),
 			config->outputFilterFunction,
-			config->ZeroPad ? "ZP" : "NP",
-			config->logScale ? "log" : "lin");
+			GetNormalization(config->normType),
+			config->ZeroPad ? "ZP" : "NP");
 }
 
 void ComposeFileName(char *target, char *subname, char *ext, parameters *config)

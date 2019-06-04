@@ -47,14 +47,15 @@ void CloseFiles(FILE **ref, FILE **comp);
 void NormalizeAudio(AudioSignal *Signal);
 
 // Time domain
-MaximumVolume FindMaxVolume(AudioSignal *Signal);
+MaxVolum FindMaxVolume(AudioSignal *Signal);
 void NormalizeAudioByRatio(AudioSignal *Signal, double ratio);
-int16_t FindLocalMaximumAroundSample(AudioSignal *Signal, MaximumVolume refMax);
+int16_t FindLocalMaximumAroundSample(AudioSignal *Signal, MaxVolum refMax);
 
 // Frequency domain
 void NormalizeMagnitudesByRatio(AudioSignal *Signal, double ratio, parameters *config);
-MaximumMagnitude FindMaxMagnitudeBlock(AudioSignal *Signal, parameters *config);
-double FindLocalMaximumInBlock(AudioSignal *Signal, MaximumMagnitude refMax, parameters *config);
+MaxMagn FindMaxMagnitudeBlock(AudioSignal *Signal, parameters *config);
+double FindLocalMaximumInBlock(AudioSignal *Signal, MaxMagn refMax, parameters *config);
+double FindFundamentalMagnitudeAverage(AudioSignal *Signal, parameters *config);
 
 int main(int argc , char *argv[])
 {
@@ -211,12 +212,13 @@ int LoadAndProcessAudioFiles(AudioSignal **ReferenceSignal, AudioSignal **Compar
 	/* the previous frequency domain solution, and differences are*/
 	/* negligible (less than 0.2dBFS) */
 	/* We go with time domain normalization because different bin */
-	/* size caused by different frame rates cghanges the relative */
-	/* volumes, this can be fixed by using zero paddng by default */
+	/* size caused by different frame rates change the relative */
+	/* volumes, this can be fixed by using zero padding by default */
 	/* but that seems to be less favored */
-	if(config->timeDomainNormalize)
+
+	if(config->normType == max_time)
 	{
-		MaximumVolume		MaxRef, MaxTar;
+		MaxVolum			MaxRef, MaxTar;
 		double				ComparisonLocalMaximum = 0;
 		double				ratioTar = 0, ratioRef = 0;
 
@@ -277,9 +279,9 @@ int LoadAndProcessAudioFiles(AudioSignal **ReferenceSignal, AudioSignal **Compar
 	CalcuateFrequencyBrackets(*ReferenceSignal, config);
 	CalcuateFrequencyBrackets(*ComparisonSignal, config);
 
-	if(!config->timeDomainNormalize)
+	if(config->normType == max_frequency)
 	{
-		MaximumMagnitude	MaxRef, MaxTar;
+		MaxMagn				MaxRef, MaxTar;
 		double				ComparisonLocalMaximum = 0;
 		double				ratioRef = 0;
 
@@ -314,20 +316,73 @@ int LoadAndProcessAudioFiles(AudioSignal **ReferenceSignal, AudioSignal **Compar
 		NormalizeMagnitudesByRatio(*ReferenceSignal, ratioRef, config);
 	}
 
-	logmsg("* Processing Signal Frequencies and Amplitudes\n");
-	if((*ReferenceSignal)->MaxMagnitude < (*ComparisonSignal)->MaxMagnitude)
+	if(config->normType == average)
 	{
-		ZeroDbMagnitudeRef = (*ComparisonSignal)->MaxMagnitude;
+		double RefAvg = FindFundamentalMagnitudeAverage(*ReferenceSignal, config);
+		double CompAvg = FindFundamentalMagnitudeAverage(*ComparisonSignal, config);
+
+		if(CompAvg > RefAvg)
+		{
+			double ratio = CompAvg/RefAvg;
+			NormalizeMagnitudesByRatio(*ReferenceSignal, ratio, config);
+		}
+		else
+		{
+			double ratio = RefAvg/CompAvg;
+			NormalizeMagnitudesByRatio(*ComparisonSignal, ratio, config);
+		}
+	}
+
+	logmsg("* Processing Signal Frequencies and Amplitudes\n");
+	/*
+	if(config->normType == max_time)
+	{
+		// Check if we have the same peaks
+		// This is in order to compensate TimeDomain Differences
+		// But we probably default to Frequency domain and leave this commented out
+		if((*ReferenceSignal)->MaxMagnitude.hertz == (*ComparisonSignal)->MaxMagnitude.hertz &&
+			(*ReferenceSignal)->MaxMagnitude.block == (*ComparisonSignal)->MaxMagnitude.block)
+		{
+			double diff = 0;
+	
+			diff = fabs((*ReferenceSignal)->MaxMagnitude.magnitude - (*ComparisonSignal)->MaxMagnitude.magnitude);
+			if(diff > 0.5)
+			{
+				double ratio = 0;
+	
+				if((*ReferenceSignal)->MaxMagnitude.magnitude > (*ComparisonSignal)->MaxMagnitude.magnitude)
+				{
+					//if(config->verbose)
+						logmsg(" - Both Peaks match in frequency and Block, readjusting magnitudes");
+					ratio = (*ComparisonSignal)->MaxMagnitude.magnitude/(*ReferenceSignal)->MaxMagnitude.magnitude;
+					NormalizeMagnitudesByRatio(*ReferenceSignal, ratio, config);
+				}
+				else
+				{
+					if(config->verbose)
+						logmsg(" - Both Peaks match in frequency and Block, readjusting magnitudes");
+					ratio = (*ReferenceSignal)->MaxMagnitude.magnitude/(*ComparisonSignal)->MaxMagnitude.magnitude;
+					NormalizeMagnitudesByRatio(*ComparisonSignal, ratio, config);
+				}
+			}
+			//ZeroDbMagnitudeRef = (*ReferenceSignal)->MaxMagnitude.magnitude;
+		}
+	}
+	*/
+
+	if((*ReferenceSignal)->MaxMagnitude.magnitude < (*ComparisonSignal)->MaxMagnitude.magnitude)
+	{
+		ZeroDbMagnitudeRef = (*ComparisonSignal)->MaxMagnitude.magnitude;
 		if(config->verbose)
 			logmsg(" - Comparison file has the highest peak at %g vs %g\n",
-				ZeroDbMagnitudeRef, (*ReferenceSignal)->MaxMagnitude);
+				ZeroDbMagnitudeRef, (*ReferenceSignal)->MaxMagnitude.magnitude);
 	}
 	else
 	{
-		ZeroDbMagnitudeRef = (*ReferenceSignal)->MaxMagnitude;
+		ZeroDbMagnitudeRef = (*ReferenceSignal)->MaxMagnitude.magnitude;
 		if(config->verbose)
 			logmsg(" - Reference file has the highest peak at %g vs %g\n",
-				ZeroDbMagnitudeRef, (*ComparisonSignal)->MaxMagnitude);
+				ZeroDbMagnitudeRef, (*ComparisonSignal)->MaxMagnitude.magnitude);
 	}
 
 	PrepareSignal(*ReferenceSignal, ZeroDbMagnitudeRef, config);
@@ -575,33 +630,36 @@ int ProcessFile(AudioSignal *Signal, parameters *config)
 
 		difference = GetByteSizeDifferenceByFrameRate(Signal->framerate, frames, Signal->header.SamplesPerSec, config);
 
-		//logmsg("loadedBlockSize -diff %ld leftover %ld discardBytes %ld leftDecimals %g\n",
-			//	loadedBlockSize - difference, leftover, discardBytes, leftDecimals);
-		memset(buffer, 0, buffersize);
-		if(pos + loadedBlockSize > Signal->header.Subchunk2Size)
-		{
-			logmsg("\tunexpected end of File, please record the full Audio Test from the 240p Test Suite\n");
-			break;
-		}
-		
-		memcpy(buffer, Signal->Samples + pos, loadedBlockSize-difference);
-
 		Signal->Blocks[i].index = GetBlockSubIndex(config, i);
 		Signal->Blocks[i].type = GetBlockType(config, i);
+		if(Signal->Blocks[i].type >= TYPE_SILENCE)
+		{
+			//logmsg("loadedBlockSize -diff %ld leftover %ld discardBytes %ld leftDecimals %g\n",
+				//	loadedBlockSize - difference, leftover, discardBytes, leftDecimals);
+			memset(buffer, 0, buffersize);
+			if(pos + loadedBlockSize > Signal->header.Subchunk2Size)
+			{
+				logmsg("\tunexpected end of File, please record the full Audio Test from the 240p Test Suite\n");
+				break;
+			}
+			
+			memcpy(buffer, Signal->Samples + pos, loadedBlockSize-difference);
+	
+			if(!ExecuteDFFT(&Signal->Blocks[i], (int16_t*)buffer, (loadedBlockSize-difference)/2, Signal->header.SamplesPerSec, windowUsed, config))
+				return 0;
 
-		if(!ExecuteDFFT(&Signal->Blocks[i], (int16_t*)buffer, (loadedBlockSize-difference)/2, Signal->header.SamplesPerSec, windowUsed, config))
-			return 0;
+			FillFrequencyStructures(&Signal->Blocks[i], config);
+		}
+
 		// MDWAVE exists for this, but just in case it is ever needed within MDFourier
 		//SaveWAVEChunk(NULL, Signal, buffer, i, loadedBlockSize-difference, config);
-
-		FillFrequencyStructures(&Signal->Blocks[i], config);
-
+	
 		pos += loadedBlockSize;
 		pos += discardBytes;
 		i++;
 	}
 
-	if(config->timeDomainNormalize)
+	if(config->normType != max_frequency)
 		FindMaxMagnitude(Signal, config);
 
 	if(config->clock)
@@ -939,11 +997,11 @@ void NormalizeAudioByRatio(AudioSignal *Signal, double ratio)
 }
 
 // Find the Maximum Volume in the Audio File
-MaximumVolume FindMaxVolume(AudioSignal *Signal)
+MaxVolum FindMaxVolume(AudioSignal *Signal)
 {
 	long int 		i = 0, start = 0, end = 0;
 	int16_t			*samples = NULL;
-	MaximumVolume	maxSampleValue;
+	MaxVolum	maxSampleValue;
 
 	maxSampleValue.magnitude = 0;
 	maxSampleValue.offset = 0;
@@ -972,7 +1030,7 @@ MaximumVolume FindMaxVolume(AudioSignal *Signal)
 }
 
 // Find the Maximum Volume in the Reference Audio File
-int16_t FindLocalMaximumAroundSample(AudioSignal *Signal, MaximumVolume refMax)
+int16_t FindLocalMaximumAroundSample(AudioSignal *Signal, MaxVolum refMax)
 {
 	long int 		i, start = 0, end = 0, pos = 0;
 	int16_t			*samples = NULL, MaxLocalSample = 0;
@@ -1037,20 +1095,26 @@ void NormalizeMagnitudesByRatio(AudioSignal *Signal, double ratio, parameters *c
 
 	for(int block = 0; block < config->types.totalChunks; block++)
 	{
-		for(int i = 0; i < config->MaxFreq; i++)
-		{
-			if(!Signal->Blocks[block].freq[i].hertz)
-				break;
+		int type = TYPE_NOTYPE;
 
-			Signal->Blocks[block].freq[i].magnitude *= ratio;
+		type = GetBlockType(config, block);
+		if(type >= TYPE_SILENCE)
+		{
+			for(int i = 0; i < config->MaxFreq; i++)
+			{
+				if(!Signal->Blocks[block].freq[i].hertz)
+					break;
+	
+				Signal->Blocks[block].freq[i].magnitude *= ratio;
+			}
 		}
 	}
-	Signal->MaxMagnitude *= ratio;
+	Signal->MaxMagnitude.magnitude *= ratio;
 }
 
-MaximumMagnitude FindMaxMagnitudeBlock(AudioSignal *Signal, parameters *config)
+MaxMagn FindMaxMagnitudeBlock(AudioSignal *Signal, parameters *config)
 {
-	MaximumMagnitude	MaxMag;
+	MaxMagn	MaxMag;
 
 	MaxMag.magnitude = 0;
 	MaxMag.hertz = 0;
@@ -1062,21 +1126,31 @@ MaximumMagnitude FindMaxMagnitudeBlock(AudioSignal *Signal, parameters *config)
 	// Find global peak
 	for(int block = 0; block < config->types.totalChunks; block++)
 	{
-		for(int i = 0; i < config->MaxFreq; i++)
+		int type = TYPE_NOTYPE;
+
+		type = GetBlockType(config, block);
+		if(type > TYPE_CONTROL)
 		{
-			if(!Signal->Blocks[block].freq[i].hertz)
-				break;
-			if(Signal->Blocks[block].freq[i].magnitude > MaxMag.magnitude)
+			for(int i = 0; i < config->MaxFreq; i++)
 			{
-				MaxMag.magnitude = Signal->Blocks[block].freq[i].magnitude;
-				MaxMag.hertz = Signal->Blocks[block].freq[i].hertz;
-				MaxMag.block = block;
+				if(!Signal->Blocks[block].freq[i].hertz)
+					break;
+				if(Signal->Blocks[block].freq[i].magnitude > MaxMag.magnitude)
+				{
+					MaxMag.magnitude = Signal->Blocks[block].freq[i].magnitude;
+					MaxMag.hertz = Signal->Blocks[block].freq[i].hertz;
+					MaxMag.block = block;
+				}
 			}
 		}
 	}
 
 	if(MaxMag.block != -1)
-		Signal->MaxMagnitude = MaxMag.magnitude;
+	{
+		Signal->MaxMagnitude.magnitude = MaxMag.magnitude;
+		Signal->MaxMagnitude.hertz = MaxMag.hertz;
+		Signal->MaxMagnitude.block = MaxMag.block;
+	}
 
 	if(config->verbose)
 	{
@@ -1089,7 +1163,7 @@ MaximumMagnitude FindMaxMagnitudeBlock(AudioSignal *Signal, parameters *config)
 	return MaxMag;
 }
 
-double FindLocalMaximumInBlock(AudioSignal *Signal, MaximumMagnitude refMax, parameters *config)
+double FindLocalMaximumInBlock(AudioSignal *Signal, MaxMagn refMax, parameters *config)
 {
 	double		highest = 0;
 
@@ -1133,4 +1207,37 @@ double FindLocalMaximumInBlock(AudioSignal *Signal, MaximumMagnitude refMax, par
 			highest, refMax.block);
 	}
 	return highest;
+}
+
+double FindFundamentalMagnitudeAverage(AudioSignal *Signal, parameters *config)
+{
+	double		AvgFundMag = 0;
+	long int	count = 0;
+
+	if(!Signal)
+		return 0;
+
+	// Find global peak
+	for(int block = 0; block < config->types.totalChunks; block++)
+	{
+		int type = TYPE_NOTYPE;
+
+		type = GetBlockType(config, block);
+		if(type > TYPE_CONTROL && Signal->Blocks[block].freq[0].hertz != 0)
+		{
+			AvgFundMag += Signal->Blocks[block].freq[0].magnitude;
+			count ++;
+		}
+	}
+
+	if(count)
+		AvgFundMag /= count;
+
+	if(config->verbose)
+	{
+		logmsg(" - Average Fundamental Magnitude %g from %ld elements\n", 
+				AvgFundMag, count);
+	}
+
+	return AvgFundMag;
 }

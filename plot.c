@@ -1055,15 +1055,18 @@ FlatAmplDifference *CreateFlatDifferences(parameters *config)
 		int type = 0, color = 0;
 		
 		type = GetBlockType(config, b);
-		color = MatchColor(GetBlockColor(config, b));
-		for(int a = 0; a < config->Differences.BlockDiffArray[b].cntAmplBlkDiff; a++)
+		if(type > TYPE_SILENCE)
 		{
-			ADiff[count].hertz = config->Differences.BlockDiffArray[b].amplDiffArray[a].hertz;
-			ADiff[count].refAmplitude = config->Differences.BlockDiffArray[b].amplDiffArray[a].refAmplitude;
-			ADiff[count].diffAmplitude = config->Differences.BlockDiffArray[b].amplDiffArray[a].diffAmplitude;
-			ADiff[count].type = type;
-			ADiff[count].color = color;
-			count ++;
+			color = MatchColor(GetBlockColor(config, b));
+			for(int a = 0; a < config->Differences.BlockDiffArray[b].cntAmplBlkDiff; a++)
+			{
+				ADiff[count].hertz = config->Differences.BlockDiffArray[b].amplDiffArray[a].hertz;
+				ADiff[count].refAmplitude = config->Differences.BlockDiffArray[b].amplDiffArray[a].refAmplitude;
+				ADiff[count].diffAmplitude = config->Differences.BlockDiffArray[b].amplDiffArray[a].diffAmplitude;
+				ADiff[count].type = type;
+				ADiff[count].color = color;
+				count ++;
+			}
 		}
 	}
 	logmsg(PLOT_PROCESS_CHAR);
@@ -1110,14 +1113,17 @@ FlatFreqDifference *CreateFlatMissing(parameters *config)
 		int type = 0, color = 0;
 		
 		type = GetBlockType(config, b);
-		color = MatchColor(GetBlockColor(config, b));
-		for(int f = 0; f < config->Differences.BlockDiffArray[b].cntFreqBlkDiff; f++)
+		if(type > TYPE_SILENCE)
 		{
-			FDiff[count].hertz = config->Differences.BlockDiffArray[b].freqMissArray[f].hertz;
-			FDiff[count].amplitude = config->Differences.BlockDiffArray[b].freqMissArray[f].amplitude;
-			FDiff[count].type = type;
-			FDiff[count].color = color;
-			count ++;
+			color = MatchColor(GetBlockColor(config, b));
+			for(int f = 0; f < config->Differences.BlockDiffArray[b].cntFreqBlkDiff; f++)
+			{
+				FDiff[count].hertz = config->Differences.BlockDiffArray[b].freqMissArray[f].hertz;
+				FDiff[count].amplitude = config->Differences.BlockDiffArray[b].freqMissArray[f].amplitude;
+				FDiff[count].type = type;
+				FDiff[count].color = color;
+				count ++;
+			}
 		}
 	}
 	logmsg(PLOT_PROCESS_CHAR);
@@ -1200,13 +1206,21 @@ FlatFrequency *CreateFlatFrequencies(AudioSignal *Signal, long int *size, parame
 	*size = 0;
 
 	for(block = 0; block < config->types.totalChunks; block++)
-		for(i = 0; i < config->MaxFreq; i++)
+	{
+		int type = TYPE_NOTYPE;
+
+		type = GetBlockType(config, block);
+		if(type > TYPE_SILENCE)
 		{
-			if(Signal->Blocks[block].freq[i].hertz && Signal->Blocks[block].freq[i].amplitude > config->significantVolume)
-				count ++;
-			else
-				break;
+			for(i = 0; i < config->MaxFreq; i++)
+			{
+				if(Signal->Blocks[block].freq[i].hertz && Signal->Blocks[block].freq[i].amplitude > config->significantVolume)
+					count ++;
+				else
+					break;
+			}
 		}
+	}
 
 	Freqs = (FlatFrequency*)malloc(sizeof(FlatFrequency)*count);
 	if(!Freqs)
@@ -1218,24 +1232,27 @@ FlatFrequency *CreateFlatFrequencies(AudioSignal *Signal, long int *size, parame
 		int type = 0, color = 0;
 
 		type = GetBlockType(config, block);
-		color = MatchColor(GetBlockColor(config, block));
-
-		for(i = 0; i < config->MaxFreq; i++)
+		if(type > TYPE_SILENCE)
 		{
-			if(Signal->Blocks[block].freq[i].hertz && Signal->Blocks[block].freq[i].amplitude > config->significantVolume)
+			color = MatchColor(GetBlockColor(config, block));
+	
+			for(i = 0; i < config->MaxFreq; i++)
 			{
-				FlatFrequency tmp;
-
-				tmp.hertz = Signal->Blocks[block].freq[i].hertz;
-				tmp.amplitude = Signal->Blocks[block].freq[i].amplitude;
-				tmp.type = type;
-				tmp.color = color;
-
-				if(InsertElementInPlace(Freqs, tmp, counter))
-					counter ++;
+				if(Signal->Blocks[block].freq[i].hertz && Signal->Blocks[block].freq[i].amplitude > config->significantVolume)
+				{
+					FlatFrequency tmp;
+	
+					tmp.hertz = Signal->Blocks[block].freq[i].hertz;
+					tmp.amplitude = Signal->Blocks[block].freq[i].amplitude;
+					tmp.type = type;
+					tmp.color = color;
+	
+					if(InsertElementInPlace(Freqs, tmp, counter))
+						counter ++;
+				}
+				else
+					break;
 			}
-			else
-				break;
 		}
 	}
 	

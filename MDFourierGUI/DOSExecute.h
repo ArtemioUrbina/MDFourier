@@ -17,27 +17,34 @@ public:
 	CString			m_Output;
 	HANDLE			Semaphore;
 
+	PROCESS_INFORMATION pInfo; 
+
     static UINT ExecuteExternalFileThreadProc( LPVOID pParam ) {
         CDOSExecute* pThis= (CDOSExecute*)pParam;
         UINT nRet= pThis->ExecuteExternalFile();     // get out of 'static mode'
         return( nRet );
     }
 	void Start( CString cline ) {
+		m_fDone = FALSE;
 		m_cline = cline;
         m_fAbortNow = FALSE;
         m_pcThread = AfxBeginThread( ExecuteExternalFileThreadProc, this );
     }
     void StopNow(void) {
-        m_fAbortNow= TRUE;
+        m_fAbortNow = TRUE;
 	}
 
 	void KillNow(void) {
-		HANDLE hThread = m_pcThread->m_hThread;
+		HANDLE hThread;
 		DWORD nExitCode;
-		BOOL fRet= ::GetExitCodeThread(hThread, &nExitCode);
+		BOOL fRet;
 
-		if ( fRet && nExitCode==STILL_ACTIVE ) { // did not die!
-			TerminateThread( hThread, -1 ); // <<== Kill it (but not cleanly)
+		hThread = m_pcThread->m_hThread;
+		fRet = ::GetExitCodeThread(hThread, &nExitCode);
+		if(fRet && nExitCode == STILL_ACTIVE) 
+		{ // did not finish yet
+			TerminateProcess(pInfo.hProcess, -1); // <<== Kill it
+			pInfo.hProcess = NULL;
 		}
 	}
 
