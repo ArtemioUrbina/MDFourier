@@ -58,7 +58,7 @@ BEGIN_MESSAGE_MAP(CMDFourierGUIDlg, CDialogEx)
 	ON_BN_CLICKED(IDC_ABOUT, &CMDFourierGUIDlg::OnBnClickedAbout)
 	ON_BN_CLICKED(IDC_ENABLEEXTRA, &CMDFourierGUIDlg::OnBnClickedEnableextra)
 	ON_BN_CLICKED(IDC_DIFFERENCES, &CMDFourierGUIDlg::OnBnClickedDifferences)
-	ON_BN_CLICKED(IDC_MISSING, &CMDFourierGUIDlg::OnBnClickedDifferences2)
+	ON_BN_CLICKED(IDC_MISSING, &CMDFourierGUIDlg::OnBnClickedMissing)
 	ON_BN_CLICKED(IDC_SPECTROGRAM, &CMDFourierGUIDlg::OnBnClickedSpectrogram)
 	ON_BN_CLICKED(IDC_AVERAGE, &CMDFourierGUIDlg::OnBnClickedAverage)
 END_MESSAGE_MAP()
@@ -147,7 +147,7 @@ void CMDFourierGUIDlg::OnBnClickedSelectReferenceFile()
 
 void CMDFourierGUIDlg::OnBnClickedSelectReferenceCompare()
 {
-	TCHAR szFilters[]= L"Audio Files (*.wav)|*.wav|MDF List (*.mdl)|*.mdl||";
+	TCHAR szFilters[]= L"Audio Files (*.wav)|*.wav|MDF List (*.mfl)|*.mfl||";
 	CFileDialog dlgFile(TRUE, L"wav", L"*.wav", OFN_FILEMUSTEXIST, szFilters);
 
 	if(dlgFile.DoModal() != IDOK)
@@ -207,7 +207,7 @@ void CMDFourierGUIDlg::OnBnClickedOk()
 		elementCount = 1;
 	}
 
-	if(m_ComparisonFile.Right(3).CompareNoCase(L"mdl") == 0)
+	if(m_ComparisonFile.Right(3).CompareNoCase(L"mfl") == 0)
 	{
 		FILE *file = NULL;
 		errno_t err;
@@ -216,7 +216,7 @@ void CMDFourierGUIDlg::OnBnClickedOk()
 		err = _wfopen_s(&file, m_ComparisonFile, L"r");
 		if(err != 0)
 		{
-			MessageBox(L"Could not open MDL file", L"Error");
+			MessageBox(L"Could not open MFL file", L"Error");
 			return;
 		}
 		
@@ -372,21 +372,21 @@ void CMDFourierGUIDlg::OnTimer(UINT_PTR nIDEvent)
 			cDos.KillNow();
 			cDos.m_fDone = TRUE;
 			m_OutputCtrl.SetWindowText(L"Process terminated");
-		}
 
-		elementCount = 0;
-		elementPos = 0;
-		if(elements)
-			delete [] elements;
-		elements = NULL;
+			elementCount = 0;
+			elementPos = 0;
+			if(elements)
+				delete [] elements;
+			elements = NULL;
 
-		KillTimer(IDT_DOS);
-        ManageWindows(TRUE);
+			KillTimer(IDT_DOS);
+			ManageWindows(TRUE);
 
-		if(listName.GetLength())
-		{
-			m_ComparisonLbl.SetWindowText(listName);
-			listName.Empty();
+			if(listName.GetLength())
+			{
+				m_ComparisonLbl.SetWindowText(listName);
+				listName.Empty();
+			}
 		}
 	}
 	CDialogEx::OnTimer(nIDEvent);
@@ -514,8 +514,7 @@ void CMDFourierGUIDlg::OnBnClickedEnableextra()
 		m_ExtraParamsEditBox.EnableWindow(FALSE);
 }
 
-
-void CMDFourierGUIDlg::OnBnClickedDifferences()
+void CMDFourierGUIDlg::CheckPlotSelection(CButton &clicked)
 {
 	int checked = 0;
 
@@ -529,22 +528,25 @@ void CMDFourierGUIDlg::OnBnClickedDifferences()
 		checked ++;
 
 	if(!checked)
-		m_DiffBttn.SetCheck(TRUE);
+		clicked.SetCheck(TRUE);
 }
 
-
-void CMDFourierGUIDlg::OnBnClickedDifferences2()
+void CMDFourierGUIDlg::OnBnClickedDifferences()
 {
-	OnBnClickedDifferences();
+	CheckPlotSelection(m_DiffBttn);
 }
 
+void CMDFourierGUIDlg::OnBnClickedMissing()
+{
+	CheckPlotSelection(m_MissBttn);
+}
 
 void CMDFourierGUIDlg::OnBnClickedSpectrogram()
 {
-	OnBnClickedDifferences();
+	CheckPlotSelection(m_SpectrBttn);
 }
 
 void CMDFourierGUIDlg::OnBnClickedAverage()
 {
-	OnBnClickedDifferences();
+	CheckPlotSelection(m_AveragePlot_Bttn);
 }

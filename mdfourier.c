@@ -615,7 +615,10 @@ int ProcessFile(AudioSignal *Signal, parameters *config)
 		return 0;
 
 	if(config->drawWindows)
+	{
 		VisualizeWindows(&windows, config);
+		PlotBetaFunctions(config);
+	}
 
 	if(config->clock)
 		clock_gettime(CLOCK_MONOTONIC, &start);

@@ -5,6 +5,7 @@
 \usepackage{amsmath}
 \usepackage{float}
 \usepackage{xfrac}
+\usepackage[font=footnotesize]{caption}
 \usepackage[toc,page]{appendix}
 \usepackage[pdfpagelabels]{hyperref}
 \setlength{\parskip}{1em}
@@ -32,7 +33,7 @@ The intention is not to disparage any particular implementation\footnote{The ter
 
 \section{What is it for?}
 
-\textit{MDFourier} can be used to identify the differences between two audio signatures. For instance a \textit{Sega Genesis Model 1 VA3} and a \textit{Sega Model 2 VA 1.8} can be compared in order to verify how different they are across the audible spectrum. 
+\textit{MDFourier} can be used to identify the differences between two audio signatures. For instance a \textit{Sega Genesis Model 1 VA3} and a \textit{Sega Genesis Model 2 VA 1.8} can be compared in order to verify how different they are across the audible spectrum. 
 
 It can also be used to compare a vintage version of the console against any other variation, like an emulator or an \textit{FPGA} implementation. Another possible application is to determine if there were changes in the audio spectrum after modifications to a console, like recapping or changing the audio circuitry.
 
@@ -42,7 +43,7 @@ It can also be used to evaluate if equipment - such as switchers and upscalers w
 
 Although I believe any present and future implementation of a gaming platform should offer a configuration based on vintage retail hardware, that doesn't mean there isn't room for improvement upon those configurations. Reducing noise while keeping the reference sound signature is one such case.
 
-\section{Warning}
+\section{Disclaimer}
 
 \textit{MDFourier} is a work in progress, just as the current document. It still has a few rough edges, and although I tried to adhere to the best practices known to me, my expertise in \textit{digital signal processing} was almost non-existent before this project. 
 
@@ -84,17 +85,17 @@ The analysis software is itself \textit{command line} based, in order to be mult
 
 Most importantly, it guarantees that the \textit{Reference} and \textit{Comparison} files are logically aligned, and that each note - or segment - is compared to its corresponding one, with no overlap and without any audio editing or trimming skills required from the user. Current pulse detection accuracy is around $\sfrac{1}{4}$ of a millisecond.
 
-After alignment is accomplished, the software reports the starting and end points of both signals, in seconds and bytes. A specialized tool called \textit{MDWave}\footnote{Appendix \ref{mdwave} has more  information about \textit{MDWave}} is included. It can trim each file, and segment each block for acoustical and visual verification if required. At the moment \textit{MDWave} has no \textit{GUI Front end} available.  
+After alignment is accomplished, the software reports the starting and end points of both signals, in seconds and bytes.
 
 \section{The heart of the process}
 
-In order to compare the signals, audio levels are checked and a relative normalization\footnote{This process is detailed in appendix \ref{normalization}} takes place, based on the maximum amplitude of the \textit{Reference} file. A local maximum search is done in the same frame on the \textit{Comparison} signal, and that amplitude is then used to normalize both files. This is done in the frequency domain, in order to reduce amplitude imprecision caused when comparing recordings with different frame rates. The software does have the option to do this in the time domain, but quantization and amplitude imprecision is to be expected in such case.
+In order to compare the signals, audio levels are checked and a relative \textit{normalization}\footnote{This process is detailed in appendix \ref{normalization}} takes place, based on the maximum amplitude of the \textit{Reference} file. A local maximum search is done in the same frame on the \textit{Comparison} signal, and that amplitude is then used to normalize both files. This is done in the \textit{frequency domain}, in order to reduce amplitude imprecision when comparing recordings with different frame rates. The software does have the option to do this in the time domain, but quantization and amplitude imprecision is to be expected in such case.
 
 Then a \textit{Discrete Fourier Transform}\footnote{This is the variant of \textit{Fourier Transform} applied to discrete values, such as the ones we have in the audio file \cite{FourierTransformApps}} is used in order to analyze the frequency content of the signal, as well as the amplitudes from each of the corresponding fundamental frequencies that compose the audio signal.
 
 The software uses the \textit{FFTW}\footnote{The Fastest Fourier Transform in the West \cite{fftw}} library in order to accomplish this, and then proceeds to sort out the frequencies of each block by amplitude. It can be configured to compare a range of these frequencies, but by default it compares 2000 of them for each element defined in the \textit{mfn} configuration file\footnote{Described in appendix \ref{mfnconfig})}.
 
-I've found such comparison to be more than enough, and the \textit{minimun significant volume}\footnote{  see section \ref{MinSigVolume}} even limits these 2000 to a lower number, based on significant amplitude. In case more frequencies are needed, this can be changed via a command line parameter.
+I've found such comparison to be more than enough, and the \textit{minimum significant volume}\footnote{  see section \ref{MinSigVolume}} even limits these 2000 to a lower number, based on significant amplitude. In case more frequencies are needed, this can be changed via a command line parameter.
 
 After comparing these frequencies between both files, matches are made and the differences in volume are plotted to a graph. Please read chapter \ref{howtoplots} to help you understand the various plots created by this porgram.
 
@@ -114,11 +115,13 @@ If you are interested in learning what the \textit{Fourier Transform} does and h
 
 Currently \textit{MDFourier} can recognize three scenarios used as a minimum significant volume to compare the signals, and the three are derived from the first \textit{silence block} in the file.
 
-The first scenario is the grid power frequency noise, which currently searches for \textit{60/50hz} noise (\textit{PAL} needs to be tested yet, since I don't have a PAL console and its use is triggered based on the identified frame rate). The second one is \textit{refresh rate noise}, again derived from the frame rate, in \textit{NTSC} it is around \textit{15697-15698hz}. 
+The first scenario is the grid power frequency noise, which currently searches for \textit{60/50hz} noise (\textit{PAL} needs to be tested yet, since I don't have a \textit{PAL} console and its use is triggered based on the identified frame rate). 
+
+The second one is \textit{refresh rate noise}, again derived from the frame rate, in \textit{NTSC} it is around \textit{15697-15698hz}. 
 
 In case neither is found, which would be surprising for a file generated by recording from a vintage console via analogue means, the frequency with the highest volume within the silence block is used. 
 
-In case none of these three scenarios is met, a default $-96dBFS$ level is used.
+In case none of these three scenarios is met, a default \textit{-96dBFS} level is used.
 
 \section{Workflow}
 
@@ -201,7 +204,7 @@ A color scale is presented in each graph, with the color graduation and the corr
 \begin{figure}[H]
 	\centering
 	\includegraphics[width=0.2\linewidth]{plots/colorscale.png}
-	\caption{Detail of color scale in plot}
+	\caption[Plot color scale]{Detail of color scale in plot}
 	\label{fig:colorscale}
 \end{figure}
 
@@ -221,7 +224,7 @@ In contrast, when applying the \textit{Fourier transform} a compromise is made b
 
 The compromise made is to use \textit{sub second signals} for each element to be compared. Since the time and sample rate determine how the \textit{DFFT} \textit{frequency bins} are spaced after analysis - and how much information we end up analyzing - the end result is a lower plot resolution.
 
-Zero padding the input signal for Fourier analysis is a controversial subject\footnote{"Zero-padding a signal does not reveal more information about the spectrum, but it only interpolates between the frequency bins that would occur when no zero-padding is applied. In particular, zero-padding does not increase the spectral resolution." \cite{zeropaddinginterpolate} \cite{ZeroPaddingBad}}, but for the present application no adverse effects have been found. This might be the case since we control how the source signal is generated, with a predetermined \textit{attack} and \textit{decay}. However, it is disabled by default so the results presented can be free from questioning regarding the effects, and available for cases where more precise frequency information is needed with no spectral leakage to adjacent \textit{frequency bins}.
+Zero padding the input signal for Fourier analysis is a controversial subject\footnote{'Zero-padding a signal does not reveal more information about the spectrum, but it only interpolates between the frequency bins that would occur when no zero-padding is applied. In particular, zero-padding does not increase the spectral resolution.' \cite{zeropaddinginterpolate} \cite{ZeroPaddingBad}}, but for the present application no adverse effects have been found. This might be the case since we control how the source signal is generated, with a predetermined \textit{attack} and \textit{decay}. However, it is disabled by default so the results presented can be free from questioning regarding the effects, and available for cases where more precise frequency information is needed with no spectral leakage to adjacent \textit{frequency bins}.
 
 \subsection{Output Plots}
 \label{outputfiles}
@@ -302,7 +305,7 @@ So, what is the expected result of comparing a file to itself? No differences at
 \begin{figure}[H]
 	\centering
 	\includegraphics[width=1.0\linewidth]{plots/Plot1-SameFile.png}
-	\caption[Same file compared]{Different Amplitudes result file when comparing the same file against itself.}
+	\caption[Same file compared]{Different Amplitudes result file when comparing the same file against itself}
 	\label{fig:plot1-samefile}
 \end{figure}
 
@@ -332,7 +335,7 @@ This is another control case, what should we expect to see if we record two cons
 \begin{figure}[H]
 	\centering
 	\includegraphics[width=1\linewidth]{plots/Plot2-Sameconsole.png}
-	\caption{}
+	\caption[Same console compared]{The same console, two different recordings}
 	\label{fig:plot2-sameconsole}
 \end{figure}
 
@@ -349,7 +352,7 @@ For demonstration purposes, the same \textit{Reference} file was modified to add
 \begin{figure}[H]
 	\centering
 	\includegraphics[width=1.0\linewidth]{plots/Plot3-Modified.png}
-	\caption[1khz modified]{Compared against itself modified with a 1khz 6 db equalization}
+	\caption[1khz modified]{Compared against itself modified with a \textit{1khz 6 db} equalization}
 	\label{fig:plot3-modified}
 \end{figure}
 
@@ -367,7 +370,7 @@ It is interesting to note both spectrograms, since the \textit{1khz} spike is al
 \begin{figure}[H]
 	\centering
 	\includegraphics[width=1.0\linewidth]{plots/Plot3-Spectrogram-1khz.png}
-	\caption[Reference File]{\textit{Reference modified with 1khz} File}
+	\caption[Reference File]{Reference file modified with \textit{1khz} peak}
 	\label{fig:plot3-spectrogram-1khz}
 \end{figure}
 
@@ -389,7 +392,7 @@ This is the general plot with the three sections:
 \begin{figure}[H]
 	\centering
 	\includegraphics[width=1.0\linewidth]{plots/Plot4-1-All.png}
-	\caption[All Plotted]{\textit{FM}, \textit{PSG} and \textit{Noise} with low pass, low pass and high pass filters.}
+	\caption[All Plotted]{\textit{FM}, \textit{PSG} and \textit{Noise} with low pass, low pass and high pass filters}
 	\label{fig:plot4-1-all}
 \end{figure}
 
@@ -507,7 +510,9 @@ tbc....
 
 \chapter{Results from vintage retail hardware}
 
-The following table lists all the hardware used to make the recordings for the plots that will be shown. All had stock parts at the time of the recording, and used original power supplies. They were all connected to a 4" \textit{CRT} via \textit{RGB}, although the \textit{CRT} was turned off while recording. Recordings were made on \textit{5/25/2019}.
+The following table lists all the hardware used to make the recordings for the plots that will be shown. All had stock parts at the time of the recording, and used original power supplies. They were all connected to a 4" \textit{CRT} via \textit{RGB}, although the \textit{CRT} was turned off while recording. 
+
+Although the recordings were made using several audio cards as described in section \ref{audiocards}.
 
 \begin{center}
 \scalebox{0.6}{
@@ -550,7 +555,7 @@ All these parameters are defined in the file \textit{mdfblocks.mfn}\footnote{Thi
 \begin{verbatim}
 MDFourierAudioBlockFile 1.0
 MegaDriveAudio
-16.6905
+16.688
 8820 -25 25 14 18 10
 7
 Sync s 1 20 red
@@ -607,26 +612,41 @@ This appendix lists the equation and curve of each \textit{Window Function} used
 \newpage
 \section{Tukey}
 
-The default is a Tukey window specifically designed for this purpose. It uses a 2.5\% slope on each side of the signal, zeroing just a few samples and with minimal amplitude and frequency distortion.
+The default is a \textit{Tukey} window selected for this purpose. It uses $\alpha = 0.6$, zeroing just a few samples, with minimal spectral leakage and good amplitude response.
 
-The following equation is used to create the slopes:
+The following equation is used to create the slopes of the curve:
 
 \begin{equation}
-tukey(x)=85(1+\cos(\frac{2\pi}{n-1}\frac{x-(n-1)}{2}))
+tukey(x)=\frac{1}{2}(1+\cos(\frac{\pi(|x-\frac{N-1}{2}|-\alpha \frac{N-1}{2})}{(1-\alpha)\frac{N-1}{2}}))
 \end{equation}
 
-And this is the resulting plot of the Tukey window, tanges are 0-1 horizontally and -0.1 to 1.1 vertically.
+And this is the resulting plot of the \textit{Tukey} window, ranges are 0.0 to 1.0 horizontally and -0.1 to 1.1 vertically.
 
 \begin{figure}[H]
 	\centering
 	\includegraphics[width=0.4\linewidth]{plots/window-tukey.png}
-	\caption[Tukey Window]{This is the custom Tukey window used by MDFourier}
+	\caption[Tukey Window]{Tukey window used by \textit{MDFourier}, vertical lines are frames on a 20 frame signal}
 	\label{fig:window-tukey}
 \end{figure}
 
 \newpage
+\section{Hann}
+When selected, a typical \textit{Hann} window is used. This should be used to get the last \textit{spectral leakage}, with a very small trade off in amplitude accuracy.
+
+\begin{equation}
+hann[x] = \frac{1}{2}(1 - \cos(\frac{2\pi(x+1)}{n+1}))
+\end{equation}
+
+\begin{figure}[H]
+	\centering
+	\includegraphics[width=0.4\linewidth]{plots/window-hann.png}
+	\caption[Hann Window]{Hann Window}
+	\label{fig:window-hann}
+\end{figure}
+
+\newpage
 \section{Flattop}
-A typical Flat top window is used.
+A typical \textit{Flat top} window is used, selecting this will target amplitude accuracy against frequency bin precision.
 
 \begin{align*}
 flattop(x)=0.21557895 - 0.41663158\cos(2\pi\frac{x}{n-1})+ 0.277263158\cos(4\pi\frac{x}{n-1})\\
@@ -641,23 +661,8 @@ flattop(x)=0.21557895 - 0.41663158\cos(2\pi\frac{x}{n-1})+ 0.277263158\cos(4\pi\
 \end{figure}
 
 \newpage
-\section{Hann}
-A typical Hann window is used.
-
-\begin{equation}
-hann[x] = \frac{1}{2}(1 - \cos(\frac{2\pi(x+1)}{n+1}))
-\end{equation}
-
-\begin{figure}[H]
-	\centering
-	\includegraphics[width=0.4\linewidth]{plots/window-hann.png}
-	\caption[Hann Window]{Hann Window}
-	\label{fig:window-hann}
-\end{figure}
-
-\newpage
 \section{Hamming}
-A typical Hamming window is used.
+A typical \textit{Hamming} window is used, presented for completeness and reference since the samples are never zeroed out.
 
 \begin{equation}
 hamming[x] = 0.54 - 0.46\cos(\frac{2\pi x}{n-1})
@@ -673,7 +678,7 @@ hamming[x] = 0.54 - 0.46\cos(\frac{2\pi x}{n-1})
 
 \section{No Window}
 
-No window is applied, equivalent to a rectangular window. This leaves the signal unprocessed and any uncontrolled decay and audio card noise will be factored in as part of the periodic signal.
+No window is applied to the signal before applying the \textit{DFT}, equivalent to a \textit{rectangular window}. This leaves the signal unprocessed and any uncontrolled decay and audio card noise will be factored in as part of the periodic signal.
 
 There is more information on windows and their usage in the reference webpage \cite{windowtypes}.
 
@@ -819,7 +824,7 @@ This method has shown to be always accurate within my tests. However, results ca
 
 The process is very similar to the \textit{frequency domain} variant but it is done to the samples from the  \textit{WAV} file\footnote{Only in RAM during execution, input files are never modified}.
 
-The highest amplitude is searched for within the samples of the meaningful audio signal, as indicated in the configuration file\footnote{Described in section \ref{mfnconfig}}. The corresponding segment in time is then located, and a pre-defined\footnote{One NTSC frame - or $sfrac{1}{60}$ of a second - in the current implementation} duration is searched for the \textit{maximum local} point.
+The highest amplitude is searched for within the samples of the meaningful audio signal, as indicated in the configuration file\footnote{Described in section \ref{mfnconfig}}. The corresponding segment in time is then located, and a pre-defined\footnote{One NTSC frame - or $\sfrac{1}{60}$ of a second - in the current implementation} duration is searched for the \textit{maximum local} point.
 
 The Comparison signal is then absolutely normalized to \textit{0dBFS}\footnote{Relative to \textit{0xFFFF} - the top value in \textit{16 bits} samples in the WAV file} and the \textit{Reference} signal is then relatively normalized using the adjusted local maximum value. This follows the same logic described in the \textit{frequency domain}.
 
@@ -834,7 +839,7 @@ The results are always centered around the \textit{0dBFS} line in the Difference
 \chapter{Requirements}
 \label{requirements}
 \section{Audio capture device}
-
+\label{audiocards}
 For capturing the audio files, an audio capture device is needed. It is recommended to use a musical grade audio card in order to get a flat frequency response across the human hearing spectrum.
 
 So far two audio cards have been used in my personal setup. The reference recordings available for download were made with both cards, a set with each one of them.
@@ -843,6 +848,7 @@ I have no association or business relationship with these products, they are jus
 
 \begin{itemize}
 	\item \textbf{M-Audio Audiophile 192:} An internal audio card that is no longer available in the market \cite{maudio}
+	\item \textbf{M-Audio M-Track:} A USB audio card. \cite{maudiomtrack}
 	\item \textbf{Lexicon Alpha:} An affordable USB audio card. \cite{lexicon}
 \end{itemize}
 
@@ -925,30 +931,10 @@ I'd like to thank the following people for helping me so this tool could be comp
 	\textit{MDFourier source code C99},
 	\url{https://github.com/ArtemioUrbina/MDFourier/}.
 	
-	\bibitem{maudio}
-	M-Audio Audiophile 192,
-	\textit{Specifications},
-	\url{https://www.soundonsound.com/reviews/m-audio-audiophile-192/}.
-	
-	\bibitem{lexicon}
-	Lexicon Alpha USB card,
-	\textit{Product web page},
-	\url{https://lexiconpro.com/en/products/alpha/}.
-	
 	\bibitem{240pSuite}
 	240p test Suite,
 	\textit{Wiki web page},
 	\url{http://junkerhq.net/240p/}.
-	
-	\bibitem{audacity}
-	Audacity
-	\textit{web page},
-	\url{https://www.audacityteam.org/}.
-	
-	\bibitem{goldwave}
-	Goldwave
-	\textit{product web page},
-	\url{https://www.goldwave.com/}.
 	
 	\bibitem{fftw}
 	Fastest Fourier Transform in the West.,
@@ -959,31 +945,6 @@ I'd like to thank the following people for helping me so this tool could be comp
 	Window Types: Hanning, Flattop, Uniform, Tukey, and Exponential ,
 	\textit{web page},
 	\url{https://community.plm.automation.siemens.com/t5/Testing-Knowledge-Base/Window-Types-Hanning-Flattop-Uniform-Tukey-and-Exponential/ta-p/445063/}.
-	
-	\bibitem{libpng}
-	libPNG
-	\textit{web page},
-	\url{https://libpng.sourceforge.io/}
-	
-	\bibitem{libplot}
-	GNU Plot Utils
-	\textit{web page},
-	\url{https://www.gnu.org/software/plotutils/}
-	
-	\bibitem{mingw}
-	MinGW, 
-	\textit{Minimalist GNU for Windows},
-	\url{http://mingw.org/}.
-	
-	\bibitem{cygwin}
-	Cygwin,
-	\textit{a large collection of GNU and Open Source tools which provide functionality similar to a Linux distribution on Windows.}
-	\url{https://www.cygwin.com/}
-	
-	\bibitem{betafunction}
-	incbeta, 
-	\textit{Incomplete Beta Function in C},
-	\url{https://codeplea.com/incomplete-beta-function-c/}.
 	
 	\bibitem{dbfs}
 	dB Full Scale, 
@@ -1013,6 +974,56 @@ I'd like to thank the following people for helping me so this tool could be comp
 	\bibitem{ZeroPaddingBad}
 	Why is it a bad idea to filter by zeroing out FFT bins?
 	\url{https://dsp.stackexchange.com/questions/6220/why-is-it-a-bad-idea-to-filter-by-zeroing-out-fft-bins}
+	
+	\bibitem{libpng}
+	libPNG
+	\textit{web page},
+	\url{https://libpng.sourceforge.io/}
+	
+	\bibitem{libplot}
+	GNU Plot Utils
+	\textit{web page},
+	\url{https://www.gnu.org/software/plotutils/}
+	
+	\bibitem{mingw}
+	MinGW, 
+	\textit{Minimalist GNU for Windows},
+	\url{http://mingw.org/}.
+	
+	\bibitem{cygwin}
+	Cygwin,
+	\textit{a large collection of GNU and Open Source tools which provide functionality similar to a Linux distribution on Windows.}
+	\url{https://www.cygwin.com/}
+	
+	\bibitem{betafunction}
+	incbeta, 
+	\textit{Incomplete Beta Function in C},
+	\url{https://codeplea.com/incomplete-beta-function-c/}.
+	
+	\bibitem{maudio}
+	M-Audio Audiophile 192,
+	\textit{Specifications},
+	\url{https://www.soundonsound.com/reviews/m-audio-audiophile-192/}.
+	
+	\bibitem{lexicon}
+	Lexicon Alpha USB card,
+	\textit{Product web page},
+	\url{https://lexiconpro.com/en/products/alpha/}.
+	
+	\bibitem{maudiomtrack}
+	M-Audio M-Track USB card,
+	\textit{Product web page},
+	\url{	https://www.m-audio.com/products/view/m-track}.
+	
+	\bibitem{audacity}
+	Audacity
+	\textit{web page},
+	\url{https://www.audacityteam.org/}.
+	
+	\bibitem{goldwave}
+	Goldwave
+	\textit{product web page},
+	\url{https://www.goldwave.com/}.
 	
 \end{thebibliography}
 

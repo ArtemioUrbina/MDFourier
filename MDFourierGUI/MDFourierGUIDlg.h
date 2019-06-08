@@ -75,6 +75,7 @@ protected:
 	void InsertValueInCombo(CString Name, char value, CommandLineArray &Data, CComboBox &Combo);
 	char GetSelectedCommandLineValue(CommandLineArray *Data, CComboBox &Combo, int size);
 	void ExecuteCommand(CString Compare);
+	void CheckPlotSelection(CButton &clicked);
 
 	// Generated message map functions
 	virtual BOOL OnInitDialog();
@@ -91,7 +92,7 @@ public:
 	afx_msg void OnBnClickedAbout();
 	afx_msg void OnBnClickedEnableextra();
 	afx_msg void OnBnClickedDifferences();
-	afx_msg void OnBnClickedDifferences2();
+	afx_msg void OnBnClickedMissing();
 	afx_msg void OnBnClickedSpectrogram();
 	afx_msg void OnBnClickedAverage();
 };

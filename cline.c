@@ -49,7 +49,7 @@ void PrintUsage()
 	logmsg("	 -l: <l>og output to file [reference]_vs_[compare].txt\n");
 	logmsg("	 -v: Enable <v>erbose mode, spits all the FFTW results\n");
 	logmsg("	 -g: Create avera<g>e points over the plotted graphs\n");
-	logmsg("	 -W: Do not <w>eight values in Averaged Plot (implies -g)\n");
+	logmsg("	 -A: Do not weight values in <A>veraged Plot (implies -g)\n");
 	logmsg("	 -L: Create 800x400 plots as shown in the manual\n");
 	logmsg("	 -H: Create 1920x1080 plots\n");
 	logmsg("	 -D: Don't create <D>ifferences Plots\n");
@@ -150,7 +150,7 @@ int commandline(int argc , char *argv[], parameters *config)
 	
 	CleanParameters(config);
 
-	while ((c = getopt (argc, argv, "hxjzmviklygLHo:s:e:f:t:p:a:w:r:c:d:P:SDMNRWn:")) != -1)
+	while ((c = getopt (argc, argv, "hxjzmviklygLHo:s:e:f:t:p:a:w:r:c:d:P:SDMNRAWDn:")) != -1)
 	switch (c)
 	  {
 	  case 'h':
@@ -186,6 +186,9 @@ int commandline(int argc , char *argv[], parameters *config)
 		break;
 	  case 'l':
 		EnableLog();
+		break;
+	  case 'W':
+		config->drawWindows = 1;
 		break;
 	  case 'L':
 		config->plotResX = PLOT_RES_X_LOW;
@@ -311,7 +314,8 @@ int commandline(int argc , char *argv[], parameters *config)
 		}
 		break;
 		break;
-	  case 'W':
+	  case 'A':
+		config->averagePlot = 1;
 		config->weightedAveragePlot = 0;
 		break;
 	  case '?':
