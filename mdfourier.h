@@ -73,8 +73,10 @@
 /* +/- Tolerance in frequency Difference to be the same one */
 #define HERTZ_DIFF			0.0
 
-#define START_HZ	5
-#define END_HZ		22050
+#define START_HZ	5.0
+#define END_HZ		20000.0
+
+#define DB_HEIGHT 18.0
 
 #define PLOT_RES_X 1600.0
 #define PLOT_RES_Y 800.0
@@ -260,7 +262,9 @@ typedef struct parameters_st {
 	char			compareName[2512];
 	char			profileFile[2512];
 	double			tolerance;
-	int				startHz, endHz;
+	double			startHz, endHz;
+	double			startHzPlot, endHzPlot;
+	double			maxDbPlotZC;
 	int				showAll;
 	int				extendedResults;
 	int				justResults;
@@ -288,6 +292,7 @@ typedef struct parameters_st {
 	int				plotSpectrogram;
 	int				averagePlot;
 	int				weightedAveragePlot;
+	int				drawWindows;
 
 	double 			plotResX;
 	double			plotResY;

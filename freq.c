@@ -80,7 +80,7 @@ void CalcuateFrequencyBrackets(AudioSignal *Signal, parameters *config)
 	index = GetFirstSilenceIndex(config);
 	if(index != NO_INDEX)
 	{
-		Signal->RefreshNoise = FindFrequencyBracket(RoundFloat(1000.0/Signal->framerate, 2), Signal->Blocks[index].fftwValues.size, Signal->header.SamplesPerSec);
+		Signal->RefreshNoise = FindFrequencyBracket(roundFloat(1000.0/Signal->framerate), Signal->Blocks[index].fftwValues.size, Signal->header.SamplesPerSec);
 		Signal->CRTLow = FindFrequencyBracket(15680, Signal->Blocks[index].fftwValues.size, Signal->header.SamplesPerSec);
 		Signal->CRTHigh = FindFrequencyBracket(15710, Signal->Blocks[index].fftwValues.size, Signal->header.SamplesPerSec);
 		/*
@@ -489,7 +489,7 @@ void PrintAudioBlocks(parameters *config)
 
 double GetPlatformMSPerFrame(parameters *config)
 {
-	return(RoundFloat(config->types.platformMSPerFrame, 3));
+	return(roundFloat(config->types.platformMSPerFrame));
 }
 
 double GetPulseSyncFreq(parameters *config)
@@ -1136,7 +1136,7 @@ inline double CalculateAmplitude(double magnitude, double MaxMagnitude)
 	double amplitude = 0;
 
 	amplitude = 20*log10(magnitude/MaxMagnitude);
-	amplitude = RoundFloat(amplitude, 2);
+	amplitude = roundFloat(amplitude);
 	return amplitude;
 }
 
@@ -1146,7 +1146,7 @@ inline double CalculateFrequency(double boxindex, double boxsize, int HertzAlign
 
 	Hertz = boxindex/boxsize;
 	if(!HertzAligned) // if zero padded (Hertz Aligned), we are using 1hz integer bins
-		Hertz = RoundFloat(Hertz, 2);  // default, overkill yes
+		Hertz = roundFloat(Hertz);  // default, overkill yes
 	return Hertz;
 }
 
@@ -1191,17 +1191,24 @@ void FillFrequencyStructures(AudioBlocks *AudioArray, parameters *config)
 	double boxsize = 0, size = 0;
 
 	size = AudioArray->fftwValues.size;
-	boxsize = RoundFloat(AudioArray->fftwValues.seconds, 4);
+	boxsize = roundFloat(AudioArray->fftwValues.seconds);
 
-	startBin = floor(config->startHz*boxsize);
-	endBin = floor(config->endHz*boxsize);
+	if(AudioArray->type != TYPE_SILENCE)
+	{
+		startBin = ceil(config->startHz*boxsize);
+		endBin = floor(config->endHz*boxsize);
+	}
+	else
+	{
+		startBin = ceil(START_HZ*boxsize);
+		endBin = floor(END_HZ*boxsize);
+	}
 
 	for(i = startBin; i < endBin; i++)
 	{
 		double		Hertz;
 
 		Hertz = CalculateFrequency(i, boxsize, config->ZeroPad);
-
 		if(Hertz)
 		{
 			Frequency	element;
@@ -1432,17 +1439,26 @@ double CalculateFrameRate(AudioSignal *Signal, parameters *config)
 
 	framerate = (endOffset-startOffset)/(samplerate*LastSyncFrameOffset);
 	framerate = framerate*1000.0/4.0;  // 1000 ms and 4 bytes per stereo sample
-	framerate = RoundFloat(framerate, 4);
+	framerate = roundFloat(framerate);
 
-	diff = RoundFloat(fabs(expectedFR - framerate), 4);
-	if(config->verbose && diff > 0.002 && diff < 0.02)
-		logmsg(" - Framerate difference is %g (Audio card timing?)\n", diff);
+	diff = roundFloat(fabs(expectedFR - framerate));
+	//The range to report this on will probably vary by console...
+	if(config->verbose && diff > 0.001 && diff < 0.02)
+	{
+		double ACsamplerate = 0;
+
+		ACsamplerate = (endOffset-startOffset)/(expectedFR*LastSyncFrameOffset);
+		ACsamplerate = ACsamplerate*1000.0/4.0;
+		logmsg(" - Framerate difference is %g. Audio card sample rate estimated at %g\n",
+				diff, ACsamplerate);
+		
+	}
 
 	return framerate;
 }
 
 double CalculateScanRate(AudioSignal *Signal)
 {
-	return(RoundFloat(1000.0/Signal->framerate, 4));
+	return(roundFloat(1000.0/Signal->framerate));
 }
 

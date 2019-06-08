@@ -231,70 +231,23 @@ double *flattopWindow(int n)
 
 
 // Only attenuate the edges to reduce errors
-// 2.5% slopes 20-25, half a frame in 20
-//#define TUKEY_5
-// 5.0% slopes 40-85, 1 frame in 20
 double *tukeyWindow(int n)
 {
-	int slope, i, idx;
-	double *w;
+	int i;
+	double *w, M = 0, alpha = 0;
  
 	w = (double*) calloc(n, sizeof(double));
 	memset(w, 0, n*sizeof(double));
  
-	if(n%2==0)
-	{
-#ifdef	TUKEY_5
-		slope = n/20;
-#else
-		slope = (n+1)/40;
-#endif
-		for(i=0; i<slope; i++)
-		{
-#ifdef	TUKEY_5
-			w[i] = 25*(1+cos(2*M_PI/(n-1)*(i-(n-1)/2)));
-#else
-			w[i] = 85*(1+cos(2*M_PI/(n-1)*(i-(n-1)/2)));
-#endif
-			if(w[i] > 1.0)
-				w[i] = 1.0;
-		}
+	alpha = 0.65;
+	M = (n-1)/2;
 
-		for(i=0; i<n-2*slope; i++)
-			w[i+slope] = 1;
- 
-		idx = slope-1;
-		for(i=n - slope; i<n; i++) {
-			w[i] = w[idx];
-			idx--;
-		}
-	}
-	else
+	for(i=0; i<n; i++)
 	{
-#ifdef	TUKEY_5
-		slope = (n+1)/20;
-#else
-		slope = (n+1)/40;
-#endif
-		for(i=0; i<slope; i++)
-		{
-#ifdef	TUKEY_5
-			w[i] = 25*(1+cos(2*M_PI/(n-1)*(i-(n-1)/2)));
-#else
-			w[i] = 85*(1+cos(2*M_PI/(n-1)*(i-(n-1)/2)));
-#endif
-			if(w[i] > 1.0)
-				w[i] = 1.0;
-		}
-
-		for(i=0; i<n-2*slope; i++)
-			w[i+slope] = 1;
- 
-		idx = slope-2;
-		for(i=n - slope; i<n; i++) {
-			w[i] = w[idx];
-			idx--;
-		}
+		if(fabs(i-M) >= alpha*M)
+			w[i] = 0.5*(1+cos(M_PI*(fabs(i-M)-alpha*M)/((1-alpha)*M)));
+		else
+			w[i] = 1;
 	}
  
 	return(w);

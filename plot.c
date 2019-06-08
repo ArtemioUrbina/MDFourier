@@ -240,16 +240,16 @@ void DrawGridZeroDBCentered(PlotFile *plot, double dBFS, double dbIncrement, dou
 
 	pl_pencolor_r (plot->plotter, 0, 0x5555, 0);
 	for(int i = hzIncrement; i < hz; i += hzIncrement)
-		pl_fline_r(plot->plotter, transformtoLog(i, hz, config), -1*dBFS, transformtoLog(i, hz, config), dBFS);
+		pl_fline_r(plot->plotter, transformtoLog(i, config), -1*dBFS, transformtoLog(i, config), dBFS);
 
 	if(config->logScale)
 	{
 		pl_pencolor_r (plot->plotter, 0, 0x7777, 0);
-		pl_fline_r(plot->plotter, transformtoLog(10, hz, config), -1*dBFS, transformtoLog(10, hz, config), dBFS);
-		pl_fline_r(plot->plotter, transformtoLog(100, hz, config), -1*dBFS, transformtoLog(100, hz, config), dBFS);
+		pl_fline_r(plot->plotter, transformtoLog(10, config), -1*dBFS, transformtoLog(10, config), dBFS);
+		pl_fline_r(plot->plotter, transformtoLog(100, config), -1*dBFS, transformtoLog(100, config), dBFS);
 	}
-	pl_fline_r(plot->plotter, transformtoLog(1000, hz, config), -1*dBFS, transformtoLog(1000, hz, config), dBFS);
-	pl_fline_r(plot->plotter, transformtoLog(10000, hz, config), -1*dBFS, transformtoLog(10000, hz, config), dBFS);
+	pl_fline_r(plot->plotter, transformtoLog(1000, config), -1*dBFS, transformtoLog(1000, config), dBFS);
+	pl_fline_r(plot->plotter, transformtoLog(10000, config), -1*dBFS, transformtoLog(10000, config), dBFS);
 
 	pl_pencolor_r (plot->plotter, 0, 0xFFFF, 0);
 }
@@ -262,16 +262,16 @@ void DrawGridZeroToLimit(PlotFile *plot, double dBFS, double dbIncrement, double
 
 	pl_pencolor_r (plot->plotter, 0, 0x5555, 0);
 	for(int i = hzIncrement; i < hz; i += hzIncrement)
-		pl_fline_r(plot->plotter, transformtoLog(i, hz, config), dBFS, transformtoLog(i, hz, config), 0);
+		pl_fline_r(plot->plotter, transformtoLog(i, config), dBFS, transformtoLog(i, config), 0);
 
 	pl_pencolor_r (plot->plotter, 0, 0x7777, 0);
 	if(config->logScale)
 	{
-		pl_fline_r(plot->plotter, transformtoLog(10, hz, config), dBFS, transformtoLog(10, hz, config), 0);
-		pl_fline_r(plot->plotter, transformtoLog(100, hz, config), dBFS, transformtoLog(100, hz, config), 0);
+		pl_fline_r(plot->plotter, transformtoLog(10, config), dBFS, transformtoLog(10, config), 0);
+		pl_fline_r(plot->plotter, transformtoLog(100, config), dBFS, transformtoLog(100, config), 0);
 	}
-	pl_fline_r(plot->plotter, transformtoLog(1000, hz, config), dBFS, transformtoLog(1000, hz, config), 0);
-	pl_fline_r(plot->plotter, transformtoLog(10000, hz, config), dBFS, transformtoLog(10000, hz, config), 0);	
+	pl_fline_r(plot->plotter, transformtoLog(1000, config), dBFS, transformtoLog(1000, config), 0);
+	pl_fline_r(plot->plotter, transformtoLog(10000, config), dBFS, transformtoLog(10000, config), 0);	
 
 	pl_pencolor_r (plot->plotter, 0, 0xFFFF, 0);
 	pl_flinewidth_r(plot->plotter, 1);
@@ -305,20 +305,20 @@ void DrawLabelsZeroDBCentered(PlotFile *plot, double dBFS, double dbIncrement, d
 
 	if(config->logScale)
 	{
-		pl_fmove_r(plot->plotter, config->plotResX/hz*transformtoLog(10, hz, config), config->plotResY/2-config->plotResY/100);
+		pl_fmove_r(plot->plotter, config->plotResX/hz*transformtoLog(10, config), config->plotResY/2-config->plotResY/100);
 		sprintf(label, "%dHz", 10);
 		pl_alabel_r(plot->plotter, 'c', 'c', label);
 	
-		pl_fmove_r(plot->plotter, config->plotResX/hz*transformtoLog(100, hz, config), config->plotResY/2-config->plotResY/100);
+		pl_fmove_r(plot->plotter, config->plotResX/hz*transformtoLog(100, config), config->plotResY/2-config->plotResY/100);
 		sprintf(label, "%dHz", 100);
 		pl_alabel_r(plot->plotter, 'c', 'c', label);
 	}
 
-	pl_fmove_r(plot->plotter, config->plotResX/hz*transformtoLog(1000, hz, config), config->plotResY/2-config->plotResY/100);
+	pl_fmove_r(plot->plotter, config->plotResX/hz*transformtoLog(1000, config), config->plotResY/2-config->plotResY/100);
 	sprintf(label, "  %dHz", 1000);
 	pl_alabel_r(plot->plotter, 'c', 'c', label);
 
-	pl_fmove_r(plot->plotter, config->plotResX/hz*transformtoLog(10000, hz, config), config->plotResY/2-config->plotResY/100);
+	pl_fmove_r(plot->plotter, config->plotResX/hz*transformtoLog(10000, config), config->plotResY/2-config->plotResY/100);
 	sprintf(label, "%dkHz", 10);
 	pl_alabel_r(plot->plotter, 'c', 'c', label);
 
@@ -354,20 +354,20 @@ void DrawLabelsZeroToLimit(PlotFile *plot, double dBFS, double dbIncrement, doub
 
 	if(config->logScale)
 	{
-		pl_fmove_r(plot->plotter, config->plotResX/hz*transformtoLog(10, hz, config), -config->plotResY/100);
+		pl_fmove_r(plot->plotter, config->plotResX/hz*transformtoLog(10, config), -config->plotResY/100);
 		sprintf(label, "%dHz", 10);
 		pl_alabel_r(plot->plotter, 'c', 'c', label);
 	
-		pl_fmove_r(plot->plotter, config->plotResX/hz*transformtoLog(100, hz, config), -config->plotResY/100);
+		pl_fmove_r(plot->plotter, config->plotResX/hz*transformtoLog(100, config), -config->plotResY/100);
 		sprintf(label, "%dHz", 100);
 		pl_alabel_r(plot->plotter, 'c', 'c', label);
 	}
 
-	pl_fmove_r(plot->plotter, config->plotResX/hz*transformtoLog(1000, hz, config), -config->plotResY/100);
+	pl_fmove_r(plot->plotter, config->plotResX/hz*transformtoLog(1000, config), -config->plotResY/100);
 	sprintf(label, "  %dHz", 1000);
 	pl_alabel_r(plot->plotter, 'c', 'c', label);
 
-	pl_fmove_r(plot->plotter, config->plotResX/hz*transformtoLog(10000, hz, config), -config->plotResY/100);
+	pl_fmove_r(plot->plotter, config->plotResX/hz*transformtoLog(10000, config), -config->plotResY/100);
 	sprintf(label, "%dkHz", 10);
 	pl_alabel_r(plot->plotter, 'c', 'c', label);
 
@@ -502,7 +502,7 @@ void PlotAllDifferentAmplitudes(FlatAmplDifference *amplDiff, char *filename, pa
 {
 	PlotFile	plot;
 	char		name[2048];
-	double		dBFS = DB_HEIGHT;
+	double		dBFS = config->maxDbPlotZC;
 
 	if(!config)
 		return;
@@ -514,13 +514,13 @@ void PlotAllDifferentAmplitudes(FlatAmplDifference *amplDiff, char *filename, pa
 		return;
 
 	sprintf(name, "DifferentAmplitudes_ALL_%s", filename);
-	FillPlot(&plot, name, config->plotResX, config->plotResY, 0, -1*dBFS, TOP_FREQUENCY, dBFS, 1, config);
+	FillPlot(&plot, name, config->plotResX, config->plotResY, config->startHzPlot, -1*dBFS, config->endHzPlot, dBFS, 1, config);
 
 	if(!CreatePlotFile(&plot))
 		return;
 
-	DrawGridZeroDBCentered(&plot, dBFS, 3, TOP_FREQUENCY, 1000, config);
-	DrawLabelsZeroDBCentered(&plot, dBFS, 3, TOP_FREQUENCY, 1000, config);
+	DrawGridZeroDBCentered(&plot, dBFS, 3, config->endHzPlot, 1000, config);
+	DrawLabelsZeroDBCentered(&plot, dBFS, 3, config->endHzPlot, 1000, config);
 
 	for(int a = 0; a < config->Differences.cntAmplAudioDiff; a++)
 	{
@@ -531,7 +531,7 @@ void PlotAllDifferentAmplitudes(FlatAmplDifference *amplDiff, char *filename, pa
 			intensity = CalculateWeightedError((fabs(config->significantVolume) - fabs(amplDiff[a].refAmplitude))/fabs(config->significantVolume), config)*0xffff;
 
 			SetPenColor(amplDiff[a].color, intensity, &plot);
-			pl_fpoint_r(plot.plotter, transformtoLog(amplDiff[a].hertz, TOP_FREQUENCY, config), amplDiff[a].diffAmplitude);
+			pl_fpoint_r(plot.plotter, transformtoLog(amplDiff[a].hertz, config), amplDiff[a].diffAmplitude);
 		}
 	}
 
@@ -563,7 +563,7 @@ int PlotEachTypeDifferentAmplitudes(FlatAmplDifference *amplDiff, char *filename
 void PlotSingleTypeDifferentAmplitudes(FlatAmplDifference *amplDiff, int type, char *filename, parameters *config)
 {
 	PlotFile	plot;
-	double		dBFS = DB_HEIGHT;
+	double		dBFS = config->maxDbPlotZC;
 
 	if(!config)
 		return;
@@ -574,13 +574,13 @@ void PlotSingleTypeDifferentAmplitudes(FlatAmplDifference *amplDiff, int type, c
 	if(!config->Differences.BlockDiffArray)
 		return;
 
-	FillPlot(&plot, filename, config->plotResX, config->plotResY, 0, -1*dBFS, TOP_FREQUENCY, dBFS, 1, config);
+	FillPlot(&plot, filename, config->plotResX, config->plotResY, config->startHzPlot, -1*dBFS, config->endHzPlot, dBFS, 1, config);
 
 	if(!CreatePlotFile(&plot))
 		return;
 
-	DrawGridZeroDBCentered(&plot, dBFS, 3, TOP_FREQUENCY, 1000, config);
-	DrawLabelsZeroDBCentered(&plot, dBFS, 3, TOP_FREQUENCY, 1000, config);
+	DrawGridZeroDBCentered(&plot, dBFS, 3, config->endHzPlot, 1000, config);
+	DrawLabelsZeroDBCentered(&plot, dBFS, 3, config->endHzPlot, 1000, config);
 
 	for(int a = 0; a < config->Differences.cntAmplAudioDiff; a++)
 	{
@@ -591,7 +591,7 @@ void PlotSingleTypeDifferentAmplitudes(FlatAmplDifference *amplDiff, int type, c
 			intensity = CalculateWeightedError((fabs(config->significantVolume) - fabs(amplDiff[a].refAmplitude))/fabs(config->significantVolume), config)*0xffff;
 
 			SetPenColor(amplDiff[a].color, intensity, &plot);
-			pl_fpoint_r(plot.plotter, transformtoLog(amplDiff[a].hertz, TOP_FREQUENCY, config), amplDiff[a].diffAmplitude);
+			pl_fpoint_r(plot.plotter, transformtoLog(amplDiff[a].hertz, config), amplDiff[a].diffAmplitude);
 		}
 	}
 
@@ -612,13 +612,13 @@ void PlotAllMissingFrequencies(FlatFreqDifference *freqDiff, char *filename, par
 		return;
 
 	sprintf(name, "MissingFrequencies_ALL_%s", filename);
-	FillPlot(&plot, name, config->plotResX, config->plotResY, 0, config->significantVolume, TOP_FREQUENCY, 0.0, 1, config);
+	FillPlot(&plot, name, config->plotResX, config->plotResY, config->startHzPlot, config->significantVolume, config->endHzPlot, 0.0, 1, config);
 
 	if(!CreatePlotFile(&plot))
 		return;
 
-	DrawGridZeroToLimit(&plot, config->significantVolume, 3, TOP_FREQUENCY, 1000, config);
-	DrawLabelsZeroToLimit(&plot, config->significantVolume, 3, TOP_FREQUENCY, 1000, config);
+	DrawGridZeroToLimit(&plot, config->significantVolume, 3, config->endHzPlot, 1000, config);
+	DrawLabelsZeroToLimit(&plot, config->significantVolume, 3, config->endHzPlot, 1000, config);
 
 	for(int f = 0; f < config->Differences.cntFreqAudioDiff; f++)
 	{
@@ -627,7 +627,7 @@ void PlotAllMissingFrequencies(FlatFreqDifference *freqDiff, char *filename, par
 			long int intensity;
 			double x, y;
 
-			x = transformtoLog(freqDiff[f].hertz, TOP_FREQUENCY, config);
+			x = transformtoLog(freqDiff[f].hertz, config);
 			y = freqDiff[f].amplitude;
 
 			intensity = CalculateWeightedError((fabs(config->significantVolume) - fabs(freqDiff[f].amplitude))/fabs(config->significantVolume), config)*0xffff;
@@ -672,13 +672,13 @@ void PlotSingleTypeMissingFrequencies(FlatFreqDifference *freqDiff, int type, ch
 	if(!config->Differences.BlockDiffArray)
 		return;
 
-	FillPlot(&plot, filename, config->plotResX, config->plotResY, 0, config->significantVolume, TOP_FREQUENCY, 0.0, 1, config);
+	FillPlot(&plot, filename, config->plotResX, config->plotResY, config->startHzPlot, config->significantVolume, config->endHzPlot, 0.0, 1, config);
 
 	if(!CreatePlotFile(&plot))
 		return;
 
-	DrawGridZeroToLimit(&plot, config->significantVolume, 3, TOP_FREQUENCY, 1000, config);
-	DrawLabelsZeroToLimit(&plot, config->significantVolume, 3, TOP_FREQUENCY, 1000, config);
+	DrawGridZeroToLimit(&plot, config->significantVolume, 3, config->endHzPlot, 1000, config);
+	DrawLabelsZeroToLimit(&plot, config->significantVolume, 3, config->endHzPlot, 1000, config);
 
 	for(int f = 0; f < config->Differences.cntFreqAudioDiff; f++)
 	{
@@ -687,7 +687,7 @@ void PlotSingleTypeMissingFrequencies(FlatFreqDifference *freqDiff, int type, ch
 			long int intensity;
 			double x, y;
 
-			x = transformtoLog(freqDiff[f].hertz, TOP_FREQUENCY, config);;
+			x = transformtoLog(freqDiff[f].hertz, config);;
 			y = freqDiff[f].amplitude;
 			intensity = CalculateWeightedError((fabs(config->significantVolume) - fabs(freqDiff[f].amplitude))/fabs(config->significantVolume), config)*0xffff;
 
@@ -711,13 +711,13 @@ void PlotAllSpectrogram(FlatFrequency *freqs, long int size, char *filename, par
 		return;
 
 	sprintf(name, "Spectrogram_ALL_%s", filename);
-	FillPlot(&plot, name, config->plotResX, config->plotResY, 0, config->significantVolume, TOP_FREQUENCY, 0.0, 1, config);
+	FillPlot(&plot, name, config->plotResX, config->plotResY, config->startHzPlot, config->significantVolume, config->endHzPlot, 0.0, 1, config);
 
 	if(!CreatePlotFile(&plot))
 		return;
 
-	DrawGridZeroToLimit(&plot, config->significantVolume, 3, TOP_FREQUENCY, 1000, config);
-	DrawLabelsZeroToLimit(&plot, config->significantVolume, 3, TOP_FREQUENCY, 1000, config);
+	DrawGridZeroToLimit(&plot, config->significantVolume, 3, config->endHzPlot, 1000, config);
+	DrawLabelsZeroToLimit(&plot, config->significantVolume, 3, config->endHzPlot, 1000, config);
 
 	for(int f = 0; f < size; f++)
 	{
@@ -726,7 +726,7 @@ void PlotAllSpectrogram(FlatFrequency *freqs, long int size, char *filename, par
 			long int intensity;
 			double x, y;
 
-			x = transformtoLog(freqs[f].hertz, TOP_FREQUENCY, config);
+			x = transformtoLog(freqs[f].hertz, config);
 			y = freqs[f].amplitude;
 			intensity = CalculateWeightedError((fabs(config->significantVolume) - fabs(freqs[f].amplitude))/fabs(config->significantVolume), config)*0xffff;
 	
@@ -767,13 +767,13 @@ void PlotSingleTypeSpectrogram(FlatFrequency *freqs, long int size, int type, ch
 	if(!config)
 		return;
 
-	FillPlot(&plot, filename, config->plotResX, config->plotResY, 0, config->significantVolume, TOP_FREQUENCY, 0.0, 1, config);
+	FillPlot(&plot, filename, config->plotResX, config->plotResY, config->startHzPlot, config->significantVolume, config->endHzPlot, 0.0, 1, config);
 
 	if(!CreatePlotFile(&plot))
 		return;
 
-	DrawLabelsZeroToLimit(&plot, config->significantVolume, 3, TOP_FREQUENCY, 1000, config);
-	DrawGridZeroToLimit(&plot, config->significantVolume, 3, TOP_FREQUENCY, 1000, config);
+	DrawLabelsZeroToLimit(&plot, config->significantVolume, 3, config->endHzPlot, 1000, config);
+	DrawGridZeroToLimit(&plot, config->significantVolume, 3, config->endHzPlot, 1000, config);
 
 	for(int f = 0; f < size; f++)
 	{
@@ -782,7 +782,7 @@ void PlotSingleTypeSpectrogram(FlatFrequency *freqs, long int size, int type, ch
 			long int intensity;
 			double x, y;
 
-			x = transformtoLog(freqs[f].hertz, TOP_FREQUENCY, config);
+			x = transformtoLog(freqs[f].hertz, config);
 			y = freqs[f].amplitude;
 			intensity = CalculateWeightedError((fabs(config->significantVolume) - fabs(freqs[f].amplitude))/fabs(config->significantVolume), config)*0xffff;
 	
@@ -1269,19 +1269,19 @@ void PlotTest(char *filename, parameters *config)
 {
 	PlotFile	plot;
 	char		name[2048];
-	double		dBFS = DB_HEIGHT;
+	double		dBFS = config->maxDbPlotZC;
 
 	if(!config)
 		return;
 
 	sprintf(name, "Test_%s", filename);
-	FillPlot(&plot, name, config->plotResX, config->plotResY, 0, -1*dBFS, TOP_FREQUENCY, dBFS, 1, config);
+	FillPlot(&plot, name, config->plotResX, config->plotResY, config->startHzPlot, -1*dBFS, config->endHzPlot, dBFS, 1, config);
 
 	if(!CreatePlotFile(&plot))
 		return;
 
-	DrawGridZeroDBCentered(&plot, dBFS, 3, TOP_FREQUENCY, 1000, config);
-	DrawLabelsZeroDBCentered(&plot, dBFS, 3, TOP_FREQUENCY, 1000, config);
+	DrawGridZeroDBCentered(&plot, dBFS, 3, config->endHzPlot, 1000, config);
+	DrawLabelsZeroDBCentered(&plot, dBFS, 3, config->endHzPlot, 1000, config);
 	DrawLabelsMDF(&plot, config);
 	DrawColorScale(&plot, "Test", COLOR_ORANGE, config->plotResX/50, config->plotResY/15, config->plotResX/80, config->plotResY/1.15, -60, 3, config);
 	
@@ -1298,13 +1298,13 @@ void PlotTestZL(char *filename, parameters *config)
 		return;
 
 	sprintf(name, "Test_ZL_%s", filename);
-	FillPlot(&plot, name, config->plotResX, config->plotResY, 0, config->significantVolume, TOP_FREQUENCY, 0.0, 1, config);
+	FillPlot(&plot, name, config->plotResX, config->plotResY, config->startHzPlot, config->significantVolume, config->endHzPlot, 0.0, 1, config);
 
 	if(!CreatePlotFile(&plot))
 		return;
 
-	DrawGridZeroToLimit(&plot, config->significantVolume, 3, TOP_FREQUENCY, 1000, config);
-	DrawLabelsZeroToLimit(&plot, config->significantVolume, 3, TOP_FREQUENCY, 1000, config);
+	DrawGridZeroToLimit(&plot, config->significantVolume, 3, config->endHzPlot, 1000, config);
+	DrawLabelsZeroToLimit(&plot, config->significantVolume, 3, config->endHzPlot, 1000, config);
 
 	DrawColorScale(&plot, "Test", COLOR_ORANGE, config->plotResX/50, config->plotResY/15, config->plotResX/80, config->plotResY/1.15, -60, 3, config);
 	
@@ -1313,10 +1313,10 @@ void PlotTestZL(char *filename, parameters *config)
 }
 
 
-inline double transformtoLog(double coord, double top, parameters *config)
+inline double transformtoLog(double coord, parameters *config)
 {
 	if(config->logScale)
-		return(top*log10(coord)/log10(top));
+		return(config->endHzPlot*log10(coord)/log10(config->endHzPlot));
 	else
 		return(coord);
 }
@@ -1592,7 +1592,7 @@ int PlotDifferentAmplitudesAveraged(FlatAmplDifference *amplDiff, char *filename
 void PlotSingleTypeDifferentAmplitudesAveraged(FlatAmplDifference *amplDiff, int type, char *filename, AveragedFrequencies *averaged, long int avgsize, parameters *config)
 {
 	PlotFile	plot;
-	double		dbs = DB_HEIGHT;
+	double		dbs = config->maxDbPlotZC;
 	int			color = 0;
 
 	if(!config)
@@ -1604,13 +1604,13 @@ void PlotSingleTypeDifferentAmplitudesAveraged(FlatAmplDifference *amplDiff, int
 	if(!config->Differences.BlockDiffArray)
 		return;
 
-	FillPlot(&plot, filename, config->plotResX, config->plotResY, 0, -1*dbs, TOP_FREQUENCY, dbs, 1, config);
+	FillPlot(&plot, filename, config->plotResX, config->plotResY, config->startHzPlot, -1*dbs, config->endHzPlot, dbs, 1, config);
 
 	if(!CreatePlotFile(&plot))
 		return;
 
-	DrawGridZeroDBCentered(&plot, dbs, 3, TOP_FREQUENCY, 1000, config);
-	DrawLabelsZeroDBCentered(&plot, dbs, 3, TOP_FREQUENCY, 1000, config);
+	DrawGridZeroDBCentered(&plot, dbs, 3, config->endHzPlot, 1000, config);
+	DrawLabelsZeroDBCentered(&plot, dbs, 3, config->endHzPlot, 1000, config);
 
 	for(long int a = 0; a < config->Differences.cntAmplAudioDiff; a++)
 	{
@@ -1621,7 +1621,7 @@ void PlotSingleTypeDifferentAmplitudesAveraged(FlatAmplDifference *amplDiff, int
 			intensity = CalculateWeightedError((fabs(config->significantVolume) - fabs(amplDiff[a].refAmplitude))/fabs(config->significantVolume), config)*0xffff;
 
 			SetPenColor(amplDiff[a].color, intensity, &plot);
-			pl_fpoint_r(plot.plotter, transformtoLog(amplDiff[a].hertz, TOP_FREQUENCY, config), amplDiff[a].diffAmplitude);
+			pl_fpoint_r(plot.plotter, transformtoLog(amplDiff[a].hertz, config), amplDiff[a].diffAmplitude);
 		}
 	}
 
@@ -1640,9 +1640,9 @@ void PlotSingleTypeDifferentAmplitudesAveraged(FlatAmplDifference *amplDiff, int
 			if(a + 2 < avgsize)
 			{
 				pl_fbezier2_r(plot.plotter,
-					transformtoLog(averaged[a].avgfreq, 20000, config), averaged[a].avgvol,
-					transformtoLog(averaged[a+1].avgfreq, 20000, config), averaged[a+1].avgvol,
-					transformtoLog(averaged[a+2].avgfreq, 20000, config), averaged[a+2].avgvol);
+					transformtoLog(averaged[a].avgfreq, config), averaged[a].avgvol,
+					transformtoLog(averaged[a+1].avgfreq, config), averaged[a+1].avgvol,
+					transformtoLog(averaged[a+2].avgfreq, config), averaged[a+2].avgvol);
 				//logmsg("Plot [%ld] %g->%g\n", a, averaged[a].avgfreq, averaged[a].avgvol);
 			}
 		}
@@ -1654,12 +1654,12 @@ void PlotSingleTypeDifferentAmplitudesAveraged(FlatAmplDifference *amplDiff, int
 		{
 			if(first)
 			{
-				pl_fline_r(plot.plotter, transformtoLog(averaged[a].avgfreq, 20000, config), averaged[a].avgvol,
-							transformtoLog(averaged[a+1].avgfreq, 20000, config), averaged[a+1].avgvol);
+				pl_fline_r(plot.plotter, transformtoLog(averaged[a].avgfreq, config), averaged[a].avgvol,
+							transformtoLog(averaged[a+1].avgfreq, config), averaged[a+1].avgvol);
 				first = 0;
 			}
 			else
-				pl_fcont_r(plot.plotter, transformtoLog(averaged[a].avgfreq, 20000, config), averaged[a].avgvol);
+				pl_fcont_r(plot.plotter, transformtoLog(averaged[a].avgfreq, config), averaged[a].avgvol);
 		}
 		pl_endpath_r(plot.plotter);
 	}
@@ -1673,7 +1673,7 @@ void PlotAllDifferentAmplitudesAveraged(FlatAmplDifference *amplDiff, char *file
 {
 	PlotFile	plot;
 	char		name[2048];
-	double		dBFS = DB_HEIGHT;
+	double		dBFS = config->maxDbPlotZC;
 	int			currType = 0;
 
 	if(!config)
@@ -1686,13 +1686,13 @@ void PlotAllDifferentAmplitudesAveraged(FlatAmplDifference *amplDiff, char *file
 		return;
 
 	sprintf(name, "DifferentAmplitudes_ALL_AVG_%s", filename);
-	FillPlot(&plot, name, config->plotResX, config->plotResY, 0, -1*dBFS, TOP_FREQUENCY, dBFS, 1, config);
+	FillPlot(&plot, name, config->plotResX, config->plotResY, config->startHzPlot, -1*dBFS, config->endHzPlot, dBFS, 1, config);
 
 	if(!CreatePlotFile(&plot))
 		return;
 
-	DrawGridZeroDBCentered(&plot, dBFS, 3, TOP_FREQUENCY, 1000, config);
-	DrawLabelsZeroDBCentered(&plot, dBFS, 3, TOP_FREQUENCY, 1000, config);
+	DrawGridZeroDBCentered(&plot, dBFS, 3, config->endHzPlot, 1000, config);
+	DrawLabelsZeroDBCentered(&plot, dBFS, 3, config->endHzPlot, 1000, config);
 
 	for(long int a = 0; a < config->Differences.cntAmplAudioDiff; a++)
 	{
@@ -1703,7 +1703,7 @@ void PlotAllDifferentAmplitudesAveraged(FlatAmplDifference *amplDiff, char *file
 			intensity = CalculateWeightedError((fabs(config->significantVolume) - fabs(amplDiff[a].refAmplitude))/fabs(config->significantVolume), config)*0xffff;
 
 			SetPenColor(amplDiff[a].color, intensity, &plot);
-			pl_fpoint_r(plot.plotter, transformtoLog(amplDiff[a].hertz, TOP_FREQUENCY, config), amplDiff[a].diffAmplitude);
+			pl_fpoint_r(plot.plotter, transformtoLog(amplDiff[a].hertz, config), amplDiff[a].diffAmplitude);
 		}
 	}
 
@@ -1729,9 +1729,9 @@ void PlotAllDifferentAmplitudesAveraged(FlatAmplDifference *amplDiff, char *file
 				if(a + 2 < avgsize[currType])
 				{
 					pl_fbezier2_r(plot.plotter,
-						transformtoLog(averaged[currType][a].avgfreq, 20000, config), averaged[currType][a].avgvol,
-						transformtoLog(averaged[currType][a+1].avgfreq, 20000, config), averaged[currType][a+1].avgvol,
-						transformtoLog(averaged[currType][a+2].avgfreq, 20000, config), averaged[currType][a+2].avgvol);
+						transformtoLog(averaged[currType][a].avgfreq, config), averaged[currType][a].avgvol,
+						transformtoLog(averaged[currType][a+1].avgfreq, config), averaged[currType][a+1].avgvol,
+						transformtoLog(averaged[currType][a+2].avgfreq, config), averaged[currType][a+2].avgvol);
 					//logmsg("Plot [%ld] %g->%g\n", a, averaged[currType][a].avgfreq, averaged[currType][a].avgvol);
 				}
 			}
@@ -1742,12 +1742,12 @@ void PlotAllDifferentAmplitudesAveraged(FlatAmplDifference *amplDiff, char *file
 			{
 				if(first)
 				{
-					pl_fline_r(plot.plotter, transformtoLog(averaged[currType][a].avgfreq, 20000, config), averaged[currType][a].avgvol,
-								transformtoLog(averaged[currType][a+1].avgfreq, 20000, config), averaged[currType][a+1].avgvol);
+					pl_fline_r(plot.plotter, transformtoLog(averaged[currType][a].avgfreq, config), averaged[currType][a].avgvol,
+								transformtoLog(averaged[currType][a+1].avgfreq, config), averaged[currType][a+1].avgvol);
 					first = 0;
 				}
 				else
-					pl_fcont_r(plot.plotter, transformtoLog(averaged[currType][a].avgfreq, 20000, config), averaged[currType][a].avgvol);
+					pl_fcont_r(plot.plotter, transformtoLog(averaged[currType][a].avgfreq, config), averaged[currType][a].avgvol);
 
 				//logmsg("Plot [%ld] %g->%g\n", a, averaged[currType][a].avgfreq, averaged[currType][a].avgvol);
 			}

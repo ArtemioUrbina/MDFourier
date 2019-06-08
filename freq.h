@@ -35,6 +35,7 @@
 #define LINE_BUFFER_SIZE	1024
 #define PARAM_BUFFER_SIZE	512
 
+#define roundFloat(number) RoundFloat(number, 4)
 #define readLine(buffer, file) if(fgets(buffer, LINE_BUFFER_SIZE, file) == NULL) { logmsg("Invalid mdfblocks.mfn file\n");	return 0;	}
 
 int LoadAudioBlockStructure(parameters *config);

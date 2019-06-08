@@ -519,7 +519,7 @@ int ProcessSamples(AudioBlocks *AudioArray, int16_t *samples, size_t size, long 
 	if(config->ZeroPad)  /* disabled by default */
 		zeropadding = GetZeroPadValues(&monoSignalSize, &seconds, samplerate);
 
-	boxsize = RoundFloat(seconds, 4);
+	boxsize = roundFloat(seconds);
 
 	startBin = floor(config->startHz*boxsize);
 	endBin = floor(config->endHz*boxsize);
@@ -791,12 +791,12 @@ int commandline_wave(int argc , char *argv[], parameters *config)
 		break;
 	  case 's':
 		config->startHz = atoi(optarg);
-		if(config->startHz < 1 || config->startHz > 19900)
+		if(config->startHz < 1 || config->startHz > END_HZ-100)
 			config->startHz = START_HZ;
 		break;
 	  case 'e':
 		config->endHz = atoi(optarg);
-		if(config->endHz < 10 || config->endHz > 20000)
+		if(config->endHz < START_HZ*2 || config->endHz > END_HZ)
 			config->endHz = END_HZ;
 		break;
 	  case 'f':
@@ -865,9 +865,9 @@ int commandline_wave(int argc , char *argv[], parameters *config)
 		else if (optopt == 'f')
 		  logmsg("Max # of frequencies to use from FFTW -%c requires an argument: 1-%d\n", optopt, MAX_FREQ_COUNT);
 		else if (optopt == 's')
-		  logmsg("Min frequency range for FFTW -%c requires an argument: 0-19900\n", optopt);
+		  logmsg("Min frequency range for FFTW -%c requires an argument: %d-%d\n", 1, END_HZ-100, optopt);
 		else if (optopt == 'e')
-		  logmsg("Max frequency range for FFTW -%c requires an argument: 10-20000\n", optopt);
+		  logmsg("Max frequency range for FFTW -%c requires an argument: %d-%d\n", START_HZ*2, END_HZ, optopt);
 		else if (optopt == 'P')
 		  logmsg("Profile File -%c requires a file argument\n", optopt);
 		else if (isprint (optopt))

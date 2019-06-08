@@ -55,6 +55,7 @@ void PrintUsage()
 	logmsg("	 -D: Don't create <D>ifferences Plots\n");
 	logmsg("	 -M: Don't create <M>issing Plots\n");
 	logmsg("	 -S: Don't create <S>pectrogram Plots\n");
+	logmsg("	 -d: Max <d>BFS for plots vertically\n");
 	logmsg("	 -k: cloc<k> FFTW operations\n");
 	logmsg("	 -j: (text) Cuts per block information and shows <j>ust total results\n");
 	logmsg("	 -x: (text) Enables e<x>tended log results. Shows a table with all matches\n");
@@ -80,6 +81,9 @@ void CleanParameters(parameters *config)
 	config->tolerance = DBS_TOLERANCE;
 	config->startHz = START_HZ;
 	config->endHz = END_HZ;
+	config->startHzPlot = 0;
+	config->endHzPlot = END_HZ;
+	config->maxDbPlotZC = DB_HEIGHT;
 	config->extendedResults = 0;
 	config->justResults = 0;
 	config->verbose = 0;
@@ -96,6 +100,7 @@ void CleanParameters(parameters *config)
 	config->smallerFramerate = 0;
 	config->ZeroPad = 0;
 	config->debugSync = 0;
+	config->drawWindows = 0;
 
 	config->logScale = 1;
 	config->reverseCompare = 0;
@@ -145,7 +150,7 @@ int commandline(int argc , char *argv[], parameters *config)
 	
 	CleanParameters(config);
 
-	while ((c = getopt (argc, argv, "hxjzmviklygLHo:s:f:t:p:a:w:r:c:P:SDMNRWn:")) != -1)
+	while ((c = getopt (argc, argv, "hxjzmviklygLHo:s:e:f:t:p:a:w:r:c:d:P:SDMNRWn:")) != -1)
 	switch (c)
 	  {
 	  case 'h':
@@ -198,14 +203,19 @@ int commandline(int argc , char *argv[], parameters *config)
 			config->useOutputFilter = 0;
 		break;
 	  case 's':
-		config->startHz = atoi(optarg);
-		if(config->startHz < 1 || config->startHz > 19900)
+		config->startHz = atof(optarg);
+		if(config->startHz < 1.0 || config->startHz > END_HZ-100.0)
 			config->startHz = START_HZ;
 		break;
 	  case 'e':
-		config->endHz = atoi(optarg);
-		if(config->endHz < 10 || config->endHz > 22050)
+		config->endHz = atof(optarg);
+		if(config->endHz < START_HZ*2.0 || config->endHz > END_HZ)
 			config->endHz = END_HZ;
+		break;
+	  case 'd':
+		config->maxDbPlotZC = atof(optarg);
+		if(config->maxDbPlotZC < 0.1 || config->maxDbPlotZC > 60.0)
+			config->maxDbPlotZC = DB_HEIGHT;
 		break;
 	  case 'f':
 		config->MaxFreq = atoi(optarg);
@@ -322,9 +332,11 @@ int commandline(int argc , char *argv[], parameters *config)
 		else if (optopt == 'f')
 		  logmsg("Max # of frequencies to use from FFTW -%c requires an argument: 1-%d\n", optopt, MAX_FREQ_COUNT);
 		else if (optopt == 's')
-		  logmsg("Min frequency range for FFTW -%c requires an argument: 0-19900\n", optopt);
+		  logmsg("Min frequency range for FFTW -%c requires an argument: %d-%d\n", 1, END_HZ-100, optopt);
 		else if (optopt == 'e')
-		  logmsg("Max frequency range for FFTW -%c requires an argument: 10-20000\n", optopt);
+		  logmsg("Max frequency range for FFTW -%c requires an argument: %d-%d\n", START_HZ*2, END_HZ, optopt);
+		else if (optopt == 'd')
+		  logmsg("Max DB Height for Plots -%c requires an argument: %g-%g\n", 0.1, 60.0, optopt);
 		else if (isprint (optopt))
 		  logmsg("Unknown option `-%c'.\n", optopt);
 		else if (optopt == 'P')
@@ -364,7 +376,8 @@ int commandline(int argc , char *argv[], parameters *config)
 	}
 	if(config->endHz <= config->startHz)
 	{
-		logmsg("Invalid frequency range for FFTW (%d Hz to %d Hz)\n", config->startHz, config->endHz);
+		logmsg("Invalid frequency range for FFTW (%g Hz to %g Hz)\n", 
+				config->startHz, config->endHz);
 		return 0;
 	}
 
@@ -431,9 +444,9 @@ int commandline(int argc , char *argv[], parameters *config)
 	if(config->MaxFreq != FREQ_COUNT)
 		logmsg("\tMax frequencies to use from FFTW are %d (default %d)\n", config->MaxFreq, FREQ_COUNT);
 	if(config->startHz != START_HZ)
-		logmsg("\tFrequency start range for FFTW is now %d (default %d)\n", config->startHz, START_HZ);
+		logmsg("\tFrequency start range for FFTW is now %g (default %g)\n", config->startHz, START_HZ);
 	if(config->endHz != END_HZ)
-		logmsg("\tFrequency end range for FFTW is now %d (default %d)\n", config->endHz, END_HZ);
+		logmsg("\tFrequency end range for FFTW is now %g (default %g)\n", config->endHz, END_HZ);
 	if(config->normType != max_frequency)
 	{
 		if(config->normType == max_time)

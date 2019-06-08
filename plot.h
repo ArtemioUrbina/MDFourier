@@ -51,9 +51,6 @@ typedef struct averaged_freq{
 	double		avgvol;
 } AveragedFrequencies;
 
-#define DB_HEIGHT 18
-#define TOP_FREQUENCY	20000.0		// we don't use 22050 for integer scaling
-
 #define COLOR_NONE		0	
 #define COLOR_RED 		1
 #define COLOR_GREEN		2
@@ -121,7 +118,7 @@ FlatAmplDifference *CreateFlatDifferences(parameters *config);
 FlatFreqDifference *CreateFlatMissing(parameters *config);
 FlatFrequency *CreateFlatFrequencies(AudioSignal *Signal, long int *size, parameters *config);
 
-double transformtoLog(double coord, double top, parameters *config);
+double transformtoLog(double coord, parameters *config);
 void DrawGridZeroDBCentered(PlotFile *plot, double dbs, double dbIncrement, double hz, double hzIncrement, parameters *config);
 void DrawLabelsZeroDBCentered(PlotFile *plot, double dbs, double dbIncrement, double hz, double hzIncrement,  parameters *config);
 void DrawGridZeroToLimit(PlotFile *plot, double dbs, double dbIncrement, double hz, double hzIncrement, parameters *config);

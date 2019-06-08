@@ -614,6 +614,9 @@ int ProcessFile(AudioSignal *Signal, parameters *config)
 	if(!initWindows(&windows, Signal->framerate, Signal->header.SamplesPerSec, config))
 		return 0;
 
+	if(config->drawWindows)
+		VisualizeWindows(&windows, config);
+
 	if(config->clock)
 		clock_gettime(CLOCK_MONOTONIC, &start);
 
