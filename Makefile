@@ -13,10 +13,10 @@ LFLAGS = $(EXTRA_LFLAGS) -lm -lfftw3 -lplot -lpng -lz
 
 all: mdfourier mdwave
 
-mdfourier: sync.o freq.o windows.o log.o diff.o cline.o plot.o incbeta.o mdfourier.o 
+mdfourier: sync.o freq.o windows.o log.o diff.o cline.o plot.o incbeta.o balance.o mdfourier.o 
 	$(CC) $(CCFLAGS) -o $@ $^ $(LFLAGS)
 
-mdwave: sync.o freq.o windows.o log.o cline.o plot.o incbeta.o mdwave.o
+mdwave: sync.o freq.o windows.o log.o cline.o plot.o incbeta.o balance.o mdwave.o
 	$(CC) $(CCFLAGS) -o $@ $^ $(LFLAGS)
 
 .c.o:

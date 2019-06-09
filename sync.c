@@ -318,7 +318,8 @@ long int DetectPulseInternal(char *Samples, wav_hdr header, int factor, long int
 
 		pos += loadedBlockSize;
 
-		ProcessChunkForSyncPulse((int16_t*)buffer, loadedBlockSize/2, header.SamplesPerSec, &pulseArray[i], config);
+		// We use left channel by default, we don't knwo about channel imbalances yet
+		ProcessChunkForSyncPulse((int16_t*)buffer, loadedBlockSize/2, header.SamplesPerSec, &pulseArray[i], 'l', config);
 		if(pulseArray[i].magnitude > MaxMagnitude)
 			MaxMagnitude = pulseArray[i].magnitude;
 		i++;
@@ -361,7 +362,7 @@ long int DetectPulseInternal(char *Samples, wav_hdr header, int factor, long int
 	return offset;
 }
 
-double ProcessChunkForSyncPulse(int16_t *samples, size_t size, long samplerate, Pulses *pulse, parameters *config)
+double ProcessChunkForSyncPulse(int16_t *samples, size_t size, long samplerate, Pulses *pulse, char channel, parameters *config)
 {
 	fftw_plan		p = NULL;
 	long		  	stereoSignalSize = 0;	
@@ -423,11 +424,11 @@ double ProcessChunkForSyncPulse(int16_t *samples, size_t size, long samplerate, 
 
 	for(i = 0; i < monoSignalSize; i++)
 	{
-		if(config->channel == 'l')
+		if(channel == 'l')
 			signal[i] = (double)samples[i*2];
-		if(config->channel == 'r')
+		if(channel == 'r')
 			signal[i] = (double)samples[i*2+1];
-		if(config->channel == 's')
+		if(channel == 's')
 			signal[i] = ((double)samples[i*2]+(double)samples[i*2+1])/2.0;
 	}
 

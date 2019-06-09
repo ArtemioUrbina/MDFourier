@@ -27,25 +27,11 @@
  * 
  */
 
-#ifndef MDFOURIER_WINDOWS_H
-#define MDFOURIER_WINDOWS_H
+#ifndef MDFBALANCE_H
+#define MDFBALANCE_H
 
-#include "mdfourier.h"
-
-#ifndef M_PI
-#define M_PI 3.1415926535897932384626433832795
-#endif
-
-double *hannWindow(int n);
-double *flattopWindow(int n);
-double *tukeyWindow(int n);
-double *hammingWindow(int n);
-
-int initWindows(windowManager *wm, double framerate, int SamplesPerSec, char winType, parameters *config);
-double *getWindowByLength(windowManager *windows, long int frames);
-long int getWindowSizeByLength(windowManager *wm, long int frames);
-void freeWindows(windowManager *windows);
-double CompensateValueForWindow(double value, char winType);
-double CalculateCorrectionFactor(windowManager *wm, long int frames);
+int CheckBalance(AudioSignal *Signal, int block, parameters *config);
+int ExecuteBalanceDFFT(AudioBlocks *AudioArray, int16_t *samples, size_t size, long samplerate, double *window, char channel, parameters *config);
+void BalanceAudioChannel(AudioSignal *Signal, char channel, double ratio);
 
 #endif

@@ -3,10 +3,10 @@ MegaDriveAudio
 16.688
 8820 -25 25 14 18 10
 7
-Sync s 1 20 red
-Silence n 1 20 red
-FM 1 96 20 green
-PSG 2 60 20 yellow
-Noise 3 16 20 aqua
-Silence n 1 20 red
-Sync s 1 20 red
+Sync s 1 20 red s
+Silence n 1 20 red s
+FM 1 96 20 green s
+PSG 2 60 20 yellow m
+Noise 3 16 20 aqua m
+Silence n 1 20 red s
+Sync s 1 20 red s

@@ -73,7 +73,7 @@ long int getWindowSizeByLength(windowManager *wm, long int frames)
 	return 0;
 }
 
-int initWindows(windowManager *wm, double framerate, int SamplesPerSec, parameters *config)
+int initWindows(windowManager *wm, double framerate, int SamplesPerSec, char winType, parameters *config)
 {
 	double 	lengths[1024];	// yes, we are lazy
 	int 	count = 0;
@@ -81,7 +81,7 @@ int initWindows(windowManager *wm, double framerate, int SamplesPerSec, paramete
 	if(!wm || !config)
 		return 0;
 	
-	if(config->window == 'n')
+	if(winType == 'n')
 	{
 		wm->windowArray = NULL;
 		wm->windowCount = 0;
@@ -118,7 +118,7 @@ int initWindows(windowManager *wm, double framerate, int SamplesPerSec, paramete
 		wm->windowArray[i].size = 0;
 
 		seconds = FramesToSeconds(wm->windowArray[i].frames, framerate);
-		if(config->window == 't')
+		if(winType == 't')
 		{
 			wm->windowArray[i].window = tukeyWindow(SamplesPerSec*seconds);
 			if(!wm->windowArray[i].window)
@@ -129,7 +129,7 @@ int initWindows(windowManager *wm, double framerate, int SamplesPerSec, paramete
 			wm->windowArray[i].size = SamplesPerSec*seconds;
 		}
 
-		if(config->window == 'f')
+		if(winType == 'f')
 		{
 			wm->windowArray[i].window = flattopWindow(SamplesPerSec*seconds);
 			if(!wm->windowArray[i].window)
@@ -140,7 +140,7 @@ int initWindows(windowManager *wm, double framerate, int SamplesPerSec, paramete
 			wm->windowArray[i].size = SamplesPerSec*seconds;
 		}
 
-		if(config->window == 'h')
+		if(winType == 'h')
 		{
 			wm->windowArray[i].window = hannWindow(SamplesPerSec*seconds);
 			if(!wm->windowArray[i].window)
@@ -151,7 +151,7 @@ int initWindows(windowManager *wm, double framerate, int SamplesPerSec, paramete
 			wm->windowArray[i].size = SamplesPerSec*seconds;
 		}
 
-		if(config->window == 'm')
+		if(winType == 'm')
 		{
 			wm->windowArray[i].window = hammingWindow(SamplesPerSec*seconds);
 			if(!wm->windowArray[i].window)
@@ -355,14 +355,14 @@ double CalculateCorrectionFactor(windowManager *wm, long int frames)
 	return factor;
 }
 
-double CompensateValueForWindow(double value, parameters *config)
+double CompensateValueForWindow(double value, char winType)
 {
-	switch(config->window)
+	switch(winType)
 	{
 		case 'n':
 			break;
 		case 't':
-			value *= 1.03366;
+			value *= 1.2122;
 			break;
 		case 'f':
 			value *= 4.63899;

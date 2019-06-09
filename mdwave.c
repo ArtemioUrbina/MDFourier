@@ -316,7 +316,7 @@ int ProcessFile(AudioSignal *Signal, parameters *config)
 		return(0);
 	}
 
-	if(!initWindows(&windows, Signal->framerate, Signal->header.SamplesPerSec, config))
+	if(!initWindows(&windows, Signal->framerate, Signal->header.SamplesPerSec, config->window, config))
 		return 0;
 
 	CompareFrameRates(Signal->framerate, GetPlatformMSPerFrame(config), config);

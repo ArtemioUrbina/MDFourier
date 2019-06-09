@@ -386,6 +386,7 @@ int LoadAudioBlockStructure(parameters *config)
 		fclose(file);
 		return 0;
 	}
+	memset(config->types.typeArray, 0, sizeof(AudioBlockType));
 
 	for(int i = 0; i < config->types.typeCount; i++)
 	{
@@ -424,12 +425,13 @@ int LoadAudioBlockStructure(parameters *config)
 				break;
 		}
 		
-		if(sscanf(lineBuffer, "%*s %*c %d %d %s\n", 
+		if(sscanf(lineBuffer, "%*s %*c %d %d %s %c\n", 
 			&config->types.typeArray[i].elementCount,
 			&config->types.typeArray[i].frames,
-			&config->types.typeArray[i].color [0]) != 3)
+			&config->types.typeArray[i].color [0],
+			&config->types.typeArray[i].channel) != 4)
 		{
-			logmsg("Invalid MD Fourier Audio Blocks File (Element Count, frames, color): %s\n", lineBuffer);
+			logmsg("Invalid MD Fourier Audio Blocks File (Element Count, frames, color, channel): %s\n", lineBuffer);
 			fclose(file);
 			return 0;
 		}
@@ -478,12 +480,13 @@ void PrintAudioBlocks(parameters *config)
 
 	for(int i = 0; i < config->types.typeCount; i++)
 	{
-		logmsg("%s %d %d %d %s\n", 
+		logmsg("%s %d %d %d %s %c\n", 
 			config->types.typeArray[i].typeName,
 			config->types.typeArray[i].type,
 			config->types.typeArray[i].elementCount,
 			config->types.typeArray[i].frames,
-			config->types.typeArray[i].color);
+			config->types.typeArray[i].color,
+			config->types.typeArray[i].channel);
 	}
 }
 
@@ -589,6 +592,23 @@ int GetFirstSilenceIndex(parameters *config)
 	for(int i = 0; i < config->types.typeCount; i++)
 	{
 		if(config->types.typeArray[i].type == TYPE_SILENCE)
+			return index;
+		else
+			index += config->types.typeArray[i].elementCount;
+	}
+	return NO_INDEX;
+}
+
+int GetFirstMonoIndex(parameters *config)
+{
+	int index = 0;
+
+	if(!config)
+		return NO_INDEX;
+
+	for(int i = 0; i < config->types.typeCount; i++)
+	{
+		if(config->types.typeArray[i].channel == 'm')
 			return index;
 		else
 			index += config->types.typeArray[i].elementCount;

@@ -115,6 +115,7 @@ typedef struct abt_st {
 	int			elementCount;
 	int			frames;
 	char		color[20];
+	char		channel;
 } AudioBlockType;
 
 typedef struct abd_st {

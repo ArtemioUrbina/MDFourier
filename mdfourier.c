@@ -35,6 +35,7 @@
 #include "diff.h"
 #include "plot.h"
 #include "sync.h"
+#include "balance.h"
 
 int LoadAndProcessAudioFiles(AudioSignal **ReferenceSignal, AudioSignal **ComparisonSignal, parameters *config);
 int LoadFile(FILE *file, AudioSignal *Signal, parameters *config, char *fileName);
@@ -205,6 +206,18 @@ int LoadAndProcessAudioFiles(AudioSignal **ReferenceSignal, AudioSignal **Compar
 		CloseFiles(&reference, &compare);
 		CleanUp(ReferenceSignal, ComparisonSignal, config);
 		return 0;
+	}
+
+	if(config->channel == 's')
+	{
+		int block = NO_INDEX;
+
+		block = GetFirstMonoIndex(config);
+		if(block != NO_INDEX)
+		{
+			CheckBalance(*ReferenceSignal, block, config);
+			CheckBalance(*ComparisonSignal, block, config);
+		}
 	}
 
 	/* Although dithering would be better, there has been no need */
@@ -611,7 +624,7 @@ int ProcessFile(AudioSignal *Signal, parameters *config)
 		return(0);
 	}
 
-	if(!initWindows(&windows, Signal->framerate, Signal->header.SamplesPerSec, config))
+	if(!initWindows(&windows, Signal->framerate, Signal->header.SamplesPerSec, config->window, config))
 		return 0;
 
 	if(config->drawWindows)

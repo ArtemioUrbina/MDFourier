@@ -40,6 +40,7 @@
 
 int LoadAudioBlockStructure(parameters *config);
 int GetFirstSilenceIndex(parameters *config);
+int GetFirstMonoIndex(parameters *config);
 long int GetLastSilenceByteOffset(double framerate, wav_hdr header, int frameAdjust, parameters *config);
 int GetActiveAudioBlocks(parameters *config);
 int GetTotalAudioBlocks(parameters *config);
