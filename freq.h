@@ -100,4 +100,6 @@ long int GetZeroPadValues(long int *monoSignalSize, double *seconds, long int sa
 void CalcuateFrequencyBrackets(AudioSignal *signal, parameters *config);
 double FindFrequencyBracket(double frequency, size_t size, long samplerate);
 
+double FindDifferenceAverage(parameters *config);
+
 #endif

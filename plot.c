@@ -69,8 +69,19 @@ void PlotResults(AudioSignal *Signal, parameters *config)
 
 void PlotAmpDifferences(parameters *config)
 {
+	double average = 0;
 	FlatAmplDifference	*amplDiff = NULL;
 	
+	average = FindDifferenceAverage(config);
+	if(average > config->maxDbPlotZC)
+	{
+		config->maxDbPlotZC = average*1.5;
+
+		logmsg("\nWARNING: The average difference is %g dBFS.\n", average);
+		logmsg("\tThis is abnormal, signal might not be from the correct source\n");
+		logmsg("\tStereo channels could also be inverted\n");
+		logmsg("\tAdjusting viewport to %gdBFS for plots\n", config->maxDbPlotZC);
+	}
 	amplDiff = CreateFlatDifferences(config);
 	if(!amplDiff)
 	{
@@ -1381,7 +1392,7 @@ long int movingAverage(AveragedFrequencies *data, AveragedFrequencies *averages,
 // parameters for the Average plot
 
 #define	SMA_SIZE					4	// Size for the Simple Moving average period
-#define	AVERAGE_CHUNKS				60	// How many chunks across the frequency spectrum
+#define	AVERAGE_CHUNKS				200	// How many chunks across the frequency spectrum
 
 AveragedFrequencies *CreateFlatDifferencesAveraged(int matchType, long int *avgSize, int chunks, parameters *config)
 {

@@ -48,12 +48,12 @@
 
 #include "incbeta.h"
 
-#define MDVERSION "0.914"
+#define MDVERSION "0.915"
 
 
 #define MAX_FREQ_COUNT		100000 	/* Number of frequencies to compare(MAX) */
 #define FREQ_COUNT			2000	/* Number of frequencies to compare(default) */
-#define SIGNIFICANT_VOLUME	-96		/* ~20.0f * log10f( 1.0f / 65536.0f ) */
+#define SIGNIFICANT_VOLUME	-60.0
 
 #define TYPE_SILENCE	0
 #define TYPE_SYNC		-1

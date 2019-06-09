@@ -1135,6 +1135,9 @@ inline double CalculateAmplitude(double magnitude, double MaxMagnitude)
 {
 	double amplitude = 0;
 
+	if(magnitude == 0.0 || MaxMagnitude == 0.0)
+		return NO_AMPLITUDE;
+
 	amplitude = 20*log10(magnitude/MaxMagnitude);
 	amplitude = roundFloat(amplitude);
 	return amplitude;
@@ -1462,3 +1465,32 @@ double CalculateScanRate(AudioSignal *Signal)
 	return(roundFloat(1000.0/Signal->framerate));
 }
 
+double FindDifferenceAverage(parameters *config)
+{
+	double		AvgDifAmp = 0;
+	long int	count = 0;
+
+	if(!config)
+		return 0;
+
+	if(!config->Differences.BlockDiffArray)
+		return 0;
+
+	for(int b = 0; b < config->types.totalChunks; b++)
+	{
+		if(GetBlockType(config, b) <= TYPE_CONTROL)
+			continue;
+
+
+		for(int a = 0; a < config->Differences.BlockDiffArray[b].cntAmplBlkDiff; a++)
+		{
+			AvgDifAmp += fabs(config->Differences.BlockDiffArray[b].amplDiffArray[a].diffAmplitude);
+			count ++;
+		}
+	}
+
+	if(count)
+		AvgDifAmp /= count;
+
+	return AvgDifAmp;
+}
