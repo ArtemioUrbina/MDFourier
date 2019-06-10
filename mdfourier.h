@@ -48,7 +48,7 @@
 
 #include "incbeta.h"
 
-#define MDVERSION "0.915"
+#define MDVERSION "0.916"
 
 
 #define MAX_FREQ_COUNT		100000 	/* Number of frequencies to compare(MAX) */
@@ -86,6 +86,9 @@
 
 #define PLOT_RES_X_LOW 800.0
 #define PLOT_RES_Y_LOW 400.0
+
+#define BUFFER_SIZE		4096
+#define T_BUFFER_SIZE	BUFFER_SIZE*2+256
 
 enum normalize
 {
@@ -179,7 +182,7 @@ typedef struct AudioBlock_st {
 } AudioBlocks;
 
 typedef struct AudioSt {
-	char		SourceFile[1024];
+	char		SourceFile[BUFFER_SIZE];
 
 	int 		hasFloor;
 	double		floorFreq;
@@ -256,12 +259,12 @@ typedef struct block_diff_st {
 /********************************************************/
 
 typedef struct parameters_st {
-	char			referenceFile[1024];
-	char			targetFile[1024];
-	char			folderName[2512];
-	char			baseName[2512];
-	char			compareName[2512];
-	char			profileFile[2512];
+	char			referenceFile[BUFFER_SIZE];
+	char			targetFile[BUFFER_SIZE];
+	char			folderName[BUFFER_SIZE+128];
+	char			baseName[BUFFER_SIZE];
+	char			compareName[BUFFER_SIZE];
+	char			profileFile[BUFFER_SIZE];
 	double			tolerance;
 	double			startHz, endHz;
 	double			startHzPlot, endHzPlot;
@@ -287,6 +290,7 @@ typedef struct parameters_st {
 	int				reverseCompare;
 	int				ZeroPad;
 	enum normalize	normType;
+	int				channelBalance;
 
 	int				plotDifferences;
 	int				plotMissing;

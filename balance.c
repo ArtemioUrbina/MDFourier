@@ -150,7 +150,7 @@ int CheckBalance(AudioSignal *Signal, int block, parameters *config)
 	}
 
 	diff = fabs(Channels[0].freq[0].magnitude - Channels[1].freq[0].magnitude);
-	if(diff)
+	if(diff > 0.0)
 	{
 		double 	ratio = 0;
 		double 	channDiff = 0;
@@ -169,15 +169,20 @@ int CheckBalance(AudioSignal *Signal, int block, parameters *config)
 			ratio = Channels[0].freq[0].magnitude/Channels[1].freq[0].magnitude;
 		}
 
-		BalanceAudioChannel(Signal, diffNam, ratio);
-		if(channDiff >= 5.0)
+		if(config->verbose || channDiff >= 5.0 || (channDiff > 0.0 && !config->channelBalance))
 		{
 			logmsg("\nWARNING for: %s\n", Signal->SourceFile);
 			logmsg("  Stereo imbalance: %s channel is higher by %g%%\n",
 				diffNam == 'l' ? "left" : "right", channDiff);
 			logmsg("  Please adjust audio card gain correctly.\n");
-			logmsg("  Compensating in software.\n");
+			if(config->channelBalance)
+				logmsg("  Compensating in software.\n");
+			else
+				logmsg("  Audio not compensated.\n");
 		}
+
+		if(config->channelBalance)
+			BalanceAudioChannel(Signal, diffNam, ratio);
 	}
 
 	if(config->clock)

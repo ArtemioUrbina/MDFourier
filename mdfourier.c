@@ -110,11 +110,11 @@ int main(int argc , char *argv[])
 			ComparisonSignal->floorAmplitude != 0.0 && ComparisonSignal->floorAmplitude > config.significantVolume)
 		{
 			config.significantVolume = ComparisonSignal->floorAmplitude;
-			logmsg(" - Using %g as minimum significant volume for analisys\n",
-				config.significantVolume);
 			CreateBaseName(&config);
 		}
 	
+		logmsg(" - Using %gdBFS as minimum significant volume for analisys\n",
+			config.significantVolume);
 		CompareAudioBlocks(ComparisonSignal, ReferenceSignal, &config);
 	
 		PlotResults(ComparisonSignal, &config);
@@ -406,10 +406,11 @@ int LoadAndProcessAudioFiles(AudioSignal **ReferenceSignal, AudioSignal **Compar
 		(*ReferenceSignal)->floorAmplitude != 0.0 && (*ReferenceSignal)->floorAmplitude > config->significantVolume)
 	{
 		config->significantVolume = (*ReferenceSignal)->floorAmplitude;
-		logmsg(" - Using 'Reference' Signal\'s %g as minimum significant volume for analisys\n",
-			config->significantVolume);
 		CreateBaseName(config);
 	}
+
+	logmsg(" - Using %gdBFS as minimum significant volume for analisys\n",
+		config->significantVolume);
 
 	if(config->verbose)
 	{

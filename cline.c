@@ -45,6 +45,7 @@ void PrintUsage()
 	logmsg("	 -t: Defines the <t>olerance when comparing amplitudes in dBFS\n");
 	logmsg("	 -z: Uses <z>ero Padding to equal 1 hz FFT bins\n");
 	logmsg("	 -n: <N>ormalize: 't' Time Domain Max, 'f' Frequency Domain Max or 'a' Average\n");
+	logmsg("	 -B: Do not do stereo channel audio <B>alancing\n");
 	logmsg("   Output options:\n");
 	logmsg("	 -l: <l>og output to file [reference]_vs_[compare].txt\n");
 	logmsg("	 -v: Enable <v>erbose mode, spits all the FFTW results\n");
@@ -101,6 +102,7 @@ void CleanParameters(parameters *config)
 	config->ZeroPad = 0;
 	config->debugSync = 0;
 	config->drawWindows = 0;
+	config->channelBalance = 1;
 
 	config->logScale = 1;
 	config->reverseCompare = 0;
@@ -150,7 +152,7 @@ int commandline(int argc , char *argv[], parameters *config)
 	
 	CleanParameters(config);
 
-	while ((c = getopt (argc, argv, "hxjzmviklygLHo:s:e:f:t:p:a:w:r:c:d:P:SDMNRAWDn:")) != -1)
+	while ((c = getopt (argc, argv, "hxjzmviklygLHo:s:e:f:t:p:a:w:r:c:d:P:SDMNRAWDBn:")) != -1)
 	switch (c)
 	  {
 	  case 'h':
@@ -294,6 +296,9 @@ int commandline(int argc , char *argv[], parameters *config)
 	  case 'R':
 		config->reverseCompare = 1;
 		break;
+	  case 'B':
+		config->channelBalance = 0;
+		break;
 	  case 'n':
 		switch(optarg[0])
 		{
@@ -413,7 +418,7 @@ int commandline(int argc , char *argv[], parameters *config)
 
 	if(IsLogEnabled())
 	{
-		char tmp[LOG_NAME_LEN];
+		char tmp[T_BUFFER_SIZE*2];
 
 		ComposeFileName(tmp, "Log", ".txt", config);
 
@@ -468,7 +473,7 @@ int commandline(int argc , char *argv[], parameters *config)
 void CreateFolderName(parameters *config)
 {
 	int len;
-	char tmp[2500];
+	char tmp[BUFFER_SIZE];
 
 	if(!config)
 		return;
@@ -478,6 +483,13 @@ void CreateFolderName(parameters *config)
 	sprintf(tmp+len-4, "_vs_%s", basename(config->targetFile));
 	len = strlen(tmp);
 	tmp[len-4] = '\0';
+
+	len = strlen(tmp);
+	for(int i = 0; i < len; i++)
+	{
+		if(tmp[i] == ' ')
+			tmp[i] = '_';
+	}
 
 	sprintf(config->compareName, "%s", tmp);
 	sprintf(config->folderName, "MDFResults\\%s", tmp);
@@ -548,14 +560,15 @@ void CreateBaseName(parameters *config)
 	if(!config)
 		return;
 	
-	sprintf(config->baseName, "_f%d_%s_%s_v_%g_OF%d_%s_%s",
+	sprintf(config->baseName, "_f%d_%s_%s_v_%g_OF%d_%s_%s_%s",
 			config->MaxFreq,
 			GetWindow(config->window),
 			GetChannel(config->channel),
 			fabs(config->significantVolume),
 			config->outputFilterFunction,
 			GetNormalization(config->normType),
-			config->ZeroPad ? "ZP" : "NP");
+			config->ZeroPad ? "ZP" : "NP",
+			config->channelBalance ? "B" : "NB");
 }
 
 void ComposeFileName(char *target, char *subname, char *ext, parameters *config)

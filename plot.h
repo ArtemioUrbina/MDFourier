@@ -37,7 +37,7 @@
 #define PLOT_ADVANCE_CHAR ">"
 
 typedef struct plot_st {
-	char			FileName[2048];
+	char			FileName[T_BUFFER_SIZE];
 	plPlotter		*plotter;
 	plPlotterParams *plotter_params;
 	FILE			*file;

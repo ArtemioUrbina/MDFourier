@@ -32,7 +32,7 @@
 #include "cline.h"
 
 int do_log = 0;
-char log_file[LOG_NAME_LEN];
+char log_file[T_BUFFER_SIZE];
 FILE *logfile = NULL;
 
 #define	CONSOLE_ENABLED		1

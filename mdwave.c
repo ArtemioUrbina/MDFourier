@@ -36,6 +36,7 @@
 #include "freq.h"
 #include "cline.h"
 #include "sync.h"
+#include "balance.h"
 
 int LoadFile(FILE *file, AudioSignal *Signal, parameters *config, char *fileName);
 int ProcessFile(AudioSignal *Signal, parameters *config);
@@ -89,6 +90,15 @@ int main(int argc , char *argv[])
 		CloseFiles(&reference);
 		CleanUp(&ReferenceSignal, &config);
 		return 0;
+	}
+
+	if(config.channel == 's')
+	{
+		int block = NO_INDEX;
+
+		block = GetFirstMonoIndex(&config);
+		if(block != NO_INDEX)
+			CheckBalance(ReferenceSignal, block, &config);
 	}
 
 	logmsg("* Processing WAV file %s\n", config.referenceFile);
@@ -376,11 +386,12 @@ int ProcessFile(AudioSignal *Signal, parameters *config)
 		if(Signal->floorAmplitude != 0.0 && Signal->floorAmplitude > config->significantVolume)
 		{
 			config->significantVolume = Signal->floorAmplitude;
-			logmsg(" - Using %g as minimum significant volume for analisys\n",
-				config->significantVolume);
 			CreateBaseName(config);
 		}
 	}
+
+	logmsg(" - Using %gdBFS as minimum significant volume for analisys\n",
+			config->significantVolume);
 
 	if(config->verbose)
 		PrintFrequencies(Signal, config);
@@ -758,7 +769,7 @@ int commandline_wave(int argc , char *argv[], parameters *config)
 	config->chunks = 0;
 	config->floorAmplitude = 0;
 
-	while ((c = getopt (argc, argv, "hvzcklyxis:e:f:t:p:a:w:r:P:")) != -1)
+	while ((c = getopt (argc, argv, "hvzcklyBxis:e:f:t:p:a:w:r:P:")) != -1)
 	switch (c)
 	  {
 	  case 'h':
@@ -853,6 +864,9 @@ int commandline_wave(int argc , char *argv[], parameters *config)
 	  case 'P':
 		sprintf(config->profileFile, "%s", optarg);
 		break;
+	  case 'B':
+		config->channelBalance = 0;
+		break;
 	  case '?':
 		if (optopt == 'r')
 		  logmsg("Reference File -%c requires an argument.\n", optopt);
@@ -913,7 +927,7 @@ int commandline_wave(int argc , char *argv[], parameters *config)
 
 	if(IsLogEnabled())
 	{
-		char tmp[LOG_NAME_LEN];
+		char tmp[T_BUFFER_SIZE];
 
 		ComposeFileName(tmp, "WAVE_Log_", ".txt", config);
 
@@ -966,6 +980,7 @@ void PrintUsage_wave()
 	logmsg("	 -e: Defines <e>nd of the frequency range to compare with FFT\n");
 	logmsg("	 -t: Defines the <t>olerance when comparing amplitudes in dBFS\n");
 	logmsg("	 -z: Uses Zero Padding to equal 1 hz FFT bins\n");
+	logmsg("	 -B: Do not do stereo channel audio <B>alancing\n");
 	logmsg("   Output options:\n");
 	logmsg("	 -v: Enable <v>erbose mode, spits all the FFTW results\n");
 	logmsg("	 -l: <l>og output to file [reference]_vs_[compare].txt\n");

@@ -319,7 +319,9 @@ long int DetectPulseInternal(char *Samples, wav_hdr header, int factor, long int
 		pos += loadedBlockSize;
 
 		// We use left channel by default, we don't knwo about channel imbalances yet
-		ProcessChunkForSyncPulse((int16_t*)buffer, loadedBlockSize/2, header.SamplesPerSec, &pulseArray[i], 'l', config);
+		ProcessChunkForSyncPulse((int16_t*)buffer, loadedBlockSize/2, 
+				header.SamplesPerSec, &pulseArray[i], 
+				config->channel == 's' ? 'l' : config->channel, config);
 		if(pulseArray[i].magnitude > MaxMagnitude)
 			MaxMagnitude = pulseArray[i].magnitude;
 		i++;

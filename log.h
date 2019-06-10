@@ -29,8 +29,6 @@
 #ifndef MDFOURIER_LOG_H
 #define MDFOURIER_LOG_H
 
-#define LOG_NAME_LEN	8000
-
 #include "mdfourier.h"
 
 void EnableLog();

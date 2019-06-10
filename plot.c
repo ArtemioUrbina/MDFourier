@@ -183,7 +183,7 @@ int CreatePlotFile(PlotFile *plot)
 	plot->file = fopen(plot->FileName, "wb");
 	if(!plot->file)
 	{
-		logmsg("Couldn't create Plot file %s\n", plot->FileName);
+		logmsg("Couldn't create Plot file %s\n%s\n", plot->FileName, strerror(errno));
 		return 0;
 	}
 
@@ -512,7 +512,7 @@ void DrawColorAllTypeScale(PlotFile *plot, double x, double y, double width, dou
 void PlotAllDifferentAmplitudes(FlatAmplDifference *amplDiff, char *filename, parameters *config)
 {
 	PlotFile	plot;
-	char		name[2048];
+	char		name[BUFFER_SIZE];
 	double		dBFS = config->maxDbPlotZC;
 
 	if(!config)
@@ -524,7 +524,7 @@ void PlotAllDifferentAmplitudes(FlatAmplDifference *amplDiff, char *filename, pa
 	if(!config->Differences.BlockDiffArray)
 		return;
 
-	sprintf(name, "DifferentAmplitudes_ALL_%s", filename);
+	sprintf(name, "DA_ALL_%s", filename);
 	FillPlot(&plot, name, config->plotResX, config->plotResY, config->startHzPlot, -1*dBFS, config->endHzPlot, dBFS, 1, config);
 
 	if(!CreatePlotFile(&plot))
@@ -554,14 +554,14 @@ void PlotAllDifferentAmplitudes(FlatAmplDifference *amplDiff, char *filename, pa
 int PlotEachTypeDifferentAmplitudes(FlatAmplDifference *amplDiff, char *filename, parameters *config)
 {
 	int 		i = 0, type = 0, types = 0;
-	char		name[2048];
+	char		name[BUFFER_SIZE];
 
 	for(i = 0; i < config->types.typeCount; i++)
 	{
 		type = config->types.typeArray[i].type;
 		if(type > TYPE_CONTROL)
 		{
-			sprintf(name, "DifferentAmplitudes_%s_%02d%s_", filename, 
+			sprintf(name, "DA_%s_%02d%s_", filename, 
 						config->types.typeArray[i].type, config->types.typeArray[i].typeName);
 			PlotSingleTypeDifferentAmplitudes(amplDiff, type, name, config);
 			logmsg(PLOT_ADVANCE_CHAR);
@@ -614,7 +614,7 @@ void PlotSingleTypeDifferentAmplitudes(FlatAmplDifference *amplDiff, int type, c
 void PlotAllMissingFrequencies(FlatFreqDifference *freqDiff, char *filename, parameters *config)
 {
 	PlotFile plot;
-	char	 name[2048];
+	char	 name[BUFFER_SIZE];
 
 	if(!config)
 		return;
@@ -622,7 +622,7 @@ void PlotAllMissingFrequencies(FlatFreqDifference *freqDiff, char *filename, par
 	if(!config->Differences.BlockDiffArray)
 		return;
 
-	sprintf(name, "MissingFrequencies_ALL_%s", filename);
+	sprintf(name, "MIS_ALL_%s", filename);
 	FillPlot(&plot, name, config->plotResX, config->plotResY, config->startHzPlot, config->significantVolume, config->endHzPlot, 0.0, 1, config);
 
 	if(!CreatePlotFile(&plot))
@@ -656,14 +656,14 @@ void PlotAllMissingFrequencies(FlatFreqDifference *freqDiff, char *filename, par
 int PlotEachTypeMissingFrequencies(FlatFreqDifference *freqDiff, char *filename, parameters *config)
 {
 	int 		i = 0, type = 0, types = 0;
-	char		name[2048];
+	char		name[BUFFER_SIZE];
 
 	for(i = 0; i < config->types.typeCount; i++)
 	{
 		type = config->types.typeArray[i].type;
 		if(type > TYPE_CONTROL)
 		{
-			sprintf(name, "MissingFrequencies_%s_%02d%s", filename, 
+			sprintf(name, "MISS_%s_%02d%s", filename, 
 							config->types.typeArray[i].type, config->types.typeArray[i].typeName);
 			PlotSingleTypeMissingFrequencies(freqDiff, type, name, config);
 			logmsg(PLOT_ADVANCE_CHAR);
@@ -716,12 +716,12 @@ void PlotSingleTypeMissingFrequencies(FlatFreqDifference *freqDiff, int type, ch
 void PlotAllSpectrogram(FlatFrequency *freqs, long int size, char *filename, parameters *config)
 {
 	PlotFile plot;
-	char	 name[2048];
+	char	 name[BUFFER_SIZE];
 
 	if(!config)
 		return;
 
-	sprintf(name, "Spectrogram_ALL_%s", filename);
+	sprintf(name, "SP_ALL_%s", filename);
 	FillPlot(&plot, name, config->plotResX, config->plotResY, config->startHzPlot, config->significantVolume, config->endHzPlot, 0.0, 1, config);
 
 	if(!CreatePlotFile(&plot))
@@ -754,14 +754,14 @@ void PlotAllSpectrogram(FlatFrequency *freqs, long int size, char *filename, par
 int PlotEachTypeSpectrogram(FlatFrequency *freqs, long int size, char *filename, parameters *config)
 {
 	int 		i = 0, type = 0, types = 0;
-	char		name[2048];
+	char		name[BUFFER_SIZE];
 
 	for(i = 0; i < config->types.typeCount; i++)
 	{
 		type = config->types.typeArray[i].type;
 		if(type > TYPE_CONTROL)
 		{
-			sprintf(name, "Spectrogram_%s_%02d%s", filename, 
+			sprintf(name, "SP_%s_%02d%s", filename, 
 					config->types.typeArray[i].type, config->types.typeArray[i].typeName);
 			PlotSingleTypeSpectrogram(freqs, size, type, name, config);
 			logmsg(PLOT_ADVANCE_CHAR);
@@ -828,7 +828,7 @@ void VisualizeWindows(windowManager *wm, parameters *config)
 void PlotWindow(windowManager *wm, long int frames, parameters *config)
 {
 	PlotFile plot;
-	char	 name[2048];
+	char	 name[BUFFER_SIZE];
 	double 	 *window = NULL;
 	long int size;
 
@@ -866,7 +866,7 @@ void PlotWindow(windowManager *wm, long int frames, parameters *config)
 
 void PlotBetaFunctions(parameters *config)
 {
-	char	 name[2048];
+	char	 name[BUFFER_SIZE];
 	int		 type = 0;
 
 	if(!config)
@@ -1279,7 +1279,7 @@ FlatFrequency *CreateFlatFrequencies(AudioSignal *Signal, long int *size, parame
 void PlotTest(char *filename, parameters *config)
 {
 	PlotFile	plot;
-	char		name[2048];
+	char		name[BUFFER_SIZE];
 	double		dBFS = config->maxDbPlotZC;
 
 	if(!config)
@@ -1303,7 +1303,7 @@ void PlotTest(char *filename, parameters *config)
 void PlotTestZL(char *filename, parameters *config)
 {
 	PlotFile	plot;
-	char		name[2048];
+	char		name[BUFFER_SIZE];
 
 	if(!config)
 		return;
@@ -1538,7 +1538,7 @@ AveragedFrequencies *CreateFlatDifferencesAveraged(int matchType, long int *avgS
 int PlotDifferentAmplitudesAveraged(FlatAmplDifference *amplDiff, char *filename, parameters *config)
 {
 	int 				i = 0, type = 0, typeCount = 0, types = 0;
-	char				name[2048];
+	char				name[BUFFER_SIZE];
 	long int			*averagedSizes = NULL;
 	AveragedFrequencies	**averagedArray = NULL;
 
@@ -1564,7 +1564,7 @@ int PlotDifferentAmplitudesAveraged(FlatAmplDifference *amplDiff, char *filename
 		{
 			long int chunks = AVERAGE_CHUNKS;
 
-			sprintf(name, "DifferentAmplitudes_%s_%02d%s_AVG_", filename, 
+			sprintf(name, "DA_%s_%02d%s_AVG_", filename, 
 					config->types.typeArray[i].type, config->types.typeArray[i].typeName);
 
 			averagedArray[types] = CreateFlatDifferencesAveraged(type, &averagedSizes[types], chunks, config);
@@ -1581,7 +1581,7 @@ int PlotDifferentAmplitudesAveraged(FlatAmplDifference *amplDiff, char *filename
 
 	if(types && averagedArray && averagedSizes)
 	{
-		sprintf(name, "DifferentAmplitudes_ALL_AVG_%s", filename);
+		sprintf(name, "DA_ALL_AVG_%s", filename);
 		PlotAllDifferentAmplitudesAveraged(amplDiff, name, averagedArray, averagedSizes, config);
 		logmsg(PLOT_ADVANCE_CHAR);
 	}
@@ -1683,7 +1683,6 @@ void PlotSingleTypeDifferentAmplitudesAveraged(FlatAmplDifference *amplDiff, int
 void PlotAllDifferentAmplitudesAveraged(FlatAmplDifference *amplDiff, char *filename, AveragedFrequencies **averaged, long int *avgsize, parameters *config)
 {
 	PlotFile	plot;
-	char		name[2048];
 	double		dBFS = config->maxDbPlotZC;
 	int			currType = 0;
 
@@ -1695,9 +1694,8 @@ void PlotAllDifferentAmplitudesAveraged(FlatAmplDifference *amplDiff, char *file
 
 	if(!config->Differences.BlockDiffArray)
 		return;
-
-	sprintf(name, "DifferentAmplitudes_ALL_AVG_%s", filename);
-	FillPlot(&plot, name, config->plotResX, config->plotResY, config->startHzPlot, -1*dBFS, config->endHzPlot, dBFS, 1, config);
+	
+	FillPlot(&plot, filename, config->plotResX, config->plotResY, config->startHzPlot, -1*dBFS, config->endHzPlot, dBFS, 1, config);
 
 	if(!CreatePlotFile(&plot))
 		return;
