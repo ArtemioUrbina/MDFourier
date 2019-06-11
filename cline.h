@@ -37,6 +37,7 @@ void CreateFolderName_wave(parameters *config);
 void CreateBaseName(parameters *config);
 void InvertComparedName(parameters *config);
 void ComposeFileName(char *target, char *subname, char *ext, parameters *config);
+void ComposeFileNameoPath(char *target, char *subname, char *ext, parameters *config);
 void CleanParameters(parameters *config);
 int commandline(int argc , char *argv[], parameters *config);
 char *GetChannel(char c);

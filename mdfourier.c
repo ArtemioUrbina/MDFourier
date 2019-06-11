@@ -183,6 +183,7 @@ int LoadAndProcessAudioFiles(AudioSignal **ReferenceSignal, AudioSignal **Compar
 		CleanUp(ReferenceSignal, ComparisonSignal, config);
 		return 0;
 	}
+	(*ReferenceSignal)->role = ROLE_REF;
 
 	*ComparisonSignal = CreateAudioSignal(config);
 	if(!*ComparisonSignal)
@@ -191,6 +192,7 @@ int LoadAndProcessAudioFiles(AudioSignal **ReferenceSignal, AudioSignal **Compar
 		CleanUp(ReferenceSignal, ComparisonSignal, config);
 		return 0;
 	}
+	(*ComparisonSignal)->role = ROLE_COMP;
 
 	logmsg("\n* Loading 'Reference' audio file %s\n", config->referenceFile);
 	if(!LoadFile(reference, *ReferenceSignal, config, config->referenceFile))
@@ -297,6 +299,9 @@ int LoadAndProcessAudioFiles(AudioSignal **ReferenceSignal, AudioSignal **Compar
 		MaxMagn				MaxRef, MaxTar;
 		double				ComparisonLocalMaximum = 0;
 		double				ratioRef = 0;
+		double				RefAvg = 0;
+		double				CompAvg = 0;
+		double				ratio = 0;
 
 		// Find Normalization factors
 		MaxRef = FindMaxMagnitudeBlock(*ReferenceSignal, config);
@@ -327,6 +332,21 @@ int LoadAndProcessAudioFiles(AudioSignal **ReferenceSignal, AudioSignal **Compar
 	
 		ratioRef = ComparisonLocalMaximum/MaxRef.magnitude;
 		NormalizeMagnitudesByRatio(*ReferenceSignal, ratioRef, config);
+
+		RefAvg = FindFundamentalMagnitudeAverage(*ReferenceSignal, config);
+		CompAvg = FindFundamentalMagnitudeAverage(*ComparisonSignal, config);
+		
+		if(RefAvg > CompAvg)
+			ratio = RefAvg/CompAvg;
+		else
+			ratio = CompAvg/RefAvg;
+		if(ratio > 10)
+		{
+			logmsg("\nWARNING: Average frequency difference after normalization\n");
+			logmsg("\tbetween the signals is too high (ratio:%g to 1)\n", ratio);
+			logmsg("\tIf results make no sense, try using the Time domain normalization\n");
+			logmsg("\toption, enabled with the -n t option.\n\n");
+		}
 	}
 
 	if(config->normType == average)

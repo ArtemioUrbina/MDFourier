@@ -580,6 +580,14 @@ void ComposeFileName(char *target, char *subname, char *ext, parameters *config)
 		config->folderName, subname, config->baseName, ext); 
 }
 
+void ComposeFileNameoPath(char *target, char *subname, char *ext, parameters *config)
+{
+	if(!config)
+		return;
+
+	sprintf(target, "%s%s%s", subname, config->baseName, ext); 
+}
+
 double TimeSpecToSeconds(struct timespec* ts)
 {
 	return (double)ts->tv_sec + (double)ts->tv_nsec / 1000000000.0;

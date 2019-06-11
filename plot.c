@@ -33,12 +33,33 @@
 #include "cline.h"
 #include "windows.h"
 
+#if defined (WIN32)
+	#include <direct.h>
+	#define GetCurrentDir _getcwd
+#else
+	#include <unistd.h>
+	#define GetCurrentDir getcwd
+#endif
+
 void PlotResults(AudioSignal *Signal, parameters *config)
 {
 	struct	timespec	start, end;
+	char 	CurrentPath[FILENAME_MAX];
 
 	if(config->clock)
 		clock_gettime(CLOCK_MONOTONIC, &start);
+
+	if (!GetCurrentDir(CurrentPath, sizeof(CurrentPath)))
+	{
+		logmsg("Could not get current path\n");
+		return;
+	}
+
+	if(chdir(config->folderName) == -1)
+	{
+		logmsg("Could not open folder %s for results\n", config->folderName);
+		return;
+	}
 
 	logmsg(" -");
 	if(config->plotDifferences || config->averagePlot)
@@ -57,6 +78,9 @@ void PlotResults(AudioSignal *Signal, parameters *config)
 		PlotSpectrograms(Signal, config);
 	}
 	logmsg("\n");
+
+	if(chdir(CurrentPath) == -1)
+		logmsg("Could not open working folder %s\n", CurrentPath);
 
 	if(config->clock)
 	{
@@ -77,10 +101,10 @@ void PlotAmpDifferences(parameters *config)
 	{
 		config->maxDbPlotZC = average*1.5;
 
-		logmsg("\nWARNING: The average difference is %g dBFS.\n", average);
+		logmsg("\n\nWARNING: The average difference is %g dBFS.\n", average);
 		logmsg("\tThis is abnormal, signal might not be from the correct source\n");
 		logmsg("\tStereo channels could also be inverted\n");
-		logmsg("\tAdjusting viewport to %gdBFS for plots\n", config->maxDbPlotZC);
+		logmsg("\tAdjusting viewport to %gdBFS for plots\n\n", config->maxDbPlotZC);
 	}
 	amplDiff = CreateFlatDifferences(config);
 	if(!amplDiff)
@@ -164,7 +188,7 @@ int FillPlot(PlotFile *plot, char *name, int sizex, int sizey, double x0, double
 	plot->plotter_params = NULL;
 	plot->file = NULL;
 
-	ComposeFileName(plot->FileName, name, ".png", config);
+	ComposeFileNameoPath(plot->FileName, name, ".png", config);
 
 	plot->sizex = sizex;
 	plot->sizey = sizey;
@@ -336,9 +360,13 @@ void DrawLabelsZeroDBCentered(PlotFile *plot, double dBFS, double dbIncrement, d
 	pl_fspace_r(plot->plotter, plot->x0, plot->y0, plot->x1, plot->y1);
 }
 
-void DrawLabelsMDF(PlotFile *plot, parameters *config)
+void DrawLabelsMDF(PlotFile *plot, char *Gname, parameters *config)
 {
 	pl_fspace_r(plot->plotter, 0, -1*config->plotResY/2, config->plotResX, config->plotResY/2);
+
+	pl_fmove_r(plot->plotter, config->plotResX/40, config->plotResY/2-config->plotResY/30);
+	pl_pencolor_r(plot->plotter, 0xcccc, 0xcccc, 0xcccc);
+	pl_alabel_r(plot->plotter, 'l', 'l', Gname);
 
 	pl_fmove_r(plot->plotter, config->plotResX/40, -1*config->plotResY/2+config->plotResY/100);
 	pl_pencolor_r(plot->plotter, 0, 0xcccc, 0);
@@ -423,7 +451,7 @@ void DrawColorScale(PlotFile *plot, char *label, int colorName, double x, double
 	}
 
 	SetPenColor(colorName, 0xaaaa, plot);
-	pl_fmove_r(plot->plotter, x+width/2, y+height+config->plotResY/100);
+	pl_fmove_r(plot->plotter, x+width/2, y-config->plotResY/50);
 	pl_alabel_r(plot->plotter, 'c', 'c', label);
 }
 
@@ -546,7 +574,7 @@ void PlotAllDifferentAmplitudes(FlatAmplDifference *amplDiff, char *filename, pa
 		}
 	}
 
-	DrawLabelsMDF(&plot, config);
+	DrawLabelsMDF(&plot, "DIFFERENT AMPLITUDES (ALL)", config);
 	DrawColorAllTypeScale(&plot, config->plotResX/50, config->plotResY/15, config->plotResX/80, config->plotResY/1.15, config->significantVolume, 3, config);
 	ClosePlot(&plot);
 }
@@ -607,7 +635,7 @@ void PlotSingleTypeDifferentAmplitudes(FlatAmplDifference *amplDiff, int type, c
 	}
 
 	DrawColorScale(&plot, GetTypeName(config, type), MatchColor(GetTypeColor(config, type)), config->plotResX/50, config->plotResY/15, config->plotResX/80, config->plotResY/1.15, config->significantVolume, 3, config);
-	DrawLabelsMDF(&plot, config);
+	DrawLabelsMDF(&plot, "DIFFERENT AMPLITUDES", config);
 	ClosePlot(&plot);
 }
 
@@ -649,7 +677,7 @@ void PlotAllMissingFrequencies(FlatFreqDifference *freqDiff, char *filename, par
 	}
 	
 	DrawColorAllTypeScale(&plot, config->plotResX/50, config->plotResY/15, config->plotResX/80, config->plotResY/1.15, config->significantVolume, 3, config);
-	DrawLabelsMDF(&plot, config);
+	DrawLabelsMDF(&plot, "MISSING FREQUENCIES (ALL)", config);
 	ClosePlot(&plot);
 }
 
@@ -709,7 +737,7 @@ void PlotSingleTypeMissingFrequencies(FlatFreqDifference *freqDiff, int type, ch
 	}
 	
 	DrawColorScale(&plot, GetTypeName(config, type), MatchColor(GetTypeColor(config, type)), config->plotResX/50, config->plotResY/15, config->plotResX/80, config->plotResY/1.15, config->significantVolume, 3, config);
-	DrawLabelsMDF(&plot, config);
+	DrawLabelsMDF(&plot, "MISSING FREQUENCIES", config);
 	ClosePlot(&plot);
 }
 
@@ -747,7 +775,7 @@ void PlotAllSpectrogram(FlatFrequency *freqs, long int size, char *filename, par
 	}
 
 	DrawColorAllTypeScale(&plot, config->plotResX/50, config->plotResY/15, config->plotResX/80, config->plotResY/1.15, config->significantVolume, 3, config);
-	DrawLabelsMDF(&plot, config);
+	DrawLabelsMDF(&plot, "SPECTROGRAM (ALL)", config);
 	ClosePlot(&plot);
 }
 
@@ -804,7 +832,7 @@ void PlotSingleTypeSpectrogram(FlatFrequency *freqs, long int size, int type, ch
 	}
 	
 	DrawColorScale(&plot, GetTypeName(config, type), MatchColor(GetTypeColor(config, type)), config->plotResX/50, config->plotResY/15, config->plotResX/80, config->plotResY/1.15, config->significantVolume, 3, config);
-	DrawLabelsMDF(&plot, config);
+	DrawLabelsMDF(&plot, "SPECTROGRAM", config);
 	ClosePlot(&plot);
 }
 
@@ -1293,7 +1321,7 @@ void PlotTest(char *filename, parameters *config)
 
 	DrawGridZeroDBCentered(&plot, dBFS, 3, config->endHzPlot, 1000, config);
 	DrawLabelsZeroDBCentered(&plot, dBFS, 3, config->endHzPlot, 1000, config);
-	DrawLabelsMDF(&plot, config);
+	DrawLabelsMDF(&plot, "PLOT TEST", config);
 	DrawColorScale(&plot, "Test", COLOR_ORANGE, config->plotResX/50, config->plotResY/15, config->plotResX/80, config->plotResY/1.15, -60, 3, config);
 	
 
@@ -1319,7 +1347,7 @@ void PlotTestZL(char *filename, parameters *config)
 
 	DrawColorScale(&plot, "Test", COLOR_ORANGE, config->plotResX/50, config->plotResY/15, config->plotResX/80, config->plotResY/1.15, -60, 3, config);
 	
-	DrawLabelsMDF(&plot, config);
+	DrawLabelsMDF(&plot, "PLOT TEST", config);
 	ClosePlot(&plot);
 }
 
@@ -1676,7 +1704,7 @@ void PlotSingleTypeDifferentAmplitudesAveraged(FlatAmplDifference *amplDiff, int
 	}
 
 	DrawColorScale(&plot, GetTypeName(config, type), MatchColor(GetTypeColor(config, type)), config->plotResX/50, config->plotResY/15, config->plotResX/80, config->plotResY/1.15, config->significantVolume, 3, config);
-	DrawLabelsMDF(&plot, config);
+	DrawLabelsMDF(&plot, "DIFFERENT AMPLITUDES AVERAGED", config);
 	ClosePlot(&plot);
 }
 
@@ -1765,7 +1793,7 @@ void PlotAllDifferentAmplitudesAveraged(FlatAmplDifference *amplDiff, char *file
 		currType++;
 	}
 
-	DrawLabelsMDF(&plot, config);
+	DrawLabelsMDF(&plot, "DIFFERENT AMPLITUDES AVERAGED (ALL)", config);
 	DrawColorAllTypeScale(&plot, config->plotResX/50, config->plotResY/15, config->plotResX/80, config->plotResY/1.15, config->significantVolume, 3, config);
 	ClosePlot(&plot);
 }

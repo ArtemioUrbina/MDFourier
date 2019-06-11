@@ -144,8 +144,8 @@ int CheckBalance(AudioSignal *Signal, int block, parameters *config)
 		if(Channels[1].freq)
 			free(Channels[1].freq);
 
-		logmsg("Channel balance block has different frequency content.\n");
-		logmsg("Not a MONO signal for balance check.\n");
+		logmsg("\nWARNING: Channel balance block has different frequency content.\n");
+		logmsg("\tNot a MONO signal for balance check.\n");
 		return 0;
 	}
 
@@ -169,17 +169,30 @@ int CheckBalance(AudioSignal *Signal, int block, parameters *config)
 			ratio = Channels[0].freq[0].magnitude/Channels[1].freq[0].magnitude;
 		}
 
-		if(config->verbose || channDiff >= 5.0 || (channDiff > 0.0 && !config->channelBalance))
+		if(channDiff >= 1.0 || (channDiff > 0.0 && !config->channelBalance))
 		{
-			logmsg("\nWARNING for: %s\n", Signal->SourceFile);
-			logmsg("  Stereo imbalance: %s channel is higher by %g%%\n",
+			logmsg("\nWARNING for %s file\n", Signal->role == ROLE_REF ? "Reference" : "Comparison");
+			logmsg("\tStereo imbalance: %s channel is higher by %g%%\n",
 				diffNam == 'l' ? "left" : "right", channDiff);
-			logmsg("  Please adjust audio card gain correctly.\n");
 			if(config->channelBalance)
-				logmsg("  Compensating in software.\n");
+			{
+				logmsg("\tCompensating in software.\n");
+				logmsg("\t\t(Use -B to disable auto-balance)\n");
+				logmsg("\tThis can be caused by gain controls in\n");
+				logmsg("\tthe audio card and/or be present in the\n");
+				logmsg("\tsystem generating the audio signal.\n\n");
+			}
 			else
-				logmsg("  Audio not compensated.\n");
+				logmsg("\tAudio not compensated.\n");
 		}
+		else
+		{
+			if(config->verbose)
+				logmsg(" - %s signal stereo imbalance: %s channel is higher by %g%%\n",
+					Signal->role == ROLE_REF ? "Reference" : "Comparison",
+					diffNam == 'l' ? "left" : "right", channDiff);
+		}
+		
 
 		if(config->channelBalance)
 			BalanceAudioChannel(Signal, diffNam, ratio);

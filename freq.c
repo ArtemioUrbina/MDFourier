@@ -81,24 +81,24 @@ void CalcuateFrequencyBrackets(AudioSignal *Signal, parameters *config)
 	if(index != NO_INDEX)
 	{
 		Signal->RefreshNoise = FindFrequencyBracket(roundFloat(1000.0/Signal->framerate), Signal->Blocks[index].fftwValues.size, Signal->header.SamplesPerSec);
-		Signal->CRTLow = FindFrequencyBracket(15680, Signal->Blocks[index].fftwValues.size, Signal->header.SamplesPerSec);
-		Signal->CRTHigh = FindFrequencyBracket(15710, Signal->Blocks[index].fftwValues.size, Signal->header.SamplesPerSec);
+		Signal->VideoRefreshLow = FindFrequencyBracket(15680, Signal->Blocks[index].fftwValues.size, Signal->header.SamplesPerSec);
+		Signal->VideoRefreshHigh = FindFrequencyBracket(15710, Signal->Blocks[index].fftwValues.size, Signal->header.SamplesPerSec);
 		/*
 		if(config->verbose)
-			logmsg(" - Searching for grid power frequency noise %g CRT Noise %g-%g\n", Signal->RefreshNoise,  Signal->CRTLow, Signal->CRTHigh);
+			logmsg(" - Searching for grid power frequency noise %g Video Refresh Noise %g-%g\n", Signal->RefreshNoise,  Signal->VideoRefreshLow, Signal->VideoRefreshHigh);
 		*/
 	}
 	else
-		logmsg(" - WARNING: Frequency Brackets can't be found since there is no Silence block in MFN file\n");
+		logmsg("\nWARNING: Frequency Brackets can't be found since there is no Silence block in MFN file\n\n");
 }
 
-int IsCRTNoise(AudioSignal *Signal, double freq)
+int IsVideoRefreshNoise(AudioSignal *Signal, double freq)
 {
 	if(!Signal)
 		return 0;
 
 	/* Peak around 15697-15698 usually */
-	if(freq >= Signal->CRTLow && freq <= Signal->CRTHigh)
+	if(freq >= Signal->VideoRefreshLow && freq <= Signal->VideoRefreshHigh)
 		return 1;
 	return 0;
 }
@@ -137,6 +137,7 @@ AudioSignal *CreateAudioSignal(parameters *config)
 		}
 	}
 
+	Signal->role = NO_ROLE;
 	CleanAudio(Signal, config);
 	return Signal;
 }
@@ -182,8 +183,8 @@ void CleanAudio(AudioSignal *Signal, parameters *config)
 	Signal->MinAmplitude = 0;
 
 	Signal->RefreshNoise = 0;
-	Signal->CRTLow = 0;
-	Signal->CRTHigh = 0;
+	Signal->VideoRefreshLow = 0;
+	Signal->VideoRefreshHigh = 0;
 
 	memset(&Signal->header, 0, sizeof(wav_hdr));
 }
@@ -893,11 +894,11 @@ void FindFloor(AudioSignal *Signal, parameters *config)
 	{
 		if(Signal->Blocks[index].freq[i].hertz && Signal->Blocks[index].freq[i].amplitude != NO_AMPLITUDE)
 		{
-			if(IsCRTNoise(Signal, Signal->Blocks[index].freq[i].hertz))
+			if(IsVideoRefreshNoise(Signal, Signal->Blocks[index].freq[i].hertz))
 			{
 				Signal->floorAmplitude = Signal->Blocks[index].freq[i].amplitude;
 				Signal->floorFreq = Signal->Blocks[index].freq[i].hertz;
-				logmsg(" - Silence block possible Video/CRT noise: %g Hz at %g dBFS\n",
+				logmsg(" - Silence block possible video refresh noise: %g Hz at %g dBFS\n",
 					Signal->floorFreq, Signal->floorAmplitude);
 				return;
 			}
@@ -1115,9 +1116,9 @@ void PrintFrequencies(AudioSignal *Signal, parameters *config)
 					Signal->Blocks[block].freq[j].hertz,
 					Signal->Blocks[block].freq[j].amplitude,
 					Signal->Blocks[block].freq[j].phase);
-				/* detect CRT frequency */
-				if(IsCRTNoise(Signal, Signal->Blocks[block].freq[j].hertz))
-					logmsg(" [CRT Noise?]");
+				/* detect VideoRefresh frequency */
+				if(IsVideoRefreshNoise(Signal, Signal->Blocks[block].freq[j].hertz))
+					logmsg(" [Video Refresh Noise?]");
 				logmsg("\n");
 			}
 		}
@@ -1204,7 +1205,7 @@ int InsertFrequencySorted(AudioBlocks *AudioArray, Frequency element, long int c
 		}
 	}
 
- 	logmsg("WARNING InsertFrequencySorted No match found!\n");
+ 	logmsg("\nWARNING InsertFrequencySorted No match found!\n\n");
 	return 0;
 }
 

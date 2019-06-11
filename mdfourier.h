@@ -90,6 +90,10 @@
 #define BUFFER_SIZE		4096
 #define T_BUFFER_SIZE	BUFFER_SIZE*2+256
 
+#define NO_ROLE		0
+#define	ROLE_REF	1
+#define	ROLE_COMP	2
+
 enum normalize
 {
 	max_time,
@@ -183,6 +187,7 @@ typedef struct AudioBlock_st {
 
 typedef struct AudioSt {
 	char		SourceFile[BUFFER_SIZE];
+	int			role;
 
 	int 		hasFloor;
 	double		floorFreq;
@@ -199,8 +204,8 @@ typedef struct AudioSt {
 	double		MinAmplitude;
 
 	double		RefreshNoise;
-	double		CRTLow;
-	double		CRTHigh;
+	double		VideoRefreshLow;
+	double		VideoRefreshHigh;
 
 	AudioBlocks *Blocks; 
 }  AudioSignal;
