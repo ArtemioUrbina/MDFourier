@@ -15,9 +15,15 @@
 \newacronym{gui}{GUI}{Graphical User Interface}
 \newacronym{wav}{WAV}{Waveform Audio File Format, also referred as WAVE}
 \newacronym{dft}{DFT}{Discrete Fourier Transform}
+\newacronym{dfft}{DFFT}{Discrete Fast Fourier Transform}
+\newacronym{ntsc}{NTSC}{National Television System Committee}
+\newacronym{dbfs}{dBFS}{Decibels relative to full scale}
 
 \newcommand{\define}[1] {
-	\textit{\acrshort{#1}\footnote{\acrlong{#1}}}}
+	\textit{\acrshort{#1}\footnote{\textit{\acrlong{#1}}}}}
+
+\newcommand{\defineCite}[2] {
+	\textit{\acrshort{#1}\footnote{\textit{\acrlong{#1}}#2}}}
 
 \makeglossaries
 
@@ -26,7 +32,7 @@
 \author{Artemio Urbina}
 
 \begin{document}
-
+	
 \pagenumbering{Alph}
 \begin{titlepage}
 	\maketitle
@@ -34,11 +40,21 @@
 \end{titlepage}
 \pagenumbering{arabic}
 
+\begin{abstract}
+\textit{MDFourier} is an \textit{open source} software tool set created to compare \textit{audio signatures} and generate a series of graphs that show the differences between them.
+
+It consists on a \textit{custom binary} that runs on a \textit{target platform} and an \textit{analysis tool}. The \textit{custom binary} produces a battery of sound test signals which are then recorded as an audio file. The \textit{analysis tool} takes two such audio recordings and compares them, showing how different they are.
+
+Te results can be used in a variety of ways: to identify how \textit{audio signatures} vary between \textit{systems}, to detect if the \textit{audio signals} are modified by \textit{audio equipment}, detect if \textit{modifications} resulted in audible changes, to help tune \textit{emulators}, \textit{FPGA} implementations or \textit{mods}, etc.
+
+The present documents serves as an introduction, a manual and a description of the methods used and how they work.
+\end{abstract}
+
 \tableofcontents
 
 \chapter{\textit{MDFourier} Objective}
 
-To provide a software based analysis framework for comparing audio signatures from a targeted video game system and its variants\footnote{Vintage retail variations, hardware modifications, clones and \textit{\acrfull{fpga}} implementations}. The resulting comparison can help tune such system\footnote{The term \textit{system} will be used to cover vintage retail hardware, emulators, \textit{FPGA} implementations and any other possible variant that executes binaries for the target hardware} to better match the desired reference profile.
+To provide a free and open source\footnote{Licensed under GNU GPL see appendix \ref{license}} software based analysis framework for comparing audio signatures from a targeted video game system and its variants\footnote{Vintage retail variations, hardware modifications, clones and \textit{\acrfull{fpga}} implementations}. The resulting comparison can help tune such system\footnote{The term \textit{system} will be used to cover vintage retail hardware, emulators, \textit{FPGA} implementations and any other possible variant that executes binaries for the target hardware} to better match the desired reference profile.
 
 This is of course not limited to one specific system, and the software can be used to compare any other platform with new configuration files\footnote{At the moment a profile for \textit{Mega Drive/Genesis} is functional and implemented with more to follow.}.
 
@@ -69,23 +85,6 @@ If you have suggestions, please contact me. Any corrections and improvements are
 
 This project was born from my curiosity to compare the audio signatures of different revisions of the  \textit{Mega Drive/Genesis}, and verify them with a tool assisted analysis. I was also curious about \textit{FPGA} and software implementations, and how similar they were to vintage console audio signatures.
 
-\section{Licensing}
-
-\textit{MDFourier} Copyright (C)2019 Artemio Urbina
-
-This program is free software: you can redistribute it and/or modify
-it under the terms of the GNU General Public License as published by
-the Free Software Foundation, either version 3 of the License, or
-(at your option) any later version.
-
-This program is distributed in the hope that it will be useful,
-but WITHOUT ANY WARRANTY; without even the implied warranty of
-MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
-GNU General Public License for more details.
-
-You should have received a copy of the GNU General Public License
-along with this program.  If not, see \url{https://www.gnu.org/licenses/}.
-
 \chapter{How \textit{MDFourier} works}
 \label{howitworks}
 
@@ -99,7 +98,7 @@ The analysis software is itself \textit{command line} based, in order to be mult
 
 \section{File alignment}
 
-\textit{MDFourier} takes both files and auto detects the starting and ending point of the recording. These are identified by a series of \textit{8820hz} pulses in the current \textit{Mega Drive/Genesis} implementation. From these, a \textit{frame rate}\footnote{Since audio cards have their own \textit{sample rate} clocks \cite{SoundCardClock} \cite{soundcardtiming} \cite{gwsoundcardtiming}, and some implementations have different \textit{frame rates}, frames are used as the base unit instead of time codes} is calculated in order to trim each file into the segments that are defined in the \textit{configuration file}\footnote{This file specifies the operating parameters for each hardware configuration. It is described in appendix \ref{mfnconfig}} for further comparison.
+\textit{MDFourier} takes both files and auto detects the starting and ending point of the recording. These are identified by a series of \textit{8820hz} pulses in the current \textit{Mega Drive/Genesis} implementation. From these, a \textit{frame rate}\footnote{The \textit{frame rate} is the ratio at which the console sends video frames to a display. For more details see appendix \ref{framerate}} is calculated in order to trim each file\footnote{Since audio cards have their own \textit{sample rate} clocks \cite{SoundCardClock} \cite{soundcardtiming} \cite{gwsoundcardtiming}, and some implementations have different \textit{frame rates}, frames are used as the base unit instead of time codes} into the segments that are defined in the \textit{configuration file}\footnote{This file specifies the operating parameters for each hardware configuration. It is described in appendix \ref{mfnconfig}} for further comparison.
 
 Most importantly, it guarantees that the \textit{Reference} and \textit{Comparison} files are logically aligned, and that each note - or segment - is compared to its corresponding one, with no overlap and without any audio editing or trimming skills required from the user. Current pulse detection accuracy is around $\sfrac{1}{4}$ of a millisecond.
 
@@ -107,17 +106,17 @@ After alignment is accomplished, the software reports the starting and end point
 
 \section{The heart of the process}
 
-In order to compare the signals, audio levels are checked and a relative \textit{normalization}\footnote{This process is detailed in appendix \ref{normalization}} takes place, based on the maximum amplitude of the \textit{Reference} file. A local maximum search is done in the same frame on the \textit{Comparison} signal, and that amplitude is then used to normalize both files. This is done in the \textit{frequency domain}, in order to reduce amplitude imprecision when comparing recordings with different frame rates. The software does have the option to do this in the time domain, but quantization and amplitude imprecision is to be expected in such case.
+In order to compare the signals, audio levels are checked and a relative \textit{normalization}\footnote{This process is detailed in appendix \ref{normalization}} takes place, based on the maximum amplitude of the \textit{Reference} file. A local maximum search is done in the same frame on the \textit{Comparison} signal, and that amplitude is then used to normalize both files. This is done in the \textit{frequency domain}, in order to reduce amplitude imprecision when comparing recordings with different \textit{frame rates}. The software does have the option to do this in the time domain, but quantization and amplitude imprecision is to be expected in such case.
 
 Then a \textit{Discrete Fourier Transform}\footnote{\gls{dft} is the variant of \textit{Fourier Transform} applied to discrete values, such as the ones we have in the audio file \cite{FourierTransformApps}} is used in order to analyze the frequency content of the signal, as well as the amplitudes from each of the corresponding fundamental frequencies that compose the audio signal.
 
-The software uses the \textit{FFTW}\footnote{The Fastest Fourier Transform in the West \cite{fftw}} library in order to accomplish this, and then proceeds to sort out the frequencies of each block by amplitude. It can be configured to compare a range of these frequencies, but by default it compares 2000 of them for each element defined in the \textit{mfn} configuration file\footnote{Described in appendix \ref{mfnconfig})}.
+The software uses the \textit{FFTW}\footnote{\textit{The Fastest Fourier Transform in the West} \cite{fftw}} library in order to accomplish this, and then proceeds to sort out the frequencies of each block by amplitude. It can be configured to compare a range of these frequencies, but by default it compares 2000 of them for each element defined in the \textit{mfn} configuration file\footnote{Described in appendix \ref{mfnconfig})}.
 
-I've found such comparison to be more than enough, and the \textit{minimum significant volume}\footnote{  see section \ref{MinSigVolume}} even limits these 2000 to a lower number, based on significant amplitude. In case more frequencies are needed, this can be changed via a command line parameter.
+I've found such comparison to be more than enough, and the \textit{minimum significant volume}\footnote{See section \ref{MinSigVolume}} even limits these 2000 to a lower number, based on significant amplitude\footnote{The terms \textit{volume} and \textit{amplitude} are used interchangeably during the document, however they are technically not the same thing. \textit{Volume} refers to the perception of \textit{loudness}, and \textit{amplitude} is the \textit{quantifiable} quality of the signal related to its power. As a result, the software can only use amplitude for its calculations.}. In case more frequencies are needed, this can be changed via a command line parameter.
 
 After comparing these frequencies between both files, matches are made and the differences in volume are plotted to a graph. Please read chapter \ref{howtoplots} to help you understand the various plots created by this program.
 
-Sometimes it is helpful to listen to the results of these limiting filters, in order to evaluate if - for instance - 2000 frequencies are either enough or too little for the current application. For this and other purposes I made an extra tool named \textit{MDWave}\footnote{Described in appendix \ref{mdwave}}, which creates the segmented \define{wav} files as processed after the \textit{Fourier Transform}, even including the effects of \textit{window filters}\footnote{Window functions are described in section \ref{windows})}.
+Sometimes it is helpful to listen to the results of these limiting filters, in order to evaluate if - for instance - 2000 frequencies are either enough or too little for the current application. For this and other purposes I made an extra tool named \textit{MDWave}\footnote{Described in appendix \ref{mdwave}}, which creates segmented audio files as processed after the \textit{Fourier Transform}, even including the effects of \textit{window filters}\footnote{Window functions are described in section \ref{windows})}.
 
 If you are interested in learning what the \textit{Fourier Transform} does and how it works it's magic, there are several resources online to help you out. Here are a few:
 
@@ -131,21 +130,27 @@ If you are interested in learning what the \textit{Fourier Transform} does and h
 \section{Minimal significant volume}
 \label{MinSigVolume}
 
-Currently \textit{MDFourier} can recognize three scenarios used as a minimum significant volume to compare the signals, and the three are derived from the first \textit{silence block} in the file.
+Although the whole frequency spectrum can be compared, there is little practical use in doing so -  due to execution time and extra noise from low amplitude harmonics. As a result, rule of thumb defaults are set in order to minimize these issues.
 
-The first scenario is the grid power frequency noise, which currently searches for \textit{60/50hz} noise (\textit{PAL} needs to be tested yet, since I don't have a \textit{PAL} console and its use is triggered based on the identified frame rate). 
+One of these values is a \textit{minimum volume} at which to stop comparing the fundamental frequencies that are found after decomposing the signal with the \textit{Fourier Transform}. This is the \textit{minimal significant volume} and it is the cutoff at which comparisons made by the software are stopped.
+
+This volume is the \textit{amplitude}, and it is measured in \define{dbfs}. In the \textit{dBFS} scale, the value of \textit{0} is assigned to the maximum possible digital level and it can go down to $-\infty$.\footnote{The minimum volume when using \textit{16 bit} samples is -96dBFS.}
+
+Currently \textit{MDFourier} can recognize three scenarios to define the \textit{minimum significant volume} to compare the signals, and the three are derived from the first \textit{silence block} in the file.
+
+The first scenario is the grid power frequency noise, which currently searches for \textit{60/50hz} noise\footnote{\textit{PAL} needs to be tested yet, since I don't have console for that video system}. 
 
 The second one is \textit{refresh rate noise}, again derived from the frame rate, in \textit{NTSC} it is around \textit{15697-15698hz}. 
 
-In case neither is found, which would be surprising for a file generated by recording from a vintage console via analogue means, the frequency with the highest volume within the silence block is used. 
+If neither is found, which would be surprising for a file generated by recording from a vintage console via analogue means, the frequency with the highest volume within the silence block is used. 
 
-In case none of these three scenarios is met, a default \textit{-96dBFS} level is used.
+Finally, in case none of the previous scenarios is met - or if those values are lower than \textit{-60}\textit{dbfs} - a default level of \textit{-60dBFS}\footnote{This can be changed via \textit{command line} options if needed.} is used. 
 
 \section{Workflow}
 
-The first step is loading the custom binary to your console, this varies from a \textit{flash cart}, burning a \textit{CD} or using a \textit{custom loader}.
+The first step is loading the custom binary to your console, this varies from a \textit{flash cart}, burning a \textit{CD-ROM} or using a \textit{custom loader}.
 
-The next step is setting up your \textit{audio capture card} and computer, in order to record a \textit{44-48khz 16 bit stereo} wav file.
+The next step is setting up your \textit{audio capture card} and computer, in order to record a \textit{44 or 48khz 16 bit stereo} \define{wav} file.
 
 Once the \textit{capture card} is ready and the cables are hooked up from the console to the \textit{capture card}, start recording on the computer and execute the \textit{MDFourier} test from the console.
 
@@ -231,9 +236,9 @@ For practical reasons, it is desirable to have a short test that will be recorde
 
 In contrast, when applying the \textit{Fourier transform} a compromise is made between frequency detail and time accuracy, very similar to the Heisenberg's uncertainty principle. If we compare a longer signal for each element, we end up with more frequency information. In our case, we don't care much about time accuracy but we do care about the length of the test. Nobody wants to record a 5 or 10 minute signal for each test to be made.
 
-The compromise made is to use \textit{sub second signals} for each element to be compared. Since the time and sample rate determine how the \textit{DFFT} \textit{frequency bins} are spaced after analysis - and how much information we end up analyzing - the end result is a lower plot resolution.
+The compromise made is to use \textit{sub second signals} for each element to be compared. Since the time and sample rate determine how the \define{dfft} \textit{frequency bins} are spaced after analysis - and how much information we end up analyzing - the end result is a lower plot resolution.
 
-Zero padding the input signal for Fourier analysis is a controversial subject\footnote{'Zero-padding a signal does not reveal more information about the spectrum, but it only interpolates between the frequency bins that would occur when no zero-padding is applied. In particular, zero-padding does not increase the spectral resolution.' \cite{zeropaddinginterpolate} \cite{ZeroPaddingBad}}, but for the present application no adverse effects have been found. This might be the case since we control how the source signal is generated, with a predetermined \textit{attack} and \textit{decay}. However, it is disabled by default so the results presented can be free from questioning regarding the effects, and available for cases where more precise frequency information is needed with no spectral leakage to adjacent \textit{frequency bins}.
+Zero padding the input signal for Fourier analysis is a controversial subject\footnote{Zero-padding a signal does not reveal more information about the spectrum. See \cite{zeropaddinginterpolate} \cite{ZeroPaddingBad}}, but for the present application no adverse effects have been found. This might be the case since we control how the source signal is generated, with a predetermined \textit{attack} and \textit{decay}. However, it is disabled by default so the results presented can be free from questioning regarding the effects, and available for cases where more precise frequency information is needed with no spectral leakage to adjacent \textit{frequency bins}.
 
 \subsection{Output Plots}
 \label{outputfiles}
@@ -333,7 +338,7 @@ However there will be two sets of \textit{Spectrograms}, one for the \textit{Ref
 	\label{fig:plot2-samefile-fm-spectrogram}
 \end{figure}
 
-The Amplitude, or volume, of each of the fundamental sine waves that compose the original signal is represented by vertical lines that reach from the bottom to the point that represents the amplitude in \textit{dBFS} \cite{dbfs}. The line is also colored to represent that amplitude with the scale on the left showing the equivalence.
+The Amplitude, or volume, of each of the fundamental \textit{sine waves} that compose the original signal is represented by vertical lines that reach from the bottom to the point that corresponds to the amplitude in \textit{dBFS} \cite{dbfs}. The line is also colored to represent that amplitude with the scale on the left showing the equivalence.
 
 Three colors as defined from the \textit{mfn file}\footnote{The configuration file is described in appendix \ref{mfnconfig}} are used to plot the graph, with each one of them plotting the frequencies from each corresponding block from the \textit{WAV} file.
 
@@ -525,9 +530,10 @@ The \textit{USB Lexicon alpha} has a more accurate sampling clock, although the 
 
 Here is the graph with the \textit{Average plot} option turned on.
 
+\section{Scenario 6: Comparing wav vs mp3}
+\label{mp3}
 
-
-\section{Scenario 6: Comparing two vintage consoles}
+\section{Scenario 7: Comparing two vintage consoles}
 
 \section{Corner cases}
 \label{cornercase}
@@ -570,6 +576,23 @@ Although the recordings were made using several audio cards as described in sect
 \section{A-MD1UTVA3 vs A-MD2UCVA18}
 
 \begin{appendices}
+	
+\chapter{Licensing}
+
+\textit{MDFourier} Copyright (C)2019 Artemio Urbina
+\label{license}
+This program is free software: you can redistribute it and/or modify
+it under the terms of the GNU General Public License as published by
+the Free Software Foundation, either version 3 of the License, or
+(at your option) any later version.
+
+This program is distributed in the hope that it will be useful,
+but WITHOUT ANY WARRANTY; without even the implied warranty of
+MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+GNU General Public License for more details.
+
+You should have received a copy of the GNU General Public License
+along with this program.  If not, see \url{https://www.gnu.org/licenses/}.	
 	
 \chapter{Configuration file}
 \label{mfnconfig}
@@ -830,52 +853,59 @@ A Beta Function filter with parameters (16,2) will attenuate almost all the diff
 \chapter{Normalization and amplitude matching}
 \label{normalization}
 
-In order to have a common ground between signals, \textit{normalization} is performed. The default process is done in the \textit{frequency domain}. Each kind has strengths and weaknesses, but the \textit{frequency domain} normalization is always accurate, but might be confusing in some corner cases\footnote{One such example is available in section \ref{cornercase}} without understanding the underlying causes.
+Since each signal is probably at its own distinct volume, we need to perform a a \textit{normalization} process in order to have a common compare point between them.
 
-Silence can't be used as reference, since the noise floor will vary by console and by audio card- The only other options are fixing points from the signal. Every normalization option used follows a different logic for fixing a point of comparison. 
+Each type of \textit{normalization} has its own strengths and weaknesses, but the \textit{frequency domain} normalization designed for this process is always accurate with respect o the \textit{Reference} signal, but might be confusing in some corner cases\footnote{One such example is available in section \ref{cornercase}} if the underlying causes are not well understood when interpreting the results.
 
-The default is to do this in the \textit{frequency domain} as described above. But there are two other options available via command line\footnote{These can be enabled via the \textit{extra command} option from the GUI as described in section \ref{extracommand}}
+Since silence can't be used as reference\footnote{Noise floor will vary by console and by audio card}, the only other option is fixing points from within the signal. Every normalization process used follows a different logic for fixing one such point for comparison.
+
+The default is to do this in the \textit{frequency domain}\footnote{This means it is performed after the Discrete Fourier Transform and using the data generated by it.}, but there are two other options available via command line\footnote{These can be enabled via the \textit{extra command} option from the GUI as explained in section \ref{extracommand}}. All three methods are described in the following sections.
 
 \section{Frequency domain normalization}
 
-The default option. It involves finding the highest magnitude from the \textit{Fourier Transform} of the \textit{Reference} signal before amplitudes are calculated. Then, the corresponding match in the appropriate block is done against the \textit{Comparison} frequency spectrum. 
+This is the default option used my the software. It involves finding the \textit{highest magnitude}\footnote{At this point in the analysis there are no amplitudes defined, since we have no reference points. Hence we don't use amplitude, and raw magnitude values from each transform are used.} from the \textit{Fourier Transform} of the \textit{Reference} signal before amplitudes are calculated. Then a corresponding match in the \textit{Comparison} signal's frequency spectrum for the same block is searched for. 
 
-This means that the same frequency is searched for, occurring in the same position in time. Having both points, a meaningful \textit{reference point} is set for the comparison, and the relative amplitudes between the signals can be determined.
+This means that the exact same fundamental frequency with the highest magnitude value is searched for, occurring at the same position in time - which corresponds to the block. Having both points, a meaningful \textit{reference point} is set for the comparison, and the relative amplitudes between the signals can be calculated.
 
-Then \textit{0dBFS} is matched against the absolute highest volume from the \textit{Comparison} file\footnote{Since the highest point of the \textit{Reference} signal was matched to one other point in the \textit{Comparison} file, there are only two options: either both peaks are in the exact same spot, or there is a higher peak in the \textit{Comparison} file}, after both signals are relatively normalized in amplitude against the reference point.
+In order to calculate the amplitudes, \textit{0dBFS} is matched against the absolute highest magnitude from the \textit{Comparison} file\footnote{Since the highest point of the \textit{Reference} signal was matched to one other point in the \textit{Comparison} file, there are only two options: either both peaks are in the exact same spot, or there is a higher peak in the \textit{Comparison} file}, after both signals have been relatively normalized in amplitude against the reference point.
 
-This method has shown to be always accurate within my tests. However, results can be unexpected in certain corner cases as the one shown in section \ref{cornercase}. 
+This method has shown to be always accurate within the tests. However, results can be unexpected in certain corner cases as the one shown in section \ref{cornercase}. 
 
 \section{Time domain normalization}
 
-The process is very similar to the \textit{frequency domain} variant but it is done to the samples from the  \textit{WAV} file\footnote{Only in RAM during execution, input files are never modified}.
+The process is very similar to the \textit{frequency domain} variant but it is done using the raw audio samples directly from the \textit{WAV} file\footnote{Values are changed only in RAM during execution, input files are never modified}.
 
-The highest amplitude is searched for within the samples of the meaningful audio signal, as indicated in the configuration file\footnote{Described in section \ref{mfnconfig}}. The corresponding segment in time is then located, and a pre-defined\footnote{One NTSC frame - or $\sfrac{1}{60}$ of a second - in the current implementation} duration is searched for the \textit{maximum local} point.
+The highest amplitude is searched for within the samples of the meaningful audio signal, as dictated by the configuration file\footnote{Described in section \ref{mfnconfig}}. The corresponding segment in time is then located in the \textit{Comparison} file, and a pre-defined duration\footnote{One frame in the current implementation} is searched for the sample with the \textit{maximum local} value.
 
-The Comparison signal is then absolutely normalized to \textit{0dBFS}\footnote{Relative to \textit{0xFFFF} - the top value in \textit{16 bits} samples in the WAV file} and the \textit{Reference} signal is then relatively normalized using the adjusted local maximum value. This follows the same logic described in the \textit{frequency domain}.
+The \textit{Comparison} signal is then absolutely normalized to \textit{0dBFS}\footnote{Relative to \textit{0xFFFF} - the top value in \textit{16 bit} samples in the \textit{WAV} file}, and the \textit{Reference} signal is then relatively normalized using the adjusted \textit{local maximum} value. This follows the same rationale described for the \textit{frequency domain} equivalent.
 
 Although the results can sometimes be deceivingly familiar, they are not correctly referenced in corner cases\footnote{See section \ref{cornercase} for an example}, and they do not represent the real relation between the signals. However, they can be useful for analysis while in the process of understanding how to interpret the plots.
 
 \section{Highest fundamental average normalization}
 
-This normalization option also takes place in the \textit{frequency domain}. The idea is to average the highest magnitudes - the fundamentals - from all segments and use the ratio resulting from both signals to normalize them.
+This normalization option also takes place in the \textit{frequency domain}. The idea is to average the highest magnitudes - the fundamentals - from all segments and use the resulting ratio calculated between both signals to normalize them.
 
-The results are always centered around the \textit{0dBFS} line in the Differences plot, allowing a globalized view. However, the amplitude differences are not to relied upon for calibration since they are not relative to a fixed point from the \textit{Reference} signal. This option is just available for completeness.
+The results are always centered around the \textit{0dBFS} line in the \textit{Differences plot}, allowing a globalized view. However, the amplitude differences are not to be relied upon for calibration, since they are not relative to a fixed point from the \textit{Reference} signal. This option is just available for cases when both signals present a high difference rate between them, which is unexpected but possible.
 
 \chapter{Frame rate}
 \label{framerate}
 
-The farme rate is the amount of frame per second a system sends to the display. In the case of classic video game consoles, this commonly was a CRT TV.
+The \textit{frame rate} is the amount of frames per second a system sends to the display. Since the \textit{custom binary} runs from within the target system, we are subject to the internal timing. Every time a frame starts the process for being sent to the display, an event called \textit{vertical sync} occurs. This is the driving clock for the whole console\footnote{As a matter of fact, almost all the code for running games - or the custom binary in out case - is executed during a segment called \textit{vertical blank}.}.
 
-There are several reasons we care about frame rate for these tests.
+It is vital for the process to have a basic unit of time, in order to segment the file in the chunks needed for analysis and to send the correct values to the \textit{Discrete Fourier Transform}.
+
+Signals generated from different sources can have dissimilar \textit{frame rates}, even when running the same programs and representing the same platform. This can be due to several reasons: having a different display technology as target, hardware inconsistencies between revisions, etc.
+
+Another source for variation is the audio capture device, since these can vary slightly in their sample rate clocks. But usually these are lower variations that are reported and compensated for internally.
+
+The frame duration is the basic unit of measurement, since we are dealing with signals that are well below one second. Because of this, the configuration file\footnote{See appendix \ref{mfnconfig}} defines the expected frame duration in milliseconds as measured from a vintage console. One such example is the frame duration as measured from an \define{ntsc} \textit{Sega Genesis} using an \textit{oscilloscope}\footnote{Electronic tool for measuring electric signals.} as shown in figure \ref{fig:frameratescope}.
 
 \begin{figure}[H]
 	\centering
 	\includegraphics[width=1.0\linewidth]{plots/framerate-scope.png}
-	\caption[Scope frame rate]{Frame rate as measured with a scope from a Model 1 VA3 system}
+	\caption[Scope frame rate]{Frame duration as measured with a scope from a \textit{Model 1 VA3 system}}
 	\label{fig:frameratescope}
 \end{figure}
-
 
 
 \chapter{Requirements}
@@ -925,7 +955,7 @@ Your capture card will probably be bundled with some audio editing software, or 
 
 This is the list of colors that can be used in the \textit{MFN configuration file} described in section \ref{mfnconfig}: 
 
-\textit{red, green, blue, yellow, magenta, aquamarine, orange, purple}, and \textit{gray}.
+\textit{red, green, blue, yellow, magenta, aquamarine, orange}, and \textit{purple}.
 
 \chapter{Compiling from source code}
 
@@ -954,11 +984,11 @@ The \textit{makefiles} to compile either version are provided with the source co
 \chapter{Contact the author}
 \label{contact}
 
-You can contact me via twitter \url{http://twitter.com/Artemio} or e-mail me at \textit{aurbina@junkerhq.net}
+You can contact me via twitter \url{http://twitter.com/Artemio} or e-mail me at \textit{aurbina@junkerhq.net}.
 
 \chapter{Acknowledgements}
 
-I'd like to thank the following people for helping me so this tool could be completed. First and foremost to my family, that although never understood what I was doing, they helped me find the time to learn and make progress.
+I'd like to thank the following people for helping me so these tools could be completed. First and foremost to my family, who helped me find the time to learn and make progress.
 
 \end{appendices}
 
