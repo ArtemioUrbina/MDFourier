@@ -289,6 +289,8 @@ long int DetectPulseInternal(char *Samples, wav_hdr header, int factor, long int
 	if(offset)
 		i = offset/buffersize;
 
+	targetFrequency = FindFrequencyBracket(GetPulseSyncFreq(config), millisecondSize/2, header.SamplesPerSec);
+
 	while(i < TotalMS)
 	{
 		loadedBlockSize = millisecondSize;
@@ -321,7 +323,7 @@ long int DetectPulseInternal(char *Samples, wav_hdr header, int factor, long int
 		// We use left channel by default, we don't knwo about channel imbalances yet
 		ProcessChunkForSyncPulse((int16_t*)buffer, loadedBlockSize/2, 
 				header.SamplesPerSec, &pulseArray[i], 
-				config->channel == 's' ? 'l' : config->channel, config);
+				config->channel == 's' ? 'l' : config->channel, targetFrequency, config);
 		if(pulseArray[i].magnitude > MaxMagnitude)
 			MaxMagnitude = pulseArray[i].magnitude;
 		i++;
@@ -337,17 +339,15 @@ long int DetectPulseInternal(char *Samples, wav_hdr header, int factor, long int
 		if(pulseArray[i].hertz)
 			pulseArray[i].amplitude = CalculateAmplitude(pulseArray[i].magnitude, MaxMagnitude);
 		else
-			pulseArray[i].amplitude = -100;
+			pulseArray[i].amplitude = NO_AMPLITUDE;
 	}
-
-	targetFrequency = FindFrequencyBracket(GetPulseSyncFreq(config), millisecondSize/2, header.SamplesPerSec);
 
 	if(config->debugSync)
 	{
 		logmsg("===== Searching for %gHz at %ddBFS =======\n", targetFrequency, config->types.pulseMinVol);
 		for(i = 0; i < TotalMS; i++)
 		{
-			if(pulseArray[i].amplitude >= config->types.pulseMinVol && pulseArray[i].hertz >= targetFrequency - 2.0 && pulseArray[i].hertz <= targetFrequency + 2.0)
+			if(pulseArray[i].amplitude >= config->types.pulseMinVol && pulseArray[i].hertz == targetFrequency)
 				logmsg("B: %ld Hz: %g A: %g\n", 
 					pulseArray[i].bytes, 
 					pulseArray[i].hertz, 
@@ -364,7 +364,7 @@ long int DetectPulseInternal(char *Samples, wav_hdr header, int factor, long int
 	return offset;
 }
 
-double ProcessChunkForSyncPulse(int16_t *samples, size_t size, long samplerate, Pulses *pulse, char channel, parameters *config)
+double ProcessChunkForSyncPulse(int16_t *samples, size_t size, long samplerate, Pulses *pulse, char channel, double target, parameters *config)
 {
 	fftw_plan		p = NULL;
 	long		  	stereoSignalSize = 0;	
@@ -446,10 +446,28 @@ double ProcessChunkForSyncPulse(int16_t *samples, size_t size, long samplerate, 
 		magnitude = CalculateMagnitude(spectrum[i], size);
 		Hertz = CalculateFrequency(i, boxsize, config->ZeroPad);
 
-		if(magnitude > maxMag)
+		if(config->laxSync)
 		{
-			maxMag = magnitude;
-			maxHertz = Hertz;
+			if(maxHertz != target && magnitude > maxMag)
+			{
+				maxMag = magnitude;
+				maxHertz = Hertz;
+			}
+	
+			if(Hertz == target)
+			{
+				maxMag = magnitude;
+				maxHertz = Hertz;
+				break;
+			}
+		}
+		else
+		{
+			if(magnitude > maxMag)
+			{
+				maxMag = magnitude;
+				maxHertz = Hertz;
+			}
 		}
 	}
 

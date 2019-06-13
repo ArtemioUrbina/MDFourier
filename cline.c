@@ -103,6 +103,7 @@ void CleanParameters(parameters *config)
 	config->debugSync = 0;
 	config->drawWindows = 0;
 	config->channelBalance = 1;
+	config->laxSync = 0;
 
 	config->logScale = 1;
 	config->reverseCompare = 0;
@@ -152,7 +153,7 @@ int commandline(int argc , char *argv[], parameters *config)
 	
 	CleanParameters(config);
 
-	while ((c = getopt (argc, argv, "hxjzmviklygLHo:s:e:f:t:p:a:w:r:c:d:P:SDMNRAWDBn:")) != -1)
+	while ((c = getopt (argc, argv, "hxjzmviklygLHo:s:e:f:t:p:a:w:r:c:d:P:SDMNRAWXDBn:")) != -1)
 	switch (c)
 	  {
 	  case 'h':
@@ -182,6 +183,9 @@ int commandline(int argc , char *argv[], parameters *config)
 		break;
 	  case 'y':
 		config->debugSync = 1;
+		break;
+	  case 'X':
+		config->laxSync = 1;
 		break;
 	  case 'g':
 		config->averagePlot = 1;
@@ -413,7 +417,11 @@ int commandline(int argc , char *argv[], parameters *config)
 	}
 	fclose(file);
 
-	CreateFolderName(config);
+	if(!CreateFolderName(config))
+	{
+		logmsg("Could not create output folders\n");
+		return 0;
+	}
 	CreateBaseName(config);
 
 	if(IsLogEnabled())
@@ -470,13 +478,13 @@ int commandline(int argc , char *argv[], parameters *config)
 	return 1;
 }
 
-void CreateFolderName(parameters *config)
+int CreateFolderName(parameters *config)
 {
 	int len;
 	char tmp[BUFFER_SIZE];
 
 	if(!config)
-		return;
+		return 0;
 
 	sprintf(tmp, "%s", basename(config->referenceFile));
 	len = strlen(tmp);
@@ -495,18 +503,35 @@ void CreateFolderName(parameters *config)
 	sprintf(config->folderName, "MDFResults\\%s", tmp);
 
 #if defined (WIN32)
-	mkdir("MDFResults");
-	mkdir(config->folderName);
+	if(_mkdir("MDFResults") != 0)
+	{
+		if(errno != EEXIST)
+			return 0;
+	}
+	if(_mkdir(config->folderName) != 0)
+	{
+		if(errno != EEXIST)
+			return 0;
+	}
 #else
-	mkdir("MDFResults", 0755);
-	mkdir(config->folderName, 0755);
+	if(mkdir("MDFResults", 0755) != 0)
+	{
+		if(errno != EEXIST)
+			return 0;
+	}
+	if(mkdir(config->folderName, 0755) != 0)
+	{
+		if(errno != EEXIST)
+			return 0;
+	}
 #endif
+	return 1;
 }
 
 void InvertComparedName(parameters *config)
 {
 	int len;
-	char tmp[2500];
+	char tmp[BUFFER_SIZE];
 
 	sprintf(tmp, "%s", basename(config->targetFile));
 	len = strlen(tmp);
@@ -517,27 +542,52 @@ void InvertComparedName(parameters *config)
 	sprintf(config->compareName, "%s", tmp);
 }
 
-void CreateFolderName_wave(parameters *config)
+int CreateFolderName_wave(parameters *config)
 {
 	int len;
-	char tmp[2500];
+	char tmp[BUFFER_SIZE];
 
 	if(!config)
-		return;
+		return 0;
 
 	sprintf(tmp, "MDWave\\%s", basename(config->referenceFile));
 	len = strlen(tmp);
 	tmp[len-4] = '\0';
 
+	len = strlen(tmp);
+	for(int i = 0; i < len; i++)
+	{
+		if(tmp[i] == ' ')
+			tmp[i] = '_';
+	}
+
 	sprintf(config->folderName, "%s", tmp);
 
 #if defined (WIN32)
-	mkdir("MDWave");
-	mkdir(config->folderName);
+	if(_mkdir("MDWave") != 0)
+	{
+		if(errno != EEXIST)
+			return 0;
+	}
+	if(_mkdir(config->folderName) != 0)
+	{
+		if(errno != EEXIST)
+			return 0;
+	}
 #else
-	mkdir("MDWave", 0755);
-	mkdir(config->folderName, 0755);
+	if(mkdir("MDWave", 0755) != 0)
+	{
+		if(errno != EEXIST)
+			return 0;
+	}
+	if(mkdir(config->folderName, 0755) != 0)
+	{
+		if(errno != EEXIST)
+			return 0;
+	}
 #endif
+
+	return 1;
 }
 
 char *GetNormalization(enum normalize n)

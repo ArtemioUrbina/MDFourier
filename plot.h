@@ -107,9 +107,9 @@ int PlotEachTypeMissingFrequencies(FlatFreqDifference *freqDiff, char *filename,
 void PlotSingleTypeMissingFrequencies(FlatFreqDifference *freqDiff, int type, char *filename, parameters *config);
 void PlotAllMissingFrequencies(FlatFreqDifference *freqDiff, char *filename, parameters *config);
 
-int PlotEachTypeSpectrogram(FlatFrequency *freqs, long int size, char *filename, parameters *config);
-void PlotSingleTypeSpectrogram(FlatFrequency *freqs, long int size, int type, char *filename, parameters *config);
-void PlotAllSpectrogram(FlatFrequency *freqs, long int size, char *filename, parameters *config);
+int PlotEachTypeSpectrogram(FlatFrequency *freqs, long int size, char *filename, int signal, parameters *config);
+void PlotSingleTypeSpectrogram(FlatFrequency *freqs, long int size, int type, char *filename, int signal, parameters *config);
+void PlotAllSpectrogram(FlatFrequency *freqs, long int size, char *filename, int signal, parameters *config);
 
 void PlotWindow(windowManager *wm, long int frames, parameters *config);
 void PlotBetaFunctions(parameters *config);
@@ -134,5 +134,8 @@ void PlotAllDifferentAmplitudesAveraged(FlatAmplDifference *amplDiff, char *file
 void PlotTest(char *filename, parameters *config);
 void PlotTestZL(char *filename, parameters *config);
 void VisualizeWindows(windowManager *wm, parameters *config);
+
+char *GetCurrentPathAndChangeToResultsFolder(parameters *config);
+void ReturnToMainPath(char **CurrentPath);
 
 #endif

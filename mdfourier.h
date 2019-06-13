@@ -39,6 +39,7 @@
 #include <unistd.h>
 #include <stdint.h>
 #include <time.h>
+#include <errno.h>
 
 #include <string.h>
 #include <math.h>
@@ -48,7 +49,7 @@
 
 #include "incbeta.h"
 
-#define MDVERSION "0.916"
+#define MDVERSION "0.918"
 
 
 #define MAX_FREQ_COUNT		100000 	/* Number of frequencies to compare(MAX) */
@@ -240,12 +241,16 @@ typedef struct ampl_diff_st {
 
 typedef struct blk_diff_st {
 	FreqDifference *freqMissArray;
-	int			cntFreqBlkDiff;
-	double		weightedFreqBlkDiff;
+	long int		cntFreqBlkDiff;
+	long int		cmpFreqBlkDiff;
+	double			weightedFreqBlkDiff;
 
 	AmplDifference *amplDiffArray;
-	int			cntAmplBlkDiff;
-	double		weightedAmplBlkDiff;
+	long int		cntAmplBlkDiff;
+	long int		cmpAmplBlkDiff;
+	double			weightedAmplBlkDiff;
+
+	int				type;
 } BlockDifference;
 
 typedef struct block_diff_st {
@@ -296,6 +301,7 @@ typedef struct parameters_st {
 	int				ZeroPad;
 	enum normalize	normType;
 	int				channelBalance;
+	int				laxSync;
 
 	int				plotDifferences;
 	int				plotMissing;

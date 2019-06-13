@@ -176,11 +176,10 @@ int CheckBalance(AudioSignal *Signal, int block, parameters *config)
 				diffNam == 'l' ? "left" : "right", channDiff);
 			if(config->channelBalance)
 			{
-				logmsg("\tCompensating in software.\n");
-				logmsg("\t\t(Use -B to disable auto-balance)\n");
+				logmsg("\tCompensating in software. [Use -B to disable auto-balance]\n");
 				logmsg("\tThis can be caused by gain controls in\n");
 				logmsg("\tthe audio card and/or be present in the\n");
-				logmsg("\tsystem generating the audio signal.\n\n");
+				logmsg("\tsystem generating the audio signal.\n");
 			}
 			else
 				logmsg("\tAudio not compensated.\n");

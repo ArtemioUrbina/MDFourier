@@ -123,9 +123,15 @@ int main(int argc , char *argv[])
 	{
 		if(config.plotSpectrogram)
 		{
+			char 	*CurrentPath = NULL;
+
+			CurrentPath = GetCurrentPathAndChangeToResultsFolder(&config);
+
 			logmsg(" - Spectrogram Comparison");
 			PlotSpectrograms(ComparisonSignal, &config);
 			logmsg("\n");
+
+			ReturnToMainPath(&CurrentPath);
 		}
 	}
 
@@ -368,6 +374,7 @@ int LoadAndProcessAudioFiles(AudioSignal **ReferenceSignal, AudioSignal **Compar
 
 	logmsg("* Processing Signal Frequencies and Amplitudes\n");
 	/*
+	// Compensate time normalization to match frequency normalization
 	if(config->normType == max_time)
 	{
 		// Check if we have the same peaks
@@ -861,8 +868,7 @@ double CompareAudioBlocks(AudioSignal *ReferenceSignal, AudioSignal *ComparisonS
 			//if(IsCRTNoise(ReferenceSignal->Blocks[block].freq[freq].hertz))
 				//continue;
 
-			/* One compared item is frequency the other is amplitude */
-			config->Differences.cntTotalCompared ++;
+			IncrementCompared(block, config);
 			for(int comp = 0; comp < testSize; comp++)
 			{
 				if(!ComparisonSignal->Blocks[block].freq[comp].matched && 

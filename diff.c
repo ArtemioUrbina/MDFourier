@@ -101,6 +101,14 @@ int CreateDifferenceArray(parameters *config)
 			BlockDiffArray[i].freqMissArray = NULL;
 			BlockDiffArray[i].amplDiffArray = NULL;
 		}
+
+		BlockDiffArray[i].type = type;
+		BlockDiffArray[i].cntFreqBlkDiff = 0;
+		BlockDiffArray[i].cmpFreqBlkDiff = 0;
+		BlockDiffArray[i].weightedFreqBlkDiff = 0;
+		BlockDiffArray[i].cntAmplBlkDiff = 0;
+		BlockDiffArray[i].cmpAmplBlkDiff = 0;
+		BlockDiffArray[i].weightedAmplBlkDiff = 0;
 	}
 	
 	config->Differences.BlockDiffArray = BlockDiffArray;
@@ -148,6 +156,21 @@ void ReleaseDifferenceArray(parameters *config)
 	config->Differences.weightedAudioDiff = 0;
 }
 
+int IncrementCmpAmplDifference(int block, parameters *config)
+{
+	if(!config)
+		return 0;
+
+	if(!config->Differences.BlockDiffArray)
+		return 0;
+
+	if(block > config->types.totalChunks)
+		return 0;
+
+	config->Differences.BlockDiffArray[block].cmpAmplBlkDiff ++;
+	return 1;
+}
+
 int InsertAmplDifference(int block, double freq, double refAmplitude, double compAmplitude, double weighted, parameters *config)
 {
 	int position = 0;
@@ -176,6 +199,36 @@ int InsertAmplDifference(int block, double freq, double refAmplitude, double com
 	config->Differences.BlockDiffArray[block].weightedAmplBlkDiff += weighted;
 	config->Differences.weightedAmplAudio += weighted;
 	config->Differences.weightedAudioDiff += weighted;
+	return 1;
+}
+
+
+int IncrementCompared(int block, parameters *config)
+{
+	if(!config)
+		return 0;
+
+	config->Differences.cntTotalCompared ++;
+	if(!IncrementCmpAmplDifference(block, config))
+		return 0;
+	if(!IncrementCmpFreqNotFound(block, config))
+		return 0;
+	return 1;
+}
+
+
+int IncrementCmpFreqNotFound(int block, parameters *config)
+{
+	if(!config)
+		return 0;
+
+	if(!config->Differences.BlockDiffArray)
+		return 0;
+
+	if(block > config->types.totalChunks)
+		return 0;
+	
+	config->Differences.BlockDiffArray[block].cmpFreqBlkDiff ++;
 	return 1;
 }
 

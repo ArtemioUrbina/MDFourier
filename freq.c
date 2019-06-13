@@ -1109,7 +1109,7 @@ void PrintFrequencies(AudioSignal *Signal, parameters *config)
 			//if(Signal->Blocks[block].freq[j].amplitude == NO_AMPLITUDE)
 				//break;
 
-			if(Signal->Blocks[block].freq[j].hertz)
+			if(Signal->Blocks[block].freq[j].hertz && Signal->Blocks[block].freq[j].amplitude != NO_AMPLITUDE)
 			{
 				logmsg("Frequency [%5d] %7g Hz Amplitude: %g Phase: %g",
 					j, 
@@ -1215,7 +1215,8 @@ void FillFrequencyStructures(AudioBlocks *AudioArray, parameters *config)
 	double boxsize = 0, size = 0;
 
 	size = AudioArray->fftwValues.size;
-	boxsize = roundFloat(AudioArray->fftwValues.seconds);
+	// Round to 3 decimal places so that 48khz and 44 khz line up
+	boxsize = RoundFloat(AudioArray->fftwValues.seconds, 3);
 
 	if(AudioArray->type != TYPE_SILENCE)
 	{
@@ -1499,7 +1500,7 @@ double FindDifferenceAverage(parameters *config)
 
 	for(int b = 0; b < config->types.totalChunks; b++)
 	{
-		if(GetBlockType(config, b) <= TYPE_CONTROL)
+		if(config->Differences.BlockDiffArray[b].type <= TYPE_CONTROL)
 			continue;
 
 
@@ -1514,4 +1515,62 @@ double FindDifferenceAverage(parameters *config)
 		AvgDifAmp /= count;
 
 	return AvgDifAmp;
+}
+
+int FindDifferenceTypeTotals(int type, long int *cntAmplBlkDiff, long int *cmpAmplBlkDiff, parameters *config)
+{
+	if(!config)
+		return 0;
+
+	if(!config->Differences.BlockDiffArray)
+		return 0;
+
+	if(!cntAmplBlkDiff || !cmpAmplBlkDiff)
+		return 0;
+
+	*cntAmplBlkDiff = 0;
+	*cmpAmplBlkDiff = 0;
+
+	for(int b = 0; b < config->types.totalChunks; b++)
+	{
+		if(config->Differences.BlockDiffArray[b].type <= TYPE_CONTROL)
+			continue;
+
+		if(type == config->Differences.BlockDiffArray[b].type)
+		{
+			*cntAmplBlkDiff += config->Differences.BlockDiffArray[b].cntAmplBlkDiff;
+			*cmpAmplBlkDiff += config->Differences.BlockDiffArray[b].cmpAmplBlkDiff;
+		}
+	}
+
+	return 1;
+}
+
+int FindMissingTypeTotals(int type, long int *cntFreqBlkDiff, long int *cmpFreqBlkDiff, parameters *config)
+{
+	if(!config)
+		return 0;
+
+	if(!config->Differences.BlockDiffArray)
+		return 0;
+
+	if(!cntFreqBlkDiff || !cmpFreqBlkDiff)
+		return 0;
+
+	*cntFreqBlkDiff = 0;
+	*cmpFreqBlkDiff = 0;
+
+	for(int b = 0; b < config->types.totalChunks; b++)
+	{
+		if(config->Differences.BlockDiffArray[b].type <= TYPE_CONTROL)
+			continue;
+
+		if(type == config->Differences.BlockDiffArray[b].type)
+		{
+			*cntFreqBlkDiff += config->Differences.BlockDiffArray[b].cntFreqBlkDiff;
+			*cmpFreqBlkDiff += config->Differences.BlockDiffArray[b].cmpFreqBlkDiff;
+		}
+	}
+
+	return 1;
 }
