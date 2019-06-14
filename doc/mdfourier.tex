@@ -18,12 +18,15 @@
 \newacronym{dfft}{DFFT}{Discrete Fast Fourier Transform}
 \newacronym{ntsc}{NTSC}{National Television System Committee}
 \newacronym{dbfs}{dBFS}{Decibels relative to full scale}
+\newacronym{png}{PNG}{Portable Network Graphic}
+\newacronym{hz}{Hz}{Hertz is the derived unit of frequency in the International System of Units (SI). It is defined as one cycle per second.}
+\newacronym{khz}{kHz}{Kilohertz, refers to 1000 hertz.}
 
 \newcommand{\define}[1] {
 	\textit{\acrshort{#1}\footnote{\textit{\acrlong{#1}}}}}
 
 \newcommand{\defineCite}[2] {
-	\textit{\acrshort{#1}\footnote{\textit{\acrlong{#1}}#2}}}
+	\textit{\acrshort{#1}\footnote{\textit{\acrlong{#1}} #2}}}
 
 \makeglossaries
 
@@ -47,20 +50,21 @@ It consists on a \textit{custom binary} that runs on a \textit{target platform} 
 
 Te results can be used in a variety of ways: to identify how \textit{audio signatures} vary between \textit{systems}, to detect if the \textit{audio signals} are modified by \textit{audio equipment}, detect if \textit{modifications} resulted in audible changes, to help tune \textit{emulators}, \textit{FPGA} implementations or \textit{mods}, etc.
 
-The present documents serves as an introduction, a manual and a description of the methods used and how they work.
+The present documents serves as an introduction, a manual and description of the methods used and how they work.
 \end{abstract}
 
 \tableofcontents
 
 \chapter{\textit{MDFourier} Objective}
 
-To provide a free and open source\footnote{Licensed under GNU GPL see appendix \ref{license}} software based analysis framework for comparing audio signatures from a targeted video game system and its variants\footnote{Vintage retail variations, hardware modifications, clones and \textit{\acrfull{fpga}} implementations}. The resulting comparison can help tune such system\footnote{The term \textit{system} will be used to cover vintage retail hardware, emulators, \textit{FPGA} implementations and any other possible variant that executes binaries for the target hardware} to better match the desired reference profile.
+To provide a free and open source\footnote{Licensed under \textit{GNU GPL} see appendix \ref{license}.} software based analysis framework for comparing audio signatures from a targeted video game system and its variants\footnote{Vintage retail variations, hardware modifications, clones and \textit{\acrfull{fpga}} implementations}. The resulting comparison can help tune such system\footnote{The term \textit{system} will be used to cover vintage retail hardware, emulators, \textit{FPGA} implementations and any other possible variant that executes binaries for the target hardware} to better match the desired reference profile.
 
 This is of course not limited to one specific system, and the software can be used to compare any other platform with new configuration files\footnote{At the moment a profile for \textit{Mega Drive/Genesis} is functional and implemented with more to follow.}.
 
 The intention is not to disparage any particular system; but to help understand and improve them whenever possible by identifying their differences.
 
 A secondary but not less important goal is to create a community driven catalog of audio signatures from these systems, in order to help preservation efforts achieve their objectives.
+
 
 \section{What is it for?}
 
@@ -75,6 +79,8 @@ These results can help determine if the signals are indeed different, and how th
 It can also be used to evaluate if equipment - such as switchers and upscalers with audio passthrough - have any effect on the signal, by comparing a recording with and without the device connected in the AV\footnote{Audio/Video} chain.
 
 Although I believe any present and future implementation of a gaming platform should offer a configuration based on vintage retail hardware, that doesn't mean there isn't room for improvement upon those configurations. Reducing noise while keeping the reference sound signature is one such case.
+
+There must be powerful industrial solutions for this kind of analysis, but they do not seem to have reached the enthusiast for this purpose. I'm not aware of any other similar effort to create public software analysis tools\footnote{It must be noted that there have been detailed comparisons made in particular for the \textit{MegaDrive/Sega Genesis}, see post at \cite{genesisaudio}} that are aimed at vintage console hardware. 
 
 \newpage
 \section{Disclaimer}
@@ -98,7 +104,7 @@ The analysis software is itself \textit{command line} based, in order to be mult
 
 \section{File alignment}
 
-\textit{MDFourier} takes both files and auto detects the starting and ending point of the recording. These are identified by a series of \textit{8820hz} pulses in the current \textit{Mega Drive/Genesis} implementation. From these, a \textit{frame rate}\footnote{The \textit{frame rate} is the ratio at which the console sends video frames to a display. For more details see appendix \ref{framerate}} is calculated in order to trim each file\footnote{Since audio cards have their own \textit{sample rate} clocks \cite{SoundCardClock} \cite{soundcardtiming} \cite{gwsoundcardtiming}, and some implementations have different \textit{frame rates}, frames are used as the base unit instead of time codes} into the segments that are defined in the \textit{configuration file}\footnote{This file specifies the operating parameters for each hardware configuration. It is described in appendix \ref{mfnconfig}} for further comparison.
+\textit{MDFourier} takes both files and auto detects the starting and ending point of the recording. These are identified by a series of \textit{8820}\define{hz} pulses in the current \textit{Mega Drive/Genesis} implementation. From these, a \textit{frame rate}\footnote{The \textit{frame rate} is the ratio at which the console sends video frames to a display. For more details see appendix \ref{framerate}} is calculated in order to trim each file\footnote{Since audio cards have their own \textit{sample rate} clocks \cite{SoundCardClock} \cite{soundcardtiming} \cite{gwsoundcardtiming}, and some implementations have different \textit{frame rates}, frames are used as the base unit instead of time codes} into the segments that are defined in the \textit{configuration file}\footnote{This file specifies the operating parameters for each hardware configuration. It is described in appendix \ref{mfnconfig}} for further comparison.
 
 Most importantly, it guarantees that the \textit{Reference} and \textit{Comparison} files are logically aligned, and that each note - or segment - is compared to its corresponding one, with no overlap and without any audio editing or trimming skills required from the user. Current pulse detection accuracy is around $\sfrac{1}{4}$ of a millisecond.
 
@@ -116,7 +122,7 @@ I've found such comparison to be more than enough, and the \textit{minimum signi
 
 After comparing these frequencies between both files, matches are made and the differences in volume are plotted to a graph. Please read chapter \ref{howtoplots} to help you understand the various plots created by this program.
 
-Sometimes it is helpful to listen to the results of these limiting filters, in order to evaluate if - for instance - 2000 frequencies are either enough or too little for the current application. For this and other purposes I made an extra tool named \textit{MDWave}\footnote{Described in appendix \ref{mdwave}}, which creates segmented audio files as processed after the \textit{Fourier Transform}, even including the effects of \textit{window filters}\footnote{Window functions are described in section \ref{windows})}.
+Sometimes it is helpful to listen to the results of these limiting filters, in order to evaluate if - for instance - 2000 frequencies are either enough or too little for the current application. For this and other purposes I made an extra tool named \textit{MDWave}\footnote{Described in appendix \ref{mdwave}}, which creates segmented audio files as internally processed by \textit{MDFourier}, even including the effects of \textit{window}\footnote{Window functions are described in section \ref{windows})} filters and amplitude limits.
 
 If you are interested in learning what the \textit{Fourier Transform} does and how it works it's magic, there are several resources online to help you out. Here are a few:
 
@@ -150,7 +156,7 @@ Finally, in case none of the previous scenarios is met - or if those values are 
 
 The first step is loading the custom binary to your console, this varies from a \textit{flash cart}, burning a \textit{CD-ROM} or using a \textit{custom loader}.
 
-The next step is setting up your \textit{audio capture card} and computer, in order to record a \textit{44 or 48khz 16 bit stereo} \define{wav} file.
+The next step is setting up your \textit{audio capture card} and computer, in order to record a \textit{44 or 48\define{khz} 16 bit stereo} \define{wav} file\footnote{At the moment only 16 bit WAV files with PCM encoding and at 44.1 or 48kHz are supported. In the future \textit{FLAC} support could be added to save space and bandwidth. \textit{MP3} is not supported since it alters the results in this type of analysis, as shown in section \ref{mp3}}.
 
 Once the \textit{capture card} is ready and the cables are hooked up from the console to the \textit{capture card}, start recording on the computer and execute the \textit{MDFourier} test from the console.
 
@@ -184,27 +190,27 @@ The following sequence of steps indicates the typical work flow within the GUI:
 	\item Select a \textit{Reference} file
 	\item Select a \textit{Comparison} file
 	\item Change the default \textit{options} if needed
-	\item Select the desired outpit \textit{plots}
+	\item Select the desired output \textit{plots}
 	\item Execute \textit{MDFourier}
 	\item When execution ends, open the \textit{results folder}
 \end{enumerate}
 
 The \textit{Front End} will display the output text from the command line tool, including any errors or progress as it becomes available.
 
-Keep in mind that the \textit{Open results} button will only be enabled after a successful comparison between files has been finished, and it won't open a second instance of the window if you have one already open.
+Keep in mind that the \textit{Open Results} button will only be enabled after a successful comparison between files has finished, and it won't open a second instance of the window if you have one already present.
 
-The default options will generate plots that work on most situations. However, in some cases fine tuning the results could be desired in order to highlight specific aspects. These options will be described in the following sections.
+The default options will generate plots that work on most situations. In some cases fine tuning the results might highlight specific aspects. These options will be described in the following sections.
 
 \section{Front End Options}
 
-The currently available options in the Front End are:
+The currently available options in the \textit{Front End} are:
 
 \subsection{Window Functions}
 \label{windows}
 
-In order to reduce \textit{spectral leakage} when applying the \textit{DFT}\footnote{Discrete Fast Fourier Transform} a \textit{filtering window} is applied to each element to be compared between both signals. Since we are generating the signal ourselves from the \textit{custom binary} for each \textit{hardware platform}, the signal can be analyzed as periodic, and has a natural attack and decay rate if possible.
+In order to reduce \textit{spectral leakage}\footnote{This term describes new frequency components created when applying a Fourier Transform to a segment of a signal. See \cite{leakage}} when applying the \define{dft} a \textit{filtering window}\footnote{All details regarding the windows used, their formulas and graphs are in appendix \ref{windowfunctiondetails}} is applied to each element to be compared between both signals. Since we are generating the signal ourselves from the \textit{custom binary}, the signal can be analyzed as \textit{periodic}\footnote{In theory this means we could get away without applying a window, but in practice the signal is not perfect and \textit{windowing} the data helps to eliminate noise.}, and has a natural \textit{attack} and \textit{decay} rate if possible.
 
-By default we use a custom \textit{Tukey window}\footnote{ All details regarding the windows used, their formulas and graphs are in appendix \ref{windowfunctiondetails}} with very steep slopes. \textit{MDFourier} does offer alternate windows as options for further analysis.
+By default we use a custom \textit{Tukey window}\footnote{This is not a common choice for window function, but was selected due to the above reasons after comparing results with  the rest of the available options.} with very steep slopes. \textit{MDFourier} does offer alternate windows as options for further analysis.
 
 \subsection{Color Filter Functions}
 \label{colorfilter}
@@ -236,35 +242,37 @@ For practical reasons, it is desirable to have a short test that will be recorde
 
 In contrast, when applying the \textit{Fourier transform} a compromise is made between frequency detail and time accuracy, very similar to the Heisenberg's uncertainty principle. If we compare a longer signal for each element, we end up with more frequency information. In our case, we don't care much about time accuracy but we do care about the length of the test. Nobody wants to record a 5 or 10 minute signal for each test to be made.
 
-The compromise made is to use \textit{sub second signals} for each element to be compared. Since the time and sample rate determine how the \define{dfft} \textit{frequency bins} are spaced after analysis - and how much information we end up analyzing - the end result is a lower plot resolution.
+The compromise made is to use \textit{sub second signals} for each element to be compared. Since the time and sample rate determine how the \textit{DFT} \textit{frequency bins}\footnote{The size of each slice in hz for the frequency spectrum} are spaced after analysis - and how much information we end up analyzing - the end result is a lower plot resolution.
 
 Zero padding the input signal for Fourier analysis is a controversial subject\footnote{Zero-padding a signal does not reveal more information about the spectrum. See \cite{zeropaddinginterpolate} \cite{ZeroPaddingBad}}, but for the present application no adverse effects have been found. This might be the case since we control how the source signal is generated, with a predetermined \textit{attack} and \textit{decay}. However, it is disabled by default so the results presented can be free from questioning regarding the effects, and available for cases where more precise frequency information is needed with no spectral leakage to adjacent \textit{frequency bins}.
 
 \subsection{Output Plots}
 \label{outputfiles}
 
-Several plots will be generated as a result of the analysis. Please read section \ref{howtoplots} for examples and a guide to interpret their meaning.
+Several plots will be generated as a result of the analysis. There will be several plots of each type in the \textit{output folder}\footnote{It is named \textit{MDFourier} and a subfolder named as the compared files. It can be accessed from the \textit{Front End} with the \textit{Open Results} button.}. One for each type, and one that summarizes all types in a single plot.
+
+All plots are saved in the \defineCite{png}{support via \textit{libpng} \cite{libpng}} format, which is lossless and open source. Please read section \ref{howtoplots} for examples and a guide to interpret their meaning. 
 
 \subsubsection{Different Amplitudes}
 
-Enabling this option created the most relevant output plots from \textit{MDFouriuer}. These plots contain the amplitude differences across the hearing spectrum using the \textit{Reference} file as control.
+Enabling this option created the most relevant output plots from \textit{MDFouriuer}. These contain the amplitude difference for the frequencies common to both files across the hearing spectrum using the \textit{Reference} file as control.
 
-If the files are identical, the plot will be a perfect line across the \textit{0 dBFS} line.
+If the files are identical, the plot will be a perfect line across the \textit{0 dBFS} line. In case the signals differ, a scatter plot will show how it behaves across the typical human hearing spectrum\footnote{Typically defined as \textit{20-20000hz}, but the higher end tends to be lost with age.}.
+
+The file names for these plots have the format:\\ \textit{DA\_Reference\_vs\_Comparison\_block\_options.png}
 
 \subsubsection{Missing Frequencies} 
 
-Plots the frequencies available in the \textit{Reference} file but not found in the \textit{Comparison} file within the significant volume range. This is in effect a \textit{Spectrogram} limited to the frequencies that were expected but are not present.
-	
-\subsubsection{Spectrograms}
+Plots the frequencies available in the \textit{Reference} file but not found in the \textit{Comparison} file within the significant amplitude range. This is in effect a \textit{Spectrogram}, but limited to the frequencies that were expected to be in the intersection but that were not present in the \textit{Comparison} file.
 
-Plots all the frequencies available in each file. Two sets of spectrograms are generated, one for the \textit{Reference} file and one for the \textit{Comparison} file.
+The file names for these plots have the format:\\ \textit{MIS\_Reference\_vs\_Comparison\_block\_options.png}
 
 \subsubsection{Average Plot}
 \label{averaged}
 
 This option traces an \textit{average line} on top of the \textit{Difference} plots, making it easier to follow the trend when the output has severely scattered data. It is \textit{off by default}.
  
-The curve is created by averaging time segments from the frequency sorted data in \textit{Difference} plots. A \textit{Simple Moving Average} is then calculated to smooth out the results.
+The curve is created by averaging time segments from the frequency data sorted in ascending order. A \textit{Simple Moving Average}\footnote{This is a type of average that is intended to smooth out sudden peaks in the data. Often used in exchange rate plots. See \cite{sma}.} is then calculated to smooth out the results.
 
 The curve is weighted according to the \textit{Color Filter Functions} described in section \ref{colorfilter}, by a repeating each data point by the amount mapped in the \textit{0-1} interval described by the function.
 
@@ -272,18 +280,64 @@ As a result, the average will follow the relative amplitudes from the \textit{Re
 
 If there is need for a plot without weighting, please disable the \textit{Color Filtering function}.
 
-\subsection{Verbose Log}
+The file names for these plots have the format:\\ \textit{DA\_AVG\_Reference\_vs\_Comparison\_block\_options.png}
 
-A log is always created by default when using the \textit{Font End}, however this option enables a verbose version with the whole frequency analysis and many other details dumped to the file. 
+\subsubsection{Spectrograms}
 
-Useful for reporting errors or unexpected behavior. (\textit{Please send the audio files if possible as well!}\footnote{Contact details are available in appendix \ref{contact}})
+Plots all the frequencies available in each file\footnote{As limited by the analysis parameters, such as amplitude and frequency count per block}. Two sets of spectrograms are generated, one for the \textit{Reference} file and one for the \textit{Comparison} file.
+
+The file names for these plots have the format:\\ \textit{SP\_AVG\_Reference\_vs\_Comparison\_block\_options.png}
 
 \subsection{Extra Command}
 \label{extracommand}
 
 This checkbox enables the text field to send any extra commands that are not available via the GUI to \textit{MDFourier}. 
 
-Sending \textit{-h} in this field will enlist all the currently supported options.
+Current options as of version \textit{0.918} are:
+
+\begin{verbatim}
+MDFourier 0.918 [240p Test Suite Fourier Audio compare tool]
+Artemio Urbina 2019 free software under GPL
+
+usage: mdfourier -r reference.wav -c compare.wav
+FFT and Analysis options:
+-a: select <a>udio channel to compare. 's', 'l' or 'r'
+-w: enable <w>indowing. Default is a custom Tukey window.
+'n' none, 't' Tukey, 'h' Hann, 'f' FlatTop & 'm' Hamming
+-f: Change the number of analyzed frequencies to use from FFTW
+-s: Defines <s>tart of the frequency range to compare with FFT
+-e: Defines <e>nd of the frequency range to compare with FFT
+-i: <i>gnores the silence block noise floor if present
+-t: Defines the <t>olerance when comparing amplitudes in dBFS
+-z: Uses <z>ero Padding to equal 1 hz FFT bins
+-n: <N>ormalize: 't' Time Domain Max, 'f' Frequency Domain Max or 'a' Average
+-B: Do not do stereo channel audio <B>alancing
+Output options:
+-l: <l>og output to file [reference]_vs_[compare].txt
+-v: Enable <v>erbose mode, spits all the FFTW results
+-g: Create avera<g>e points over the plotted graphs
+-A: Do not weight values in <A>veraged Plot (implies -g)
+-L: Create 800x400 plots as shown in the manual
+-H: Create 1920x1080 plots
+-D: Don't create <D>ifferences Plots
+-M: Don't create <M>issing Plots
+-S: Don't create <S>pectrogram Plots
+-d: Max <d>BFS for plots vertically
+-k: cloc<k> FFTW operations
+-j: (text) Cuts per block information and shows <j>ust total results
+-x: (text) Enables e<x>tended log results. Shows a table with all matches
+-m: (text) Enables Show all blocks compared with <m>atched frequencies
+-h: Shows command line help
+\end{verbatim}
+
+Sending \textit{-h} in this field will enlist all the currently supported options for your version.
+
+\subsection{Verbose Log}
+\label{verbose}
+
+A log is always created by default when using the \textit{Font End}, however this option enables a verbose version with the whole frequency analysis and many other details dumped to the file. 
+
+Useful for reporting errors or unexpected behavior. \textit{Please send the audio files if possible as well!}\footnote{Contact details are available in appendix \ref{contact}.}
 
 \chapter{How to interpret the plots}
 \label{howtoplots}
@@ -292,27 +346,13 @@ The main output of the program is a set of different graphics that vary in quant
 
 In its current form for the \textit{Mega Drive/Genesis}, there are three \textit{active blocks}: \textit{FM}, \textit{PSG} and \textit{Noise}. These will result in a plot of each type, and a general plot, being generated as output.
 
-The files are saved under the folder \textit{MDFourier} and a sub-folder named after the input \textit{WAV} file names. They are stored in \textit{PNG}\footnote{\textit{PNG} support via \textit{libpng} \cite{libpng}} format, currently \textit{1600x800} plots are used, although this can be dynamic. 
+The files are saved under the folder \textit{MDFourier} and a sub-folder named after the input \textit{WAV} file names. They are stored in \textit{PNG} format, currently \textit{1600x800} plots are used, although this can be changed via options. 
 
-For the current document \textit{800x400} plots were used in order to fit within a \textit{PDF} or \textit{HTML} presentation.
+For the current document \textit{800x400} plots were used in order to fit within a \textit{PDF} or \textit{HTML} presentation. The output plots that are created by the software are listed and described in section \ref{outputfiles}.
 
-\section{Output Files}
+In our current \textit{Mega Drive/Genesis} scenario and with default options enabled, we'll get four plots of each type: \textit{FM}, \textit{PSG}, \textit{Noise} and a general one, named \textit{ALL}.
 
-There are common features here that we'll describe. The output plots that are created by the software are listed and described in section \ref{outputfiles}.
-
-\begin{itemize}
-	\item \textbf{Different Amplitude:} Plots the amplitude difference for the frequencies common to both files
-	\item \textbf{Missing Frequencies:} Plots the frequencies available in the \textit{Reference} file but not found in the \textit{Comparison} file within the significant volume range.
-	\item \textbf{Spectrogram:} Plots all the frequencies available in each file. Two sets of spectrograms are generated, one for the \textit{Reference} file and one for the \textit{Comparison} file.
-\end{itemize}
-
-There will be several plots of each type in the output folder. One for each type, and one that summarizes all types in a single plot.
-
-When enabling the \textit{Average Plots} option an extra set of plot files with each average will be generated, as described in section \ref{averaged}.
-
-In our current \textit{Mega Drive/Genesis} scenario, we'll get four plots of each type: \textit{FM}, \textit{PSG}, \textit{Noise} and a general one, named \textit{ALL}.
-
-We'll follow a series of results from different input files to \textit{MDFourier}, starting with cases that have either none or a few differences, and build on top of each one so you can familiarize with what to expect as output.
+We'll follow a series of results from different input files to \textit{MDFourier}, starting with cases that have either none or a few differences and build on top of each one, so you can familiarize with what to expect as output.
 
 \section{Scenario 1: Comparing the same file against itself}
 
@@ -370,7 +410,7 @@ For demonstration purposes, the same \textit{Reference} file was modified to add
 \begin{figure}[H]
 	\centering
 	\includegraphics[width=1.0\linewidth]{plots/Plot3-Modified.png}
-	\caption[1khz modified]{Compared against itself modified with a \textit{500hz 6 db} equalization}
+	\caption[1kHz modified]{Compared against itself modified with a \textit{500hz 6 db} equalization}
 	\label{fig:plot3-modified}
 \end{figure}
 
@@ -389,7 +429,7 @@ It is interesting to note both spectrograms, since the \textit{500hz} spike is a
 	\centering
 	\includegraphics[width=1.0\linewidth]{plots/Plot3-Spectrogram-500hz.png}
 	\caption[Reference File]{Reference file modified with \textit{500hz} peak}
-	\label{fig:plot3-spectrogram-1khz}
+	\label{fig:plot3-spectrogram-1kHz}
 \end{figure}
 
 
@@ -414,9 +454,9 @@ This is the general plot with the three sections:
 	\label{fig:plot4-1-all}
 \end{figure}
 
-We can now see that the higher frequencies above \textit{1khz} in the FM plot steeply go to \textit{$-\infty$ dBFS}, so the first low pass filter is there.
+We can now see that the higher frequencies above \textit{1kHz} in the FM plot steeply go to \textit{$-\infty$ dBFS}, so the first low pass filter is there.
 
-The second low pass filter for \textit{PSG} is at \textit{3khz}, and is steeper.
+The second low pass filter for \textit{PSG} is at \textit{3kHz}, and is steeper.
 
 But we can barely see what is going on with the \textit{Noise} part of the plot. We can see that there is some black dots on top of the \textit{0dBFS} line.
 
@@ -429,7 +469,7 @@ In order to better see what is going on, we'll change the \textit{color filter f
 	\label{fig:plot4-2-all-sqrt}
 \end{figure}
 
-With the higher contrast, we can now make out the curve that raises from \textit{$-\infty$ dBFS} to \textit{0 dBFS}, and it aligns with \textit{8khz}.
+With the higher contrast, we can now make out the curve that raises from \textit{$-\infty$ dBFS} to \textit{0 dBFS}, and it aligns with \textit{8kHz}.
 
 We can still do a little bit better, by using the \textit{Average Plot} option.\footnote{An average and then a moving average are applied to the plot, see section \ref{usinggui} for details}
 
@@ -451,7 +491,7 @@ There are some other interesting plots that result from this experiment. For exa
 	\label{fig:plot4-4-missing-fm}
 \end{figure}
 
-As show in figure \ref{fig:plot4-4-missing-fm}, there is a curve in the spectrogram and only frequencies above \textit{1khz} show up, slowly rising in amplitude.
+As show in figure \ref{fig:plot4-4-missing-fm}, there is a curve in the spectrogram and only frequencies above \textit{1kHz} show up, slowly rising in amplitude.
 
 \begin{figure}[H]
 	\centering
@@ -460,7 +500,7 @@ As show in figure \ref{fig:plot4-4-missing-fm}, there is a curve in the spectrog
 	\label{fig:plot4-5-missing-psg}
 \end{figure}
 
-The same behavior can be observed in the \textit{PSG spectrogram}, but with a different curve that starts at \textit{4khz} in figure \ref{fig:plot4-5-missing-psg}.
+The same behavior can be observed in the \textit{PSG spectrogram}, but with a different curve that starts at \textit{4kHz} in figure \ref{fig:plot4-5-missing-psg}.
 
 \begin{figure}[H]
 	\centering
@@ -469,7 +509,7 @@ The same behavior can be observed in the \textit{PSG spectrogram}, but with a di
 	\label{fig:plot4-6-missing-noise}
 \end{figure}
 
-And finally, figure \ref{fig:plot4-6-missing-noise} shows the opposite kind of curve, the \textit{high pass filter} cuts off everything higher than \textit{8khz} in the \textit{Noise} section.
+And finally, figure \ref{fig:plot4-6-missing-noise} shows the opposite kind of curve, the \textit{high pass filter} cuts off everything higher than \textit{8kHz} in the \textit{Noise} section.
 
 It is a good moment to emphasize that these are relative plots. They show how different the \textit{Comparison} signal is to the \textit{Reference} signal. And so far we've compared the same signal to itself although modified with very precise digital manipulations. An analog filter would look the same, but a bit fuzzier. 
 
@@ -506,7 +546,7 @@ We'll now compare the same console using two different recordings, one made with
 	\label{fig:plot5-1-all}
 \end{figure}
 
-Well, I am guessing that was unexpected. We can tell a few things though. First, the frequency response is slightly different, since we now have that huge scatter at the higher end of the spectrum, the treble.
+Well, I am guessing that was unexpected. We can tell a few things though. First, the frequency response is slightly different, since we now have that \textit{scatter} at the higher end of the spectrum, in what is commonly referred as \textit{treble}.
 
 But we can still clearly tell that the scatter is centered around the \textit{0 dBFS} line, which means that even using different sound cards we can tell the differences between systems\footnote{Under the assumption both cards have a relatively flat frequency response, like the ones used here. See the Audio Cards appendix for specifications \ref{audiocards}}. 
 
@@ -526,7 +566,7 @@ Also, there was a slight difference in the detected frame rates. This happens si
 - Detected 59.9208 hz video signal (16.6887ms per frame) from WAV file
 \end{verbatim}
 
-The \textit{USB Lexicon alpha} has a more accurate sampling clock, although the difference is minimal\footnote{We are talking 0.0019ms in this case, that is 0.0000019 seconds!} and \textit{MDFourier} compensates for such issues.\footnote{The expected frame rate from the vintage console analyzed here is 16.688ms per frame, or 59.92hz as measured with a scope. See appendix \ref{framerate}}
+The \textit{USB Lexicon alpha} has a more accurate sampling clock, although the difference is minimal\footnote{We are talking 0.0019ms in this case, that is 0.0000019 seconds!} and \textit{MDFourier} compensates for such issues.\footnote{The expected frame rate from the vintage console analyzed here is \textit{16.688ms} per frame, or 59.92hz as measured with a scope. See appendix \ref{framerate}}
 
 Here is the graph with the \textit{Average plot} option turned on.
 
@@ -540,9 +580,13 @@ Here is the graph with the \textit{Average plot} option turned on.
 
 \chapter{Results from vintage retail hardware}
 
-The following table lists all the hardware used to make the recordings for the plots that will be shown. All had stock parts at the time of the recording, and used original power supplies. They were all connected to a 4" \textit{CRT} via \textit{RGB}, although the \textit{CRT} was turned off while recording. 
+The following table lists all the hardware used to make the recordings for the following result plots for this chapter. All systems had stock parts at the time of recording, no modifications and used original power supplies. 
 
-Although the recordings were made using several audio cards as described in section \ref{audiocards}.
+They were all connected to a 4" \textit{CRT} via \textit{RGB}, although the \textit{CRT} was turned off while recording\footnote{Video Refresh noise is indeed detected by the software, but since it is such an isolated frequency range - at a sharp 20 hz - it is not filtered out for comparisons.}.
+
+For simplicity, the recordings shown were made using the \textit{USB Lexicon Alpha} audio card\footnote{See appendix \ref{audiocards}}. All the recordings are available from the \textit{downloads page} from the \textit{MDFourier} website\footnote{URL is \url{http://junkerhq.net/MDFourier/}}.
+
+The \textit{MDFourier ID} value in the following table refers to the name of the files in the catalogue.
 
 \begin{center}
 \scalebox{0.6}{
@@ -565,15 +609,21 @@ Although the recordings were made using several audio cards as described in sect
 }
 \end{center}
 
-\section{A-MD1UTVA3 vs A-MD1JJVA1}
+\section{Sega Genesis Model 1 VA3 (US) vs Mega Drive Model 1 VA1 (JP)}
 
-\section{A-MD1UTVA3 vs A-MD1UJVA6}
+\section{Sega Genesis Model 1 VA3 (US) vs Sega Genesis Model 1 VA6 (JP)}
 
-\section{A-MD1UJVA6 vs A-MD1UTVA6-1}
+\section{Sega Genesis Model 1 VA6 (US) vs Mega Drive Model 1 VA6 (JP)}
 
-\section{A-MD1UTVA6-1 vs A-MD1UTVA6-2}
+\section{Sega Genesis Model 1 VA6 (US) vs Sega Genesis Model 1 VA6 (US)}
 
-\section{A-MD1UTVA3 vs A-MD2UCVA18}
+\section{Sega Genesis Model 1 VA3 (US) vs Sega Genesis Model 2 VA1.8 (US)}
+
+\section{Sega Genesis Model 1 VA3 (US) vs Sega CDX (US)}
+
+\section{Sega Genesis Model 1 VA3 (US) vs Sega Nomad (US)}
+
+\section{Sega CDX (US) Line-out vs Sega CDX (US) Headphone port}
 
 \begin{appendices}
 	
@@ -614,7 +664,7 @@ Silence n 1 20 red
 Sync s 1 20 red
 \end{verbatim}
 
-This file defines what \textit{MDFourier} must do and how to interpret the WAV files. For now it can read \textit{44khz} and \textit{48khz} files, in \textit{Stereo PCM} format\footnote{This is more than enough for the human hearing spectrum \cite{MontyMontgomery}}.
+This file defines what \textit{MDFourier} must do and how to interpret the WAV files. For now it can read \textit{44kHz} and \textit{48kHz} files, in \textit{Stereo PCM} format\footnote{This is more than enough for the human hearing spectrum \cite{MontyMontgomery}}.
 
 The first line is just a header, so that the program knows it is a valid file and in the current format.
 
@@ -654,12 +704,12 @@ It has a few more command line options, which I'll detail in later versions of t
 \chapter{Window Function equations and plots}
 \label{windowfunctiondetails}
 
-This appendix lists the equation and curve of each \textit{Window Function} used to limit spectral leakage as described in section \ref{windows}.
+This appendix lists the equation and curve of each \textit{Window Function} used to limit \textit{spectral leakage} as described in section \ref{windows}.
 
 \newpage
 \section{Tukey}
 
-The default is a \textit{Tukey} window selected for this purpose. It uses $\alpha = 0.6$, zeroing just a few samples, with minimal spectral leakage and good amplitude response.
+The default is a \textit{Tukey} window selected for this purpose. It uses $\alpha = 0.6$, zeroing just a few samples, with minimal \textit{spectral leakage} and good amplitude response.
 
 The following equation is used to create the slopes:
 
@@ -887,7 +937,7 @@ This normalization option also takes place in the \textit{frequency domain}. The
 
 The results are always centered around the \textit{0dBFS} line in the \textit{Differences plot}, allowing a globalized view. However, the amplitude differences are not to be relied upon for calibration, since they are not relative to a fixed point from the \textit{Reference} signal. This option is just available for cases when both signals present a high difference rate between them, which is unexpected but possible.
 
-\chapter{Frame rate}
+\chapter{Frame rates and their importance}
 \label{framerate}
 
 The \textit{frame rate} is the amount of frames per second a system sends to the display. Since the \textit{custom binary} runs from within the target system, we are subject to the internal timing. Every time a frame starts the process for being sent to the display, an event called \textit{vertical sync} occurs. This is the driving clock for the whole console\footnote{As a matter of fact, almost all the code for running games - or the custom binary in out case - is executed during a segment called \textit{vertical blank}.}.
@@ -907,6 +957,25 @@ The frame duration is the basic unit of measurement, since we are dealing with s
 	\label{fig:frameratescope}
 \end{figure}
 
+The oscilloscope shows a frame duration of \textit{16.888ms}, and this is the value used in the configuration file\footnote{Described in appendix \ref{mfnconfig}} for the initial frame rate calculations.
+
+After the \textit{sync pulses} are detected\footnote{Described in appendix \ref{mfnconfig}}, a new frame rate value is calculated from the audio file. This new frame rate is used across the whole process, and can vary from the vintage console due to a combination of different reasons.
+
+Every audio card can have a slightly different \textit{sample clock}\footnote{See appendix \ref{audiocards}}, and this variation will affect the starting and ending points within the recording. Such variation can be detected and estimated from the audio signal, and it is reported if the \textit{verbose log}\footnote{See section \ref{verbose}} option is enabled.
+
+The selected \textit{sample rate} for recording can also affect the \textit{sample clock} precision even while using the same card\footnote{This is the case when using the \textit{M-Audio 192} \cite{maudio} in 44100Hz, but when using 48000Hz teh sample clock is spot on}.
+
+The most important case, and the one for which the \textit{sync pulse} solution was implemented, is when comparing a modern system such as an \textit{emulator} or a \textit{FPGA} implementation. These usually run at modern \textit{refresh rate}\footnote{The refresh rate is the inverse of the frame rate. For example with \textit{16.888} it would be $\sfrac{1}{16.888}$ which is \textit{59.92 frames per second}.} for better compatibility with current display technology, such as \textit{HDTVs}, since the vintage hardware has \textit{refresh rates} that are slightly off-spec\footnote{\textit{NTSC} is \textit{59.97 frames per second}}.
+
+Since \textit{frame rates} differ and the system uses the frame rate as a master clock for program execution, the resulting audio recordings also have a difference in length. For example when using an implementation adjusted for \textit{NTSC}, there is a \textit{0.001} second difference in each block of 20 frames. Although this seems to be negligible, it adds. In a one minute recording, such as the ones used for \textit{MDFourier}, every note was misaligned due to this difference.
+
+The software discards the extra duration in these cases, adjusting for fractions of a second every time they reach the next sample. Since the notes are not played during the whole 20 frames and the window filters help to compensate the signals, the comparison is perfectly aligned for the tests.
+
+\chapter{Differences due to temperature}
+
+\chapter{Stereo Audio Balancing}	
+
+\chapter{}	
 
 \chapter{Requirements}
 \label{requirements}
@@ -1043,6 +1112,10 @@ I'd like to thank the following people for helping me so these tools could be co
 	D/A and A/D | Digital Show and Tell (Monty Montgomery @ xiph.org)
 	\url{https://www.youtube.com/watch?v=cIQ9IXSUzuM}
 	
+	\bibitem{leakage}
+	Harris, Fredric j. (Jan 1978). \textit{"On the use of Windows for Harmonic Analysis with the Discrete Fourier Transform"}. Proceedings of the IEEE. 66 (1): 51–83.
+	\url{https://web.mit.edu/xiphmont/Public/windows.pdf}
+	
 	\bibitem{zeropaddinginterpolate}
 	Spectral Leakage and Zero-Padding of the Discrete Fourier Transform
 	\url{https://dspillustrations.com/pages/posts/misc/spectral-leakage-zero-padding-and-frequency-resolution.html}
@@ -1105,6 +1178,9 @@ I'd like to thank the following people for helping me so these tools could be co
 	\textit{product web page},
 	\url{https://www.goldwave.com/}.
 	
+	\bibitem{sma}
+	Adam Hayes, Simple Moving Average - SMA Definition
+	\url{https://www.investopedia.com/terms/s/sma.asp}
 \end{thebibliography}
 
 \printglossaries
