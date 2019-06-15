@@ -177,9 +177,8 @@ int CheckBalance(AudioSignal *Signal, int block, parameters *config)
 			if(config->channelBalance)
 			{
 				logmsg("\tCompensating in software. [Use -B to disable auto-balance]\n");
-				logmsg("\tThis can be caused by gain controls in\n");
-				logmsg("\tthe audio card and/or be present in the\n");
-				logmsg("\tsystem generating the audio signal.\n");
+				logmsg("\tThis can be caused by gain controls in the audio card and/or\n");
+				logmsg("\tbe present in the system generating the audio signal.\n");
 			}
 			else
 				logmsg("\tAudio not compensated.\n");

@@ -44,13 +44,11 @@
 \pagenumbering{arabic}
 
 \begin{abstract}
-\textit{MDFourier} is an \textit{open source} software tool set created to compare \textit{audio signatures} and generate a series of graphs that show the differences between them.
+\textit{MDFourier} is a \textit{open source} software created to compare \textit{audio signatures} and generate a series of graphs that show how they differ. The software consists of two separate programs, one that generates the signal for recording from the console and the other that analyses and displays the audio comparisons. 
 
-It consists on a \textit{custom binary} that runs on a \textit{target platform} and an \textit{analysis tool}. The \textit{custom binary} produces a battery of sound test signals which are then recorded as an audio file. The \textit{analysis tool} takes two such audio recordings and compares them, showing how different they are.
+The information gathered from the comparison results can be used in a variety of ways: to identify how \textit{audio signatures} vary between \textit{systems}, to detect if the \textit{audio signals} are modified by \textit{audio equipment}, detect if \textit{modifications} resulted in audible changes, to help tune \textit{emulators}, \textit{FPGA} implementations or \textit{mods}, etc.
 
-Te results can be used in a variety of ways: to identify how \textit{audio signatures} vary between \textit{systems}, to detect if the \textit{audio signals} are modified by \textit{audio equipment}, detect if \textit{modifications} resulted in audible changes, to help tune \textit{emulators}, \textit{FPGA} implementations or \textit{mods}, etc.
-
-The present documents serves as an introduction, a manual and description of the methods used and how they work.
+This document serves as an introduction, a manual and description of the methods used and how they work. Its intent is to guide new users in making simple comparisons while still providing advanced users with information to perform a more detailed analysis of audio signatures.
 \end{abstract}
 
 \tableofcontents
@@ -170,7 +168,7 @@ After executing \textit{MDFourierGUI.exe} you should be presented with the follo
 
 \begin{figure}[H]
 	\centering
-	\includegraphics[width=0.6\linewidth]{plots/GUI1.png}
+	\includegraphics[width=0.6\linewidth]{images/GUI/GUI1.png}
 	\caption[Front End]{MDFourier Windows Front End}
 	\label{fig:gui1}
 \end{figure}
@@ -181,7 +179,7 @@ The following sequence of steps indicates the typical work flow within the GUI:
 
 \begin{figure}[H]
 	\centering
-	\includegraphics[width=0.6\linewidth]{plots/GUI2.png}
+	\includegraphics[width=0.6\linewidth]{images/GUI/GUI2.png}
 	\caption[Steps]{Typical sequence of steps}
 	\label{fig:gui2}
 \end{figure}
@@ -223,7 +221,7 @@ A color scale is presented in each graph, with the color graduation and the corr
 
 \begin{figure}[H]
 	\centering
-	\includegraphics[width=0.2\linewidth]{plots/colorscale.png}
+	\includegraphics[width=0.2\linewidth]{images/colorfilter/colorscale.png}
 	\caption[Plot color scale]{Detail of color scale in plot}
 	\label{fig:colorscale}
 \end{figure}
@@ -344,7 +342,7 @@ Useful for reporting errors or unexpected behavior. \textit{Please send the audi
 
 The main output of the program is a set of different graphics that vary in quantity based on the definitions made in the \textit{mfn} file detailed in appendix \ref{mfnconfig}.
 
-In its current form for the \textit{Mega Drive/Genesis}, there are three \textit{active blocks}: \textit{FM}, \textit{PSG} and \textit{Noise}. These will result in a plot of each type, and a general plot, being generated as output.
+In its current form for the \textit{Mega Drive/Genesis}, there are three \textit{active blocks}\footnote{\textit{The Mega Drive/Sega Genesis} has two audio synthesizers: a \textit{Yamaha 2612} (YM2612) for \textit{Frequency Modulated} (FM) audio, and a \textit{Texas Instruments SN76489 Programmable Sound Generator} (PSG)  - or equivalent in an \textit{ASIC} - for \textit{Sega Master System} compatibility and extra audio channels. }: \textit{FM}, \textit{PSG} and \textit{Noise}. These will result in a plot of each type, and a general plot, being generated as output.
 
 The files are saved under the folder \textit{MDFourier} and a sub-folder named after the input \textit{WAV} file names. They are stored in \textit{PNG} format, currently \textit{1600x800} plots are used, although this can be changed via options. 
 
@@ -362,7 +360,7 @@ So, what is the expected result of comparing a file to itself? No differences at
 
 \begin{figure}[H]
 	\centering
-	\includegraphics[width=1.0\linewidth]{plots/Plot1-SameFile.png}
+	\includegraphics[width=1.0\linewidth]{images/interpretation/Plot1-SameFile.png}
 	\caption[Same file compared]{Different Amplitudes result file when comparing the same file against itself}
 	\label{fig:plot1-samefile}
 \end{figure}
@@ -373,7 +371,7 @@ However there will be two sets of \textit{Spectrograms}, one for the \textit{Ref
 
 \begin{figure}[H]
 	\centering
-	\includegraphics[width=1.0\linewidth]{plots/Plot2-SameFile-FM-Spectrogram.png}
+	\includegraphics[width=1.0\linewidth]{images/interpretation/Plot2-SameFile-FM-Spectrogram.png}
 	\caption[Spectrogram]{The Spectrogram for a Genesis 1 VA3 via hedphone out}
 	\label{fig:plot2-samefile-fm-spectrogram}
 \end{figure}
@@ -392,7 +390,7 @@ This is another control case, what should we expect to see if we record two cons
 
 \begin{figure}[H]
 	\centering
-	\includegraphics[width=1\linewidth]{plots/Plot2-Sameconsole.png}
+	\includegraphics[width=1\linewidth]{images/interpretation/Plot2-Sameconsole.png}
 	\caption[Same console compared]{The same console, two different recordings}
 	\label{fig:plot2-sameconsole}
 \end{figure}
@@ -409,7 +407,7 @@ For demonstration purposes, the same \textit{Reference} file was modified to add
 
 \begin{figure}[H]
 	\centering
-	\includegraphics[width=1.0\linewidth]{plots/Plot3-Modified.png}
+	\includegraphics[width=1.0\linewidth]{images/interpretation/Plot3-Modified.png}
 	\caption[1kHz modified]{Compared against itself modified with a \textit{500hz 6 db} equalization}
 	\label{fig:plot3-modified}
 \end{figure}
@@ -420,14 +418,14 @@ It is interesting to note both spectrograms, since the \textit{500hz} spike is a
 
 \begin{figure}[H]
 	\centering
-	\includegraphics[width=1.0\linewidth]{plots/Plot3-Spectrogram.png}
+	\includegraphics[width=1.0\linewidth]{images/interpretation/Plot3-Spectrogram.png}
 	\caption[Reference File]{\textit{Reference} File}
 	\label{fig:plot3-spectrogram}
 \end{figure}
 
 \begin{figure}[H]
 	\centering
-	\includegraphics[width=1.0\linewidth]{plots/Plot3-Spectrogram-500hz.png}
+	\includegraphics[width=1.0\linewidth]{images/interpretation/Plot3-Spectrogram-500hz.png}
 	\caption[Reference File]{Reference file modified with \textit{500hz} peak}
 	\label{fig:plot3-spectrogram-1kHz}
 \end{figure}
@@ -449,7 +447,7 @@ This is the general plot with the three sections:
 
 \begin{figure}[H]
 	\centering
-	\includegraphics[width=1.0\linewidth]{plots/Plot4-1-All.png}
+	\includegraphics[width=1.0\linewidth]{images/interpretation/Plot4-1-All.png}
 	\caption[All Plotted]{\textit{FM}, \textit{PSG} and \textit{Noise} with low pass, low pass and high pass filters}
 	\label{fig:plot4-1-all}
 \end{figure}
@@ -464,7 +462,7 @@ In order to better see what is going on, we'll change the \textit{color filter f
 
 \begin{figure}[H]
 	\centering
-	\includegraphics[width=1.0\linewidth]{plots/Plot4-2-All-sqrt.png}
+	\includegraphics[width=1.0\linewidth]{images/interpretation/Plot4-2-All-sqrt.png}
 	\caption[Using SQRT]{Using the $\sqrt{dbFS}$ color filter function}
 	\label{fig:plot4-2-all-sqrt}
 \end{figure}
@@ -477,7 +475,7 @@ Here is the resulting plot for only the \textit{Noise} section of the signal wit
 
 \begin{figure}[H]
 	\centering
-	\includegraphics[width=1.0\linewidth]{plots/Plot4-3-AVG-Noise.png}
+	\includegraphics[width=1.0\linewidth]{images/interpretation/Plot4-3-AVG-Noise.png}
 	\caption[Noise Average]{\textit{Noise} plot with Average}
 	\label{fig:plot4-3-avg-noise}
 \end{figure}
@@ -486,7 +484,7 @@ There are some other interesting plots that result from this experiment. For exa
 
 \begin{figure}[H]
 	\centering
-	\includegraphics[width=1.0\linewidth]{plots/Plot4-4-Missing-FM.png}
+	\includegraphics[width=1.0\linewidth]{images/interpretation/Plot4-4-Missing-FM.png}
 	\caption[Missing FM]{Missing frequencies in \textit{FM} cutoff by low pass filter}
 	\label{fig:plot4-4-missing-fm}
 \end{figure}
@@ -495,7 +493,7 @@ As show in figure \ref{fig:plot4-4-missing-fm}, there is a curve in the spectrog
 
 \begin{figure}[H]
 	\centering
-	\includegraphics[width=1.0\linewidth]{plots/Plot4-5-Missing-PSG.png}
+	\includegraphics[width=1.0\linewidth]{images/interpretation/Plot4-5-Missing-PSG.png}
 	\caption[Missing PSG]{Missing frequencies in \textit{PSG} cutoff by low pass filter}
 	\label{fig:plot4-5-missing-psg}
 \end{figure}
@@ -504,7 +502,7 @@ The same behavior can be observed in the \textit{PSG spectrogram}, but with a di
 
 \begin{figure}[H]
 	\centering
-	\includegraphics[width=1.0\linewidth]{plots/Plot4-6-Missing-Noise.png}
+	\includegraphics[width=1.0\linewidth]{images/interpretation/Plot4-6-Missing-Noise.png}
 	\caption[Missing Noise]{Missing frequencies in \textit{Noise} cutoff by high pass filter}
 	\label{fig:plot4-6-missing-noise}
 \end{figure}
@@ -517,7 +515,7 @@ However, some interesting ideas arise. What would happen if we take this \textit
 
 \begin{figure}[H]
 	\centering
-	\includegraphics[width=1.0\linewidth]{plots/Plot4-7-Reversed.png}
+	\includegraphics[width=1.0\linewidth]{images/interpretation/Plot4-7-Reversed.png}
 	\caption[Reversed]{Results when using modified signal as \textit{Reference}}
 	\label{fig:plot4-7-reversed}
 \end{figure}
@@ -528,7 +526,7 @@ Although the \textit{Differences} and \textit{Spectrogram} plots will indeed be 
 
 \begin{figure}[H]
 	\centering
-	\includegraphics[width=1.0\linewidth]{plots/Plot4-8-Missing-FM-Inverted.png}
+	\includegraphics[width=1.0\linewidth]{images/interpretation/Plot4-8-Missing-FM-Inverted.png}
 	\caption[Reversed FM Missing]{\textit{Missing Frequencies} plot for \textit{FM} is empty}
 	\label{fig:plot4-8-missing-fm-inverted}
 \end{figure}
@@ -541,7 +539,7 @@ We'll now compare the same console using two different recordings, one made with
 
 \begin{figure}[H]
 	\centering
-	\includegraphics[width=1.0\linewidth]{plots/Plot5-1-All.png}
+	\includegraphics[width=1.0\linewidth]{images/interpretation/Plot5-1-All.png}
 	\caption[Reversed FM Missing]{Differences using same hardware and cables, different capture cards}
 	\label{fig:plot5-1-all}
 \end{figure}
@@ -721,7 +719,7 @@ And this is the resulting plot of the \textit{Tukey} window, ranges are 0.0 to 1
 
 \begin{figure}[H]
 	\centering
-	\includegraphics[width=0.4\linewidth]{plots/window-tukey.png}
+	\includegraphics[width=0.4\linewidth]{images/windows/window-tukey.png}
 	\caption[Tukey Window]{Tukey window used by \textit{MDFourier}, vertical lines are frames on a 20 frame signal}
 	\label{fig:window-tukey}
 \end{figure}
@@ -738,7 +736,7 @@ hann[x] = \frac{1}{2}(1 - \cos(\frac{2\pi(x+1)}{n+1}))
 
 \begin{figure}[H]
 	\centering
-	\includegraphics[width=0.4\linewidth]{plots/window-hann.png}
+	\includegraphics[width=0.4\linewidth]{images/windows/window-hann.png}
 	\caption[Hann Window]{Hann Window}
 	\label{fig:window-hann}
 \end{figure}
@@ -754,7 +752,7 @@ flattop(x)=0.21557895 - 0.41663158\cos(2\pi\frac{x}{n-1})+ 0.277263158\cos(4\pi\
 
 \begin{figure}[H]
 	\centering
-	\includegraphics[width=0.4\linewidth]{plots/window-flattop.png}
+	\includegraphics[width=0.4\linewidth]{images/windows/window-flattop.png}
 	\caption[Flat Top window]{Flat Top window}
 	\label{fig:window-flattop}
 \end{figure}
@@ -769,7 +767,7 @@ hamming[x] = 0.54 - 0.46\cos(\frac{2\pi x}{n-1})
 
 \begin{figure}[H]
 	\centering
-	\includegraphics[width=0.4\linewidth]{plots/window-hamming.png}
+	\includegraphics[width=0.4\linewidth]{images/windows/window-hamming.png}
 	\caption[Hamming window]{Hamming window}
 	\label{fig:window-hamming}
 \end{figure}
@@ -793,14 +791,14 @@ No filtering is applied, as a result all differences are plotted with the bright
 
 \begin{figure}[H]
 	\centering
-	\includegraphics[width=0.4\linewidth]{plots/BetaFunctionPlot_0.png}
+	\includegraphics[width=0.4\linewidth]{images/colorfilter/BetaFunctionPlot_0.png}
 	\caption[No Filter]{No Filter}
 	\label{fig:betafunctionplot0}
 \end{figure}
 
 \begin{figure}[H]
 	\centering
-	\includegraphics[width=1\linewidth]{plots/BetaFunctionPlot_0_Data.png}
+	\includegraphics[width=1\linewidth]{images/colorfilter/BetaFunctionPlot_0_Data.png}
 	\caption[No Filter]{No Filter Applied}
 	\label{fig:betafunctionplot0data}
 \end{figure}
@@ -812,14 +810,14 @@ A square root function will only attenuate the lowest amplitude differences.
 
 \begin{figure}[H]
 	\centering
-	\includegraphics[width=0.4\linewidth]{plots/BetaFunctionPlot_1.png}
+	\includegraphics[width=0.4\linewidth]{images/colorfilter/BetaFunctionPlot_1.png}
 	\caption[Square Root filter]{Square Root filter}
 	\label{fig:betafunctionplot1}
 \end{figure}
 
 \begin{figure}[H]
 	\centering
-	\includegraphics[width=1\linewidth]{plots/BetaFunctionPlot_1_Data.png}
+	\includegraphics[width=1\linewidth]{images/colorfilter/BetaFunctionPlot_1_Data.png}
 	\caption[Square Root filter]{Square Root filter Applied}
 	\label{fig:betafunctionplot1data}
 \end{figure}
@@ -831,14 +829,14 @@ A Beta Function filter with parameters (3, 3) will attenuate a bit more from the
 
 \begin{figure}[H]
 	\centering
-	\includegraphics[width=0.4\linewidth]{plots/BetaFunctionPlot_2.png}
+	\includegraphics[width=0.4\linewidth]{images/colorfilter/BetaFunctionPlot_2.png}
 	\caption[Beta Function(3,3)]{Beta Function(3,3)}
 	\label{fig:betafunctionplot2}
 \end{figure}
 
 \begin{figure}[H]
 	\centering
-	\includegraphics[width=1\linewidth]{plots/BetaFunctionPlot_2_Data.png}
+	\includegraphics[width=1\linewidth]{images/colorfilter/BetaFunctionPlot_2_Data.png}
 	\caption[Beta Function(3,3)]{Beta Function(3,3) Applied}
 	\label{fig:betafunctionplot2data}
 \end{figure}
@@ -850,14 +848,14 @@ The linear function is the default, and has no bias. Half the dinamic range corr
 
 \begin{figure}[H]
 	\centering
-	\includegraphics[width=0.4\linewidth]{plots/BetaFunctionPlot_3.png}
+	\includegraphics[width=0.4\linewidth]{images/colorfilter/BetaFunctionPlot_3.png}
 	\caption[Linear]{Linear Function}
 	\label{fig:betafunctionplot3}
 \end{figure}
 
 \begin{figure}[H]
 	\centering
-	\includegraphics[width=1\linewidth]{plots/BetaFunctionPlot_3_Data.png}
+	\includegraphics[width=1\linewidth]{images/colorfilter/BetaFunctionPlot_3_Data.png}
 	\caption[Linear Applied]{Linear Function Applied}
 	\label{fig:betafunctionplot3data}
 \end{figure}
@@ -869,14 +867,14 @@ A squared function will attenuate a lot more differences, as a result frequencie
 
 \begin{figure}[H]
 	\centering
-	\includegraphics[width=0.4\linewidth]{plots/BetaFunctionPlot_4.png}
+	\includegraphics[width=0.4\linewidth]{images/colorfilter/BetaFunctionPlot_4.png}
 	\caption[Linear]{Linear Function}
 	\label{fig:betafunctionplot4}
 \end{figure}
 
 \begin{figure}[H]
 	\centering
-	\includegraphics[width=1\linewidth]{plots/BetaFunctionPlot_4_Data.png}
+	\includegraphics[width=1\linewidth]{images/colorfilter/BetaFunctionPlot_4_Data.png}
 	\caption[Linear Applied]{Linear Function Applied}
 	\label{fig:betafunctionplot4data}
 \end{figure}
@@ -888,14 +886,14 @@ A Beta Function filter with parameters (16,2) will attenuate almost all the diff
 
 \begin{figure}[H]
 	\centering
-	\includegraphics[width=0.4\linewidth]{plots/BetaFunctionPlot_5.png}
+	\includegraphics[width=0.4\linewidth]{images/colorfilter/BetaFunctionPlot_5.png}
 	\caption[Beta Function(16,2)]{Beta Function(16,2)}
 	\label{fig:betafunctionplot5}
 \end{figure}
 
 \begin{figure}[H]
 	\centering
-	\includegraphics[width=1\linewidth]{plots/BetaFunctionPlot_5_Data.png}
+	\includegraphics[width=1\linewidth]{images/colorfilter/BetaFunctionPlot_5_Data.png}
 	\caption[Beta Function(16,2)]{Beta Function(16,2) Applied}
 	\label{fig:betafunctionplot5data}
 \end{figure}
@@ -952,7 +950,7 @@ The frame duration is the basic unit of measurement, since we are dealing with s
 
 \begin{figure}[H]
 	\centering
-	\includegraphics[width=1.0\linewidth]{plots/framerate-scope.png}
+	\includegraphics[width=1.0\linewidth]{images/scope/framerate-scope.png}
 	\caption[Scope frame rate]{Frame duration as measured with a scope from a \textit{Model 1 VA3 system}}
 	\label{fig:frameratescope}
 \end{figure}
@@ -971,11 +969,40 @@ Since \textit{frame rates} differ and the system uses the frame rate as a master
 
 The software discards the extra duration in these cases, adjusting for fractions of a second every time they reach the next sample. Since the notes are not played during the whole 20 frames and the window filters help to compensate the signals, the comparison is perfectly aligned for the tests.
 
-\chapter{Differences due to temperature}
-
 \chapter{Stereo Audio Balancing}	
 
-\chapter{}	
+\chapter{Differences due to temperature}
+
+During the initial development of the software there was a single instance where unexpected variations were present between different recordings of the same hardware using the same audio capture card as shown in figure \ref{fig:heatdiff}.
+
+\begin{figure}[H]
+	\centering
+	\includegraphics[width=1.0\linewidth]{images/heat/0-plotheat.png}
+	\caption[Heat Difference]{Audio difference caused by heat in \textit{Model 1 VA3 system}}
+	\label{fig:heatdiff}
+\end{figure}
+
+After analysis, it was found that the difference was present only in the left channel and was caused by a severe difference in temperature while recording. The room was at $29^\circ$C\footnote{$84.2^\circ$F} as shown in figure \ref{fig:heatroomtemp}, and the \textit{Sega Genesis Model 1 VA3} under testing had been powered on for around 30 minutes.
+
+\begin{figure}[H]
+	\centering
+	\includegraphics[width=0.4\linewidth]{images/heat/1-roomtemp.jpg}
+	\caption[Room temperature]{Console at room temperature \textit{Model 1 VA3 system}}
+	\label{fig:heatroomtemp}
+\end{figure}
+
+At first warm up differences were suspected, but after some cooling, \textit{cold boot}\footnote{Powering on the console after it had cool down, and immediately making the recording.} and measurements using a thermal camera it was determine that the room temperature on top of the warm up was the culprit, since the results could not be replicated when the room had cooled down to $22^\circ$C\footnote{$71.6^\circ$F}. 
+
+In order to replicate the results, its vents were obstructed to prevent heat dissipation\footnote{Ventilation were covered with electrical tape} for a brief period. The results could be replicated at will under these conditions after just a few minutes of use.
+
+It must be noted that the temperature of the headphone amplifier\footnote{CXA1034} of the console reaches $82.9^\circ$C\footnote{$181.22^\circ$F} with cover removed as shown in figure \ref{fig:heathigh}, so higher temperatures are expected with it closed. This is important since some of the stock capacitors around the headphone amplifier are radiated due to proximity, and can probably reach temperatures beyond their intended rating in warm climates.
+
+\begin{figure}[H]
+	\centering
+	\includegraphics[width=0.4\linewidth]{images/heat/2-hot.jpg}
+	\caption[Hot Console]{\textit{Model 1 VA3 system} with amp at $80^\circ$C}
+	\label{fig:heathigh}
+\end{figure}
 
 \chapter{Requirements}
 \label{requirements}
@@ -1019,14 +1046,9 @@ You'll need cables and maybe some adapters to connect the audio output fomr the 
 
 Your capture card will probably be bundled with some audio editing software, or you can use  Audacity \cite{audacity} or Goldwave \cite{goldwave} options depending on your operating system.
 
-\chapter{Colors available for plots}
-\label{availablecolors}
-
-This is the list of colors that can be used in the \textit{MFN configuration file} described in section \ref{mfnconfig}: 
-
-\textit{red, green, blue, yellow, magenta, aquamarine, orange}, and \textit{purple}.
-
 \chapter{Compiling from source code}
+
+Full source code is available for download at \url{https://github.com/ArtemioUrbina/MDFourier/}
 
 \section{Dependencies}
 
@@ -1049,6 +1071,13 @@ The pre-compiled binary for \textit{Windows} is created with \textit{MinGW}\cite
 \end{itemize}
 
 The \textit{makefiles} to compile either version are provided with the source code \cite{sourcecode}.
+
+\chapter{Colors available for plots}
+\label{availablecolors}
+
+This is the list of colors that can be used in the \textit{MFN configuration file} described in section \ref{mfnconfig}: 
+
+\textit{red, green, blue, yellow, magenta, aquamarine, orange}, and \textit{purple}.
 
 \chapter{Contact the author}
 \label{contact}

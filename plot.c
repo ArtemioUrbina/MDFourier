@@ -48,6 +48,13 @@
 	#define GetCurrentDir getcwd
 #endif
 
+#define BAR_HOR_POS_ALL	config->plotResX - config->plotResX/10
+#define BAR_HOR_POS		config->plotResX - config->plotResX/13
+#define	BAR_VERT_POS	config->plotResY/30
+#define BAR_WIDTH		config->plotResX/150
+#define	BAR_HEIGHT		config->plotResY/20
+#define	BAR_LABEL_POS	config->plotResY/40
+
 char *GetCurrentPathAndChangeToResultsFolder(parameters *config)
 {
 	char 	*CurrentPath = NULL;
@@ -585,25 +592,25 @@ void DrawMatchBar(PlotFile *plot, int colorName, double x, double y, double widt
 
 	// FG
 	pl_filltype_r(plot->plotter, 1);
-	SetPenColor(colorName, 0x9999, plot);
-	SetFillColor(colorName, 0x9999, plot);
+	SetPenColor(colorName, 0x8888, plot);
+	SetFillColor(colorName, 0x8888, plot);
 	pl_fbox_r(plot->plotter, x, y, x+width, y+(notFound*height/total));
 
 	// Border
 	pl_filltype_r(plot->plotter, 0);
-	SetPenColor(COLOR_GRAY, 0xFFFF, plot);
+	SetPenColor(COLOR_GRAY, 0xAAAA, plot);
 	pl_fbox_r(plot->plotter, x, y, x+width, y+height);
 
 	pl_filltype_r(plot->plotter, 0);
 }
 
-void DrawMatchBarLabel(PlotFile *plot, char *label, int colorName, double x, double y, double width, double height, parameters *config)
+void DrawMatchBarLabel(PlotFile *plot, char *label, int colorName, double x, double y, parameters *config)
 {
 	pl_ffontsize_r(plot->plotter, config->plotResY/60);
 	pl_ffontname_r(plot->plotter, "HersheySans");
 
 	SetPenColor(colorName, 0xaaaa, plot);
-	pl_fmove_r(plot->plotter, x+width/2, y+height+config->plotResY/100);
+	pl_fmove_r(plot->plotter, x, y);
 	pl_alabel_r(plot->plotter, 'c', 'c', label);
 }
 
@@ -648,12 +655,10 @@ void PlotAllDifferentAmplitudes(FlatAmplDifference *amplDiff, char *filename, pa
 
 	DrawLabelsMDF(&plot, DIFFERENCE_TITLE, ALL_LABEL, config);
 	DrawColorAllTypeScale(&plot, config->plotResX/50, config->plotResY/15, config->plotResX/80, config->plotResY/1.15, config->significantVolume, 3, config);
-	DrawMatchBar(&plot, COLOR_GRAY,
-			config->plotResX/20+config->types.typeCount*config->plotResX/80, config->plotResY/15, 
-			config->plotResX/80, config->plotResY/12,
+	DrawMatchBar(&plot, COLOR_GRAY,	BAR_HOR_POS_ALL, BAR_VERT_POS, BAR_WIDTH, BAR_HEIGHT,
 			config->Differences.cntAmplAudioDiff, config->Differences.cntTotalCompared, config);
 
-	posx = config->plotResX/15+(config->types.typeCount+1)*config->plotResX/80;
+	posx = BAR_HOR_POS_ALL+BAR_WIDTH*2;
 	for(int i = 0; i < config->types.typeCount; i++)
 	{
 		int			type;
@@ -663,12 +668,14 @@ void PlotAllDifferentAmplitudes(FlatAmplDifference *amplDiff, char *filename, pa
 		if(type > TYPE_CONTROL && FindDifferenceTypeTotals(type, &cntAmplBlkDiff, &cmpAmplBlkDiff, config))
 		{
 			DrawMatchBar(&plot, MatchColor(GetTypeColor(config, type)), 
-				posx+config->plotResX/80*typeCount, config->plotResY/15, 
-				config->plotResX/80, config->plotResY/12, 
+				posx+BAR_WIDTH*typeCount, BAR_VERT_POS, 
+				BAR_WIDTH, BAR_HEIGHT, 
 				cntAmplBlkDiff, cmpAmplBlkDiff, config);
 			typeCount++;
 		}
 	}
+
+	DrawMatchBarLabel(&plot, "Percentage Found", COLOR_GRAY, BAR_HOR_POS_ALL+BAR_WIDTH*typeCount, BAR_LABEL_POS, config);
 
 	ClosePlot(&plot);
 }
@@ -696,7 +703,7 @@ int PlotEachTypeDifferentAmplitudes(FlatAmplDifference *amplDiff, char *filename
 void PlotSingleTypeDifferentAmplitudes(FlatAmplDifference *amplDiff, int type, char *filename, parameters *config)
 {
 	PlotFile	plot;
-	long int	cntAmplBlkDiff, cmpAmplBlkDiff;
+	long int	cntAmplBlkDiff = 0, cmpAmplBlkDiff = 0;
 	double		dBFS = config->maxDbPlotZC;
 
 	if(!config)
@@ -734,10 +741,12 @@ void PlotSingleTypeDifferentAmplitudes(FlatAmplDifference *amplDiff, int type, c
 			config->plotResX/80, config->plotResY/1.15,
 			config->significantVolume, 3, config);
 	if(FindDifferenceTypeTotals(type, &cntAmplBlkDiff, &cmpAmplBlkDiff, config))
+	{
 		DrawMatchBar(&plot, MatchColor(GetTypeColor(config, type)), 
-			config->plotResX/10+config->plotResX/80, config->plotResY/15, 
-			config->plotResX/80, config->plotResY/12, 
+			BAR_HOR_POS, BAR_VERT_POS, BAR_WIDTH, BAR_HEIGHT,
 			cntAmplBlkDiff, cmpAmplBlkDiff, config);
+		DrawMatchBarLabel(&plot, "Percentage Found", MatchColor(GetTypeColor(config, type)), BAR_HOR_POS+BAR_WIDTH, BAR_LABEL_POS, config);
+	}
 	DrawLabelsMDF(&plot, DIFFERENCE_TITLE, GetTypeName(config, type), config);
 	ClosePlot(&plot);
 }
@@ -782,12 +791,10 @@ void PlotAllMissingFrequencies(FlatFreqDifference *freqDiff, char *filename, par
 	}
 	
 	DrawColorAllTypeScale(&plot, config->plotResX/50, config->plotResY/15, config->plotResX/80, config->plotResY/1.15, config->significantVolume, 3, config);
-	DrawMatchBar(&plot, COLOR_GRAY, 
-			config->plotResX/20+config->types.typeCount*config->plotResX/80, config->plotResY/15, 
-			config->plotResX/80, config->plotResY/12, 
+	DrawMatchBar(&plot, COLOR_GRAY,	BAR_HOR_POS_ALL, BAR_VERT_POS, BAR_WIDTH, BAR_HEIGHT,
 			config->Differences.cntFreqAudioDiff, config->Differences.cntTotalCompared, config);
 
-	posx = config->plotResX/15+(config->types.typeCount+1)*config->plotResX/80;
+	posx = BAR_HOR_POS_ALL+BAR_WIDTH*2;
 	for(int i = 0; i < config->types.typeCount; i++)
 	{
 		int			type;
@@ -797,13 +804,14 @@ void PlotAllMissingFrequencies(FlatFreqDifference *freqDiff, char *filename, par
 		if(type > TYPE_CONTROL && FindMissingTypeTotals(type, &cntFreqBlkDiff, &cmpFreqBlkDiff, config))
 		{
 			DrawMatchBar(&plot, MatchColor(GetTypeColor(config, type)), 
-				posx+config->plotResX/80*typeCount, config->plotResY/15, 
-				config->plotResX/80, config->plotResY/12, 
+				posx+BAR_WIDTH*typeCount, BAR_VERT_POS, 
+				BAR_WIDTH, BAR_HEIGHT, 
 				cntFreqBlkDiff, cmpFreqBlkDiff, config);
 			typeCount++;
 		}
 	}
 
+	DrawMatchBarLabel(&plot, "Percentage Missing", COLOR_GRAY, BAR_HOR_POS_ALL+BAR_WIDTH*typeCount, BAR_LABEL_POS, config);
 	DrawLabelsMDF(&plot, MISSING_TITLE, ALL_LABEL, config);
 	ClosePlot(&plot);
 }
@@ -866,10 +874,12 @@ void PlotSingleTypeMissingFrequencies(FlatFreqDifference *freqDiff, int type, ch
 	
 	DrawColorScale(&plot, GetTypeName(config, type), MatchColor(GetTypeColor(config, type)), config->plotResX/50, config->plotResY/15, config->plotResX/80, config->plotResY/1.15, config->significantVolume, 3, config);
 	if(FindMissingTypeTotals(type, &cntFreqBlkDiff, &cmpFreqBlkDiff, config))
+	{
 		DrawMatchBar(&plot, MatchColor(GetTypeColor(config, type)), 
-			config->plotResX/10+config->plotResX/80, config->plotResY/15, 
-			config->plotResX/80, config->plotResY/12, 
+			BAR_HOR_POS, BAR_VERT_POS, BAR_WIDTH, BAR_HEIGHT,
 			cntFreqBlkDiff, cmpFreqBlkDiff, config);
+		DrawMatchBarLabel(&plot, "Percentage Missing", MatchColor(GetTypeColor(config, type)), BAR_HOR_POS+BAR_WIDTH, BAR_LABEL_POS, config);
+	}
 	DrawLabelsMDF(&plot, MISSING_TITLE, GetTypeName(config, type), config);
 	ClosePlot(&plot);
 }
@@ -1438,8 +1448,9 @@ FlatFrequency *CreateFlatFrequencies(AudioSignal *Signal, long int *size, parame
 void PlotTest(char *filename, parameters *config)
 {
 	PlotFile	plot;
+	int			typeCount = 0;
 	char		name[BUFFER_SIZE];
-	double		dBFS = config->maxDbPlotZC;
+	double		dBFS = config->maxDbPlotZC, posx = 0	;
 
 	if(!config)
 		return;
@@ -1452,9 +1463,32 @@ void PlotTest(char *filename, parameters *config)
 
 	DrawGridZeroDBCentered(&plot, dBFS, 3, config->endHzPlot, 1000, config);
 	DrawLabelsZeroDBCentered(&plot, dBFS, 3, config->endHzPlot, 1000, config);
+
+	srand(time(NULL));
+
 	DrawLabelsMDF(&plot, "PLOT TEST [%s]", "ZDBC", config);
-	DrawColorScale(&plot, "Test", COLOR_ORANGE, config->plotResX/50, config->plotResY/15, config->plotResX/80, config->plotResY/1.15, -60, 3, config);
-	
+	DrawColorAllTypeScale(&plot, config->plotResX/50, config->plotResY/15, config->plotResX/80, config->plotResY/1.15, config->significantVolume, 3, config);
+	DrawMatchBar(&plot, COLOR_GRAY, BAR_HOR_POS_ALL, BAR_VERT_POS, BAR_WIDTH, BAR_HEIGHT,
+			rand() % 100, 100, config);
+
+	posx = BAR_HOR_POS_ALL+BAR_WIDTH*2;
+	for(int i = 0; i < config->types.typeCount; i++)
+	{
+		int			type;
+		long int	cntAmplBlkDiff = rand() % 100, cmpAmplBlkDiff = 100;
+
+		type = config->types.typeArray[i].type;
+		if(type > TYPE_CONTROL)
+		{
+			DrawMatchBar(&plot, MatchColor(GetTypeColor(config, type)), 
+				posx+BAR_WIDTH*typeCount, BAR_VERT_POS, 
+				BAR_WIDTH, BAR_HEIGHT, 
+				cntAmplBlkDiff, cmpAmplBlkDiff, config);
+			typeCount++;
+		}
+	}
+
+	DrawMatchBarLabel(&plot, "Percentage Found", COLOR_GRAY, BAR_HOR_POS_ALL+BAR_WIDTH*typeCount, BAR_LABEL_POS, config);
 
 	ClosePlot(&plot);
 }
@@ -1837,10 +1871,12 @@ void PlotSingleTypeDifferentAmplitudesAveraged(FlatAmplDifference *amplDiff, int
 
 	DrawColorScale(&plot, GetTypeName(config, type), MatchColor(GetTypeColor(config, type)), config->plotResX/50, config->plotResY/15, config->plotResX/80, config->plotResY/1.15, config->significantVolume, 3, config);
 	if(FindDifferenceTypeTotals(type, &cntAmplBlkDiff, &cmpAmplBlkDiff, config))
+	{
 		DrawMatchBar(&plot, MatchColor(GetTypeColor(config, type)), 
-			config->plotResX/10+config->plotResX/80, config->plotResY/15, 
-			config->plotResX/80, config->plotResY/12, 
+			BAR_HOR_POS, BAR_VERT_POS, BAR_WIDTH, BAR_HEIGHT,
 			cntAmplBlkDiff, cmpAmplBlkDiff, config);
+		DrawMatchBarLabel(&plot, "Percentage Found", MatchColor(GetTypeColor(config, type)), BAR_HOR_POS+BAR_WIDTH, BAR_LABEL_POS, config);
+	}
 	DrawLabelsMDF(&plot, DIFFERENCE_AVG_TITLE, GetTypeName(config, type), config);
 	ClosePlot(&plot);
 }
@@ -1934,12 +1970,10 @@ void PlotAllDifferentAmplitudesAveraged(FlatAmplDifference *amplDiff, char *file
 
 	DrawLabelsMDF(&plot, DIFFERENCE_AVG_TITLE, ALL_LABEL, config);
 	DrawColorAllTypeScale(&plot, config->plotResX/50, config->plotResY/15, config->plotResX/80, config->plotResY/1.15, config->significantVolume, 3, config);
-	DrawMatchBar(&plot, COLOR_GRAY,
-			config->plotResX/20+config->types.typeCount*config->plotResX/80, config->plotResY/15, 
-			config->plotResX/80, config->plotResY/12,
+	DrawMatchBar(&plot, COLOR_GRAY, BAR_HOR_POS_ALL, BAR_VERT_POS, BAR_WIDTH, BAR_HEIGHT,
 			config->Differences.cntAmplAudioDiff, config->Differences.cntTotalCompared, config);
 
-	posx = config->plotResX/15+(config->types.typeCount+1)*config->plotResX/80;
+	posx = BAR_HOR_POS_ALL+BAR_WIDTH*2;
 	for(int i = 0; i < config->types.typeCount; i++)
 	{
 		int			type;
@@ -1949,11 +1983,13 @@ void PlotAllDifferentAmplitudesAveraged(FlatAmplDifference *amplDiff, char *file
 		if(type > TYPE_CONTROL && FindDifferenceTypeTotals(type, &cntAmplBlkDiff, &cmpAmplBlkDiff, config))
 		{
 			DrawMatchBar(&plot, MatchColor(GetTypeColor(config, type)), 
-				posx+config->plotResX/80*typeCount, config->plotResY/15, 
-				config->plotResX/80, config->plotResY/12, 
+				posx+BAR_WIDTH*typeCount, BAR_VERT_POS, 
+				BAR_WIDTH, BAR_HEIGHT, 
 				cntAmplBlkDiff, cmpAmplBlkDiff, config);
 			typeCount++;
 		}
 	}
+
+	DrawMatchBarLabel(&plot, "Percentage Found", COLOR_GRAY, BAR_HOR_POS_ALL+BAR_WIDTH*typeCount, BAR_LABEL_POS, config);
 	ClosePlot(&plot);
 }
