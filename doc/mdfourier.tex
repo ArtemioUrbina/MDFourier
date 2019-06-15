@@ -53,7 +53,7 @@ This document serves as an introduction, a manual and description of the methods
 
 \tableofcontents
 
-\chapter{\textit{MDFourier} Objective}
+\chapter{\textit{MDFourier}'s Objective}
 
 To provide a free and open source\footnote{Licensed under \textit{GNU GPL} see appendix \ref{license}.} software based analysis framework for comparing audio signatures from a targeted video game system and its variants\footnote{Vintage retail variations, hardware modifications, clones and \textit{\acrfull{fpga}} implementations}. The resulting comparison can help tune such system\footnote{The term \textit{system} will be used to cover vintage retail hardware, emulators, \textit{FPGA} implementations and any other possible variant that executes binaries for the target hardware} to better match the desired reference profile.
 
@@ -87,7 +87,7 @@ There must be powerful industrial solutions for this kind of analysis, but they 
 
 If you have suggestions, please contact me. Any corrections and improvements are encouraged and welcome. Contact information is available in appendix \ref{contact}.
 
-This project was born from my curiosity to compare the audio signatures of different revisions of the  \textit{Mega Drive/Genesis}, and verify them with a tool assisted analysis. I was also curious about \textit{FPGA} and software implementations, and how similar they were to vintage console audio signatures.
+This project was born out of my curiosity to compare the audio signatures of different revisions of the  \textit{Mega Drive/Genesis}, and verify them with a tool assisted analysis. I was also curious about \textit{FPGA} and software implementations, and how similar they were to vintage console audio signatures.
 
 \chapter{How \textit{MDFourier} works}
 \label{howitworks}
@@ -122,7 +122,7 @@ After comparing these frequencies between both files, matches are made and the d
 
 Sometimes it is helpful to listen to the results of these limiting filters, in order to evaluate if - for instance - 2000 frequencies are either enough or too little for the current application. For this and other purposes I made an extra tool named \textit{MDWave}\footnote{Described in appendix \ref{mdwave}}, which creates segmented audio files as internally processed by \textit{MDFourier}, even including the effects of \textit{window}\footnote{Window functions are described in section \ref{windows})} filters and amplitude limits.
 
-If you are interested in learning what the \textit{Fourier Transform} does and how it works it's magic, there are several resources online to help you out. Here are a few:
+If you are interested in learning what the \textit{Fourier Transform} does and how its \textit{"magic"} works, there are several resources online to help you out. Here are a few:
 
 \begin{itemize}
 	\item But what is the Fourier Transform? A visual introduction.\\ \url{https://www.youtube.com/watch?v=spUNpyF58BY}
@@ -206,7 +206,7 @@ The currently available options in the \textit{Front End} are:
 \subsection{Window Functions}
 \label{windows}
 
-In order to reduce \textit{spectral leakage}\footnote{This term describes new frequency components created when applying a Fourier Transform to a segment of a signal. See \cite{leakage}} when applying the \define{dft} a \textit{filtering window}\footnote{All details regarding the windows used, their formulas and graphs are in appendix \ref{windowfunctiondetails}} is applied to each element to be compared between both signals. Since we are generating the signal ourselves from the \textit{custom binary}, the signal can be analyzed as \textit{periodic}\footnote{In theory this means we could get away without applying a window, but in practice the signal is not perfect and \textit{windowing} the data helps to eliminate noise.}, and has a natural \textit{attack} and \textit{decay} rate if possible.
+In order to reduce \textit{spectral leakage}\footnote{This term describes new frequency components created when applying a Fourier Transform to a segment of a signal. See \cite{leakage}} when applying the \define{dft}, a \textit{filtering window}\footnote{All details regarding the windows used, their formulas and graphs are in appendix \ref{windowfunctiondetails}} is applied to each element to be compared between both signals. Since we are generating the signal ourselves from the \textit{custom binary}, the signal can be analyzed as \textit{periodic}\footnote{In theory this means we could get away without applying a window, but in practice the signal is not perfect and \textit{windowing} the data helps to eliminate noise.}, and has a natural \textit{attack} and \textit{decay} rate if possible.
 
 By default we use a custom \textit{Tukey window}\footnote{This is not a common choice for window function, but was selected due to the above reasons after comparing results with  the rest of the available options.} with very steep slopes. \textit{MDFourier} does offer alternate windows as options for further analysis.
 
@@ -578,13 +578,9 @@ Here is the graph with the \textit{Average plot} option turned on.
 
 \chapter{Results from vintage retail hardware}
 
-The following table lists all the hardware used to make the recordings for the following result plots for this chapter. All systems had stock parts at the time of recording, no modifications and used original power supplies. 
+The following table lists all the hardware used to make the recordings for the following result plots for this chapter. All systems had stock parts at the time of recording, no modifications and used original power supplies.\footnote{They were all connected to a 4" \textit{CRT} via \textit{RGB}, although the \textit{CRT} was turned off while recording. Since \textit{video refresh} noise is indeed detected by the software, but since it is such an isolated frequency range - at a sharp 20 hz - it is not filtered out for comparisons.}. 
 
-They were all connected to a 4" \textit{CRT} via \textit{RGB}, although the \textit{CRT} was turned off while recording\footnote{Video Refresh noise is indeed detected by the software, but since it is such an isolated frequency range - at a sharp 20 hz - it is not filtered out for comparisons.}.
-
-For simplicity, the recordings shown were made using the \textit{USB Lexicon Alpha} audio card\footnote{See appendix \ref{audiocards}}. All the recordings are available from the \textit{downloads page} from the \textit{MDFourier} website\footnote{URL is \url{http://junkerhq.net/MDFourier/}}.
-
-The \textit{MDFourier ID} value in the following table refers to the name of the files in the catalogue.
+The \textit{MDFourier ID} value in the following table refers to the file name in the catalog. 
 
 \begin{center}
 \scalebox{0.6}{
@@ -607,21 +603,88 @@ The \textit{MDFourier ID} value in the following table refers to the name of the
 }
 \end{center}
 
-\section{Sega Genesis Model 1 VA3 (US) vs Mega Drive Model 1 VA1 (JP)}
+For simplicity, the recordings shown were made using the \textit{USB Lexicon Alpha} audio card\footnote{See appendix \ref{audiocards}}. The first system is the \textit{Reference}, and the second one is the \textit{Comparison} signal.
 
-\section{Sega Genesis Model 1 VA3 (US) vs Sega Genesis Model 1 VA6 (JP)}
+All the recordings are available from the \textit{downloads page} from the \textit{MDFourier} website\footnote{URL is \url{http://junkerhq.net/MDFourier/}}.
 
-\section{Sega Genesis Model 1 VA6 (US) vs Mega Drive Model 1 VA6 (JP)}
+\section{Sega Genesis Model 1 VA3 (US) vs\\ Mega Drive Model 1 VA1 (JP)}
 
-\section{Sega Genesis Model 1 VA6 (US) vs Sega Genesis Model 1 VA6 (US)}
+\begin{figure}[H]
+	\centering
+	\includegraphics[width=1.0\linewidth]{images/results/1-A-MD1UTVA3-LA_vs_A-MD1JJVA1_LA.png}
+	\caption[A-MD1UTVA3-LA vs A-MD1JJVA1-LA]{Differences between A-MD1UTVA3-LA and A-MD1JJVA1-LA}
+	\label{fig:A-MD1UTVA3-LA_vs_A-MD1JJVA1_LA}
+\end{figure}
 
-\section{Sega Genesis Model 1 VA3 (US) vs Sega Genesis Model 2 VA1.8 (US)}
+\section{Sega Genesis Model 1 VA3 (US) vs\\ Sega Genesis Model 1 VA6 (JP)}
 
-\section{Sega Genesis Model 1 VA3 (US) vs Sega CDX (US)}
+\begin{figure}[H]
+	\centering
+	\includegraphics[width=1.0\linewidth]{images/results/2-A-MD1UTVA3-LA_vs_A-MD1JJVA6_LA.png}
+	\caption[A-MD1UTVA3-LA vs A-MD1JJVA6-LA]{Differences between A-MD1UTVA3-LA and MD1JJVA6-LA}
+	\label{fig:A-MD1UTVA3-LA_vs_A-MD1JJVA6_LA}
+\end{figure}
 
-\section{Sega Genesis Model 1 VA3 (US) vs Sega Nomad (US)}
+\section{Sega Genesis Model 1 VA6 (JP) vs\\ Mega Drive Model 1 VA6 (US)}
 
-\section{Sega CDX (US) Line-out vs Sega CDX (US) Headphone port}
+\begin{figure}[H]
+	\centering
+	\includegraphics[width=1.0\linewidth]{images/results/3-A-MD1JJVA6_LA_vs_A-MD1UJVA6-LA.png}
+	\caption[A-MD1JJVA6-LA vs A-MD1UJVA6-LA]{Differences between A-MD1JJVA6-LA and A-MD1UJVA6-LA}
+	\label{fig:A-MD1JJVA6_LA_vs_A-MD1UJVA6-LA}
+\end{figure}
+
+\section{Sega Genesis Model 1 VA6 (US) vs\\ Sega Genesis Model 1 VA6 (US)}
+
+\begin{figure}[H]
+	\centering
+	\includegraphics[width=1.0\linewidth]{images/results/4-A-MD1UTVA6-1_LA_vs_A-MD1UTVA6-2_LA.png}
+	\caption[A-MD1UTVA6-1-LA vs A-MD1UTVA6-2-LA]{Differences between A-MD1UTVA6-1-LA and A-MD1UTVA6-2-LA}
+	\label{fig:A-MD1UTVA6-1_LA_vs_A-MD1UTVA6-2_LA}
+\end{figure}
+
+\section{Sega Genesis Model 1 VA3 (US) vs\\ Sega Genesis Model 2 VA1.8 (US)}
+
+\begin{figure}[H]
+	\centering
+	\includegraphics[width=1.0\linewidth]{images/results/5-1-A-MD1UTVA3-LA_vs_A-MD2UCVA18_LA.png}
+	\caption[A-MD1UTVA3-LA vs A-MD2UCVA18-LA]{Differences between A-MD1UTVA3-LA and A-MD2UCVA18-LA}
+	\label{fig:A-MD1UTVA3-LA_vs_A-MD2UCVA18_LA}
+\end{figure}
+
+\begin{figure}[H]
+	\centering
+	\includegraphics[width=1.0\linewidth]{images/results/5-2-A-MD1UTVA3-LA_vs_A-MD2UCVA18_LA.png}
+	\caption[A-MD1UTVA3-LA vs A-MD2UCVA18-LA Averaged]{Averaged Differences between A-MD1UTVA3-LA and A-MD2UCVA18-LA}
+	\label{fig:A-MD1UTVA3-LA_vs_A-MD2UCVA18_LA_AVG}
+\end{figure}
+
+\section{Sega Genesis Model 1 VA3 (US) vs\\ Sega Nomad (US)}
+
+\begin{figure}[H]
+	\centering
+	\includegraphics[width=1.0\linewidth]{images/results/6-A-MD1UTVA3-LA_vs_A-NMUT_LA.png}
+	\caption[A-MD1UTVA3-LA vs A-NMUT-LA]{Differences between A-MD1UTVA3-LA and A-NMUT-LA}
+	\label{fig:A-MD1UTVA3-LA_vs_A-NMUT_LA}
+\end{figure}
+
+\section{Sega Genesis Model 1 VA3 (US) vs\\ Sega CDX (US)}
+
+\begin{figure}[H]
+	\centering
+	\includegraphics[width=1.0\linewidth]{images/results/7-A-MD1UTVA3-LA_vs_A-CDXUJ-LO_LA.png}
+	\caption[A-MD1UTVA3-LA vs A-CDXUJ-LO-LA]{Differences between A-MD1UTVA3-LA and A-CDXUJ-LO-LA}
+	\label{fig:A-MD1UTVA3-LA_vs_A-CDXUJ-LO_LA}
+\end{figure}
+
+\section{Sega CDX (US) Line-out vs\\ Sega CDX (US) Headphone port}
+
+\begin{figure}[H]
+	\centering
+	\includegraphics[width=1.0\linewidth]{images/results/8-A-CDXUJ-LO_LA_vs_A-CDXUJ-HP_LA.png}
+	\caption[A-CDXUJ-LO-LA vs A-CDXUJ-HP-LA]{Differences between A-CDXUJ-LO-LA and A-CDXUJ-HP-LA}
+	\label{fig:A-CDXUJ-LO_LA_vs_A-CDXUJ-HP_LA}
+\end{figure}
 
 \begin{appendices}
 	
@@ -685,7 +748,7 @@ The second one is for null audio, or silence. This \textit{silence} is used to m
 \chapter{MDWave}
 \label{mdwave}
 
-\textit{MDWave} is a companion command line tool to \textit{MDFourier}. During development and while learning about \textit{DSP}, I needed to check what I was doing in a more tangible way. So in order to visualize the files in an audio editor and listen to the results \textit{MDWave} was born.
+\textit{MDWave} is a companion command line tool to \textit{MDFourier}. During development and while learning about \textit{DSP}, I needed to check what I was doing in a more tangible way. So, in order to visualize the files in an audio editor and listen to the results \textit{MDWave} was born.
 
 It takes a single wave file as argument, and loads all the parameters defined in the configuration file in order to verify the same environment. (see section \ref{mfnconfig}).
 
