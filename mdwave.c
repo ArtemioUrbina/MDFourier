@@ -282,7 +282,21 @@ int LoadFile(FILE *file, AudioSignal *Signal, parameters *config, char *fileName
 		}
 	}
 	else
+	{
 		Signal->framerate = GetMSPerFrame(Signal, config);
+
+		/* Find the start offset */
+		logmsg(" - Detecting audio signal: ");
+		Signal->startOffset = DetectSignalStart(Signal->Samples, Signal->header, config);
+		if(Signal->startOffset == -1)
+		{
+			logmsg("\nStarting position was not detected\n");
+			return 0;
+		}
+		logmsg(" %gs [%ld bytes]\n", 
+				BytesToSeconds(Signal->header.SamplesPerSec, Signal->startOffset),
+				Signal->startOffset);
+	}
 
 	if(seconds < GetSignalTotalDuration(Signal->framerate, config))
 		logmsg(" - Adjusted File length is smaller than the expected %gs\n",
