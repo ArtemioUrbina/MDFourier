@@ -1731,7 +1731,7 @@ int PlotDifferentAmplitudesAveraged(FlatAmplDifference *amplDiff, char *filename
 		}
 	}
 
-	if(types && averagedArray && averagedSizes)
+	if(types > 1 && averagedArray && averagedSizes)
 	{
 		sprintf(name, "DA_ALL_AVG_%s", filename);
 		PlotAllDifferentAmplitudesAveraged(amplDiff, name, averagedArray, averagedSizes, config);
@@ -1795,9 +1795,8 @@ void PlotSingleTypeDifferentAmplitudesAveraged(FlatAmplDifference *amplDiff, int
 	{
 		int first = 1;
 
-		SetPenColor(color, 0xffff, &plot);
-
 		/*
+		SetPenColor(color, 0xffff, &plot);
 		for(long int a = 0; a < avgsize; a+=2)
 		{
 			if(a + 2 < avgsize)
@@ -1812,7 +1811,24 @@ void PlotSingleTypeDifferentAmplitudesAveraged(FlatAmplDifference *amplDiff, int
 		pl_endpath_r(plot.plotter);
 		*/
 
-		SetPenColor(color, 0xffff, &plot);
+		pl_flinewidth_r(plot.plotter, 50);
+		SetPenColor(COLOR_GRAY, 0x0000, &plot);
+		for(long int a = 0; a < avgsize; a++)
+		{
+			if(first)
+			{
+				pl_fline_r(plot.plotter, transformtoLog(averaged[a].avgfreq, config), averaged[a].avgvol,
+							transformtoLog(averaged[a+1].avgfreq, config), averaged[a+1].avgvol);
+				first = 0;
+			}
+			else
+				pl_fcont_r(plot.plotter, transformtoLog(averaged[a].avgfreq, config), averaged[a].avgvol);
+		}
+		pl_endpath_r(plot.plotter);
+
+		first = 1;
+		pl_flinewidth_r(plot.plotter, plot.penWidth);
+		SetPenColor(color, 0xFFFF, &plot);
 		for(long int a = 0; a < avgsize; a++)
 		{
 			if(first)
@@ -1883,7 +1899,6 @@ void PlotAllDifferentAmplitudesAveraged(FlatAmplDifference *amplDiff, char *file
 		{
 			int first = 1;
 
-			SetPenColor(color, 0xffff, &plot);
 			/*
 			for(long int a = 0; a < avgsize[currType]; a+=2)
 			{
@@ -1899,6 +1914,8 @@ void PlotAllDifferentAmplitudesAveraged(FlatAmplDifference *amplDiff, char *file
 			pl_endpath_r(plot.plotter);
 			*/
 
+			pl_flinewidth_r(plot.plotter, 50);
+			SetPenColor(COLOR_GRAY, 0x0000, &plot);
 			for(long int a = 0; a < avgsize[currType]; a++)
 			{
 				if(first)
@@ -1909,8 +1926,22 @@ void PlotAllDifferentAmplitudesAveraged(FlatAmplDifference *amplDiff, char *file
 				}
 				else
 					pl_fcont_r(plot.plotter, transformtoLog(averaged[currType][a].avgfreq, config), averaged[currType][a].avgvol);
-
-				//logmsg("Plot [%ld] %g->%g\n", a, averaged[currType][a].avgfreq, averaged[currType][a].avgvol);
+			}
+			pl_endpath_r(plot.plotter);
+	
+			first = 1;
+			pl_flinewidth_r(plot.plotter, plot.penWidth);
+			SetPenColor(color, 0xffff, &plot);
+			for(long int a = 0; a < avgsize[currType]; a++)
+			{
+				if(first)
+				{
+					pl_fline_r(plot.plotter, transformtoLog(averaged[currType][a].avgfreq, config), averaged[currType][a].avgvol,
+								transformtoLog(averaged[currType][a+1].avgfreq, config), averaged[currType][a+1].avgvol);
+					first = 0;
+				}
+				else
+					pl_fcont_r(plot.plotter, transformtoLog(averaged[currType][a].avgfreq, config), averaged[currType][a].avgvol);
 			}
 			pl_endpath_r(plot.plotter);
 		}

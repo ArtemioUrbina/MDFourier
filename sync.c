@@ -51,7 +51,7 @@ long int DetectPulse(char *AllSamples, wav_hdr header, parameters *config)
 	}
 
 	offset = position;
-	if(offset >= 2*44)  // return 2 segments at ratio 4 above
+	if(offset >= 2*44)  // return 2 "byte segments" as dictated by ratio "4" above
 		offset -= 2*44;
 
 	if(config->debugSync)
@@ -288,6 +288,8 @@ long int DetectPulseInternal(char *Samples, wav_hdr header, int factor, long int
 	pos = offset;
 	if(offset)
 		i = offset/buffersize;
+	else
+		TotalMS /= 6;
 
 	targetFrequency = FindFrequencyBracket(GetPulseSyncFreq(config), millisecondSize/2, header.SamplesPerSec);
 
@@ -320,7 +322,7 @@ long int DetectPulseInternal(char *Samples, wav_hdr header, int factor, long int
 
 		pos += loadedBlockSize;
 
-		// We use left channel by default, we don't knwo about channel imbalances yet
+		// We use left channel by default, we don't know about channel imbalances yet
 		ProcessChunkForSyncPulse((int16_t*)buffer, loadedBlockSize/2, 
 				header.SamplesPerSec, &pulseArray[i], 
 				config->channel == 's' ? 'l' : config->channel, targetFrequency, config);
@@ -446,7 +448,7 @@ double ProcessChunkForSyncPulse(int16_t *samples, size_t size, long samplerate, 
 		magnitude = CalculateMagnitude(spectrum[i], size);
 		Hertz = CalculateFrequency(i, boxsize, config->ZeroPad);
 
-		if(config->laxSync)
+		if(config->laxSync && target)
 		{
 			if(maxHertz != target && magnitude > maxMag)
 			{
@@ -483,3 +485,160 @@ double ProcessChunkForSyncPulse(int16_t *samples, size_t size, long samplerate, 
 	return(maxHertz);
 }
 
+long int DetectSignalStart(char *AllSamples, wav_hdr header, parameters *config)
+{
+	int			maxdetected = 0;
+	long int	position = 0, offset = 0;
+
+	OutputFileOnlyStart();
+
+	if(config->debugSync)
+		logmsg("\nStarting Detect Signal\n");
+
+	position = DetectSignalStartInternal(AllSamples, header, 4, 0, &maxdetected, config);
+	if(position == -1)
+	{
+		if(config->debugSync)
+			logmsg("Detect signal failed\n", offset);
+
+		OutputFileOnlyEnd();
+		return -1;
+	}
+
+	if(config->debugSync)
+		logmsg("Detect signal return value %ld\n", position);
+	OutputFileOnlyEnd();
+	return position;
+}
+
+long int DetectSignalStartInternal(char *Samples, wav_hdr header, int factor, long int offset, int *maxdetected, parameters *config)
+{
+	long int			i = 0, TotalMS = 0;
+	long int			loadedBlockSize = 0;
+	char				*buffer;
+	size_t			 	buffersize = 0;
+	long int			pos = 0, millisecondSize = 0;
+	double				MaxMagnitude = 0;
+	Pulses				*pulseArray;
+	double 				total = 0;
+	long int 			count = 0;
+
+	// Not a real ms, just approximate
+	millisecondSize = RoundTo4bytes(floor((((double)header.SamplesPerSec*4.0)/1000.0)/(double)factor), NULL, NULL, NULL);
+	buffersize = millisecondSize*sizeof(char); 
+	buffer = (char*)malloc(buffersize);
+	if(!buffer)
+	{
+		logmsg("\tmalloc failed\n");
+		return(0);
+	}
+	
+	TotalMS = header.Subchunk2Size / buffersize - 1;
+	pulseArray = (Pulses*)malloc(sizeof(Pulses)*TotalMS);
+	if(!pulseArray)
+	{
+		logmsg("\tPulse malloc failed!\n");
+		return(0);
+	}
+	memset(pulseArray, 0, sizeof(Pulses)*TotalMS);
+
+	pos = offset;
+	if(offset)
+		i = offset/buffersize;
+	else
+		TotalMS /= 6;
+
+	while(i < TotalMS)
+	{
+		loadedBlockSize = millisecondSize;
+
+		memset(buffer, 0, buffersize);
+		if(pos + loadedBlockSize > header.Subchunk2Size)
+		{
+			logmsg("\tunexpected end of File, please record the full Audio Test from the 240p Test Suite\n");
+			break;
+		}
+
+		pulseArray[i].bytes = pos;
+		memcpy(buffer, Samples + pos, loadedBlockSize);
+
+#ifdef SAVE_CHUNKS
+		if(1)
+		{	
+			char FName[4096];
+			AudioSignal s;
+
+			s.header = header;
+			sprintf(FName,	 "%06ld_SYNC_chunk.wav", i);
+
+			SaveWAVEChunk(FName, &s, buffer, 0, loadedBlockSize, config); 
+		}
+#endif
+
+		pos += loadedBlockSize;
+
+		// we go stereo, any signal is fine here
+		ProcessChunkForSyncPulse((int16_t*)buffer, loadedBlockSize/2, 
+				header.SamplesPerSec, &pulseArray[i], 
+				's', 0, config);
+		if(pulseArray[i].magnitude > MaxMagnitude)
+			MaxMagnitude = pulseArray[i].magnitude;
+		i++;
+	}
+
+	for(i = 0; i < TotalMS; i++)
+	{
+		if(pulseArray[i].hertz)
+			pulseArray[i].amplitude = CalculateAmplitude(pulseArray[i].magnitude, MaxMagnitude);
+		else
+			pulseArray[i].amplitude = NO_AMPLITUDE;
+	}
+
+	/*
+	if(config->debugSync)
+	{
+		//logmsg("===== Searching for %gHz at %ddBFS =======\n", targetFrequency, config->types.pulseMinVol);
+		for(i = 0; i < TotalMS; i++)
+		{
+				logmsg("B: %ld Hz: %g A: %g\n", 
+					pulseArray[i].bytes, 
+					pulseArray[i].hertz, 
+					pulseArray[i].amplitude);
+		}
+		//logmsg("========  End listing =========\n");
+	}
+	*/
+
+	// if not found, compare all
+	offset = 0;
+	
+	for(i = 0; i < TotalMS; i++)
+	{
+		if(pulseArray[i].hertz)
+		{
+			double average = 0;
+
+			total += pulseArray[i].amplitude;
+			count ++;
+			average = total/count;
+
+			if(config->debugSync)
+				logmsg("B: %ld Hz: %g A: %g avg: %g\n", 
+					pulseArray[i].bytes, 
+					pulseArray[i].hertz, 
+					pulseArray[i].amplitude, 
+					average);
+
+			if(pulseArray[i].amplitude * 1.5 > average)
+			{
+				offset = pulseArray[i].bytes;
+				break;
+			}
+		}
+	}
+
+	free(pulseArray);
+	free(buffer);
+
+	return offset;
+}
