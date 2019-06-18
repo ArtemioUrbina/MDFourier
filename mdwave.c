@@ -64,7 +64,7 @@ int main(int argc , char *argv[])
 	if(config.clock)
 		clock_gettime(CLOCK_MONOTONIC, &start);
 
-	if(!LoadAudioBlockStructure(&config))
+	if(!LoadProfile(&config))
 		return 1;
 
 	reference = fopen(config.referenceFile, "rb");
@@ -83,6 +83,11 @@ int main(int argc , char *argv[])
 		logmsg("Not enough memory for Data Structures\n");
 		return 0;
 	}
+
+	if(!config.useCompProfile)
+		ReferenceSignal->role = ROLE_REF;
+	else
+		ReferenceSignal->role = ROLE_COMP;
 
 	logmsg("\n* Loading Reference audio file %s\n", config.referenceFile);
 	if(!LoadFile(reference, ReferenceSignal, &config, config.referenceFile))
@@ -194,7 +199,7 @@ int LoadFile(FILE *file, AudioSignal *Signal, parameters *config, char *fileName
 	}
 
 	// Default if none is found
-	Signal->framerate = GetPlatformMSPerFrame(config);
+	Signal->framerate = GetMSPerFrame(Signal, config);
 
 	seconds = (double)Signal->header.Subchunk2Size/4.0/(double)Signal->header.SamplesPerSec;
 	logmsg(" - WAV file is PCM %dhz %dbits and %g seconds long\n", 
@@ -277,7 +282,7 @@ int LoadFile(FILE *file, AudioSignal *Signal, parameters *config, char *fileName
 		}
 	}
 	else
-		Signal->framerate = GetPlatformMSPerFrame(config);
+		Signal->framerate = GetMSPerFrame(Signal, config);
 
 	if(seconds < GetSignalTotalDuration(Signal->framerate, config))
 		logmsg(" - Adjusted File length is smaller than the expected %gs\n",
@@ -329,7 +334,7 @@ int ProcessFile(AudioSignal *Signal, parameters *config)
 	if(!initWindows(&windows, Signal->framerate, Signal->header.SamplesPerSec, config->window, config))
 		return 0;
 
-	CompareFrameRates(Signal->framerate, GetPlatformMSPerFrame(config), config);
+	CompareFrameRates(Signal->framerate, GetMSPerFrame(Signal, config), config);
 
 	while(i < config->types.totalChunks)
 	{
@@ -767,9 +772,9 @@ int commandline_wave(int argc , char *argv[], parameters *config)
 	config->maxBlanked = 0;
 	config->invert = 0;
 	config->chunks = 0;
-	config->floorAmplitude = 0;
+	config->useCompProfile = 0;
 
-	while ((c = getopt (argc, argv, "hvzcklyBxis:e:f:t:p:a:w:r:P:")) != -1)
+	while ((c = getopt (argc, argv, "hvzcklyCBxis:e:f:t:p:a:w:r:P:")) != -1)
 	switch (c)
 	  {
 	  case 'h':
@@ -866,6 +871,9 @@ int commandline_wave(int argc , char *argv[], parameters *config)
 		break;
 	  case 'B':
 		config->channelBalance = 0;
+		break;
+	  case 'C':
+		config->useCompProfile = 1;
 		break;
 	  case '?':
 		if (optopt == 'r')
@@ -981,6 +989,7 @@ void PrintUsage_wave()
 	logmsg("	 -t: Defines the <t>olerance when comparing amplitudes in dBFS\n");
 	logmsg("	 -z: Uses Zero Padding to equal 1 hz FFT bins\n");
 	logmsg("	 -B: Do not do stereo channel audio <B>alancing\n");
+	logmsg("	 -C: Use <C>omparison framerate profile in 'No-Sync' compare mode\n");
 	logmsg("   Output options:\n");
 	logmsg("	 -v: Enable <v>erbose mode, spits all the FFTW results\n");
 	logmsg("	 -l: <l>og output to file [reference]_vs_[compare].txt\n");

@@ -49,7 +49,7 @@
 
 #include "incbeta.h"
 
-#define MDVERSION "0.919"
+#define MDVERSION "0.920"
 
 
 #define MAX_FREQ_COUNT		100000 	/* Number of frequencies to compare(MAX) */
@@ -130,7 +130,8 @@ typedef struct abd_st {
 	char			Name[128];
 	int				totalChunks;
 	int				regularChunks;
-	double			platformMSPerFrame;
+	double			referenceMSPerFrame;
+	double			comparisonMSPerFrame;
 	int				pulseSyncFreq;
 	int				pulseMinVol;
 	int				pulseVolDiff;
@@ -208,7 +209,7 @@ typedef struct AudioSt {
 	double		VideoRefreshLow;
 	double		VideoRefreshHigh;
 
-	AudioBlocks *Blocks; 
+	AudioBlocks *Blocks;
 }  AudioSignal;
 
 /********************************************************/
@@ -302,6 +303,8 @@ typedef struct parameters_st {
 	enum normalize	normType;
 	int				channelBalance;
 	int				laxSync;
+	int				showPercent;
+	int				noSyncProfile;
 
 	int				plotDifferences;
 	int				plotMissing;
@@ -321,7 +324,7 @@ typedef struct parameters_st {
 	int				maxBlanked;
 	int				invert;
 	int				chunks;
-	double			floorAmplitude;
+	int				useCompProfile;
 #endif
 } parameters;
 

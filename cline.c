@@ -104,6 +104,7 @@ void CleanParameters(parameters *config)
 	config->drawWindows = 0;
 	config->channelBalance = 1;
 	config->laxSync = 0;
+	config->showPercent = 0;
 
 	config->logScale = 1;
 	config->reverseCompare = 0;
@@ -129,7 +130,8 @@ void CleanParameters(parameters *config)
 	
 	config->types.totalChunks = 0;
 	config->types.regularChunks = 0;
-	config->types.platformMSPerFrame = 16.6905;
+	config->types.referenceMSPerFrame = 16.688;
+	config->types.comparisonMSPerFrame = 16.688;
 	config->types.pulseSyncFreq = 8820;
 	config->types.pulseMinVol = -25;
 	config->types.pulseVolDiff = 25;
@@ -364,7 +366,7 @@ int commandline(int argc , char *argv[], parameters *config)
 		break;
 	  }
 	
-	for (index = optind; index < argc; index++)
+	for(index = optind; index < argc; index++)
 	{
 		logmsg("Invalid argument %s\n", argv[index]);
 		return 0;
@@ -400,6 +402,14 @@ int commandline(int argc , char *argv[], parameters *config)
 		logmsg("It makes no sense to process everything and plot nothing\nAborting.\n");
 		return 0;
 	}
+
+	file = fopen(config->profileFile, "rb");
+	if(!file)
+	{
+		logmsg("Could not load profile configuration file: \"%s\"\n", config->profileFile);
+		return 0;
+	}
+	fclose(file);
 
 	file = fopen(config->referenceFile, "rb");
 	if(!file)

@@ -73,7 +73,7 @@ long int DetectEndPulse(char *AllSamples, long int startpulse, wav_hdr header, p
 	do
 	{
 		// Use defaults to calculate real frame rate
-		offset = GetLastSilenceByteOffset(GetPlatformMSPerFrame(config), header, frameAdjust, config) + startpulse;
+		offset = GetLastSilenceByteOffset(GetMSPerFrame(NULL, config), header, frameAdjust, config) + startpulse;
 	
 		frameAdjust = 0;
 		if(config->debugSync)

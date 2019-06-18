@@ -89,7 +89,10 @@ void CalcuateFrequencyBrackets(AudioSignal *Signal, parameters *config)
 		*/
 	}
 	else
-		logmsg("\nWARNING: Frequency Brackets can't be found since there is no Silence block in MFN file\n\n");
+	{
+		if(!config->noSyncProfile)
+			logmsg("\nWARNING: Frequency Brackets can't be found since there is no Silence block in MFN file\n\n");
+	}
 }
 
 int IsVideoRefreshNoise(AudioSignal *Signal, double freq)
@@ -266,7 +269,7 @@ void ReleaseAudioBlockStructure(parameters *config)
 	}
 }
 
-int LoadAudioBlockStructure(parameters *config)
+int LoadProfile(parameters *config)
 {
 	FILE 	*file;
 	char	lineBuffer[LINE_BUFFER_SIZE];
@@ -278,18 +281,30 @@ int LoadAudioBlockStructure(parameters *config)
 	file = fopen(config->profileFile, "r");
 	if(!file)
 	{
-		logmsg("Could not load audio configuration file %s\n", config->profileFile);
+		logmsg("Could not load profile configuration file: \"%s\"\n", config->profileFile);
 		return 0;
 	}
 	
 	readLine(lineBuffer, file);
 	sscanf(lineBuffer, "%s ", buffer);
-	if(strcmp(buffer, "MDFourierAudioBlockFile") != 0)
-	{
-		logmsg("Not an MD Fourier Audio Block File\n");
-		fclose(file);
-		return 0;
-	}
+	if(strcmp(buffer, "MDFourierAudioBlockFile") == 0)
+		return(LoadAudioBlockStructure(file, config));
+
+	if(strcmp(buffer, "MDFourierNoSyncProfile") == 0)
+		return(LoadAudioNoSyncProfile(file, config));
+
+	logmsg("Not an MD Fourier Audio Profile File\n");
+	fclose(file);
+	return 0;
+}
+
+int LoadAudioBlockStructure(FILE *file, parameters *config)
+{
+	char	lineBuffer[LINE_BUFFER_SIZE];
+	char	buffer[PARAM_BUFFER_SIZE];
+
+	config->noSyncProfile = 0;
+
 	sscanf(lineBuffer, "%*s %s\n", buffer);
 	if(atof(buffer) > 1.0)
 	{
@@ -313,8 +328,8 @@ int LoadAudioBlockStructure(parameters *config)
 		fclose(file);
 		return 0;
 	}
-	config->types.platformMSPerFrame = strtod(buffer, NULL);
-	if(!config->types.platformMSPerFrame)
+	config->types.referenceMSPerFrame = strtod(buffer, NULL);
+	if(!config->types.referenceMSPerFrame)
 	{
 		logmsg("Invalid Frame Rate Adjustment '%s'\n", lineBuffer);
 		fclose(file);
@@ -474,6 +489,162 @@ int LoadAudioBlockStructure(parameters *config)
 	return 1;
 }
 
+int LoadAudioNoSyncProfile(FILE *file, parameters *config)
+{
+	char	lineBuffer[LINE_BUFFER_SIZE];
+	char	buffer[PARAM_BUFFER_SIZE];
+
+	config->noSyncProfile = 1;
+
+	sscanf(lineBuffer, "%*s %s\n", buffer);
+	if(atof(buffer) > 1.0)
+	{
+		logmsg("This executable can parse 1.0 files only\n");
+		fclose(file);
+		return 0;
+	}
+
+	readLine(lineBuffer, file);
+	if(sscanf(lineBuffer, "%s\n", config->types.Name) != 1)
+	{
+		logmsg("Invalid Name '%s'\n", lineBuffer);
+		fclose(file);
+		return 0;
+	}
+
+	readLine(lineBuffer, file);
+	if(sscanf(lineBuffer, "%s\n", buffer) != 1)
+	{
+		logmsg("Invalid Reference Frame Rate Adjustment '%s'\n", lineBuffer);
+		fclose(file);
+		return 0;
+	}
+	config->types.referenceMSPerFrame = strtod(buffer, NULL);
+	if(!config->types.referenceMSPerFrame)
+	{
+		logmsg("Invalid Reference Frame Rate Adjustment '%s'\n", lineBuffer);
+		fclose(file);
+		return 0;
+	}
+
+	readLine(lineBuffer, file);
+	if(sscanf(lineBuffer, "%s\n", buffer) != 1)
+	{
+		logmsg("Invalid Comparison Frame Rate Adjustment '%s'\n", lineBuffer);
+		fclose(file);
+		return 0;
+	}
+	config->types.comparisonMSPerFrame = strtod(buffer, NULL);
+	if(!config->types.comparisonMSPerFrame)
+	{
+		logmsg("Invalid Comparison Frame Rate Adjustment '%s'\n", lineBuffer);
+		fclose(file);
+		return 0;
+	}
+
+	readLine(lineBuffer, file);
+	sscanf(lineBuffer, "%s\n", buffer);
+	config->types.typeCount = atoi(buffer);
+	if(!config->types.typeCount)
+	{
+		logmsg("Invalid type count '%s'\n", buffer);
+		fclose(file);
+		return 0;
+	}
+	config->types.typeArray = (AudioBlockType*)malloc(sizeof(AudioBlockType)*config->types.typeCount);
+	if(!config->types.typeArray)
+	{
+		logmsg("Not enough memory\n");
+		fclose(file);
+		return 0;
+	}
+	memset(config->types.typeArray, 0, sizeof(AudioBlockType));
+
+	for(int i = 0; i < config->types.typeCount; i++)
+	{
+		char type = 0;
+
+		readLine(lineBuffer, file);
+		if(sscanf(lineBuffer, "%s ", config->types.typeArray[i].typeName) != 1)
+		{
+			logmsg("Invalid Block Name %s\n", config->types.typeArray[i].typeName);
+			fclose(file);
+			return 0;
+		}
+
+		if(sscanf(lineBuffer, "%*s %c ", &type) != 1)
+		{
+			logmsg("Invalid Block Type %c\n", type);
+			fclose(file);
+			return 0;
+		}
+
+		switch(type)
+		{
+			case 'n':
+				config->types.typeArray[i].type = TYPE_SILENCE;
+				break;
+			case 's':
+				config->types.typeArray[i].type = TYPE_SYNC;
+				break;
+			default:
+				if(sscanf(lineBuffer, "%*s %d ", &config->types.typeArray[i].type) != 1)
+				{
+					logmsg("Invalid MD Fourier Block ID\n", config->types.typeArray[i].type);
+					fclose(file);
+					return 0;
+				}
+				break;
+		}
+		
+		if(sscanf(lineBuffer, "%*s %*c %d %d %s %c\n", 
+			&config->types.typeArray[i].elementCount,
+			&config->types.typeArray[i].frames,
+			&config->types.typeArray[i].color [0],
+			&config->types.typeArray[i].channel) != 4)
+		{
+			logmsg("Invalid MD Fourier Audio Blocks File (Element Count, frames, color, channel): %s\n", lineBuffer);
+			fclose(file);
+			return 0;
+		}
+
+		if(!config->types.typeArray[i].elementCount)
+		{
+			logmsg("Element Count must have a value > 0\n");
+			fclose(file);
+			return 0;
+		}
+
+		if(!config->types.typeArray[i].frames)
+		{
+			logmsg("Frames must have a value > 0\n");
+			fclose(file);
+			return 0;
+		}
+	
+		if(MatchColor(config->types.typeArray[i].color) == COLOR_NONE)
+		{
+			logmsg("Unrecognized color \"%s\" aborting\n", 
+				config->types.typeArray[i].color);
+			fclose(file);
+			return 0;
+		}
+	}
+
+	config->types.regularChunks = GetActiveAudioBlocks(config);
+	config->types.totalChunks = GetTotalAudioBlocks(config);
+	if(!config->types.totalChunks)
+	{
+		logmsg("Total Audio Blocks should be at least 1\n");
+		return 0;
+	}
+
+	fclose(file);
+	
+	//PrintAudioBlocks(config);
+	return 1;
+}
+
 void PrintAudioBlocks(parameters *config)
 {
 	if(!config)
@@ -491,9 +662,18 @@ void PrintAudioBlocks(parameters *config)
 	}
 }
 
-double GetPlatformMSPerFrame(parameters *config)
+double GetMSPerFrame(AudioSignal *Signal, parameters *config)
 {
-	return(roundFloat(config->types.platformMSPerFrame));
+	if(!config)
+		return 0;
+
+	if(!Signal || !config->noSyncProfile)
+		return(roundFloat(config->types.referenceMSPerFrame));
+	if(Signal->role == ROLE_COMP)
+		return(roundFloat(config->types.comparisonMSPerFrame));
+	if(Signal->role == NO_ROLE)
+		logmsg("WARNING: No role assigned, using Reference Frame Rate\n");
+	return(roundFloat(config->types.referenceMSPerFrame));
 }
 
 double GetPulseSyncFreq(parameters *config)
@@ -1460,7 +1640,7 @@ double CalculateFrameRate(AudioSignal *Signal, parameters *config)
 	endOffset = Signal->endOffset;
 	samplerate = Signal->header.SamplesPerSec;
 	LastSyncFrameOffset = GetLastSyncFrameOffset(Signal->header, config);
-	expectedFR = GetPlatformMSPerFrame(config);
+	expectedFR = GetMSPerFrame(Signal, config);
 
 	framerate = (endOffset-startOffset)/(samplerate*LastSyncFrameOffset);
 	framerate = framerate*1000.0/4.0;  // 1000 ms and 4 bytes per stereo sample
@@ -1474,7 +1654,8 @@ double CalculateFrameRate(AudioSignal *Signal, parameters *config)
 
 		ACsamplerate = (endOffset-startOffset)/(expectedFR*LastSyncFrameOffset);
 		ACsamplerate = ACsamplerate*1000.0/4.0;
-		logmsg(" - Framerate difference is %g. Audio card sample rate estimated at %g\n",
+		logmsg(" - %s file framerate difference is %g.\n\tAudio card sample rate estimated at %g\n",
+				Signal->role == ROLE_REF ? "Reference" : "Comparision",
 				diff, ACsamplerate);
 		
 	}

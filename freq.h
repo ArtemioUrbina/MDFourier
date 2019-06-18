@@ -38,7 +38,9 @@
 #define roundFloat(number) RoundFloat(number, 4)
 #define readLine(buffer, file) if(fgets(buffer, LINE_BUFFER_SIZE, file) == NULL) { logmsg("Invalid mdfblocks.mfn file\n");	return 0;	}
 
-int LoadAudioBlockStructure(parameters *config);
+int LoadProfile(parameters *config);
+int LoadAudioBlockStructure(FILE *file, parameters *config);
+int LoadAudioNoSyncProfile(FILE *file, parameters *config);
 int GetFirstSilenceIndex(parameters *config);
 int GetFirstMonoIndex(parameters *config);
 long int GetLastSilenceByteOffset(double framerate, wav_hdr header, int frameAdjust, parameters *config);
@@ -54,7 +56,7 @@ int GetBlockType(parameters *config, int pos);
 char *GetBlockColor(parameters *config, int pos);
 char *GetTypeColor(parameters *config, int type);
 char *GetTypeName(parameters *config, int type);
-double GetPlatformMSPerFrame(parameters *config);
+double GetMSPerFrame(AudioSignal *Signal, parameters *config);
 void ReleaseAudioBlockStructure(parameters *config);
 void PrintAudioBlocks(parameters *config);
 long int GetLastSyncFrameOffset(wav_hdr header, parameters *config);

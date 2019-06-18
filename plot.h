@@ -62,6 +62,10 @@ typedef struct averaged_freq{
 #define COLOR_ORANGE	8
 #define COLOR_GRAY		9
 
+#define	MODE_DIFF		1
+#define	MODE_MISS		2
+#define	MODE_SPEC		3
+
 typedef struct flat_ampl_diff_st {
 	double	hertz;
 	double	refAmplitude;
@@ -123,13 +127,14 @@ void DrawGridZeroDBCentered(PlotFile *plot, double dbs, double dbIncrement, doub
 void DrawLabelsZeroDBCentered(PlotFile *plot, double dbs, double dbIncrement, double hz, double hzIncrement,  parameters *config);
 void DrawGridZeroToLimit(PlotFile *plot, double dbs, double dbIncrement, double hz, double hzIncrement, parameters *config);
 void DrawLabelsZeroToLimit(PlotFile *plot, double dbs, double dbIncrement, double hz, double hzIncrement,  parameters *config);
-void DrawColorScale(PlotFile *plot, char *label, int color, double x, double y, double width, double height, double endDbs, double dbIncrement, parameters *config);
+void DrawColorScale(PlotFile *plot, int type, int mode, double x, double y, double width, double height, double endDbs, double dbIncrement, parameters *config);
+void DrawColorAllTypeScale(PlotFile *plot, int mode, double x, double y, double width, double height, double endDbs, double dbIncrement, parameters *config);
 
 int PlotDifferentAmplitudesAveraged(FlatAmplDifference *amplDiff, char *filename, parameters *config);
 AveragedFrequencies *CreateFlatDifferencesAveraged(int matchType, long int *avgSize, int chunks, parameters *config);
 void PlotSingleTypeDifferentAmplitudesAveraged(FlatAmplDifference *amplDiff, int type, char *filename, AveragedFrequencies *averaged, long int avgsize, parameters *config);
 void PlotAllDifferentAmplitudesAveraged(FlatAmplDifference *amplDiff, char *filename, AveragedFrequencies **averaged, long int *avgsize, parameters *config);
-
+void DrawMatchBar(PlotFile *plot, int colorName, double x, double y, double width, double height, double notFound, double total, parameters *config);
 
 void PlotTest(char *filename, parameters *config);
 void PlotTestZL(char *filename, parameters *config);

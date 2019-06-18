@@ -75,7 +75,7 @@ int main(int argc , char *argv[])
 	if(config.clock)
 		clock_gettime(CLOCK_MONOTONIC, &start);
 
-	if(!LoadAudioBlockStructure(&config))
+	if(!LoadProfile(&config))
 		return 1;
 
 	if(strcmp(config.referenceFile, config.targetFile) == 0)
@@ -84,7 +84,7 @@ int main(int argc , char *argv[])
 		logmsg("Both inputs are the same file %s, skipping to save time\n",
 			 config.referenceFile);
 		return 1;
-	}	
+	}
 
 	if(!LoadAndProcessAudioFiles(&ReferenceSignal, &ComparisonSignal, &config))
 		return 1;
@@ -525,7 +525,7 @@ int LoadFile(FILE *file, AudioSignal *Signal, parameters *config, char *fileName
 	}
 
 	// Default if none is found
-	Signal->framerate = GetPlatformMSPerFrame(config);
+	Signal->framerate = GetMSPerFrame(Signal, config);
 
 	seconds = (double)Signal->header.Subchunk2Size/4.0/(double)Signal->header.SamplesPerSec;
 	logmsg(" - WAV file is PCM %dhz %dbits and %g seconds long\n", 
@@ -608,7 +608,7 @@ int LoadFile(FILE *file, AudioSignal *Signal, parameters *config, char *fileName
 		}
 	}
 	else
-		Signal->framerate = GetPlatformMSPerFrame(config);
+		Signal->framerate = GetMSPerFrame(Signal, config);
 
 	if(seconds < GetSignalTotalDuration(Signal->framerate, config))
 		logmsg(" - Adjusted File length is smaller than the expected %gs\n",
