@@ -205,7 +205,7 @@ void PlotAmpDifferences(parameters *config)
 		logmsg("\n\nWARNING: The average difference is %g dBFS.\n", average);
 		logmsg("\tThis is abnormal, signal might not be from the correct source\n");
 		logmsg("\tStereo channels could also be inverted\n");
-		logmsg("\tAdjusting viewport to %gdBFS for plots\n\n", config->maxDbPlotZC);
+		logmsg("\tAdjusting viewport to %gdBFS for graphs\n\n", config->maxDbPlotZC);
 	}
 	amplDiff = CreateFlatDifferences(config);
 	if(!amplDiff)

@@ -43,7 +43,7 @@ void PrintUsage()
 	logmsg("	 -e: Defines <e>nd of the frequency range to compare with FFT\n");
 	logmsg("	 -i: <i>gnores the silence block noise floor if present\n");
 	logmsg("	 -t: Defines the <t>olerance when comparing amplitudes in dBFS\n");
-	logmsg("	 -z: Uses <z>ero Padding to equal 1 hz FFT bins\n");
+	logmsg("	 -z: Uses <z>ero Padding to equal 1 Hz FFT bins\n");
 	logmsg("	 -n: <N>ormalize: 't' Time Domain Max, 'f' Frequency Domain Max or 'a' Average\n");
 	logmsg("	 -B: Do not do stereo channel audio <B>alancing\n");
 	logmsg("   Output options:\n");
@@ -104,7 +104,7 @@ void CleanParameters(parameters *config)
 	config->drawWindows = 0;
 	config->channelBalance = 1;
 	config->laxSync = 0;
-	config->showPercent = 0;
+	config->showPercent = 1;
 
 	config->logScale = 1;
 	config->reverseCompare = 0;
@@ -201,6 +201,7 @@ int commandline(int argc , char *argv[], parameters *config)
 	  case 'L':
 		config->plotResX = PLOT_RES_X_LOW;
 		config->plotResY = PLOT_RES_Y_LOW;
+		config->showPercent = 0;
 		break;
 	  case 'H':
 		config->plotResX = PLOT_RES_X_HIGH;
@@ -461,7 +462,7 @@ int commandline(int argc , char *argv[], parameters *config)
 	else
 		logmsg("\tNo filtering will be applied to the results\n");
 	if(config->ZeroPad)
-		logmsg("\tFFT bins will be aligned to 1hz, this is slower\n");
+		logmsg("\tFFT bins will be aligned to 1Hz, this is slower\n");
 	if(config->ignoreFloor)
 		logmsg("\tIgnoring Silence block noise floor\n");
 	if(config->channel != 's')

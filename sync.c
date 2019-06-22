@@ -495,7 +495,7 @@ long int DetectSignalStart(char *AllSamples, wav_hdr header, parameters *config)
 	if(config->debugSync)
 		logmsg("\nStarting Detect Signal\n");
 
-	position = DetectSignalStartInternal(AllSamples, header, 4, 0, &maxdetected, config);
+	position = DetectSignalStartInternal(AllSamples, header, 9, 0, &maxdetected, config);
 	if(position == -1)
 	{
 		if(config->debugSync)

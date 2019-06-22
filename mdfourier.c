@@ -230,12 +230,8 @@ int LoadAndProcessAudioFiles(AudioSignal **ReferenceSignal, AudioSignal **Compar
 
 	/* Although dithering would be better, there has been no need */
 	/* Tested a file scaled with ths method against itself using  */
-	/* the previous frequency domain solution, and differences are*/
-	/* negligible (less than 0.2dBFS) */
-	/* We go with time domain normalization because different bin */
-	/* size caused by different frame rates change the relative */
-	/* volumes, this can be fixed by using zero padding by default */
-	/* but that seems to be less favored */
+	/* the frequency domain solution, and differences are negligible */
+	/* (less than 0.2dBFS) */
 
 	if(config->normType == max_time)
 	{
@@ -500,7 +496,7 @@ int LoadFile(FILE *file, AudioSignal *Signal, parameters *config, char *fileName
 
 	if(Signal->header.AudioFormat != 1) /* Check for PCM */
 	{
-		logmsg("\tInvalid WAV File: Only PCM is supported\n\tPlease convert file to WAV PCM 16 bit 44/48khz ");
+		logmsg("\tInvalid WAV File: Only PCM is supported\n\tPlease convert file to WAV PCM 16 bit 44/48kHz ");
 		return(0);
 	}
 
@@ -512,7 +508,7 @@ int LoadFile(FILE *file, AudioSignal *Signal, parameters *config, char *fileName
 
 	if(Signal->header.bitsPerSample != 16) /* Check bit depth */
 	{
-		logmsg("\tInvalid WAV file: Only 16 bit supported for now\n\tPlease use WAV PCM 16 bit 44/48khz ");
+		logmsg("\tInvalid WAV file: Only 16 bit supported for now\n\tPlease use WAV PCM 16 bit 44/48kHz ");
 		return(0);
 	}
 	
@@ -528,7 +524,7 @@ int LoadFile(FILE *file, AudioSignal *Signal, parameters *config, char *fileName
 	Signal->framerate = GetMSPerFrame(Signal, config);
 
 	seconds = (double)Signal->header.Subchunk2Size/4.0/(double)Signal->header.SamplesPerSec;
-	logmsg(" - WAV file is PCM %dhz %dbits and %g seconds long\n", 
+	logmsg(" - WAV file is PCM %dHz %dbits and %g seconds long\n", 
 		Signal->header.SamplesPerSec, Signal->header.bitsPerSample, seconds);
 
 	if(seconds < GetSignalTotalDuration(Signal->framerate, config))
@@ -589,7 +585,7 @@ int LoadFile(FILE *file, AudioSignal *Signal, parameters *config, char *fileName
 				BytesToSeconds(Signal->header.SamplesPerSec, Signal->endOffset),
 				Signal->endOffset);
 			Signal->framerate = CalculateFrameRate(Signal, config);
-			logmsg(" - Detected %g hz video signal (%gms per frame) from WAV file\n", 
+			logmsg(" - Detected %g Hz video signal (%gms per frame) from WAV file\n", 
 						CalculateScanRate(Signal), Signal->framerate);
 		}
 		else
@@ -834,14 +830,20 @@ int ExecuteDFFT(AudioBlocks *AudioArray, int16_t *samples, size_t size, long sam
 
 int CalculateMaxCompare(int block, AudioSignal *Signal, parameters *config, int limitRef)
 {
+	double limit = 0;
+
+	limit = config->significantVolume;
+	if(Signal->role == ROLE_COMP)
+		limit += -20;	// Allow going 20 dbfs "deeper"
+
 	for(int freq = 0; freq < config->MaxFreq; freq++)
 	{
 		/* Volumne is too low */
-		if(limitRef && Signal->Blocks[block].freq[freq].amplitude < config->significantVolume)
+		if(limitRef && Signal->Blocks[block].freq[freq].amplitude < limit)
 			return freq;
 
 		/* Volume is too low with tolerance */
-		if(!limitRef && Signal->Blocks[block].freq[freq].amplitude < config->significantVolume - config->tolerance*2)
+		if(!limitRef && Signal->Blocks[block].freq[freq].amplitude < limit - config->tolerance*2)
 			return freq;
 
 		/* Out of valid frequencies */

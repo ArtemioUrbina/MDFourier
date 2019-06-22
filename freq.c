@@ -1063,7 +1063,7 @@ void FindFloor(AudioSignal *Signal, parameters *config)
 			{
 				Signal->floorAmplitude = Signal->Blocks[index].freq[i].amplitude;
 				Signal->floorFreq = Signal->Blocks[index].freq[i].hertz;
-				logmsg(" - Silence block grid power frequency noise: %g Hz at %g dBFS\n",
+				logmsg(" - Silence block electrical gridr frequency noise: %g Hz at %g dBFS\n",
 					Signal->floorFreq, Signal->floorAmplitude);
 				return;
 			}
@@ -1349,7 +1349,7 @@ inline double CalculateFrequency(double boxindex, double boxsize, int HertzAlign
 	double Hertz = 0;
 
 	Hertz = boxindex/boxsize;
-	if(!HertzAligned) // if zero padded (Hertz Aligned), we are using 1hz integer bins
+	if(!HertzAligned) // if zero padded (Hertz Aligned), we are using 1Hz integer bins
 		Hertz = roundFloat(Hertz);  // default, overkill yes
 	return Hertz;
 }
@@ -1395,7 +1395,7 @@ void FillFrequencyStructures(AudioBlocks *AudioArray, parameters *config)
 	double boxsize = 0, size = 0;
 
 	size = AudioArray->fftwValues.size;
-	// Round to 3 decimal places so that 48khz and 44 khz line up
+	// Round to 3 decimal places so that 48kHz and 44 kHz line up
 	boxsize = RoundFloat(AudioArray->fftwValues.seconds, 3);
 
 	if(AudioArray->type != TYPE_SILENCE)
@@ -1608,7 +1608,7 @@ long int GetZeroPadValues(long int *monoSignalSize, double *seconds, long int sa
 {
 	long int zeropadding = 0;
 
-	// Align frequency bins to 1hz
+	// Align frequency bins to 1Hz
 	if(*monoSignalSize != samplerate)
 	{
 		if(*monoSignalSize < samplerate)

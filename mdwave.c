@@ -186,7 +186,7 @@ int LoadFile(FILE *file, AudioSignal *Signal, parameters *config, char *fileName
 
 	if(Signal->header.bitsPerSample != 16) /* Check bit depth */
 	{
-		logmsg("\tInvalid WAV file: Only 16 bit supported for now\n\tPlease use WAV PCM 16 bit %dhz");
+		logmsg("\tInvalid WAV file: Only 16 bit supported for now\n\tPlease use WAV PCM 16 bit %dHz");
 		return(0);
 	}
 	
@@ -202,7 +202,7 @@ int LoadFile(FILE *file, AudioSignal *Signal, parameters *config, char *fileName
 	Signal->framerate = GetMSPerFrame(Signal, config);
 
 	seconds = (double)Signal->header.Subchunk2Size/4.0/(double)Signal->header.SamplesPerSec;
-	logmsg(" - WAV file is PCM %dhz %dbits and %g seconds long\n", 
+	logmsg(" - WAV file is PCM %dHz %dbits and %g seconds long\n", 
 		Signal->header.SamplesPerSec, Signal->header.bitsPerSample, seconds);
 
 	if(seconds < GetSignalTotalDuration(Signal->framerate, config))
@@ -263,7 +263,7 @@ int LoadFile(FILE *file, AudioSignal *Signal, parameters *config, char *fileName
 				BytesToSeconds(Signal->header.SamplesPerSec, Signal->endOffset),
 				Signal->endOffset);
 			Signal->framerate = CalculateFrameRate(Signal, config);
-			logmsg(" - Detected %g hz video signal (%gms per frame) from WAV file\n", 
+			logmsg(" - Detected %g Hz video signal (%gms per frame) from WAV file\n", 
 						CalculateScanRate(Signal), Signal->framerate);
 		}
 		else
@@ -976,7 +976,7 @@ int commandline_wave(int argc , char *argv[], parameters *config)
 	else
 		logmsg("\tNo window (rectangle) will be applied to each block to be compared\n");
 	if(config->ZeroPad)
-		logmsg("\tFFT bins will be aligned to 1hz, this is slower\n");
+		logmsg("\tFFT bins will be aligned to 1Hz, this is slower\n");
 	if(config->ignoreFloor)
 		logmsg("\tIgnoring Silence block noise floor\n");
 	if(config->invert)
@@ -1001,7 +1001,7 @@ void PrintUsage_wave()
 	logmsg("	 -s: Defines <s>tart of the frequency range to compare with FFT\n");
 	logmsg("	 -e: Defines <e>nd of the frequency range to compare with FFT\n");
 	logmsg("	 -t: Defines the <t>olerance when comparing amplitudes in dBFS\n");
-	logmsg("	 -z: Uses Zero Padding to equal 1 hz FFT bins\n");
+	logmsg("	 -z: Uses Zero Padding to equal 1 Hz FFT bins\n");
 	logmsg("	 -B: Do not do stereo channel audio <B>alancing\n");
 	logmsg("	 -C: Use <C>omparison framerate profile in 'No-Sync' compare mode\n");
 	logmsg("   Output options:\n");
