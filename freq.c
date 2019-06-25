@@ -80,13 +80,16 @@ void CalcuateFrequencyBrackets(AudioSignal *Signal, parameters *config)
 	index = GetFirstSilenceIndex(config);
 	if(index != NO_INDEX)
 	{
-		Signal->RefreshNoise = FindFrequencyBracket(roundFloat(1000.0/Signal->framerate), Signal->Blocks[index].fftwValues.size, Signal->header.SamplesPerSec);
-		Signal->VideoRefreshLow = FindFrequencyBracket(15680, Signal->Blocks[index].fftwValues.size, Signal->header.SamplesPerSec);
-		Signal->VideoRefreshHigh = FindFrequencyBracket(15710, Signal->Blocks[index].fftwValues.size, Signal->header.SamplesPerSec);
-		/*
-		if(config->verbose)
-			logmsg(" - Searching for grid power frequency noise %g Video Refresh Noise %g-%g\n", Signal->RefreshNoise,  Signal->VideoRefreshLow, Signal->VideoRefreshHigh);
-		*/
+		double binSize = 0, refreshNoise = 0;
+
+		binSize = FindFrequencyBinSizeForBlock(Signal, index);
+
+		refreshNoise = FindFrequencyBracket(roundFloat(1000.0/Signal->framerate), Signal->Blocks[index].fftwValues.size, Signal->header.SamplesPerSec);
+		Signal->gridFrequencyLow = refreshNoise - binSize;
+		Signal->gridFrequencyHigh = refreshNoise + binSize;
+
+		Signal->HRefreshLow = FindFrequencyBracket(15625, Signal->Blocks[index].fftwValues.size, Signal->header.SamplesPerSec) - binSize;
+		Signal->HRefreshHigh = FindFrequencyBracket(15750, Signal->Blocks[index].fftwValues.size, Signal->header.SamplesPerSec) + binSize;
 	}
 	else
 	{
@@ -95,13 +98,23 @@ void CalcuateFrequencyBrackets(AudioSignal *Signal, parameters *config)
 	}
 }
 
-int IsVideoRefreshNoise(AudioSignal *Signal, double freq)
+int IsHRefreshNoise(AudioSignal *Signal, double freq)
 {
 	if(!Signal)
 		return 0;
 
-	/* Peak around 15697-15698 usually */
-	if(freq >= Signal->VideoRefreshLow && freq <= Signal->VideoRefreshHigh)
+	/* Peak around 15.625 kHz and 15.750 kHz  */
+	if(freq >= Signal->HRefreshLow && freq <= Signal->HRefreshHigh)
+		return 1;
+	return 0;
+}
+
+int IsGridFrequencyNoise(AudioSignal *Signal, double freq)
+{
+	if(!Signal)
+		return 0;
+
+	if(freq >= Signal->gridFrequencyLow && freq <= Signal->gridFrequencyHigh)
 		return 1;
 	return 0;
 }
@@ -185,9 +198,10 @@ void CleanAudio(AudioSignal *Signal, parameters *config)
 	memset(&Signal->MaxMagnitude, 0, sizeof(MaxMagn));
 	Signal->MinAmplitude = 0;
 
-	Signal->RefreshNoise = 0;
-	Signal->VideoRefreshLow = 0;
-	Signal->VideoRefreshHigh = 0;
+	Signal->gridFrequencyLow = 0;
+	Signal->gridFrequencyHigh = 0;
+	Signal->HRefreshLow = 0;
+	Signal->HRefreshHigh = 0;
 
 	memset(&Signal->header, 0, sizeof(wav_hdr));
 }
@@ -288,10 +302,28 @@ int LoadProfile(parameters *config)
 	readLine(lineBuffer, file);
 	sscanf(lineBuffer, "%s ", buffer);
 	if(strcmp(buffer, "MDFourierAudioBlockFile") == 0)
+	{
+		sscanf(lineBuffer, "%*s %s\n", buffer);
+		if(atof(buffer) > 1.1)
+		{
+			logmsg("This executable can parse \"MDFourierAudioBlockFile 1.1\" files only\n");
+			fclose(file);
+			return 0;
+		}
 		return(LoadAudioBlockStructure(file, config));
+	}
 
 	if(strcmp(buffer, "MDFourierNoSyncProfile") == 0)
+	{
+		sscanf(lineBuffer, "%*s %s\n", buffer);
+		if(atof(buffer) > 1.1)
+		{
+			logmsg("This executable can parse \"MDFourierNoSyncProfile 1.0\" files only\n");
+			fclose(file);
+			return 0;
+		}
 		return(LoadAudioNoSyncProfile(file, config));
+	}
 
 	logmsg("Not an MD Fourier Audio Profile File\n");
 	fclose(file);
@@ -305,16 +337,8 @@ int LoadAudioBlockStructure(FILE *file, parameters *config)
 
 	config->noSyncProfile = 0;
 
-	sscanf(lineBuffer, "%*s %s\n", buffer);
-	if(atof(buffer) > 1.0)
-	{
-		logmsg("This executable can parse 1.0 files only\n");
-		fclose(file);
-		return 0;
-	}
-
 	readLine(lineBuffer, file);
-	if(sscanf(lineBuffer, "%s\n", config->types.Name) != 1)
+	if(sscanf(lineBuffer, "%255[^\n]\n", config->types.Name) != 1)
 	{
 		logmsg("Invalid Name '%s'\n", lineBuffer);
 		fclose(file);
@@ -431,6 +455,9 @@ int LoadAudioBlockStructure(FILE *file, parameters *config)
 			case 's':
 				config->types.typeArray[i].type = TYPE_SYNC;
 				break;
+			case 'i':
+				config->types.typeArray[i].type = TYPE_INTERNAL;
+				break;
 			default:
 				if(sscanf(lineBuffer, "%*s %d ", &config->types.typeArray[i].type) != 1)
 				{
@@ -441,15 +468,33 @@ int LoadAudioBlockStructure(FILE *file, parameters *config)
 				break;
 		}
 		
-		if(sscanf(lineBuffer, "%*s %*c %d %d %s %c\n", 
-			&config->types.typeArray[i].elementCount,
-			&config->types.typeArray[i].frames,
-			&config->types.typeArray[i].color [0],
-			&config->types.typeArray[i].channel) != 4)
+		if(config->types.typeArray[i].type == TYPE_INTERNAL)
 		{
-			logmsg("Invalid MD Fourier Audio Blocks File (Element Count, frames, color, channel): %s\n", lineBuffer);
-			fclose(file);
-			return 0;
+			if(sscanf(lineBuffer, "%*s %*c %d %d %s %c %d %lf\n", 
+				&config->types.typeArray[i].elementCount,
+				&config->types.typeArray[i].frames,
+				&config->types.typeArray[i].color [0],
+				&config->types.typeArray[i].channel,
+				&config->types.typeArray[i].syncTone,
+				&config->types.typeArray[i].syncLen) != 6)
+			{
+				logmsg("Invalid MD Fourier Audio Blocks File (Element Count, frames, color, channel): %s\n", lineBuffer);
+				fclose(file);
+				return 0;
+			}
+		}
+		else
+		{
+			if(sscanf(lineBuffer, "%*s %*c %d %d %s %c\n", 
+				&config->types.typeArray[i].elementCount,
+				&config->types.typeArray[i].frames,
+				&config->types.typeArray[i].color [0],
+				&config->types.typeArray[i].channel) != 4)
+			{
+				logmsg("Invalid MD Fourier Audio Blocks File (Element Count, frames, color, channel): %s\n", lineBuffer);
+				fclose(file);
+				return 0;
+			}
 		}
 
 		if(!config->types.typeArray[i].elementCount)
@@ -927,7 +972,7 @@ long int GetBlockFrames(parameters *config, int pos)
 	for(int i = 0; i < config->types.typeCount; i++)
 	{
 		elementsCounted += config->types.typeArray[i].elementCount;
-		if(elementsCounted >= pos)
+		if(elementsCounted > pos)
 			return(config->types.typeArray[i].frames);
 	}
 	
@@ -1031,6 +1076,76 @@ char *GetTypeName(parameters *config, int type)
 	return "Type Name";
 }
 
+int GetInternalSyncTone(int pos, parameters *config)
+{
+	int elementsCounted = 0;
+
+	if(!config)
+		return 0;
+
+	for(int i = 0; i < config->types.typeCount; i++)
+	{
+		elementsCounted += config->types.typeArray[i].elementCount;
+		if(elementsCounted > pos && config->types.typeArray[i].type == TYPE_INTERNAL)
+			return(config->types.typeArray[i].syncTone);
+	}
+	
+	logmsg("WARNING: sync tone request for invalid block\n");
+	return 0;
+}
+
+double GetInternalSyncLen(int pos, parameters *config)
+{
+	int elementsCounted = 0;
+
+	if(!config)
+		return 0;
+
+	for(int i = 0; i < config->types.typeCount; i++)
+	{
+		elementsCounted += config->types.typeArray[i].elementCount;
+		if(elementsCounted > pos && config->types.typeArray[i].type == TYPE_INTERNAL)
+			return(config->types.typeArray[i].syncLen);
+	}
+	
+	logmsg("WARNING: sync lenght request for invalid block\n");
+	return 0;
+}
+
+int GetInternalSyncTotalLength(int pos, parameters *config)
+{
+	int frames = 0, inside = 0, index = 0;
+
+	if(!config)
+		return 0;
+
+	for(int i = 0; i < config->types.typeCount; i++)
+	{
+		if(index >= pos)
+		{
+			if(config->types.typeArray[i].type == TYPE_INTERNAL)
+			{
+				if(!inside)
+					inside = 1;
+				else
+				{
+					inside = 0;
+					return frames;
+				}
+			}
+			else
+			{
+				if(inside)
+					frames += config->types.typeArray[i].elementCount *
+							config->types.typeArray[i].frames;
+			}
+		}
+		index += config->types.typeArray[i].elementCount;
+	}
+	return 0;
+}
+
+
 void FindFloor(AudioSignal *Signal, parameters *config)
 {
 	int 		index;
@@ -1049,46 +1164,59 @@ void FindFloor(AudioSignal *Signal, parameters *config)
 		return;
 	}
 
-	memset(&loudest, 0, sizeof(Frequency));
+	loudest.hertz = 0;
+	loudest.amplitude = NO_AMPLITUDE;
 
+	for(int i = 0; i < config->MaxFreq; i++)
+	{
+		if(Signal->Blocks[index].freq[i].hertz && Signal->Blocks[index].freq[i].amplitude != NO_AMPLITUDE)
+		{
+			if(Signal->Blocks[index].freq[i].amplitude > loudest.amplitude)
+				loudest = Signal->Blocks[index].freq[i];
+		}
+		else
+			break;
+	}
+
+	if(loudest.hertz && loudest.amplitude != NO_AMPLITUDE)
+	{
+		logmsg(" - %s Signal Noise floor: %g dBFS [%g Hz] %s\n", 
+			Signal->role == ROLE_REF ? "Reference" : "Comparison",
+			loudest.amplitude,
+			loudest.hertz,
+			loudest.amplitude < PCM_16BIT_MIN_AMPLITUDE ? "(not significant)" : "");
+	}
+	/*
 	if(config->verbose)
 		logmsg(" - Frame Rate %g RefreshNoise %g\n",
 			Signal->framerate, Signal->RefreshNoise);
+	*/
 
 	for(int i = 0; i < config->MaxFreq; i++)
 	{
 		if(Signal->Blocks[index].freq[i].hertz && Signal->Blocks[index].freq[i].amplitude != NO_AMPLITUDE)
 		{
-			if(Signal->Blocks[index].freq[i].hertz == Signal->RefreshNoise)
+			if(IsGridFrequencyNoise(Signal, Signal->Blocks[index].freq[i].hertz))
 			{
 				Signal->floorAmplitude = Signal->Blocks[index].freq[i].amplitude;
 				Signal->floorFreq = Signal->Blocks[index].freq[i].hertz;
-				logmsg(" - Silence block electrical gridr frequency noise: %g Hz at %g dBFS\n",
-					Signal->floorFreq, Signal->floorAmplitude);
+				logmsg(" - Possible electrical grid frequency noise: %g dBFS [%g Hz]\n",
+						Signal->floorAmplitude, Signal->floorFreq);
+				return;
+			}
+
+			if(IsHRefreshNoise(Signal, Signal->Blocks[index].freq[i].hertz))
+			{
+				Signal->floorAmplitude = Signal->Blocks[index].freq[i].amplitude;
+				Signal->floorFreq = Signal->Blocks[index].freq[i].hertz;
+				logmsg(" - Possible horizontal scan rate noise : %g dBFS [%g Hz]\n",
+						Signal->floorAmplitude, Signal->floorFreq);
 				return;
 			}
 		}
 	}
 
-	for(int i = 0; i < config->MaxFreq; i++)
-	{
-		if(Signal->Blocks[index].freq[i].hertz && Signal->Blocks[index].freq[i].amplitude != NO_AMPLITUDE)
-		{
-			if(IsVideoRefreshNoise(Signal, Signal->Blocks[index].freq[i].hertz))
-			{
-				Signal->floorAmplitude = Signal->Blocks[index].freq[i].amplitude;
-				Signal->floorFreq = Signal->Blocks[index].freq[i].hertz;
-				logmsg(" - Silence block possible video refresh noise: %g Hz at %g dBFS\n",
-					Signal->floorFreq, Signal->floorAmplitude);
-				return;
-			}
-	
-			if(!loudest.hertz && Signal->Blocks[index].freq[i].hertz)
-				loudest = Signal->Blocks[index].freq[i];
-		}
-	}
-
-	if(loudest.hertz)
+	if(loudest.hertz && loudest.amplitude != NO_AMPLITUDE)
 	{
 		Signal->floorAmplitude = loudest.amplitude;
 		Signal->floorFreq = loudest.hertz;
@@ -1297,8 +1425,8 @@ void PrintFrequencies(AudioSignal *Signal, parameters *config)
 					Signal->Blocks[block].freq[j].amplitude,
 					Signal->Blocks[block].freq[j].phase);
 				/* detect VideoRefresh frequency */
-				if(IsVideoRefreshNoise(Signal, Signal->Blocks[block].freq[j].hertz))
-					logmsg(" [Video Refresh Noise?]");
+				if(IsHRefreshNoise(Signal, Signal->Blocks[block].freq[j].hertz))
+					logmsg(" [Horizontal Refresh Noise?]");
 				logmsg("\n");
 			}
 		}
@@ -1541,12 +1669,17 @@ inline double FramesToSeconds(double frames, double framerate)
 
 inline long int SecondsToBytes(long int samplerate, double seconds, int *leftover, int *discard, double *leftDecimals)
 {
-	return(RoundTo4bytes(samplerate*4.0*seconds*sizeof(char), leftover, discard, leftDecimals));
+	return(RoundTo4bytes((double)samplerate*4.0*seconds*sizeof(char), leftover, discard, leftDecimals));
 }
 
 inline double BytesToSeconds(long int samplerate, long int bytes)
 {
-	return((double)bytes/(samplerate*4.0));
+	return((double)bytes/((double)samplerate*4.0));
+}
+
+inline double BytesToFrames(long int samplerate, long int bytes, double framerate)
+{
+	return(roundFloat((double)bytes/((double)samplerate*4.0)/framerate*1000.0));
 }
 
 long int RoundTo4bytes(double src, int *leftover, int *discard, double *leftDecimals)

@@ -120,7 +120,7 @@ int CDOSExecute::ExecuteExternalFile()
 				result = FALSE;
 
 				Lock();
-				m_Output = L"Process Closed";
+				m_Output = L"Terminating process. Please wait...";
 				Release();
 			}	
 		}

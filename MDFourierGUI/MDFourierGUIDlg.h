@@ -10,10 +10,11 @@
 
 #define	COUNT_CURVES	6
 #define COUNT_WINDOWS	5
+#define	COUNT_PROFILES	255
 
 typedef struct commandline_st {
 	CString	Name;
-	char	valueMDF;
+	CString	valueMDF;
 	int		indexCB;
 } CommandLineArray;
 
@@ -58,11 +59,13 @@ protected:
 
 	CComboBox m_WindowTypeSelect;
 	CComboBox m_CurveAdjustSelect;
+	CComboBox m_Profiles;
 
 	int			DosWaitCount;
 	CDOSExecute	cDos;
 	CommandLineArray WindowConvert[COUNT_WINDOWS];
 	CommandLineArray CurveConvert[COUNT_CURVES];
+	CommandLineArray Profiles[COUNT_PROFILES];
 
 	CString listName;
 	CString	*elements;
@@ -72,10 +75,11 @@ protected:
 	void FillComboBoxes();
 	int CheckDependencies();
 	void ManageWindows(BOOL Enable);
-	void InsertValueInCombo(CString Name, char value, CommandLineArray &Data, CComboBox &Combo);
-	char GetSelectedCommandLineValue(CommandLineArray *Data, CComboBox &Combo, int size);
+	void InsertValueInCombo(CString Name, CString value, CommandLineArray &Data, CComboBox &Combo);
+	CString GetSelectedCommandLineValue(CommandLineArray *Data, CComboBox &Combo, int size);
 	void ExecuteCommand(CString Compare);
 	void CheckPlotSelection(CButton &clicked);
+	int FindProfiles(CString sPath, CString pattern);
 
 	// Generated message map functions
 	virtual BOOL OnInitDialog();

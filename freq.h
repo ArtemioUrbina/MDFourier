@@ -66,6 +66,9 @@ long int GetByteSizeDifferenceByFrameRate(double framerate, long int frames, lon
 int GetFirstSyncIndex(parameters *config);
 int GetLastSyncIndex(parameters *config);
 int GetActiveBlockTypes(parameters *config);
+int GetInternalSyncTotalLength(int pos, parameters *config);
+int GetInternalSyncTone(int pos, parameters *config);
+double GetInternalSyncLen(int pos, parameters *config);
 
 AudioSignal *CreateAudioSignal(parameters *config);
 void CleanAudio(AudioSignal *Signal, parameters *config);
@@ -77,9 +80,11 @@ void GlobalNormalize(AudioSignal *Signal, parameters *config);
 void FindMaxMagnitude(AudioSignal *Signal, parameters *config);
 void CalculateAmplitudes(AudioSignal *Signal, double ZeroDbMagReference, parameters *config);
 void FindFloor(AudioSignal *Signal, parameters *config);
-int IsCRTNoise(AudioSignal *Signal, double freq);
 double GetLowerFrameRate(double framerateA, double framerateB);
 void CompareFrameRates(double framerate1, double framerate2, parameters *config);
+
+int IsHRefreshNoise(AudioSignal *Signal, double freq);
+int IsGridFrequencyNoise(AudioSignal *Signal, double freq);
 
 void PrintComparedBlocks(AudioBlocks *ReferenceArray, AudioBlocks *ComparedArray, parameters *config, AudioSignal *Signal);
 
@@ -90,6 +95,7 @@ double GetDecimalValues(double value);
 double BytesToSeconds(long int samplerate, long int bytes);
 double FramesToSeconds(double frames, double framerate);
 long int SecondsToBytes(long int samplerate, double seconds, int *leftover, int *discard, double *leftDecimals);
+double BytesToFrames(long int samplerate, long int bytes, double framerate);
 
 double CalculateMagnitude(fftw_complex value, long int size);
 double CalculateAmplitude(double magnitude, double MaxMagnitude);

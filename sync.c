@@ -485,17 +485,17 @@ double ProcessChunkForSyncPulse(int16_t *samples, size_t size, long samplerate, 
 	return(maxHertz);
 }
 
-long int DetectSignalStart(char *AllSamples, wav_hdr header, parameters *config)
+long int DetectSignalStart(char *AllSamples, wav_hdr header, long int offset, int syncKnow, parameters *config)
 {
 	int			maxdetected = 0;
-	long int	position = 0, offset = 0;
+	long int	position = 0;
 
 	OutputFileOnlyStart();
 
 	if(config->debugSync)
 		logmsg("\nStarting Detect Signal\n");
 
-	position = DetectSignalStartInternal(AllSamples, header, 9, 0, &maxdetected, config);
+	position = DetectSignalStartInternal(AllSamples, header, 9, offset, syncKnow, &maxdetected, config);
 	if(position == -1)
 	{
 		if(config->debugSync)
@@ -511,7 +511,7 @@ long int DetectSignalStart(char *AllSamples, wav_hdr header, parameters *config)
 	return position;
 }
 
-long int DetectSignalStartInternal(char *Samples, wav_hdr header, int factor, long int offset, int *maxdetected, parameters *config)
+long int DetectSignalStartInternal(char *Samples, wav_hdr header, int factor, long int offset, int syncKnown, int *maxdetected, parameters *config)
 {
 	long int			i = 0, TotalMS = 0;
 	long int			loadedBlockSize = 0;
@@ -522,6 +522,7 @@ long int DetectSignalStartInternal(char *Samples, wav_hdr header, int factor, lo
 	Pulses				*pulseArray;
 	double 				total = 0;
 	long int 			count = 0;
+	double 				targetFrequency = 0;
 
 	// Not a real ms, just approximate
 	millisecondSize = RoundTo4bytes(floor((((double)header.SamplesPerSec*4.0)/1000.0)/(double)factor), NULL, NULL, NULL);
@@ -612,6 +613,8 @@ long int DetectSignalStartInternal(char *Samples, wav_hdr header, int factor, lo
 	// if not found, compare all
 	offset = 0;
 	
+	if(syncKnown)
+		targetFrequency = FindFrequencyBracket(syncKnown, millisecondSize/2, header.SamplesPerSec);
 	for(i = 0; i < TotalMS; i++)
 	{
 		if(pulseArray[i].hertz)
@@ -629,10 +632,22 @@ long int DetectSignalStartInternal(char *Samples, wav_hdr header, int factor, lo
 					pulseArray[i].amplitude, 
 					average);
 
-			if(pulseArray[i].amplitude * 1.5 > average)
+			if(syncKnown)
 			{
-				offset = pulseArray[i].bytes;
-				break;
+				if(pulseArray[i].amplitude > config->types.pulseMinVol &&
+					pulseArray[i].hertz >= targetFrequency - 2.0 && pulseArray[i].hertz <= targetFrequency + 2.0)
+				{
+					offset = pulseArray[i].bytes;
+					break;
+				}
+			}
+			else
+			{
+				if(pulseArray[i].amplitude * 1.5 > average)
+				{
+					offset = pulseArray[i].bytes;
+					break;
+				}
 			}
 		}
 	}

@@ -308,7 +308,7 @@ int CreatePlotFile(PlotFile *plot)
 	plot->file = fopen(plot->FileName, "wb");
 	if(!plot->file)
 	{
-		logmsg("Couldn't create Plot file %s\n%s\n", plot->FileName, strerror(errno));
+		logmsg("Couldn't create graph file %s\n%s\n", plot->FileName, strerror(errno));
 		return 0;
 	}
 

@@ -44,6 +44,7 @@ void CMDFourierGUIDlg::DoDataExchange(CDataExchange* pDX)
 	DDX_Control(pDX, IDC_DIFFERENCES, m_DiffBttn);
 	DDX_Control(pDX, IDC_MISSING, m_MissBttn);
 	DDX_Control(pDX, IDC_SPECTROGRAM, m_SpectrBttn);
+	DDX_Control(pDX, IDC_PROFILE, m_Profiles);
 }
 
 BEGIN_MESSAGE_MAP(CMDFourierGUIDlg, CDialogEx)
@@ -248,12 +249,14 @@ void CMDFourierGUIDlg::OnBnClickedOk()
 void CMDFourierGUIDlg::ExecuteCommand(CString Compare)
 {
 	CString	command, extraCmd;
-	char	window, adjust;
+	CString	window, adjust, profile;
 
+	profile = GetSelectedCommandLineValue(Profiles, m_Profiles, COUNT_PROFILES);
 	window = GetSelectedCommandLineValue(WindowConvert, m_WindowTypeSelect, COUNT_WINDOWS);
 	adjust = GetSelectedCommandLineValue(CurveConvert, m_CurveAdjustSelect, COUNT_CURVES);
 
-	command.Format(L"mdfourier.exe -r \"%s\" -c \"%s\" -w %c -o %c -l", m_Reference, Compare, window, adjust);
+	command.Format(L"mdfourier.exe -P \"%s\" -r \"%s\" -c \"%s\" -w %s -o %s -l", 
+			profile, m_Reference, Compare, window, adjust);
 
 	if(m_AlignFFTW.GetCheck() == BST_CHECKED)
 		command += " -z";
@@ -319,7 +322,7 @@ void CMDFourierGUIDlg::OnTimer(UINT_PTR nIDEvent)
 	m_OutputCtrl.SendMessage(EM_SETSEL, -1, -1);//Unselect and stay at the end pos
 	m_OutputCtrl.SendMessage(EM_SCROLLCARET, 0, 0); //Set scrollcaret to the current Pos
 
-    if (cDos.m_fDone)
+    if(!cDos.m_fAbortNow && cDos.m_fDone)
 	{
 		int		pos = 0;
 		CString	searchFor = L"Results stored in ";
@@ -371,7 +374,7 @@ void CMDFourierGUIDlg::OnTimer(UINT_PTR nIDEvent)
 		{
 			cDos.KillNow();
 			cDos.m_fDone = TRUE;
-			m_OutputCtrl.SetWindowText(L"Process terminated");
+			m_OutputCtrl.SetWindowText(L"Process terminated.");
 
 			elementCount = 0;
 			elementPos = 0;
@@ -406,7 +409,7 @@ void CMDFourierGUIDlg::OnBnClickedOpenresults()
 	}
 }
 
-char CMDFourierGUIDlg::GetSelectedCommandLineValue(CommandLineArray *Data, CComboBox &Combo, int size)
+CString CMDFourierGUIDlg::GetSelectedCommandLineValue(CommandLineArray *Data, CComboBox &Combo, int size)
 {
 	int selected = -1, i;
 
@@ -416,10 +419,10 @@ char CMDFourierGUIDlg::GetSelectedCommandLineValue(CommandLineArray *Data, CComb
 		if(Data[i].indexCB == selected)
 			return Data[i].valueMDF;
 	}
-	return '-';
+	return L"-";
 }
 
-void CMDFourierGUIDlg::InsertValueInCombo(CString Name, char value, CommandLineArray &Data, CComboBox &Combo)
+void CMDFourierGUIDlg::InsertValueInCombo(CString Name, CString value, CommandLineArray &Data, CComboBox &Combo)
 {
 	Data.Name = Name;
 	Data.indexCB = Combo.AddString(Name);
@@ -428,29 +431,87 @@ void CMDFourierGUIDlg::InsertValueInCombo(CString Name, char value, CommandLineA
 
 void CMDFourierGUIDlg::FillComboBoxes()
 {
-	InsertValueInCombo(L"None", 'n', WindowConvert[0], m_WindowTypeSelect);
-	InsertValueInCombo(L"Tukey", 't', WindowConvert[1], m_WindowTypeSelect);
-	InsertValueInCombo(L"Flattop", 'f', WindowConvert[2], m_WindowTypeSelect);
-	InsertValueInCombo(L"Hann", 'h', WindowConvert[3], m_WindowTypeSelect);
-	InsertValueInCombo(L"Hamming", 'm', WindowConvert[4], m_WindowTypeSelect);
+	InsertValueInCombo(L"None", L"n", WindowConvert[0], m_WindowTypeSelect);
+	InsertValueInCombo(L"Tukey", L"t", WindowConvert[1], m_WindowTypeSelect);
+	InsertValueInCombo(L"Flattop", L"f", WindowConvert[2], m_WindowTypeSelect);
+	InsertValueInCombo(L"Hann", L"h", WindowConvert[3], m_WindowTypeSelect);
+	InsertValueInCombo(L"Hamming", L"m", WindowConvert[4], m_WindowTypeSelect);
 
 	m_WindowTypeSelect.SetCurSel(WindowConvert[1].indexCB);
 
-	InsertValueInCombo(L"None", '0', CurveConvert[0], m_CurveAdjustSelect);
-	InsertValueInCombo(L"\u221A(dBFS)", '1', CurveConvert[1], m_CurveAdjustSelect);
-	InsertValueInCombo(L"ibeta(3, 3)", '2', CurveConvert[2], m_CurveAdjustSelect);
-	InsertValueInCombo(L"Linear", '3', CurveConvert[3], m_CurveAdjustSelect);
-	InsertValueInCombo(L"dBFS\u00B2", '4', CurveConvert[4], m_CurveAdjustSelect);
-	InsertValueInCombo(L"ibeta(16, 2)", '5', CurveConvert[5], m_CurveAdjustSelect);
+	InsertValueInCombo(L"None", L"0", CurveConvert[0], m_CurveAdjustSelect);
+	InsertValueInCombo(L"\u221A(dBFS)", L"1", CurveConvert[1], m_CurveAdjustSelect);
+	InsertValueInCombo(L"ibeta(3, 3)", L"2", CurveConvert[2], m_CurveAdjustSelect);
+	InsertValueInCombo(L"Linear", L"3", CurveConvert[3], m_CurveAdjustSelect);
+	InsertValueInCombo(L"dBFS\u00B2", L"4", CurveConvert[4], m_CurveAdjustSelect);
+	InsertValueInCombo(L"ibeta(16, 2)", L"5", CurveConvert[5], m_CurveAdjustSelect);
 
 	m_CurveAdjustSelect.SetCurSel(CurveConvert[3].indexCB);
+}
+
+int CMDFourierGUIDlg::FindProfiles(CString sPath, CString pattern)
+{
+	int count = 0;
+	CFileFind finder;
+	BOOL bFind = FALSE;
+	CString	search;
+    
+	search.Format(L"%s\\%s", sPath, pattern);
+	bFind = finder.FindFile(search);
+	while(bFind)
+	{
+		bFind = finder.FindNextFileW();
+        
+		if(finder.IsDots() || finder.IsDirectory())
+			continue;
+		else
+		{
+			FILE *file;
+			errno_t err;
+			wchar_t text[2056];
+			CString FileName, ProfileName;
+
+			FileName.Format(L"%s\\%s", sPath, finder.GetFileName());
+			err = _wfopen_s(&file, FileName, L"r");
+			if(err != 0)
+			{
+				CString	msg;
+
+				msg.Format(L"Could not load Profile file: %s\n", FileName);
+				MessageBox(msg, L"Invalid Profile File");
+				return FALSE;
+			}
+			if(fwscanf_s(file, L"%s %*f\n", text, 2056) != 1)
+			{
+				CString	msg;
+
+				msg.Format(L"Could not load Profile file: %s\n", FileName);
+				MessageBox(msg, L"Invalid Profile File Header");
+				return FALSE;
+			}
+			if(fwscanf_s(file, L"%255[^\n]\n", text, 2056) != 1)
+			{
+				CString	msg;
+
+				msg.Format(L"Could not load Profile file: %s\n", FileName);
+				MessageBox(msg, L"Invalid Profile Name");
+				return FALSE;
+			}
+			ProfileName = text;
+			fclose(file);
+			InsertValueInCombo(ProfileName, FileName, Profiles[count++], m_Profiles);
+		}
+	}
+
+	finder.Close();
+	return count;
 }
 
 int CMDFourierGUIDlg::CheckDependencies()
 {
 	FILE *file;
 	errno_t err;
-	CString	msg;
+	CString	msg, pattern;
 	TCHAR	pwd[MAX_PATH];
 
 	err = _wfopen_s(&file, L"mdfourier.exe", L"r");
@@ -463,15 +524,14 @@ int CMDFourierGUIDlg::CheckDependencies()
 	}
 	fclose(file);
 
-	err = _wfopen_s(&file, L"mdfblocks.mfn", L"r");
-	if(err != 0)
+	if(!FindProfiles(L"profiles", L"*.mfn"))
 	{
 		GetCurrentDirectory(MAX_PATH, pwd);
-		msg.Format(L"Please place mdfblocks.mfn in:\n %s", pwd);
+		msg.Format(L"Please place profile files (*.mfn) in folder:\n %s\\profiles", pwd);
 		MessageBox(msg, L"Error mdfblocks.mfn not found");
 		return FALSE;
 	}
-	fclose(file);
+	m_Profiles.SetCurSel(Profiles[0].indexCB);
 
 	return TRUE;
 }
@@ -494,6 +554,8 @@ void CMDFourierGUIDlg::ManageWindows(BOOL Enable)
 	m_MissBttn.EnableWindow(Enable);
 	m_SpectrBttn.EnableWindow(Enable);
 	m_AveragePlot_Bttn.EnableWindow(Enable);
+
+	m_Profiles.EnableWindow(Enable);
 }
 
 

@@ -78,7 +78,7 @@ int setLogName(char *name)
 		return 0;
 	}
 
-	printf("\tLog enabled to file: %s\n", log_file);
+	//printf("\tLog enabled to file: %s\n", log_file);
 	return 1;
 }
 

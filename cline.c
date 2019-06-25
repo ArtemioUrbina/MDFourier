@@ -66,7 +66,7 @@ void PrintUsage()
 void Header(int log)
 {
 	char title1[] = "MDFourier " MDVERSION " [240p Test Suite Fourier Audio compare tool]\n";
-	char title2[] = "Artemio Urbina 2019 free software under GPL\n\n";
+	char title2[] = "Artemio Urbina 2019 free software under GPL - http://junkerhq.net/MDFourier\n";
 
 	if(log)
 		logmsg("%s%s", title1, title2);
@@ -78,7 +78,7 @@ void CleanParameters(parameters *config)
 {
 	memset(config, 0, sizeof(parameters));
 
-	sprintf(config->profileFile, "mdfblocks.mfn");
+	sprintf(config->profileFile, "profiles\\mdfblocksGEN.mfn");
 	config->tolerance = DBS_TOLERANCE;
 	config->startHz = START_HZ;
 	config->endHz = END_HZ;
@@ -105,6 +105,7 @@ void CleanParameters(parameters *config)
 	config->channelBalance = 1;
 	config->laxSync = 0;
 	config->showPercent = 1;
+	config->ignoreFrameRateDiff = 0;
 
 	config->logScale = 1;
 	config->reverseCompare = 0;
@@ -155,7 +156,7 @@ int commandline(int argc , char *argv[], parameters *config)
 	
 	CleanParameters(config);
 
-	while ((c = getopt (argc, argv, "hxjzmviklygLHo:s:e:f:t:p:a:w:r:c:d:P:SDMNRAWXDBn:")) != -1)
+	while ((c = getopt (argc, argv, "hxjzmviklygLHo:s:e:f:t:p:a:w:r:c:d:P:SDMNRAWXDBIn:")) != -1)
 	switch (c)
 	  {
 	  case 'h':
@@ -306,6 +307,9 @@ int commandline(int argc , char *argv[], parameters *config)
 	  case 'B':
 		config->channelBalance = 0;
 		break;
+	  case 'I':
+		config->ignoreFrameRateDiff = 1;
+		break;
 	  case 'n':
 		switch(optarg[0])
 		{
@@ -449,43 +453,46 @@ int commandline(int argc , char *argv[], parameters *config)
 		EnableConsole();
 	}
 
-	logmsg("\tUsing %s profile configuration file\n", config->profileFile);
-	if(config->window != 'n')
-		logmsg("\tA %s window will be applied to each block to be compared\n", GetWindow(config->window));
-	else
-		logmsg("\tNo window (rectangle) will be applied to each block to be compared\n");
-	if(config->useOutputFilter)
+	if(config->verbose)
 	{
-		logmsg("\tOutput Filter function #%d will be applied to the results\n", 
-				config->outputFilterFunction);
+		logmsg("\tUsing %s profile configuration file\n", config->profileFile);
+		if(config->window != 'n')
+			logmsg("\tA %s window will be applied to each block to be compared\n", GetWindow(config->window));
+		else
+			logmsg("\tNo window (rectangle) will be applied to each block to be compared\n");
+		if(config->useOutputFilter)
+		{
+			logmsg("\tOutput Filter function #%d will be applied to the results\n", 
+					config->outputFilterFunction);
+		}
+		else
+			logmsg("\tNo filtering will be applied to the results\n");
+		if(config->ZeroPad)
+			logmsg("\tFFT bins will be aligned to 1Hz, this is slower\n");
+		if(config->ignoreFloor)
+			logmsg("\tIgnoring Silence block noise floor\n");
+		if(config->channel != 's')
+			logmsg("\tAudio Channel is: %s\n", GetChannel(config->channel));
+		if(config->tolerance != 0.0)
+			logmsg("\tAmplitude tolerance while comparing is +/-%0.2f dBFS\n", config->tolerance);
+		if(config->MaxFreq != FREQ_COUNT)
+			logmsg("\tMax frequencies to use from FFTW are %d (default %d)\n", config->MaxFreq, FREQ_COUNT);
+		if(config->startHz != START_HZ)
+			logmsg("\tFrequency start range for FFTW is now %g (default %g)\n", config->startHz, START_HZ);
+		if(config->endHz != END_HZ)
+			logmsg("\tFrequency end range for FFTW is now %g (default %g)\n", config->endHz, END_HZ);
+		if(config->normType != max_frequency)
+		{
+			if(config->normType == max_time)
+				logmsg("\tUsing Time Domain Normalization\n");
+			if(config->normType == average)
+				logmsg("\tUsing Average Fundamental Frequency Normalization\n");
+		}
+		if(!config->logScale)
+			logmsg("\tPlots will not be adjusted to log scale\n");
+		if(config->averagePlot && !config->weightedAveragePlot)
+			logmsg("\tAveraged Plots will not be weighted\n");
 	}
-	else
-		logmsg("\tNo filtering will be applied to the results\n");
-	if(config->ZeroPad)
-		logmsg("\tFFT bins will be aligned to 1Hz, this is slower\n");
-	if(config->ignoreFloor)
-		logmsg("\tIgnoring Silence block noise floor\n");
-	if(config->channel != 's')
-		logmsg("\tAudio Channel is: %s\n", GetChannel(config->channel));
-	if(config->tolerance != 0.0)
-		logmsg("\tAmplitude tolerance while comparing is +/-%0.2f dBFS\n", config->tolerance);
-	if(config->MaxFreq != FREQ_COUNT)
-		logmsg("\tMax frequencies to use from FFTW are %d (default %d)\n", config->MaxFreq, FREQ_COUNT);
-	if(config->startHz != START_HZ)
-		logmsg("\tFrequency start range for FFTW is now %g (default %g)\n", config->startHz, START_HZ);
-	if(config->endHz != END_HZ)
-		logmsg("\tFrequency end range for FFTW is now %g (default %g)\n", config->endHz, END_HZ);
-	if(config->normType != max_frequency)
-	{
-		if(config->normType == max_time)
-			logmsg("\tUsing Time Domain Normalization\n");
-		if(config->normType == average)
-			logmsg("\tUsing Average Fundamental Frequency Normalization\n");
-	}
-	if(!config->logScale)
-		logmsg("\tPlots will not be adjusted to log scale\n");
-	if(config->averagePlot && !config->weightedAveragePlot)
-		logmsg("\tAveraged Plots will not be weighted\n");
 	return 1;
 }
 

@@ -49,16 +49,18 @@
 
 #include "incbeta.h"
 
-#define MDVERSION "0.920"
+#define MDVERSION "0.921"
 
 
 #define MAX_FREQ_COUNT		100000 	/* Number of frequencies to compare(MAX) */
 #define FREQ_COUNT			2000	/* Number of frequencies to compare(default) */
 #define SIGNIFICANT_VOLUME	-60.0
+#define	PCM_16BIT_MIN_AMPLITUDE	-96.0
 
 #define TYPE_SILENCE	0
 #define TYPE_SYNC		-1
 #define TYPE_NOTYPE		-2
+#define	TYPE_INTERNAL	-3
 #define TYPE_CONTROL	TYPE_SILENCE
 
 #define NO_INDEX 		-100
@@ -124,10 +126,12 @@ typedef struct abt_st {
 	int			frames;
 	char		color[20];
 	char		channel;
+	int			syncTone;
+	double		syncLen;
 } AudioBlockType;
 
 typedef struct abd_st {
-	char			Name[128];
+	char			Name[256];
 	int				totalChunks;
 	int				regularChunks;
 	double			referenceMSPerFrame;
@@ -205,9 +209,10 @@ typedef struct AudioSt {
 	MaxMagn		MaxMagnitude;
 	double		MinAmplitude;
 
-	double		RefreshNoise;
-	double		VideoRefreshLow;
-	double		VideoRefreshHigh;
+	double		gridFrequencyLow;
+	double		gridFrequencyHigh;
+	double		HRefreshLow;
+	double		HRefreshHigh;
 
 	AudioBlocks *Blocks;
 }  AudioSignal;
@@ -305,6 +310,7 @@ typedef struct parameters_st {
 	int				laxSync;
 	int				showPercent;
 	int				noSyncProfile;
+	int				ignoreFrameRateDiff;
 
 	int				plotDifferences;
 	int				plotMissing;
