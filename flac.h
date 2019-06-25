@@ -27,25 +27,11 @@
  * 
  */
 
-#ifndef MDFOURIER_CMD_H
-#define MDFOURIER_CMD_H
+#ifndef MDFOURIER_FLAC_H
+#define MDFOURIER_FLAC_H
 
-#include "mdfourier.h"
-
-int CreateFolderName(parameters *config);
-int CreateFolderName_wave(parameters *config);
-void CreateBaseName(parameters *config);
-void InvertComparedName(parameters *config);
-void ComposeFileName(char *target, char *subname, char *ext, parameters *config);
-void ComposeFileNameoPath(char *target, char *subname, char *ext, parameters *config);
-void CleanParameters(parameters *config);
-int commandline(int argc , char *argv[], parameters *config);
-char *GetChannel(char c);
-char *GetWindow(char c);
-void Header(int log);
-void PrintUsage();
-double TimeSpecToSeconds(struct timespec* ts);
-char *getFilenameExtension(char *filename);
-int getExtensionLength(char *filename);
+int IsFlac(char *name);
+void renameFLAC(char *flac, char *wav);
+int FLACtoWAV(char *input, char *output);
 
 #endif

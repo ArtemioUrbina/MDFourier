@@ -9,7 +9,7 @@ FM 1 96 20 green s
 PSG 2 60 20 yellow m
 Noise 3 16 20 aqua m
 CD-ROM i 1 1 red s 8000 0.300
-CD 4 31 20 orange s
+CD-DA 4 31 20 orange s
 CD-ROM i 1 1 red s 0 0
 Silence n 1 20 red s
 Sync s 1 20 red s

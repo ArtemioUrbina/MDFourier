@@ -37,6 +37,7 @@
 #include "cline.h"
 #include "sync.h"
 #include "balance.h"
+#include "flac.h"
 
 int LoadFile(FILE *file, AudioSignal *Signal, parameters *config, char *fileName);
 int ProcessFile(AudioSignal *Signal, parameters *config);
@@ -46,6 +47,7 @@ void PrintUsage_wave();
 void Header_wave(int log);
 void CleanUp(AudioSignal **ReferenceSignal, parameters *config);
 void CloseFiles(FILE **ref);
+void RemoveFLACTemp(char *referenceFile);
 
 int main(int argc , char *argv[])
 {
@@ -67,10 +69,38 @@ int main(int argc , char *argv[])
 	if(!LoadProfile(&config))
 		return 1;
 
-	reference = fopen(config.referenceFile, "rb");
+	if(IsFlac(config.referenceFile))
+	{
+		char tmpFile[BUFFER_SIZE];
+		struct	timespec	start, end;
+
+		if(config.clock)
+			clock_gettime(CLOCK_MONOTONIC, &start);
+
+		if(config.verbose)
+			logmsg(" - Decoding FLAC\n");
+		renameFLAC(config.referenceFile, tmpFile);
+		if(!FLACtoWAV(config.referenceFile, tmpFile))
+		{
+			logmsg("\nInvalid FLAC file %s\n", config.referenceFile);
+			remove(tmpFile);
+			return 0;
+		}
+		if(config.clock)
+		{
+			double	elapsedSeconds;
+			clock_gettime(CLOCK_MONOTONIC, &end);
+			elapsedSeconds = TimeSpecToSeconds(&end) - TimeSpecToSeconds(&start);
+			logmsg(" - clk: Decoding FLAC took %0.2fs\n", elapsedSeconds);
+		}
+		reference = fopen(tmpFile, "rb");
+	}
+	else
+		reference = fopen(config.referenceFile, "rb");
 	if(!reference)
 	{
 		logmsg("\tCould not open REFERENCE file: \"%s\"\n", config.referenceFile);
+		RemoveFLACTemp(config.referenceFile);
 		CleanUp(&ReferenceSignal, &config);
 		return 0;
 	}
@@ -79,6 +109,7 @@ int main(int argc , char *argv[])
 	if(!ReferenceSignal)
 	{
 		CloseFiles(&reference);
+		RemoveFLACTemp(config.referenceFile);
 		CleanUp(&ReferenceSignal, &config);
 		logmsg("Not enough memory for Data Structures\n");
 		return 0;
@@ -93,9 +124,13 @@ int main(int argc , char *argv[])
 	if(!LoadFile(reference, ReferenceSignal, &config, config.referenceFile))
 	{
 		CloseFiles(&reference);
+		RemoveFLACTemp(config.referenceFile);
 		CleanUp(&ReferenceSignal, &config);
 		return 0;
 	}
+
+	CloseFiles(&reference);
+	RemoveFLACTemp(config.referenceFile);
 
 	if(config.channel == 's')
 	{
@@ -149,6 +184,16 @@ void CloseFiles(FILE **ref)
 	}
 }
 
+void RemoveFLACTemp(char *referenceFile)
+{
+	char tmpFile[BUFFER_SIZE];
+
+	if(IsFlac(referenceFile))
+	{
+		renameFLAC(referenceFile, tmpFile);
+		remove(tmpFile);
+	}
+}
 
 char *GenerateFileNamePrefix(parameters *config)
 {
@@ -223,8 +268,6 @@ int LoadFile(FILE *file, AudioSignal *Signal, parameters *config, char *fileName
 		return(0);
 	}
 
-	fclose(file);
-
 	if(config->clock)
 	{
 		double	elapsedSeconds;
@@ -261,7 +304,8 @@ int LoadFile(FILE *file, AudioSignal *Signal, parameters *config, char *fileName
 			Signal->endOffset = DetectEndPulse(Signal->Samples, Signal->startOffset, Signal->header, config);
 			if(Signal->endOffset == -1)
 			{
-				logmsg("\nERROR: Trailing sync pulse train was not detected, aborting\n");
+				logmsg("\nERROR: Trailing sync pulse train was not detected, aborting.\n");
+				logmsg("\tPlease record the whole audio sequence.\n");
 				return 0;
 			}
 			if(config->verbose)

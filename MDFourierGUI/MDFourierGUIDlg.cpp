@@ -135,8 +135,8 @@ HCURSOR CMDFourierGUIDlg::OnQueryDragIcon()
 
 void CMDFourierGUIDlg::OnBnClickedSelectReferenceFile()
 {
-	TCHAR szFilters[]= L"Audio Files (*.wav)|*.wav||";
-	CFileDialog dlgFile(TRUE, L"wav", L"*.wav", OFN_FILEMUSTEXIST, szFilters);
+	TCHAR szFilters[]= L"Audio Files (*.wav;*.flac)|*.wav;*.flac||";
+	CFileDialog dlgFile(TRUE, L"wav", m_Reference, OFN_FILEMUSTEXIST, szFilters);
 	
 	if(dlgFile.DoModal() != IDOK)
 		return;
@@ -148,8 +148,8 @@ void CMDFourierGUIDlg::OnBnClickedSelectReferenceFile()
 
 void CMDFourierGUIDlg::OnBnClickedSelectReferenceCompare()
 {
-	TCHAR szFilters[]= L"Audio Files (*.wav)|*.wav|MDF List (*.mfl)|*.mfl||";
-	CFileDialog dlgFile(TRUE, L"wav", L"*.wav", OFN_FILEMUSTEXIST, szFilters);
+	TCHAR szFilters[]= L"Audio Files (*.wav;*.flac)|*.wav;*.flac|MDF List (*.mfl)|*.mfl||";
+	CFileDialog dlgFile(TRUE, L"wav", m_ComparisonFile, OFN_FILEMUSTEXIST, szFilters);
 
 	if(dlgFile.DoModal() != IDOK)
 		return;
@@ -196,7 +196,8 @@ void CMDFourierGUIDlg::OnBnClickedOk()
 	elementCount = 0;
 	elementPos = 0;
 
-	if(m_ComparisonFile.Right(3).CompareNoCase(L"wav") == 0)
+	if(m_ComparisonFile.Right(3).CompareNoCase(L"wav") == 0 ||
+		m_ComparisonFile.Right(4).CompareNoCase(L"flac") == 0)
 	{
 		elements = new CString[1];
 		if(!elements)

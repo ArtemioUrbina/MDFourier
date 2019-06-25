@@ -103,7 +103,7 @@ void CleanParameters(parameters *config)
 	config->debugSync = 0;
 	config->drawWindows = 0;
 	config->channelBalance = 1;
-	config->laxSync = 0;
+	config->laxSync = 1;
 	config->showPercent = 1;
 	config->ignoreFrameRateDiff = 0;
 
@@ -188,7 +188,7 @@ int commandline(int argc , char *argv[], parameters *config)
 		config->debugSync = 1;
 		break;
 	  case 'X':
-		config->laxSync = 1;
+		config->laxSync = 0;
 		break;
 	  case 'g':
 		config->averagePlot = 1;
@@ -498,7 +498,7 @@ int commandline(int argc , char *argv[], parameters *config)
 
 int CreateFolderName(parameters *config)
 {
-	int len;
+	int len, ext;
 	char tmp[BUFFER_SIZE];
 
 	if(!config)
@@ -506,9 +506,11 @@ int CreateFolderName(parameters *config)
 
 	sprintf(tmp, "%s", basename(config->referenceFile));
 	len = strlen(tmp);
-	sprintf(tmp+len-4, "_vs_%s", basename(config->targetFile));
+	ext = getExtensionLength(tmp)+1;
+	sprintf(tmp+len-ext, "_vs_%s", basename(config->targetFile));
 	len = strlen(tmp);
-	tmp[len-4] = '\0';
+	ext = getExtensionLength(tmp)+1;
+	tmp[len-ext] = '\0';
 
 	len = strlen(tmp);
 	for(int i = 0; i < len; i++)
@@ -548,21 +550,23 @@ int CreateFolderName(parameters *config)
 
 void InvertComparedName(parameters *config)
 {
-	int len;
+	int len, ext;
 	char tmp[BUFFER_SIZE];
 
 	sprintf(tmp, "%s", basename(config->targetFile));
 	len = strlen(tmp);
-	sprintf(tmp+len-4, "_vs_%s", basename(config->referenceFile));
+	ext = getExtensionLength(tmp)+1;
+	sprintf(tmp+len-ext, "_vs_%s", basename(config->referenceFile));
 	len = strlen(tmp);
-	tmp[len-4] = '\0';
+	ext = getExtensionLength(tmp)+1;
+	tmp[len-ext] = '\0';
 
 	sprintf(config->compareName, "%s", tmp);
 }
 
 int CreateFolderName_wave(parameters *config)
 {
-	int len;
+	int len, ext;
 	char tmp[BUFFER_SIZE];
 
 	if(!config)
@@ -570,7 +574,8 @@ int CreateFolderName_wave(parameters *config)
 
 	sprintf(tmp, "MDWave\\%s", basename(config->referenceFile));
 	len = strlen(tmp);
-	tmp[len-4] = '\0';
+	ext = getExtensionLength(tmp)+1;
+	tmp[len-ext] = '\0';
 
 	len = strlen(tmp);
 	for(int i = 0; i < len; i++)
@@ -693,4 +698,25 @@ char *GetWindow(char c)
 		default:
 			return "ERROR";
 	}
+}
+
+char *getFilenameExtension(char *filename)
+{
+	char *dot = NULL;
+
+	dot = strrchr(filename, '.');
+	if(!dot || dot == filename) 
+		return "";
+	return dot + 1;
+}
+
+int getExtensionLength(char *filename)
+{
+	const char *ext = NULL;
+
+	ext = getFilenameExtension(filename);
+	if(ext)
+		return strlen(ext);
+
+	return 0;
 }

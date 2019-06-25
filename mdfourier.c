@@ -36,6 +36,7 @@
 #include "plot.h"
 #include "sync.h"
 #include "balance.h"
+#include "flac.h"
 
 int LoadAndProcessAudioFiles(AudioSignal **ReferenceSignal, AudioSignal **ComparisonSignal, parameters *config);
 int LoadFile(FILE *file, AudioSignal *Signal, parameters *config, char *fileName);
@@ -159,26 +160,99 @@ int main(int argc , char *argv[])
 	return(0);
 }
 
+void RemoveFLACTemp(char *referenceFile, char *targetFile)
+{
+	char tmpFile[BUFFER_SIZE];
+
+	if(IsFlac(referenceFile))
+	{
+		renameFLAC(referenceFile, tmpFile);
+		remove(tmpFile);
+	}
+	if(IsFlac(targetFile))
+	{
+		renameFLAC(targetFile, tmpFile);
+		remove(tmpFile);
+	}
+}
+
 int LoadAndProcessAudioFiles(AudioSignal **ReferenceSignal, AudioSignal **ComparisonSignal, parameters *config)
 {
 	FILE				*reference = NULL;
 	FILE				*compare = NULL;
 	double				ZeroDbMagnitudeRef = 0;
 
-	reference = fopen(config->referenceFile, "rb");
+	if(IsFlac(config->referenceFile))
+	{
+		char tmpFile[BUFFER_SIZE];
+		struct	timespec	start, end;
+
+		if(config->clock)
+			clock_gettime(CLOCK_MONOTONIC, &start);
+
+		if(config->verbose)
+			logmsg(" - Decoding FLAC\n");
+		renameFLAC(config->referenceFile, tmpFile);
+		if(!FLACtoWAV(config->referenceFile, tmpFile))
+		{
+			logmsg("\nInvalid FLAC file %s\n", config->referenceFile);
+			remove(tmpFile);
+			return 0;
+		}
+		if(config->clock)
+		{
+			double	elapsedSeconds;
+			clock_gettime(CLOCK_MONOTONIC, &end);
+			elapsedSeconds = TimeSpecToSeconds(&end) - TimeSpecToSeconds(&start);
+			logmsg(" - clk: Decoding FLAC took %0.2fs\n", elapsedSeconds);
+		}
+		reference = fopen(tmpFile, "rb");
+	}
+	else
+		reference = fopen(config->referenceFile, "rb");
+
 	if(!reference)
 	{
+		RemoveFLACTemp(config->referenceFile, config->targetFile);
 		CleanUp(ReferenceSignal, ComparisonSignal, config);
-		logmsg("\tCould not open 'Reference' file: \"%s\"\n", config->referenceFile);
+		logmsg("\tCould not open 'Reference' file:\n\t\"%s\"\n", config->referenceFile);
 		return 0;
 	}
 
-	compare = fopen(config->targetFile, "rb");
+	if(IsFlac(config->targetFile))
+	{
+		char tmpFile[BUFFER_SIZE];
+		struct	timespec	start, end;
+
+		if(config->clock)
+			clock_gettime(CLOCK_MONOTONIC, &start);
+
+		if(config->verbose)
+			logmsg(" - Decoding FLAC\n");
+		renameFLAC(config->targetFile, tmpFile);
+		if(!FLACtoWAV(config->targetFile, tmpFile))
+		{
+			logmsg("\nInvalid FLAC file %s\n", config->targetFile);
+			RemoveFLACTemp(config->referenceFile, config->targetFile);
+			return 0;
+		}
+		if(config->clock)
+		{
+			double	elapsedSeconds;
+			clock_gettime(CLOCK_MONOTONIC, &end);
+			elapsedSeconds = TimeSpecToSeconds(&end) - TimeSpecToSeconds(&start);
+			logmsg(" - clk: Decoding FLAC took %0.2fs\n", elapsedSeconds);
+		}
+		compare = fopen(tmpFile, "rb");
+	}
+	else
+		compare = fopen(config->targetFile, "rb");
 	if(!compare)
 	{
 		CloseFiles(&reference, &compare);
+		RemoveFLACTemp(config->referenceFile, config->targetFile);
 		CleanUp(ReferenceSignal, ComparisonSignal, config);
-		logmsg("\tCould not open 'Comparison' file: \"%s\"\n", config->targetFile);
+		logmsg("\tCould not open 'Comparison' file:\n\t\"%s\"\n", config->targetFile);
 		return 0;
 	}
 
@@ -186,6 +260,7 @@ int LoadAndProcessAudioFiles(AudioSignal **ReferenceSignal, AudioSignal **Compar
 	if(!*ReferenceSignal)
 	{
 		CloseFiles(&reference, &compare);
+		RemoveFLACTemp(config->referenceFile, config->targetFile);
 		CleanUp(ReferenceSignal, ComparisonSignal, config);
 		return 0;
 	}
@@ -195,6 +270,7 @@ int LoadAndProcessAudioFiles(AudioSignal **ReferenceSignal, AudioSignal **Compar
 	if(!*ComparisonSignal)
 	{
 		CloseFiles(&reference, &compare);
+		RemoveFLACTemp(config->referenceFile, config->targetFile);
 		CleanUp(ReferenceSignal, ComparisonSignal, config);
 		return 0;
 	}
@@ -204,6 +280,7 @@ int LoadAndProcessAudioFiles(AudioSignal **ReferenceSignal, AudioSignal **Compar
 	if(!LoadFile(reference, *ReferenceSignal, config, config->referenceFile))
 	{
 		CloseFiles(&reference, &compare);
+		RemoveFLACTemp(config->referenceFile, config->targetFile);
 		CleanUp(ReferenceSignal, ComparisonSignal, config);
 		return 0;
 	}
@@ -212,9 +289,13 @@ int LoadAndProcessAudioFiles(AudioSignal **ReferenceSignal, AudioSignal **Compar
 	if(!LoadFile(compare, *ComparisonSignal, config, config->targetFile))
 	{
 		CloseFiles(&reference, &compare);
+		RemoveFLACTemp(config->referenceFile, config->targetFile);
 		CleanUp(ReferenceSignal, ComparisonSignal, config);
 		return 0;
 	}
+
+	CloseFiles(&reference, &compare);
+	RemoveFLACTemp(config->referenceFile, config->targetFile);
 
 	if(config->channel == 's')
 	{
@@ -490,25 +571,25 @@ int LoadFile(FILE *file, AudioSignal *Signal, parameters *config, char *fileName
 
 	if(fread(&Signal->header, 1, sizeof(wav_hdr), file) != sizeof(wav_hdr))
 	{
-		logmsg("\tInvalid WAV file: File too small\n");
+		logmsg("\tInvalid Audio file: File too small\n");
 		return(0);
 	}
 
 	if(Signal->header.AudioFormat != 1) /* Check for PCM */
 	{
-		logmsg("\tInvalid WAV File: Only PCM is supported\n\tPlease convert file to WAV PCM 16 bit 44/48kHz ");
+		logmsg("\tInvalid Audio File: Only PCM encoding is supported\n\tPlease convert file to PCM 16 bit 44/48kHz ");
 		return(0);
 	}
 
 	if(Signal->header.NumOfChan != 2) /* Check for Stereo */
 	{
-		logmsg("\tInvalid WAV file: Only Stereo is supported\n");
+		logmsg("\tInvalid Audio file: Only Stereo is supported\n");
 		return(0);
 	}
 
 	if(Signal->header.bitsPerSample != 16) /* Check bit depth */
 	{
-		logmsg("\tInvalid WAV file: Only 16 bit supported for now\n\tPlease use WAV PCM 16 bit 44/48kHz ");
+		logmsg("\tInvalid Audio file: Only 16 bit supported for now\n\tPlease use 16 bit 44/48kHz ");
 		return(0);
 	}
 	
@@ -524,7 +605,7 @@ int LoadFile(FILE *file, AudioSignal *Signal, parameters *config, char *fileName
 	Signal->framerate = GetMSPerFrame(Signal, config);
 
 	seconds = (double)Signal->header.Subchunk2Size/4.0/(double)Signal->header.SamplesPerSec;
-	logmsg(" - WAV file is PCM %dHz %dbits and %g seconds long\n", 
+	logmsg(" - Audio file is %dHz %dbits and %g seconds long\n", 
 		Signal->header.SamplesPerSec, Signal->header.bitsPerSample, seconds);
 
 	if(seconds < GetSignalTotalDuration(Signal->framerate, config))
@@ -545,14 +626,12 @@ int LoadFile(FILE *file, AudioSignal *Signal, parameters *config, char *fileName
 		return(0);
 	}
 
-	fclose(file);
-
 	if(config->clock)
 	{
 		double	elapsedSeconds;
 		clock_gettime(CLOCK_MONOTONIC, &end);
 		elapsedSeconds = TimeSpecToSeconds(&end) - TimeSpecToSeconds(&start);
-		logmsg(" - clk: Loading WAV took %0.2fs\n", elapsedSeconds);
+		logmsg(" - clk: Loading Audio took %0.2fs\n", elapsedSeconds);
 	}
 
 	if(GetFirstSyncIndex(config) != NO_INDEX)
@@ -583,7 +662,8 @@ int LoadFile(FILE *file, AudioSignal *Signal, parameters *config, char *fileName
 			Signal->endOffset = DetectEndPulse(Signal->Samples, Signal->startOffset, Signal->header, config);
 			if(Signal->endOffset == -1)
 			{
-				logmsg("\nERROR: Trailing sync pulse train was not detected, aborting\n");
+				logmsg("\nERROR: Trailing sync pulse train was not detected, aborting.\n");
+				logmsg("\tPlease record the whole audio sequence.\n");
 				return 0;
 			}
 			if(config->verbose)
@@ -591,7 +671,7 @@ int LoadFile(FILE *file, AudioSignal *Signal, parameters *config, char *fileName
 					BytesToSeconds(Signal->header.SamplesPerSec, Signal->endOffset),
 					Signal->endOffset);
 			Signal->framerate = CalculateFrameRate(Signal, config);
-			logmsg(" - Detected %g Hz video signal (%gms per frame) from WAV file\n", 
+			logmsg(" - Detected %g Hz video signal (%gms per frame) from Audio file\n", 
 						CalculateScanRate(Signal), Signal->framerate);
 
 			expected = GetMSPerFrame(Signal, config);
