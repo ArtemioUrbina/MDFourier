@@ -104,7 +104,7 @@ enum normalize
 	average
 };
 
-#define PROFILE_FILE	"mdfblocks.mfn"
+#define PROFILE_FILE	"profiles\\mdfblocksGEN.mfn"
 
 typedef struct max_vol {
 	int16_t		magnitude;
@@ -298,8 +298,8 @@ typedef struct parameters_st {
 	int				outputFilterFunction;
 	AudioBlockDef	types;
 	AudioDifference	Differences;
-	double			origSignificantVolume;
-	double			significantVolume;
+	double			origSignificantAmplitude;
+	double			significantAmplitude;
 	double			smallerFramerate;
 	int				logScale;
 	int				debugSync;

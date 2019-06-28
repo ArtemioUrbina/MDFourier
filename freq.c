@@ -383,14 +383,14 @@ int LoadAudioBlockStructure(FILE *file, parameters *config)
 
 	if(!config->types.pulseMinVol)
 	{
-		logmsg("Invalid Pulse Minimum Volume:\n%s\n", lineBuffer);
+		logmsg("Invalid Pulse Minimum Amplitude:\n%s\n", lineBuffer);
 		fclose(file);
 		return 0;
 	}
 
 	if(!config->types.pulseVolDiff)
 	{
-		logmsg("Invalid Pulse Volume Difference:\n%s\n", lineBuffer);
+		logmsg("Invalid Pulse Amplitude Difference:\n%s\n", lineBuffer);
 		fclose(file);
 		return 0;
 	}
@@ -1220,7 +1220,7 @@ void FindFloor(AudioSignal *Signal, parameters *config)
 	{
 		Signal->floorAmplitude = loudest.amplitude;
 		Signal->floorFreq = loudest.hertz;
-		logmsg(" - Silence block max volume: %g Hz at %g dBFS\n",
+		logmsg(" - Silence block max amplitude: %g Hz at %g dBFS\n",
 			Signal->floorFreq, Signal->floorAmplitude);
 		return;
 	}
@@ -1265,7 +1265,7 @@ void GlobalNormalize(AudioSignal *Signal, parameters *config)
 	if(config->verbose)
 	{
 		if(MaxBlock != -1)
-			logmsg(" - MAX Volume found in block %d at %g Hz with %g magnitude\n", MaxBlock, MaxFreq, MaxMagnitude);
+			logmsg(" - MAX Amplitude found in block %d at %g Hz with %g magnitude\n", MaxBlock, MaxFreq, MaxMagnitude);
 	}
 
 	Signal->MaxMagnitude.magnitude = MaxMagnitude;
@@ -1337,7 +1337,7 @@ void FindMaxMagnitude(AudioSignal *Signal, parameters *config)
 	if(config->verbose)
 	{
 		if(MaxBlock != -1)
-			logmsg(" - Max Volume found in block %d (%s %d) at %g Hz with magnitude [%g]\n", 
+			logmsg(" - Max Amplitude found in block %d (%s %d) at %g Hz with magnitude [%g]\n", 
 					MaxBlock, GetBlockName(config, MaxBlock), GetBlockSubIndex(config, MaxBlock), MaxFreq, MaxMagnitude);
 	}
 }
@@ -1411,7 +1411,7 @@ void PrintFrequencies(AudioSignal *Signal, parameters *config)
 		type = GetBlockType(config, block);
 		for(int j = 0; j < config->MaxFreq; j++)
 		{
-			if(type != TYPE_SILENCE && config->significantVolume > Signal->Blocks[block].freq[j].amplitude)
+			if(type != TYPE_SILENCE && config->significantAmplitude > Signal->Blocks[block].freq[j].amplitude)
 				break;
 
 			//if(Signal->Blocks[block].freq[j].amplitude == NO_AMPLITUDE)
@@ -1568,7 +1568,7 @@ void PrintComparedBlocks(AudioBlocks *ReferenceArray, AudioBlocks *ComparedArray
 	/* changed Magnitude->amplitude */
 	for(int j = 0; j < config->MaxFreq; j++)
 	{
-		if(config->significantVolume > ReferenceArray->freq[j].amplitude)
+		if(config->significantAmplitude > ReferenceArray->freq[j].amplitude)
 			break;
 
 		if(ReferenceArray->freq[j].hertz)

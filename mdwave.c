@@ -532,15 +532,15 @@ int ProcessFile(AudioSignal *Signal, parameters *config)
 	{
 		FindFloor(Signal, config);
 
-		if(Signal->floorAmplitude != 0.0 && Signal->floorAmplitude > config->significantVolume)
+		if(Signal->floorAmplitude != 0.0 && Signal->floorAmplitude > config->significantAmplitude)
 		{
-			config->significantVolume = Signal->floorAmplitude;
+			config->significantAmplitude = Signal->floorAmplitude;
 			CreateBaseName(config);
 		}
 	}
 
-	logmsg(" - Using %gdBFS as minimum significant volume for analisys\n",
-			config->significantVolume);
+	logmsg(" - Using %gdBFS as minimum significant amplitude for analisys\n",
+			config->significantAmplitude);
 
 	if(config->verbose)
 		PrintFrequencies(Signal, config);
@@ -795,8 +795,8 @@ int ProcessSamples(AudioBlocks *AudioArray, int16_t *samples, size_t size, long 
 		}
 
 		CutOff = MinAmplitude;
-		if(CutOff < config->significantVolume)
-			CutOff = config->significantVolume;
+		if(CutOff < config->significantAmplitude)
+			CutOff = config->significantAmplitude;
 
 		if(!config->ignoreFloor && Signal->hasFloor &&
 			CutOff < Signal->floorAmplitude && Signal->floorAmplitude != 0.0)
@@ -971,10 +971,10 @@ int commandline_wave(int argc , char *argv[], parameters *config)
 			config->tolerance = DBS_TOLERANCE;
 		break;
 	  case 'p':
-		config->significantVolume = atof(optarg);
-		if(config->significantVolume <= -100.0 || config->significantVolume >= -1.0)
-			config->significantVolume = SIGNIFICANT_VOLUME;
-		config->origSignificantVolume = config->significantVolume;
+		config->significantAmplitude = atof(optarg);
+		if(config->significantAmplitude <= -100.0 || config->significantAmplitude >= -1.0)
+			config->significantAmplitude = SIGNIFICANT_VOLUME;
+		config->origSignificantAmplitude = config->significantAmplitude;
 		break;
 	  case 'a':
 		switch(optarg[0])

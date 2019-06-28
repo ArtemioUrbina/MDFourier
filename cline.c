@@ -78,7 +78,7 @@ void CleanParameters(parameters *config)
 {
 	memset(config, 0, sizeof(parameters));
 
-	sprintf(config->profileFile, "profiles\\mdfblocksGEN.mfn");
+	sprintf(config->profileFile, PROFILE_FILE);
 	config->tolerance = DBS_TOLERANCE;
 	config->startHz = START_HZ;
 	config->endHz = END_HZ;
@@ -96,8 +96,8 @@ void CleanParameters(parameters *config)
 	config->ignoreFloor = 0;
 	config->useOutputFilter = 1;
 	config->outputFilterFunction = 3;
-	config->origSignificantVolume = SIGNIFICANT_VOLUME;
-	config->significantVolume = SIGNIFICANT_VOLUME;
+	config->origSignificantAmplitude = SIGNIFICANT_VOLUME;
+	config->significantAmplitude = SIGNIFICANT_VOLUME;
 	config->smallerFramerate = 0;
 	config->ZeroPad = 0;
 	config->debugSync = 0;
@@ -241,10 +241,10 @@ int commandline(int argc , char *argv[], parameters *config)
 			config->tolerance = DBS_TOLERANCE;
 		break;
 	  case 'p':
-		config->significantVolume = atof(optarg);
-		if(config->significantVolume <= -100.0 || config->significantVolume >= -1.0)
-			config->significantVolume = SIGNIFICANT_VOLUME;
-		config->origSignificantVolume = config->significantVolume;
+		config->significantAmplitude = atof(optarg);
+		if(config->significantAmplitude <= -100.0 || config->significantAmplitude >= -1.0)
+			config->significantAmplitude = SIGNIFICANT_VOLUME;
+		config->origSignificantAmplitude = config->significantAmplitude;
 		break;
 	  case 'a':
 		switch(optarg[0])
@@ -348,7 +348,7 @@ int commandline(int argc , char *argv[], parameters *config)
 		else if (optopt == 't')
 		  logmsg("Amplitude tolerance -%c requires an argument: 0.0-40.0 dBFS\n", optopt);
 		else if (optopt == 'p')
-		  logmsg("Significant Volume -%c requires an argument: -1.0 to -100.0 dBFS\n", optopt);
+		  logmsg("Significant Amplitude -%c requires an argument: -1.0 to -100.0 dBFS\n", optopt);
 		else if (optopt == 'f')
 		  logmsg("Max # of frequencies to use from FFTW -%c requires an argument: 1-%d\n", optopt, MAX_FREQ_COUNT);
 		else if (optopt == 's')
@@ -637,7 +637,7 @@ void CreateBaseName(parameters *config)
 			config->MaxFreq,
 			GetWindow(config->window),
 			GetChannel(config->channel),
-			fabs(config->significantVolume),
+			fabs(config->significantAmplitude),
 			config->outputFilterFunction,
 			GetNormalization(config->normType),
 			config->ZeroPad ? "ZP" : "NP",

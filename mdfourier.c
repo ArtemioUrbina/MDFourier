@@ -49,7 +49,7 @@ void CloseFiles(FILE **ref, FILE **comp);
 void NormalizeAudio(AudioSignal *Signal);
 
 // Time domain
-MaxVolum FindMaxVolume(AudioSignal *Signal);
+MaxVolum FindMaxAmplitude(AudioSignal *Signal);
 void NormalizeAudioByRatio(AudioSignal *Signal, double ratio);
 int16_t FindLocalMaximumAroundSample(AudioSignal *Signal, MaxVolum refMax);
 
@@ -106,16 +106,16 @@ int main(int argc , char *argv[])
 		logmsg("* Comparing frequencies 'Comparison' -> 'Reference'\n");
 	
 		/* Detect Signal Floor */
-		config.significantVolume = config.origSignificantVolume;
+		config.significantAmplitude = config.origSignificantAmplitude;
 		if(ComparisonSignal->hasFloor && !config.ignoreFloor && 
-			ComparisonSignal->floorAmplitude != 0.0 && ComparisonSignal->floorAmplitude > config.significantVolume)
+			ComparisonSignal->floorAmplitude != 0.0 && ComparisonSignal->floorAmplitude > config.significantAmplitude)
 		{
-			config.significantVolume = ComparisonSignal->floorAmplitude;
+			config.significantAmplitude = ComparisonSignal->floorAmplitude;
 			CreateBaseName(&config);
 		}
 	
-		logmsg(" - Using %gdBFS as minimum significant volume for analisys\n",
-			config.significantVolume);
+		logmsg(" - Using %gdBFS as minimum significant amplitude for analisys\n",
+			config.significantAmplitude);
 		CompareAudioBlocks(ComparisonSignal, ReferenceSignal, &config);
 	
 		PlotResults(ComparisonSignal, &config);
@@ -321,18 +321,18 @@ int LoadAndProcessAudioFiles(AudioSignal **ReferenceSignal, AudioSignal **Compar
 		double				ratioTar = 0, ratioRef = 0;
 
 		// Find Normalization factors
-		MaxRef = FindMaxVolume(*ReferenceSignal);
+		MaxRef = FindMaxAmplitude(*ReferenceSignal);
 		if(!MaxRef.magnitude)
 		{
-			logmsg("Could not detect Max volume in 'Reference' File for normalization\n");
+			logmsg("Could not detect Max amplitude in 'Reference' File for normalization\n");
 			CloseFiles(&reference, &compare);
 			CleanUp(ReferenceSignal, ComparisonSignal, config);
 			return 0;
 		}
-		MaxTar = FindMaxVolume(*ComparisonSignal);
+		MaxTar = FindMaxAmplitude(*ComparisonSignal);
 		if(!MaxTar.magnitude)
 		{
-			logmsg("Could not detect Max volume in 'Comparison' file for normalization\n");
+			logmsg("Could not detect Max amplitude in 'Comparison' file for normalization\n");
 			CloseFiles(&reference, &compare);
 			CleanUp(ReferenceSignal, ComparisonSignal, config);
 			return 0;
@@ -343,7 +343,7 @@ int LoadAndProcessAudioFiles(AudioSignal **ReferenceSignal, AudioSignal **Compar
 		ComparisonLocalMaximum = FindLocalMaximumAroundSample(*ComparisonSignal, MaxRef);
 		if(!ComparisonLocalMaximum)
 		{
-			logmsg("Could not detect Max volume in 'Comparison' file for normalization\n");
+			logmsg("Could not detect Max amplitude in 'Comparison' file for normalization\n");
 			CloseFiles(&reference, &compare);
 			CleanUp(ReferenceSignal, ComparisonSignal, config);
 			return 0;
@@ -390,7 +390,7 @@ int LoadAndProcessAudioFiles(AudioSignal **ReferenceSignal, AudioSignal **Compar
 		MaxRef = FindMaxMagnitudeBlock(*ReferenceSignal, config);
 		if(!MaxRef.magnitude)
 		{
-			logmsg("Could not detect Max volume in 'Reference' File for normalization\n");
+			logmsg("Could not detect Max amplitude in 'Reference' File for normalization\n");
 			CloseFiles(&reference, &compare);
 			CleanUp(ReferenceSignal, ComparisonSignal, config);
 			return 0;
@@ -398,7 +398,7 @@ int LoadAndProcessAudioFiles(AudioSignal **ReferenceSignal, AudioSignal **Compar
 		MaxTar = FindMaxMagnitudeBlock(*ComparisonSignal, config);
 		if(!MaxTar.magnitude)
 		{
-			logmsg("Could not detect Max volume in 'Comparison' file for normalization\n");
+			logmsg("Could not detect Max amplitude in 'Comparison' file for normalization\n");
 			CloseFiles(&reference, &compare);
 			CleanUp(ReferenceSignal, ComparisonSignal, config);
 			return 0;
@@ -407,7 +407,7 @@ int LoadAndProcessAudioFiles(AudioSignal **ReferenceSignal, AudioSignal **Compar
 		ComparisonLocalMaximum = FindLocalMaximumInBlock(*ComparisonSignal, MaxRef, config);
 		if(!ComparisonLocalMaximum)
 		{
-			logmsg("Could not detect Max volume in 'Comparison' file for normalization\n");
+			logmsg("Could not detect Max amplitude in 'Comparison' file for normalization\n");
 			CloseFiles(&reference, &compare);
 			CleanUp(ReferenceSignal, ComparisonSignal, config);
 			return 0;
@@ -507,14 +507,14 @@ int LoadAndProcessAudioFiles(AudioSignal **ReferenceSignal, AudioSignal **Compar
 
 	/* Detect Signal Floor */
 	if((*ReferenceSignal)->hasFloor && !config->ignoreFloor && 
-		(*ReferenceSignal)->floorAmplitude != 0.0 && (*ReferenceSignal)->floorAmplitude > config->significantVolume)
+		(*ReferenceSignal)->floorAmplitude != 0.0 && (*ReferenceSignal)->floorAmplitude > config->significantAmplitude)
 	{
-		config->significantVolume = (*ReferenceSignal)->floorAmplitude;
+		config->significantAmplitude = (*ReferenceSignal)->floorAmplitude;
 		CreateBaseName(config);
 	}
 
-	logmsg(" - Using %gdBFS as minimum significant volume for analisys\n",
-		config->significantVolume);
+	logmsg(" - Using %gdBFS as minimum significant amplitude for analisys\n",
+		config->significantAmplitude);
 
 	if(config->verbose)
 	{
@@ -998,7 +998,7 @@ int CalculateMaxCompare(int block, AudioSignal *Signal, parameters *config, int 
 {
 	double limit = 0;
 
-	limit = config->significantVolume;
+	limit = config->significantAmplitude;
 	if(Signal->role == ROLE_COMP)
 		limit += -20;	// Allow going 20 dbfs "deeper"
 
@@ -1008,7 +1008,7 @@ int CalculateMaxCompare(int block, AudioSignal *Signal, parameters *config, int 
 		if(limitRef && Signal->Blocks[block].freq[freq].amplitude < limit)
 			return freq;
 
-		/* Volume is too low with tolerance */
+		/* Amplitude is too low with tolerance */
 		if(!limitRef && Signal->Blocks[block].freq[freq].amplitude < limit - config->tolerance*2)
 			return freq;
 
@@ -1082,9 +1082,9 @@ double CompareAudioBlocks(AudioSignal *ReferenceSignal, AudioSignal *ComparisonS
 						amplitude = ReferenceSignal->Blocks[block].freq[freq].amplitude;
 
 						// we get the proportional linear error in range 0-1
-						if(amplitude >= config->significantVolume)
+						if(amplitude >= config->significantAmplitude)
 						{
-							value = (fabs(config->significantVolume)-fabs(amplitude))/fabs(config->significantVolume);
+							value = (fabs(config->significantAmplitude)-fabs(amplitude))/fabs(config->significantAmplitude);
 							if(value)
 								value = CalculateWeightedError(value, config);
 						}
@@ -1115,9 +1115,9 @@ double CompareAudioBlocks(AudioSignal *ReferenceSignal, AudioSignal *ComparisonS
 					amplitude = ReferenceSignal->Blocks[block].freq[freq].amplitude;
 
 					// we get the proportional linear error in range 0-1
-					if(amplitude >= config->significantVolume)
+					if(amplitude >= config->significantAmplitude)
 					{
-						value = (fabs(config->significantVolume)-fabs(amplitude))/fabs(config->significantVolume);
+						value = (fabs(config->significantAmplitude)-fabs(amplitude))/fabs(config->significantAmplitude);
 						if(value)
 							value = CalculateWeightedError(value, config);
 					}
@@ -1224,8 +1224,8 @@ void NormalizeAudioByRatio(AudioSignal *Signal, double ratio)
 		samples[i] = (int16_t)((double)samples[i])*ratio;
 }
 
-// Find the Maximum Volume in the Audio File
-MaxVolum FindMaxVolume(AudioSignal *Signal)
+// Find the Maximum Amplitude in the Audio File
+MaxVolum FindMaxAmplitude(AudioSignal *Signal)
 {
 	long int 		i = 0, start = 0, end = 0;
 	int16_t			*samples = NULL;
@@ -1257,7 +1257,7 @@ MaxVolum FindMaxVolume(AudioSignal *Signal)
 	return(maxSampleValue);
 }
 
-// Find the Maximum Volume in the Reference Audio File
+// Find the Maximum Amplitude in the Reference Audio File
 int16_t FindLocalMaximumAroundSample(AudioSignal *Signal, MaxVolum refMax)
 {
 	long int 		i, start = 0, end = 0, pos = 0;

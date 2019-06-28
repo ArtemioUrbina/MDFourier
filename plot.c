@@ -770,14 +770,14 @@ void PlotAllDifferentAmplitudes(FlatAmplDifference *amplDiff, char *filename, pa
 		{ 
 			long int intensity;
 
-			intensity = CalculateWeightedError((fabs(config->significantVolume) - fabs(amplDiff[a].refAmplitude))/fabs(config->significantVolume), config)*0xffff;
+			intensity = CalculateWeightedError((fabs(config->significantAmplitude) - fabs(amplDiff[a].refAmplitude))/fabs(config->significantAmplitude), config)*0xffff;
 
 			SetPenColor(amplDiff[a].color, intensity, &plot);
 			pl_fpoint_r(plot.plotter, transformtoLog(amplDiff[a].hertz, config), amplDiff[a].diffAmplitude);
 		}
 	}
 
-	DrawColorAllTypeScale(&plot, MODE_DIFF, config->plotResX/50, config->plotResY/15, config->plotResX/80, config->plotResY/1.15, config->significantVolume, VERT_SCALE_STEP_BAR, config);
+	DrawColorAllTypeScale(&plot, MODE_DIFF, config->plotResX/50, config->plotResY/15, config->plotResX/80, config->plotResY/1.15, config->significantAmplitude, VERT_SCALE_STEP_BAR, config);
 	DrawLabelsMDF(&plot, DIFFERENCE_TITLE, ALL_LABEL, config);
 
 	ClosePlot(&plot);
@@ -831,7 +831,7 @@ void PlotSingleTypeDifferentAmplitudes(FlatAmplDifference *amplDiff, int type, c
 		{ 
 			long int intensity;
 
-			intensity = CalculateWeightedError((fabs(config->significantVolume) - fabs(amplDiff[a].refAmplitude))/fabs(config->significantVolume), config)*0xffff;
+			intensity = CalculateWeightedError((fabs(config->significantAmplitude) - fabs(amplDiff[a].refAmplitude))/fabs(config->significantAmplitude), config)*0xffff;
 
 			SetPenColor(amplDiff[a].color, intensity, &plot);
 			pl_fpoint_r(plot.plotter, transformtoLog(amplDiff[a].hertz, config), amplDiff[a].diffAmplitude);
@@ -841,7 +841,7 @@ void PlotSingleTypeDifferentAmplitudes(FlatAmplDifference *amplDiff, int type, c
 	DrawColorScale(&plot, type, MODE_DIFF,
 			config->plotResX/50, config->plotResY/15, 
 			config->plotResX/80, config->plotResY/1.15,
-			config->significantVolume, VERT_SCALE_STEP_BAR, config);
+			config->significantAmplitude, VERT_SCALE_STEP_BAR, config);
 	DrawLabelsMDF(&plot, DIFFERENCE_TITLE, GetTypeName(config, type), config);
 	ClosePlot(&plot);
 }
@@ -858,13 +858,13 @@ void PlotAllMissingFrequencies(FlatFreqDifference *freqDiff, char *filename, par
 		return;
 
 	sprintf(name, "MIS_ALL_%s", filename);
-	FillPlot(&plot, name, config->plotResX, config->plotResY, config->startHzPlot, config->significantVolume, config->endHzPlot, 0.0, 1, config);
+	FillPlot(&plot, name, config->plotResX, config->plotResY, config->startHzPlot, config->significantAmplitude, config->endHzPlot, 0.0, 1, config);
 
 	if(!CreatePlotFile(&plot))
 		return;
 
-	DrawGridZeroToLimit(&plot, config->significantVolume, VERT_SCALE_STEP, config->endHzPlot, 1000, config);
-	DrawLabelsZeroToLimit(&plot, config->significantVolume, VERT_SCALE_STEP, config->endHzPlot, 1000, config);
+	DrawGridZeroToLimit(&plot, config->significantAmplitude, VERT_SCALE_STEP, config->endHzPlot, 1000, config);
+	DrawLabelsZeroToLimit(&plot, config->significantAmplitude, VERT_SCALE_STEP, config->endHzPlot, 1000, config);
 
 	for(int f = 0; f < config->Differences.cntFreqAudioDiff; f++)
 	{
@@ -876,14 +876,14 @@ void PlotAllMissingFrequencies(FlatFreqDifference *freqDiff, char *filename, par
 			x = transformtoLog(freqDiff[f].hertz, config);
 			y = freqDiff[f].amplitude;
 
-			intensity = CalculateWeightedError((fabs(config->significantVolume) - fabs(freqDiff[f].amplitude))/fabs(config->significantVolume), config)*0xffff;
+			intensity = CalculateWeightedError((fabs(config->significantAmplitude) - fabs(freqDiff[f].amplitude))/fabs(config->significantAmplitude), config)*0xffff;
 
 			SetPenColor(freqDiff[f].color, intensity, &plot);
-			pl_fline_r(plot.plotter, x,	y, x, config->significantVolume);
+			pl_fline_r(plot.plotter, x,	y, x, config->significantAmplitude);
 		}
 	}
 	
-	DrawColorAllTypeScale(&plot, MODE_MISS, config->plotResX/50, config->plotResY/15, config->plotResX/80, config->plotResY/1.15, config->significantVolume, VERT_SCALE_STEP_BAR, config);
+	DrawColorAllTypeScale(&plot, MODE_MISS, config->plotResX/50, config->plotResY/15, config->plotResX/80, config->plotResY/1.15, config->significantAmplitude, VERT_SCALE_STEP_BAR, config);
 	DrawLabelsMDF(&plot, MISSING_TITLE, ALL_LABEL, config);
 	ClosePlot(&plot);
 }
@@ -918,13 +918,13 @@ void PlotSingleTypeMissingFrequencies(FlatFreqDifference *freqDiff, int type, ch
 	if(!config->Differences.BlockDiffArray)
 		return;
 
-	FillPlot(&plot, filename, config->plotResX, config->plotResY, config->startHzPlot, config->significantVolume, config->endHzPlot, 0.0, 1, config);
+	FillPlot(&plot, filename, config->plotResX, config->plotResY, config->startHzPlot, config->significantAmplitude, config->endHzPlot, 0.0, 1, config);
 
 	if(!CreatePlotFile(&plot))
 		return;
 
-	DrawGridZeroToLimit(&plot, config->significantVolume, VERT_SCALE_STEP, config->endHzPlot, 1000, config);
-	DrawLabelsZeroToLimit(&plot, config->significantVolume, VERT_SCALE_STEP, config->endHzPlot, 1000, config);
+	DrawGridZeroToLimit(&plot, config->significantAmplitude, VERT_SCALE_STEP, config->endHzPlot, 1000, config);
+	DrawLabelsZeroToLimit(&plot, config->significantAmplitude, VERT_SCALE_STEP, config->endHzPlot, 1000, config);
 
 	for(int f = 0; f < config->Differences.cntFreqAudioDiff; f++)
 	{
@@ -935,15 +935,15 @@ void PlotSingleTypeMissingFrequencies(FlatFreqDifference *freqDiff, int type, ch
 
 			x = transformtoLog(freqDiff[f].hertz, config);;
 			y = freqDiff[f].amplitude;
-			intensity = CalculateWeightedError((fabs(config->significantVolume) - fabs(freqDiff[f].amplitude))/fabs(config->significantVolume), config)*0xffff;
+			intensity = CalculateWeightedError((fabs(config->significantAmplitude) - fabs(freqDiff[f].amplitude))/fabs(config->significantAmplitude), config)*0xffff;
 
 
 			SetPenColor(freqDiff[f].color, intensity, &plot);
-			pl_fline_r(plot.plotter, x,	y, x, config->significantVolume);
+			pl_fline_r(plot.plotter, x,	y, x, config->significantAmplitude);
 		}
 	}
 	
-	DrawColorScale(&plot, type, MODE_MISS, config->plotResX/50, config->plotResY/15, config->plotResX/80, config->plotResY/1.15, config->significantVolume, VERT_SCALE_STEP_BAR, config);
+	DrawColorScale(&plot, type, MODE_MISS, config->plotResX/50, config->plotResY/15, config->plotResX/80, config->plotResY/1.15, config->significantAmplitude, VERT_SCALE_STEP_BAR, config);
 	DrawLabelsMDF(&plot, MISSING_TITLE, GetTypeName(config, type), config);
 	ClosePlot(&plot);
 }
@@ -957,13 +957,13 @@ void PlotAllSpectrogram(FlatFrequency *freqs, long int size, char *filename, int
 		return;
 
 	sprintf(name, "SP_ALL_%s", filename);
-	FillPlot(&plot, name, config->plotResX, config->plotResY, config->startHzPlot, config->significantVolume, config->endHzPlot, 0.0, 1, config);
+	FillPlot(&plot, name, config->plotResX, config->plotResY, config->startHzPlot, config->significantAmplitude, config->endHzPlot, 0.0, 1, config);
 
 	if(!CreatePlotFile(&plot))
 		return;
 
-	DrawGridZeroToLimit(&plot, config->significantVolume, VERT_SCALE_STEP, config->endHzPlot, 1000, config);
-	DrawLabelsZeroToLimit(&plot, config->significantVolume, VERT_SCALE_STEP, config->endHzPlot, 1000, config);
+	DrawGridZeroToLimit(&plot, config->significantAmplitude, VERT_SCALE_STEP, config->endHzPlot, 1000, config);
+	DrawLabelsZeroToLimit(&plot, config->significantAmplitude, VERT_SCALE_STEP, config->endHzPlot, 1000, config);
 
 	for(int f = 0; f < size; f++)
 	{
@@ -974,14 +974,14 @@ void PlotAllSpectrogram(FlatFrequency *freqs, long int size, char *filename, int
 
 			x = transformtoLog(freqs[f].hertz, config);
 			y = freqs[f].amplitude;
-			intensity = CalculateWeightedError((fabs(config->significantVolume) - fabs(freqs[f].amplitude))/fabs(config->significantVolume), config)*0xffff;
+			intensity = CalculateWeightedError((fabs(config->significantAmplitude) - fabs(freqs[f].amplitude))/fabs(config->significantAmplitude), config)*0xffff;
 	
 			SetPenColor(freqs[f].color, intensity, &plot);
-			pl_fline_r(plot.plotter, x,	y, x, config->significantVolume);
+			pl_fline_r(plot.plotter, x,	y, x, config->significantAmplitude);
 		}
 	}
 
-	DrawColorAllTypeScale(&plot, MODE_SPEC, config->plotResX/50, config->plotResY/15, config->plotResX/80, config->plotResY/1.15, config->significantVolume, VERT_SCALE_STEP_BAR, config);
+	DrawColorAllTypeScale(&plot, MODE_SPEC, config->plotResX/50, config->plotResY/15, config->plotResX/80, config->plotResY/1.15, config->significantAmplitude, VERT_SCALE_STEP_BAR, config);
 	DrawLabelsMDF(&plot, signal == ROLE_REF ? SPECTROGRAM_TITLE_REF : SPECTROGRAM_TITLE_COM, ALL_LABEL, config);
 	ClosePlot(&plot);
 }
@@ -1013,13 +1013,13 @@ void PlotSingleTypeSpectrogram(FlatFrequency *freqs, long int size, int type, ch
 	if(!config)
 		return;
 
-	FillPlot(&plot, filename, config->plotResX, config->plotResY, config->startHzPlot, config->significantVolume, config->endHzPlot, 0.0, 1, config);
+	FillPlot(&plot, filename, config->plotResX, config->plotResY, config->startHzPlot, config->significantAmplitude, config->endHzPlot, 0.0, 1, config);
 
 	if(!CreatePlotFile(&plot))
 		return;
 
-	DrawLabelsZeroToLimit(&plot, config->significantVolume, VERT_SCALE_STEP,config->endHzPlot, 1000, config);
-	DrawGridZeroToLimit(&plot, config->significantVolume, VERT_SCALE_STEP,config->endHzPlot, 1000, config);
+	DrawLabelsZeroToLimit(&plot, config->significantAmplitude, VERT_SCALE_STEP,config->endHzPlot, 1000, config);
+	DrawGridZeroToLimit(&plot, config->significantAmplitude, VERT_SCALE_STEP,config->endHzPlot, 1000, config);
 
 	for(int f = 0; f < size; f++)
 	{
@@ -1030,15 +1030,15 @@ void PlotSingleTypeSpectrogram(FlatFrequency *freqs, long int size, int type, ch
 
 			x = transformtoLog(freqs[f].hertz, config);
 			y = freqs[f].amplitude;
-			intensity = CalculateWeightedError((fabs(config->significantVolume) - fabs(freqs[f].amplitude))/fabs(config->significantVolume), config)*0xffff;
+			intensity = CalculateWeightedError((fabs(config->significantAmplitude) - fabs(freqs[f].amplitude))/fabs(config->significantAmplitude), config)*0xffff;
 	
 			//pl_flinewidth_r(plot.plotter, 100*range_0_1);
 			SetPenColor(freqs[f].color, intensity, &plot);
-			pl_fline_r(plot.plotter, x,	y, x, config->significantVolume);
+			pl_fline_r(plot.plotter, x,	y, x, config->significantAmplitude);
 		}
 	}
 	
-	DrawColorScale(&plot, type, MODE_SPEC, config->plotResX/50, config->plotResY/15, config->plotResX/80, config->plotResY/1.15, config->significantVolume, VERT_SCALE_STEP,config);
+	DrawColorScale(&plot, type, MODE_SPEC, config->plotResX/50, config->plotResY/15, config->plotResX/80, config->plotResY/1.15, config->significantAmplitude, VERT_SCALE_STEP,config);
 	DrawLabelsMDF(&plot, signal == ROLE_REF ? SPECTROGRAM_TITLE_REF : SPECTROGRAM_TITLE_COM, GetTypeName(config, type), config);
 	ClosePlot(&plot);
 }
@@ -1396,7 +1396,7 @@ FlatFrequency *CreateFlatFrequencies(AudioSignal *Signal, long int *size, parame
 		{
 			for(i = 0; i < config->MaxFreq; i++)
 			{
-				if(Signal->Blocks[block].freq[i].hertz && Signal->Blocks[block].freq[i].amplitude > config->significantVolume)
+				if(Signal->Blocks[block].freq[i].hertz && Signal->Blocks[block].freq[i].amplitude > config->significantAmplitude)
 					count ++;
 				else
 					break;
@@ -1420,7 +1420,7 @@ FlatFrequency *CreateFlatFrequencies(AudioSignal *Signal, long int *size, parame
 	
 			for(i = 0; i < config->MaxFreq; i++)
 			{
-				if(Signal->Blocks[block].freq[i].hertz && Signal->Blocks[block].freq[i].amplitude > config->significantVolume)
+				if(Signal->Blocks[block].freq[i].hertz && Signal->Blocks[block].freq[i].amplitude > config->significantAmplitude)
 				{
 					FlatFrequency tmp;
 	
@@ -1468,7 +1468,7 @@ void PlotTest(char *filename, parameters *config)
 	srand(time(NULL));
 
 	DrawLabelsMDF(&plot, "PLOT TEST [%s]", "ZDBC", config);
-	DrawColorAllTypeScale(&plot, MODE_DIFF, config->plotResX/50, config->plotResY/15, config->plotResX/80, config->plotResY/1.15, config->significantVolume, VERT_SCALE_STEP_BAR, config);
+	DrawColorAllTypeScale(&plot, MODE_DIFF, config->plotResX/50, config->plotResY/15, config->plotResX/80, config->plotResY/1.15, config->significantAmplitude, VERT_SCALE_STEP_BAR, config);
 
 	ClosePlot(&plot);
 }
@@ -1482,13 +1482,13 @@ void PlotTestZL(char *filename, parameters *config)
 		return;
 
 	sprintf(name, "Test_ZL_%s", filename);
-	FillPlot(&plot, name, config->plotResX, config->plotResY, config->startHzPlot, config->significantVolume, config->endHzPlot, 0.0, 1, config);
+	FillPlot(&plot, name, config->plotResX, config->plotResY, config->startHzPlot, config->significantAmplitude, config->endHzPlot, 0.0, 1, config);
 
 	if(!CreatePlotFile(&plot))
 		return;
 
-	DrawGridZeroToLimit(&plot, config->significantVolume, VERT_SCALE_STEP, config->endHzPlot, 1000, config);
-	DrawLabelsZeroToLimit(&plot, config->significantVolume, VERT_SCALE_STEP, config->endHzPlot, 1000, config);
+	DrawGridZeroToLimit(&plot, config->significantAmplitude, VERT_SCALE_STEP, config->endHzPlot, 1000, config);
+	DrawLabelsZeroToLimit(&plot, config->significantAmplitude, VERT_SCALE_STEP, config->endHzPlot, 1000, config);
 
 	DrawColorScale(&plot, 1, MODE_SPEC, config->plotResX/50, config->plotResY/15, config->plotResX/80, config->plotResY/1.15, -60, VERT_SCALE_STEP_BAR, config);
 	
@@ -1592,8 +1592,8 @@ AveragedFrequencies *CreateFlatDifferencesAveraged(int matchType, long int *avgS
 					double intensity = 0;
 
 					intensity = CalculateWeightedError(
-									(fabs(config->significantVolume) - fabs(config->Differences.BlockDiffArray[b].amplDiffArray[a].refAmplitude))/
-									fabs(config->significantVolume), config);
+									(fabs(config->significantAmplitude) - fabs(config->Differences.BlockDiffArray[b].amplDiffArray[a].refAmplitude))/
+									fabs(config->significantAmplitude), config);
 					for(int i = 0; i < floor(intensity*10); i++)
 					{
 						ADiff[count].hertz = config->Differences.BlockDiffArray[b].amplDiffArray[a].hertz;
@@ -1781,7 +1781,7 @@ void PlotSingleTypeDifferentAmplitudesAveraged(FlatAmplDifference *amplDiff, int
 		{ 
 			long int intensity;
 
-			intensity = CalculateWeightedError((fabs(config->significantVolume) - fabs(amplDiff[a].refAmplitude))/fabs(config->significantVolume), config)*0xffff;
+			intensity = CalculateWeightedError((fabs(config->significantAmplitude) - fabs(amplDiff[a].refAmplitude))/fabs(config->significantAmplitude), config)*0xffff;
 
 			SetPenColor(amplDiff[a].color, intensity, &plot);
 			pl_fpoint_r(plot.plotter, transformtoLog(amplDiff[a].hertz, config), amplDiff[a].diffAmplitude);
@@ -1843,7 +1843,7 @@ void PlotSingleTypeDifferentAmplitudesAveraged(FlatAmplDifference *amplDiff, int
 		pl_endpath_r(plot.plotter);
 	}
 
-	DrawColorScale(&plot, type, MODE_DIFF, config->plotResX/50, config->plotResY/15, config->plotResX/80, config->plotResY/1.15, config->significantVolume, VERT_SCALE_STEP_BAR, config);
+	DrawColorScale(&plot, type, MODE_DIFF, config->plotResX/50, config->plotResY/15, config->plotResX/80, config->plotResY/1.15, config->significantAmplitude, VERT_SCALE_STEP_BAR, config);
 	DrawLabelsMDF(&plot, DIFFERENCE_AVG_TITLE, GetTypeName(config, type), config);
 	ClosePlot(&plot);
 }
@@ -1877,7 +1877,7 @@ void PlotAllDifferentAmplitudesAveraged(FlatAmplDifference *amplDiff, char *file
 		{ 
 			long int intensity;
 
-			intensity = CalculateWeightedError((fabs(config->significantVolume) - fabs(amplDiff[a].refAmplitude))/fabs(config->significantVolume), config)*0xffff;
+			intensity = CalculateWeightedError((fabs(config->significantAmplitude) - fabs(amplDiff[a].refAmplitude))/fabs(config->significantAmplitude), config)*0xffff;
 
 			SetPenColor(amplDiff[a].color, intensity, &plot);
 			pl_fpoint_r(plot.plotter, transformtoLog(amplDiff[a].hertz, config), amplDiff[a].diffAmplitude);
@@ -1948,7 +1948,7 @@ void PlotAllDifferentAmplitudesAveraged(FlatAmplDifference *amplDiff, char *file
 		currType++;
 	}
 
-	DrawColorAllTypeScale(&plot, MODE_DIFF, config->plotResX/50, config->plotResY/15, config->plotResX/80, config->plotResY/1.15, config->significantVolume, VERT_SCALE_STEP_BAR, config);
+	DrawColorAllTypeScale(&plot, MODE_DIFF, config->plotResX/50, config->plotResY/15, config->plotResX/80, config->plotResY/1.15, config->significantAmplitude, VERT_SCALE_STEP_BAR, config);
 	DrawLabelsMDF(&plot, DIFFERENCE_AVG_TITLE, ALL_LABEL, config);
 
 	ClosePlot(&plot);
