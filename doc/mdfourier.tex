@@ -58,7 +58,7 @@
 \pagenumbering{arabic}
 
 \begin{abstract}
-\textit{MDFourier} is an \textit{open source} software solution created to compare \textit{audio signatures} and generate a series of graphs that show how they differ. The software consists of two separate programs, one that generates the signal for recording from the console and the other that analyses and displays the audio comparisons. 
+\textit{MDFourier} is an \textit{open source} software solution created to compare \textit{audio signatures} and generate a series of graphs that show how they differ. The software consists of two separate programs, one that produces the signal for recording from the console and the other that analyses and displays the audio comparisons. 
 
 The information gathered from the comparison results can be used in a variety of ways: to identify how \textit{audio signatures} vary between \textit{systems}, to detect if the \textit{audio signals} are modified by \textit{audio equipment}, detect if \textit{modifications} resulted in audible changes, to help tune \textit{emulators}, \ac{fpga} implementations or \textit{mods}, etc.
 
@@ -81,7 +81,9 @@ A secondary but not less important goal is to create a community driven catalog 
 
 I believe it would be very useful to have configurations tuned to replicate the audio signatures of vintage retail hardware variations in emulators and \define{fpga} implementations. But that doesn't mean there isn't room for improved interpretations; reducing noise while keeping the reference sound signature is one such scenario.
 
-Although powerful industrial solutions for this kind of analysis must exist, they do not seem to have reached the enthusiast community. I'm not aware of any other similar effort to create public software analysis tools that are aimed at vintage console hardware. It must be noted that there have been detailed comparisons made in particular for the \textit{MegaDrive/Sega Genesis}.\footnote{See the forum post at \cite{genesisaudio}}. 
+Although powerful industrial solutions for this kind of analysis must exist, they do not seem to have reached the enthusiast community. I'm not aware of any other similar effort to create public software analysis tools that are aimed at vintage console hardware.
+
+It must be noted that there have been detailed comparisons, made in particular for the \textit{MegaDrive/Sega Genesis}.\footnote{See the forum post at \cite{genesisaudio}}. 
 
 \section{Possible applications}
 
@@ -99,73 +101,95 @@ Although powerful industrial solutions for this kind of analysis must exist, the
 \newpage
 \section{Disclaimer}
 
-\textit{MDFourier} and this documentation are work in progress. Although I tried to adhere to the best practices known to me, my experience in \textit{digital signal processing} was almost non-existent before this project. 
+\textit{MDFourier} and this documentation are a work in progress. Although I tried to adhere to the best practices known to me, my experience in \textit{digital signal processing} was almost non-existent before this project. 
 
 Please contact me if you have corrections, improvements, suggestions or comments. These are encouraged and welcome. Contact information is available in appendix \ref{contact}.
 
-This project was born out of my curiosity to compare the audio signatures of different revisions of the \textit{Mega Drive/Genesis}, and verify them with a tool assisted analysis. Due to my interest in \textit{game preservation} it naturally grew into its current form, and will hopefully continue to change.
+This project was born out of my curiosity to compare the audio signatures of different revisions of the \textit{Mega Drive/Genesis}, and verify them with a tool assisted analysis. Due to my interest in \textit{game preservation} it naturally evolved into its current form, and will hopefully continue to grow.
 
 \chapter{Audio Basics}
- 
+
+This chapter is an introduction to the audio concepts that will be used throughout the document, such as: \textit{frequency}, \textit{amplitude}, \textit{sample rate}, decibel, etc. Hopefully it can provide some insight to those unfamiliar with audio and its \textit{digital representations}.
+
+\section{Sound}
+
 Sound is a series of \textit{vibrations} that travel through a medium. In our case this medium is typically air, but it can be water or even a solid. These vibrations are \textit{waves of pressure} and--as any other \textit{wave}--they have characteristics that we can measure in order to classify and understand them. 
 
 \section{Frequency}
 
 We use the term \textit{frequency} to refer to a repeating event--how \textit{frequent} it is. In this case it means how many times the \textit{wave} we are measuring repeats in a second. We measure this in \textit{cycles per second}, and use a unit named \textit{Hertz} (\ac{hz}). 
 
-As you can imagine these vibrations in the air can have a wide range of \textit{frequencies}, but we can't perceive them all due to biological limitations. The range that humans can typically perceive is called the \textit{human hearing spectrum}. A \textit{spectrum} refers to a continuous range of frequencies, and in this case it is defined to start at \hz{20} and end at \hz{20000}--we commonly use the term \khz{20}, since \ac{khz} refers to multiples of \hz{1000}.\footnote{This is the \textit{decimal-based multiplier} system defined by the \textit{International System of Units} (SI).} These numbers are of course an average, and every one of us has a different \textit{hearing spectrum} that also changes as we age.
+As you can imagine these vibrations in the air can have a wide range of \textit{frequencies}, but we can't hear all of them due to biological limitations. The range that humans can typically perceive is called the \textit{human hearing spectrum}. A \textit{spectrum} refers to a continuous range of frequencies, and in this case it is defined to start at \hz{20} and end at \hz{20000}--we commonly use the term \textit{20kiloHertz}, since \ac{khz} refers to multiples of \hz{1000}.\footnote{This is the \textit{decimal-based multiplier} system defined by the \textit{International System of Units} (SI).} These numbers are of course an average, and every one of us has a different \textit{hearing spectrum} that also changes as we age.
 
-We perceive \textit{frequency} variations as \textit{pitch} differences: lower frequencies are what we call \textit{bass} and higher frequencies are \textit{treble}, corresponding to lower and higher \textit{pitch} tones.
+In Figure \ref{fig:frequency} we can see a \textit{frequency} of \khz{1} in an audio editor. We can tell it is \textit{1000 cycles per second} since the darker selection spans for \textit{0.01 seconds}, and it has \textit{10} complete \textit{wave cycles} in it.
+
+\begin{figure}[H]
+	\centering
+	\includegraphics[width=0.8\linewidth]{images/audio/frequency.png}
+	\caption[Frequency]{A \khz{1} signal in an audio editor.}
+	\label{fig:frequency}
+\end{figure}
+
+We perceive \textit{frequency} variations as \textit{pitch differences}: lower \textit{frequencies} are what we call \textit{bass} and higher \textit{frequencies} are \textit{treble}--corresponding to lower and higher \textit{pitched tones}.
 
 \section{Amplitude}
 
-The other \textit{wave} characteristic we use to measure sound is called \textit{amplitude}. This is how \textit{powerful} the \textit{wave} is when compared to the rest of the signal that is being analyzed. 
+The other \textit{wave} characteristic we use to measure sound is called \textit{amplitude}. This is how \textit{powerful} the \textit{wave} is when compared to the rest of the \textit{signal} that is being analyzed. 
 
-We perceive this \textit{amplitude} as \textit{volume}, and the terms are directly related. The higher the \textit{amplitude} of a \textit{sound pressure wave}, the higher the \textit{volume} we perceive. Since the software can only use \textit{amplitude} for its calculations, we'll use that term throughout the whole document.
+Figure \ref{fig:amplitude} shows a \khz{1} signal that starts at the highest \textit{amplitude} in an audio editor and goes down to zero. This is a typical \textit{fade out}, but done in a very shot period in order to show both \textit{frequency} and \textit{amplitude} in the same image.
 
-The unit used to measure \textit{amplitude} in \textit{sound pressure waves} is called \define{db}. These use a \textit{logarithmic scale}, which means that different values in the scale correspond to \textit{orders of magnitude} instead of \textit{linear quantities}, each value is the result of multiplying by a constant. 
+\begin{figure}[H]
+	\centering
+	\includegraphics[width=0.8\linewidth]{images/audio/amplitude.png}
+	\caption[amplitude]{A \khz{1} signal with gradually lower amplitude.}
+	\label{fig:amplitude}
+\end{figure}
 
-We use this scale since it closely models the way we perceive sound, and also because \textit{sound amplitudes} have a very wide range. For instance, the use of a logarithmic scale allows us to compare the variations of the ambient sound from a library against those from a rock concert. You might be familiar with this concept from other \textit{logarithmic scales}, like the \textit{Richter scale} used to measure earthquake strength.
+We perceive this \textit{amplitude} as \textit{volume}, and the terms are directly related. In general, the higher the \textit{amplitude} of a \textit{sound pressure wave}, the higher the \textit{volume} we perceive. But since a sound with the same  \textit{amplitude} but a at another \textit{frequency} can be perceived as a different \textit{volume} by the human ear, the terms don't mean the same thing. Since the software can only use \textit{amplitude} for its calculations, we'll use that term throughout the whole document.
 
-This scale starts at \textit{0\ac{db}} which is the inferior limit of human hearing, and goes up to \textit{194\ac{db}}; where the sound barrier is broken and it becomes a \textit{shock wave}. The following table has some common values:\footnote{Table values taken from \cite{noiselevels}--you might notice they are listed as \textit{dBA}, this is tuned to our combined \textit{frequency} and \textit{amplitude} response curve.}
+The unit used to measure \textit{amplitude} in \textit{sound pressure waves} is called \define{db}. These use a \textit{logarithmic scale}, which means that in it each subsequent number is a multiple of a base quantity, instead of a sequence of incremental values by a unit as in a \textit{linear scale}. 
 
-\begin{center}
-\scalebox{0.8}{
-\begin{tabular}{ | r | c | }
-\hline
-\textit{dBA}    & Source\\
-\hline
-0	& healthy hearing threshold\\
-10	& a pin dropping\\
-20	& rustling leaves\\
-30	& whisper\\
-40	& babbling brook\\
-50	& refrigerator\\
-60	& conversational speech\\
-70	& vacuum cleaner at 1 meter\\
-80	& alarm clock\\
-85	& passing diesel truck\\
-90	& squeeze toy\\
-95	& inside subway car\\
-100	& handheld drill\\
-110	& rock band\\
-115	& emergency vehicle siren\\
-120	& thunderclap\\
-125	& balloon popping\\
-130	& peak stadium crowd noise\\
-140	& jet engine at takeoff\\
-145	& firecracker\\
-150	& fighter jet launch\\
-180	& rocket launch\\
-194	& sound waves become shock waves\\
-\hline
-\end{tabular}
-}
-\end{center}
+We use this scale since it closely models the way we perceive sound, and also because \textit{sound amplitudes} have a very wide range. For instance, the use of a \textit{logarithmic scale} allows us to simultaneously compare the variations of the ambient sound levels from a library against those from a rock concert--even if they are in opposite sides of the \textit{human hearing spectrum}. You might be familiar with this concept from other \textit{logarithmic scales}, like the \textit{Richter scale} used to measure earthquake strength.
 
-The use might be confusing at first, so we'll use an example in order to show how the values behave in this scale. Imagine we have two sources that are individually measured as having a \textit{sound pressure level} of \textit{9\acrshort{db}}. If both sources produce sound at the same time, we will measure a combined \textit{sound pressure level} of \textit{12\acrshort{db}} instead of the \textit{18\acrshort{db}} that one might have expected when using a \textit{linear scale}. 
+Using the scale might be confusing at first, so we'll use an example in order to show how the values behave. Imagine we have two sources that are individually measured as having a \textit{sound pressure level} of \textit{9\acrshort{db}}. If both sources produce sound at the same time, we will measure a combined \textit{sound pressure level} of \textit{12\acrshort{db}} instead of the \textit{18\acrshort{db}} that one might have expected when using a \textit{linear scale}. 
 
 This doesn't mean you'll need to use \textit{logarithm algebra} when dealing with this document--or with sound in general. In practical terms whenever you see a \textit{3\acrshort{db}} difference in sound \textit{amplitude}, it means that you'll perceive \textit{twice} the \textit{volume}.
+
+This scale starts at \textit{0\ac{db}} which is the inferior limit of human hearing, and goes up to \textit{194\ac{db}}; where the sound barrier is broken and it becomes a \textit{shock wave}, at least in the earth's atmosphere. The following table has some common values:\footnote{Table values taken from \cite{noiselevels}--you might notice they are listed as \textit{dBA}, this is tuned to our combined \textit{frequency} and \textit{amplitude} response curve.}
+
+\begin{center}
+	\scalebox{0.8}{
+		\begin{tabular}{ | r | c | }
+			\hline
+			\textit{dBA}    & Source\\
+			\hline
+			0	& healthy hearing threshold\\
+			10	& a pin dropping\\
+			20	& rustling leaves\\
+			30	& whisper\\
+			40	& babbling brook\\
+			50	& refrigerator\\
+			60	& conversational speech\\
+			70	& vacuum cleaner at 1 meter\\
+			80	& alarm clock\\
+			85	& passing diesel truck\\
+			90	& squeeze toy\\
+			95	& inside subway car\\
+			100	& handheld drill\\
+			110	& rock band\\
+			115	& emergency vehicle siren\\
+			120	& thunderclap\\
+			125	& balloon popping\\
+			130	& peak stadium crowd noise\\
+			140	& jet engine at takeoff\\
+			145	& firecracker\\
+			150	& fighter jet launch\\
+			180	& rocket launch\\
+			194	& sound waves become shock waves\\
+			\hline
+		\end{tabular}
+	}
+\end{center}
 
 \section{Digital representations of sound}
 
@@ -175,9 +199,9 @@ Unfortunately computers don't have the unlimited storage that would be able to r
 
 \subsection{Sample rate}
 
-\textit{Sampling} involves measuring the \textit{amplitude} of the \textit{sound pressure wave} at \textit{regular cycles}, and assigning a value to each one of this measurements. The number of cycles we use to take each of these \textit{samples} from the continuous \textit{audio signal} is called the \textit{sampling rate}. 
+\textit{Sampling} involves measuring the \textit{amplitude} of the \textit{sound pressure wave} at \textit{regular cycles}--at a \textit{frequency}--and assigning a value to each one of this measurements. The \textit{frequency} at which we take each of these \textit{samples} from the continuous \textit{audio signal} is called the \textit{sampling rate}. 
 
-The \textit{sample rate} defines the \textit{frequencies} we can represent in the digital domain--as the \textit{sampling rate} is increased, so does the \textit{frequency rage} that can be portrayed by this digital representation of the signal. 
+The \textit{sample rate} defines the \textit{frequencies} from the signal that we will be able to represent in the digital domain--as the \textit{sampling rate} is increased, so does the \textit{frequency range} that can be portrayed by this digital representation of the signal. 
 
 If we want to represent a certain \textit{frequency range} reliably, we must choose a \textit{sample rate} that is \textit{twice} as big as the highest \textit{frequency} value in the desired \textit{spectrum}.
 
@@ -188,49 +212,65 @@ Since we want to cover the whole \textit{human hearing range}--which goes from \
 
 When we create a \textit{digital representation} of the \textit{amplitude} value for each \textit{sample}, we must define a \textit{bit depth}. This term refers to the amount of \textit{bits}--the minimal piece of data in our current computing systems--that will be used to store each number.
 
+%why 16 and 24 and when they are useful
+
 \subsection{Decibels in the digital domain}
 
 When we were measuring amplitudes before, we used the \ac{db}. In that scenario we were analyzing amplitudes that start at the minimum amplitude our human ears can detect and assigned a value of \textit{0\acrshort{db}} to that level. Values can theoretically go up without limits--aside from that pesky sound barrier we mentioned before when using air as a transmission medium.
 
 However when dealing with digital values that have a defined \textit{bit depth}, our limit is fixed from the other side--the biggest amplitude we can represent with a limited number of \textit{bits}. This number is easily calculated, for \textit{n} bits we get $2^n$ possible values.
 
-Because of this, when using digital files we use a variation of the \textit{decibel} named \define{dbfs}. The highest possible amplitude starts at \db{0} and values go down into negative numbers, until they reach the lowest amplitude that can be represented by the selected \textit{bit depth}. When using a \textit{bit depth} of \textit{16}--as used in \textit{Compact Discs} and by the \textit{Analysis tool} in \textit{MDFourier}--the minimum \textit{amplitude} that can be represented is \db{-96}.
+Because of this, when using digital files we use a variation of the \textit{decibel} named \define{dbfs}. The highest possible amplitude starts at \db{0} and values go down into negative numbers, until they reach the lowest amplitude that can be represented by the selected \textit{bit depth}. When using a \textit{bit depth} of \textit{16}--as used in \textit{Compact Discs} and by the \textit{Analysis Software} in \textit{MDFourier}--the minimum \textit{amplitude} that can be represented is \db{-96}.
 
-This is commonly referred to as the \textit{dynamic range}, and it tells us now far apart the minimum and maximum \textit{amplitudes} that can be represented in a \textit{audio recording} are. For example, if we have a dynamic range of \textit{96\acrshort{db}}, we can represent the relative amplitudes of \textit{thunderclap} and \textit{rustling leaves} within the same recording; but we could have no lower or higher amplitudes.
+This is commonly referred to as the \textit{dynamic range}, and it tells us now far apart the minimum and maximum \textit{amplitudes} that can be represented in a \textit{audio recording} are. For example, if we have a dynamic range of \textit{96\acrshort{db}}, we can represent the relative amplitudes of \textit{thunderclap} and \textit{rustling leaves} within the same recording; but we could have no lower or higher amplitudes since they'd exceed the range.
 
 %wav
 %pcm
 %mp3
 %flac
 
-\chapter{How \textit{MDFourier} works}
-\label{howitworks}
+\chapter{Working with \textit{MDFourier}}
+\label{workflow}
+
+The \textit{software} components that allow \textit{MDFourier} to makes comparisons for a particular platform are:
+
+\begin{itemize}
+	\item The \textit{Tone Generator}: It is the piece of \textit{software} that produces the audio signals from the system that is under analysis. 
+	\item The \textit{Analysis Software}: This runs on a computer, and creates the graphics that show the results. 
+\end{itemize}
+
+The whole process is shown in Figure \ref{fig:mdfourierworkflow}, including the main \textit{hardware} components.
+
+\begin{figure}[H]
+	\centering
+	\includegraphics[width=0.8\linewidth]{images/howitworks/MDFourierWorkFlow.png}
+	\caption[Workflow]{Relation between the different \textit{hardware} and \textit{software} components of \textit{MDFourier}.}
+	\label{fig:mdfourierworkflow}
+\end{figure}
+
+\section{Workflow}
 
 The primary thing to keep in mind is what \textit{MDFourier} does. It takes two signals, the first one is designated as the \textit{Reference} file. The second one is the file under scrutiny, and is referred to as \textit{Comparison} file. 
+
+The first step is loading the \textit{Tone Generator} to the desired \textit{system} that will be analyzed. The process for this varies with each platform: from placing the software in a \textit{flash cart}, burning a \textit{CD-ROM} or using a \textit{custom loader}.
+
+The next step is preparing an \textit{audio capture device} and a computer, in order to record an audio file.\footnote{At the moment only 16 bit \ac{wav} and \ac{flac} files with \ac{pcm} encoding and at \khz{44.1 or 48} can be used. \ac{mp3} is not supported, since its compression method alters the results in this type of analysis as shown in section \ref{mp3chap}.} Once the \textit{audio card} is ready, and the cables are hooked up from the \textit{system} to the \textit{audio inputs}, the recording process is started from the \textit{computer} and the \textit{Tone Generator} should be activated from the \textit{system} under analysis.
+
+After a short lapse, usually around one minute, the \textit{Tone Generator} will display a message indicating that the recording process can be stopped. When at least two files are available, one to be used as \textit{reference}--which can be one of the files provided--and one to be used as \textit{comparison} file; a comparison can be made with the \textit{Analysis Software} from the computer.\footnote{All software and some example recordings are available from the web page of the project, see appendix \ref{downloads} for details.}
+
+\section{How \textit{MDFourier} works}
 
 The \textit{Reference} file is used as a control. This means that its characteristics are considered the true values to be expected and against which the \textit{Comparison} file will be evaluated. In consequence, all results are relative between the signals.
 
 Having these files, the software analyzes and compares their audio characteristics and generates graphs that visually show how they differ.
 
-These files are audio recordings from the desired hardware, preferably captured with a \textit{flat frequency} audio \textit{capture card} and generated by a \textit{custom binary} that runs on the target platform.\footnote{Flat frequency response refers to the capability of capturing the whole audible spectrum with little or no variation, regardless of frequency. A non flat frequency card can be used to gather relative information, but the captures won't match the ongoing catalog in order to make further comparisons. See \textit{Audio Cards} in appendix \ref{requirements} for more information.} This \textit{custom binary} is specifically crafted for the particular hardware capabilities and frequency range of the target. Whenever possible, this binary will be part of the \textit{240p Test Suite}.\footnote{A homebrew software suite for video game consoles developed to help in the evaluation of TVs, upscalers, upscan converters, line doublers and video processing in general.\cite{240pSuite}}
+These files are audio recordings from the desired hardware, preferably captured with a \textit{flat frequency} audio \textit{capture card} and produced by a the \textit{Tone Generator} that runs on the target platform.\footnote{Flat frequency response refers to the capability of capturing the whole audible spectrum with little or no variation, regardless of frequency. A non \textit{flat frequency} response card can be used to gather relative information, but the captures won't match the ongoing catalog in order to make further comparisons. See \textit{Audio Cards} in appendix \ref{requirements} for more information.} This \textit{Tone Generator} is specifically crafted for the particular hardware capabilities and frequency range of the target. Whenever possible, the \textit{Tone Generator} will be included in the \textit{240p Test Suite} for the platform to be analyzed.\footnote{A homebrew software suite for video game consoles developed to help in the evaluation of TVs, upscalers, upscan converters, line doublers and video processing in general.\cite{240pSuite}}
 
-
-Although the analysis software is \textit{command line} based--in order to be multi-platform and offer the tool on every operating system that has an \textit{ANSI C99 compiler}--a \define{gui} front end for \textit{Microsoft Windows} is provided for simplicity and accessibility.\footnote{See appendix \ref{usinggui} for a guide on how to use the software.} Full Source code can be downloaded from \textit{github}.\footnote{See download link \cite{sourcecode}.}
-
-\section{Workflow}
-\label{workflow}
-
-The first step is loading the custom binary to your console. This varies for each platform, from placing the binary in a \textit{flash cart}, burning a \textit{CD-ROM} or using a \textit{custom loader}.
-
-The next step is setting up your \textit{audio capture card} and computer, in order to record a \khz{44.1/48} 16 bit stereo \ac{wav} file.\footnote{At the moment only 16 bit \ac{wav} and \ac{flac} files with \ac{pcm} encoding and at \khz{44.1 or 48} can be used.  \ac{mp3} is not supported since its compression method alters the results in this type of analysis, as shown in section \ref{mp3chap}.}
-
-Once the \textit{capture card} is ready and the cables are hooked up from the console to the \textit{capture card}, start recording on the computer and execute the \textit{MDFourier} test from the console.
-
-Wait for the console to show a message indicating you can stop recording, this typically takes less than 1 minute. After you have at least two files: a \textit{reference}--which can be one of the provided files--and a \textit{comparison} file, you are ready to go.\footnote{Available at the web page of the project appendix \ref{downloads}}
+Although the \textit{Analysis Software} is \textit{command line} based--in order to be multi-platform and offer the tool on every operating system that has an \textit{ANSI C99 compiler}--a \define{gui} front end for \textit{Microsoft Windows} is provided for simplicity and accessibility.\footnote{See appendix \ref{usinggui} for a guide on how to use the software.} Full Source code can be downloaded from \textit{github}.\footnote{See download link \cite{sourcecode}.}
 
 \section{File alignment}
 
-\textit{MDFourier} takes both files and auto detects the starting and ending point of the recording. These are identified by a series of \hz{8820} pulses in the current \textit{Mega Drive/Genesis} implementation. From these, a \textit{frame rate}\footnote{The \textit{frame rate} is the ratio at which the console sends video frames to a display. For more details see appendix \ref{framerate}} is calculated in order to trim each file into the segments that are defined in the \textit{configuration file}\footnote{This file specifies the operating parameters for each hardware configuration. It is described in appendix \ref{mfnconfig}} for further comparison.
+\textit{MDFourier} takes both files and auto detects the starting and ending points of the recording. These are identified by a series of \hz{8820} pulses in the current \textit{Mega Drive/Genesis} implementation. From these, a \textit{frame rate}\footnote{The \textit{frame rate} is the ratio at which the console sends video frames to a display. For more details see appendix \ref{framerate}} is calculated in order to trim each file into the segments that are defined in the \textit{configuration file}\footnote{This file specifies the operating parameters for each hardware configuration. It is described in appendix \ref{mfnconfig}} for further comparison.
 
 Most importantly, it guarantees that the \textit{Reference} and \textit{Comparison} files are logically aligned, and that each note--or segment--is compared to its corresponding one, with no overlap and without any audio editing or trimming skills required from the user. Current pulse detection accuracy is around $\sfrac{1}{4}$ of a millisecond.
 
@@ -244,7 +284,7 @@ In order to compare the frequencies and amplitudes of each file against each oth
 
 This is done in the \textit{frequency domain}\footnote{Basically all analysis from this point and forward takes place after the signal has been decomposed into its fundamental and harmonic sine waves by the Fourier Transform.}, in order to reduce amplitude imprecision when comparing recordings with different \textit{frame rates}\footnote{For more details see appendix \ref{framerate}.}. The software does have the option to do this in the \textit{time domain}\footnote{In other words, normalize based on the samples and their values. This is detailed in appendix \ref{normalization}.}, but quantization and amplitude imprecision is to be expected if used.
 
-After normalization is finished, the frequencies of each \textit{block}\footnote{A \textit{block} is the basic segment of audio to be compared, such a specific note by a synthesizer as generated by the custom binary.} are sorted out by amplitude, from highest to lowest. \textit{MDFourier} can be configured to compare a range of these frequencies--by default \textit{2000} of them are compared for each \textit{block} defined in the \textit{mfn} configuration file\footnote{Described in appendix \ref{mfnconfig}.}. I've found such number to be more than enough, and usually the \textit{minimum significant amplitude}\footnote{See section \ref{MinSigAmplitude}.} limits this parameter to an even lower number. In case a a different comparison of frequencies is needed, the amount can be increased or decreased via the command line\footnote{See appendix \ref{extracommand}.}.
+After normalization is finished, the frequencies of each \textit{block}\footnote{A \textit{block} is the basic segment of audio to be compared, such a specific note by a synthesizer as generated by the \textit{Tone Generator}.} are sorted out by amplitude, from highest to lowest. \textit{MDFourier} can be configured to compare a range of these frequencies--by default \textit{2000} of them are compared for each \textit{block} defined in the \textit{mfn} configuration file\footnote{Described in appendix \ref{mfnconfig}.}. I've found such number to be more than enough, and usually the \textit{minimum significant amplitude}\footnote{See section \ref{MinSigAmplitude}.} limits this parameter to an even lower number. In case a a different comparison of frequencies is needed, the amount can be increased or decreased via the command line\footnote{See appendix \ref{extracommand}.}.
 
 Sometimes it is helpful to listen to the results of these limiting filters, in order to evaluate if --for instance--\textit{2000} frequencies are either enough or too little for the current application. For this and other purposes I made an extra tool named \textit{MDWave}\footnote{Described in appendix \ref{mdwave}.}, which creates segmented audio files as internally processed by \textit{MDFourier}, even including the effects of \textit{window}\footnote{Window functions are described in section \ref{windows}.} filters and amplitude limits.
 
@@ -647,7 +687,7 @@ It is also noticeable that the percentage match bars are full, meaning that prac
 
 \section{Sega Genesis Model 1 VA3 (US):\\ Headphone out vs AV out}
 
-Ever wondered if something was lost--besides stereo--when using the \textit{AV out} port from the console instead of the \textit{headphone out}? Figure \ref{fig:A-MD1UTVA3-LA_vs_A-MD1UTVA3-AV-LA} shows both ports them compared using the same system.
+Ever wondered if something was lost--besides stereo--when using the \textit{AV out} port from the console instead of the \textit{headphone out}? Figure \ref{fig:A-MD1UTVA3-LA_vs_A-MD1UTVA3-AV-LA} shows both ports compared using the same system.
 
 \begin{figure}[H]
 	\centering
@@ -833,7 +873,7 @@ The \textit{headphone out} has clear emphasis in the low frequency range, and ev
 
 \chapter{Future developments}
 
-\textit{PC Engine/Turbo Grafx-16} support would be the next target, as well as all systems that are currently supported by the \textit{240p Test Suite}.
+\textit{PC Engine/Turbo Grafx-16} support would be the my next target, to be followed by all the platforms that are currently supported by the \textit{240p Test Suite}.
 
 \chapter{Conclusions}
 
@@ -852,26 +892,26 @@ The project web page is available at \url{http://junkerhq.net/MDFourier/}, where
 
 The \textit{Downloads} page contains the following items:
 \begin{itemize}
-	\item A pre-compiled \textit{Microsoft Windows} executable of the latest build with \ac{gui} front end.
-	\item The custom binaries for supported platforms.
+	\item A pre-compiled \textit{Microsoft Windows} executable of the latest build with \ac{gui} for the \textit{Analysis Software}.
+	\item The \textit{Tone Generator} software for each supported platform.
 	\item Updated source code for all tools.
 	\item Sample recordings used for the creation of this document as detailed in chapter \ref{results}.
 \end{itemize}
 	
-\chapter{How to use the Front End}
+\chapter{How to use the \textit{Analysis Software}}
 \label{usinggui}
-The current version of the front end allows access to the main options of \textit{MDFourier}. It is a \textit{Windows} executable and all corresponding files must be placed in the same folder. \textit{Uncompressing} the package to a folder should have all that is necessary to run the program.
+The current version of the \textit{Analysis Software} allows access to the main options of \textit{MDFourier}. It is a \textit{Windows} executable and all corresponding files must be placed in the same folder. \textit{Uncompressing} the package to a folder should have all that is necessary to run the program.
 
 After executing \textit{MDFourierGUI.exe} you should be presented with the following interface:
 
 \begin{figure}[H]
 	\centering
 	\includegraphics[width=0.6\linewidth]{images/GUI/GUI1.png}
-	\caption[Front End]{MDFourier Windows Front End.}
+	\caption[Front End]{\textit{MDFourier} Windows Front End for the \textit{Analysis Software}.}
 	\label{fig:gui1}
 \end{figure}
 
-In order to generate the output graphs, two files must be selected to compare them. One as a \textit{Reference} and the other as the \textit{Comparison} file, as detailed in section \ref{howitworks}.
+In order to generate the output graphs, two files must be selected to compare them. One as a \textit{Reference} and the other as the \textit{Comparison} file, as detailed in section \ref{workflow}.
 
 The following sequence of steps indicates the typical work flow within the \ac{gui}:
 
@@ -892,20 +932,20 @@ The following sequence of steps indicates the typical work flow within the \ac{g
 	\item When execution ends, open the \textit{results folder}.
 \end{enumerate}
 
-The \textit{Front End} will display the output text from the command line tool, including any errors or progress as it becomes available.
+The \textit{Analysis Software} will display the output text from the command line tool, including any errors or progress as it becomes available.
 
 Keep in mind that the \textit{Open Results} button will only be enabled after a successful comparison between files has finished, and it won't open a second instance of the window if you have one already present.
 
 The default options will generate graphs that work on most situations. In some cases fine tuning the results might highlight specific aspects. These options will be described in the following sections.
 
-\section{Front End Options}
+\section{Analysis Tool Options}
 
-The currently available options in the \textit{Front End} are:
+The currently available options in the \textit{Analysis Software} are:
 
 \subsection{Window Functions}
 \label{windows}
 
-In order to reduce \textit{spectral leakage}\footnote{This term describes new frequency components created when applying a Fourier Transform to a segment of a signal. See \cite{leakage}.} when applying the \ac{dft}, a \textit{filtering window}\footnote{All details regarding the windows used, their formulas and graphs are in appendix \ref{windowfunctiondetails}.} is applied to each element to be compared between both signals. Since we are generating the signal ourselves from the \textit{custom binary}, the signal can be analyzed as \textit{periodic}\footnote{In theory this means we could get away without applying a window, but in practice the signal is not perfect and \textit{windowing} the data helps to eliminate noise.}, and has a natural \textit{attack} and \textit{decay} rate if possible.
+In order to reduce \textit{spectral leakage}\footnote{This term describes new frequency components created when applying a Fourier Transform to a segment of a signal. See \cite{leakage}.} when applying the \ac{dft}, a \textit{filtering window}\footnote{All details regarding the windows used, their formulas and graphs are in appendix \ref{windowfunctiondetails}.} is applied to each element to be compared between both signals. Since we are producing the sound ourselves from the \textit{Tone Generator}, the signal can be analyzed as \textit{periodic}\footnote{In theory this means we could get away without applying a window, but in practice the signal is not perfect and \textit{windowing} the data helps to eliminate noise.}, and has a natural \textit{attack} and \textit{decay} rate if possible.
 
 By default we use a custom \textit{Tukey window}\footnote{This is not a common choice for window function, but was selected due to the above reasons after comparing results with  the rest of the available options.} with very steep slopes. \textit{MDFourier} does offer alternate windows as options for further analysis.
 
@@ -946,7 +986,7 @@ Zero padding the input signal for Fourier analysis is a controversial subject\fo
 \subsection{Output Graphs}
 \label{outputfiles}
 
-Several graphs will be generated as a result of the analysis. There will be several graphs of each type in the \textit{output folder}\footnote{It is named \textit{MDFourier} and a subfolder named as the compared files. It can be accessed from the \textit{Front End} with the \textit{Open Results} button.}. One for each type, and one that summarizes all types in a single graph.
+Several graphs will be generated as a result of the analysis. There will be several graphs of each type in the \textit{output folder}\footnote{It is named \textit{MDFourier} and a subfolder named as the compared files. It can be accessed from the \textit{Analysis Software} with the \textit{Open Results} button.}. One for each type, and one that summarizes all types in a single graph.
 
 All graphs are saved in the \defineCite{png}{support via \textit{libpng} \cite{libpng}} format, which is lossless and open source. Please read section \ref{howtographs} for examples and a guide to interpret their meaning. 
 
@@ -1039,7 +1079,7 @@ Useful for reporting errors or unexpected behavior. \textit{Please send the audi
 \chapter{Configuration file}
 \label{mfnconfig}
 
-All these parameters are defined in the file \textit{mdfblocks.mfn}\footnote{This is the default file name, a different file can be used and selected via the command line. In future \textit{Front End} revisions it might be selected via a combo box. One for each supported hardware profile.}. Here is the current file we are using to compare \textit{Mega Drive/Genesis} audio characteristics:
+All these parameters are defined in the \textit{mfn} configuration files inside the \textit{profiles} folder.\footnote{Different profiles can be used and selected via the \textit{Analysis Software}. There is one profile for each supported hardware platform.}. Here is the profile used to compare \textit{Mega Drive/Genesis} audio characteristics:
 
 \begin{verbatim}
 MDFourierAudioBlockFile 1.0
@@ -1060,7 +1100,7 @@ This file defines what \textit{MDFourier} must do and how to interpret the \ac{w
 
 The first line is just a header, so that the program knows it is a valid file and in the current format.
 
-The second line is the name of the current configuration, since I plan to add support for different consoles or arcade hardware in the future. This would imply creating a new \textit{mfn} file for each configuration, and a specific binary to be run on the hardware.
+The second line is the name of the current configuration, since I plan to add support for different consoles or arcade hardware in the future. This would imply creating a new \textit{mfn} file for each configuration, and a specific \textit{Tone Generator} to be run on the hardware.
 
 The third line is the expected \textit{frame rate}\footnote{For more details regarding frame rate, see appendix \ref{framerate}.}. This is only used as a reference to estimate the placement for the blocks within the file before calculating the precise \textit{frame rate} of the recording as captured by the \textit{sound card}. After that is calculated, each signal uses its own timing in order to be fully aligned. \textit{Frame rate} variations in the order of \textit{0.001}\ac{ms} are natural, since we have an error of $\sfrac{1}{4}$ of a millisecond\footnote{For reference $\sfrac{1}{4}$ of a millisecond corresponds to 0.00025 seconds. Modern systems have different frame rates adapted for modern displays, small differences are more likely caused by the audio capture hardware \cite{SoundCardClock}.} during alignment, and differences also occur by the deviations in \textit{sample rates} and audio card limitations\footnote{See appendix \ref{audiocards}.}.
 
@@ -1160,7 +1200,7 @@ The results are always centered around the \db{0} line in the \textit{Difference
 \chapter{Frame rates and their importance}
 \label{framerate}
 
-The \textit{frame rate} is the amount of frames per second a system sends to the display. Since the \textit{custom binary} runs from within the target system, we are subject to the internal timing. Every time a frame starts the process for being sent to the display, an event called \textit{vertical sync} occurs. This is the driving clock for the whole console\footnote{As a matter of fact, almost all the code for running games--or the custom binary in out case--is executed during a segment called \textit{vertical blank}.}.
+The \textit{frame rate} is the amount of frames per second a system sends to the display. Since the \textit{Tone Generator} runs from within the target system, we are subject to the internal timing. Every time a frame starts the process for being sent to the display, an event called \textit{vertical sync} occurs. This is the driving clock for the whole console\footnote{As a matter of fact, almost all the code for running games--or the \textit{Tone Generator} in out case--is executed during a segment called \textit{vertical blank}.}.
 
 It is vital for the process to have a basic unit of time, in order to segment the file in the chunks needed for analysis and to send the correct values to the \textit{Discrete Fourier Transform}.
 
@@ -1317,10 +1357,11 @@ I'm positive several deficiencies in my implementation still elude me. However h
 \begin{itemize}
 	\item \ac{pcm} generated by the \textit{FM} chip is not covered in the current \textit{Mega Drive/Sega Genesis} implementation. It is assumed the response will follow the \textit{YM2612} curve.
 	\item A better signal could  be generated to cover either more or specific cases.
-	\item When comparing \textit{Mega CD/Sega CD}, the \textit{\ac{cdda}} uses the detected frame rate for the comparison. It should use the expected one even if comparing to an \textit{emulator/FPGA}. This causes slight ringing in the results, but they are at least \textit{95\%} correct.
+	\item When comparing \textit{Mega CD/Sega CD}, the \textit{\ac{cdda}} block uses the detected \textit{frame rate} for the comparison. It should use the expected one from the configuration file instead, even when comparing to an \textit{emulator/FPGA}. This causes slight ringing in the results, but they are at least \textit{95\%} correct.
+	\item The \ac{pcm} chip from the \textit{Mega CD/Sega CD} is not yet implemented in the tests, since it's behavior is expected t follow the same amplification path that \textit{CD-DA} does. It might have differences in balance, though.
 \end{itemize}
 
-Please contact\footnote{See appendix \ref{contact}.} me if you are aware of any details that have eluded me.
+Please contact me if you are aware of any details that I have missed.\footnote{See appendix \ref{contact}.}
 
 \chapter{Window Function equations and graphs}
 \label{windowfunctiondetails}
@@ -1536,15 +1577,15 @@ Sound cards have their own internal clock for sampling\footnote{For more details
 
 \section{Computer}
 
-Any computer and operation system can be used if you are compiling the source code from scratch\footnote{See appendix \ref{downloads} for download links.}, but a statically linked \textit{Microsoft Windows executable} is provided for convenience, alongside a front end. See chapter \ref{usinggui} for instructions on using the \ac{gui}.
+Any computer and operation system can be used if you are compiling the \textit{source code} from scratch\footnote{See appendix \ref{downloads} for download links.}, but a statically linked \textit{Microsoft Windows executable} is provided for convenience, alongside a \textit{front end}. See chapter \ref{usinggui} for instructions on using the \ac{gui}.
 
 \section{Game Consoles or emulators}
 
 You'll need either the provided example audio files\footnote{See appendix \ref{downloads} for download urls.} or to create your own, by recording from your own source. This is probably the desired route, since you will want to compare against your files.
 
-\section{Flash cart, or means to run the binary}
+\section{Flash cart, or means to run the \textit{Tone Generator}}
 
-The console needs to run a \textit{custom binary} that is provided with the rest of \textit{MDFourier}. If possible this will be integrated into each version of the \textit{240 test suite} \cite{240pSuite}.
+The console needs to run the \textit{Tone Generator} created for that platform--which are provided with the rest of \textit{MDFourier}. If possible this will be integrated into each version of the \textit{240 test suite} \cite{240pSuite}.
 
 In order to run these, you'll either need a \textit{flash cart} or a custom loading solution compatible with the target platform.
 
@@ -1576,7 +1617,7 @@ The following implementations are also used and included with the source files:
 	\item Incomplete Beta Function. \cite{betafunction}
 \end{itemize}
 
-The pre-compiled binary for \textit{Windows} is created with \textit{MinGW}\cite{mingw} and statically linked for distribution against these libraries:
+The pre-compiled executable of the \textit{Analysis Software} for \textit{Windows} is created with \textit{MinGW}\cite{mingw}, and statically linked for distribution against these libraries:
 
 \begin{itemize}
 	\item fftw-3.3.8 \cite{fftw}
