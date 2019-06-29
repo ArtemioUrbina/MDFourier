@@ -44,6 +44,7 @@ double *hammingWindow(int n);
 int initWindows(windowManager *wm, double framerate, int SamplesPerSec, char winType, parameters *config);
 double *getWindowByLength(windowManager *windows, long int frames);
 long int getWindowSizeByLength(windowManager *wm, long int frames);
+double *getWindowByLengthForInternalSync(windowManager *wm, long int frames);
 void freeWindows(windowManager *windows);
 double CompensateValueForWindow(double value, char winType);
 double CalculateCorrectionFactor(windowManager *wm, long int frames);

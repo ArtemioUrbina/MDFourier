@@ -332,6 +332,7 @@ int LoadProfile(parameters *config)
 
 int LoadAudioBlockStructure(FILE *file, parameters *config)
 {
+	int		insideInternal = 0;
 	char	lineBuffer[LINE_BUFFER_SIZE];
 	char	buffer[PARAM_BUFFER_SIZE];
 
@@ -470,6 +471,11 @@ int LoadAudioBlockStructure(FILE *file, parameters *config)
 		
 		if(config->types.typeArray[i].type == TYPE_INTERNAL)
 		{
+			if(insideInternal)
+				insideInternal = 0;
+			else
+				insideInternal = 1;
+
 			if(sscanf(lineBuffer, "%*s %*c %d %d %s %c %d %lf\n", 
 				&config->types.typeArray[i].elementCount,
 				&config->types.typeArray[i].frames,
@@ -518,6 +524,12 @@ int LoadAudioBlockStructure(FILE *file, parameters *config)
 			fclose(file);
 			return 0;
 		}
+	}
+
+	if(insideInternal)
+	{
+		logmsg("Internal sync detection block didn't have a closing section\n");
+		return 0;
 	}
 
 	config->types.regularChunks = GetActiveAudioBlocks(config);

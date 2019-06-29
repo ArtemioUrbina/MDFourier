@@ -132,6 +132,8 @@ int main(int argc , char *argv[])
 	CloseFiles(&reference);
 	RemoveFLACTemp(config.referenceFile);
 
+	config.referenceFramerate = ReferenceSignal->framerate;
+
 	if(config.channel == 's')
 	{
 		int block = NO_INDEX;
@@ -414,16 +416,25 @@ int ProcessFile(AudioSignal *Signal, parameters *config)
 
 	while(i < config->types.totalChunks)
 	{
-		double duration = 0;
+		double duration = 0, framerate = 0;
 		long int frames = 0, difference = 0;
 
+		if(!syncinternal)
+			framerate = Signal->framerate;
+		else
+			framerate = config->referenceFramerate;
+
 		frames = GetBlockFrames(config, i);
-		duration = FramesToSeconds(Signal->framerate, frames);
-		windowUsed = getWindowByLength(&windows, frames);
+		duration = FramesToSeconds(framerate, frames);
+		
+		if(!syncinternal)
+			windowUsed = getWindowByLength(&windows, frames);
+		else
+			windowUsed = getWindowByLengthForInternalSync(&windows, frames);
 		
 		loadedBlockSize = SecondsToBytes(Signal->header.SamplesPerSec, duration, &leftover, &discardBytes, &leftDecimals);
 
-		difference = GetByteSizeDifferenceByFrameRate(Signal->framerate, frames, Signal->header.SamplesPerSec, config);
+		difference = GetByteSizeDifferenceByFrameRate(framerate, frames, Signal->header.SamplesPerSec, config);
 
 		Signal->Blocks[i].index = GetBlockSubIndex(config, i);
 		Signal->Blocks[i].type = GetBlockType(config, i);
@@ -457,11 +468,6 @@ int ProcessFile(AudioSignal *Signal, parameters *config)
 
 		if(Signal->Blocks[i].type == TYPE_INTERNAL)
 		{
-			// In theory there is a frame rate error here
-			// when comparing against CD-DA with different frame rates
-			// The console will play the audio for the same time
-			// but frames will be different in length
-
 			if(syncinternal)
 				syncinternal = 0;
 			else

@@ -59,6 +59,11 @@ double *getWindowByLength(windowManager *wm, long int frames)
 	return NULL;
 }
 
+double *getWindowByLengthForInternalSync(windowManager *wm, long int frames)
+{
+	return(getWindowByLength(wm, frames*-1));
+}
+
 long int getWindowSizeByLength(windowManager *wm, long int frames)
 {
 	if(!wm)
@@ -76,7 +81,7 @@ long int getWindowSizeByLength(windowManager *wm, long int frames)
 int initWindows(windowManager *wm, double framerate, int SamplesPerSec, char winType, parameters *config)
 {
 	double 	lengths[1024];	// yes, we are lazy
-	int 	count = 0;
+	int 	count = 0, flip = 1, insideInternal = 0;
 
 	if(!wm || !config)
 		return 0;
@@ -91,8 +96,22 @@ int initWindows(windowManager *wm, double framerate, int SamplesPerSec, char win
 	// Count how many differen window sizes are needed
 	for(int i = 0; i < config->types.typeCount; i++)
 	{
-		if(!existsInArray(config->types.typeArray[i].frames, lengths, count))
-			lengths[count++] = config->types.typeArray[i].frames;
+		// Check if we need to use the default frame rate
+		if(insideInternal)
+			flip = -1;
+		else
+			flip = 1;
+
+		if(!existsInArray(config->types.typeArray[i].frames*flip, lengths, count))
+			lengths[count++] = config->types.typeArray[i].frames*flip;
+
+		if(config->types.typeArray[i].type == TYPE_INTERNAL)
+		{
+			if(insideInternal)
+				insideInternal = 0;
+			else
+				insideInternal = 1;
+		}
 	}
 
 	if(!count)
@@ -105,10 +124,6 @@ int initWindows(windowManager *wm, double framerate, int SamplesPerSec, char win
 	wm->windowArray = (windowUnit*)malloc(sizeof(windowUnit)*count);
 	wm->windowCount = count;
 
-	// Adjust in case they have different frame rates
-	if(config->smallerFramerate != 0 && config->smallerFramerate < framerate)
-		framerate = config->smallerFramerate;
-
 	for(int i = 0; i < count; i++)
 	{
 		double seconds = 0;
@@ -117,7 +132,14 @@ int initWindows(windowManager *wm, double framerate, int SamplesPerSec, char win
 		wm->windowArray[i].frames = lengths[i];
 		wm->windowArray[i].size = 0;
 
-		seconds = FramesToSeconds(wm->windowArray[i].frames, framerate);
+		// Adjust in case they have different frame rates
+		if(config->smallerFramerate != 0 && config->smallerFramerate < framerate)
+			framerate = config->smallerFramerate;
+
+		if(lengths[i] < 0) // TYPE_INTERNAL
+			framerate = config->referenceFramerate;
+
+		seconds = FramesToSeconds(fabs(wm->windowArray[i].frames), framerate);
 		if(winType == 't')
 		{
 			wm->windowArray[i].window = tukeyWindow(SamplesPerSec*seconds);

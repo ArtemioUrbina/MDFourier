@@ -99,6 +99,7 @@ void CleanParameters(parameters *config)
 	config->origSignificantAmplitude = SIGNIFICANT_VOLUME;
 	config->significantAmplitude = SIGNIFICANT_VOLUME;
 	config->smallerFramerate = 0;
+	config->referenceFramerate = 0;
 	config->ZeroPad = 0;
 	config->debugSync = 0;
 	config->drawWindows = 0;
@@ -131,8 +132,8 @@ void CleanParameters(parameters *config)
 	
 	config->types.totalChunks = 0;
 	config->types.regularChunks = 0;
-	config->types.referenceMSPerFrame = 16.688;
-	config->types.comparisonMSPerFrame = 16.688;
+	config->types.referenceMSPerFrame = 0;
+	config->types.comparisonMSPerFrame = 0;
 	config->types.pulseSyncFreq = 8820;
 	config->types.pulseMinVol = -25;
 	config->types.pulseVolDiff = 25;

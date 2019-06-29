@@ -301,6 +301,7 @@ typedef struct parameters_st {
 	double			origSignificantAmplitude;
 	double			significantAmplitude;
 	double			smallerFramerate;
+	double			referenceFramerate;
 	int				logScale;
 	int				debugSync;
 	int				reverseCompare;
