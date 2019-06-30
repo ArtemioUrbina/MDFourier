@@ -441,11 +441,11 @@ void CMDFourierGUIDlg::FillComboBoxes()
 	m_WindowTypeSelect.SetCurSel(WindowConvert[1].indexCB);
 
 	InsertValueInCombo(L"None", L"0", CurveConvert[0], m_CurveAdjustSelect);
-	InsertValueInCombo(L"\u221A(dBFS)", L"1", CurveConvert[1], m_CurveAdjustSelect);
-	InsertValueInCombo(L"ibeta(3, 3)", L"2", CurveConvert[2], m_CurveAdjustSelect);
-	InsertValueInCombo(L"Linear", L"3", CurveConvert[3], m_CurveAdjustSelect);
-	InsertValueInCombo(L"dBFS\u00B2", L"4", CurveConvert[4], m_CurveAdjustSelect);
-	InsertValueInCombo(L"ibeta(16, 2)", L"5", CurveConvert[5], m_CurveAdjustSelect);
+	InsertValueInCombo(L"Bright", L"1", CurveConvert[1], m_CurveAdjustSelect);
+	InsertValueInCombo(L"High", L"2", CurveConvert[2], m_CurveAdjustSelect);
+	InsertValueInCombo(L"Neutral", L"3", CurveConvert[3], m_CurveAdjustSelect);
+	InsertValueInCombo(L"Low", L"4", CurveConvert[4], m_CurveAdjustSelect);
+	InsertValueInCombo(L"Dimm", L"5", CurveConvert[5], m_CurveAdjustSelect);
 
 	m_CurveAdjustSelect.SetCurSel(CurveConvert[3].indexCB);
 }

@@ -35,7 +35,7 @@
 \newcommand{\define}[1]{\textit{\acrlong{#1}} (\textit{\acrshort{#1}})}
 %define in footnote
 %\newcommand{\define}[1]{\textit{\acrshort{#1}\footnote{\textit{\acrlong{#1}}}}}
-\newcommand{\defineCite}[2]{\textit{\acrshort{#1}\footnote{\textit{\acrlong{#1}} #2}}}
+\newcommand{\defineCite}[2]{\textit{\acrshort{#1}\footnote{\textit{\acrlong{#1}} #2.}}}
 
 % shortcuts for the whole document
 \newcommand{\ac}[1]{\textit{\mbox{\acrshort{#1}}}}
@@ -87,7 +87,7 @@ It is my personal opinion that it would be useful to have configurations tuned t
 
 Although powerful industrial solutions for this kind of analysis must exist, they do not seem to have reached the enthusiast community. I'm not aware of any other similar effort to create public software analysis tools that are aimed at vintage console hardware.
 
-It must be noted that there have been detailed comparisons, made in particular for the \textit{MegaDrive/Sega Genesis}.\footnote{See the forum post at \cite{genesisaudio}}. 
+It must be noted that there have been detailed comparisons, made in particular for the \textit{MegaDrive/Sega Genesis}.\footnote{See the forum post at \cite{genesisaudio}}
 
 \section{Possible applications}
 
@@ -140,7 +140,7 @@ We perceive \textit{frequency} variations as \textit{pitch differences}: lower \
 
 The other \textit{wave} characteristic we use to measure sound is called \textit{amplitude}. This is how \textit{powerful} the \textit{wave} is when compared to the rest of the \textit{signal} that is being analyzed. 
 
-Figure~\ref{fig:amplitude} shows a \khz{1} signal that starts at the highest \textit{amplitude} in an audio editor and goes down to zero. This is a typical \textit{fade out}, but done in a very shot period in order to show both \textit{frequency} and \textit{amplitude} in the same image.
+Figure~\ref{fig:amplitude} shows a \khz{1} signal that starts at the highest \textit{amplitude} in an audio editor and goes down to zero. This is a typical \textit{fade out}, but done in a very short period in order to show both \textit{frequency} and \textit{amplitude} in the same image.
 
 \begin{figure}[H]
 	\centering
@@ -210,7 +210,7 @@ Unfortunately computers don't have the unlimited storage that would be able to r
 
 The \textit{sample rate} defines the \textit{frequencies} from the signal that we will be able to represent in the digital domain--as the \textit{sampling rate} is increased, so does the \textit{frequency range} that can be portrayed by this digital representation of the signal. 
 
-If we want to represent a certain \textit{frequency range} reliably, we must choose a \textit{sample rate} that is \textit{twice} as big as the highest \textit{frequency} value in the desired \textit{spectrum}.This principle is called  \textit{Nyquist–Shannon sampling theorem}, and it requires a \textit{band limited} signal in order to work. For a signal to be \textit{band limited} it must not contain frequencies higher than those that we wish to represent. In order to eliminate \textit{frequencies} higher than a certain value, we use a \textit{low pass filer} before digitizing the signal.
+If we want to represent a certain \textit{frequency range} reliably, we must choose a \textit{sample rate} that is \textit{twice} as big as the highest \textit{frequency} value in the desired \textit{spectrum}. This principle is called  \textit{Nyquist–Shannon sampling theorem}, and it requires a \textit{band limited} signal in order to work. For a signal to be \textit{band limited} it must not contain frequencies higher than those that we wish to represent. In order to eliminate \textit{frequencies} higher than a certain value, we use a \textit{low pass filer} before digitizing the signal.
 
 Since we want to cover the whole \textit{human hearing range}--which goes from \hz{20} to \khz{20}--we must choose a \textit{sample rate} of at least \khz{40}. This is the reason for the most common \textit{sample rates} in digital audio to be \khz{44.1} and \khz{48}--which are the ones supported by the \textit{Analysis Software} in \textit{MDFourier}.\footnote{See \cite{MontyMontgomery} for a detailed video demonstration of how \textit{sampling rates} work.}
 
@@ -239,7 +239,7 @@ Some common formats use \textit{24 bit} audio, which has a wider \textit{dynamic
 
 Current \textit{digital audio converter} technology can only deal with around \dbSPL{120}, which makes a big part of the advantage go to waste. And secondly, we rarely have a need for such a wide range in our typical recordings. With certainty for the cases that will be analyzed by \textit{MDFourier} the \dbSPL{96} range from \textit{16 bit} audio is more than enough. 
 
-For studio and mixing applications \textit{24 bit} audio is a huge advantage, since the \textit{dynamic range} available with the \textit{16 bit} variant can be easily surpassed when mixing signals form similar volumes and end up causing undesirable saturation of the resulting signal.
+For studio and mixing applications \textit{24 bit} audio is a huge advantage, since the \textit{dynamic range} available with the \textit{16 bit} variant can be easily surpassed when mixing signals from similar amplitudes and end up causing undesirable saturation of the resulting signal.
 
 %mp3
 %flac
@@ -466,12 +466,12 @@ The second low pass filter for \textit{PSG} is at \khz{3}, and it is steeper.
 
 But we can barely see what is going on with the \textit{Noise} part of the graph. We can see that there is some black dots on top of the \db{0} line.
 
-In order to better see what is going on, we'll change the \textit{color filter function} to \rootdb{} so we can have higher contrast against the background.\footnote{Described in appendix~\ref{colorfilter}.}
+In order to better see what is going on, we'll change the \textit{Color Filter Function} to \textit{"Bright"} so we can have higher contrast against the background.\footnote{Described in appendix~\ref{colorfilter}.}
 
 \begin{figure}[H]
 	\centering
 	\includegraphics[width=1.0\linewidth]{images/interpretation/Plot4-2-All-sqrt.png}
-	\caption[Using SQRT]{Using the \rootdb{} color filter function.}
+	\caption[Using SQRT]{Using the \textit{"Bright"} setting for the \textit{Color Filter Function}.}
 	\label{fig:plot4-2-all-sqrt}
 \end{figure}
 
@@ -649,7 +649,7 @@ It can be appreciated that the missing frequencies were detected after the \khz{
 
 The following table lists all the hardware used to make the recordings for the graphs in this chapter. All systems had stock parts at the time of recording, no modifications and used original power supplies.\footnote{They were all connected to a PVM-5041Q--a 4" \textit{CRT}--via \textit{RGB}, although the \textit{CRT} was turned off while recording. Since \textit{video refresh} noise is a very isolated frequency range it is not filtered out for comparisons, however it is detected and reported by the software for several purposes.}. 
 
-The \textit{MDFourier ID} value in the following table refers to the file name in the catalog.\footnote{All the recordings are available from the \textit{downloads page} from the \textit{MDFourier} website. See appendix~\ref{downloads}.}
+The \textit{MDFourier ID} value in the following table refers to the file name in the catalog, and will be used throught the text to identify the systems being compared.\footnote{All the recordings are available from the \textit{downloads page} from the \textit{MDFourier} website. See appendix~\ref{downloads}.}
 
 \begin{center}
 \scalebox{0.6}{
@@ -670,6 +670,7 @@ The \textit{MDFourier ID} value in the following table refers to the file name i
 	CDX     & MK-4121  &        & Y40 014198    &           & USA   & Japan  & A-CDXUJ-LO   & Line Out\\
 	CDX     & MK-4121  &        & Y40 014198    &           & USA   & Japan  & A-CDXUJ-HP   & Headphone Out\\
 	CDX     & MK-4121  &        & Y40 014198    &           & USA   & Japan  & A-CDXUJ-AV   & AV Out\\
+	Sega CD & 1690     &        &               &  A20113193         & USA   & Japan  & SCD   & System\\
 	\hline
 \end{tabular}
 }
@@ -677,9 +678,9 @@ The \textit{MDFourier ID} value in the following table refers to the file name i
 
 It must be considered that this is a very small sample size, and no results or interpretations should be extrapolated as generalized conclusions about differences between models. 
 
-However, since several common trends are found and the systems were sourced from very different providers across a long period, it would be too high a coincidence for these results to be by pure chance. I expect that we--as a community--can grow a bigger data set of recordings, in order to make better assessments in the future.\footnote{I've  considered the viability of creating "averaged" system profiles in the future--using an extra tool yet to be developed--that could give us a generalized profile created from multiple samples.}
+However, since several common trends are found and the systems were sourced from very different providers across a long period, it would be too much of a coincidence for these results to be by pure chance. I expect that we--as a community--can grow a bigger data set of recordings, in order to make better assessments in the future.\footnote{I've considered the viability of creating "averaged" system profiles in the future--using an extra tool yet to be developed--that could give us a generalized profile created from multiple samples.}
 
-For simplicity, the recordings used were made with the \textit{USB Lexicon Alpha} audio card.\footnote{Reasons are: flat frequency response, available in the market at the time of writing, works externally via USB and is not expensive. See appendix~\ref{audiocards}.} The first system is the \textit{Reference}, and the second one is the \textit{Comparison} signal.
+The recordings presented in this chapters were made using the \textit{USB Lexicon Alpha} audio card, due to the following reasons: it has a flat frequency response, it is available in the market at the time of writing, it works via USB and it is not expensive.\footnote{See appendix~\ref{audiocards}.} The first system is the \textit{Reference}, and the second one is the \textit{Comparison} signal.
 
 Even if the system volume settings won't affect the analysis since \textit{normalization} is performed in software,\footnote{For details in the \textit{normalization} procedures used, see appendix~\ref{normalization}.} the volume control was set to its maximum when using the \textit{headphone out} port. This was made in order to get consistent results, since variations could arise from the performance of the system amplifiers.
 
@@ -752,7 +753,9 @@ These are two other \textit{US VA6} systems, both made in \textit{Taiwan}. And h
 	\label{fig:A-MD1UTVA6-1-LA_vs_A-MD1UTVA6-2-LA}
 \end{figure}
 
-Again, these are very close matches with differences below \db{1}. In this case \textit{FM} is lower by that amount and \textit{PSG} matches the reference unit.
+This is an interesting case since both consoles are the same motherboard revision and were manufactured in the same country. 
+
+Acoustically, these are very close matches with differences below \db{1}. In this case \textit{FM} is lower by that same amount and \textit{PSG} matches the reference unit.
 
 \section{Sega Genesis Model 1 VA3 (US) vs\\ Sega Genesis Model 2 VA1.8 (US)}
 \label{model2}
@@ -899,11 +902,11 @@ For our first case, we will compare if an American \textit{VA3} is any different
 \begin{figure}[H]
 	\centering
 	\includegraphics[width=1.0\linewidth]{images/results/10-A-MD1UTVA3-SCD-LA_vs_A-MD1JJVA6-SCD.png}
-	\caption[A-MD1UTVA3-SCD-LA vs A-MD1JJVA6-SCD]{Differences between a \textit{VA3} with \textit{Sega CD} vs \textit{Mega Drive VA6} with \textit{Sega CD}.}
+	\caption[A-MD1UTVA3-SCD-LA vs A-MD1JJVA6-SCD]{Differences between  \textit{A-MD1UTVA3-SCD} and \textit{A-MD1JJVA6-SCD}.}
 	\label{fig:A-MD1UTVA3-SCD-LA_vs_A-MD1JJVA6-SCD}
 \end{figure}
 
-The Japanese \textit{VA6} has a lower volume for the \ac{cdda} audio in the final mix, at around a constant \db{1.5} across the whole spectrum.
+The Japanese \textit{VA6} shows a lower amplitude for the \ac{cdda} audio in the final mix, at around a constant \db{1.5} across the whole spectrum.
 
 It is interesting to note that the differences in \textit{amplitude} follow a very well defined pattern, as opposed to the \textit{fuzziness} found when comparing \textit{FM} audio. This demonstrates the natural harmonic variations an \textit{FM signal} can present.
 
@@ -924,11 +927,11 @@ In Figure~\ref{fig:A-MD1JJVA6-SCD-LA_vs_A-MD1UJVA6-SCD} we are contrasting the d
 \begin{figure}[H]
 	\centering
 	\includegraphics[width=1.0\linewidth]{images/results/11-A-MD1JJVA6-SCD-LA_vs_A-MD1UJVA6-SCD.png}
-	\caption[A-MD1JJVA6-SCD-LA vs A-MD1UJVA6-SCD]{Differences between a Japanese \textit{Mega Drive Model 1 VA6} with \textit{Sega CD} vs a \textit{Sega Genesis Model 1 VA6} with \textit{Sega CD}.}
+	\caption[A-MD1JJVA6-SCD-LA vs A-MD1UJVA6-SCD]{Differences between the Japanese \textit{MD1JJVA6-SCD} and the American \textit{MD1UJVA6-SCD}.}
 	\label{fig:A-MD1JJVA6-SCD-LA_vs_A-MD1UJVA6-SCD}
 \end{figure}
 
-It can be appreciated that the \textit{US VA6} unit has a higher volume for the \ac{cdda} mix--at around \db{1.5}--for the whole spectrum. This is the opposite from the previous case, but this time we are using the Japanese unit as \textit{reference}.
+It can be appreciated that the \textit{US VA6} unit shows a higher amplitude for the \ac{cdda} mix--at around \db{1.5}--for the whole spectrum. This is the opposite from the previous case, but this time we are using the Japanese unit as \textit{reference}.
 
 This shows that the two American systems might precisely match in amplitude in all the compared signals.
 
@@ -939,7 +942,7 @@ Although I don't have other Japanese systems to compare if the amplitude balance
 \begin{figure}[H]
 	\centering
 	\includegraphics[width=1.0\linewidth]{images/results/12-A-MD1UTVA3-SCD-LA_vs_A-MD1UJVA6-SCD.png}
-	\caption[A-MD1UTVA3-SCD-LA vs A-MD1UJVA6-SCD]{Differences between a Japanese  \textit{Sega Genesis Model 1 VA3} with \textit{Sega CD} vs a \textit{Sega Genesis Model 1 VA6} with \textit{Sega CD}.}
+	\caption[A-MD1UTVA3-SCD-LA vs A-MD1UJVA6-SCD]{Differences between a Japanese  \textit{MD1UTVA3-SCD} and \textit{MD1UJVA6-SCD}.}
 	\label{fig:A-MD1UTVA3-SCD-LA_vs_A-MD1UJVA6-SCDD}
 \end{figure}
 
@@ -952,7 +955,7 @@ We are already familiar with the results of comparing a \textit{Model 1 VA3} and
 \begin{figure}[H]
 	\centering
 	\includegraphics[width=1.0\linewidth]{images/results/13-A-MD1UTVA3-SCD-LA_vs_A-MD2UCVA18-SCD.png}
-	\caption[A-MD1UTVA3-SCD-LA vs A-MD2UCVA18-SCD]{Differences between a \textit{Sega Genesis Model 1 VA3} with \textit{Sega CD} vs a \textit{Sega Genesis Model 2 VA1.8} with \textit{Sega CD}.}
+	\caption[A-MD1UTVA3-SCD-LA vs A-MD2UCVA18-SCD]{Differences between  \textit{MD1UTVA3-SCD} and the \textit{MD2UCVA18-SCD}.}
 	\label{fig:A-MD1UTVA3-SCD-LA_vs_A-MD2UCVA18-SCD}
 \end{figure}
 
@@ -1107,7 +1110,7 @@ The curve is weighted according to the \textit{Color Filter Functions} described
 
 As a result, the average will follow the relative amplitudes from the \textit{Reference} signal proportional to the selected \textit{filter function}.
 
-If there is need for a graph without weighting, please disable the \textit{Color Filtering function}.
+If there is need for a graph without weighting, please disable the \textit{Color Filter function}.
 
 The file names for these graphs have the format:\\ \textit{DA\_AVG\_Reference\_vs\_Comparison\_block\_options.png}
 
@@ -1449,7 +1452,6 @@ I'm positive several deficiencies in my implementation still elude me. However h
 \begin{itemize}
 	\item \ac{pcm} generated by the \textit{FM} chip is not covered in the current \textit{Mega Drive/Sega Genesis} implementation. It is assumed the response will follow the \textit{YM2612} curve.
 	\item A better signal could  be generated to cover either more or specific cases.
-	\item When comparing \textit{Mega CD/Sega CD}, the \textit{\ac{cdda}} block uses the detected \textit{frame rate} for the comparison. It should use the expected one from the configuration file instead, even when comparing to an \textit{emulator/FPGA}. This causes slight ringing in the results, but they are at least \textit{95\%} correct.
 	\item The \ac{pcm} chip from the \textit{Mega CD/Sega CD} is not yet implemented in the tests, since it's behavior is expected t follow the same amplification path that \textit{CD-DA} does. It might have differences in balance, though.
 \end{itemize}
 
@@ -1537,7 +1539,7 @@ This appendix contains a description, graph and example of each \textit{Color Fi
 
 \section{None} 
 
-No filtering is applied, as a result all differences are plotted with the brightest color. 
+No filtering is applied, as a result all differences are plotted using the brightest color. 
 
 \begin{figure}[H]
 	\centering
@@ -1553,9 +1555,9 @@ No filtering is applied, as a result all differences are plotted with the bright
 	\label{fig:betafunctionplot0data}
 \end{figure}
 
-\section{\rootdb{}} 
+\section{Bright} 
 
-A square root function will only attenuate the lowest amplitude differences.
+A square root function will only attenuate the lowest amplitude differences. This applies the formula \rootdb{} to the amplitude from the \textit{reference} signal, in order to assign the brightness.
 
 \begin{figure}[H]
 	\centering
@@ -1571,9 +1573,9 @@ A square root function will only attenuate the lowest amplitude differences.
 	\label{fig:betafunctionplot1data}
 \end{figure}
 
-\section{$\beta(3,3)$}
+\section{High}
 
-A Beta Function filter with parameters (3, 3) will attenuate a bit more from the lower range, still showing most of the differences.
+A Beta Function filter with parameters $\beta(3,3)$ will attenuate a bit more from the lower range, still showing most of the differences.
 
 \begin{figure}[H]
 	\centering
@@ -1589,9 +1591,9 @@ A Beta Function filter with parameters (3, 3) will attenuate a bit more from the
 	\label{fig:betafunctionplot2data}
 \end{figure}
 
-\section{Linear} 
+\section{Neutral} 
 
-The linear function is the default, and has no bias. Half the dinamic range corresponds to half the color rage.
+The linear function is the default selection, and has no bias. Half the dynamic range corresponds to half the color rage.
 
 \begin{figure}[H]
 	\centering
@@ -1607,9 +1609,9 @@ The linear function is the default, and has no bias. Half the dinamic range corr
 	\label{fig:betafunctionplot3data}
 \end{figure}
 
-\section{\squaredb{}}
+\section{Low}
 
-A squared function will attenuate a lot more differences, as a result frequencies with the highest amplitude in the reference signal will be brighter.
+A squared function \squaredb{} will attenuate a lot more differences. As a result, only the frequencies with the highest amplitudes from the \textit{reference} signal will be brighter.
 
 \begin{figure}[H]
 	\centering
@@ -1625,9 +1627,9 @@ A squared function will attenuate a lot more differences, as a result frequencie
 	\label{fig:betafunctionplot4data}
 \end{figure}
 
-\section{$\beta(16,2)$} 
+\section{Dimm} 
 
-A Beta Function filter with parameters (16,2) will attenuate almost all the differences, and only the frequencies with the highest amplitude in the reference signal will be brighter.
+A \textit{Beta Function filter} with parameters $\beta(16,2)$ will attenuate almost all the differences, and only the frequencies with the highest amplitude in the reference signal will be brighter.
 
 \begin{figure}[H]
 	\centering
@@ -1758,7 +1760,37 @@ You can contact me via twitter \url{http://twitter.com/Artemio} or e-mail me at 
 
 \chapter{Acknowledgments}
 
+I'd like to thank the following people for helping me so this software and the present documentation could be completed. 
 
+First and foremost to Michelle, you helped me find the time to learn, code, experiment and write for this project. It would have been impossible without your support, thank you.
+
+To Ricardo Pestaña (\textit{Rhe7oRPG}) for guiding me through the unfamiliar process of giving shape and sense to this text. I am not good at writing, and this would not be close to its current form without your feedback, time and input.
+
+Fernando Villaseñor for your patience and attention when discussing the ideas while I was shaping this project. Your comments gave me confidence that I could transmit the ideas I wanted to with some clarity, and pushed me forward in order to complete and publish the project.
+
+Tianfeng for assisting me by proofreading the text and helping to make it readable. Having a native speaker check the documentation greatly reduced the awkwardness of my style, and helped the text flow better. Most importantly, thanks for taking the time and resources to create your own audio recordings, and to compare results when the project needed it.
+
+Robert Neal for your ability to create communities and your disposition to help others. The value of being able to reach out for feedback cannot be appreciated enough.
+
+Marc "Try4ce" Duddleson and Coury Carlson from \textit{"My Life in Gaming"}, who indirectly seeded this project while they worked on a script. The feedback loop we've created helped me bounce ideas with you from time to time. Marc's feedback while proofreading allowed me to remove unnecessary complexity from the text, and your input made me notice the need of what became the \textit{Audio Basics} chapter.
+
+\textit{Enforcer} for detecting a bug in the audio routines of the \textit{240p Test Suite}, and making sure I didn't carry that on to the \textit{MDFourier} test program. Thanks for reaching out.
+
+To  Oscar Toledo G. (\textit{Nanochess}) for proofreading the document and pointing out some quirks about my writing style. This helped to improve the flow of the text.
+
+Mauricio Lechuga, thank you for your time and attention to the project. our feedback helped me push in the right direction to create the current version of this document. 
+
+Aldo Martinez for listening and showing interest in the project. Talking about teh ideas helps to shape them out clearly.
+
+John Linneman thank you for detecting a bug in my audio program for the system and for using the early versions of the software for comparisons.
+
+To Rolando Cedillo for listening to my thoughts and for letting me borrow an audio card for testing. This helped me shape the results and confirm some facts that were very important for the validity of my results.
+
+\textit{M.I.J.E.T.} as always thanks for your well thoughts comments and ideas, they helped me to add a bit more rigor to my methods and process.
+
+\textit{Byuu} thanks for reading and believing in the possibilities this project may offer.
+
+And special thanks to \textit{Soltan\_G42} and \textit{Rysha} for your enthusiasm and feedback, it was very encouraging at a time the project was shaping out.
 
 \end{appendices}
 
