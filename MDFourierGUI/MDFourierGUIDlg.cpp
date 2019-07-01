@@ -167,18 +167,18 @@ void CMDFourierGUIDlg::OnBnClickedOk()
 
 	if(!cDos.m_fDone)
 	{
-		MessageBox(L"MDFourier is running, please wait for results", L"Please wait");
+		MessageBox(L"MDFourier is running, please wait for results.", L"Please wait");
 		return;
 	}
 
 	if(!m_Reference.GetLength())
 	{
-		MessageBox(L"Please select a reference WAV file", L"Error");
+		MessageBox(L"Please select a Reference audio file.", L"Error");
 		return;
 	}
 	if(!m_ComparisonFile.GetLength())
 	{
-		MessageBox(L"Please select a WAV file to compare", L"Error");
+		MessageBox(L"Please select a Comparison audio file.", L"Error");
 		return;
 	}
 	if(m_Reference == m_ComparisonFile)
@@ -346,6 +346,23 @@ void CMDFourierGUIDlg::OnTimer(UINT_PTR nIDEvent)
 			resultsFolder.Format(L"%s\\%s", pwd,
 				cDos.m_Output.Right(cDos.m_Output.GetLength() - pos - searchFor.GetLength()));
 			resultsFolder = resultsFolder.Left(resultsFolder.GetLength() - 2);
+		}
+
+		searchFor = "ERROR";
+
+		cDos.Lock();
+		pos = cDos.m_Output.Find(searchFor, 0);
+		cDos.Release();
+
+		if(pos != -1)
+		{
+			CString	errorMsg;
+
+			cDos.Lock();
+			errorMsg = cDos.m_Output.Right(cDos.m_Output.GetLength()-pos);
+			cDos.Release();
+
+			MessageBox(errorMsg, L"Error from MDFourier");
 		}
 
 		elementPos++;

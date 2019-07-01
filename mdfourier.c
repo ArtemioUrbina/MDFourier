@@ -573,25 +573,25 @@ int LoadFile(FILE *file, AudioSignal *Signal, parameters *config, char *fileName
 
 	if(fread(&Signal->header, 1, sizeof(wav_hdr), file) != sizeof(wav_hdr))
 	{
-		logmsg("\tInvalid Audio file: File too small\n");
+		logmsg("\tERROR: Invalid Audio file. File too small.\n");
 		return(0);
 	}
 
 	if(Signal->header.AudioFormat != 1) /* Check for PCM */
 	{
-		logmsg("\tInvalid Audio File: Only PCM encoding is supported\n\tPlease convert file to PCM 16 bit 44/48kHz ");
+		logmsg("\tERROR: Invalid Audio File. Only PCM encoding is supported\n\tPlease convert file to PCM 16 bit 44/48kHz.");
 		return(0);
 	}
 
 	if(Signal->header.NumOfChan != 2) /* Check for Stereo */
 	{
-		logmsg("\tInvalid Audio file: Only Stereo is supported\n");
+		logmsg("\tERROR: Invalid Audio file. Only Stereo files are supported.\n");
 		return(0);
 	}
 
 	if(Signal->header.bitsPerSample != 16) /* Check bit depth */
 	{
-		logmsg("\tInvalid Audio file: Only 16 bit supported for now\n\tPlease use 16 bit 44/48kHz ");
+		logmsg("\tERROR: Invalid Audio file. Only 16 bit supported for now.\n\tPlease use 16 bit 44/48kHz.");
 		return(0);
 	}
 	
@@ -617,14 +617,14 @@ int LoadFile(FILE *file, AudioSignal *Signal, parameters *config, char *fileName
 	Signal->Samples = (char*)malloc(sizeof(char)*Signal->header.Subchunk2Size);
 	if(!Signal->Samples)
 	{
-		logmsg("\tAll Chunks malloc failed!\n");
+		logmsg("\tERROR: All Chunks malloc failed!\n");
 		return(0);
 	}
 
 	if(fread(Signal->Samples, 1, sizeof(char)*Signal->header.Subchunk2Size, file) !=
 			 sizeof(char)*Signal->header.Subchunk2Size)
 	{
-		logmsg("\tCould not read the whole sample block from disk to RAM\n");
+		logmsg("\tERROR: Could not read the whole sample block from disk to RAM.\n");
 		return(0);
 	}
 
@@ -647,7 +647,7 @@ int LoadFile(FILE *file, AudioSignal *Signal, parameters *config, char *fileName
 		Signal->startOffset = DetectPulse(Signal->Samples, Signal->header, config);
 		if(Signal->startOffset == -1)
 		{
-			logmsg("\nStarting pulse train was not detected\n");
+			logmsg("\nERROR: Starting pulse train was not detected.\n");
 			return 0;
 		}
 		if(config->verbose)
@@ -690,7 +690,7 @@ int LoadFile(FILE *file, AudioSignal *Signal, parameters *config, char *fileName
 		}
 		else
 		{
-			logmsg(" - ERROR: Trailing sync pulse train not defined in config file, aborting\n");
+			logmsg(" - ERROR: Trailing sync pulse train not defined in config file, aborting.\n");
 			PrintAudioBlocks(config);
 			return 0;
 		}
@@ -712,7 +712,7 @@ int LoadFile(FILE *file, AudioSignal *Signal, parameters *config, char *fileName
 		Signal->startOffset = DetectSignalStart(Signal->Samples, Signal->header, 0, 0, config);
 		if(Signal->startOffset == -1)
 		{
-			logmsg("\nStarting position was not detected\n");
+			logmsg("\nERROR: Starting position was not detected.\n");
 			return 0;
 		}
 		logmsg(" %gs [%ld bytes]\n", 
@@ -750,7 +750,7 @@ int ProcessFile(AudioSignal *Signal, parameters *config)
 	longest = FramesToSeconds(Signal->framerate, GetLongestElementFrames(config));
 	if(!longest)
 	{
-		logmsg("Block definitions are invalid, total length is 0\n");
+		logmsg("\tERROR: Block definitions are invalid, total length is 0.\n");
 		return 0;
 	}
 
@@ -758,7 +758,7 @@ int ProcessFile(AudioSignal *Signal, parameters *config)
 	buffer = (char*)malloc(buffersize);
 	if(!buffer)
 	{
-		logmsg("\tmalloc failed\n");
+		logmsg("\tERROR: malloc failed.\n");
 		return(0);
 	}
 
@@ -804,7 +804,7 @@ int ProcessFile(AudioSignal *Signal, parameters *config)
 		memset(buffer, 0, buffersize);
 		if(pos + loadedBlockSize > Signal->header.Subchunk2Size)
 		{
-			logmsg("\tunexpected end of File, please record the full Audio Test from the 240p Test Suite\n");
+			logmsg("\tunexpected end of File, please record the full Audio Test from the 240p Test Suite.\n");
 			break;
 		}
 		memcpy(buffer, Signal->Samples + pos, loadedBlockSize-difference);
@@ -840,16 +840,16 @@ int ProcessFile(AudioSignal *Signal, parameters *config)
 				internalSyncOffset = DetectSignalStart(Signal->Samples, Signal->header, pos, syncTone, config);
 				if(internalSyncOffset == -1)
 				{
-					logmsg("Unexpected Error: No signal found while in internal sync detection. Aborting\n");
+					logmsg("\tERROR: No signal found while in internal sync detection. Aborting\n");
 					return 0;
 				}
 
 				internalSyncOffset -= pos;
 
-				logmsg(" - %s command delay: %g frames [%ld bytes]\n", 
+				logmsg(" - %s command delay: %g ms [%g frames]\n",
 					GetTypeName(config, Signal->Blocks[i].type),
-					BytesToFrames(Signal->header.SamplesPerSec, internalSyncOffset, Signal->framerate),
-					pos + internalSyncOffset);
+					BytesToSeconds(Signal->header.SamplesPerSec, internalSyncOffset)*1000.0,
+					BytesToFrames(Signal->header.SamplesPerSec, internalSyncOffset, Signal->framerate));
 
 				// skip 150 ms sync tone and 150 ms silence, taken from config file
 				internalSyncOffset += SecondsToBytes(Signal->header.SamplesPerSec, syncLen, NULL, NULL, NULL);
@@ -857,7 +857,7 @@ int ProcessFile(AudioSignal *Signal, parameters *config)
 				frames = GetInternalSyncTotalLength(i, config);
 				if(!frames)
 				{
-					logmsg("Unexpected Error: Internal Sync block has no frame duration. Aborting\n");
+					logmsg("\tERROR: Internal Sync block has no frame duration. Aborting.\n");
 					return 0;
 				}
 
@@ -866,14 +866,14 @@ int ProcessFile(AudioSignal *Signal, parameters *config)
 
 				if(bytes <= internalSyncOffset)
 				{
-					logmsg("Internal Sync could not be aligned, signal out of bounds\n");
+					logmsg("\tERROR: Internal Sync could not be aligned, signal out of bounds.\n");
 					return 0;
 				}
 
 				sampleBuffer = (char*)malloc(sizeof(char)*bytes);
 				if(!sampleBuffer)
 				{
-					logmsg("Out of memory\n");
+					logmsg("\tERROR: Out of memory.\n");
 					return 0;
 				}
 

@@ -92,13 +92,22 @@ It must be noted that there have been detailed comparisons, made in particular f
 \section{Possible applications}
 
 \begin{itemize}
-	\item Figure~out if \textit{vintage hardware} retail variations really have different audio signatures when compared against each other.
+	\item Figure out if \textit{vintage hardware} retail variations really have different audio signatures when compared against each other.
 	\item Help emulator and \ac{fpga} implementation authors with tools to tune \textit{filter profiles} that match \textit{vintage retail} hardware audio signatures.
 	\item Help the modding community to compare how \textit{audio signatures} change for each \textit{synthesizer} within the targeted system while developing audio modifications.
 	\item Determine if there were changes in the audio \textit{spectrum} after modifications to a console, like \textit{recapping} or changing the audio circuitry.
 	\item Evaluate equipment, such as \textit{switchers} and \textit{upscalers} with audio \textit{passthrough}. It can help Figure~what effect they may have by recording with and without them connected in the \textit{Audio/Video} chain.
 	\item Help to recreate specific audio signatures.
 	\item Help to tune a system to a particular taste.
+\end{itemize}
+
+There is also some interesting information that is derived from the analysis, and which is displayed as part of the output:
+
+\begin{itemize}
+	\item The \textit{frame rate} of the console under analysis.
+	\item Some values regarding the \textit{Noise floor} from the recorded signal.
+	\item \textit{Audio balance} percentage difference between the stereo channels.
+	\item When using \textit{CD-ROM drives}, it can output the time it took the unit to start playback.
 \end{itemize}
 
 
@@ -1384,7 +1393,7 @@ After analysis, it was found that the difference was present only in the left ch
 	\label{fig:heatroomtemp}
 \end{figure}
 
-At first warm up differences were suspected, but after some cooling, \textit{cold boot}\footnote{Powering on the console after it had cool down, and immediately making the recording.} and measurements using a thermal camera it was determine that the room temperature on top of the warm up was the culprit, since the results could not be replicated when the room had cooled down to $22^\circ$C\footnote{$71.6^\circ$F.}. 
+At first, warm up differences were suspected. But after some cooling, \textit{cold boot}\footnote{Powering on the console after it had cool down, and immediately making the recording.} and measurements using a thermal camera it was determined that the room temperature on top of the warm up was the culprit, since the results could not be replicated when the room had cooled down to $22^\circ$C\footnote{$71.6^\circ$F.}. 
 
 In order to replicate the results, its vents were obstructed to prevent heat dissipation\footnote{Ventilation were covered with electrical tape.} for a brief period. The results could be replicated at will under these conditions after just a few minutes of use.
 
@@ -1790,7 +1799,9 @@ To Rolando Cedillo for listening to my thoughts and for letting me borrow an aud
 
 \textit{Byuu} thanks for reading and believing in the possibilities this project may offer.
 
-And special thanks to \textit{Soltan\_G42} and \textit{Rysha} for your enthusiasm and feedback, it was very encouraging at a time the project was shaping out.
+Special thanks to \textit{Soltan\_G42} and \textit{Rysha} for your enthusiasm and feedback, it was very encouraging at a time the project was shaping out.
+
+And thanks to \textit{Psikyo}, since repairing and playing their \textit{Strikes 1945 PCB} helped me think about solutions and to clear my mind between coding and writing sessions.
 
 \end{appendices}
 
