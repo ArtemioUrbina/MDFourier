@@ -76,6 +76,8 @@ void ReleaseAudio(AudioSignal *Signal, parameters *config);
 void CleanMatched(AudioSignal *ReferenceSignal, AudioSignal *TestSignal, parameters *config);
 void FillFrequencyStructures(AudioBlocks *AudioArray, parameters *config);
 void PrintFrequencies(AudioSignal *Signal, parameters *config);
+void PrintFrequenciesBlock(AudioSignal *Signal, Frequency *freq, int type, parameters *config);
+void PrintFrequenciesBlockMagnitude(AudioSignal *Signal, Frequency *freq, int type, parameters *config);
 void GlobalNormalize(AudioSignal *Signal, parameters *config);
 void FindMaxMagnitude(AudioSignal *Signal, parameters *config);
 void CalculateAmplitudes(AudioSignal *Signal, double ZeroDbMagReference, parameters *config);

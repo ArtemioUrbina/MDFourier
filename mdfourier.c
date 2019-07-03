@@ -355,8 +355,8 @@ int LoadAndProcessAudioFiles(AudioSignal **ReferenceSignal, AudioSignal **Compar
 		NormalizeAudioByRatio(*ReferenceSignal, ratioRef);
 
 		// Uncomment if you want to check the WAV files as normalized
-		//SaveWAVEChunk(NULL, *ReferenceSignal, (*ReferenceSignal)->Samples, 0, (*ReferenceSignal)->header.Subchunk2Size, config); 
-		//SaveWAVEChunk(NULL, *ComparisonSignal, (*ComparisonSignal)->Samples, 0, (*ComparisonSignal)->header.Subchunk2Size, config); 
+		//SaveWAVEChunk(NULL, *ReferenceSignal, (*ReferenceSignal)->Samples, 0, (*ReferenceSignal)->header.fmt.Subchunk2Size, config); 
+		//SaveWAVEChunk(NULL, *ComparisonSignal, (*ComparisonSignal)->Samples, 0, (*ComparisonSignal)->header.fmt.Subchunk2Size, config); 
 	}
 
 	CompareFrameRates((*ReferenceSignal)->framerate, (*ComparisonSignal)->framerate, config);
@@ -562,6 +562,7 @@ void CloseFiles(FILE **ref, FILE **comp)
 
 int LoadFile(FILE *file, AudioSignal *Signal, parameters *config, char *fileName)
 {
+	int					found = 0;
 	struct	timespec	start, end;
 	double				seconds = 0;
 
@@ -571,58 +572,94 @@ int LoadFile(FILE *file, AudioSignal *Signal, parameters *config, char *fileName
 	if(!file)
 		return 0;
 
-	if(fread(&Signal->header, 1, sizeof(wav_hdr), file) != sizeof(wav_hdr))
+	if(fread(&Signal->header.riff, 1, sizeof(riff_hdr), file) != sizeof(riff_hdr))
 	{
 		logmsg("\tERROR: Invalid Audio file. File too small.\n");
 		return(0);
 	}
 
-	if(Signal->header.AudioFormat != 1) /* Check for PCM */
+	if(strncmp((char*)Signal->header.riff.RIFF, "RIFF", 4) != 0)
+	{
+		logmsg("\tERROR: Invalid Audio file. RIFF header not found.\n");
+		return(0);
+	}
+
+	if(strncmp((char*)Signal->header.riff.WAVE, "WAVE", 4) != 0)
+	{
+		logmsg("\tERROR: Invalid Audio file. WAVE header not found.\n");
+		return(0);
+	}
+
+	do
+	{
+		sub_chunk	schunk;
+
+		if(fread(&schunk, 1, sizeof(sub_chunk), file) != sizeof(sub_chunk))
+		{
+			logmsg("\tERROR: Invalid Audio file. File too small.\n");
+			return(0);
+		}
+		if(strncmp((char*)schunk.chunkID, "fmt", 3) != 0)
+			fseek(file, schunk.Size*sizeof(uint8_t), SEEK_CUR);
+		else
+		{
+			fseek(file, -1*sizeof(sub_chunk), SEEK_CUR);
+			found = 1;
+		}
+	}while(!found);
+
+	if(fread(&Signal->header.fmt, 1, sizeof(fmt_hdr), file) != sizeof(fmt_hdr))
+	{
+		logmsg("\tERROR: Invalid Audio file. File too small.\n");
+		return(0);
+	}
+
+	if(Signal->header.fmt.AudioFormat != 1) /* Check for PCM */
 	{
 		logmsg("\tERROR: Invalid Audio File. Only PCM encoding is supported\n\tPlease convert file to PCM 16 bit 44/48kHz.");
 		return(0);
 	}
 
-	if(Signal->header.NumOfChan != 2) /* Check for Stereo */
+	if(Signal->header.fmt.NumOfChan != 2) /* Check for Stereo */
 	{
 		logmsg("\tERROR: Invalid Audio file. Only Stereo files are supported.\n");
 		return(0);
 	}
 
-	if(Signal->header.bitsPerSample != 16) /* Check bit depth */
+	if(Signal->header.fmt.bitsPerSample != 16) /* Check bit depth */
 	{
 		logmsg("\tERROR: Invalid Audio file. Only 16 bit supported for now.\n\tPlease use 16 bit 44/48kHz.");
 		return(0);
 	}
 	
-	if(Signal->header.SamplesPerSec/2 < config->endHz)
+	if(Signal->header.fmt.SamplesPerSec/2 < config->endHz)
 	{
 		logmsg(" - %d Hz sample rate was too low for %d-%d Hz analysis\n",
-			 Signal->header.SamplesPerSec, config->startHz, config->endHz);
-		config->endHz = Signal->header.SamplesPerSec/2;
+			 Signal->header.fmt.SamplesPerSec, config->startHz, config->endHz);
+		config->endHz = Signal->header.fmt.SamplesPerSec/2;
 		logmsg(" - changed to %d-%d Hz\n", config->startHz, config->endHz);
 	}
 
 	// Default if none is found
 	Signal->framerate = GetMSPerFrame(Signal, config);
 
-	seconds = (double)Signal->header.Subchunk2Size/4.0/(double)Signal->header.SamplesPerSec;
+	seconds = (double)Signal->header.fmt.Subchunk2Size/4.0/(double)Signal->header.fmt.SamplesPerSec;
 	logmsg(" - Audio file is %dHz %dbits and %g seconds long\n", 
-		Signal->header.SamplesPerSec, Signal->header.bitsPerSample, seconds);
+		Signal->header.fmt.SamplesPerSec, Signal->header.fmt.bitsPerSample, seconds);
 
 	if(seconds < GetSignalTotalDuration(Signal->framerate, config))
 		logmsg(" - WARNING: Estimated file length is smaller than the expected %g seconds\n",
 				GetSignalTotalDuration(Signal->framerate, config));
 
-	Signal->Samples = (char*)malloc(sizeof(char)*Signal->header.Subchunk2Size);
+	Signal->Samples = (char*)malloc(sizeof(char)*Signal->header.fmt.Subchunk2Size);
 	if(!Signal->Samples)
 	{
 		logmsg("\tERROR: All Chunks malloc failed!\n");
 		return(0);
 	}
 
-	if(fread(Signal->Samples, 1, sizeof(char)*Signal->header.Subchunk2Size, file) !=
-			 sizeof(char)*Signal->header.Subchunk2Size)
+	if(fread(Signal->Samples, 1, sizeof(char)*Signal->header.fmt.Subchunk2Size, file) !=
+			 sizeof(char)*Signal->header.fmt.Subchunk2Size)
 	{
 		logmsg("\tERROR: Could not read the whole sample block from disk to RAM.\n");
 		return(0);
@@ -652,7 +689,7 @@ int LoadFile(FILE *file, AudioSignal *Signal, parameters *config, char *fileName
 		}
 		if(config->verbose)
 			logmsg(" %gs [%ld bytes]", 
-				BytesToSeconds(Signal->header.SamplesPerSec, Signal->startOffset),
+				BytesToSeconds(Signal->header.fmt.SamplesPerSec, Signal->startOffset),
 				Signal->startOffset);
 
 		if(GetLastSyncIndex(config) != NO_INDEX)
@@ -660,7 +697,7 @@ int LoadFile(FILE *file, AudioSignal *Signal, parameters *config, char *fileName
 			double diff = 0, expected = 0;
 
 			if(config->verbose)
-				logmsg(" to ");
+				logmsg(" to");
 			Signal->endOffset = DetectEndPulse(Signal->Samples, Signal->startOffset, Signal->header, config);
 			if(Signal->endOffset == -1)
 			{
@@ -670,7 +707,7 @@ int LoadFile(FILE *file, AudioSignal *Signal, parameters *config, char *fileName
 			}
 			if(config->verbose)
 				logmsg(" %gs [%ld bytes]\n", 
-					BytesToSeconds(Signal->header.SamplesPerSec, Signal->endOffset),
+					BytesToSeconds(Signal->header.fmt.SamplesPerSec, Signal->endOffset),
 					Signal->endOffset);
 			Signal->framerate = CalculateFrameRate(Signal, config);
 			logmsg(" - Detected %g Hz video signal (%gms per frame) from Audio file\n", 
@@ -716,7 +753,7 @@ int LoadFile(FILE *file, AudioSignal *Signal, parameters *config, char *fileName
 			return 0;
 		}
 		logmsg(" %gs [%ld bytes]\n", 
-				BytesToSeconds(Signal->header.SamplesPerSec, Signal->startOffset),
+				BytesToSeconds(Signal->header.fmt.SamplesPerSec, Signal->startOffset),
 				Signal->startOffset);
 	}
 
@@ -754,7 +791,7 @@ int ProcessFile(AudioSignal *Signal, parameters *config)
 		return 0;
 	}
 
-	buffersize = SecondsToBytes(Signal->header.SamplesPerSec, longest, NULL, NULL, NULL);
+	buffersize = SecondsToBytes(Signal->header.fmt.SamplesPerSec, longest, NULL, NULL, NULL);
 	buffer = (char*)malloc(buffersize);
 	if(!buffer)
 	{
@@ -762,7 +799,7 @@ int ProcessFile(AudioSignal *Signal, parameters *config)
 		return(0);
 	}
 
-	if(!initWindows(&windows, Signal->framerate, Signal->header.SamplesPerSec, config->window, config))
+	if(!initWindows(&windows, Signal->framerate, Signal->header.fmt.SamplesPerSec, config->window, config))
 		return 0;
 
 	if(config->drawWindows)
@@ -792,9 +829,9 @@ int ProcessFile(AudioSignal *Signal, parameters *config)
 		else
 			windowUsed = getWindowByLengthForInternalSync(&windows, frames);
 		
-		loadedBlockSize = SecondsToBytes(Signal->header.SamplesPerSec, duration, &leftover, &discardBytes, &leftDecimals);
+		loadedBlockSize = SecondsToBytes(Signal->header.fmt.SamplesPerSec, duration, &leftover, &discardBytes, &leftDecimals);
 
-		difference = GetByteSizeDifferenceByFrameRate(framerate, frames, Signal->header.SamplesPerSec, config);
+		difference = GetByteSizeDifferenceByFrameRate(framerate, frames, Signal->header.fmt.SamplesPerSec, config);
 
 		Signal->Blocks[i].index = GetBlockSubIndex(config, i);
 		Signal->Blocks[i].type = GetBlockType(config, i);
@@ -802,7 +839,7 @@ int ProcessFile(AudioSignal *Signal, parameters *config)
 		//logmsg("loadedBlockSize -diff %ld leftover %ld discardBytes %ld leftDecimals %g\n",
 			//	loadedBlockSize - difference, leftover, discardBytes, leftDecimals);
 		memset(buffer, 0, buffersize);
-		if(pos + loadedBlockSize > Signal->header.Subchunk2Size)
+		if(pos + loadedBlockSize > Signal->header.fmt.Subchunk2Size)
 		{
 			logmsg("\tunexpected end of File, please record the full Audio Test from the 240p Test Suite.\n");
 			break;
@@ -811,7 +848,7 @@ int ProcessFile(AudioSignal *Signal, parameters *config)
 
 		if(Signal->Blocks[i].type >= TYPE_SILENCE)
 		{
-			if(!ExecuteDFFT(&Signal->Blocks[i], (int16_t*)buffer, (loadedBlockSize-difference)/2, Signal->header.SamplesPerSec, windowUsed, config))
+			if(!ExecuteDFFT(&Signal->Blocks[i], (int16_t*)buffer, (loadedBlockSize-difference)/2, Signal->header.fmt.SamplesPerSec, windowUsed, config))
 				return 0;
 
 			FillFrequencyStructures(&Signal->Blocks[i], config);
@@ -848,11 +885,11 @@ int ProcessFile(AudioSignal *Signal, parameters *config)
 
 				logmsg(" - %s command delay: %g ms [%g frames]\n",
 					GetTypeName(config, Signal->Blocks[i].type),
-					BytesToSeconds(Signal->header.SamplesPerSec, internalSyncOffset)*1000.0,
-					BytesToFrames(Signal->header.SamplesPerSec, internalSyncOffset, Signal->framerate));
+					BytesToSeconds(Signal->header.fmt.SamplesPerSec, internalSyncOffset)*1000.0,
+					BytesToFrames(Signal->header.fmt.SamplesPerSec, internalSyncOffset, Signal->framerate));
 
 				// skip 150 ms sync tone and 150 ms silence, taken from config file
-				internalSyncOffset += SecondsToBytes(Signal->header.SamplesPerSec, syncLen, NULL, NULL, NULL);
+				internalSyncOffset += SecondsToBytes(Signal->header.fmt.SamplesPerSec, syncLen, NULL, NULL, NULL);
 
 				frames = GetInternalSyncTotalLength(i, config);
 				if(!frames)
@@ -862,7 +899,7 @@ int ProcessFile(AudioSignal *Signal, parameters *config)
 				}
 
 				seconds = FramesToSeconds(frames, Signal->framerate);
-				bytes = SecondsToBytes(Signal->header.SamplesPerSec, seconds, NULL, NULL, NULL);
+				bytes = SecondsToBytes(Signal->header.fmt.SamplesPerSec, seconds, NULL, NULL, NULL);
 
 				if(bytes <= internalSyncOffset)
 				{
@@ -1239,7 +1276,7 @@ MaxVolum FindMaxAmplitude(AudioSignal *Signal)
 
 	maxSampleValue.magnitude = 0;
 	maxSampleValue.offset = 0;
-	maxSampleValue.samplerate = Signal->header.SamplesPerSec;
+	maxSampleValue.samplerate = Signal->header.fmt.SamplesPerSec;
 	maxSampleValue.framerate = Signal->framerate;
 
 	if(!Signal)
@@ -1282,26 +1319,26 @@ int16_t FindLocalMaximumAroundSample(AudioSignal *Signal, MaxVolum refMax)
 		refFrames = refSeconds/(refMax.framerate/1000.0);
 	
 		tarSeconds = FramesToSeconds(refFrames, Signal->framerate);
-		pos = start + SecondsToBytes(Signal->header.SamplesPerSec, tarSeconds, NULL, NULL, NULL);
+		pos = start + SecondsToBytes(Signal->header.fmt.SamplesPerSec, tarSeconds, NULL, NULL, NULL);
 	}
 	else
 	{
 		pos = start + refMax.offset;
-		pos = (double)pos*(double)Signal->header.SamplesPerSec/(double)refMax.samplerate;
+		pos = (double)pos*(double)Signal->header.fmt.SamplesPerSec/(double)refMax.samplerate;
 	}
 
 	if(pos > end)
 		return 0;
 
-	// Search in 2/faction of Signal->header.SamplesPerSec
+	// Search in 2/faction of Signal->header.fmt.SamplesPerSec
 	// around the position of the sample
 
 	fraction = 60.0; // around 1 frame
-	if(pos - Signal->header.SamplesPerSec/fraction >= start)
-		start = pos - Signal->header.SamplesPerSec/fraction;
+	if(pos - Signal->header.fmt.SamplesPerSec/fraction >= start)
+		start = pos - Signal->header.fmt.SamplesPerSec/fraction;
 	
-	if(end >= pos + Signal->header.SamplesPerSec/fraction)
-		end = pos + Signal->header.SamplesPerSec/fraction;
+	if(end >= pos + Signal->header.fmt.SamplesPerSec/fraction)
+		end = pos + Signal->header.fmt.SamplesPerSec/fraction;
 
 	samples = (int16_t*)Signal->Samples;
 	for(i = start; i < end; i++)

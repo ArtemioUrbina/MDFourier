@@ -119,7 +119,8 @@ long int DetectPulseTrainSequence(Pulses *pulseArray, double targetFrequency, lo
 	*maxdetected = 0;
 	for(i = 0; i < TotalMS; i++)
 	{
-		if(pulseArray[i].amplitude >= config->types.pulseMinVol && pulseArray[i].hertz >= targetFrequency - 2.0 && pulseArray[i].hertz <= targetFrequency + 2.0) 
+		if(pulseArray[i].amplitude >= config->types.pulseMinVol 
+			&& pulseArray[i].hertz == targetFrequency)
 		{
 			if(!inside_pulse)
 			{
@@ -130,9 +131,7 @@ long int DetectPulseTrainSequence(Pulses *pulseArray, double targetFrequency, lo
 
 				pulse_amplitudes = 0;
 				pulse_amplitude = 0;
-				silence_amplitudes = 0;
-				silence_amplitude = 0;
-				last_pulse_start = 0;
+				//last_pulse_start = 0;
 				last_pulse_pos = 0;
 			}
 
@@ -142,20 +141,22 @@ long int DetectPulseTrainSequence(Pulses *pulseArray, double targetFrequency, lo
 			if(last_pulse_pos && i > last_pulse_pos + 2)
 			{
 				if(config->debugSync)
-					logmsg("pulse reset due to discontinuity at %ld: %ld and %ld\n", pulseArray[i].bytes, i, last_pulse_pos);
+					logmsg("pulse reset due to discontinuity at %ld: %ld and %ld\n", 
+							pulseArray[i].bytes, i, last_pulse_pos);
 
 				pulse_count = 0;
 				sequence_start = 0;
-				inside_silence = 0;
 				inside_pulse = 0;
 			}
 			else
 			{
-				if(config->debugSync)
-					logmsg("PULSE Increment at %ld (%ld)\n", pulseArray[i].bytes, i);
-
 				inside_pulse++;
 				last_pulse_pos = i;
+
+				if(config->debugSync)
+					logmsg("PULSE Increment [%ld] at %ld (%ld)\n", 
+						inside_pulse, pulseArray[i].bytes, i);
+
 				pulse_amplitudes += pulseArray[i].amplitude;
 			}
 
@@ -168,30 +169,40 @@ long int DetectPulseTrainSequence(Pulses *pulseArray, double targetFrequency, lo
 
 				pulse_count = 0;
 				sequence_start = 0;
-				inside_silence = 0;
 				inside_pulse = 0;
 			}
+
+			inside_silence = 0;
+			last_silence_pos = 0;
+			silence_amplitudes = 0;
+			silence_amplitude = 0;
 		}
-		else
+		else  // Was not matched to the pulse values
 		{
-			if(inside_pulse >= config->types.pulseFrameMinLen*factor)
+			//if(inside_pulse >= config->types.pulseFrameMinLen*factor)
+			if(inside_pulse || inside_silence)
 			{
 				if(last_silence_pos && i > last_silence_pos + 2)
 				{
 					if(config->debugSync)
-						logmsg("pulse silence due to discontinuity\n");
+						logmsg("reset due to SILENCE discontinuity %ld: %ld and %ld\n", 
+								pulseArray[i].bytes, i, last_silence_pos);
 	
 					pulse_count = 0;
 					sequence_start = 0;
 					inside_silence = 0;
 					inside_pulse = 0;
+					last_silence_pos = 0;
 				}
 				else
 				{
-					if(config->debugSync)
-						logmsg("SILENCE Increment at %ld (%ld)\n", pulseArray[i].bytes, i);
+					last_silence_pos = i;
+					inside_silence++;
 
-					inside_silence++;	
+					if(config->debugSync)
+						logmsg("SILENCE Increment [%ld] at %ld (%ld)\n", 
+							inside_silence, pulseArray[i].bytes, i);
+
 					silence_amplitudes += pulseArray[i].amplitude;
 				}
 
@@ -221,7 +232,7 @@ long int DetectPulseTrainSequence(Pulses *pulseArray, double targetFrequency, lo
 						sequence_start = 0;
 					}
 
-					inside_silence = 0;
+					//inside_silence = 0;
 					inside_pulse = 0;
 				}
 
@@ -236,6 +247,7 @@ long int DetectPulseTrainSequence(Pulses *pulseArray, double targetFrequency, lo
 					inside_pulse = 0;
 				}
 			}
+			/*
 			else
 			{
 				if(inside_pulse >= config->types.pulseFrameMaxLen*factor || inside_silence >= config->types.pulseFrameMaxLen*factor)
@@ -249,6 +261,7 @@ long int DetectPulseTrainSequence(Pulses *pulseArray, double targetFrequency, lo
 					inside_pulse = 0;
 				}
 			}
+			*/
 		}
 	}
 
@@ -267,7 +280,7 @@ long int DetectPulseInternal(char *Samples, wav_hdr header, int factor, long int
 	double				MaxMagnitude = 0, targetFrequency = 0;
 
 	// Not a real ms, just approximate
-	millisecondSize = RoundTo4bytes(floor((((double)header.SamplesPerSec*4.0)/1000.0)/(double)factor), NULL, NULL, NULL);
+	millisecondSize = RoundTo4bytes(floor((((double)header.fmt.SamplesPerSec*4.0)/1000.0)/(double)factor), NULL, NULL, NULL);
 	buffersize = millisecondSize*sizeof(char); 
 	buffer = (char*)malloc(buffersize);
 	if(!buffer)
@@ -276,7 +289,7 @@ long int DetectPulseInternal(char *Samples, wav_hdr header, int factor, long int
 		return(0);
 	}
 	
-	TotalMS = header.Subchunk2Size / buffersize - 1;
+	TotalMS = header.fmt.Subchunk2Size / buffersize - 1;
 	pulseArray = (Pulses*)malloc(sizeof(Pulses)*TotalMS);
 	if(!pulseArray)
 	{
@@ -291,14 +304,16 @@ long int DetectPulseInternal(char *Samples, wav_hdr header, int factor, long int
 	else
 		TotalMS /= 6;
 
-	targetFrequency = FindFrequencyBracket(GetPulseSyncFreq(config), millisecondSize/2, header.SamplesPerSec);
-
+	targetFrequency = FindFrequencyBracket(GetPulseSyncFreq(config), 	
+						millisecondSize/2, header.fmt.SamplesPerSec);
+	if(config->debugSync)
+		logmsg("Defined Sync %g Adjusted to %g\n", GetPulseSyncFreq(config), targetFrequency);
 	while(i < TotalMS)
 	{
 		loadedBlockSize = millisecondSize;
 
 		memset(buffer, 0, buffersize);
-		if(pos + loadedBlockSize > header.Subchunk2Size)
+		if(pos + loadedBlockSize > header.fmt.Subchunk2Size)
 		{
 			logmsg("\tunexpected end of File, please record the full Audio Test from the 240p Test Suite\n");
 			break;
@@ -324,7 +339,7 @@ long int DetectPulseInternal(char *Samples, wav_hdr header, int factor, long int
 
 		// We use left channel by default, we don't know about channel imbalances yet
 		ProcessChunkForSyncPulse((int16_t*)buffer, loadedBlockSize/2, 
-				header.SamplesPerSec, &pulseArray[i], 
+				header.fmt.SamplesPerSec, &pulseArray[i], 
 				config->channel == 's' ? 'l' : config->channel, targetFrequency, config);
 		if(pulseArray[i].magnitude > MaxMagnitude)
 			MaxMagnitude = pulseArray[i].magnitude;
@@ -344,6 +359,7 @@ long int DetectPulseInternal(char *Samples, wav_hdr header, int factor, long int
 			pulseArray[i].amplitude = NO_AMPLITUDE;
 	}
 
+	/*
 	if(config->debugSync)
 	{
 		logmsg("===== Searching for %gHz at %ddBFS =======\n", targetFrequency, config->types.pulseMinVol);
@@ -357,6 +373,7 @@ long int DetectPulseInternal(char *Samples, wav_hdr header, int factor, long int
 		}
 		logmsg("========  End listing =========\n");
 	}
+	*/
 
 	offset = DetectPulseTrainSequence(pulseArray, targetFrequency, TotalMS, factor, maxdetected, config);
 
@@ -525,7 +542,7 @@ long int DetectSignalStartInternal(char *Samples, wav_hdr header, int factor, lo
 	double 				targetFrequency = 0;
 
 	// Not a real ms, just approximate
-	millisecondSize = RoundTo4bytes(floor((((double)header.SamplesPerSec*4.0)/1000.0)/(double)factor), NULL, NULL, NULL);
+	millisecondSize = RoundTo4bytes(floor((((double)header.fmt.SamplesPerSec*4.0)/1000.0)/(double)factor), NULL, NULL, NULL);
 	buffersize = millisecondSize*sizeof(char); 
 	buffer = (char*)malloc(buffersize);
 	if(!buffer)
@@ -534,7 +551,7 @@ long int DetectSignalStartInternal(char *Samples, wav_hdr header, int factor, lo
 		return(0);
 	}
 	
-	TotalMS = header.Subchunk2Size / buffersize - 1;
+	TotalMS = header.fmt.Subchunk2Size / buffersize - 1;
 	pulseArray = (Pulses*)malloc(sizeof(Pulses)*TotalMS);
 	if(!pulseArray)
 	{
@@ -554,7 +571,7 @@ long int DetectSignalStartInternal(char *Samples, wav_hdr header, int factor, lo
 		loadedBlockSize = millisecondSize;
 
 		memset(buffer, 0, buffersize);
-		if(pos + loadedBlockSize > header.Subchunk2Size)
+		if(pos + loadedBlockSize > header.fmt.Subchunk2Size)
 		{
 			logmsg("\tunexpected end of File, please record the full Audio Test from the 240p Test Suite\n");
 			break;
@@ -580,7 +597,7 @@ long int DetectSignalStartInternal(char *Samples, wav_hdr header, int factor, lo
 
 		// we go stereo, any signal is fine here
 		ProcessChunkForSyncPulse((int16_t*)buffer, loadedBlockSize/2, 
-				header.SamplesPerSec, &pulseArray[i], 
+				header.fmt.SamplesPerSec, &pulseArray[i], 
 				's', 0, config);
 		if(pulseArray[i].magnitude > MaxMagnitude)
 			MaxMagnitude = pulseArray[i].magnitude;
@@ -614,7 +631,8 @@ long int DetectSignalStartInternal(char *Samples, wav_hdr header, int factor, lo
 	offset = 0;
 	
 	if(syncKnown)
-		targetFrequency = FindFrequencyBracket(syncKnown, millisecondSize/2, header.SamplesPerSec);
+		targetFrequency = FindFrequencyBracket(syncKnown, 
+					millisecondSize/2, header.fmt.SamplesPerSec);
 	for(i = 0; i < TotalMS; i++)
 	{
 		if(pulseArray[i].hertz)
@@ -625,12 +643,14 @@ long int DetectSignalStartInternal(char *Samples, wav_hdr header, int factor, lo
 			count ++;
 			average = total/count;
 
+/*
 			if(config->debugSync)
 				logmsg("B: %ld Hz: %g A: %g avg: %g\n", 
 					pulseArray[i].bytes, 
 					pulseArray[i].hertz, 
 					pulseArray[i].amplitude, 
 					average);
+*/
 
 			if(syncKnown)
 			{

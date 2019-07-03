@@ -136,7 +136,8 @@ int FLACtoWAV(char *input, char *output)
 		{
 			fprintf(stderr, "decoding: %s\n", ok? "succeeded" : "FAILED");
 			fprintf(stderr, "   state: %s\n", FLAC__StreamDecoderStateString[FLAC__stream_decoder_get_state(decoder)]);
-			return 0;
+
+			errorFLAC++;
 		}
 	}
 

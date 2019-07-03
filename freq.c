@@ -39,7 +39,7 @@ double FindFrequencyBinSizeForBlock(AudioSignal *Signal, long int block)
 	if(!Signal->Blocks)
 		return 0;
 	
-	return((double)Signal->header.SamplesPerSec/(double)Signal->Blocks[block].fftwValues.size);
+	return((double)Signal->header.fmt.SamplesPerSec/(double)Signal->Blocks[block].fftwValues.size);
 }
 
 double FindFrequencyBracket(double frequency, size_t size, long samplerate)
@@ -84,12 +84,12 @@ void CalcuateFrequencyBrackets(AudioSignal *Signal, parameters *config)
 
 		binSize = FindFrequencyBinSizeForBlock(Signal, index);
 
-		refreshNoise = FindFrequencyBracket(roundFloat(1000.0/Signal->framerate), Signal->Blocks[index].fftwValues.size, Signal->header.SamplesPerSec);
+		refreshNoise = FindFrequencyBracket(roundFloat(1000.0/Signal->framerate), Signal->Blocks[index].fftwValues.size, Signal->header.fmt.SamplesPerSec);
 		Signal->gridFrequencyLow = refreshNoise - binSize;
 		Signal->gridFrequencyHigh = refreshNoise + binSize;
 
-		Signal->HRefreshLow = FindFrequencyBracket(15625, Signal->Blocks[index].fftwValues.size, Signal->header.SamplesPerSec) - binSize;
-		Signal->HRefreshHigh = FindFrequencyBracket(15750, Signal->Blocks[index].fftwValues.size, Signal->header.SamplesPerSec) + binSize;
+		Signal->HRefreshLow = FindFrequencyBracket(15625, Signal->Blocks[index].fftwValues.size, Signal->header.fmt.SamplesPerSec) - binSize;
+		Signal->HRefreshHigh = FindFrequencyBracket(15750, Signal->Blocks[index].fftwValues.size, Signal->header.fmt.SamplesPerSec) + binSize;
 	}
 	else
 	{
@@ -867,7 +867,7 @@ long int GetLastSilenceByteOffset(double framerate, wav_hdr header, int frameAdj
 
 			// We remove 10 frames in order to not miss it due to frame rate differences
 			offset = FramesToSeconds(GetBlockFrameOffset(i, config) - frameAdjust, framerate);
-			offset = SecondsToBytes(header.SamplesPerSec, offset, NULL, NULL, NULL);
+			offset = SecondsToBytes(header.fmt.SamplesPerSec, offset, NULL, NULL, NULL);
 			return(offset);
 		}
 	}
@@ -1410,6 +1410,54 @@ void CleanMatched(AudioSignal *ReferenceSignal, AudioSignal *TestSignal, paramet
 	}
 }
 
+void PrintFrequenciesBlockMagnitude(AudioSignal *Signal, Frequency *freq, int type, parameters *config)
+{
+	if(!freq)
+		return;
+
+	for(int j = 0; j < config->MaxFreq; j++)
+	{
+		if(freq[j].hertz)
+		{
+			logmsg("Frequency [%5d] %7g Hz Magnitude: %g Phase: %g",
+				j, 
+				freq[j].hertz,
+				freq[j].magnitude,
+				freq[j].phase);
+			/* detect VideoRefresh frequency */
+			if(Signal && IsHRefreshNoise(Signal, freq[j].hertz))
+				logmsg(" [Horizontal Refresh Noise?]");
+			logmsg("\n");
+		}
+	}
+}
+
+
+void PrintFrequenciesBlock(AudioSignal *Signal, Frequency *freq, int type, parameters *config)
+{
+	if(!freq)
+		return;
+
+	for(int j = 0; j < config->MaxFreq; j++)
+	{
+		if(type != TYPE_SILENCE && config->significantAmplitude > freq[j].amplitude)
+			break;
+
+		if(freq[j].hertz && freq[j].amplitude != NO_AMPLITUDE)
+		{
+			logmsg("Frequency [%5d] %7g Hz Amplitude: %g dBFS Phase: %g",
+				j, 
+				freq[j].hertz,
+				freq[j].amplitude,
+				freq[j].phase);
+			/* detect VideoRefresh frequency */
+			if(Signal && IsHRefreshNoise(Signal, freq[j].hertz))
+				logmsg(" [Horizontal Refresh Noise?]");
+			logmsg("\n");
+		}
+	}
+}
+
 void PrintFrequencies(AudioSignal *Signal, parameters *config)
 {
 	OutputFileOnlyStart();
@@ -1417,33 +1465,13 @@ void PrintFrequencies(AudioSignal *Signal, parameters *config)
 	for(int block = 0; block < config->types.totalChunks; block++)
 	{
 		int type = TYPE_NOTYPE;
+
 		logmsg("==================== %s# %d (%d) ===================\n", 
 				GetBlockName(config, block), GetBlockSubIndex(config, block), block);
 
 		type = GetBlockType(config, block);
-		for(int j = 0; j < config->MaxFreq; j++)
-		{
-			if(type != TYPE_SILENCE && config->significantAmplitude > Signal->Blocks[block].freq[j].amplitude)
-				break;
-
-			//if(Signal->Blocks[block].freq[j].amplitude == NO_AMPLITUDE)
-				//break;
-
-			if(Signal->Blocks[block].freq[j].hertz && Signal->Blocks[block].freq[j].amplitude != NO_AMPLITUDE)
-			{
-				logmsg("Frequency [%5d] %7g Hz Amplitude: %g Phase: %g",
-					j, 
-					Signal->Blocks[block].freq[j].hertz,
-					Signal->Blocks[block].freq[j].amplitude,
-					Signal->Blocks[block].freq[j].phase);
-				/* detect VideoRefresh frequency */
-				if(IsHRefreshNoise(Signal, Signal->Blocks[block].freq[j].hertz))
-					logmsg(" [Horizontal Refresh Noise?]");
-				logmsg("\n");
-			}
-		}
+		PrintFrequenciesBlock(Signal, Signal->Blocks[block].freq, type, config);
 	}
-
 	OutputFileOnlyEnd();
 }
 
@@ -1783,7 +1811,7 @@ double CalculateFrameRate(AudioSignal *Signal, parameters *config)
 
 	startOffset = Signal->startOffset;
 	endOffset = Signal->endOffset;
-	samplerate = Signal->header.SamplesPerSec;
+	samplerate = Signal->header.fmt.SamplesPerSec;
 	LastSyncFrameOffset = GetLastSyncFrameOffset(Signal->header, config);
 	expectedFR = GetMSPerFrame(Signal, config);
 

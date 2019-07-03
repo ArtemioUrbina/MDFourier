@@ -117,8 +117,8 @@ int SaveWAVEChunk(char *filename, AudioSignal *Signal, char *buffer, long int bl
 		return 0;
 	}
 
-	cheader.ChunkSize = loadedBlockSize+36;
-	cheader.Subchunk2Size = loadedBlockSize;
+	cheader.riff.ChunkSize = loadedBlockSize+36;
+	cheader.fmt.Subchunk2Size = loadedBlockSize;
 	if(fwrite(&cheader, 1, sizeof(wav_hdr), chunk) != sizeof(wav_hdr))
 	{
 		logmsg("\tCould not write chunk header to file %s\n", filename);

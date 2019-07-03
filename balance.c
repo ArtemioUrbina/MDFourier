@@ -42,7 +42,7 @@ int CheckBalance(AudioSignal *Signal, int block, parameters *config)
 	size_t			buffersize = 0;
 	windowManager	windows;
 	double			*windowUsed = NULL;
-	long int		loadedBlockSize = 0, i = 0;
+	long int		loadedBlockSize = 0, i = 0, matchIndex = 0;
 	struct timespec	start, end;
 	int				leftover = 0, discardBytes = 0;
 	double			leftDecimals = 0, diff = 0;
@@ -59,7 +59,7 @@ int CheckBalance(AudioSignal *Signal, int block, parameters *config)
 		return 0;
 	}
 
-	buffersize = SecondsToBytes(Signal->header.SamplesPerSec, longest, NULL, NULL, NULL);
+	buffersize = SecondsToBytes(Signal->header.fmt.SamplesPerSec, longest, NULL, NULL, NULL);
 	buffer = (char*)malloc(buffersize);
 	if(!buffer)
 	{
@@ -68,7 +68,7 @@ int CheckBalance(AudioSignal *Signal, int block, parameters *config)
 	}
 
 	// Use flattop for Amplitude accuracy
-	if(!initWindows(&windows, Signal->framerate, Signal->header.SamplesPerSec, 'f', config))
+	if(!initWindows(&windows, Signal->framerate, Signal->header.fmt.SamplesPerSec, 'f', config))
 		return 0;
 
 	if(config->clock)
@@ -83,9 +83,9 @@ int CheckBalance(AudioSignal *Signal, int block, parameters *config)
 		duration = FramesToSeconds(Signal->framerate, frames);
 		windowUsed = getWindowByLength(&windows, frames);
 		
-		loadedBlockSize = SecondsToBytes(Signal->header.SamplesPerSec, duration, &leftover, &discardBytes, &leftDecimals);
+		loadedBlockSize = SecondsToBytes(Signal->header.fmt.SamplesPerSec, duration, &leftover, &discardBytes, &leftDecimals);
 
-		difference = GetByteSizeDifferenceByFrameRate(Signal->framerate, frames, Signal->header.SamplesPerSec, config);
+		difference = GetByteSizeDifferenceByFrameRate(Signal->framerate, frames, Signal->header.fmt.SamplesPerSec, config);
 
 		if(i == block)
 		{
@@ -96,7 +96,7 @@ int CheckBalance(AudioSignal *Signal, int block, parameters *config)
 			Channels[1].type = Channels[0].type;
 
 			memset(buffer, 0, buffersize);
-			if(pos + loadedBlockSize > Signal->header.Subchunk2Size)
+			if(pos + loadedBlockSize > Signal->header.fmt.Subchunk2Size)
 			{
 				logmsg("\tunexpected end of File, please record the full Audio Test from the 240p Test Suite\n");
 				break;
@@ -104,22 +104,22 @@ int CheckBalance(AudioSignal *Signal, int block, parameters *config)
 			
 			memcpy(buffer, Signal->Samples + pos, loadedBlockSize-difference);
 	
-			if(!ExecuteBalanceDFFT(&Channels[0], (int16_t*)buffer, (loadedBlockSize-difference)/2, Signal->header.SamplesPerSec, windowUsed, 'l', config))
+			if(!ExecuteBalanceDFFT(&Channels[0], (int16_t*)buffer, (loadedBlockSize-difference)/2, Signal->header.fmt.SamplesPerSec, windowUsed, 'l', config))
 				return 0;
 
-			if(!ExecuteBalanceDFFT(&Channels[1], (int16_t*)buffer, (loadedBlockSize-difference)/2, Signal->header.SamplesPerSec, windowUsed, 'r', config))
+			if(!ExecuteBalanceDFFT(&Channels[1], (int16_t*)buffer, (loadedBlockSize-difference)/2, Signal->header.fmt.SamplesPerSec, windowUsed, 'r', config))
 				return 0;
 
 			Channels[0].freq = (Frequency*)malloc(sizeof(Frequency)*config->MaxFreq);
 			if(!Channels[0].freq)
 			{
-				logmsg("Not enough memory for Data Structures\n");
+				logmsg("ERROR: Not enough memory for Data Structures\n");
 				return 0;
 			}
 			Channels[1].freq = (Frequency*)malloc(sizeof(Frequency)*config->MaxFreq);
 			if(!Channels[1].freq)
 			{
-				logmsg("Not enough memory for Data Structures\n");
+				logmsg("ERROR: Not enough memory for Data Structures\n");
 				return 0;
 			}
 			FillFrequencyStructures(&Channels[0], config);
@@ -133,40 +133,60 @@ int CheckBalance(AudioSignal *Signal, int block, parameters *config)
 
 	if(!Channels[0].freq || !Channels[1].freq)
 	{
-		logmsg("Error detecting Stereo channel balance\n");
-		return 0;
-	}
-
-	if(Channels[0].freq[0].hertz != Channels[1].freq[0].hertz)
-	{
 		if(Channels[0].freq)
 			free(Channels[0].freq);
 		if(Channels[1].freq)
 			free(Channels[1].freq);
 
-		logmsg("\nWARNING: Channel balance block has different frequency content.\n");
-		logmsg("\tNot a MONO signal for balance check.\n");
+		logmsg("- Could not detect Stereo channel balance.\n");
 		return 0;
 	}
 
-	diff = fabs(Channels[0].freq[0].magnitude - Channels[1].freq[0].magnitude);
+	if(Channels[0].freq[0].hertz != Channels[1].freq[matchIndex].hertz)
+		matchIndex = 1;
+
+	if(Channels[0].freq[0].hertz != Channels[1].freq[matchIndex].hertz)
+	{
+		logmsg("\nWARNING: Channel balance block has different frequency content.\n");
+		logmsg("\tNot a MONO signal for balance check. [%s# %d (%d) at %g Hz vs (%g Hz and %g Hz)]\n",
+					GetBlockName(config, block), GetBlockSubIndex(config, block),
+					block, Channels[0].freq[0].hertz, Channels[1].freq[0].hertz, Channels[1].freq[1].hertz);
+
+		if(config->verbose)
+		{
+			OutputFileOnlyStart();
+			logmsg("Left Channel:\n");
+			PrintFrequenciesBlockMagnitude(NULL, Channels[0].freq, GetBlockType(config, block), config);
+			logmsg("Right Channel:\n");
+			PrintFrequenciesBlockMagnitude(NULL, Channels[1].freq, GetBlockType(config, block), config);
+			OutputFileOnlyEnd();
+		}
+		if(Channels[0].freq)
+			free(Channels[0].freq);
+		if(Channels[1].freq)
+			free(Channels[1].freq);
+
+		return 0;
+	}
+
+	diff = fabs(Channels[0].freq[0].magnitude - Channels[1].freq[matchIndex].magnitude);
 	if(diff > 0.0)
 	{
 		double 	ratio = 0;
 		double 	channDiff = 0;
 		char	diffNam = '\0';
 
-		if(Channels[0].freq[0].magnitude > Channels[1].freq[0].magnitude)
+		if(Channels[0].freq[0].magnitude > Channels[1].freq[matchIndex].magnitude)
 		{
 			diffNam = 'l';
 			channDiff = diff*100.0/Channels[0].freq[0].magnitude;
-			ratio = Channels[1].freq[0].magnitude/Channels[0].freq[0].magnitude;
+			ratio = Channels[1].freq[matchIndex].magnitude/Channels[0].freq[0].magnitude;
 		}
 		else
 		{
 			diffNam = 'r';
-			channDiff = diff*100.0/Channels[1].freq[0].magnitude;
-			ratio = Channels[0].freq[0].magnitude/Channels[1].freq[0].magnitude;
+			channDiff = diff*100.0/Channels[1].freq[matchIndex].magnitude;
+			ratio = Channels[0].freq[0].magnitude/Channels[1].freq[matchIndex].magnitude;
 		}
 
 		if(channDiff >= 1.0 || (channDiff > 0.0 && !config->channelBalance))

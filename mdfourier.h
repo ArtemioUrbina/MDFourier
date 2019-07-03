@@ -49,7 +49,7 @@
 
 #include "incbeta.h"
 
-#define MDVERSION "0.923"
+#define MDVERSION "0.924"
 
 
 #define MAX_FREQ_COUNT		100000 	/* Number of frequencies to compare(MAX) */
@@ -149,12 +149,24 @@ typedef struct abd_st {
 
 /********************************************************/
 /* WAV data structures */
-typedef struct	WAV_HEADER
+
+typedef struct	RIFF_HEADER
 {
 	/* RIFF Chunk Descriptor */
 	uint8_t 		RIFF[4];		/* RIFF Header Magic header */
 	uint32_t		ChunkSize;		/* RIFF Chunk Size */
 	uint8_t 		WAVE[4];		/* WAVE Header */
+} riff_hdr;
+
+typedef struct	SYB_CHUNK
+{
+	/* sub-chunk */
+	uint8_t 		chunkID[4]; 	/* Chunk ID */
+	uint32_t		Size;			/* Size of the SubChunk */
+} sub_chunk;
+
+typedef struct	FMT_HEADER
+{
 	/* "fmt" sub-chunk */
 	uint8_t 		fmt[4]; 		/* FMT header */
 	uint32_t		Subchunk1Size;	/* Size of the fmt chunk */
@@ -167,7 +179,14 @@ typedef struct	WAV_HEADER
 	/* "data" sub-chunk */
 	uint8_t 		Subchunk2ID[4]; /* "data"  string */
 	uint32_t		Subchunk2Size;	/* Sampled data length */
+} fmt_hdr;
+
+typedef struct	WAV_HEADER
+{
+	riff_hdr	riff;
+	fmt_hdr		fmt;
 } wav_hdr;
+
 /********************************************************/
 
 typedef struct FrequencySt {
