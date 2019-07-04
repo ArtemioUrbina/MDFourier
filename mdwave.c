@@ -317,13 +317,15 @@ int LoadFile(FILE *file, AudioSignal *Signal, parameters *config, char *fileName
 
 	if(GetFirstSyncIndex(config) != NO_INDEX)
 	{
+		double	maxMag = 0;
+
 		if(config->clock)
 			clock_gettime(CLOCK_MONOTONIC, &start);
 
 		/* Find the start offset */
 		if(config->verbose)
 			logmsg(" - Sync pulse train: ");
-		Signal->startOffset = DetectPulse(Signal->Samples, Signal->header, config);
+		Signal->startOffset = DetectPulse(Signal->Samples, Signal->header, &maxMag, config);
 		if(Signal->startOffset == -1)
 		{
 			logmsg("\nStarting pulse train was not detected\n");
@@ -340,7 +342,7 @@ int LoadFile(FILE *file, AudioSignal *Signal, parameters *config, char *fileName
 
 			if(config->verbose)
 				logmsg(" to");
-			Signal->endOffset = DetectEndPulse(Signal->Samples, Signal->startOffset, Signal->header, config);
+			Signal->endOffset = DetectEndPulse(Signal->Samples, Signal->startOffset, Signal->header, &maxMag, config);
 			if(Signal->endOffset == -1)
 			{
 				logmsg("\nERROR: Trailing sync pulse train was not detected, aborting.\n");

@@ -30,7 +30,7 @@
 #include "log.h"
 #include "freq.h"
 
-long int DetectPulse(char *AllSamples, wav_hdr header, parameters *config)
+long int DetectPulse(char *AllSamples, wav_hdr header, double *MaxMagnitude, parameters *config)
 {
 	int			maxdetected = 0;
 	long int	position = 0, offset = 0;
@@ -40,7 +40,7 @@ long int DetectPulse(char *AllSamples, wav_hdr header, parameters *config)
 	if(config->debugSync)
 		logmsg("\nStarting Detect start pulse\n");
 
-	position = DetectPulseInternal(AllSamples, header, 4, 0, &maxdetected, config);
+	position = DetectPulseInternal(AllSamples, header, 4, 0, &maxdetected, MaxMagnitude, config);
 	if(position == -1)
 	{
 		if(config->debugSync)
@@ -57,14 +57,14 @@ long int DetectPulse(char *AllSamples, wav_hdr header, parameters *config)
 	if(config->debugSync)
 		logmsg("First round start pulse detected at %ld, refinement\n", offset);
 
-	position = DetectPulseInternal(AllSamples, header, 9, offset, &maxdetected, config);
+	position = DetectPulseInternal(AllSamples, header, 9, offset, &maxdetected, MaxMagnitude, config);
 	if(config->debugSync)
 		logmsg("Start pulse return value %ld\n", position);
 	OutputFileOnlyEnd();
 	return position;
 }
 
-long int DetectEndPulse(char *AllSamples, long int startpulse, wav_hdr header, parameters *config)
+long int DetectEndPulse(char *AllSamples, long int startpulse, wav_hdr header, double *MaxMagnitude, parameters *config)
 {
 	int			maxdetected = 0, frameAdjust = 0, tries = 0;
 	long int 	position = 0, offset = 0;
@@ -79,7 +79,7 @@ long int DetectEndPulse(char *AllSamples, long int startpulse, wav_hdr header, p
 		if(config->debugSync)
 			logmsg("Starting Detect end pulse with offset %ld\n", offset);
 	
-		position = DetectPulseInternal(AllSamples, header, 4, offset, &maxdetected, config);
+		position = DetectPulseInternal(AllSamples, header, 4, offset, &maxdetected, MaxMagnitude, config);
 		if(position == -1 && !maxdetected)
 		{
 			if(config->debugSync)
@@ -100,7 +100,7 @@ long int DetectEndPulse(char *AllSamples, long int startpulse, wav_hdr header, p
 	if(config->debugSync)
 		logmsg("First round end pulse detected at %ld, refinement\n", offset);
 
-	position = DetectPulseInternal(AllSamples, header, 9, offset, &maxdetected, config);
+	position = DetectPulseInternal(AllSamples, header, 9, offset, &maxdetected, MaxMagnitude, config);
 	if(config->debugSync)
 		logmsg("End pulse return value %ld\n", position);
 	OutputFileOnlyEnd();
@@ -125,7 +125,8 @@ long int DetectPulseTrainSequence(Pulses *pulseArray, double targetFrequency, lo
 			if(!inside_pulse)
 			{
 				if(config->debugSync)
-					logmsg("PULSE Start %ld\n", pulseArray[i].bytes);
+					logmsg("PULSE Start %ld [%gHz %gdBFS]\n", 
+							pulseArray[i].bytes, pulseArray[i].hertz, pulseArray[i].amplitude);
 
 				pulse_start = pulseArray[i].bytes;
 
@@ -269,7 +270,7 @@ long int DetectPulseTrainSequence(Pulses *pulseArray, double targetFrequency, lo
 	return -1;
 }
 
-long int DetectPulseInternal(char *Samples, wav_hdr header, int factor, long int offset, int *maxdetected, parameters *config)
+long int DetectPulseInternal(char *Samples, wav_hdr header, int factor, long int offset, int *maxdetected, double *MaxMagnitude, parameters *config)
 {
 	long int			i = 0, TotalMS = 0;
 	long int			loadedBlockSize = 0;
@@ -277,7 +278,7 @@ long int DetectPulseInternal(char *Samples, wav_hdr header, int factor, long int
 	size_t			 	buffersize = 0;
 	long int			pos = 0, millisecondSize = 0;
 	Pulses				*pulseArray;
-	double				MaxMagnitude = 0, targetFrequency = 0;
+	double				targetFrequency = 0;
 
 	// Not a real ms, just approximate
 	millisecondSize = RoundTo4bytes(floor((((double)header.fmt.SamplesPerSec*4.0)/1000.0)/(double)factor), NULL, NULL, NULL);
@@ -341,20 +342,20 @@ long int DetectPulseInternal(char *Samples, wav_hdr header, int factor, long int
 		ProcessChunkForSyncPulse((int16_t*)buffer, loadedBlockSize/2, 
 				header.fmt.SamplesPerSec, &pulseArray[i], 
 				config->channel == 's' ? 'l' : config->channel, targetFrequency, config);
-		if(pulseArray[i].magnitude > MaxMagnitude)
-			MaxMagnitude = pulseArray[i].magnitude;
+		if(pulseArray[i].magnitude > *MaxMagnitude)
+			*MaxMagnitude = pulseArray[i].magnitude;
 		i++;
 	}
 
 	/*
 	if(config->debugSync)
-		logmsg("MaxMagnitude: %g\n", MaxMagnitude);
+		logmsg("MaxMagnitude: %g\n", *MaxMagnitude);
 	*/
 
 	for(i = 0; i < TotalMS; i++)
 	{
 		if(pulseArray[i].hertz)
-			pulseArray[i].amplitude = CalculateAmplitude(pulseArray[i].magnitude, MaxMagnitude);
+			pulseArray[i].amplitude = CalculateAmplitude(pulseArray[i].magnitude, *MaxMagnitude);
 		else
 			pulseArray[i].amplitude = NO_AMPLITUDE;
 	}
