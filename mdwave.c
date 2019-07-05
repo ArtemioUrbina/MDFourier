@@ -399,6 +399,8 @@ int LoadFile(FILE *file, AudioSignal *Signal, parameters *config, char *fileName
 		logmsg(" %gs [%ld bytes]\n", 
 				BytesToSeconds(Signal->header.fmt.SamplesPerSec, Signal->startOffset),
 				Signal->startOffset);
+		Signal->endOffset = SecondsToBytes(Signal->header.fmt.SamplesPerSec, 
+				GetSignalTotalDuration(Signal->framerate, config), NULL, NULL, NULL);
 	}
 
 	if(seconds < GetSignalTotalDuration(Signal->framerate, config))

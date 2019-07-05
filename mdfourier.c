@@ -427,10 +427,17 @@ int LoadAndProcessAudioFiles(AudioSignal **ReferenceSignal, AudioSignal **Compar
 			ratio = CompAvg/RefAvg;
 		if(ratio > 10)
 		{
-			logmsg("\nWARNING: Average frequency difference after normalization\n");
-			logmsg("\tbetween the signals is too high (ratio:%g to 1)\n", ratio);
-			logmsg("\tIf results make no sense, try using the Time domain normalization\n");
-			logmsg("\toption, enabled with the -n t option.\n\n");
+			logmsg("\n=====WARNING=====\n");
+			logmsg("\tAverage frequency difference after normalization between the signals is too high.\n");
+			logmsg("\t(Ratio:%g to 1)\n", ratio);
+			logmsg("\tIf results make no sense (emply graphs), please try the following in the Extra Commands box:\n");
+			logmsg("\t* Compare just the left channel: -a l\n");
+			logmsg("\t* Compare just the right channel: -a r\n");
+			logmsg("\t* Use Time Domain normalization: -n t\n");
+			logmsg("\tThis can be caused by comparing different signals, a capacitor problem in one channel\n");
+			logmsg("\twhen comparing stereo recorings, etc. Details stored in log file.\n\n");
+			PrintFrequenciesWMagnitudes(*ReferenceSignal, config);
+			PrintFrequenciesWMagnitudes(*ComparisonSignal, config);
 		}
 	}
 
@@ -757,6 +764,8 @@ int LoadFile(FILE *file, AudioSignal *Signal, parameters *config, char *fileName
 		logmsg(" %gs [%ld bytes]\n", 
 				BytesToSeconds(Signal->header.fmt.SamplesPerSec, Signal->startOffset),
 				Signal->startOffset);
+		Signal->endOffset = SecondsToBytes(Signal->header.fmt.SamplesPerSec, 
+								GetSignalTotalDuration(Signal->framerate, config), NULL, NULL, NULL);
 	}
 
 	if(seconds < GetSignalTotalDuration(Signal->framerate, config))
@@ -1274,7 +1283,7 @@ MaxVolum FindMaxAmplitude(AudioSignal *Signal)
 {
 	long int 		i = 0, start = 0, end = 0;
 	int16_t			*samples = NULL;
-	MaxVolum	maxSampleValue;
+	MaxVolum		maxSampleValue;
 
 	maxSampleValue.magnitude = 0;
 	maxSampleValue.offset = 0;

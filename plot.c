@@ -707,7 +707,8 @@ void DrawMatchBar(PlotFile *plot, int colorName, double x, double y, double widt
 	pl_filltype_r(plot->plotter, 1);
 	SetPenColor(colorName, 0x8888, plot);
 	SetFillColor(colorName, 0x8888, plot);
-	pl_fbox_r(plot->plotter, x, y, x+(notFound*width/total), y+height);
+	if(total)
+		pl_fbox_r(plot->plotter, x, y, x+(notFound*width/total), y+height);
 
 	// Border
 	pl_filltype_r(plot->plotter, 0);
@@ -717,7 +718,7 @@ void DrawMatchBar(PlotFile *plot, int colorName, double x, double y, double widt
 	pl_filltype_r(plot->plotter, 0);
 
 	// percent
-	if(config->showPercent)
+	if(config->showPercent && total)
 	{
 		pl_ffontsize_r(plot->plotter, config->plotResY/60);
 		pl_ffontname_r(plot->plotter, "HersheySans");

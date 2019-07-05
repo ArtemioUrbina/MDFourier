@@ -552,6 +552,11 @@ int LoadAudioNoSyncProfile(FILE *file, parameters *config)
 	char	buffer[PARAM_BUFFER_SIZE];
 
 	config->noSyncProfile = 1;
+	if(config->plotDifferences)
+	{
+		config->averagePlot = 1;
+		config->plotDifferences = 0;
+	}
 
 	sscanf(lineBuffer, "%*s %s\n", buffer);
 	if(atof(buffer) > 1.0)
@@ -1456,6 +1461,23 @@ void PrintFrequenciesBlock(AudioSignal *Signal, Frequency *freq, int type, param
 			logmsg("\n");
 		}
 	}
+}
+
+void PrintFrequenciesWMagnitudes(AudioSignal *Signal, parameters *config)
+{
+	OutputFileOnlyStart();
+
+	for(int block = 0; block < config->types.totalChunks; block++)
+	{
+		int type = TYPE_NOTYPE;
+
+		logmsg("==================== %s# %d (%d) ===================\n", 
+				GetBlockName(config, block), GetBlockSubIndex(config, block), block);
+
+		type = GetBlockType(config, block);
+		PrintFrequenciesBlockMagnitude(Signal, Signal->Blocks[block].freq, type, config);
+	}
+	OutputFileOnlyEnd();
 }
 
 void PrintFrequencies(AudioSignal *Signal, parameters *config)

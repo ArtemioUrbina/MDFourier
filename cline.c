@@ -228,7 +228,7 @@ int commandline(int argc , char *argv[], parameters *config)
 		break;
 	  case 'd':
 		config->maxDbPlotZC = atof(optarg);
-		if(config->maxDbPlotZC < 0.1 || config->maxDbPlotZC > 60.0)
+		if(config->maxDbPlotZC < 0.1 || config->maxDbPlotZC > 96.0)
 			config->maxDbPlotZC = DB_HEIGHT;
 		break;
 	  case 'f':
