@@ -503,7 +503,7 @@ double ProcessChunkForSyncPulse(int16_t *samples, size_t size, long samplerate, 
 	return(maxHertz);
 }
 
-long int DetectSignalStart(char *AllSamples, wav_hdr header, long int offset, int syncKnow, parameters *config)
+long int DetectSignalStart(char *AllSamples, wav_hdr header, long int offset, int syncKnow, long int *endPulse, parameters *config)
 {
 	int			maxdetected = 0;
 	long int	position = 0;
@@ -513,7 +513,7 @@ long int DetectSignalStart(char *AllSamples, wav_hdr header, long int offset, in
 	if(config->debugSync)
 		logmsg("\nStarting Detect Signal\n");
 
-	position = DetectSignalStartInternal(AllSamples, header, 9, offset, syncKnow, &maxdetected, config);
+	position = DetectSignalStartInternal(AllSamples, header, 9, offset, syncKnow, &maxdetected, endPulse, config);
 	if(position == -1)
 	{
 		if(config->debugSync)
@@ -529,7 +529,7 @@ long int DetectSignalStart(char *AllSamples, wav_hdr header, long int offset, in
 	return position;
 }
 
-long int DetectSignalStartInternal(char *Samples, wav_hdr header, int factor, long int offset, int syncKnown, int *maxdetected, parameters *config)
+long int DetectSignalStartInternal(char *Samples, wav_hdr header, int factor, long int offset, int syncKnown, int *maxdetected, long int *endPulse, parameters *config)
 {
 	long int			i = 0, TotalMS = 0;
 	long int			loadedBlockSize = 0;
@@ -539,7 +539,7 @@ long int DetectSignalStartInternal(char *Samples, wav_hdr header, int factor, lo
 	double				MaxMagnitude = 0;
 	Pulses				*pulseArray;
 	double 				total = 0;
-	long int 			count = 0;
+	long int 			count = 0, length = 0;
 	double 				targetFrequency = 0;
 
 	// Not a real ms, just approximate
@@ -629,8 +629,10 @@ long int DetectSignalStartInternal(char *Samples, wav_hdr header, int factor, lo
 	*/
 
 	// if not found, compare all
-	offset = 0;
-	
+	offset = -1;
+	if(endPulse) 
+		*endPulse = -1;
+
 	if(syncKnown)
 		targetFrequency = FindFrequencyBracket(syncKnown, 
 					millisecondSize/2, header.fmt.SamplesPerSec);
@@ -658,8 +660,18 @@ long int DetectSignalStartInternal(char *Samples, wav_hdr header, int factor, lo
 				if(pulseArray[i].amplitude > config->types.pulseMinVol &&
 					pulseArray[i].hertz >= targetFrequency - 2.0 && pulseArray[i].hertz <= targetFrequency + 2.0)
 				{
-					offset = pulseArray[i].bytes;
-					break;
+					if(offset == -1)
+						offset = pulseArray[i].bytes;
+					length++;
+				}
+				else
+				{
+					if(offset && length)
+					{
+						if(endPulse)
+							*endPulse = pulseArray[i].bytes;
+						break;
+					}
 				}
 			}
 			else

@@ -41,6 +41,6 @@ long int DetectPulseInternal(char *Samples, wav_hdr header, int factor, long int
 double ProcessChunkForSyncPulse(int16_t *samples, size_t size, long samplerate, Pulses *pulse, char channel, double target, parameters *config);
 long int DetectPulseTrainSequence(Pulses *pulseArray, double targetFrequency, long int TotalMS, int factor, int *maxdetected, parameters *config);
 
-long int DetectSignalStart(char *AllSamples, wav_hdr header, long int offset, int syncKnow, parameters *config);
-long int DetectSignalStartInternal(char *Samples, wav_hdr header, int factor, long int offset, int syncKnow, int *maxdetected, parameters *config);
+long int DetectSignalStart(char *AllSamples, wav_hdr header, long int offset, int syncKnow, long int *endPulse, parameters *config);
+long int DetectSignalStartInternal(char *Samples, wav_hdr header, int factor, long int offset, int syncKnow, int *maxdetected, long int *endPulse, parameters *config);
 #endif

@@ -304,9 +304,9 @@ int LoadProfile(parameters *config)
 	if(strcmp(buffer, "MDFourierAudioBlockFile") == 0)
 	{
 		sscanf(lineBuffer, "%*s %s\n", buffer);
-		if(atof(buffer) > 1.1)
+		if(atof(buffer) > 1.2)
 		{
-			logmsg("This executable can parse \"MDFourierAudioBlockFile 1.1\" files only\n");
+			logmsg("This executable can parse \"MDFourierAudioBlockFile 1.2\" files only\n");
 			fclose(file);
 			return 0;
 		}
@@ -318,7 +318,7 @@ int LoadProfile(parameters *config)
 		sscanf(lineBuffer, "%*s %s\n", buffer);
 		if(atof(buffer) > 1.1)
 		{
-			logmsg("This executable can parse \"MDFourierNoSyncProfile 1.0\" files only\n");
+			logmsg("This executable can parse \"MDFourierNoSyncProfile 1.1\" files only\n");
 			fclose(file);
 			return 0;
 		}
@@ -458,6 +458,9 @@ int LoadAudioBlockStructure(FILE *file, parameters *config)
 				break;
 			case 'i':
 				config->types.typeArray[i].type = TYPE_INTERNAL;
+				break;
+			case 'k':
+				config->types.typeArray[i].type = TYPE_SKIP;
 				break;
 			default:
 				if(sscanf(lineBuffer, "%*s %d ", &config->types.typeArray[i].type) != 1)

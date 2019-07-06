@@ -755,7 +755,7 @@ int LoadFile(FILE *file, AudioSignal *Signal, parameters *config, char *fileName
 
 		/* Find the start offset */
 		logmsg(" - Detecting audio signal: ");
-		Signal->startOffset = DetectSignalStart(Signal->Samples, Signal->header, 0, 0, config);
+		Signal->startOffset = DetectSignalStart(Signal->Samples, Signal->header, 0, 0, NULL, config);
 		if(Signal->startOffset == -1)
 		{
 			logmsg("\nERROR: Starting position was not detected.\n");
@@ -879,28 +879,66 @@ int ProcessFile(AudioSignal *Signal, parameters *config)
 			{
 				int			frames = 0, syncTone = 0;
 				double		seconds = 0, syncLen = 0;
-				long int	bytes = 0, internalSyncOffset = 0;
+				long int	bytes = 0, internalSyncOffset = 0,
+							endPulse = 0, pulseLength = 0, halfSyncLength = 0;
 				char		*sampleBuffer = NULL;
 
 				syncinternal = 1;
 				syncTone = GetInternalSyncTone(i, config);
 				syncLen = GetInternalSyncLen(i, config);
-				internalSyncOffset = DetectSignalStart(Signal->Samples, Signal->header, pos, syncTone, config);
+				internalSyncOffset = DetectSignalStart(Signal->Samples, Signal->header, pos, syncTone, &endPulse, config);
 				if(internalSyncOffset == -1)
 				{
 					logmsg("\tERROR: No signal found while in internal sync detection. Aborting\n");
 					return 0;
 				}
 
+				pulseLength = endPulse - internalSyncOffset;
+				halfSyncLength = SecondsToBytes(Signal->header.fmt.SamplesPerSec, syncLen/2, NULL, NULL, NULL);
 				internalSyncOffset -= pos;
 
-				logmsg(" - %s command delay: %g ms [%g frames]\n",
-					GetTypeName(config, Signal->Blocks[i].type),
-					BytesToSeconds(Signal->header.fmt.SamplesPerSec, internalSyncOffset)*1000.0,
-					BytesToFrames(Signal->header.fmt.SamplesPerSec, internalSyncOffset, Signal->framerate));
+				if(internalSyncOffset != 0)
+				{
+					logmsg(" - %s command delay: %g ms [%g frames] (located at %ld bytes)\n",
+						GetTypeName(config, Signal->Blocks[i].type),
+						BytesToSeconds(Signal->header.fmt.SamplesPerSec, internalSyncOffset)*1000.0,
+						BytesToFrames(Signal->header.fmt.SamplesPerSec, internalSyncOffset, Signal->framerate),
+						pos + internalSyncOffset);
+				}
+				else
+				{
+					// This case is only present in emulators and ODE
+					if(halfSyncLength > pulseLength)
+					{
+						long int diffOffset = 0;
 
-				// skip 150 ms sync tone and 150 ms silence, taken from config file
-				internalSyncOffset += SecondsToBytes(Signal->header.fmt.SamplesPerSec, syncLen, NULL, NULL, NULL);
+						diffOffset = abs(halfSyncLength - pulseLength);
+						diffOffset = diffOffset 
+							% SecondsToBytes(Signal->header.fmt.SamplesPerSec, 
+								FramesToSeconds(1, Signal->framerate), NULL, NULL, NULL);
+
+						logmsg(" - %s command delay: %g ms [%g frames] <ODE> (located at %ld bytes)\n",
+							GetTypeName(config, Signal->Blocks[i].type),
+							Signal->framerate-BytesToSeconds(Signal->header.fmt.SamplesPerSec, diffOffset)*1000.0,
+							1.0-BytesToFrames(Signal->header.fmt.SamplesPerSec, diffOffset, Signal->framerate),
+							pos + internalSyncOffset);
+					}
+					else
+					{
+						logmsg("\nWARNING:\n\tUnknown scenario for %s command delay.\n",
+							GetTypeName(config, Signal->Blocks[i].type));
+						logmsg("\tOffset was %ld. Got %ld Expected %ld\n\n", 
+								internalSyncOffset, pulseLength, halfSyncLength);
+					}
+				}
+
+				if(pulseLength > halfSyncLength)
+					pulseLength = halfSyncLength; 
+
+				// skip the pulse real duration to sync perfectly
+				internalSyncOffset += pulseLength;
+				// skip half the sync tone-which is silence-taken from config file
+				internalSyncOffset += halfSyncLength;
 
 				frames = GetInternalSyncTotalLength(i, config);
 				if(!frames)

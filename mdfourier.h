@@ -60,7 +60,8 @@
 #define TYPE_SILENCE	0
 #define TYPE_SYNC		-1
 #define TYPE_NOTYPE		-2
-#define	TYPE_INTERNAL	-3
+#define TYPE_INTERNAL	-3
+#define TYPE_SKIP		-4
 #define TYPE_CONTROL	TYPE_SILENCE
 
 #define NO_INDEX 		-100
