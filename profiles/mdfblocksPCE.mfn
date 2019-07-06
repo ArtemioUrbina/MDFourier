@@ -1,0 +1,10 @@
+MDFourierAudioBlockFile 1.1
+PC Engine/Turbo Grafx-16
+16.7148
+8606 -25 25 14 18 10
+5
+Sync s 1 20 red s
+Silence n 1 20 red s
+PSG 1 102 20 yellow m
+Silence n 1 20 red s
+Sync s 1 20 red s

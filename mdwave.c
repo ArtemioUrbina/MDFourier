@@ -415,6 +415,111 @@ int LoadFile(FILE *file, AudioSignal *Signal, parameters *config, char *fileName
 	return 1;
 }
 
+int ProcessInternal(AudioSignal *Signal, long int element, long int pos, int *syncinternal, parameters *config)
+{
+	if(*syncinternal)
+		*syncinternal = 0;
+	else
+	{
+		int			frames = 0, syncTone = 0;
+		double		seconds = 0, syncLen = 0;
+		long int	bytes = 0, internalSyncOffset = 0,
+					endPulse = 0, pulseLength = 0, halfSyncLength = 0;
+		char		*sampleBuffer = NULL;
+
+		*syncinternal = 1;
+		syncTone = GetInternalSyncTone(element, config);
+		syncLen = GetInternalSyncLen(element, config);
+		internalSyncOffset = DetectSignalStart(Signal->Samples, Signal->header, pos, syncTone, &endPulse, config);
+		if(internalSyncOffset == -1)
+		{
+			logmsg("\tERROR: No signal found while in internal sync detection. Aborting\n");
+			return 0;
+		}
+
+		pulseLength = endPulse - internalSyncOffset;
+		halfSyncLength = SecondsToBytes(Signal->header.fmt.SamplesPerSec, syncLen/2, NULL, NULL, NULL);
+		internalSyncOffset -= pos;
+
+		if(internalSyncOffset != 0)
+		{
+			logmsg(" - %s command delay: %g ms [%g frames]",
+				GetTypeName(config, Signal->Blocks[element].type),
+				BytesToSeconds(Signal->header.fmt.SamplesPerSec, internalSyncOffset)*1000.0,
+				BytesToFrames(Signal->header.fmt.SamplesPerSec, internalSyncOffset, Signal->framerate));
+			if(config->verbose)
+				logmsg("(located at %ld bytes)", pos + internalSyncOffset);
+			logmsg("\n");
+		}
+		else
+		{
+			// This case is only present in emulators and ODE
+			if(halfSyncLength > pulseLength)
+			{
+				long int diffOffset = 0;
+
+				diffOffset = abs(halfSyncLength - pulseLength);
+				diffOffset = diffOffset 
+					% SecondsToBytes(Signal->header.fmt.SamplesPerSec, 
+						FramesToSeconds(1, Signal->framerate), NULL, NULL, NULL);
+
+				logmsg(" - %s command delay: %g ms [%g frames] <ODE>\n",
+					GetTypeName(config, Signal->Blocks[element].type),
+					Signal->framerate-BytesToSeconds(Signal->header.fmt.SamplesPerSec, diffOffset)*1000.0,
+					1.0-BytesToFrames(Signal->header.fmt.SamplesPerSec, diffOffset, Signal->framerate));
+				if(config->verbose)
+					logmsg("(located at %ld bytes)", pos + internalSyncOffset);
+				logmsg("\n");
+			}
+			else
+			{
+				logmsg("\nWARNING:\n\tUnknown scenario for %s command delay.\n",
+					GetTypeName(config, Signal->Blocks[element].type));
+				logmsg("\tOffset was %ld. Got %ld Expected %ld\n\n", 
+						internalSyncOffset, pulseLength, halfSyncLength);
+			}
+		}
+
+		if(pulseLength > halfSyncLength)
+			pulseLength = halfSyncLength; 
+
+		// skip the pulse real duration to sync perfectly
+		internalSyncOffset += pulseLength;
+		// skip half the sync tone-which is silence-taken from config file
+		internalSyncOffset += halfSyncLength;
+
+		frames = GetInternalSyncTotalLength(element, config);
+		if(!frames)
+		{
+			logmsg("\tERROR: Internal Sync block has no frame duration. Aborting.\n");
+			return 0;
+		}
+
+		seconds = FramesToSeconds(frames, Signal->framerate);
+		bytes = SecondsToBytes(Signal->header.fmt.SamplesPerSec, seconds, NULL, NULL, NULL);
+
+		if(bytes <= internalSyncOffset)
+		{
+			logmsg("\tERROR: Internal Sync could not be aligned, signal out of bounds.\n");
+			return 0;
+		}
+
+		sampleBuffer = (char*)malloc(sizeof(char)*bytes);
+		if(!sampleBuffer)
+		{
+			logmsg("\tERROR: Out of memory.\n");
+			return 0;
+		}
+
+		memcpy(sampleBuffer, Signal->Samples + pos + internalSyncOffset, bytes - internalSyncOffset);
+		memset(Signal->Samples + pos, 0, bytes);
+		memcpy(Signal->Samples + pos, sampleBuffer, bytes - internalSyncOffset);
+
+		free(sampleBuffer);
+	}
+	return 1;
+}
+
 int ProcessFile(AudioSignal *Signal, parameters *config)
 {
 	long int		pos = 0;
@@ -508,104 +613,8 @@ int ProcessFile(AudioSignal *Signal, parameters *config)
 		pos += discardBytes;
 
 		if(Signal->Blocks[i].type == TYPE_INTERNAL)
-		{
-			if(syncinternal)
-				syncinternal = 0;
-			else
-			{
-				int			frames = 0, syncTone = 0;
-				double		seconds = 0, syncLen = 0;
-				long int	bytes = 0, internalSyncOffset = 0,
-							endPulse = 0, pulseLength = 0, halfSyncLength = 0;
-				char		*sampleBuffer = NULL;
-
-				syncinternal = 1;
-				syncTone = GetInternalSyncTone(i, config);
-				syncLen = GetInternalSyncLen(i, config);
-				internalSyncOffset = DetectSignalStart(Signal->Samples, Signal->header, pos, syncTone, &endPulse, config);
-				if(internalSyncOffset == -1)
-				{
-					logmsg("\tERROR: No signal found while in internal sync detection. Aborting\n");
-					return 0;
-				}
-
-				pulseLength = endPulse - internalSyncOffset;
-				halfSyncLength = SecondsToBytes(Signal->header.fmt.SamplesPerSec, syncLen/2, NULL, NULL, NULL);
-				internalSyncOffset -= pos;
-
-				if(internalSyncOffset != 0)
-				{
-					logmsg(" - %s command delay: %g ms [%g frames] (located at %ld bytes)\n",
-						GetTypeName(config, Signal->Blocks[i].type),
-						BytesToSeconds(Signal->header.fmt.SamplesPerSec, internalSyncOffset)*1000.0,
-						BytesToFrames(Signal->header.fmt.SamplesPerSec, internalSyncOffset, Signal->framerate),
-						pos + internalSyncOffset);
-				}
-				else
-				{
-					// This case is only present in emulators and ODE
-					if(halfSyncLength > pulseLength)
-					{
-						long int diffOffset = 0;
-
-						diffOffset = abs(halfSyncLength - pulseLength);
-						diffOffset = diffOffset 
-							% SecondsToBytes(Signal->header.fmt.SamplesPerSec, 
-								FramesToSeconds(1, Signal->framerate), NULL, NULL, NULL);
-
-						logmsg(" - %s command delay: %g ms [%g frames] <ODE> (located at %ld bytes)\n",
-							GetTypeName(config, Signal->Blocks[i].type),
-							Signal->framerate-BytesToSeconds(Signal->header.fmt.SamplesPerSec, diffOffset)*1000.0,
-							1.0-BytesToFrames(Signal->header.fmt.SamplesPerSec, diffOffset, Signal->framerate),
-							pos + internalSyncOffset);
-					}
-					else
-					{
-						logmsg("\nWARNING:\n\tUnknown scenario for %s command delay.\n",
-							GetTypeName(config, Signal->Blocks[i].type));
-						logmsg("\tOffset was %ld. Got %ld Expected %ld\n\n", 
-								internalSyncOffset, pulseLength, halfSyncLength);
-					}
-				}
-
-				if(pulseLength > halfSyncLength)
-					pulseLength = halfSyncLength; 
-
-				// skip the pulse real duration to sync perfectly
-				internalSyncOffset += pulseLength;
-				// skip half the sync tone-which is silence-taken from config file
-				internalSyncOffset += halfSyncLength;
-
-				frames = GetInternalSyncTotalLength(i, config);
-				if(!frames)
-				{
-					logmsg("\tERROR: Internal Sync block has no frame duration. Aborting.\n");
-					return 0;
-				}
-
-				seconds = FramesToSeconds(frames, Signal->framerate);
-				bytes = SecondsToBytes(Signal->header.fmt.SamplesPerSec, seconds, NULL, NULL, NULL);
-
-				if(bytes <= internalSyncOffset)
-				{
-					logmsg("\tERROR: Internal Sync could not be aligned, signal out of bounds.\n");
-					return 0;
-				}
-
-				sampleBuffer = (char*)malloc(sizeof(char)*bytes);
-				if(!sampleBuffer)
-				{
-					logmsg("\tERROR: Out of memory.\n");
-					return 0;
-				}
-
-				memcpy(sampleBuffer, Signal->Samples + pos + internalSyncOffset, bytes - internalSyncOffset);
-				memset(Signal->Samples + pos, 0, bytes);
-				memcpy(Signal->Samples + pos, sampleBuffer, bytes - internalSyncOffset);
-
-				free(sampleBuffer);
-			}
-		}
+			if(!ProcessInternal(Signal, i, pos, &syncinternal, config))
+				return 0;
 
 		i++;
 	}
