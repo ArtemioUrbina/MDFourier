@@ -524,6 +524,7 @@ void DrawColorScale(PlotFile *plot, int type, int mode, double x, double y, doub
 	char 		*label = NULL;
 	int 		colorName = 0;
 	long int	cnt = 0, cmp = 0;
+	double		labelwidth = 0;
 
 	label = GetTypeName(config, type);
 	colorName = MatchColor(GetTypeColor(config, type));
@@ -561,8 +562,9 @@ void DrawColorScale(PlotFile *plot, int type, int mode, double x, double y, doub
 	}
 
 	SetPenColor(colorName, 0xaaaa, plot);
-	pl_fmove_r(plot->plotter, x+width/2, y-config->plotResY/50);
-	pl_alabel_r(plot->plotter, 'c', 'c', label);
+	pl_fmove_r(plot->plotter, x, y-config->plotResY/50);
+	pl_alabel_r(plot->plotter, 'l', 'l', label);
+	labelwidth = pl_flabelwidth_r(plot->plotter, label);
 
 	if(mode != MODE_SPEC)
 	{
@@ -571,7 +573,7 @@ void DrawColorScale(PlotFile *plot, int type, int mode, double x, double y, doub
 		if(mode == MODE_MISS)
 			FindMissingTypeTotals(type, &cnt, &cmp, config);
 		DrawMatchBar(plot, colorName,
-			x+width*2, y-config->plotResY/50, BAR_WIDTH, BAR_HEIGHT,
+			x+labelwidth+BAR_WIDTH*0.2, y-config->plotResY/50, BAR_WIDTH, BAR_HEIGHT,
 			cnt, cmp, config);
 	}
 }
@@ -671,19 +673,11 @@ void DrawColorAllTypeScale(PlotFile *plot, int mode, double x, double y, double 
 			if(mode == MODE_MISS)
 				FindMissingTypeTotals(typeID[t], &cnt, &cmp, config);
 			DrawMatchBar(plot, colorName[t],
-					x+1.8*width+config->plotResX/60+maxlabel*1.10, y+(numTypes-1)*config->plotResY/50-t*config->plotResY/50,
+					x+1.8*width+config->plotResX/60+maxlabel+BAR_WIDTH*0.2, y+(numTypes-1)*config->plotResY/50-t*config->plotResY/50,
 					BAR_WIDTH, BAR_HEIGHT, 
 					cnt, cmp, config);
 		}
 	}
-
-/*
-	// Total
-	DrawMatchBar(&plot, COLOR_GRAY,	BAR_HOR_POS_ALL, BAR_VERT_POS, BAR_WIDTH, BAR_HEIGHT,
-			config->Differences.cntAmplAudioDiff, config->Differences.cntTotalCompared, config);
-
-	DrawMatchBarLabel(&plot, "Percentage Missing", MatchColor(GetTypeColor(config, type)), BAR_HOR_POS+BAR_WIDTH, BAR_LABEL_POS, config);
-*/
 
 	free(colorName);
 	colorName = NULL;
@@ -1178,6 +1172,8 @@ int MatchColor(char *color)
 		return(COLOR_ORANGE);
 	if(strcmp(colorcopy, "purple") == 0)
 		return(COLOR_PURPLE);
+	if(strcmp(colorcopy, "gray") == 0)
+		return(COLOR_GRAY);
 
 	logmsg("Unmatched color %s, using green\n", color);
 	return COLOR_GREEN;

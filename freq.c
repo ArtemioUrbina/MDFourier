@@ -854,7 +854,8 @@ int GetFirstMonoIndex(parameters *config)
 
 	for(int i = 0; i < config->types.typeCount; i++)
 	{
-		if(config->types.typeArray[i].channel == 'm')
+		if(config->types.typeArray[i].type > TYPE_SILENCE && 
+			config->types.typeArray[i].channel == 'm')
 			return index;
 		else
 			index += config->types.typeArray[i].elementCount;

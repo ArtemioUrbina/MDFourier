@@ -306,8 +306,15 @@ int LoadAndProcessAudioFiles(AudioSignal **ReferenceSignal, AudioSignal **Compar
 		block = GetFirstMonoIndex(config);
 		if(block != NO_INDEX)
 		{
+			if(config->verbose)
+				logmsg(" - Mono block used for balance: %s# %d\n", 
+					GetBlockName(config, block), GetBlockSubIndex(config, block));
 			CheckBalance(*ReferenceSignal, block, config);
 			CheckBalance(*ComparisonSignal, block, config);
+		}
+		else
+		{
+			logmsg(" - No mono block for stereo balance check\n");
 		}
 	}
 
@@ -1123,8 +1130,8 @@ int CalculateMaxCompare(int block, AudioSignal *Signal, parameters *config, int 
 
 double CompareAudioBlocks(AudioSignal *ReferenceSignal, AudioSignal *ComparisonSignal, parameters *config)
 {
-	int			block = 0;
-	struct	timespec	start, end;
+	int				block = 0;
+	struct timespec	start, end;
 
 	if(config->clock)
 		clock_gettime(CLOCK_MONOTONIC, &start);
@@ -1132,7 +1139,7 @@ double CompareAudioBlocks(AudioSignal *ReferenceSignal, AudioSignal *ComparisonS
 	if(!CreateDifferenceArray(config))
 		return 0;
 
-	for(block = 0; block < config->types.regularChunks; block++)
+	for(block = 0; block < config->types.totalChunks; block++)
 	{
 		int refSize = 0, testSize = 0;
 
@@ -1143,6 +1150,14 @@ double CompareAudioBlocks(AudioSignal *ReferenceSignal, AudioSignal *ComparisonS
 		refSize = CalculateMaxCompare(block, ReferenceSignal, config, 1);
 		testSize = CalculateMaxCompare(block, ComparisonSignal, config, 0);
 
+		if(config->verbose)
+		{
+			OutputFileOnlyStart();
+			logmsg("Comparing %s# %d (%d) %ld vs %ld\n", 
+					GetBlockName(config, block), GetBlockSubIndex(config, block), block,
+					refSize, testSize);
+			OutputFileOnlyEnd();
+		}
 		for(int freq = 0; freq < refSize; freq++)
 		{
 			int found = 0, index = 0;

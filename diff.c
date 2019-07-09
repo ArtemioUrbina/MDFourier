@@ -317,16 +317,22 @@ void PrintDifferenceArray(parameters *config)
 	if(!config->Differences.BlockDiffArray)
 		return;
 
+	if(!config->Differences.cntTotalCompared)
+	{
+		logmsg("ERROR: Compared equals zero\n");
+		return;
+	}
+
 	logmsg("\nTotal Differences: %ld, Weighted: %g from %ld\nNonWeighted: %g%% Weighted: %g%%\n", 
 				config->Differences.cntTotalAudioDiff,
 				config->Differences.weightedAudioDiff,
 				config->Differences.cntTotalCompared,
 				(double)config->Differences.cntTotalAudioDiff*100.0/(double)config->Differences.cntTotalCompared,
 				(double)config->Differences.weightedAudioDiff*100.0/(double)config->Differences.cntTotalCompared);
-	logmsg("Total Frequencies not Found %ld Total Amplitunes not matched: %ld\n",
+	logmsg("Total Frequencies not Found %ld Total Amplitudes not matched: %ld\n",
 				config->Differences.cntFreqAudioDiff,
 				config->Differences.cntAmplAudioDiff);
-	logmsg("Total Weighted Frequencies not Found %g Total Amplitunes not matched: %g\n",
+	logmsg("Total Weighted Frequencies not Found %g Total Amplitudes not matched: %g\n",
 				config->Differences.weightedFreqAudio,
 				config->Differences.weightedAmplAudio);
 
