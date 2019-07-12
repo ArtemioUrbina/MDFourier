@@ -497,6 +497,20 @@ int commandline(int argc , char *argv[], parameters *config)
 	return 1;
 }
 
+#if defined (WIN32)
+void FixFolderName(char *name)
+{
+	int len;
+
+	if(!name)
+		return;
+	len = strlen(name);
+
+	if(len > MAX_PATH/2)
+		name[MAX_PATH/2 - 1] = '\0';
+}
+#endif
+
 int CreateFolderName(parameters *config)
 {
 	int len, ext;
@@ -524,6 +538,8 @@ int CreateFolderName(parameters *config)
 	sprintf(config->folderName, "MDFResults\\%s", tmp);
 
 #if defined (WIN32)
+	FixFolderName(config->folderName);
+
 	if(_mkdir("MDFResults") != 0)
 	{
 		if(errno != EEXIST)

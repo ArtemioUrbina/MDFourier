@@ -114,7 +114,7 @@ int main(int argc , char *argv[])
 			CreateBaseName(&config);
 		}
 	
-		logmsg(" - Using %gdBFS as minimum significant amplitude for analisys\n",
+		logmsg(" - Using %g dBFS as minimum significant amplitude for analisys\n",
 			config.significantAmplitude);
 		CompareAudioBlocks(ComparisonSignal, ReferenceSignal, &config);
 	
@@ -815,38 +815,39 @@ int ProcessInternal(AudioSignal *Signal, long int element, long int pos, int *sy
 
 		if(internalSyncOffset != 0)
 		{
-			logmsg(" - %s command delay: %g ms [%g frames]",
-				GetTypeName(config, Signal->Blocks[element].type),
+			logmsg(" - %s command delay: %g ms [%g frames]\n",
+				GetBlockName(config, element),
 				BytesToSeconds(Signal->header.fmt.SamplesPerSec, internalSyncOffset)*1000.0,
 				BytesToFrames(Signal->header.fmt.SamplesPerSec, internalSyncOffset, Signal->framerate));
 			if(config->verbose)
-				logmsg("(located at %ld bytes)", pos + internalSyncOffset);
-			logmsg("\n");
+					logmsg("  > Found at: %ld Previous End: %ld Offset: %ld\n\tPulse Length: %ld Half Sync Length: %ld\n", 
+						pos + internalSyncOffset, pos, internalSyncOffset, pulseLength, halfSyncLength);
 		}
 		else
 		{
 			// This case is only present in emulators and ODE
 			if(halfSyncLength > pulseLength)
 			{
-				long int diffOffset = 0;
+				double diffOffset = 0;
 
-				diffOffset = abs(halfSyncLength - pulseLength);
+				diffOffset = halfSyncLength - pulseLength;
+				/*
 				diffOffset = diffOffset 
 					% SecondsToBytes(Signal->header.fmt.SamplesPerSec, 
 						FramesToSeconds(1, Signal->framerate), NULL, NULL, NULL);
-
-				logmsg(" - %s command delay: %g ms [%g frames] <ODE>\n",
-					GetTypeName(config, Signal->Blocks[element].type),
-					Signal->framerate-BytesToSeconds(Signal->header.fmt.SamplesPerSec, diffOffset)*1000.0,
-					1.0-BytesToFrames(Signal->header.fmt.SamplesPerSec, diffOffset, Signal->framerate));
+				*/
+				logmsg(" - %s command delay: %g ms [%g frames]<ODE>\n",
+					GetBlockName(config, element),
+					BytesToSeconds(Signal->header.fmt.SamplesPerSec, diffOffset)*1000.0,
+					BytesToFrames(Signal->header.fmt.SamplesPerSec, diffOffset, Signal->framerate));
 				if(config->verbose)
-					logmsg("(located at %ld bytes)", pos + internalSyncOffset);
-				logmsg("\n");
+					logmsg("  > Found at: %ld Previous End: %ld Offset: %ld\n\tPulse Length: %ld Half Sync Length: %ld\n", 
+						pos + internalSyncOffset, pos, -1 * (halfSyncLength - pulseLength), pulseLength, halfSyncLength);
 			}
 			else
 			{
 				logmsg("\nWARNING:\n\tUnknown scenario for %s command delay.\n",
-					GetTypeName(config, Signal->Blocks[element].type));
+					GetBlockName(config, element));
 				logmsg("\tOffset was %ld. Got %ld Expected %ld\n\n", 
 						internalSyncOffset, pulseLength, halfSyncLength);
 			}
@@ -984,8 +985,10 @@ int ProcessFile(AudioSignal *Signal, parameters *config)
 		pos += discardBytes;
 
 		if(Signal->Blocks[i].type == TYPE_INTERNAL)
+		{
 			if(!ProcessInternal(Signal, i, pos, &syncinternal, config))
 				return 0;
+		}
 
 		i++;
 	}

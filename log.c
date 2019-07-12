@@ -65,11 +65,35 @@ void logmsg(char *fmt, ... )
 	return;
 }
 
+#if defined (WIN32)
+void FixLogFileName(char *name)
+{
+	int len;
+
+	if(!name)
+		return;
+	len = strlen(name);
+
+	if(len > MAX_PATH)
+	{
+		name[MAX_PATH - 5] = '.';
+		name[MAX_PATH - 4] = 't';
+		name[MAX_PATH - 3] = 'x';
+		name[MAX_PATH - 2] = 't';
+		name[MAX_PATH - 1] = '\0';
+	}
+}
+#endif
+
 int setLogName(char *name)
 {
 	sprintf(log_file, "%s", name);
 
 	remove(log_file);
+
+#if defined (WIN32)
+	FixLogFileName(log_file);
+#endif
 
 	logfile = fopen(log_file, "w");
 	if(!logfile)

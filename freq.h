@@ -65,6 +65,7 @@ double GetPulseSyncFreq(parameters *config);
 long int GetByteSizeDifferenceByFrameRate(double framerate, long int frames, long int samplerate, parameters *config);
 int GetFirstSyncIndex(parameters *config);
 int GetLastSyncIndex(parameters *config);
+int GetLastSyncElementIndex(parameters *config);
 int GetActiveBlockTypes(parameters *config);
 int GetInternalSyncTotalLength(int pos, parameters *config);
 int GetInternalSyncTone(int pos, parameters *config);

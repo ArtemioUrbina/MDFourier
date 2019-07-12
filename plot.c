@@ -301,9 +301,32 @@ int FillPlot(PlotFile *plot, char *name, int sizex, int sizey, double x0, double
 	return 1;
 }
 
+#if defined (WIN32)
+void FixPlotFileName(PlotFile *plot)
+{
+	int len;
+
+	if(!plot)
+		return;
+	len = strlen(plot->FileName);
+	if(len > MAX_PATH)
+	{
+		plot->FileName[MAX_PATH - 5] = '.';
+		plot->FileName[MAX_PATH - 4] = 'p';
+		plot->FileName[MAX_PATH - 3] = 'n';
+		plot->FileName[MAX_PATH - 2] = 'g';
+		plot->FileName[MAX_PATH - 1] = '\0';
+	}
+}
+#endif
+
 int CreatePlotFile(PlotFile *plot)
 {
 	char		size[20];
+
+#if defined (WIN32)
+	FixPlotFileName(plot);
+#endif
 
 	plot->file = fopen(plot->FileName, "wb");
 	if(!plot->file)

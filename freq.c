@@ -820,12 +820,33 @@ int GetLastSyncIndex(parameters *config)
 		return NO_INDEX;
 
 	first = GetFirstSyncIndex(config);
-	for(int i = config->types.typeCount - 1; i >= 0; i--)
+	for(int i = config->types.typeCount - 1; i > first; i--)
 	{
-		if(config->types.typeArray[i].type == TYPE_SYNC && i != first)
+		if(config->types.typeArray[i].type == TYPE_SYNC)
 			return i;
 	}
 	return NO_INDEX;
+}
+
+int GetLastSyncElementIndex(parameters *config)
+{
+	int first = 0, elementsCounted = 0;
+
+	if(!config)
+		return 0;
+
+	first = GetFirstSyncIndex(config);
+	for(int i = config->types.typeCount - 1; i > first; i--)
+	{
+		if(config->types.typeArray[i].type == TYPE_SYNC)
+		{
+			for(int j = 0; j < i; j++)
+				elementsCounted += config->types.typeArray[j].elementCount;
+			return elementsCounted;
+		}
+	}
+	
+	return 0;
 }
 
 int GetFirstSilenceIndex(parameters *config)
@@ -900,10 +921,13 @@ long int GetBlockFrameOffset(int block, parameters *config)
 
 long int GetLastSyncFrameOffset(wav_hdr header, parameters *config)
 {
-	if(!config)
-		return 0;
+	int first = 0;
 
-	for(int i = config->types.typeCount - 1; i >= 0; i--)
+	if(!config)
+		return NO_INDEX;
+
+	first = GetFirstSyncIndex(config);
+	for(int i = config->types.typeCount - 1; i > first; i--)
 	{
 		if(config->types.typeArray[i].type == TYPE_SYNC)
 			return(GetBlockFrameOffset(i, config));
