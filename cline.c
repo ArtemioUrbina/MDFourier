@@ -374,13 +374,13 @@ int commandline(int argc , char *argv[], parameters *config)
 	
 	for(index = optind; index < argc; index++)
 	{
-		logmsg("Invalid argument %s\n", argv[index]);
+		logmsg("ERROR: Invalid argument %s\n", argv[index]);
 		return 0;
 	}
 
 	if(!ref || !tar)
 	{
-		logmsg("Please define both reference and compare audio files\n");
+		logmsg("ERROR: Please define both reference and compare audio files\n");
 		return 0;
 	}
 
@@ -412,7 +412,7 @@ int commandline(int argc , char *argv[], parameters *config)
 	file = fopen(config->profileFile, "rb");
 	if(!file)
 	{
-		logmsg("Could not load profile configuration file: \"%s\"\n", config->profileFile);
+		logmsg("ERROR: Could not load profile configuration file: \"%s\"\n", config->profileFile);
 		return 0;
 	}
 	fclose(file);
@@ -420,7 +420,7 @@ int commandline(int argc , char *argv[], parameters *config)
 	file = fopen(config->referenceFile, "rb");
 	if(!file)
 	{
-		logmsg("\tCould not open REFERENCE file: \"%s\"\n", config->referenceFile);
+		logmsg("\tERROR: Could not open REFERENCE file: \"%s\"\n", config->referenceFile);
 		return 0;
 	}
 	fclose(file);
@@ -428,14 +428,14 @@ int commandline(int argc , char *argv[], parameters *config)
 	file = fopen(config->targetFile, "rb");
 	if(!file)
 	{
-		logmsg("\tCould not open COMPARE file: \"%s\"\n", config->targetFile);
+		logmsg("\tERROR: Could not open COMPARE file: \"%s\"\n", config->targetFile);
 		return 0;
 	}
 	fclose(file);
 
 	if(!CreateFolderName(config))
 	{
-		logmsg("Could not create output folders\n");
+		logmsg("ERROR: Could not create output folders\n");
 		return 0;
 	}
 	CreateBaseName(config);

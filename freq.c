@@ -893,11 +893,15 @@ long int GetLastSilenceByteOffset(double framerate, wav_hdr header, int frameAdj
 	{
 		if(config->types.typeArray[i].type == TYPE_SILENCE)
 		{
-			double offset = 0;
+			double offset = 0, length = 0;
 
-			// We remove 10 frames in order to not miss it due to frame rate differences
 			offset = FramesToSeconds(GetBlockFrameOffset(i, config) - frameAdjust, framerate);
 			offset = SecondsToBytes(header.fmt.SamplesPerSec, offset, NULL, NULL, NULL);
+
+			// and at 3/4 the silence length
+			length = FramesToSeconds(config->types.typeArray[i].frames/4*3, framerate);
+			length = SecondsToBytes(header.fmt.SamplesPerSec, length, NULL, NULL, NULL);
+			offset += length;
 			return(offset);
 		}
 	}

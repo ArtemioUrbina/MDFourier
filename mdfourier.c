@@ -195,7 +195,7 @@ int LoadAndProcessAudioFiles(AudioSignal **ReferenceSignal, AudioSignal **Compar
 		renameFLAC(config->referenceFile, tmpFile);
 		if(!FLACtoWAV(config->referenceFile, tmpFile))
 		{
-			logmsg("\nInvalid FLAC file %s\n", config->referenceFile);
+			logmsg("\nERROR: Invalid FLAC file %s\n", config->referenceFile);
 			remove(tmpFile);
 			return 0;
 		}
@@ -215,7 +215,7 @@ int LoadAndProcessAudioFiles(AudioSignal **ReferenceSignal, AudioSignal **Compar
 	{
 		RemoveFLACTemp(config->referenceFile, config->targetFile);
 		CleanUp(ReferenceSignal, ComparisonSignal, config);
-		logmsg("\tCould not open 'Reference' file:\n\t\"%s\"\n", config->referenceFile);
+		logmsg("\tERROR: Could not open 'Reference' file:\n\t\"%s\"\n", config->referenceFile);
 		return 0;
 	}
 
@@ -232,7 +232,7 @@ int LoadAndProcessAudioFiles(AudioSignal **ReferenceSignal, AudioSignal **Compar
 		renameFLAC(config->targetFile, tmpFile);
 		if(!FLACtoWAV(config->targetFile, tmpFile))
 		{
-			logmsg("\nInvalid FLAC file %s\n", config->targetFile);
+			logmsg("\nERROR: Invalid FLAC file %s\n", config->targetFile);
 			RemoveFLACTemp(config->referenceFile, config->targetFile);
 			return 0;
 		}
@@ -252,7 +252,7 @@ int LoadAndProcessAudioFiles(AudioSignal **ReferenceSignal, AudioSignal **Compar
 		CloseFiles(&reference, &compare);
 		RemoveFLACTemp(config->referenceFile, config->targetFile);
 		CleanUp(ReferenceSignal, ComparisonSignal, config);
-		logmsg("\tCould not open 'Comparison' file:\n\t\"%s\"\n", config->targetFile);
+		logmsg("\tERROR: Could not open 'Comparison' file:\n\t\"%s\"\n", config->targetFile);
 		return 0;
 	}
 

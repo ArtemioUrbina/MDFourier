@@ -209,8 +209,15 @@ long int DetectPulseTrainSequence(Pulses *pulseArray, double targetFrequency, lo
 
 				if(pulse_start != last_pulse_start && inside_silence >= config->types.pulseFrameMinLen*factor)
 				{
-					pulse_amplitude = pulse_amplitudes/inside_pulse;
-					silence_amplitude = silence_amplitudes/inside_silence;
+					if(inside_pulse)
+						pulse_amplitude = pulse_amplitudes/inside_pulse;
+					else
+						pulse_amplitude = 0;
+
+					if(inside_silence)
+						silence_amplitude = silence_amplitudes/inside_silence;
+					else
+						silence_amplitude = 0;
 					
 					if(floor(fabs(silence_amplitude)) - floor(fabs(pulse_amplitude)) >= config->types.pulseVolDiff)
 					{
@@ -289,8 +296,18 @@ long int DetectPulseInternal(char *Samples, wav_hdr header, int factor, long int
 		logmsg("\tmalloc failed\n");
 		return(0);
 	}
-	
+
 	TotalMS = header.fmt.Subchunk2Size / buffersize - 1;
+	pos = offset;
+	if(offset)
+	{
+		i = offset/buffersize;
+		if(offset < header.fmt.Subchunk2Size/2)
+			TotalMS /= 6;
+	}
+	else
+		TotalMS /= 6;
+
 	pulseArray = (Pulses*)malloc(sizeof(Pulses)*TotalMS);
 	if(!pulseArray)
 	{
@@ -299,16 +316,12 @@ long int DetectPulseInternal(char *Samples, wav_hdr header, int factor, long int
 	}
 	memset(pulseArray, 0, sizeof(Pulses)*TotalMS);
 
-	pos = offset;
-	if(offset)
-		i = offset/buffersize;
-	else
-		TotalMS /= 6;
-
 	targetFrequency = FindFrequencyBracket(GetPulseSyncFreq(config), 	
 						millisecondSize/2, header.fmt.SamplesPerSec);
 	if(config->debugSync)
-		logmsg("Defined Sync %g Adjusted to %g\n", GetPulseSyncFreq(config), targetFrequency);
+		logmsg("Defined Sync %g Adjusted to %g Tms: %ld\n", 
+				GetPulseSyncFreq(config), targetFrequency, TotalMS);
+
 	while(i < TotalMS)
 	{
 		loadedBlockSize = millisecondSize;
@@ -347,10 +360,11 @@ long int DetectPulseInternal(char *Samples, wav_hdr header, int factor, long int
 		i++;
 	}
 
-	/*
+/*
 	if(config->debugSync)
-		logmsg("MaxMagnitude: %g\n", *MaxMagnitude);
-	*/
+		logmsg("MaxMagnitude: %g MaxPosition: %ld\n", 
+				*MaxMagnitude, pulseArray[TotalMS-1].bytes);
+*/
 
 	for(i = 0; i < TotalMS; i++)
 	{
@@ -654,11 +668,10 @@ long int DetectSignalStartInternal(char *Samples, wav_hdr header, int factor, lo
 					pulseArray[i].amplitude, 
 					average);
 */
-
 			if(syncKnown)
 			{
 				if(pulseArray[i].amplitude > config->types.pulseMinVol &&
-					pulseArray[i].hertz >= targetFrequency - 2.0 && pulseArray[i].hertz <= targetFrequency + 2.0)
+					pulseArray[i].hertz == targetFrequency)
 				{
 					if(offset == -1)
 						offset = pulseArray[i].bytes;
@@ -666,12 +679,14 @@ long int DetectSignalStartInternal(char *Samples, wav_hdr header, int factor, lo
 				}
 				else
 				{
-					if(offset && length)
+					if(offset && length > 4)
 					{
 						if(endPulse)
 							*endPulse = pulseArray[i].bytes;
 						break;
 					}
+					length = 0;
+					offset = -1;
 				}
 			}
 			else
