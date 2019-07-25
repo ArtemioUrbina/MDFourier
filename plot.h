@@ -36,6 +36,10 @@
 #define PLOT_PROCESS_CHAR "-"
 #define PLOT_ADVANCE_CHAR ">"
 
+#define PLOT_COMPARE	1
+#define PLOT_SINGLE_REF	2
+#define PLOT_SINGLE_COM	3
+
 typedef struct plot_st {
 	char			FileName[T_BUFFER_SIZE];
 	plPlotter		*plotter;

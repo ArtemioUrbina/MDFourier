@@ -47,5 +47,6 @@ void PrintUsage();
 double TimeSpecToSeconds(struct timespec* ts);
 char *getFilenameExtension(char *filename);
 int getExtensionLength(char *filename);
+void ShortenFileName(char *filename, char *copy);
 
 #endif

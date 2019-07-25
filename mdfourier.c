@@ -114,7 +114,7 @@ int main(int argc , char *argv[])
 			CreateBaseName(&config);
 		}
 	
-		logmsg(" - Using %g dBFS as minimum significant amplitude for analisys\n",
+		logmsg(" - Using %g dBFS as minimum significant amplitude for analysis\n",
 			config.significantAmplitude);
 		CompareAudioBlocks(ComparisonSignal, ReferenceSignal, &config);
 	
@@ -879,7 +879,7 @@ int ProcessInternal(AudioSignal *Signal, long int element, long int pos, int *sy
 					logmsg("  > Found at: %ld Previous End: %ld Offset: %ld\n\tPulse Length: %ld Half Sync Length: %ld\n", 
 						pos + internalSyncOffset, pos, internalSyncOffset, pulseLength, syncLength/2);
 
-			// skip half the sync tone-which is silence-taken from config file
+			// skip sync tone-which is silence-taken from config file
 			internalSyncOffset += syncLength;
 
 			if(!MoveSampleBlock(Signal, element, pos, internalSyncOffset, 0, config))

@@ -107,6 +107,7 @@ void CleanParameters(parameters *config)
 	config->laxSync = 1;
 	config->showPercent = 1;
 	config->ignoreFrameRateDiff = 0;
+	config->labelNames = 1;
 
 	config->logScale = 1;
 	config->reverseCompare = 0;
@@ -323,6 +324,9 @@ int commandline(int argc , char *argv[], parameters *config)
 			case 'a':
 				config->normType = average;
 				break;
+			case 'n':
+				config->normType = none;
+				break;
 			default:
 				logmsg("Invalid Normalization option '%c'\n", optarg[0]);
 				logmsg("\tUse 't' Time Domain Max, 'f' Frequency Domain Max or 'a' Average\n");
@@ -497,35 +501,44 @@ int commandline(int argc , char *argv[], parameters *config)
 	return 1;
 }
 
-#if defined (WIN32)
-void FixFolderName(char *name)
+void ShortenFileName(char *filename, char *copy)
 {
-	int len;
+	int len = 0, ext = 0;
 
-	if(!name)
-		return;
-	len = strlen(name);
+	sprintf(copy, "%s", filename);
+	len = strlen(copy);
+	ext = getExtensionLength(copy)+1;
+	copy[len-ext] = '\0';
+	len = strlen(copy);
 
-	if(len > MAX_PATH/2)
-		name[MAX_PATH/2 - 1] = '\0';
-}
+#if defined (WIN32)
+	if(len > MAX_FILE_NAME)
+	{	
+		copy[MAX_FILE_NAME - 4] = rand() % 26 + 'a';
+		copy[MAX_FILE_NAME - 3] = rand() % 26 + 'a';
+		copy[MAX_FILE_NAME - 2] = rand() % 26 + 'a';
+		copy[MAX_FILE_NAME - 1] = '\0';
+	}
 #endif
+	
+}
 
 int CreateFolderName(parameters *config)
 {
-	int len, ext;
-	char tmp[BUFFER_SIZE];
+	int len;
+	char tmp[BUFFER_SIZE], fn[BUFFER_SIZE];
 
 	if(!config)
 		return 0;
 
-	sprintf(tmp, "%s", basename(config->referenceFile));
+#if defined (WIN32)
+	srand(time(NULL));
+#endif
+
+	ShortenFileName(basename(config->referenceFile), tmp);
 	len = strlen(tmp);
-	ext = getExtensionLength(tmp)+1;
-	sprintf(tmp+len-ext, "_vs_%s", basename(config->targetFile));
-	len = strlen(tmp);
-	ext = getExtensionLength(tmp)+1;
-	tmp[len-ext] = '\0';
+	ShortenFileName(basename(config->targetFile), fn);
+	sprintf(tmp+len, "_vs_%s", fn);
 
 	len = strlen(tmp);
 	for(int i = 0; i < len; i++)
@@ -538,8 +551,6 @@ int CreateFolderName(parameters *config)
 	sprintf(config->folderName, "MDFResults\\%s", tmp);
 
 #if defined (WIN32)
-	FixFolderName(config->folderName);
-
 	if(_mkdir("MDFResults") != 0)
 	{
 		if(errno != EEXIST)
@@ -567,32 +578,34 @@ int CreateFolderName(parameters *config)
 
 void InvertComparedName(parameters *config)
 {
-	int len, ext;
-	char tmp[BUFFER_SIZE];
+	int len;
+	char tmp[BUFFER_SIZE], fn[BUFFER_SIZE];
 
-	sprintf(tmp, "%s", basename(config->targetFile));
+	ShortenFileName(basename(config->referenceFile), tmp);
 	len = strlen(tmp);
-	ext = getExtensionLength(tmp)+1;
-	sprintf(tmp+len-ext, "_vs_%s", basename(config->referenceFile));
+	ShortenFileName(basename(config->targetFile), fn);
+	sprintf(tmp+len, "_vs_%s", fn);
+
 	len = strlen(tmp);
-	ext = getExtensionLength(tmp)+1;
-	tmp[len-ext] = '\0';
+	for(int i = 0; i < len; i++)
+	{
+		if(tmp[i] == ' ')
+			tmp[i] = '_';
+	}
 
 	sprintf(config->compareName, "%s", tmp);
 }
 
 int CreateFolderName_wave(parameters *config)
 {
-	int len, ext;
-	char tmp[BUFFER_SIZE];
+	int len;
+	char tmp[BUFFER_SIZE+20], fn[BUFFER_SIZE];
 
 	if(!config)
 		return 0;
 
-	sprintf(tmp, "MDWave\\%s", basename(config->referenceFile));
-	len = strlen(tmp);
-	ext = getExtensionLength(tmp)+1;
-	tmp[len-ext] = '\0';
+	ShortenFileName(basename(config->referenceFile), fn);
+	sprintf(tmp, "MDWave\\%s", fn);
 
 	len = strlen(tmp);
 	for(int i = 0; i < len; i++)

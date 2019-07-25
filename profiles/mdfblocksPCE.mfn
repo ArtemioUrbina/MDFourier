@@ -2,9 +2,10 @@ MDFourierAudioBlockFile 1.1
 PC Engine/Turbo Grafx-16
 16.7148
 8606 -25 25 14 18 10
-5
-Sync s 1 20 red s
-Silence n 1 20 red s
-PSG 1 102 20 yellow m
-Silence n 1 20 red s
-Sync s 1 20 red s
+6
+Sync s 1 20 red m
+Silence n 1 20 red m
+HuC6280 1 51 20 yellow m
+Noise 2 1 300 aqua m
+Silence n 1 20 red m
+Sync s 1 20 red m

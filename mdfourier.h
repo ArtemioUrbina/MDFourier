@@ -49,7 +49,7 @@
 
 #include "incbeta.h"
 
-#define MDVERSION "0.928"
+#define MDVERSION "0.931"
 
 
 #define MAX_FREQ_COUNT		100000 	/* Number of frequencies to compare(MAX) */
@@ -80,7 +80,8 @@
 #define START_HZ	5.0
 #define END_HZ		20000.0
 
-#define DB_HEIGHT 18.0
+#define DB_HEIGHT	18.0
+#define DB_DIFF		6.0
 
 #define PLOT_RES_X 1600.0
 #define PLOT_RES_Y 800.0
@@ -98,11 +99,17 @@
 #define	ROLE_REF	1
 #define	ROLE_COMP	2
 
+#if defined (WIN32)
+	#define MAX_FOLDER_NAME	50
+	#define MAX_FILE_NAME	25
+#endif
+
 enum normalize
 {
 	max_time,
 	max_frequency,
-	average
+	average,
+	none
 };
 
 #define PROFILE_FILE	"profiles\\mdfblocksGEN.mfn"
@@ -332,6 +339,7 @@ typedef struct parameters_st {
 	int				showPercent;
 	int				noSyncProfile;
 	int				ignoreFrameRateDiff;
+	int				labelNames;
 
 	int				plotDifferences;
 	int				plotMissing;

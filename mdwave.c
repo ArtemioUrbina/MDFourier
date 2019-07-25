@@ -516,7 +516,7 @@ int ProcessInternal(AudioSignal *Signal, long int element, long int pos, int *sy
 		else  // Our sync is outside the frame detection zone
 		{
 			char		*sampleBuffer = NULL;
-			long int 	halfSyncLength = 0, diffOffset = 0, bytes = 0, buffsize = 0;
+			long int halfSyncLength = 0, diffOffset = 0, bytes = 0, buffsize = 0;
 
 			halfSyncLength = syncLength/2;
 
@@ -706,7 +706,7 @@ int ProcessFile(AudioSignal *Signal, parameters *config)
 		}
 	}
 
-	logmsg(" - Using %g dBFS as minimum significant amplitude for analisys\n",
+	logmsg(" - Using %g dBFS as minimum significant amplitude for analysis\n",
 			config->significantAmplitude);
 
 	if(config->verbose)
