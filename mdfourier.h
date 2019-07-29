@@ -81,7 +81,7 @@
 #define END_HZ		20000.0
 
 #define DB_HEIGHT	18.0
-#define DB_DIFF		6.0
+#define DB_DIFF		10.0
 
 #define PLOT_RES_X 1600.0
 #define PLOT_RES_Y 800.0
@@ -98,6 +98,11 @@
 #define NO_ROLE		0
 #define	ROLE_REF	1
 #define	ROLE_COMP	2
+
+#define CHANNEL_NONE	'-'
+#define	CHANNEL_MONO	'm'
+#define	CHANNEL_STEREO	's'
+#define	CHANNEL_NOISE	'n'
 
 #if defined (WIN32)
 	#define MAX_FOLDER_NAME	50

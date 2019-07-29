@@ -948,6 +948,7 @@ int PlotEachTypeMissingFrequencies(FlatFreqDifference *freqDiff, char *filename,
 void PlotSingleTypeMissingFrequencies(FlatFreqDifference *freqDiff, int type, char *filename, parameters *config)
 {
 	PlotFile	plot;
+	double		significant = 0;
 
 	if(!config)
 		return;
@@ -955,13 +956,20 @@ void PlotSingleTypeMissingFrequencies(FlatFreqDifference *freqDiff, int type, ch
 	if(!config->Differences.BlockDiffArray)
 		return;
 
-	FillPlot(&plot, filename, config->plotResX, config->plotResY, config->startHzPlot, config->significantAmplitude, config->endHzPlot, 0.0, 1, config);
+	significant = config->significantAmplitude;
+	if(GetTypeChannel(config, type) == CHANNEL_NOISE)
+	{
+		if(significant > SIGNIFICANT_VOLUME)
+			significant = SIGNIFICANT_VOLUME;
+	}
+
+	FillPlot(&plot, filename, config->plotResX, config->plotResY, config->startHzPlot, significant, config->endHzPlot, 0.0, 1, config);
 
 	if(!CreatePlotFile(&plot))
 		return;
 
-	DrawGridZeroToLimit(&plot, config->significantAmplitude, VERT_SCALE_STEP, config->endHzPlot, 1000, config);
-	DrawLabelsZeroToLimit(&plot, config->significantAmplitude, VERT_SCALE_STEP, config->endHzPlot, 1000, config);
+	DrawGridZeroToLimit(&plot, significant, VERT_SCALE_STEP, config->endHzPlot, 1000, config);
+	DrawLabelsZeroToLimit(&plot, significant, VERT_SCALE_STEP, config->endHzPlot, 1000, config);
 
 	for(int f = 0; f < config->Differences.cntFreqAudioDiff; f++)
 	{
@@ -972,15 +980,14 @@ void PlotSingleTypeMissingFrequencies(FlatFreqDifference *freqDiff, int type, ch
 
 			x = transformtoLog(freqDiff[f].hertz, config);;
 			y = freqDiff[f].amplitude;
-			intensity = CalculateWeightedError((fabs(config->significantAmplitude) - fabs(freqDiff[f].amplitude))/fabs(config->significantAmplitude), config)*0xffff;
-
+			intensity = CalculateWeightedError((fabs(significant) - fabs(freqDiff[f].amplitude))/fabs(significant), config)*0xffff;
 
 			SetPenColor(freqDiff[f].color, intensity, &plot);
-			pl_fline_r(plot.plotter, x,	y, x, config->significantAmplitude);
+			pl_fline_r(plot.plotter, x,	y, x, significant);
 		}
 	}
 	
-	DrawColorScale(&plot, type, MODE_MISS, config->plotResX/50, config->plotResY/15, config->plotResX/80, config->plotResY/1.15, config->significantAmplitude, VERT_SCALE_STEP_BAR, config);
+	DrawColorScale(&plot, type, MODE_MISS, config->plotResX/50, config->plotResY/15, config->plotResX/80, config->plotResY/1.15, significant, VERT_SCALE_STEP_BAR, config);
 	DrawLabelsMDF(&plot, MISSING_TITLE, GetTypeName(config, type), PLOT_COMPARE, config);
 	ClosePlot(&plot);
 }
@@ -1045,18 +1052,26 @@ int PlotEachTypeSpectrogram(FlatFrequency *freqs, long int size, char *filename,
 
 void PlotSingleTypeSpectrogram(FlatFrequency *freqs, long int size, int type, char *filename, int signal, parameters *config)
 {
-	PlotFile plot;
+	PlotFile	plot;
+	double		significant = 0;
 
 	if(!config)
 		return;
 
-	FillPlot(&plot, filename, config->plotResX, config->plotResY, config->startHzPlot, config->significantAmplitude, config->endHzPlot, 0.0, 1, config);
+	significant = config->significantAmplitude;
+	if(GetTypeChannel(config, type) == CHANNEL_NOISE)
+	{
+		if(significant > SIGNIFICANT_VOLUME)
+			significant = SIGNIFICANT_VOLUME;
+	}
+
+	FillPlot(&plot, filename, config->plotResX, config->plotResY, config->startHzPlot, significant, config->endHzPlot, 0.0, 1, config);
 
 	if(!CreatePlotFile(&plot))
 		return;
 
-	DrawLabelsZeroToLimit(&plot, config->significantAmplitude, VERT_SCALE_STEP,config->endHzPlot, 1000, config);
-	DrawGridZeroToLimit(&plot, config->significantAmplitude, VERT_SCALE_STEP,config->endHzPlot, 1000, config);
+	DrawLabelsZeroToLimit(&plot, significant, VERT_SCALE_STEP,config->endHzPlot, 1000, config);
+	DrawGridZeroToLimit(&plot, significant, VERT_SCALE_STEP,config->endHzPlot, 1000, config);
 
 	for(int f = 0; f < size; f++)
 	{
@@ -1067,15 +1082,15 @@ void PlotSingleTypeSpectrogram(FlatFrequency *freqs, long int size, int type, ch
 
 			x = transformtoLog(freqs[f].hertz, config);
 			y = freqs[f].amplitude;
-			intensity = CalculateWeightedError((fabs(config->significantAmplitude) - fabs(freqs[f].amplitude))/fabs(config->significantAmplitude), config)*0xffff;
+			intensity = CalculateWeightedError((fabs(significant) - fabs(freqs[f].amplitude))/fabs(significant), config)*0xffff;
 	
 			//pl_flinewidth_r(plot.plotter, 100*range_0_1);
 			SetPenColor(freqs[f].color, intensity, &plot);
-			pl_fline_r(plot.plotter, x,	y, x, config->significantAmplitude);
+			pl_fline_r(plot.plotter, x,	y, x, significant);
 		}
 	}
 	
-	DrawColorScale(&plot, type, MODE_SPEC, config->plotResX/50, config->plotResY/15, config->plotResX/80, config->plotResY/1.15, config->significantAmplitude, VERT_SCALE_STEP,config);
+	DrawColorScale(&plot, type, MODE_SPEC, config->plotResX/50, config->plotResY/15, config->plotResX/80, config->plotResY/1.15, significant, VERT_SCALE_STEP,config);
 	DrawLabelsMDF(&plot, signal == ROLE_REF ? SPECTROGRAM_TITLE_REF : SPECTROGRAM_TITLE_COM, GetTypeName(config, type), signal == ROLE_REF ? PLOT_SINGLE_REF : PLOT_SINGLE_COM, config);
 	ClosePlot(&plot);
 }
@@ -1428,14 +1443,22 @@ FlatFrequency *CreateFlatFrequencies(AudioSignal *Signal, long int *size, parame
 
 	for(block = 0; block < config->types.totalChunks; block++)
 	{
-		int type = TYPE_NOTYPE;
+		int 	type = TYPE_NOTYPE;
+		double	significant = 0;
 
 		type = GetBlockType(config, block);
+		significant = config->significantAmplitude;
+		if(GetTypeChannel(config, type) == CHANNEL_NOISE)
+		{
+			if(significant > SIGNIFICANT_VOLUME)
+				significant = SIGNIFICANT_VOLUME;
+		}
+
 		if(type > TYPE_SILENCE)
 		{
 			for(i = 0; i < config->MaxFreq; i++)
 			{
-				if(Signal->Blocks[block].freq[i].hertz && Signal->Blocks[block].freq[i].amplitude > config->significantAmplitude)
+				if(Signal->Blocks[block].freq[i].hertz && Signal->Blocks[block].freq[i].amplitude > significant)
 					count ++;
 				else
 					break;
@@ -1451,15 +1474,23 @@ FlatFrequency *CreateFlatFrequencies(AudioSignal *Signal, long int *size, parame
 	for(block = 0; block < config->types.totalChunks; block++)
 	{
 		int type = 0, color = 0;
+		double	significant = 0;
 
 		type = GetBlockType(config, block);
+		significant = config->significantAmplitude;
+		if(GetTypeChannel(config, type) == CHANNEL_NOISE)
+		{
+			if(significant > SIGNIFICANT_VOLUME)
+				significant = SIGNIFICANT_VOLUME;
+		}
+
 		if(type > TYPE_SILENCE)
 		{
 			color = MatchColor(GetBlockColor(config, block));
 	
 			for(i = 0; i < config->MaxFreq; i++)
 			{
-				if(Signal->Blocks[block].freq[i].hertz && Signal->Blocks[block].freq[i].amplitude > config->significantAmplitude)
+				if(Signal->Blocks[block].freq[i].hertz && Signal->Blocks[block].freq[i].amplitude > significant)
 				{
 					FlatFrequency tmp;
 	

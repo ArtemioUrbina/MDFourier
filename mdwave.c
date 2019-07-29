@@ -507,7 +507,7 @@ int ProcessInternal(AudioSignal *Signal, long int element, long int pos, int *sy
 					logmsg("  > Found at: %ld Previous End: %ld Offset: %ld\n\tPulse Length: %ld Half Sync Length: %ld\n", 
 						pos + internalSyncOffset, pos, internalSyncOffset, pulseLength, syncLength/2);
 
-			// skip half the sync tone-which is silence-taken from config file
+			// skip sync tone-which is silence-taken from config file
 			internalSyncOffset += syncLength;
 
 			if(!MoveSampleBlock(Signal, element, pos, internalSyncOffset, 0, config))
@@ -516,10 +516,11 @@ int ProcessInternal(AudioSignal *Signal, long int element, long int pos, int *sy
 		else  // Our sync is outside the frame detection zone
 		{
 			char		*sampleBuffer = NULL;
-			long int halfSyncLength = 0, diffOffset = 0, bytes = 0, buffsize = 0;
+			long int 	halfSyncLength = 0, diffOffset = 0, bytes = 0, buffsize = 0;
 
 			halfSyncLength = syncLength/2;
 
+/*
 			if(halfSyncLength < pulseLength)
 			{
 				logmsg("\nWARNING:\n\tUnknown scenario for %s command delay.\n",
@@ -528,12 +529,13 @@ int ProcessInternal(AudioSignal *Signal, long int element, long int pos, int *sy
 						internalSyncOffset, pulseLength, halfSyncLength);
 				return 0;
 			}
+*/
 
 			if(pulseLength > halfSyncLength)
 				pulseLength = halfSyncLength; 
 
 			diffOffset = halfSyncLength - pulseLength;
-			logmsg(" - %s command delay: %g ms [%g frames]<ODE>\n",
+			logmsg(" - %s command delay: %g ms [%g frames]\n",
 				GetBlockName(config, element),
 				Signal->framerate-BytesToSeconds(Signal->header.fmt.SamplesPerSec, diffOffset)*1000.0,
 				1.0-BytesToFrames(Signal->header.fmt.SamplesPerSec, diffOffset, Signal->framerate));
@@ -579,7 +581,7 @@ int ProcessInternal(AudioSignal *Signal, long int element, long int pos, int *sy
 			memcpy(Signal->Samples + pos, sampleBuffer, buffsize);
 	
 			free(sampleBuffer);
-
+			*/
 //			sprintf(name, "_After_%ld.wav", element);
 	//		SaveWAVEChunk(name, Signal, Signal->Samples, 0, Signal->header.fmt.Subchunk2Size, config);
 		}

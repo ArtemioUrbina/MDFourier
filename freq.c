@@ -876,7 +876,7 @@ int GetFirstMonoIndex(parameters *config)
 	for(int i = 0; i < config->types.typeCount; i++)
 	{
 		if(config->types.typeArray[i].type > TYPE_SILENCE && 
-			config->types.typeArray[i].channel == 'm')
+			config->types.typeArray[i].channel == CHANNEL_MONO)
 			return index;
 		else
 			index += config->types.typeArray[i].elementCount;
@@ -1080,6 +1080,23 @@ int GetBlockType(parameters *config, int pos)
 	return TYPE_NOTYPE;
 }
 
+char GetBlockChannel(parameters *config, int pos)
+{
+	int elementsCounted = 0;
+
+	if(!config)
+		return CHANNEL_NONE;
+
+	for(int i = 0; i < config->types.typeCount; i++)
+	{
+		elementsCounted += config->types.typeArray[i].elementCount;
+		if(elementsCounted > pos)
+			return(config->types.typeArray[i].channel);
+	}
+	
+	return CHANNEL_NONE;
+}
+
 char *GetBlockColor(parameters *config, int pos)
 {
 	int elementsCounted = 0;
@@ -1123,6 +1140,20 @@ char *GetTypeName(parameters *config, int type)
 	}
 	
 	return "Type Name";
+}
+
+char GetTypeChannel(parameters *config, int type)
+{
+	if(!config)
+		return CHANNEL_NONE;
+
+	for(int i = 0; i < config->types.typeCount; i++)
+	{
+		if(config->types.typeArray[i].type == type)
+			return(config->types.typeArray[i].channel);
+	}
+	
+	return CHANNEL_NONE;
 }
 
 int GetInternalSyncTone(int pos, parameters *config)
@@ -1477,7 +1508,7 @@ void PrintFrequenciesBlock(AudioSignal *Signal, Frequency *freq, int type, param
 
 	for(int j = 0; j < config->MaxFreq; j++)
 	{
-		if(type != TYPE_SILENCE && config->significantAmplitude > freq[j].amplitude)
+		if(/*type != TYPE_SILENCE && */config->significantAmplitude > freq[j].amplitude)
 			break;
 
 		if(freq[j].hertz && freq[j].amplitude != NO_AMPLITUDE)

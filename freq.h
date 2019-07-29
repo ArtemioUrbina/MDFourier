@@ -70,6 +70,8 @@ int GetActiveBlockTypes(parameters *config);
 int GetInternalSyncTotalLength(int pos, parameters *config);
 int GetInternalSyncTone(int pos, parameters *config);
 double GetInternalSyncLen(int pos, parameters *config);
+char GetBlockChannel(parameters *config, int pos);
+char GetTypeChannel(parameters *config, int type);
 
 AudioSignal *CreateAudioSignal(parameters *config);
 void CleanAudio(AudioSignal *Signal, parameters *config);

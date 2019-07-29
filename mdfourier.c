@@ -139,7 +139,7 @@ int main(int argc , char *argv[])
 	if(IsLogEnabled())
 	{
 		endLog();
-		printf("\nCheck logfile for extended results\n");
+		//printf("\nCheck logfile for extended results\n");
 	}
 
 	/* Clear up everything */
@@ -892,6 +892,7 @@ int ProcessInternal(AudioSignal *Signal, long int element, long int pos, int *sy
 
 			halfSyncLength = syncLength/2;
 
+/*
 			if(halfSyncLength < pulseLength)
 			{
 				logmsg("\nWARNING:\n\tUnknown scenario for %s command delay.\n",
@@ -900,12 +901,13 @@ int ProcessInternal(AudioSignal *Signal, long int element, long int pos, int *sy
 						internalSyncOffset, pulseLength, halfSyncLength);
 				return 0;
 			}
+*/
 
 			if(pulseLength > halfSyncLength)
 				pulseLength = halfSyncLength; 
 
 			diffOffset = halfSyncLength - pulseLength;
-			logmsg(" - %s command delay: %g ms [%g frames]<ODE>\n",
+			logmsg(" - %s command delay: %g ms [%g frames]\n",
 				GetBlockName(config, element),
 				Signal->framerate-BytesToSeconds(Signal->header.fmt.SamplesPerSec, diffOffset)*1000.0,
 				1.0-BytesToFrames(Signal->header.fmt.SamplesPerSec, diffOffset, Signal->framerate));
@@ -1177,6 +1179,12 @@ int CalculateMaxCompare(int block, AudioSignal *Signal, parameters *config, int 
 	double limit = 0;
 
 	limit = config->significantAmplitude;
+
+	// Allow a different range for Noise channel when specified
+	// in the config File
+	if(GetBlockChannel(config, block) == CHANNEL_NOISE)
+		limit = SIGNIFICANT_VOLUME;
+
 	if(Signal->role == ROLE_COMP)
 		limit += -20;	// Allow going 20 dbfs "deeper"
 
