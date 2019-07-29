@@ -1503,12 +1503,21 @@ void PrintFrequenciesBlockMagnitude(AudioSignal *Signal, Frequency *freq, int ty
 
 void PrintFrequenciesBlock(AudioSignal *Signal, Frequency *freq, int type, parameters *config)
 {
+	double	 significant = 0;
+
 	if(!freq)
 		return;
 
+	significant = config->significantAmplitude;
+	if(GetTypeChannel(config, type) == CHANNEL_NOISE)
+	{
+		if(significant > SIGNIFICANT_VOLUME)
+			significant = SIGNIFICANT_VOLUME;
+	}
+
 	for(int j = 0; j < config->MaxFreq; j++)
 	{
-		if(/*type != TYPE_SILENCE && */config->significantAmplitude > freq[j].amplitude)
+		if(/*type != TYPE_SILENCE && */ significant > freq[j].amplitude)
 			break;
 
 		if(freq[j].hertz && freq[j].amplitude != NO_AMPLITUDE)

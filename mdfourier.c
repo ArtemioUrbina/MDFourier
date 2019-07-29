@@ -1190,7 +1190,7 @@ int CalculateMaxCompare(int block, AudioSignal *Signal, parameters *config, int 
 
 	for(int freq = 0; freq < config->MaxFreq; freq++)
 	{
-		/* Volumne is too low */
+		/* Amplitude is too low */
 		if(limitRef && Signal->Blocks[block].freq[freq].amplitude < limit)
 			return freq;
 

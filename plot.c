@@ -914,7 +914,8 @@ void PlotAllMissingFrequencies(FlatFreqDifference *freqDiff, char *filename, par
 	DrawGridZeroToLimit(&plot, significant, VERT_SCALE_STEP, config->endHzPlot, 1000, config);
 	DrawLabelsZeroToLimit(&plot, significant, VERT_SCALE_STEP, config->endHzPlot, 1000, config);
 
-	for(int f = 0; f < config->Differences.cntFreqAudioDiff; f++)
+	//for(int f = 0; f < config->Differences.cntFreqAudioDiff; f++)
+	for(int f = config->Differences.cntFreqAudioDiff; f >= 0 ; f--)
 	{
 		if(freqDiff[f].type > TYPE_CONTROL)
 		{ 
@@ -1031,7 +1032,8 @@ void PlotAllSpectrogram(FlatFrequency *freqs, long int size, char *filename, int
 	DrawGridZeroToLimit(&plot, significant, VERT_SCALE_STEP, config->endHzPlot, 1000, config);
 	DrawLabelsZeroToLimit(&plot, significant, VERT_SCALE_STEP, config->endHzPlot, 1000, config);
 
-	for(int f = 0; f < size; f++)
+	//for(int f = 0; f < size; f++)
+	for(int f = size; f >= 0; f--)
 	{
 		if(freqs[f].type > TYPE_CONTROL)
 		{ 
