@@ -807,10 +807,14 @@ void PlotAllDifferentAmplitudes(FlatAmplDifference *amplDiff, char *filename, pa
 		{ 
 			long int intensity;
 
-			intensity = CalculateWeightedError((fabs(config->significantAmplitude) - fabs(amplDiff[a].refAmplitude))/fabs(config->significantAmplitude), config)*0xffff;
-
-			SetPenColor(amplDiff[a].color, intensity, &plot);
-			pl_fpoint_r(plot.plotter, transformtoLog(amplDiff[a].hertz, config), amplDiff[a].diffAmplitude);
+			// If channel is defined as noise, don't draw the lower than visible ones
+			if(amplDiff[a].refAmplitude > config->significantAmplitude)
+			{
+				intensity = CalculateWeightedError((fabs(config->significantAmplitude) - fabs(amplDiff[a].refAmplitude))/fabs(config->significantAmplitude), config)*0xffff;
+	
+				SetPenColor(amplDiff[a].color, intensity, &plot);
+				pl_fpoint_r(plot.plotter, transformtoLog(amplDiff[a].hertz, config), amplDiff[a].diffAmplitude);
+			}
 		}
 	}
 
@@ -866,12 +870,15 @@ void PlotSingleTypeDifferentAmplitudes(FlatAmplDifference *amplDiff, int type, c
 	{
 		if(amplDiff[a].type == type)
 		{ 
-			long int intensity;
-
-			intensity = CalculateWeightedError((fabs(config->significantAmplitude) - fabs(amplDiff[a].refAmplitude))/fabs(config->significantAmplitude), config)*0xffff;
-
-			SetPenColor(amplDiff[a].color, intensity, &plot);
-			pl_fpoint_r(plot.plotter, transformtoLog(amplDiff[a].hertz, config), amplDiff[a].diffAmplitude);
+			if(amplDiff[a].refAmplitude > config->significantAmplitude)
+			{
+				long int intensity;
+	
+				intensity = CalculateWeightedError((fabs(config->significantAmplitude) - fabs(amplDiff[a].refAmplitude))/fabs(config->significantAmplitude), config)*0xffff;
+	
+				SetPenColor(amplDiff[a].color, intensity, &plot);
+				pl_fpoint_r(plot.plotter, transformtoLog(amplDiff[a].hertz, config), amplDiff[a].diffAmplitude);
+			}
 		}
 	}
 
@@ -1645,6 +1652,7 @@ AveragedFrequencies *CreateFlatDifferencesAveraged(int matchType, long int *avgS
 	long int			count = 0, interval = 0, realResults = 0;
 	FlatAmplDifference	*ADiff = NULL;
 	AveragedFrequencies	*averaged = NULL, *averagedSMA = NULL;
+	double				significant = 0;
 
 	if(!config)
 		return NULL;
@@ -1654,6 +1662,12 @@ AveragedFrequencies *CreateFlatDifferencesAveraged(int matchType, long int *avgS
 
 	*avgSize = 0;
 
+	significant = config->significantAmplitude;
+	if(GetTypeChannel(config, matchType) == CHANNEL_NOISE)
+	{
+		if(significant > SIGNIFICANT_VOLUME)
+			significant = SIGNIFICANT_VOLUME;
+	}
 	// Count how many we have
 	for(int b = 0; b < config->types.totalChunks; b++)
 	{
@@ -1683,11 +1697,11 @@ AveragedFrequencies *CreateFlatDifferencesAveraged(int matchType, long int *avgS
 			{
 				if(config->weightedAveragePlot)
 				{
-					double intensity = 0;
+					double intensity = 0, value = 0;
 
-					intensity = CalculateWeightedError(
-									(fabs(config->significantAmplitude) - fabs(config->Differences.BlockDiffArray[b].amplDiffArray[a].refAmplitude))/
-									fabs(config->significantAmplitude), config);
+					value = (fabs(significant) - fabs(config->Differences.BlockDiffArray[b].amplDiffArray[a].refAmplitude))/
+									fabs(significant);
+					intensity = CalculateWeightedError(value, config);
 					for(int i = 0; i < floor(intensity*10); i++)
 					{
 						ADiff[count].hertz = config->Differences.BlockDiffArray[b].amplDiffArray[a].hertz;
@@ -1873,12 +1887,15 @@ void PlotSingleTypeDifferentAmplitudesAveraged(FlatAmplDifference *amplDiff, int
 	{
 		if(amplDiff[a].type == type)
 		{ 
-			long int intensity;
-
-			intensity = CalculateWeightedError((fabs(config->significantAmplitude) - fabs(amplDiff[a].refAmplitude))/fabs(config->significantAmplitude), config)*0xffff;
-
-			SetPenColor(amplDiff[a].color, intensity, &plot);
-			pl_fpoint_r(plot.plotter, transformtoLog(amplDiff[a].hertz, config), amplDiff[a].diffAmplitude);
+			if(amplDiff[a].refAmplitude > config->significantAmplitude)
+			{
+				long int intensity;
+	
+				intensity = CalculateWeightedError((fabs(config->significantAmplitude) - fabs(amplDiff[a].refAmplitude))/fabs(config->significantAmplitude), config)*0xffff;
+	
+				SetPenColor(amplDiff[a].color, intensity, &plot);
+				pl_fpoint_r(plot.plotter, transformtoLog(amplDiff[a].hertz, config), amplDiff[a].diffAmplitude);
+			}
 		}
 	}
 
@@ -1969,12 +1986,15 @@ void PlotAllDifferentAmplitudesAveraged(FlatAmplDifference *amplDiff, char *file
 	{
 		if(amplDiff[a].type > TYPE_CONTROL)
 		{ 
-			long int intensity;
-
-			intensity = CalculateWeightedError((fabs(config->significantAmplitude) - fabs(amplDiff[a].refAmplitude))/fabs(config->significantAmplitude), config)*0xffff;
-
-			SetPenColor(amplDiff[a].color, intensity, &plot);
-			pl_fpoint_r(plot.plotter, transformtoLog(amplDiff[a].hertz, config), amplDiff[a].diffAmplitude);
+			if(amplDiff[a].refAmplitude > config->significantAmplitude)
+			{
+				long int intensity;
+	
+				intensity = CalculateWeightedError((fabs(config->significantAmplitude) - fabs(amplDiff[a].refAmplitude))/fabs(config->significantAmplitude), config)*0xffff;
+	
+				SetPenColor(amplDiff[a].color, intensity, &plot);
+				pl_fpoint_r(plot.plotter, transformtoLog(amplDiff[a].hertz, config), amplDiff[a].diffAmplitude);
+			}
 		}
 	}
 

@@ -1750,6 +1750,12 @@ double CalculateWeightedError(double pError, parameters *config)
 {
 	int option = 0;
 
+	if(pError < 0)
+	{
+		pError = fabs(pError);
+		//logmsg("pERROR < 0!\n");
+	}
+
 	option = config->outputFilterFunction;
 	switch(option)
 	{
