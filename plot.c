@@ -696,7 +696,7 @@ void DrawColorAllTypeScale(PlotFile *plot, int mode, double x, double y, double 
 
 		label = GetTypeName(config, typeID[t]);
 		SetPenColor(colorName[t], 0xaaaa, plot);
-		pl_fmove_r(plot->plotter, x+1.8*width+config->plotResX/60, y+(numTypes-1)*config->plotResY/50-t*config->plotResY/50);
+		pl_fmove_r(plot->plotter, x+2*width+config->plotResX/60, y+(numTypes-1)*config->plotResY/50-t*config->plotResY/50);
 		pl_alabel_r(plot->plotter, 'l', 'l', label);
 
 		labelwidth = pl_flabelwidth_r(plot->plotter, label);
@@ -715,7 +715,7 @@ void DrawColorAllTypeScale(PlotFile *plot, int mode, double x, double y, double 
 			if(mode == MODE_MISS)
 				FindMissingTypeTotals(typeID[t], &cnt, &cmp, config);
 			DrawMatchBar(plot, colorName[t],
-					x+1.8*width+config->plotResX/60+maxlabel+BAR_WIDTH*0.2, y+(numTypes-1)*config->plotResY/50-t*config->plotResY/50,
+					x+2*width+config->plotResX/60+maxlabel+BAR_WIDTH*0.2, y+(numTypes-1)*config->plotResY/50-t*config->plotResY/50,
 					BAR_WIDTH, BAR_HEIGHT, 
 					cnt, cmp, config);
 		}
@@ -767,15 +767,6 @@ void DrawMatchBar(PlotFile *plot, int colorName, double x, double y, double widt
 	}
 }
 
-void DrawMatchBarLabel(PlotFile *plot, char *label, int colorName, double x, double y, parameters *config)
-{
-	pl_ffontsize_r(plot->plotter, config->plotResY/60);
-	pl_ffontname_r(plot->plotter, "HersheySans");
-
-	SetPenColor(colorName, 0xaaaa, plot);
-	pl_fmove_r(plot->plotter, x, y);
-	pl_alabel_r(plot->plotter, 'c', 'c', label);
-}
 
 void PlotAllDifferentAmplitudes(FlatAmplDifference *amplDiff, char *filename, parameters *config)
 {
