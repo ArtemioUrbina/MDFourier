@@ -1,19 +1,18 @@
-MDFourierAudioBlockFile 1.2
-PC Engine/Turbo Grafx-16 + CD-ROM
+MDFourierAudioBlockFile 1.1
+PC Engine/Turbo Grafx-16
 16.7148
 8606 -25 25 14 18 10
-14
-Sync s 1 20 red s
-Silence n 1 20 red s
-PSG 1 51 20 yellow m
-Noise 2 1 300 aqua m
-Silence n 1 20 red s
-Sync s 1 20 red s
-Wait k 1 4 red s
-CD-ROM i 1 2 red s 8000 0.300
-CD-DA 3 31 20 orange s
-Silence k 1 19 red m
-CD-ROM i 1 5 red s 0 0
-ADRAM i 1 2 red s 8000 0.08
-ADPCM 4 14 20 magenta s
-ADRAM i 1 2 red s 0 0
+13
+Sync s 1 20 red m
+Silence n 1 20 red m
+PSG 1 34 20 yellow m
+Noise 2 1 200 aqua n
+Silence n 1 20 red m
+Sync s 1 20 red m
+Wait k 1 4 red m
+ADSTART k 1 1 red m
+ADPCM 4 14 20 magenta m
+ADEND k 1 2 red m
+CD-ROM i 1 1 red s 8000 0.300
+CD-DA 3 32 20 orange s
+CD-ROM i 1 1 red s 0 0

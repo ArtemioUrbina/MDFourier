@@ -303,7 +303,7 @@ long int DetectPulseInternal(char *Samples, wav_hdr header, int factor, long int
 	{
 		i = offset/buffersize;
 		if(offset < header.fmt.Subchunk2Size/2)
-			TotalMS /= 6;
+			TotalMS = TotalMS/6 + i;
 	}
 	else
 		TotalMS /= 6;
@@ -319,8 +319,12 @@ long int DetectPulseInternal(char *Samples, wav_hdr header, int factor, long int
 	targetFrequency = FindFrequencyBracket(GetPulseSyncFreq(config), 	
 						millisecondSize/2, header.fmt.SamplesPerSec);
 	if(config->debugSync)
-		logmsg("Defined Sync %g Adjusted to %g Tms: %ld\n", 
-				GetPulseSyncFreq(config), targetFrequency, TotalMS);
+	{
+		logmsg("Defined Sync %g Adjusted to %g\n", 
+				GetPulseSyncFreq(config), targetFrequency);
+		logmsg("Start ms %ld Total MS: %ld (%ld) MaxMag %g\n",
+			 i, TotalMS, header.fmt.Subchunk2Size / buffersize - 1, *MaxMagnitude);
+	}
 
 	while(i < TotalMS)
 	{
