@@ -1578,7 +1578,7 @@ inline double CalculateMagnitude(fftw_complex value, long int size)
 
 	r1 = creal(value);
 	i1 = cimag(value);
-	magnitude = sqrt(r1*r1 + i1*i1)/size;
+	magnitude = sqrt(r1*r1 + i1*i1)/(double)size;
 	return magnitude;
 }
 
@@ -1753,7 +1753,7 @@ double CalculateWeightedError(double pError, parameters *config)
 	if(pError < 0)
 	{
 		pError = fabs(pError);
-		//logmsg("pERROR < 0!\n");
+		logmsg("pERROR < 0!\n");
 	}
 
 	option = config->outputFilterFunction;

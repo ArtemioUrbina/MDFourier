@@ -415,7 +415,6 @@ int LoadFile(FILE *file, AudioSignal *Signal, parameters *config, char *fileName
 	return 1;
 }
 
-
 int MoveSampleBlockInternal(AudioSignal *Signal, long int element, long int pos, long int internalSyncOffset, parameters *config)
 {
 	char		*sampleBuffer = NULL;
@@ -467,57 +466,8 @@ int MoveSampleBlockInternal(AudioSignal *Signal, long int element, long int pos,
 	return 1;
 }
 
-int MoveSampleBlockExternal(AudioSignal *Signal, long int element, long int pos, long int internalSyncOffset, parameters *config)
+int MoveSampleBlockExternal(AudioSignal *Signal, long int element, long int pos, long int internalSyncOffset, long int paddingSize, parameters *config)
 {
-	/*
-	char		*sampleBuffer = NULL;
-	double		seconds = 0;
-	long int	buffsize = 0, frames = 0, bytes = 0;
-
-	frames = GetInternalSyncTotalLength(element, config);
-	if(!frames)
-	{
-		logmsg("\tERROR: Internal Sync block has no frame duration. Aborting.\n");
-		return 0;
-	}
-
-	seconds = FramesToSeconds(frames, config->referenceFramerate);
-	bytes = Signal->header.fmt.Subchunk2Size - pos;
-
-	if(config->verbose)
-		logmsg(" - Internal Segment Info:\n\tFinal Offset: %ld Frames: %d Seconds: %g Bytes: %ld\n",
-				pos+internalSyncOffset, frames, seconds, bytes);
-	if(bytes <= internalSyncOffset)
-	{
-		logmsg("\tERROR: Internal Sync could not be aligned, signal out of bounds.\n");
-		return 0;
-	}
-	buffsize = bytes - internalSyncOffset;
-
-	sampleBuffer = (char*)malloc(sizeof(char)*buffsize);
-	if(!sampleBuffer)
-	{
-		logmsg("\tERROR: Out of memory.\n");
-		return 0;
-	}
-
-	if(config->verbose)
-	{
-		logmsg(" - MOVEMENTS:\n");
-		logmsg("\tCopy: From %ld Bytes: %ld\n",
-				pos + internalSyncOffset, buffsize);
-		logmsg("\tZero Out: Pos: %ld Bytes: %ld\n",
-				pos, bytes);
-		logmsg("\tStore: Pos: %ld Bytes: %ld\n",
-				pos, buffsize);
-	}
-	memcpy(sampleBuffer, Signal->Samples + pos + internalSyncOffset, buffsize);
-	memset(Signal->Samples + pos, 0, bytes);
-	memcpy(Signal->Samples + pos, sampleBuffer, buffsize);
-
-	free(sampleBuffer);
-	return 1;
-	*/
 	char		*sampleBuffer = NULL;
 	double		seconds = 0;
 	long int	buffsize = 0, frames = 0, bytes = 0;
@@ -540,7 +490,11 @@ int MoveSampleBlockExternal(AudioSignal *Signal, long int element, long int pos,
 		logmsg("\tERROR: Internal Sync could not be aligned, signal out of bounds.\n");
 		return 0;
 	}
-	buffsize = bytes - internalSyncOffset;
+
+	if(pos + internalSyncOffset + bytes - paddingSize > Signal->header.fmt.Subchunk2Size)
+		bytes = Signal->header.fmt.Subchunk2Size - (pos + internalSyncOffset)+paddingSize;
+
+	buffsize = bytes - paddingSize;
 
 	sampleBuffer = (char*)malloc(sizeof(char)*buffsize);
 	if(!sampleBuffer)
@@ -658,9 +612,8 @@ int ProcessInternal(AudioSignal *Signal, long int element, long int pos, int *sy
 			// skip half the sync tone-which is silence-taken from config file
 			internalSyncOffset += halfSyncLength;
 
-			if(!MoveSampleBlockExternal(Signal, element, pos, internalSyncOffset, config))
+			if(!MoveSampleBlockExternal(Signal, element, pos, internalSyncOffset, halfSyncLength + pulseLength, config))
 				return 0;
-
 		}
 		*advanceFrames += internalSyncOffset;
 	}
