@@ -108,6 +108,9 @@ void CleanParameters(parameters *config)
 	config->showPercent = 1;
 	config->ignoreFrameRateDiff = 0;
 	config->labelNames = 1;
+	config->averageIgnore = 0;
+	config->averageLine = 0.0;
+	config->lowerNoise = 0;
 
 	config->logScale = 1;
 	config->reverseCompare = 0;
@@ -158,7 +161,7 @@ int commandline(int argc , char *argv[], parameters *config)
 	
 	CleanParameters(config);
 
-	while ((c = getopt (argc, argv, "hxjzmviklygLHo:s:e:f:t:p:a:w:r:c:d:P:SDMNRAWXDBIn:")) != -1)
+	while ((c = getopt (argc, argv, "hxjzmviklygLHo:s:e:f:t:p:a:w:r:c:d:P:SDMNRAWVXDBIn:")) != -1)
 	switch (c)
 	  {
 	  case 'h':
@@ -311,6 +314,9 @@ int commandline(int argc , char *argv[], parameters *config)
 		break;
 	  case 'I':
 		config->ignoreFrameRateDiff = 1;
+		break;
+	  case 'V':
+		config->averageIgnore = 1;
 		break;
 	  case 'n':
 		switch(optarg[0])

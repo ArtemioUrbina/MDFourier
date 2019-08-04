@@ -1225,11 +1225,110 @@ int GetInternalSyncTotalLength(int pos, parameters *config)
 	return 0;
 }
 
+Frequency FindNoiseBlock(AudioSignal *Signal, parameters *config)
+{
+	Frequency	cutOff;
+	int 		noiseBlock = -1;
+	int			count = 0;
+
+	cutOff.hertz = 0;
+	cutOff.amplitude = 0;
+
+	for(int block = 0; block < config->types.totalChunks; block++)
+	{
+		int type = GetBlockType(config, block);
+		if(GetTypeChannel(config, type) == CHANNEL_NOISE)
+		{
+			noiseBlock = block;
+			break;
+		}
+	}
+
+	if(noiseBlock == -1)
+		return cutOff;
+
+	for(int i = 0; i < config->MaxFreq; i++)
+	{
+		if(Signal->Blocks[noiseBlock].freq[i].hertz)
+		{
+			cutOff.hertz += Signal->Blocks[noiseBlock].freq[i].hertz;
+			cutOff.amplitude += fabs(Signal->Blocks[noiseBlock].freq[i].amplitude);
+			count ++;
+		}
+	}
+	
+	if(count)
+	{
+		cutOff.hertz = cutOff.hertz/count;
+		cutOff.amplitude = -1.0*fabs(cutOff.amplitude)/count;
+	}
+
+	return cutOff;
+}
+
+void FindStandAloneFloor(AudioSignal *Signal, parameters *config)
+{
+	int 		index;
+	Frequency	loudest;
+	double		maxAmplitude = NO_AMPLITUDE;
+
+	if(!Signal)
+		return;
+	
+	index = GetFirstSilenceIndex(config);
+	if(index == NO_INDEX)
+	{
+		logmsg("There is no Silence block defined in the current format\n");
+		return;
+	}
+
+	loudest.hertz = 0;
+	loudest.amplitude = NO_AMPLITUDE;
+
+	// Find global peak
+	for(int block = 0; block < config->types.totalChunks; block++)
+	{
+		int type = TYPE_NOTYPE;
+
+		type = GetBlockType(config, block);
+		if(type > TYPE_CONTROL && Signal->Blocks[block].freq[0].hertz != 0)
+		{
+			if(Signal->Blocks[block].freq[0].amplitude > maxAmplitude)
+				maxAmplitude = Signal->Blocks[block].freq[0].amplitude;
+		}
+	}
+
+	if(maxAmplitude == NO_AMPLITUDE)
+	{
+		logmsg(" - Could not determine Noise floor\n");
+		return;
+	}
+
+	for(int i = 0; i < config->MaxFreq; i++)
+	{
+		if(Signal->Blocks[index].freq[i].hertz && Signal->Blocks[index].freq[i].amplitude != NO_AMPLITUDE)
+		{
+			if(Signal->Blocks[index].freq[i].amplitude > loudest.amplitude)
+				loudest = Signal->Blocks[index].freq[i];
+		}
+		else
+			break;
+	}
+
+	if(loudest.hertz && loudest.amplitude != NO_AMPLITUDE)
+	{
+		logmsg(" = %s signal noise floor: %g dBFS [%g Hz] %s\n", 
+			Signal->role == ROLE_REF ? "Reference" : "Comparison",
+			loudest.amplitude - maxAmplitude,
+			loudest.hertz,
+			loudest.amplitude - maxAmplitude < PCM_16BIT_MIN_AMPLITUDE ? "(not significant)" : "");
+	}
+}
 
 void FindFloor(AudioSignal *Signal, parameters *config)
 {
 	int 		index;
-	Frequency	loudest;
+	Frequency	loudest, noiseFreq;
 
 	if(!Signal)
 		return;
@@ -1260,17 +1359,14 @@ void FindFloor(AudioSignal *Signal, parameters *config)
 
 	if(loudest.hertz && loudest.amplitude != NO_AMPLITUDE)
 	{
-		logmsg(" - %s Signal Noise floor: %g dBFS [%g Hz] %s\n", 
+		logmsg(" - %s signal relative comparison noise floor: %g dBFS [%g Hz] %s\n", 
 			Signal->role == ROLE_REF ? "Reference" : "Comparison",
 			loudest.amplitude,
 			loudest.hertz,
 			loudest.amplitude < PCM_16BIT_MIN_AMPLITUDE ? "(not significant)" : "");
 	}
-	/*
-	if(config->verbose)
-		logmsg(" - Frame Rate %g RefreshNoise %g\n",
-			Signal->framerate, Signal->RefreshNoise);
-	*/
+
+	noiseFreq = FindNoiseBlock(Signal, config);
 
 	for(int i = 0; i < config->MaxFreq; i++)
 	{
@@ -1278,34 +1374,56 @@ void FindFloor(AudioSignal *Signal, parameters *config)
 		{
 			if(IsGridFrequencyNoise(Signal, Signal->Blocks[index].freq[i].hertz))
 			{
-				Signal->floorAmplitude = Signal->Blocks[index].freq[i].amplitude;
-				Signal->floorFreq = Signal->Blocks[index].freq[i].hertz;
-				logmsg(" - Possible electrical grid frequency noise: %g dBFS [%g Hz]\n",
-						Signal->floorAmplitude, Signal->floorFreq);
-				return;
+				if(noiseFreq.amplitude > Signal->Blocks[index].freq[i].amplitude)
+				{
+					logmsg(" - Possible electrical grid frequency noise: %g dBFS [%g Hz]\n",
+						Signal->Blocks[index].freq[i].amplitude, Signal->Blocks[index].freq[i].hertz);
+
+					Signal->floorAmplitude = Signal->Blocks[index].freq[i].amplitude;
+					Signal->floorFreq = Signal->Blocks[index].freq[i].hertz;
+					return;
+				}
 			}
 
 			if(IsHRefreshNoise(Signal, Signal->Blocks[index].freq[i].hertz))
 			{
-				Signal->floorAmplitude = Signal->Blocks[index].freq[i].amplitude;
-				Signal->floorFreq = Signal->Blocks[index].freq[i].hertz;
-				logmsg(" - Possible horizontal scan rate noise : %g dBFS [%g Hz]\n",
-						Signal->floorAmplitude, Signal->floorFreq);
-				return;
+				if(noiseFreq.amplitude > Signal->Blocks[index].freq[i].amplitude)
+				{
+					logmsg(" - Possible horizontal scan rate noise : %g dBFS [%g Hz]\n",
+						Signal->Blocks[index].freq[i].amplitude, Signal->Blocks[index].freq[i].hertz);
+
+					Signal->floorAmplitude = Signal->Blocks[index].freq[i].amplitude;
+					Signal->floorFreq = Signal->Blocks[index].freq[i].hertz;
+					return;
+				}
 			}
 		}
 	}
 
 	if(loudest.hertz && loudest.amplitude != NO_AMPLITUDE)
 	{
-		Signal->floorAmplitude = loudest.amplitude;
-		Signal->floorFreq = loudest.hertz;
-		logmsg(" - Silence block max amplitude: %g Hz at %g dBFS\n",
-			Signal->floorFreq, Signal->floorAmplitude);
+		if(noiseFreq.amplitude > loudest.amplitude)
+		{
+			Signal->floorAmplitude = loudest.amplitude;
+			Signal->floorFreq = loudest.hertz;
+			return;
+		}
+	}
+
+	if(noiseFreq.hertz)
+	{
+		Signal->floorAmplitude = noiseFreq.amplitude;
+		Signal->floorFreq = noiseFreq.hertz;
+
+		logmsg(" - %s Noise Channel relative comparison  signal floor: %g dBFS [%g Hz] %s\n", 
+			Signal->role == ROLE_REF ? "Reference" : "Comparison",
+			noiseFreq.amplitude,
+			noiseFreq.hertz,
+			noiseFreq.amplitude < PCM_16BIT_MIN_AMPLITUDE ? "(not significant)" : "");
 		return;
 	}
 
-	logmsg(" - No meaningful Noise floor found, using the whole range\n");
+	logmsg(" - No meaningful floor found, using the whole range for relative comparison\n");
 	Signal->hasFloor = 0;  /* revoke it if not found */
 }
 
@@ -1969,6 +2087,27 @@ double FindDifferenceAverage(parameters *config)
 		AvgDifAmp /= count;
 
 	return AvgDifAmp;
+}
+
+void SubstractDifferenceAverage(parameters *config, double average)
+{
+	if(!config)
+		return;
+
+	if(!config->Differences.BlockDiffArray)
+		return;
+
+	for(int b = 0; b < config->types.totalChunks; b++)
+	{
+		if(config->Differences.BlockDiffArray[b].type <= TYPE_CONTROL)
+			continue;
+
+
+		for(int a = 0; a < config->Differences.BlockDiffArray[b].cntAmplBlkDiff; a++)
+			config->Differences.BlockDiffArray[b].amplDiffArray[a].diffAmplitude -= average;
+	}
+
+	return;
 }
 
 int FindDifferenceTypeTotals(int type, long int *cntAmplBlkDiff, long int *cmpAmplBlkDiff, parameters *config)

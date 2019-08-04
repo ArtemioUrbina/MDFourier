@@ -41,7 +41,6 @@
 int LoadAndProcessAudioFiles(AudioSignal **ReferenceSignal, AudioSignal **ComparisonSignal, parameters *config);
 int LoadFile(FILE *file, AudioSignal *Signal, parameters *config, char *fileName);
 int ProcessFile(AudioSignal *Signal, parameters *config);
-void PrepareSignal(AudioSignal *Signal, double ZeroDbMagReference, parameters *config);
 int ExecuteDFFT(AudioBlocks *AudioArray, int16_t *samples, size_t size, long samplerate, double *window, parameters *config);
 double CompareAudioBlocks(AudioSignal *ReferenceSignal, AudioSignal *ComparisonSignal, parameters *config);
 void CleanUp(AudioSignal **ReferenceSignal, AudioSignal **ComparisonSignal, parameters *config);
@@ -65,6 +64,7 @@ int main(int argc , char *argv[])
 	AudioSignal  		*ComparisonSignal = NULL;
 	parameters			config;
 	struct	timespec	start, end;
+	double 				average = 0;
 
 	Header(0);
 	if(!commandline(argc, argv, &config))
@@ -90,8 +90,38 @@ int main(int argc , char *argv[])
 	if(!LoadAndProcessAudioFiles(&ReferenceSignal, &ComparisonSignal, &config))
 		return 1;
 
-	logmsg("\n* Comparing frequencies\n");
+	logmsg("\n* Comparing frequencies: ");
 	CompareAudioBlocks(ReferenceSignal, ComparisonSignal, &config);
+	average = FindDifferenceAverage(&config);
+	logmsg("Average difference is %g dBFS\n", average);
+	if(average > DB_DIFF)
+	{
+		if(config.averageIgnore)
+		{
+			logmsg(" - WARNING: The average difference is %g dBFS.\n", average);
+			logmsg("\tThis is abnormal, if results make no sense you can try:\n");
+			logmsg("\tLimit the frequency range to be analyzed with -s and/or -e\n");
+			logmsg("\tUse time domain normalization -n t\n");
+			logmsg("\tVerify analog filters or cabling\n");
+			if(average > config.maxDbPlotZC)
+			{
+				config.maxDbPlotZC = average*1.5;
+				logmsg("\tAdjusting viewport to %gdBFS for graphs\n\n", config.maxDbPlotZC);
+			}
+		}
+		else
+		{
+			logmsg(" - WARNING: The average difference is %g dBFS.\n", average);
+			logmsg("\tSubstracting average for clarity, yellow dotted line marks real zero.\n");
+			SubstractDifferenceAverage(&config, average);
+			config.averageLine = average;
+			if(average > config.maxDbPlotZC)
+			{
+				config.maxDbPlotZC = average*1.5;
+				logmsg("\tAdjusting viewport to %gdBFS for graphs\n\n", config.maxDbPlotZC);
+			}
+		}
+	}
 
 	logmsg("* Plotting results to PNGs:\n");
 	PlotResults(ReferenceSignal, &config);
@@ -521,8 +551,17 @@ int LoadAndProcessAudioFiles(AudioSignal **ReferenceSignal, AudioSignal **Compar
 				ZeroDbMagnitudeRef, (*ComparisonSignal)->MaxMagnitude.magnitude);
 	}
 
-	PrepareSignal(*ReferenceSignal, ZeroDbMagnitudeRef, config);
-	PrepareSignal(*ComparisonSignal, ZeroDbMagnitudeRef, config);
+	CalculateAmplitudes(*ReferenceSignal, ZeroDbMagnitudeRef, config);
+	CalculateAmplitudes(*ComparisonSignal, ZeroDbMagnitudeRef, config);
+
+	FindStandAloneFloor(*ReferenceSignal, config);
+	FindStandAloneFloor(*ComparisonSignal, config);
+
+	/* analyze silence floor if available */
+	if(!config->ignoreFloor && (*ReferenceSignal)->hasFloor)
+		FindFloor(*ReferenceSignal, config);
+	if(!config->ignoreFloor && (*ComparisonSignal)->hasFloor)
+		FindFloor(*ComparisonSignal, config);
 
 	/* Detect Signal Floor */
 	if((*ReferenceSignal)->hasFloor && !config->ignoreFloor && 
@@ -1112,14 +1151,6 @@ int ProcessFile(AudioSignal *Signal, parameters *config)
 	return i;
 }
 
-void PrepareSignal(AudioSignal *Signal, double ZeroDbMagReference, parameters *config)
-{
-	CalculateAmplitudes(Signal, ZeroDbMagReference, config);
-
-	/* analyze silence floor if available */
-	if(!config->ignoreFloor && Signal->hasFloor)
-		FindFloor(Signal, config);
-}
 
 int ExecuteDFFT(AudioBlocks *AudioArray, int16_t *samples, size_t size, long samplerate, double *window, parameters *config)
 {
@@ -1215,7 +1246,7 @@ int CalculateMaxCompare(int block, AudioSignal *Signal, parameters *config, int 
 
 	// Allow a different range for Noise channel when specified
 	// in the config File
-	if(GetBlockChannel(config, block) == CHANNEL_NOISE)
+	if(config->lowerNoise && GetBlockChannel(config, block) == CHANNEL_NOISE)
 		limit = SIGNIFICANT_VOLUME;
 
 	if(Signal->role == ROLE_COMP)

@@ -194,23 +194,8 @@ void PlotResults(AudioSignal *Signal, parameters *config)
 
 void PlotAmpDifferences(parameters *config)
 {
-	double average = 0;
 	FlatAmplDifference	*amplDiff = NULL;
 	
-	average = FindDifferenceAverage(config);
-	if(average > DB_DIFF)
-	{
-		logmsg("\n\nWARNING: The average difference is %g dBFS.\n", average);
-		logmsg("\t\tThis is abnormal, if results make no sense you can try:\n");
-		logmsg("\t\tLimit the frequency range to be analyzed with -s and/or -e\n");
-		logmsg("\t\tUse time domain normalization -n t\n");
-		logmsg("\t\tVerify analog filters or cabling\n");
-		if(average > config->maxDbPlotZC)
-		{
-			config->maxDbPlotZC = average*1.5;
-			logmsg("\tAdjusting viewport to %gdBFS for graphs\n\n", config->maxDbPlotZC);
-		}
-	}
 	amplDiff = CreateFlatDifferences(config);
 	if(!amplDiff)
 	{
@@ -392,6 +377,14 @@ void DrawGridZeroDBCentered(PlotFile *plot, double dBFS, double dbIncrement, dou
 	}
 	pl_fline_r(plot->plotter, transformtoLog(1000, config), -1*dBFS, transformtoLog(1000, config), dBFS);
 	pl_fline_r(plot->plotter, transformtoLog(10000, config), -1*dBFS, transformtoLog(10000, config), dBFS);
+
+	if(config->averageLine != 0.0)
+	{
+		pl_pencolor_r (plot->plotter, 0xAAAA, 0xAAAA, 0);
+		pl_linemod_r(plot->plotter, "dotdashed");
+		pl_fline_r(plot->plotter, 0, -1.0*config->averageLine, hz, -1.0*config->averageLine);
+		pl_linemod_r(plot->plotter, "solid");
+	}
 
 	pl_pencolor_r (plot->plotter, 0, 0xFFFF, 0);
 }
@@ -894,12 +887,15 @@ void PlotAllMissingFrequencies(FlatFreqDifference *freqDiff, char *filename, par
 		return;
 
 	significant = config->significantAmplitude;
-	for(int f = 0; f < config->Differences.cntFreqAudioDiff; f++)
+	if(config->lowerNoise)
 	{
-		if(GetTypeChannel(config, freqDiff[f].type) == CHANNEL_NOISE)
+		for(int f = 0; f < config->Differences.cntFreqAudioDiff; f++)
 		{
-			if(significant > SIGNIFICANT_VOLUME)
-				significant = SIGNIFICANT_VOLUME;
+			if(GetTypeChannel(config, freqDiff[f].type) == CHANNEL_NOISE)
+			{
+				if(significant > SIGNIFICANT_VOLUME)
+					significant = SIGNIFICANT_VOLUME;
+			}
 		}
 	}
 
@@ -967,7 +963,7 @@ void PlotSingleTypeMissingFrequencies(FlatFreqDifference *freqDiff, int type, ch
 		return;
 
 	significant = config->significantAmplitude;
-	if(GetTypeChannel(config, type) == CHANNEL_NOISE)
+	if(config->lowerNoise && GetTypeChannel(config, type) == CHANNEL_NOISE)
 	{
 		if(significant > SIGNIFICANT_VOLUME)
 			significant = SIGNIFICANT_VOLUME;
@@ -1012,12 +1008,15 @@ void PlotAllSpectrogram(FlatFrequency *freqs, long int size, char *filename, int
 		return;
 
 	significant = config->significantAmplitude;
-	for(int f = 0; f < size; f++)
+	if(config->lowerNoise)
 	{
-		if(GetTypeChannel(config, freqs[f].type) == CHANNEL_NOISE)
+		for(int f = 0; f < size; f++)
 		{
-			if(significant > SIGNIFICANT_VOLUME)
-				significant = SIGNIFICANT_VOLUME;
+			if(GetTypeChannel(config, freqs[f].type) == CHANNEL_NOISE)
+			{
+				if(significant > SIGNIFICANT_VOLUME)
+					significant = SIGNIFICANT_VOLUME;
+			}
 		}
 	}
 
@@ -1081,7 +1080,7 @@ void PlotSingleTypeSpectrogram(FlatFrequency *freqs, long int size, int type, ch
 		return;
 
 	significant = config->significantAmplitude;
-	if(GetTypeChannel(config, type) == CHANNEL_NOISE)
+	if(config->lowerNoise && GetTypeChannel(config, type) == CHANNEL_NOISE)
 	{
 		if(significant > SIGNIFICANT_VOLUME)
 			significant = SIGNIFICANT_VOLUME;
@@ -1470,7 +1469,7 @@ FlatFrequency *CreateFlatFrequencies(AudioSignal *Signal, long int *size, parame
 
 		type = GetBlockType(config, block);
 		significant = config->significantAmplitude;
-		if(GetTypeChannel(config, type) == CHANNEL_NOISE)
+		if(config->lowerNoise && GetTypeChannel(config, type) == CHANNEL_NOISE)
 		{
 			if(significant > SIGNIFICANT_VOLUME)
 				significant = SIGNIFICANT_VOLUME;
@@ -1500,7 +1499,7 @@ FlatFrequency *CreateFlatFrequencies(AudioSignal *Signal, long int *size, parame
 
 		type = GetBlockType(config, block);
 		significant = config->significantAmplitude;
-		if(GetTypeChannel(config, type) == CHANNEL_NOISE)
+		if(config->lowerNoise && GetTypeChannel(config, type) == CHANNEL_NOISE)
 		{
 			if(significant > SIGNIFICANT_VOLUME)
 				significant = SIGNIFICANT_VOLUME;
@@ -1654,7 +1653,7 @@ AveragedFrequencies *CreateFlatDifferencesAveraged(int matchType, long int *avgS
 	*avgSize = 0;
 
 	significant = config->significantAmplitude;
-	if(GetTypeChannel(config, matchType) == CHANNEL_NOISE)
+	if(config->lowerNoise && GetTypeChannel(config, matchType) == CHANNEL_NOISE)
 	{
 		if(significant > SIGNIFICANT_VOLUME)
 			significant = SIGNIFICANT_VOLUME;
