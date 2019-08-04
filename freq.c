@@ -1270,7 +1270,7 @@ void FindStandAloneFloor(AudioSignal *Signal, parameters *config)
 {
 	int 		index;
 	Frequency	loudest;
-	double		maxAmplitude = NO_AMPLITUDE;
+	double		maxMagnitude = 0;
 
 	if(!Signal)
 		return;
@@ -1283,6 +1283,7 @@ void FindStandAloneFloor(AudioSignal *Signal, parameters *config)
 	}
 
 	loudest.hertz = 0;
+	loudest.magnitude = 0;
 	loudest.amplitude = NO_AMPLITUDE;
 
 	// Find global peak
@@ -1293,12 +1294,12 @@ void FindStandAloneFloor(AudioSignal *Signal, parameters *config)
 		type = GetBlockType(config, block);
 		if(type > TYPE_CONTROL && Signal->Blocks[block].freq[0].hertz != 0)
 		{
-			if(Signal->Blocks[block].freq[0].amplitude > maxAmplitude)
-				maxAmplitude = Signal->Blocks[block].freq[0].amplitude;
+			if(Signal->Blocks[block].freq[0].magnitude > maxMagnitude)
+				maxMagnitude = Signal->Blocks[block].freq[0].magnitude;
 		}
 	}
 
-	if(maxAmplitude == NO_AMPLITUDE)
+	if(maxMagnitude == 0)
 	{
 		logmsg(" - Could not determine Noise floor\n");
 		return;
@@ -1308,20 +1309,27 @@ void FindStandAloneFloor(AudioSignal *Signal, parameters *config)
 	{
 		if(Signal->Blocks[index].freq[i].hertz && Signal->Blocks[index].freq[i].amplitude != NO_AMPLITUDE)
 		{
-			if(Signal->Blocks[index].freq[i].amplitude > loudest.amplitude)
+			if(Signal->Blocks[index].freq[i].magnitude > loudest.magnitude)
 				loudest = Signal->Blocks[index].freq[i];
 		}
 		else
 			break;
 	}
 
-	if(loudest.hertz && loudest.amplitude != NO_AMPLITUDE)
+	if(loudest.hertz && loudest.magnitude != 0)
 	{
+		loudest.amplitude = CalculateAmplitude(loudest.magnitude, maxMagnitude);
+
 		logmsg(" = %s signal noise floor: %g dBFS [%g Hz] %s\n", 
 			Signal->role == ROLE_REF ? "Reference" : "Comparison",
-			loudest.amplitude - maxAmplitude,
+			loudest.amplitude,
 			loudest.hertz,
-			loudest.amplitude - maxAmplitude < PCM_16BIT_MIN_AMPLITUDE ? "(not significant)" : "");
+			loudest.amplitude < PCM_16BIT_MIN_AMPLITUDE ? "(not significant)" : "");
+	}
+	else
+	{
+		logmsg(" - Could not determine Noise floor\n");
+		return;
 	}
 }
 

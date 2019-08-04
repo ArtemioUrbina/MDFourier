@@ -96,30 +96,24 @@ int main(int argc , char *argv[])
 	logmsg("Average difference is %g dBFS\n", average);
 	if(average > DB_DIFF)
 	{
+		logmsg(" - WARNING: The average difference is too high.\n");
 		if(config.averageIgnore)
 		{
-			logmsg(" - WARNING: The average difference is %g dBFS.\n", average);
 			logmsg("\tThis is abnormal, if results make no sense you can try:\n");
 			logmsg("\tLimit the frequency range to be analyzed with -s and/or -e\n");
 			logmsg("\tUse time domain normalization -n t\n");
 			logmsg("\tVerify analog filters or cabling\n");
-			if(average > config.maxDbPlotZC)
-			{
-				config.maxDbPlotZC = average*1.5;
-				logmsg("\tAdjusting viewport to %gdBFS for graphs\n\n", config.maxDbPlotZC);
-			}
 		}
 		else
 		{
-			logmsg(" - WARNING: The average difference is %g dBFS.\n", average);
 			logmsg("\tSubstracting average for clarity, yellow dotted line marks real zero.\n");
 			SubstractDifferenceAverage(&config, average);
 			config.averageLine = average;
-			if(average > config.maxDbPlotZC)
-			{
-				config.maxDbPlotZC = average*1.5;
-				logmsg("\tAdjusting viewport to %gdBFS for graphs\n\n", config.maxDbPlotZC);
-			}
+		}
+		if(average > config.maxDbPlotZC)
+		{
+			config.maxDbPlotZC = average*1.5;
+			logmsg("\tAdjusting viewport to %gdBFS for graphs\n\n", config.maxDbPlotZC);
 		}
 	}
 
