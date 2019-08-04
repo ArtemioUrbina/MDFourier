@@ -15,7 +15,6 @@
 typedef struct commandline_st {
 	CString	Name;
 	CString	valueMDF;
-	int		indexCB;
 } CommandLineArray;
 
 // CMDFourierGUIDlg dialog
@@ -76,7 +75,7 @@ protected:
 	int CheckDependencies();
 	void ManageWindows(BOOL Enable);
 	void InsertValueInCombo(CString Name, CString value, CommandLineArray &Data, CComboBox &Combo);
-	CString GetSelectedCommandLineValue(CommandLineArray *Data, CComboBox &Combo, int size);
+	CString GetSelectedCommandLineValue(CComboBox &Combo, int size);
 	void ExecuteCommand(CString Compare);
 	void CheckPlotSelection(CButton &clicked);
 	int FindProfiles(CString sPath, CString pattern);

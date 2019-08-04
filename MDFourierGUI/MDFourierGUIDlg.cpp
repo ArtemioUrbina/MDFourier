@@ -161,9 +161,18 @@ void CMDFourierGUIDlg::OnBnClickedSelectReferenceCompare()
 
 void CMDFourierGUIDlg::OnBnClickedOk()
 {
+	CString profile;
+
 	UpdateWindow();
 
 	m_OpenResultsBttn.EnableWindow(FALSE);
+
+	profile = GetSelectedCommandLineValue(m_Profiles, COUNT_PROFILES);
+	if(profile == L"NONE")
+	{
+		MessageBox(L"Please select a profile for the comparison.", L"Action needed");
+		return;
+	}
 
 	if(!cDos.m_fDone)
 	{
@@ -252,9 +261,9 @@ void CMDFourierGUIDlg::ExecuteCommand(CString Compare)
 	CString	command, extraCmd;
 	CString	window, adjust, profile;
 
-	profile = GetSelectedCommandLineValue(Profiles, m_Profiles, COUNT_PROFILES);
-	window = GetSelectedCommandLineValue(WindowConvert, m_WindowTypeSelect, COUNT_WINDOWS);
-	adjust = GetSelectedCommandLineValue(CurveConvert, m_CurveAdjustSelect, COUNT_CURVES);
+	profile = GetSelectedCommandLineValue(m_Profiles, COUNT_PROFILES);
+	window = GetSelectedCommandLineValue(m_WindowTypeSelect, COUNT_WINDOWS);
+	adjust = GetSelectedCommandLineValue(m_CurveAdjustSelect, COUNT_CURVES);
 
 	command.Format(L"mdfourier.exe -P \"%s\" -r \"%s\" -c \"%s\" -w %s -o %s -l", 
 			profile, m_Reference, Compare, window, adjust);
@@ -266,7 +275,12 @@ void CMDFourierGUIDlg::ExecuteCommand(CString Compare)
 		command += " -g";
 
 	if(m_VerboseLog_Bttn.GetCheck() == BST_CHECKED)
+	{
 		command += " -v";
+		cDos.verbose = TRUE;
+	}
+	else
+		cDos.verbose = FALSE;
 
 	if(m_DiffBttn.GetCheck() != BST_CHECKED)
 		command += " -D";
@@ -289,6 +303,7 @@ void CMDFourierGUIDlg::ExecuteCommand(CString Compare)
 
 	m_OutputCtrl.SetWindowText(L"");
 	m_ComparisonLbl.SetWindowText(Compare);
+
 	cDos.Start(command);
 }
 
@@ -427,23 +442,30 @@ void CMDFourierGUIDlg::OnBnClickedOpenresults()
 	}
 }
 
-CString CMDFourierGUIDlg::GetSelectedCommandLineValue(CommandLineArray *Data, CComboBox &Combo, int size)
+CString CMDFourierGUIDlg::GetSelectedCommandLineValue(CComboBox &Combo, int size)
 {
-	int selected = -1, i;
+	int selected = -1;
+	CommandLineArray *DataOk;
 
 	selected = Combo.GetCurSel();
-	for(i = 0; i < size; i++)
-	{
-		if(Data[i].indexCB == selected)
-			return Data[i].valueMDF;
-	}
-	return L"-";
+	if(selected == CB_ERR)
+		return L"-";
+
+	DataOk = (CommandLineArray*)Combo.GetItemDataPtr(selected);
+	if(!DataOk)
+		return L"-";
+
+	return DataOk->valueMDF;
 }
 
 void CMDFourierGUIDlg::InsertValueInCombo(CString Name, CString value, CommandLineArray &Data, CComboBox &Combo)
 {
+	int indexCB;
+
 	Data.Name = Name;
-	Data.indexCB = Combo.AddString(Name);
+	indexCB = Combo.AddString(Name);
+	if(indexCB != CB_ERR)
+		Combo.SetItemDataPtr(indexCB, &Data);
 	Data.valueMDF = value;
 }
 
@@ -455,7 +477,7 @@ void CMDFourierGUIDlg::FillComboBoxes()
 	InsertValueInCombo(L"Hann", L"h", WindowConvert[3], m_WindowTypeSelect);
 	InsertValueInCombo(L"Hamming", L"m", WindowConvert[4], m_WindowTypeSelect);
 
-	m_WindowTypeSelect.SetCurSel(WindowConvert[1].indexCB);
+	m_WindowTypeSelect.SetCurSel(1);
 
 	InsertValueInCombo(L"None", L"0", CurveConvert[0], m_CurveAdjustSelect);
 	InsertValueInCombo(L"Bright", L"1", CurveConvert[1], m_CurveAdjustSelect);
@@ -464,7 +486,7 @@ void CMDFourierGUIDlg::FillComboBoxes()
 	InsertValueInCombo(L"Low", L"4", CurveConvert[4], m_CurveAdjustSelect);
 	InsertValueInCombo(L"Dimm", L"5", CurveConvert[5], m_CurveAdjustSelect);
 
-	m_CurveAdjustSelect.SetCurSel(CurveConvert[3].indexCB);
+	m_CurveAdjustSelect.SetCurSel(3);
 }
 
 int CMDFourierGUIDlg::FindProfiles(CString sPath, CString pattern)
@@ -473,7 +495,7 @@ int CMDFourierGUIDlg::FindProfiles(CString sPath, CString pattern)
 	CFileFind finder;
 	BOOL bFind = FALSE;
 	CString	search;
-    
+   
 	search.Format(L"%s\\%s", sPath, pattern);
 	bFind = finder.FindFile(search);
 	while(bFind)
@@ -522,6 +544,8 @@ int CMDFourierGUIDlg::FindProfiles(CString sPath, CString pattern)
 	}
 
 	finder.Close();
+	InsertValueInCombo(L"Select a profile", L"NONE", Profiles[count], m_Profiles);
+	m_Profiles.SetCurSel(count);
 	return count;
 }
 
@@ -549,7 +573,7 @@ int CMDFourierGUIDlg::CheckDependencies()
 		MessageBox(msg, L"Error mdfblocks.mfn not found");
 		return FALSE;
 	}
-	m_Profiles.SetCurSel(Profiles[0].indexCB);
+	//m_Profiles.SetCurSel(0);
 
 	return TRUE;
 }

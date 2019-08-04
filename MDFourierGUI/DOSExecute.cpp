@@ -52,6 +52,11 @@ int CDOSExecute::ExecuteExternalFile()
 
 	Lock();
 	m_Output = L"";
+	if(verbose)
+	{
+		m_Output += m_cline;
+		m_Output += L"\r\n\r\n";
+	}
 	Release();
 
 	ZeroMemory(&secattr,sizeof(secattr));

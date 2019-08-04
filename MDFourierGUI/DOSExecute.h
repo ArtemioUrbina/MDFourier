@@ -16,6 +16,7 @@ public:
 	BOOL			m_fDone;
 	CString			m_Output;
 	HANDLE			Semaphore;
+	BOOL			verbose;
 
 	PROCESS_INFORMATION pInfo; 
 
