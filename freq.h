@@ -86,6 +86,7 @@ void GlobalNormalize(AudioSignal *Signal, parameters *config);
 void FindMaxMagnitude(AudioSignal *Signal, parameters *config);
 void CalculateAmplitudes(AudioSignal *Signal, double ZeroDbMagReference, parameters *config);
 void FindFloor(AudioSignal *Signal, parameters *config);
+void FindStandAloneFloor(AudioSignal *Signal, parameters *config);
 double GetLowerFrameRate(double framerateA, double framerateB);
 void CompareFrameRates(double framerate1, double framerate2, parameters *config);
 
@@ -116,6 +117,7 @@ void CalcuateFrequencyBrackets(AudioSignal *signal, parameters *config);
 double FindFrequencyBracket(double frequency, size_t size, long samplerate);
 
 double FindDifferenceAverage(parameters *config);
+void SubstractDifferenceAverage(parameters *config, double average);
 int FindDifferenceTypeTotals(int type, long int *cntAmplBlkDiff, long int *cmpAmplBlkDiff, parameters *config);
 int FindMissingTypeTotals(int type, long int *cntFreqBlkDiff, long int *cmpFreqBlkDiff, parameters *config);
 

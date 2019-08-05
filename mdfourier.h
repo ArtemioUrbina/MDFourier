@@ -49,12 +49,12 @@
 
 #include "incbeta.h"
 
-#define MDVERSION "0.932"
+#define MDVERSION "0.933"
 
 
 #define MAX_FREQ_COUNT		100000 	/* Number of frequencies to compare(MAX) */
 #define FREQ_COUNT			2000	/* Number of frequencies to compare(default) */
-#define SIGNIFICANT_VOLUME	-60.0
+#define SIGNIFICANT_VOLUME	-96.0
 #define	PCM_16BIT_MIN_AMPLITUDE	-96.0
 
 #define TYPE_SILENCE	0
@@ -81,7 +81,7 @@
 #define END_HZ		20000.0
 
 #define DB_HEIGHT	18.0
-#define DB_DIFF		15.0
+#define DB_DIFF		8.0
 
 #define PLOT_RES_X 1600.0
 #define PLOT_RES_Y 800.0
@@ -352,6 +352,9 @@ typedef struct parameters_st {
 	int				averagePlot;
 	int				weightedAveragePlot;
 	int				drawWindows;
+	int				averageIgnore;
+	double			averageLine;
+	int				lowerNoise;
 
 	double 			plotResX;
 	double			plotResY;

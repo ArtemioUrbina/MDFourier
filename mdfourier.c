@@ -1277,10 +1277,11 @@ double CompareAudioBlocks(AudioSignal *ReferenceSignal, AudioSignal *ComparisonS
 
 	for(block = 0; block < config->types.totalChunks; block++)
 	{
-		int refSize = 0, testSize = 0;
+		int refSize = 0, testSize = 0, type = 0;
 
 		/* Ignore Control blocks */
-		if(GetBlockType(config, block) <= TYPE_CONTROL)
+		type = GetBlockType(config, block);
+		if(type <= TYPE_CONTROL)
 			continue;
 
 		refSize = CalculateMaxCompare(block, ReferenceSignal, config, 1);
@@ -1317,6 +1318,45 @@ double CompareAudioBlocks(AudioSignal *ReferenceSignal, AudioSignal *ComparisonS
 				}
 			}
 
+/*
+			if(!found && GetTypeChannel(config, type) == CHANNEL_NOISE) // search with tolerance, if done in one pass, false positives emerge 
+			{
+				double	lowest = 22050;
+				int 	lowIndex = -1;
+
+				// Find closest match
+				for(long int comp = 0; comp < testSize; comp++)
+				{
+					if(!ComparisonSignal->Blocks[block].freq[comp].matched)
+					{
+						double hertzDiff;
+	
+						hertzDiff = fabs(ComparisonSignal->Blocks[block].freq[comp].hertz -
+										 ReferenceSignal->Blocks[block].freq[freq].hertz);
+
+						if(hertzDiff <= 2.0)
+						{
+							if(hertzDiff < lowest)
+							{
+								lowest = hertzDiff;
+								lowIndex = comp;
+							}
+						}
+					}
+				}
+
+				if(lowIndex >= 0)
+				{
+					ComparisonSignal->Blocks[block].freq[lowIndex].matched = freq + 1;
+					ReferenceSignal->Blocks[block].freq[freq].matched = lowIndex + 1;
+
+					found = 2;
+					index = lowIndex;
+
+					// Adjusted Frequency to tolerance
+				}
+			}
+*/
 			if(found)  /* Now in either case, compare amplitudes */
 			{
 				double test;

@@ -1225,7 +1225,7 @@ int GetInternalSyncTotalLength(int pos, parameters *config)
 	return 0;
 }
 
-Frequency FindNoiseBlock(AudioSignal *Signal, parameters *config)
+Frequency FindNoiseBlockAverage(AudioSignal *Signal, parameters *config)
 {
 	Frequency	cutOff;
 	int 		noiseBlock = -1;
@@ -1260,7 +1260,11 @@ Frequency FindNoiseBlock(AudioSignal *Signal, parameters *config)
 	if(count)
 	{
 		cutOff.hertz = cutOff.hertz/count;
-		cutOff.amplitude = -1.0*fabs(cutOff.amplitude)/count;
+		cutOff.amplitude = -1.0*(fabs(cutOff.amplitude)/count);
+		if(config->verbose)
+			logmsg(" - %s signal profile defined noise channel averages: %g dBFS [%g Hz]\n",
+				Signal->role == ROLE_REF ? "Reference" : "Comparison",
+				cutOff.amplitude, cutOff.hertz);
 	}
 
 	return cutOff;
@@ -1367,14 +1371,14 @@ void FindFloor(AudioSignal *Signal, parameters *config)
 
 	if(loudest.hertz && loudest.amplitude != NO_AMPLITUDE)
 	{
-		logmsg(" - %s signal relative comparison noise floor: %g dBFS [%g Hz] %s\n", 
+		logmsg(" > %s signal relative comparison noise floor: %g dBFS [%g Hz] %s\n", 
 			Signal->role == ROLE_REF ? "Reference" : "Comparison",
 			loudest.amplitude,
 			loudest.hertz,
 			loudest.amplitude < PCM_16BIT_MIN_AMPLITUDE ? "(not significant)" : "");
 	}
 
-	noiseFreq = FindNoiseBlock(Signal, config);
+	noiseFreq = FindNoiseBlockAverage(Signal, config);
 
 	for(int i = 0; i < config->MaxFreq; i++)
 	{
@@ -1916,6 +1920,8 @@ double CalculateWeightedError(double pError, parameters *config)
 			break;
 	}
 
+	//map to a sub range so tyhat we always have color when within renge
+	pError = pError * 0.85 + 0.15;
 	return pError;
 }
 
