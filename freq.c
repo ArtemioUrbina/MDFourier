@@ -44,19 +44,25 @@ double FindFrequencyBinSizeForBlock(AudioSignal *Signal, long int block)
 
 double FindFrequencyBracket(double frequency, size_t size, long samplerate)
 {
-	double seconds = 0, minDiff = 0, targetFreq = 0;
-	long int monoSignalSize;
+	long int startBin= 0, endBin = 0;
+	double seconds = 0, boxsize = 0, minDiff = 0, targetFreq = 0;
 
 	minDiff = (double)samplerate/2.0;
 	targetFreq = frequency;
-	monoSignalSize = size/2;
-	seconds = (double)size/((double)samplerate*2.0);
 
-	for(int i = 1; i < monoSignalSize/2+1; i++)
+	seconds = (double)size/((double)samplerate*2.0);
+	boxsize = RoundFloat(seconds, 3);
+	if(boxsize == 0)
+		boxsize = seconds;
+
+	startBin = ceil(10*boxsize);
+	endBin = floor(20000*boxsize);
+
+	for(int i = startBin; i < endBin; i++)
 	{
 		double Hertz = 0, difference = 0;
 
-		Hertz = CalculateFrequency(i, seconds, 0);
+		Hertz = CalculateFrequency(i, boxsize, 0);
 		difference = fabs(Hertz - frequency);
 		if(difference < minDiff)
 		{
@@ -80,20 +86,27 @@ void CalcuateFrequencyBrackets(AudioSignal *Signal, parameters *config)
 	index = GetFirstSilenceIndex(config);
 	if(index != NO_INDEX)
 	{
-		double binSize = 0, refreshNoise = 0;
+		double gridNoise = 0, scanNoise = 0;
 
-		binSize = FindFrequencyBinSizeForBlock(Signal, index);
+		Signal->SilenceBinSize = FindFrequencyBinSizeForBlock(Signal, index);
 
-		refreshNoise = FindFrequencyBracket(roundFloat(1000.0/Signal->framerate), Signal->Blocks[index].fftwValues.size, Signal->header.fmt.SamplesPerSec);
-		Signal->gridFrequencyLow = refreshNoise - binSize;
-		Signal->gridFrequencyHigh = refreshNoise + binSize;
+		// NTSC or PAL
+		gridNoise = fabs(60.0 - roundFloat(1000.0/Signal->framerate)) < 5 ? 60.0 : 50.0;
+		Signal->gridFrequency = FindFrequencyBracket(gridNoise, Signal->Blocks[index].fftwValues.size, Signal->header.fmt.SamplesPerSec);
 
-		Signal->HRefreshLow = FindFrequencyBracket(15625, Signal->Blocks[index].fftwValues.size, Signal->header.fmt.SamplesPerSec) - binSize;
-		Signal->HRefreshHigh = FindFrequencyBracket(15750, Signal->Blocks[index].fftwValues.size, Signal->header.fmt.SamplesPerSec) + binSize;
+		scanNoise = CalculateScanRate(Signal)*GetLineCount(config);
+		Signal->scanrateFrequency = FindFrequencyBracket(scanNoise, Signal->Blocks[index].fftwValues.size, Signal->header.fmt.SamplesPerSec);
+
+		if(config->verbose)
+		{
+			logmsg(" - Searching for noise frequencies [%s]: Power grid %g Hz Scan Rate: %g Hz\n", 
+				Signal->role == ROLE_REF ? "Reference" : "Comparison",
+				Signal->gridFrequency, Signal->scanrateFrequency);
+		}
 	}
 	else
 	{
-		if(!config->noSyncProfile)
+		if(config->noSyncProfile)
 			logmsg("\nWARNING: Frequency Brackets can't be found since there is no Silence block in MFN file\n\n");
 	}
 }
@@ -103,8 +116,11 @@ int IsHRefreshNoise(AudioSignal *Signal, double freq)
 	if(!Signal)
 		return 0;
 
-	/* Peak around 15.625 kHz and 15.750 kHz  */
-	if(freq >= Signal->HRefreshLow && freq <= Signal->HRefreshHigh)
+
+	if(Signal->scanrateFrequency == 0)
+		return 0;
+
+	if(freq >= Signal->scanrateFrequency - Signal->SilenceBinSize*5 && freq <= Signal->scanrateFrequency)
 		return 1;
 	return 0;
 }
@@ -114,7 +130,10 @@ int IsGridFrequencyNoise(AudioSignal *Signal, double freq)
 	if(!Signal)
 		return 0;
 
-	if(freq >= Signal->gridFrequencyLow && freq <= Signal->gridFrequencyHigh)
+	if(Signal->gridFrequency == 0)
+		return 0;
+
+	if(freq == Signal->gridFrequency)
 		return 1;
 	return 0;
 }
@@ -198,10 +217,9 @@ void CleanAudio(AudioSignal *Signal, parameters *config)
 	memset(&Signal->MaxMagnitude, 0, sizeof(MaxMagn));
 	Signal->MinAmplitude = 0;
 
-	Signal->gridFrequencyLow = 0;
-	Signal->gridFrequencyHigh = 0;
-	Signal->HRefreshLow = 0;
-	Signal->HRefreshHigh = 0;
+	Signal->gridFrequency = 0;
+	Signal->scanrateFrequency = 0;
+	Signal->SilenceBinSize = 0;
 
 	memset(&Signal->header, 0, sizeof(wav_hdr));
 }
@@ -304,9 +322,15 @@ int LoadProfile(parameters *config)
 	if(strcmp(buffer, "MDFourierAudioBlockFile") == 0)
 	{
 		sscanf(lineBuffer, "%*s %s\n", buffer);
-		if(atof(buffer) > 1.2)
+		if(atof(buffer) < 1.3)
 		{
-			logmsg("This executable can parse \"MDFourierAudioBlockFile 1.2\" files only\n");
+			logmsg("Please update your profile files to version 1.3\n");
+			fclose(file);
+			return 0;
+		}
+		if(atof(buffer) > 1.3)
+		{
+			logmsg("This executable can parse \"MDFourierAudioBlockFile 1.3\" files only\n");
 			fclose(file);
 			return 0;
 		}
@@ -347,7 +371,7 @@ int LoadAudioBlockStructure(FILE *file, parameters *config)
 	}
 
 	readLine(lineBuffer, file);
-	if(sscanf(lineBuffer, "%s\n", buffer) != 1)
+	if(sscanf(lineBuffer, "%s %f\n", buffer, &config->types.referenceLineCount) != 2)
 	{
 		logmsg("Invalid Frame Rate Adjustment '%s'\n", lineBuffer);
 		fclose(file);
@@ -704,6 +728,7 @@ int LoadAudioNoSyncProfile(FILE *file, parameters *config)
 		return 0;
 	}
 
+	config->significantAmplitude = NS_SIGNIFICANT_VOLUME;
 	fclose(file);
 	
 	//PrintAudioBlocks(config);
@@ -739,6 +764,14 @@ double GetMSPerFrame(AudioSignal *Signal, parameters *config)
 	if(Signal->role == NO_ROLE)
 		logmsg("WARNING: No role assigned, using Reference Frame Rate\n");
 	return(roundFloat(config->types.referenceMSPerFrame));
+}
+
+double GetLineCount(parameters *config)
+{
+	if(!config)
+		return 0;
+
+	return(roundFloat(config->types.referenceLineCount));
 }
 
 double GetPulseSyncFreq(parameters *config)
@@ -1262,9 +1295,11 @@ Frequency FindNoiseBlockAverage(AudioSignal *Signal, parameters *config)
 		cutOff.hertz = cutOff.hertz/count;
 		cutOff.amplitude = -1.0*(fabs(cutOff.amplitude)/count);
 		if(config->verbose)
-			logmsg(" - %s signal profile defined noise channel averages: %g dBFS [%g Hz]\n",
+			logmsg("  - %s signal profile defined noise channel averages: %g dBFS [%g Hz]\n",
 				Signal->role == ROLE_REF ? "Reference" : "Comparison",
 				cutOff.amplitude, cutOff.hertz);
+
+		cutOff.amplitude += -3.0;
 	}
 
 	return cutOff;
@@ -1272,15 +1307,15 @@ Frequency FindNoiseBlockAverage(AudioSignal *Signal, parameters *config)
 
 void FindStandAloneFloor(AudioSignal *Signal, parameters *config)
 {
-	int 		index;
+	int 		Silentindex;
 	Frequency	loudest;
 	double		maxMagnitude = 0;
 
 	if(!Signal)
 		return;
 	
-	index = GetFirstSilenceIndex(config);
-	if(index == NO_INDEX)
+	Silentindex = GetFirstSilenceIndex(config);
+	if(Silentindex == NO_INDEX)
 	{
 		logmsg("There is no Silence block defined in the current format\n");
 		return;
@@ -1311,10 +1346,10 @@ void FindStandAloneFloor(AudioSignal *Signal, parameters *config)
 
 	for(int i = 0; i < config->MaxFreq; i++)
 	{
-		if(Signal->Blocks[index].freq[i].hertz && Signal->Blocks[index].freq[i].amplitude != NO_AMPLITUDE)
+		if(Signal->Blocks[Silentindex].freq[i].hertz != 0)
 		{
-			if(Signal->Blocks[index].freq[i].magnitude > loudest.magnitude)
-				loudest = Signal->Blocks[index].freq[i];
+			if(Signal->Blocks[Silentindex].freq[i].magnitude > loudest.magnitude)
+				loudest = Signal->Blocks[Silentindex].freq[i];
 		}
 		else
 			break;
@@ -1324,7 +1359,7 @@ void FindStandAloneFloor(AudioSignal *Signal, parameters *config)
 	{
 		loudest.amplitude = CalculateAmplitude(loudest.magnitude, maxMagnitude);
 
-		logmsg(" = %s signal noise floor: %g dBFS [%g Hz] %s\n", 
+		logmsg(" - %s signal noise floor: %g dBFS [%g Hz] %s\n", 
 			Signal->role == ROLE_REF ? "Reference" : "Comparison",
 			loudest.amplitude,
 			loudest.hertz,
@@ -1339,7 +1374,7 @@ void FindStandAloneFloor(AudioSignal *Signal, parameters *config)
 
 void FindFloor(AudioSignal *Signal, parameters *config)
 {
-	int 		index;
+	int 		index, foundScan = 0, foundGrid = 0;
 	Frequency	loudest, noiseFreq;
 
 	if(!Signal)
@@ -1371,7 +1406,7 @@ void FindFloor(AudioSignal *Signal, parameters *config)
 
 	if(loudest.hertz && loudest.amplitude != NO_AMPLITUDE)
 	{
-		logmsg(" > %s signal relative comparison noise floor: %g dBFS [%g Hz] %s\n", 
+		logmsg(" > %s signal relative noise floor: %g dBFS [%g Hz] %s\n", 
 			Signal->role == ROLE_REF ? "Reference" : "Comparison",
 			loudest.amplitude,
 			loudest.hertz,
@@ -1384,33 +1419,45 @@ void FindFloor(AudioSignal *Signal, parameters *config)
 	{
 		if(Signal->Blocks[index].freq[i].hertz && Signal->Blocks[index].freq[i].amplitude != NO_AMPLITUDE)
 		{
-			if(IsGridFrequencyNoise(Signal, Signal->Blocks[index].freq[i].hertz))
+			if(!foundGrid && IsGridFrequencyNoise(Signal, Signal->Blocks[index].freq[i].hertz))
 			{
+				foundGrid = 1;
 				if(noiseFreq.amplitude > Signal->Blocks[index].freq[i].amplitude)
 				{
-					logmsg(" - Possible electrical grid frequency noise: %g dBFS [%g Hz]\n",
+					logmsg("  - Possible electrical grid frequency noise: %g dBFS [%g Hz]\n",
 						Signal->Blocks[index].freq[i].amplitude, Signal->Blocks[index].freq[i].hertz);
 
-					Signal->floorAmplitude = Signal->Blocks[index].freq[i].amplitude;
-					Signal->floorFreq = Signal->Blocks[index].freq[i].hertz;
-					return;
+					if(Signal->floorAmplitude == 0)
+					{
+						Signal->floorAmplitude = Signal->Blocks[index].freq[i].amplitude;
+						Signal->floorFreq = Signal->Blocks[index].freq[i].hertz;
+					}
 				}
 			}
 
-			if(IsHRefreshNoise(Signal, Signal->Blocks[index].freq[i].hertz))
+			if(!foundScan && IsHRefreshNoise(Signal, Signal->Blocks[index].freq[i].hertz))
 			{
+				foundScan = 1;
 				if(noiseFreq.amplitude > Signal->Blocks[index].freq[i].amplitude)
 				{
-					logmsg(" - Possible horizontal scan rate noise : %g dBFS [%g Hz]\n",
+					logmsg("  - Possible horizontal scan rate noise : %g dBFS [%g Hz]\n",
 						Signal->Blocks[index].freq[i].amplitude, Signal->Blocks[index].freq[i].hertz);
 
-					Signal->floorAmplitude = Signal->Blocks[index].freq[i].amplitude;
-					Signal->floorFreq = Signal->Blocks[index].freq[i].hertz;
-					return;
+					if(Signal->floorAmplitude == 0)
+					{
+						Signal->floorAmplitude = Signal->Blocks[index].freq[i].amplitude;
+						Signal->floorFreq = Signal->Blocks[index].freq[i].hertz;
+					}
 				}
 			}
+
+			if(foundScan && foundGrid)
+				break;
 		}
 	}
+
+	if(Signal->floorAmplitude != 0 && noiseFreq.amplitude < Signal->floorAmplitude )
+		return;
 
 	if(loudest.hertz && loudest.amplitude != NO_AMPLITUDE)
 	{
@@ -1427,7 +1474,7 @@ void FindFloor(AudioSignal *Signal, parameters *config)
 		Signal->floorAmplitude = noiseFreq.amplitude;
 		Signal->floorFreq = noiseFreq.hertz;
 
-		logmsg(" - %s Noise Channel relative comparison  signal floor: %g dBFS [%g Hz] %s\n", 
+		logmsg("  - %s Noise Channel relative comparison  signal floor: %g dBFS [%g Hz] %s\n", 
 			Signal->role == ROLE_REF ? "Reference" : "Comparison",
 			noiseFreq.amplitude,
 			noiseFreq.hertz,
@@ -1647,7 +1694,10 @@ void PrintFrequenciesBlock(AudioSignal *Signal, Frequency *freq, int type, param
 
 	for(int j = 0; j < config->MaxFreq; j++)
 	{
-		if(/*type != TYPE_SILENCE && */ significant > freq[j].amplitude)
+		if(type != TYPE_SILENCE && significant > freq[j].amplitude)
+			break;
+
+		if(type == TYPE_SILENCE && significant > freq[j].amplitude && j > 50)
 			break;
 
 		if(freq[j].hertz && freq[j].amplitude != NO_AMPLITUDE)
@@ -1790,16 +1840,18 @@ void FillFrequencyStructures(AudioBlocks *AudioArray, parameters *config)
 	// Round to 3 decimal places so that 48kHz and 44 kHz line up
 	boxsize = RoundFloat(AudioArray->fftwValues.seconds, 3);
 
-	if(AudioArray->type != TYPE_SILENCE)
+	//if(AudioArray->type != TYPE_SILENCE)
 	{
 		startBin = ceil(config->startHz*boxsize);
 		endBin = floor(config->endHz*boxsize);
 	}
+	/*
 	else
 	{
 		startBin = ceil(START_HZ*boxsize);
 		endBin = floor(END_HZ*boxsize);
 	}
+	*/
 
 	for(i = startBin; i < endBin; i++)
 	{
@@ -2068,6 +2120,37 @@ double CalculateFrameRate(AudioSignal *Signal, parameters *config)
 	return framerate;
 }
 
+double CalculateFrameRateNS(AudioSignal *Signal, double Frames, parameters *config)
+{
+	double framerate = 0, endOffset = 0, startOffset = 0, samplerate = 0;
+	double expectedFR = 0, diff = 0;
+
+	startOffset = Signal->startOffset;
+	endOffset = Signal->endOffset;
+	samplerate = Signal->header.fmt.SamplesPerSec;
+	expectedFR = GetMSPerFrame(Signal, config);
+
+	framerate = (endOffset-startOffset)/(samplerate*Frames);
+	framerate = framerate*1000.0/4.0;  // 1000 ms and 4 bytes per stereo sample
+	framerate = roundFloat(framerate);
+
+	diff = roundFloat(fabs(expectedFR - framerate));
+	//The range to report this on will probably vary by console...
+	if(config->verbose && diff > 0.001 && diff < 0.02)
+	{
+		double ACsamplerate = 0;
+
+		ACsamplerate = (endOffset-startOffset)/(expectedFR*Frames);
+		ACsamplerate = ACsamplerate*1000.0/4.0;
+		logmsg(" - %s file framerate difference is %g.\n\tAudio card sample rate estimated at %g\n",
+				Signal->role == ROLE_REF ? "Reference" : "Comparision",
+				diff, ACsamplerate);
+		
+	}
+
+	return framerate;
+}
+
 double CalculateScanRate(AudioSignal *Signal)
 {
 	return(roundFloat(1000.0/Signal->framerate));
@@ -2181,3 +2264,66 @@ int FindMissingTypeTotals(int type, long int *cntFreqBlkDiff, long int *cmpFreqB
 
 	return 1;
 }
+
+/*
+void DetectOvertoneStart(AudioSignal *Signal, parameters *config)
+{
+	Frequency *tones = NULL;
+
+	OutputFileOnlyStart();
+	
+	tones = (Frequency*)malloc(sizeof(Frequency)*config->MaxFreq);
+	if(!tones)
+	{
+		logmsg("Not enough memory\n");
+		return;
+	}
+	for(int n = 0; n < config->types.totalChunks; n++)
+	{
+		int		fcount = 0;
+
+		logmsg("BLOCK (%d) %s# %d\n", n, GetBlockName(config, n), GetBlockSubIndex(config, n));
+		for(int i = 0; i < config->MaxFreq; i++)
+		{
+			Frequency freq;
+
+			freq = Signal->Blocks[n].freq[i];
+			if(freq.hertz != 0)
+			{
+				int found = 0;
+
+				for(int f = 0; f < fcount; f++)
+				{
+					int overtone = 0;
+
+					overtone = (int)round(freq.hertz) % (int)round(tones[f].hertz);
+					if(overtone == 0)
+					{
+						logmsg("Overtone found! %g[%d] Hz %g dBFS of %g[%d] Hz %g dBFS at pos %d\n", 
+							freq.hertz, (int)round(freq.hertz), freq.amplitude, 
+							tones[f].hertz, (int)round(tones[f].hertz), tones[f].amplitude, i);
+						found = 1;
+						// destroy the rest!
+						Signal->Blocks[n].freq[i].hertz = 0;
+						Signal->Blocks[n].freq[i].amplitude = NO_AMPLITUDE;
+						break;
+					}
+				}
+
+				if	(!found)
+				{
+					tones[fcount] = freq;
+					fcount ++;
+				}
+				else
+					break;
+			}
+		}
+	}
+	free(tones);
+	tones = NULL;
+
+	OutputFileOnlyEnd();
+}
+
+*/

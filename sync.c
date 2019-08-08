@@ -139,7 +139,7 @@ long int DetectPulseTrainSequence(Pulses *pulseArray, double targetFrequency, lo
 			if(!sequence_start)
 				sequence_start = pulse_start;
 
-			if(last_pulse_pos && i > last_pulse_pos + 2)
+			if(last_pulse_pos && i > last_pulse_pos + 4)
 			{
 				if(config->debugSync)
 					logmsg("pulse reset due to discontinuity at %ld: %ld and %ld\n", 
@@ -183,7 +183,7 @@ long int DetectPulseTrainSequence(Pulses *pulseArray, double targetFrequency, lo
 			//if(inside_pulse >= config->types.pulseFrameMinLen*factor)
 			if(inside_pulse || inside_silence)
 			{
-				if(last_silence_pos && i > last_silence_pos + 2)
+				if(last_silence_pos && i > last_silence_pos + 4)
 				{
 					if(config->debugSync)
 						logmsg("reset due to SILENCE discontinuity %ld: %ld and %ld\n", 
@@ -303,10 +303,10 @@ long int DetectPulseInternal(char *Samples, wav_hdr header, int factor, long int
 	{
 		i = offset/buffersize;
 		if(offset < header.fmt.Subchunk2Size/2)
-			TotalMS = TotalMS/6 + i;
+			TotalMS = TotalMS/4+ i;
 	}
 	else
-		TotalMS /= 6;
+		TotalMS /= 4;
 
 	pulseArray = (Pulses*)malloc(sizeof(Pulses)*TotalMS);
 	if(!pulseArray)

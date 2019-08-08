@@ -557,6 +557,9 @@ int LoadAndProcessAudioFiles(AudioSignal **ReferenceSignal, AudioSignal **Compar
 	if(!config->ignoreFloor && (*ComparisonSignal)->hasFloor)
 		FindFloor(*ComparisonSignal, config);
 
+	//DetectOvertoneStart(*ReferenceSignal, config);
+	//DetectOvertoneStart(*ComparisonSignal, config);
+
 	/* Detect Signal Floor */
 	if((*ReferenceSignal)->hasFloor && !config->ignoreFloor && 
 		(*ReferenceSignal)->floorAmplitude != 0.0 && (*ReferenceSignal)->floorAmplitude > config->significantAmplitude)
@@ -794,9 +797,10 @@ int LoadFile(FILE *file, AudioSignal *Signal, parameters *config, char *fileName
 	}
 	else
 	{
-		Signal->framerate = GetMSPerFrame(Signal, config);
+		double diff = 0, expected = 0;
 
 		/* Find the start offset */
+		/*
 		logmsg(" - Detecting audio signal: ");
 		Signal->startOffset = DetectSignalStart(Signal->Samples, Signal->header, 0, 0, NULL, config);
 		if(Signal->startOffset == -1)
@@ -809,6 +813,40 @@ int LoadFile(FILE *file, AudioSignal *Signal, parameters *config, char *fileName
 				Signal->startOffset);
 		Signal->endOffset = SecondsToBytes(Signal->header.fmt.SamplesPerSec, 
 								GetSignalTotalDuration(Signal->framerate, config), NULL, NULL, NULL);
+		*/
+
+		// Files must be identically trimmed for this to work at some level
+		Signal->startOffset = 0;
+		Signal->endOffset = Signal->header.fmt.Subchunk2Size;
+
+		expected = Signal->framerate;
+
+		if(Signal->role == ROLE_REF)
+		{
+			double seconds = 0;
+			seconds = BytesToSeconds(Signal->header.fmt.SamplesPerSec, Signal->endOffset);
+			config->NoSyncTotalFrames = (seconds*1000)/expected;
+			Signal->framerate = expected;
+			logmsg(" - Loaded %g Hz video signal (%gms per frame) from profile file\n", 
+						CalculateScanRate(Signal), Signal->framerate);
+		}
+		else
+		{
+			Signal->framerate = CalculateFrameRateNS(Signal, config->NoSyncTotalFrames, config);
+			logmsg(" - Detected %g Hz video signal (%gms per frame) from Audio file\n", 
+						CalculateScanRate(Signal), Signal->framerate);
+		}
+
+		diff = fabs(100.0 - Signal->framerate*100.0/expected);
+		if(diff > 1.0)
+		{
+			logmsg("\nERROR: Framerate is %g%% different from the expected %gms.\n",
+					diff, expected);
+			logmsg("\tThis might be due a mismatched profile.\n");
+			logmsg("\tIf you want to ignore this and compare the files, use -I.\n");
+			if(!config->ignoreFrameRateDiff)
+				return 0;
+		}
 	}
 
 	if(seconds < GetSignalTotalDuration(Signal->framerate, config))
@@ -856,6 +894,7 @@ int MoveSampleBlockInternal(AudioSignal *Signal, long int element, long int pos,
 		return 0;
 	}
 
+	/*
 	if(config->verbose)
 	{
 		logmsg(" - MOVEMENTS:\n");
@@ -866,6 +905,7 @@ int MoveSampleBlockInternal(AudioSignal *Signal, long int element, long int pos,
 		logmsg("\tStore: Pos: %ld Bytes: %ld\n",
 				pos, buffsize);
 	}
+	*/
 	memcpy(sampleBuffer, Signal->Samples + pos + internalSyncOffset, buffsize);
 	memset(Signal->Samples + pos, 0, bytes);
 	memcpy(Signal->Samples + pos, sampleBuffer, buffsize);
@@ -911,6 +951,7 @@ int MoveSampleBlockExternal(AudioSignal *Signal, long int element, long int pos,
 		return 0;
 	}
 
+	/*
 	if(config->verbose)
 	{
 		logmsg(" - MOVEMENTS:\n");
@@ -921,6 +962,7 @@ int MoveSampleBlockExternal(AudioSignal *Signal, long int element, long int pos,
 		logmsg("\tStore: Pos: %ld Bytes: %ld\n",
 				pos, buffsize);
 	}
+	*/
 	memcpy(sampleBuffer, Signal->Samples + pos + internalSyncOffset, buffsize);
 	memset(Signal->Samples + pos + internalSyncOffset, 0, buffsize);
 	memcpy(Signal->Samples + pos, sampleBuffer, buffsize);
@@ -966,9 +1008,11 @@ int ProcessInternal(AudioSignal *Signal, long int element, long int pos, int *sy
 				GetBlockName(config, element),
 				BytesToSeconds(Signal->header.fmt.SamplesPerSec, internalSyncOffset)*1000.0,
 				BytesToFrames(Signal->header.fmt.SamplesPerSec, internalSyncOffset, config->referenceFramerate));
+			/*
 			if(config->verbose)
 					logmsg("  > Found at: %ld Previous: %ld Offset: %ld\n\tPulse Length: %ld Half Sync Length: %ld\n", 
 						pos + internalSyncOffset, pos, internalSyncOffset, pulseLength, syncLength/2);
+			*/
 
 			// skip sync tone-which is silence-taken from config file
 			internalSyncOffset += syncLength;
@@ -978,14 +1022,14 @@ int ProcessInternal(AudioSignal *Signal, long int element, long int pos, int *sy
 		}
 		else  // Our sync is outside the frame detection zone
 		{
-			long int 	halfSyncLength = 0, diffOffset = 0;
+			long int 	halfSyncLength = 0; //, diffOffset = 0;
 
 			halfSyncLength = syncLength/2;
 
 			if(pulseLength > halfSyncLength)
 				pulseLength = halfSyncLength; 
 
-			diffOffset = halfSyncLength - pulseLength;
+			//diffOffset = halfSyncLength - pulseLength;
 			/*
 			if(internalSyncOffset == 0 && diffOffset) // we are in negative offset territory (emulator)
 			{
@@ -1009,10 +1053,11 @@ int ProcessInternal(AudioSignal *Signal, long int element, long int pos, int *sy
 					BytesToSeconds(Signal->header.fmt.SamplesPerSec, internalSyncOffset)*1000.0,
 					BytesToFrames(Signal->header.fmt.SamplesPerSec, internalSyncOffset, config->referenceFramerate));
 
+				/*
 				if(config->verbose)
 					logmsg("  > Found at: %ld Previous: %ld Offset: %ld\n\tPulse Length: %ld Half Sync Length: %ld\n", 
 						pos + internalSyncOffset - diffOffset, pos, diffOffset, pulseLength, halfSyncLength);
-
+				*/
 			}
 			
 			// skip the pulse real duration to sync perfectly
@@ -1114,7 +1159,8 @@ int ProcessFile(AudioSignal *Signal, parameters *config)
 		}
 
 		// MDWAVE exists for this, but just in case it is ever needed within MDFourier
-		//SaveWAVEChunk(NULL, Signal, buffer, i, loadedBlockSize-difference, config);
+		if(config->noSyncProfile)
+			SaveWAVEChunk(NULL, Signal, buffer, i, loadedBlockSize-difference, config);
 
 		pos += loadedBlockSize;
 		pos += discardBytes;
@@ -1248,16 +1294,16 @@ int CalculateMaxCompare(int block, AudioSignal *Signal, parameters *config, int 
 
 	for(int freq = 0; freq < config->MaxFreq; freq++)
 	{
+		/* Out of valid frequencies */
+		if(!Signal->Blocks[block].freq[freq].hertz)
+			return freq - 1;
+
 		/* Amplitude is too low */
 		if(limitRef && Signal->Blocks[block].freq[freq].amplitude < limit)
 			return freq;
 
 		/* Amplitude is too low with tolerance */
 		if(!limitRef && Signal->Blocks[block].freq[freq].amplitude < limit - config->tolerance*2)
-			return freq;
-
-		/* Out of valid frequencies */
-		if(!Signal->Blocks[block].freq[freq].hertz)
 			return freq;
 	}
 
@@ -1675,7 +1721,8 @@ MaxMagn FindMaxMagnitudeBlock(AudioSignal *Signal, parameters *config)
 	if(config->verbose)
 	{
 		if(MaxMag.block != -1)
-			logmsg(" - Max Magnitude found in %s# %d (%d) at %g Hz with %g\n", 
+			logmsg(" - %s Max Magnitude found in %s# %d (%d) at %g Hz with %g\n", 
+					Signal->role == ROLE_REF ? "Reference" : "Comparison",
 					GetBlockName(config, MaxMag.block), GetBlockSubIndex(config, MaxMag.block),
 					MaxMag.block, MaxMag.hertz, MaxMag.magnitude);
 	}
@@ -1755,7 +1802,8 @@ double FindFundamentalMagnitudeAverage(AudioSignal *Signal, parameters *config)
 
 	if(config->verbose)
 	{
-		logmsg(" - Average Fundamental Magnitude %g from %ld elements\n", 
+		logmsg(" - %s signal Average Fundamental Magnitude %g from %ld elements\n", 
+				Signal->role == ROLE_REF ? "Reference" : "Comparison",
 				AvgFundMag, count);
 	}
 

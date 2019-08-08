@@ -57,6 +57,7 @@ char *GetBlockColor(parameters *config, int pos);
 char *GetTypeColor(parameters *config, int type);
 char *GetTypeName(parameters *config, int type);
 double GetMSPerFrame(AudioSignal *Signal, parameters *config);
+double GetLineCount(parameters *config);
 void ReleaseAudioBlockStructure(parameters *config);
 void PrintAudioBlocks(parameters *config);
 long int GetLastSyncFrameOffset(wav_hdr header, parameters *config);
@@ -109,6 +110,7 @@ double CalculateAmplitude(double magnitude, double MaxMagnitude);
 double CalculatePhase(fftw_complex value);
 double CalculateFrequency(double boxindex, double boxsize, int HertzAligned);
 double CalculateFrameRate(AudioSignal *Signal, parameters *config);
+double CalculateFrameRateNS(AudioSignal *Signal, double Frames, parameters *config);
 double CalculateScanRate(AudioSignal *Signal);
 
 double FindFrequencyBinSizeForBlock(AudioSignal *Signal, long int block);

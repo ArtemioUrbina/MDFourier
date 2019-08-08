@@ -54,7 +54,8 @@
 
 #define MAX_FREQ_COUNT		100000 	/* Number of frequencies to compare(MAX) */
 #define FREQ_COUNT			2000	/* Number of frequencies to compare(default) */
-#define SIGNIFICANT_VOLUME	-96.0
+#define SIGNIFICANT_VOLUME	-62.0
+#define NS_SIGNIFICANT_VOLUME	-66.0
 #define	PCM_16BIT_MIN_AMPLITUDE	-96.0
 
 #define TYPE_SILENCE	0
@@ -77,7 +78,7 @@
 /* +/- Tolerance in frequency Difference to be the same one */
 #define HERTZ_DIFF			0.0
 
-#define START_HZ	5.0
+#define START_HZ	10.0
 #define END_HZ		20000.0
 
 #define DB_HEIGHT	18.0
@@ -148,6 +149,7 @@ typedef struct abd_st {
 	int				totalChunks;
 	int				regularChunks;
 	double			referenceMSPerFrame;
+	float			referenceLineCount;
 	double			comparisonMSPerFrame;
 	int				pulseSyncFreq;
 	int				pulseMinVol;
@@ -241,10 +243,9 @@ typedef struct AudioSt {
 	MaxMagn		MaxMagnitude;
 	double		MinAmplitude;
 
-	double		gridFrequencyLow;
-	double		gridFrequencyHigh;
-	double		HRefreshLow;
-	double		HRefreshHigh;
+	double		gridFrequency;
+	double		scanrateFrequency;
+	double		SilenceBinSize;
 
 	AudioBlocks *Blocks;
 }  AudioSignal;
@@ -343,6 +344,7 @@ typedef struct parameters_st {
 	int				laxSync;
 	int				showPercent;
 	int				noSyncProfile;
+	double			NoSyncTotalFrames;
 	int				ignoreFrameRateDiff;
 	int				labelNames;
 
