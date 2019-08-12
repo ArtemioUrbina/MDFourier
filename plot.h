@@ -70,6 +70,12 @@ typedef struct averaged_freq{
 #define	MODE_MISS		2
 #define	MODE_SPEC		3
 
+typedef enum differencePlotType
+{
+	normalPlot,
+	floorPlot,
+} diffPlotType;
+
 typedef struct flat_ampl_diff_st {
 	double	hertz;
 	double	refAmplitude;
@@ -98,6 +104,7 @@ void PlotAllWeightedAmpDifferences(parameters *config);
 void PlotFreqMissing(parameters *config);
 void PlotSpectrograms(AudioSignal *Signal, parameters *config);
 void PlotDifferentAmplitudesWithBetaFunctions(parameters *config);
+void PlotNoiseFloor(parameters *config);
 
 int FillPlot(PlotFile *plot, char *name, int sizex, int sizey, double x0, double y0, double x1, double y1, double penWidth, parameters *config);
 int CreatePlotFile(PlotFile *plot);
@@ -107,13 +114,16 @@ void SetPenColor(int colorIndex, long int color, PlotFile *plot);
 void SetFillColor(int colorIndex, long int color, PlotFile *plot);
 int MatchColor(char *color);
 
-void PlotAllDifferentAmplitudes(FlatAmplDifference *amplDiff, char *filename, parameters *config);
-int PlotEachTypeDifferentAmplitudes(FlatAmplDifference *amplDiff, char *filename, parameters *config);
-void PlotSingleTypeDifferentAmplitudes(FlatAmplDifference *amplDiff, int type, char *filename, parameters *config);
+void PlotAllDifferentAmplitudes(FlatAmplDifference *amplDiff, long int size, char *filename, parameters *config);
+int PlotEachTypeDifferentAmplitudes(FlatAmplDifference *amplDiff, long int size, char *filename, parameters *config);
+void PlotSingleTypeDifferentAmplitudes(FlatAmplDifference *amplDiff, long int size, int type, char *filename, parameters *config);
 
-int PlotEachTypeMissingFrequencies(FlatFreqDifference *freqDiff, char *filename, parameters *config);
-void PlotSingleTypeMissingFrequencies(FlatFreqDifference *freqDiff, int type, char *filename, parameters *config);
-void PlotAllMissingFrequencies(FlatFreqDifference *freqDiff, char *filename, parameters *config);
+int PlotNoiseDifferentAmplitudes(FlatAmplDifference *amplDiff, long int size, char *filename, parameters *config);
+void PlotSilenceBlockDifferentAmplitudes(FlatAmplDifference *amplDiff, long int size, int type, char *filename, parameters *config);
+
+int PlotEachTypeMissingFrequencies(FlatFreqDifference *freqDiff, long int size, char *filename, parameters *config);
+void PlotSingleTypeMissingFrequencies(FlatFreqDifference *freqDiff, long int size, int type, char *filename, parameters *config);
+void PlotAllMissingFrequencies(FlatFreqDifference *freqDiff, long int size, char *filename, parameters *config);
 
 int PlotEachTypeSpectrogram(FlatFrequency *freqs, long int size, char *filename, int signal, parameters *config);
 void PlotSingleTypeSpectrogram(FlatFrequency *freqs, long int size, int type, char *filename, int signal, parameters *config);
@@ -122,8 +132,8 @@ void PlotAllSpectrogram(FlatFrequency *freqs, long int size, char *filename, int
 void PlotWindow(windowManager *wm, long int frames, parameters *config);
 void PlotBetaFunctions(parameters *config);
 
-FlatAmplDifference *CreateFlatDifferences(parameters *config);
-FlatFreqDifference *CreateFlatMissing(parameters *config);
+FlatAmplDifference *CreateFlatDifferences(parameters *config, long int *size, diffPlotType plotType);
+FlatFreqDifference *CreateFlatMissing(parameters *config, long int *size);
 FlatFrequency *CreateFlatFrequencies(AudioSignal *Signal, long int *size, parameters *config);
 
 double transformtoLog(double coord, parameters *config);
@@ -131,13 +141,13 @@ void DrawGridZeroDBCentered(PlotFile *plot, double dbs, double dbIncrement, doub
 void DrawLabelsZeroDBCentered(PlotFile *plot, double dbs, double dbIncrement, double hz, double hzIncrement,  parameters *config);
 void DrawGridZeroToLimit(PlotFile *plot, double dbs, double dbIncrement, double hz, double hzIncrement, parameters *config);
 void DrawLabelsZeroToLimit(PlotFile *plot, double dbs, double dbIncrement, double hz, double hzIncrement,  parameters *config);
-void DrawColorScale(PlotFile *plot, int type, int mode, double x, double y, double width, double height, double endDbs, double dbIncrement, parameters *config);
+void DrawColorScale(PlotFile *plot, int type, int mode, double x, double y, double width, double height, double startDbs, double endDbs, double dbIncrement, parameters *config);
 void DrawColorAllTypeScale(PlotFile *plot, int mode, double x, double y, double width, double height, double endDbs, double dbIncrement, parameters *config);
 
-int PlotDifferentAmplitudesAveraged(FlatAmplDifference *amplDiff, char *filename, parameters *config);
-AveragedFrequencies *CreateFlatDifferencesAveraged(int matchType, long int *avgSize, int chunks, parameters *config);
-void PlotSingleTypeDifferentAmplitudesAveraged(FlatAmplDifference *amplDiff, int type, char *filename, AveragedFrequencies *averaged, long int avgsize, parameters *config);
-void PlotAllDifferentAmplitudesAveraged(FlatAmplDifference *amplDiff, char *filename, AveragedFrequencies **averaged, long int *avgsize, parameters *config);
+int PlotDifferentAmplitudesAveraged(FlatAmplDifference *amplDiff, long int size, char *filename, parameters *config);
+AveragedFrequencies *CreateFlatDifferencesAveraged(int matchType, long int *avgSize, int chunks, diffPlotType plotType, parameters *config);
+void PlotSingleTypeDifferentAmplitudesAveraged(FlatAmplDifference *amplDiff, long int size, int type, char *filename, AveragedFrequencies *averaged, long int avgsize, parameters *config);
+void PlotAllDifferentAmplitudesAveraged(FlatAmplDifference *amplDiff, long int size, char *filename, AveragedFrequencies **averaged, long int *avgsize, parameters *config);
 void DrawMatchBar(PlotFile *plot, int colorName, double x, double y, double width, double height, double notFound, double total, parameters *config);
 
 void PlotTest(char *filename, parameters *config);
@@ -146,5 +156,8 @@ void VisualizeWindows(windowManager *wm, parameters *config);
 
 char *GetCurrentPathAndChangeToResultsFolder(parameters *config);
 void ReturnToMainPath(char **CurrentPath);
+
+int PlotNoiseDifferentAmplitudesAveraged(FlatAmplDifference *amplDiff, long int size, char *filename, parameters *config);
+void PlotNoiseDifferentAmplitudesAveragedInternal(FlatAmplDifference *amplDiff, long int size, int type, char *filename, AveragedFrequencies *averaged, long int avgsize, parameters *config);
 
 #endif

@@ -59,6 +59,8 @@
 #define SPECTROGRAM_TITLE_REF		"REFERENCE SPECTROGRAM [%s]"
 #define SPECTROGRAM_TITLE_COM		"COMPARISON SPECTROGRAM [%s]"
 #define DIFFERENCE_AVG_TITLE		"DIFFERENT AMPLITUDES AVERAGED [%s]"
+#define NOISE_TITLE					"NOISE FLOOR AVERAGED"
+#define NOISE_AVG_TITLE				"NOISE FLOOR AVERAGED"
 
 #if defined (WIN32)
 	#include <direct.h>
@@ -181,6 +183,32 @@ void PlotResults(AudioSignal *Signal, parameters *config)
 		}
 	}
 
+	if(config->plotNoiseFloor)
+	{
+		if(config->referenceNoiseFloor)
+		{
+			struct	timespec	lstart, lend;
+	
+			if(config->clock)
+				clock_gettime(CLOCK_MONOTONIC, &lstart);
+	
+			logmsg(" - Noise Floor Difference");
+			PlotNoiseFloor(config);
+			logmsg("\n");
+	
+	
+			if(config->clock)
+			{
+				double	elapsedSeconds;
+				clock_gettime(CLOCK_MONOTONIC, &lend);
+				elapsedSeconds = TimeSpecToSeconds(&lend) - TimeSpecToSeconds(&lstart);
+				logmsg(" - clk: Noise Floor took %0.2fs\n", elapsedSeconds);
+			}
+		}
+		else
+			logmsg(" - Noise Floor Difference ommited, no noise floor found.");
+	}
+
 	ReturnToMainPath(&CurrentPath);
 
 	if(config->clock)
@@ -194,9 +222,10 @@ void PlotResults(AudioSignal *Signal, parameters *config)
 
 void PlotAmpDifferences(parameters *config)
 {
+	long int			size = 0;
 	FlatAmplDifference	*amplDiff = NULL;
 	
-	amplDiff = CreateFlatDifferences(config);
+	amplDiff = CreateFlatDifferences(config, &size, normalPlot);
 	if(!amplDiff)
 	{
 		logmsg("Not enough memory for plotting\n");
@@ -205,15 +234,15 @@ void PlotAmpDifferences(parameters *config)
 
 	if(config->plotDifferences)
 	{
-		if(PlotEachTypeDifferentAmplitudes(amplDiff, config->compareName, config) > 1)
+		if(PlotEachTypeDifferentAmplitudes(amplDiff, size, config->compareName, config) > 1)
 		{
-			PlotAllDifferentAmplitudes(amplDiff, config->compareName, config);
+			PlotAllDifferentAmplitudes(amplDiff, size, config->compareName, config);
 			logmsg(PLOT_ADVANCE_CHAR);
 		}
 	}
 
 	if(config->averagePlot)
-		PlotDifferentAmplitudesAveraged(amplDiff, config->compareName, config);
+		PlotDifferentAmplitudesAveraged(amplDiff, size, config->compareName, config);
 	
 	free(amplDiff);
 	amplDiff = NULL;
@@ -221,9 +250,10 @@ void PlotAmpDifferences(parameters *config)
 
 void PlotDifferentAmplitudesWithBetaFunctions(parameters *config)
 {
+	long int 			size = 0;
 	FlatAmplDifference	*amplDiff = NULL;
 	
-	amplDiff = CreateFlatDifferences(config);
+	amplDiff = CreateFlatDifferences(config, &size, normalPlot);
 	if(!amplDiff)
 	{
 		logmsg("Not enough memory for plotting\n");
@@ -234,7 +264,7 @@ void PlotDifferentAmplitudesWithBetaFunctions(parameters *config)
 	{
 		config->outputFilterFunction = o;
 		CreateBaseName(config);
-		PlotAllDifferentAmplitudes(amplDiff, config->compareName, config);
+		PlotAllDifferentAmplitudes(amplDiff, size, config->compareName, config);
 	}
 
 	free(amplDiff);
@@ -243,12 +273,13 @@ void PlotDifferentAmplitudesWithBetaFunctions(parameters *config)
 
 void PlotFreqMissing(parameters *config)
 {
+	long int			size = 0;
 	FlatFreqDifference	*freqDiff = NULL;
 	
-	freqDiff = CreateFlatMissing(config);
-	if(PlotEachTypeMissingFrequencies(freqDiff, config->compareName, config) > 1)
+	freqDiff = CreateFlatMissing(config, &size);
+	if(PlotEachTypeMissingFrequencies(freqDiff, size, config->compareName, config) > 1)
 	{
-		PlotAllMissingFrequencies(freqDiff, config->compareName, config);
+		PlotAllMissingFrequencies(freqDiff, size, config->compareName, config);
 		logmsg(PLOT_ADVANCE_CHAR);
 	}
 
@@ -272,6 +303,27 @@ void PlotSpectrograms(AudioSignal *Signal, parameters *config)
 
 	free(frequencies);
 	frequencies = NULL;
+}
+
+void PlotNoiseFloor(parameters *config)
+{
+	long int 			size = 0;
+	FlatAmplDifference	*amplDiff = NULL;
+	
+	amplDiff = CreateFlatDifferences(config, &size, floorPlot);
+	if(!amplDiff)
+	{
+		logmsg("Not enough memory for plotting\n");
+		return;
+	}
+
+	//PlotNoiseDifferentAmplitudes(amplDiff, size, config->compareName, config);
+	
+	//if(config->averagePlot)
+	PlotNoiseDifferentAmplitudesAveraged(amplDiff, size, config->compareName, config);
+	
+	free(amplDiff);
+	amplDiff = NULL;
 }
 
 int FillPlot(PlotFile *plot, char *name, int sizex, int sizey, double x0, double y0, double x1, double y1, double penWidth, parameters *config)
@@ -553,7 +605,7 @@ void DrawLabelsZeroToLimit(PlotFile *plot, double dBFS, double dbIncrement, doub
 	pl_fspace_r(plot->plotter, plot->x0, plot->y0, plot->x1, plot->y1);
 }
 
-void DrawColorScale(PlotFile *plot, int type, int mode, double x, double y, double width, double height, double endDbs, double dbIncrement, parameters *config)
+void DrawColorScale(PlotFile *plot, int type, int mode, double x, double y, double width, double height, double startDbs, double endDbs, double dbIncrement, parameters *config)
 {
 	double		segments = 0;
 	char 		*label = NULL;
@@ -592,7 +644,7 @@ void DrawColorScale(PlotFile *plot, int type, int mode, double x, double y, doub
 		char labeldbs[20];
 
 		pl_fmove_r(plot->plotter, x+width+config->plotResX/60, y+height-i*height/segments-height/segments/2);
-		sprintf(labeldbs, " %c%gdBFS", i*dbIncrement > 0 ? '-' : ' ', i*dbIncrement);
+		sprintf(labeldbs, " %c%gdBFS", fabs(startDbs) + i*dbIncrement != 0 ? '-' : ' ', fabs(startDbs) + i*dbIncrement);
 		pl_alabel_r(plot->plotter, 'c', 'c', labeldbs);
 	}
 
@@ -761,7 +813,7 @@ void DrawMatchBar(PlotFile *plot, int colorName, double x, double y, double widt
 }
 
 
-void PlotAllDifferentAmplitudes(FlatAmplDifference *amplDiff, char *filename, parameters *config)
+void PlotAllDifferentAmplitudes(FlatAmplDifference *amplDiff, long int size, char *filename, parameters *config)
 {
 	PlotFile	plot;
 	char		name[BUFFER_SIZE];
@@ -785,7 +837,7 @@ void PlotAllDifferentAmplitudes(FlatAmplDifference *amplDiff, char *filename, pa
 	DrawGridZeroDBCentered(&plot, dBFS, VERT_SCALE_STEP, config->endHzPlot, 1000, config);
 	DrawLabelsZeroDBCentered(&plot, dBFS, VERT_SCALE_STEP, config->endHzPlot, 1000, config);
 
-	for(int a = 0; a < config->Differences.cntAmplAudioDiff; a++)
+	for(int a = 0; a < size; a++)
 	{
 		if(amplDiff[a].type > TYPE_CONTROL)
 		{ 
@@ -808,7 +860,7 @@ void PlotAllDifferentAmplitudes(FlatAmplDifference *amplDiff, char *filename, pa
 	ClosePlot(&plot);
 }
 
-int PlotEachTypeDifferentAmplitudes(FlatAmplDifference *amplDiff, char *filename, parameters *config)
+int PlotEachTypeDifferentAmplitudes(FlatAmplDifference *amplDiff, long int size, char *filename, parameters *config)
 {
 	int 		i = 0, type = 0, types = 0;
 	char		name[BUFFER_SIZE];
@@ -819,8 +871,9 @@ int PlotEachTypeDifferentAmplitudes(FlatAmplDifference *amplDiff, char *filename
 		if(type > TYPE_CONTROL)
 		{
 			sprintf(name, "DA_%s_%02d%s_", filename, 
-						config->types.typeArray[i].type, config->types.typeArray[i].typeName);
-			PlotSingleTypeDifferentAmplitudes(amplDiff, type, name, config);
+				type, config->types.typeArray[i].typeName);
+		
+			PlotSingleTypeDifferentAmplitudes(amplDiff, size, type, name, config);
 			logmsg(PLOT_ADVANCE_CHAR);
 			types ++;
 		}
@@ -828,7 +881,7 @@ int PlotEachTypeDifferentAmplitudes(FlatAmplDifference *amplDiff, char *filename
 	return types;
 }
 
-void PlotSingleTypeDifferentAmplitudes(FlatAmplDifference *amplDiff, int type, char *filename, parameters *config)
+void PlotSingleTypeDifferentAmplitudes(FlatAmplDifference *amplDiff, long int size, int type, char *filename, parameters *config)
 {
 	PlotFile	plot;
 	double		dBFS = config->maxDbPlotZC;
@@ -850,16 +903,98 @@ void PlotSingleTypeDifferentAmplitudes(FlatAmplDifference *amplDiff, int type, c
 	DrawGridZeroDBCentered(&plot, dBFS, VERT_SCALE_STEP, config->endHzPlot, 1000, config);
 	DrawLabelsZeroDBCentered(&plot, dBFS, VERT_SCALE_STEP, config->endHzPlot, 1000, config);
 
-	for(int a = 0; a < config->Differences.cntAmplAudioDiff; a++)
+	for(int a = 0; a < size; a++)
+	{
+		if(amplDiff[a].hertz && amplDiff[a].type == type)
+		{ 
+			long int intensity;
+
+			intensity = CalculateWeightedError((fabs(config->significantAmplitude) - fabs(amplDiff[a].refAmplitude))/fabs(config->significantAmplitude), config)*0xffff;
+
+			SetPenColor(amplDiff[a].color, intensity, &plot);
+			pl_fpoint_r(plot.plotter, transformtoLog(amplDiff[a].hertz, config), amplDiff[a].diffAmplitude);
+		}
+	}
+
+	DrawColorScale(&plot, type, MODE_DIFF,
+		config->plotResX/50, config->plotResY/15, 
+		config->plotResX/80, config->plotResY/1.15,
+		0, config->significantAmplitude, VERT_SCALE_STEP_BAR, config);
+	DrawLabelsMDF(&plot, DIFFERENCE_TITLE, GetTypeName(config, type), PLOT_COMPARE, config);
+	ClosePlot(&plot);
+}
+
+int PlotNoiseDifferentAmplitudes(FlatAmplDifference *amplDiff, long int size, char *filename, parameters *config)
+{
+	int 		i = 0, type = 0;
+	char		name[BUFFER_SIZE];
+
+	for(i = 0; i < config->types.typeCount; i++)
+	{
+		type = config->types.typeArray[i].type;
+		if(type == TYPE_SILENCE)
+		{
+			sprintf(name, "NF_%s_%d_%02d%s_", filename, i,
+				type, config->types.typeArray[i].typeName);
+			PlotSilenceBlockDifferentAmplitudes(amplDiff, size, type, name, config);
+			logmsg(PLOT_ADVANCE_CHAR);
+			return 1;
+		}
+	}
+	return 0;
+}
+
+void PlotSilenceBlockDifferentAmplitudes(FlatAmplDifference *amplDiff, long int size, int type, char *filename, parameters *config)
+{
+	PlotFile	plot;
+	double		dBFS = config->maxDbPlotZC;
+	double		startAmplitude = config->referenceNoiseFloor, endAmplitude = PCM_16BIT_MIN_AMPLITUDE;
+
+	if(!config)
+		return;
+
+	if(!amplDiff)
+		return;
+
+	if(!config->Differences.BlockDiffArray)
+		return;
+
+	// Find limits
+	for(int a = 0; a < size; a++)
 	{
 		if(amplDiff[a].type == type)
-		{ 
-			if(amplDiff[a].refAmplitude > config->significantAmplitude)
+		{
+			if(fabs(amplDiff[a].diffAmplitude) > dBFS)
+				dBFS = fabs(amplDiff[a].diffAmplitude);
+			if(amplDiff[a].refAmplitude > startAmplitude)
+				startAmplitude = amplDiff[a].refAmplitude;
+			if(amplDiff[a].refAmplitude < endAmplitude)
+				endAmplitude = amplDiff[a].refAmplitude;
+		}
+	}
+
+	if(endAmplitude < NS_LOWEST_AMPLITUDE)
+		endAmplitude = NS_LOWEST_AMPLITUDE;
+
+	FillPlot(&plot, filename, config->plotResX, config->plotResY, config->startHzPlot, -1*dBFS, config->endHzPlot, dBFS, 1, config);
+
+	if(!CreatePlotFile(&plot))
+		return;
+
+	DrawGridZeroDBCentered(&plot, dBFS, VERT_SCALE_STEP, config->endHzPlot, 1000, config);
+	DrawLabelsZeroDBCentered(&plot, dBFS, VERT_SCALE_STEP, config->endHzPlot, 1000, config);
+
+	for(int a = 0; a < size; a++)
+	{
+		if(amplDiff[a].hertz && amplDiff[a].type == type)
+		{
+			if(amplDiff[a].refAmplitude > endAmplitude)
 			{
 				long int intensity;
 	
-				intensity = CalculateWeightedError((fabs(config->significantAmplitude) - fabs(amplDiff[a].refAmplitude))/fabs(config->significantAmplitude), config)*0xffff;
-	
+				intensity = CalculateWeightedError(1.0  -(fabs(amplDiff[a].refAmplitude)-fabs(startAmplitude))/(fabs(endAmplitude)-fabs(startAmplitude)), config)*0xffff;
+				//intensity = 0xffff;
+
 				SetPenColor(amplDiff[a].color, intensity, &plot);
 				pl_fpoint_r(plot.plotter, transformtoLog(amplDiff[a].hertz, config), amplDiff[a].diffAmplitude);
 			}
@@ -867,14 +1002,15 @@ void PlotSingleTypeDifferentAmplitudes(FlatAmplDifference *amplDiff, int type, c
 	}
 
 	DrawColorScale(&plot, type, MODE_DIFF,
-			config->plotResX/50, config->plotResY/15, 
-			config->plotResX/80, config->plotResY/1.15,
-			config->significantAmplitude, VERT_SCALE_STEP_BAR, config);
-	DrawLabelsMDF(&plot, DIFFERENCE_TITLE, GetTypeName(config, type), PLOT_COMPARE, config);
+		config->plotResX/50, config->plotResY/15, 
+		config->plotResX/80, config->plotResY/1.15,
+		(int)startAmplitude, (int)(endAmplitude-startAmplitude), VERT_SCALE_STEP_BAR, config);
+
+	DrawLabelsMDF(&plot, NOISE_TITLE, GetTypeName(config, type), PLOT_COMPARE, config);
 	ClosePlot(&plot);
 }
 
-void PlotAllMissingFrequencies(FlatFreqDifference *freqDiff, char *filename, parameters *config)
+void PlotAllMissingFrequencies(FlatFreqDifference *freqDiff, long int size, char *filename, parameters *config)
 {
 	PlotFile	plot;
 	char		name[BUFFER_SIZE];
@@ -887,18 +1023,6 @@ void PlotAllMissingFrequencies(FlatFreqDifference *freqDiff, char *filename, par
 		return;
 
 	significant = config->significantAmplitude;
-	if(config->lowerNoise)
-	{
-		for(int f = 0; f < config->Differences.cntFreqAudioDiff; f++)
-		{
-			if(GetTypeChannel(config, freqDiff[f].type) == CHANNEL_NOISE)
-			{
-				if(significant > SIGNIFICANT_VOLUME)
-					significant = SIGNIFICANT_VOLUME;
-			}
-		}
-	}
-
 	sprintf(name, "MIS_ALL_%s", filename);
 	FillPlot(&plot, name, config->plotResX, config->plotResY, config->startHzPlot, significant, config->endHzPlot, 0.0, 1, config);
 
@@ -908,8 +1032,7 @@ void PlotAllMissingFrequencies(FlatFreqDifference *freqDiff, char *filename, par
 	DrawGridZeroToLimit(&plot, significant, VERT_SCALE_STEP, config->endHzPlot, 1000, config);
 	DrawLabelsZeroToLimit(&plot, significant, VERT_SCALE_STEP, config->endHzPlot, 1000, config);
 
-	//for(int f = 0; f < config->Differences.cntFreqAudioDiff; f++)
-	for(int f = config->Differences.cntFreqAudioDiff; f >= 0 ; f--)
+	for(int f = size; f >= 0 ; f--)
 	{
 		if(freqDiff[f].type > TYPE_CONTROL)
 		{ 
@@ -931,7 +1054,7 @@ void PlotAllMissingFrequencies(FlatFreqDifference *freqDiff, char *filename, par
 	ClosePlot(&plot);
 }
 
-int PlotEachTypeMissingFrequencies(FlatFreqDifference *freqDiff, char *filename, parameters *config)
+int PlotEachTypeMissingFrequencies(FlatFreqDifference *freqDiff, long int size, char *filename, parameters *config)
 {
 	int 		i = 0, type = 0, types = 0;
 	char		name[BUFFER_SIZE];
@@ -943,7 +1066,7 @@ int PlotEachTypeMissingFrequencies(FlatFreqDifference *freqDiff, char *filename,
 		{
 			sprintf(name, "MISS_%s_%02d%s", filename, 
 							config->types.typeArray[i].type, config->types.typeArray[i].typeName);
-			PlotSingleTypeMissingFrequencies(freqDiff, type, name, config);
+			PlotSingleTypeMissingFrequencies(freqDiff, size, type, name, config);
 			logmsg(PLOT_ADVANCE_CHAR);
 			types ++;
 		}
@@ -951,7 +1074,7 @@ int PlotEachTypeMissingFrequencies(FlatFreqDifference *freqDiff, char *filename,
 	return types;
 }
 
-void PlotSingleTypeMissingFrequencies(FlatFreqDifference *freqDiff, int type, char *filename, parameters *config)
+void PlotSingleTypeMissingFrequencies(FlatFreqDifference *freqDiff, long int size, int type, char *filename, parameters *config)
 {
 	PlotFile	plot;
 	double		significant = 0;
@@ -963,11 +1086,6 @@ void PlotSingleTypeMissingFrequencies(FlatFreqDifference *freqDiff, int type, ch
 		return;
 
 	significant = config->significantAmplitude;
-	if(config->lowerNoise && GetTypeChannel(config, type) == CHANNEL_NOISE)
-	{
-		if(significant > SIGNIFICANT_VOLUME)
-			significant = SIGNIFICANT_VOLUME;
-	}
 
 	FillPlot(&plot, filename, config->plotResX, config->plotResY, config->startHzPlot, significant, config->endHzPlot, 0.0, 1, config);
 
@@ -977,7 +1095,7 @@ void PlotSingleTypeMissingFrequencies(FlatFreqDifference *freqDiff, int type, ch
 	DrawGridZeroToLimit(&plot, significant, VERT_SCALE_STEP, config->endHzPlot, 1000, config);
 	DrawLabelsZeroToLimit(&plot, significant, VERT_SCALE_STEP, config->endHzPlot, 1000, config);
 
-	for(int f = 0; f < config->Differences.cntFreqAudioDiff; f++)
+	for(int f = 0; f < size; f++)
 	{
 		if(freqDiff[f].type == type)
 		{
@@ -993,7 +1111,7 @@ void PlotSingleTypeMissingFrequencies(FlatFreqDifference *freqDiff, int type, ch
 		}
 	}
 	
-	DrawColorScale(&plot, type, MODE_MISS, config->plotResX/50, config->plotResY/15, config->plotResX/80, config->plotResY/1.15, significant, VERT_SCALE_STEP_BAR, config);
+	DrawColorScale(&plot, type, MODE_MISS, config->plotResX/50, config->plotResY/15, config->plotResX/80, config->plotResY/1.15, 0, significant, VERT_SCALE_STEP_BAR, config);
 	DrawLabelsMDF(&plot, MISSING_TITLE, GetTypeName(config, type), PLOT_COMPARE, config);
 	ClosePlot(&plot);
 }
@@ -1008,17 +1126,6 @@ void PlotAllSpectrogram(FlatFrequency *freqs, long int size, char *filename, int
 		return;
 
 	significant = config->significantAmplitude;
-	if(config->lowerNoise)
-	{
-		for(int f = 0; f < size; f++)
-		{
-			if(GetTypeChannel(config, freqs[f].type) == CHANNEL_NOISE)
-			{
-				if(significant > SIGNIFICANT_VOLUME)
-					significant = SIGNIFICANT_VOLUME;
-			}
-		}
-	}
 
 	sprintf(name, "SP_ALL_%s", filename);
 	FillPlot(&plot, name, config->plotResX, config->plotResY, config->startHzPlot, significant, config->endHzPlot, 0.0, 1, config);
@@ -1080,11 +1187,6 @@ void PlotSingleTypeSpectrogram(FlatFrequency *freqs, long int size, int type, ch
 		return;
 
 	significant = config->significantAmplitude;
-	if(config->lowerNoise && GetTypeChannel(config, type) == CHANNEL_NOISE)
-	{
-		if(significant > SIGNIFICANT_VOLUME)
-			significant = SIGNIFICANT_VOLUME;
-	}
 
 	FillPlot(&plot, filename, config->plotResX, config->plotResY, config->startHzPlot, significant, config->endHzPlot, 0.0, 1, config);
 
@@ -1111,7 +1213,7 @@ void PlotSingleTypeSpectrogram(FlatFrequency *freqs, long int size, int type, ch
 		}
 	}
 	
-	DrawColorScale(&plot, type, MODE_SPEC, config->plotResX/50, config->plotResY/15, config->plotResX/80, config->plotResY/1.15, significant, VERT_SCALE_STEP,config);
+	DrawColorScale(&plot, type, MODE_SPEC, config->plotResX/50, config->plotResY/15, config->plotResX/80, config->plotResY/1.15, 0, significant, VERT_SCALE_STEP,config);
 	DrawLabelsMDF(&plot, signal == ROLE_REF ? SPECTROGRAM_TITLE_REF : SPECTROGRAM_TITLE_COM, GetTypeName(config, type), signal == ROLE_REF ? PLOT_SINGLE_REF : PLOT_SINGLE_COM, config);
 	ClosePlot(&plot);
 }
@@ -1337,25 +1439,37 @@ void SetFillColor(int colorIndex, long int color, PlotFile *plot)
 }
 
 
-FlatAmplDifference *CreateFlatDifferences(parameters *config)
+FlatAmplDifference *CreateFlatDifferences(parameters *config, long int *size, diffPlotType plotType)
 {
-	long int	count = 0;
-	FlatAmplDifference *ADiff = NULL;
+	long int			count = 0;
+	FlatAmplDifference	*ADiff = NULL;
 
 	if(!config)
 		return NULL;
+
+	if(!size)
+		return NULL;
+	*size = 0;
 
 	ADiff = (FlatAmplDifference*)malloc(sizeof(FlatAmplDifference)*config->Differences.cntAmplAudioDiff+1000);
 	if(!ADiff)
 		return NULL;
 
+	memset(ADiff, 0, sizeof(FlatAmplDifference)*config->Differences.cntAmplAudioDiff+1000);
+
 	for(int b = 0; b < config->types.totalChunks; b++)
 	{
-		int type = 0, color = 0;
+		int type = 0, doplot = 0;
 		
 		type = GetBlockType(config, b);
-		if(type > TYPE_SILENCE)
+		if(plotType == normalPlot && type > TYPE_SILENCE)
+			doplot = 1;
+		if(plotType == floorPlot && type == TYPE_SILENCE)
+			doplot = 1;
+		if(doplot)
 		{
+			int color = 0;
+
 			color = MatchColor(GetBlockColor(config, b));
 			for(int a = 0; a < config->Differences.BlockDiffArray[b].cntAmplBlkDiff; a++)
 			{
@@ -1369,12 +1483,13 @@ FlatAmplDifference *CreateFlatDifferences(parameters *config)
 		}
 	}
 	logmsg(PLOT_PROCESS_CHAR);
-	AmplitudeDifferences_tim_sort(ADiff, config->Differences.cntAmplAudioDiff);
+	AmplitudeDifferences_tim_sort(ADiff, count);
 	logmsg(PLOT_PROCESS_CHAR);
+	*size = count;
 	return(ADiff);
 }
 
-FlatFreqDifference *CreateFlatMissing(parameters *config)
+FlatFreqDifference *CreateFlatMissing(parameters *config, long int *size)
 {
 	long int	count = 0;
 	FlatFreqDifference *FDiff = NULL;
@@ -1382,9 +1497,15 @@ FlatFreqDifference *CreateFlatMissing(parameters *config)
 	if(!config)
 		return NULL;
 
+	if(!size)
+		return NULL;
+
+	*size = 0;
+
 	FDiff = (FlatFreqDifference*)malloc(sizeof(FlatFreqDifference)*config->Differences.cntFreqAudioDiff);
 	if(!FDiff)
 		return NULL;
+	memset(FDiff, 0, sizeof(FlatFreqDifference)*config->Differences.cntFreqAudioDiff);
 
 	for(int b = 0; b < config->types.totalChunks; b++)
 	{
@@ -1405,8 +1526,10 @@ FlatFreqDifference *CreateFlatMissing(parameters *config)
 		}
 	}
 	logmsg(PLOT_PROCESS_CHAR);
-	FlatMissingDifferencesByAmplitude_tim_sort(FDiff, config->Differences.cntFreqAudioDiff);
+	FlatMissingDifferencesByAmplitude_tim_sort(FDiff, count);
 	logmsg(PLOT_PROCESS_CHAR);
+
+	*size = count;
 	return(FDiff);
 }
 
@@ -1469,11 +1592,6 @@ FlatFrequency *CreateFlatFrequencies(AudioSignal *Signal, long int *size, parame
 
 		type = GetBlockType(config, block);
 		significant = config->significantAmplitude;
-		if(config->lowerNoise && GetTypeChannel(config, type) == CHANNEL_NOISE)
-		{
-			if(significant > SIGNIFICANT_VOLUME)
-				significant = SIGNIFICANT_VOLUME;
-		}
 
 		if(type > TYPE_SILENCE)
 		{
@@ -1499,12 +1617,6 @@ FlatFrequency *CreateFlatFrequencies(AudioSignal *Signal, long int *size, parame
 
 		type = GetBlockType(config, block);
 		significant = config->significantAmplitude;
-		if(config->lowerNoise && GetTypeChannel(config, type) == CHANNEL_NOISE)
-		{
-			if(significant > SIGNIFICANT_VOLUME)
-				significant = SIGNIFICANT_VOLUME;
-		}
-
 		if(type > TYPE_SILENCE)
 		{
 			color = MatchColor(GetBlockColor(config, block));
@@ -1581,7 +1693,7 @@ void PlotTestZL(char *filename, parameters *config)
 	DrawGridZeroToLimit(&plot, config->significantAmplitude, VERT_SCALE_STEP, config->endHzPlot, 1000, config);
 	DrawLabelsZeroToLimit(&plot, config->significantAmplitude, VERT_SCALE_STEP, config->endHzPlot, 1000, config);
 
-	DrawColorScale(&plot, 1, MODE_SPEC, config->plotResX/50, config->plotResY/15, config->plotResX/80, config->plotResY/1.15, -60, VERT_SCALE_STEP_BAR, config);
+	DrawColorScale(&plot, 1, MODE_SPEC, config->plotResX/50, config->plotResY/15, config->plotResX/80, config->plotResY/1.15, 0, SIGNIFICANT_VOLUME, VERT_SCALE_STEP_BAR, config);
 	
 	DrawLabelsMDF(&plot, "PLOT TEST [%s]", "GZL", PLOT_COMPARE, config);
 	ClosePlot(&plot);
@@ -1637,7 +1749,7 @@ long int movingAverage(AveragedFrequencies *data, AveragedFrequencies *averages,
 #define	SMA_SIZE					4	// Size for the Simple Moving average period
 #define	AVERAGE_CHUNKS				200	// How many chunks across the frequency spectrum
 
-AveragedFrequencies *CreateFlatDifferencesAveraged(int matchType, long int *avgSize, int chunks, parameters *config)
+AveragedFrequencies *CreateFlatDifferencesAveraged(int matchType, long int *avgSize, int chunks, diffPlotType plotType, parameters *config)
 {
 	long int			count = 0, interval = 0, realResults = 0;
 	FlatAmplDifference	*ADiff = NULL;
@@ -1653,11 +1765,6 @@ AveragedFrequencies *CreateFlatDifferencesAveraged(int matchType, long int *avgS
 	*avgSize = 0;
 
 	significant = config->significantAmplitude;
-	if(config->lowerNoise && GetTypeChannel(config, matchType) == CHANNEL_NOISE)
-	{
-		if(significant > SIGNIFICANT_VOLUME)
-			significant = SIGNIFICANT_VOLUME;
-	}
 	// Count how many we have
 	for(int b = 0; b < config->types.totalChunks; b++)
 	{
@@ -1683,27 +1790,55 @@ AveragedFrequencies *CreateFlatDifferencesAveraged(int matchType, long int *avgS
 		type = config->Differences.BlockDiffArray[b].type;
 		if(type == matchType)
 		{
+			double		startAmplitude = config->referenceNoiseFloor, endAmplitude = PCM_16BIT_MIN_AMPLITUDE;
+
+			if(plotType == floorPlot)
+			{
+				// Find limits
+				for(int a = 0; a < config->Differences.BlockDiffArray[b].cntAmplBlkDiff; a++)
+				{
+					if(config->Differences.BlockDiffArray[b].amplDiffArray[a].hertz > 0)
+					{
+						if(config->Differences.BlockDiffArray[b].amplDiffArray[a].refAmplitude > startAmplitude)
+							startAmplitude = config->Differences.BlockDiffArray[b].amplDiffArray[a].refAmplitude;
+						if(config->Differences.BlockDiffArray[b].amplDiffArray[a].refAmplitude < endAmplitude)
+							endAmplitude = config->Differences.BlockDiffArray[b].amplDiffArray[a].refAmplitude;
+					}
+				}
+
+				if(endAmplitude < NS_LOWEST_AMPLITUDE)
+					endAmplitude = NS_LOWEST_AMPLITUDE;
+				significant = endAmplitude;
+			}
+
 			for(int a = 0; a < config->Differences.BlockDiffArray[b].cntAmplBlkDiff; a++)
 			{
-				if(config->weightedAveragePlot)
+				if(config->Differences.BlockDiffArray[b].amplDiffArray[a].refAmplitude > significant)
 				{
-					double intensity = 0, value = 0;
-
-					value = (fabs(significant) - fabs(config->Differences.BlockDiffArray[b].amplDiffArray[a].refAmplitude))/
-									fabs(significant);
-					intensity = CalculateWeightedError(value, config);
-					for(int i = 0; i < floor(intensity*10); i++)
+					if(config->weightedAveragePlot)
+					{
+						double intensity = 0, value = 0;
+	
+						if(plotType == normalPlot)
+							value = (fabs(significant) - fabs(config->Differences.BlockDiffArray[b].amplDiffArray[a].refAmplitude))/
+										fabs(significant);
+						else
+							value = 1.0  -(fabs(config->Differences.BlockDiffArray[b].amplDiffArray[a].refAmplitude)-fabs(startAmplitude))/
+										(fabs(endAmplitude)-fabs(startAmplitude));
+						intensity = CalculateWeightedError(value, config);
+						for(int i = 0; i < floor(intensity*10); i++)
+						{
+							ADiff[count].hertz = config->Differences.BlockDiffArray[b].amplDiffArray[a].hertz;
+							ADiff[count].diffAmplitude = config->Differences.BlockDiffArray[b].amplDiffArray[a].diffAmplitude;
+							count ++;
+						}
+					}
+					else
 					{
 						ADiff[count].hertz = config->Differences.BlockDiffArray[b].amplDiffArray[a].hertz;
 						ADiff[count].diffAmplitude = config->Differences.BlockDiffArray[b].amplDiffArray[a].diffAmplitude;
 						count ++;
 					}
-				}
-				else
-				{
-					ADiff[count].hertz = config->Differences.BlockDiffArray[b].amplDiffArray[a].hertz;
-					ADiff[count].diffAmplitude = config->Differences.BlockDiffArray[b].amplDiffArray[a].diffAmplitude;
-					count ++;
 				}
 			}
 		}
@@ -1785,7 +1920,7 @@ AveragedFrequencies *CreateFlatDifferencesAveraged(int matchType, long int *avgS
 	return(averagedSMA);
 }
 
-int PlotDifferentAmplitudesAveraged(FlatAmplDifference *amplDiff, char *filename, parameters *config)
+int PlotDifferentAmplitudesAveraged(FlatAmplDifference *amplDiff, long int size, char *filename, parameters *config)
 {
 	int 				i = 0, type = 0, typeCount = 0, types = 0;
 	char				name[BUFFER_SIZE];
@@ -1817,11 +1952,11 @@ int PlotDifferentAmplitudesAveraged(FlatAmplDifference *amplDiff, char *filename
 			sprintf(name, "DA_%s_%02d%s_AVG_", filename, 
 					config->types.typeArray[i].type, config->types.typeArray[i].typeName);
 
-			averagedArray[types] = CreateFlatDifferencesAveraged(type, &averagedSizes[types], chunks, config);
+			averagedArray[types] = CreateFlatDifferencesAveraged(type, &averagedSizes[types], chunks, normalPlot, config);
 
 			if(averagedArray[types])
 			{
-				PlotSingleTypeDifferentAmplitudesAveraged(amplDiff, type, name, averagedArray[types], averagedSizes[types], config);
+				PlotSingleTypeDifferentAmplitudesAveraged(amplDiff, size, type, name, averagedArray[types], averagedSizes[types], config);
 				logmsg(PLOT_ADVANCE_CHAR);
 			}
 
@@ -1832,7 +1967,7 @@ int PlotDifferentAmplitudesAveraged(FlatAmplDifference *amplDiff, char *filename
 	if(types > 1 && averagedArray && averagedSizes)
 	{
 		sprintf(name, "DA_ALL_AVG_%s", filename);
-		PlotAllDifferentAmplitudesAveraged(amplDiff, name, averagedArray, averagedSizes, config);
+		PlotAllDifferentAmplitudesAveraged(amplDiff, size, name, averagedArray, averagedSizes, config);
 		logmsg(PLOT_ADVANCE_CHAR);
 	}
 
@@ -1850,7 +1985,144 @@ int PlotDifferentAmplitudesAveraged(FlatAmplDifference *amplDiff, char *filename
 	return types;
 }
 
-void PlotSingleTypeDifferentAmplitudesAveraged(FlatAmplDifference *amplDiff, int type, char *filename, AveragedFrequencies *averaged, long int avgsize, parameters *config)
+int PlotNoiseDifferentAmplitudesAveraged(FlatAmplDifference *amplDiff, long int size, char *filename, parameters *config)
+{
+	int 				i = 0;
+	char				name[BUFFER_SIZE];
+	long int			avgsize = 0;
+	AveragedFrequencies	*averagedArray = NULL;
+
+	for(i = 0; i < config->types.typeCount; i++)
+	{
+		int type = config->types.typeArray[i].type;
+		if(type == TYPE_SILENCE)
+		{
+			long int chunks = AVERAGE_CHUNKS;
+
+			sprintf(name, "NF_%s_%02d%s_AVG_", filename, 
+					config->types.typeArray[i].type, config->types.typeArray[i].typeName);
+
+			averagedArray = CreateFlatDifferencesAveraged(type, &avgsize, chunks, floorPlot, config);
+
+			if(averagedArray)
+			{
+				PlotNoiseDifferentAmplitudesAveragedInternal(amplDiff, size, type, name, averagedArray, avgsize, config);
+				logmsg(PLOT_ADVANCE_CHAR);
+				free(averagedArray);
+				averagedArray = NULL;
+				return 1;
+			}
+		}
+	}
+
+	return 0;
+}
+
+void PlotNoiseDifferentAmplitudesAveragedInternal(FlatAmplDifference *amplDiff, long int size, int type, char *filename, AveragedFrequencies *averaged, long int avgsize, parameters *config)
+{
+	PlotFile	plot;
+	double		dbs = config->maxDbPlotZC;
+	int			color = 0;
+	double		startAmplitude = config->referenceNoiseFloor, endAmplitude = PCM_16BIT_MIN_AMPLITUDE;
+
+	if(!config)
+		return;
+
+	if(!amplDiff)
+		return;
+
+	if(!config->Differences.BlockDiffArray)
+		return;
+
+	// Find limits
+	for(int a = 0; a < size; a++)
+	{
+		if(amplDiff[a].type == type)
+		{
+			if(fabs(amplDiff[a].diffAmplitude) > dbs)
+				dbs = fabs(amplDiff[a].diffAmplitude);
+			if(amplDiff[a].refAmplitude > startAmplitude)
+				startAmplitude = amplDiff[a].refAmplitude;
+			if(amplDiff[a].refAmplitude < endAmplitude)
+				endAmplitude = amplDiff[a].refAmplitude;
+		}
+	}
+
+	if(endAmplitude < NS_LOWEST_AMPLITUDE)
+		endAmplitude = NS_LOWEST_AMPLITUDE;
+
+	FillPlot(&plot, filename, config->plotResX, config->plotResY, config->startHzPlot, -1*dbs, config->endHzPlot, dbs, 1, config);
+
+	if(!CreatePlotFile(&plot))
+		return;
+
+	DrawGridZeroDBCentered(&plot, dbs, VERT_SCALE_STEP, config->endHzPlot, 1000, config);
+	DrawLabelsZeroDBCentered(&plot, dbs, VERT_SCALE_STEP, config->endHzPlot, 1000, config);
+
+	for(long int a = 0; a < size; a++)
+	{
+		if(amplDiff[a].type == type)
+		{ 
+			if(amplDiff[a].refAmplitude > endAmplitude)
+			{
+				long int intensity;
+	
+				intensity = CalculateWeightedError(1.0  -(fabs(amplDiff[a].refAmplitude)-fabs(startAmplitude))/(fabs(endAmplitude)-fabs(startAmplitude)), config)*0xffff;
+	
+				SetPenColor(amplDiff[a].color, intensity, &plot);
+				pl_fpoint_r(plot.plotter, transformtoLog(amplDiff[a].hertz, config), amplDiff[a].diffAmplitude);
+			}
+		}
+	}
+
+	color = MatchColor(GetTypeColor(config, type));
+	pl_endpath_r(plot.plotter);
+
+	if(averaged && avgsize > 1)
+	{
+		int first = 1;
+
+		pl_flinewidth_r(plot.plotter, 50);
+		SetPenColor(COLOR_GRAY, 0x0000, &plot);
+		for(long int a = 0; a < avgsize; a++)
+		{
+			if(first)
+			{
+				pl_fline_r(plot.plotter, transformtoLog(averaged[a].avgfreq, config), averaged[a].avgvol,
+							transformtoLog(averaged[a+1].avgfreq, config), averaged[a+1].avgvol);
+				first = 0;
+			}
+			else
+				pl_fcont_r(plot.plotter, transformtoLog(averaged[a].avgfreq, config), averaged[a].avgvol);
+		}
+		pl_endpath_r(plot.plotter);
+
+		first = 1;
+		pl_flinewidth_r(plot.plotter, plot.penWidth);
+		SetPenColor(color, 0xFFFF, &plot);
+		for(long int a = 0; a < avgsize; a++)
+		{
+			if(first)
+			{
+				pl_fline_r(plot.plotter, transformtoLog(averaged[a].avgfreq, config), averaged[a].avgvol,
+							transformtoLog(averaged[a+1].avgfreq, config), averaged[a+1].avgvol);
+				first = 0;
+			}
+			else
+				pl_fcont_r(plot.plotter, transformtoLog(averaged[a].avgfreq, config), averaged[a].avgvol);
+		}
+		pl_endpath_r(plot.plotter);
+	}
+
+	DrawColorScale(&plot, type, MODE_DIFF,
+		config->plotResX/50, config->plotResY/15, 
+		config->plotResX/80, config->plotResY/1.15,
+		(int)startAmplitude, (int)(endAmplitude-startAmplitude), VERT_SCALE_STEP_BAR, config);
+	DrawLabelsMDF(&plot, NOISE_AVG_TITLE, GetTypeName(config, type), PLOT_COMPARE, config);
+	ClosePlot(&plot);
+}
+
+void PlotSingleTypeDifferentAmplitudesAveraged(FlatAmplDifference *amplDiff, long int size, int type, char *filename, AveragedFrequencies *averaged, long int avgsize, parameters *config)
 {
 	PlotFile	plot;
 	double		dbs = config->maxDbPlotZC;
@@ -1873,7 +2145,7 @@ void PlotSingleTypeDifferentAmplitudesAveraged(FlatAmplDifference *amplDiff, int
 	DrawGridZeroDBCentered(&plot, dbs, VERT_SCALE_STEP, config->endHzPlot, 1000, config);
 	DrawLabelsZeroDBCentered(&plot, dbs, VERT_SCALE_STEP, config->endHzPlot, 1000, config);
 
-	for(long int a = 0; a < config->Differences.cntAmplAudioDiff; a++)
+	for(long int a = 0; a < size; a++)
 	{
 		if(amplDiff[a].type == type)
 		{ 
@@ -1944,12 +2216,12 @@ void PlotSingleTypeDifferentAmplitudesAveraged(FlatAmplDifference *amplDiff, int
 		pl_endpath_r(plot.plotter);
 	}
 
-	DrawColorScale(&plot, type, MODE_DIFF, config->plotResX/50, config->plotResY/15, config->plotResX/80, config->plotResY/1.15, config->significantAmplitude, VERT_SCALE_STEP_BAR, config);
+	DrawColorScale(&plot, type, MODE_DIFF, config->plotResX/50, config->plotResY/15, config->plotResX/80, config->plotResY/1.15, 0, config->significantAmplitude, VERT_SCALE_STEP_BAR, config);
 	DrawLabelsMDF(&plot, DIFFERENCE_AVG_TITLE, GetTypeName(config, type), PLOT_COMPARE, config);
 	ClosePlot(&plot);
 }
 
-void PlotAllDifferentAmplitudesAveraged(FlatAmplDifference *amplDiff, char *filename, AveragedFrequencies **averaged, long int *avgsize, parameters *config)
+void PlotAllDifferentAmplitudesAveraged(FlatAmplDifference *amplDiff, long int size, char *filename, AveragedFrequencies **averaged, long int *avgsize, parameters *config)
 {
 	PlotFile	plot;
 	double		dBFS = config->maxDbPlotZC;
@@ -1972,7 +2244,7 @@ void PlotAllDifferentAmplitudesAveraged(FlatAmplDifference *amplDiff, char *file
 	DrawGridZeroDBCentered(&plot, dBFS, VERT_SCALE_STEP, config->endHzPlot, 1000, config);
 	DrawLabelsZeroDBCentered(&plot, dBFS, VERT_SCALE_STEP, config->endHzPlot, 1000, config);
 
-	for(long int a = 0; a < config->Differences.cntAmplAudioDiff; a++)
+	for(long int a = 0; a < size; a++)
 	{
 		if(amplDiff[a].type > TYPE_CONTROL)
 		{ 

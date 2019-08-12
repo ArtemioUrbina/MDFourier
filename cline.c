@@ -98,6 +98,7 @@ void CleanParameters(parameters *config)
 	config->outputFilterFunction = 3;
 	config->origSignificantAmplitude = SIGNIFICANT_VOLUME;
 	config->significantAmplitude = SIGNIFICANT_VOLUME;
+	config->referenceNoiseFloor = 0;
 	config->smallerFramerate = 0;
 	config->referenceFramerate = 0;
 	config->ZeroPad = 0;
@@ -110,7 +111,6 @@ void CleanParameters(parameters *config)
 	config->labelNames = 1;
 	config->averageIgnore = 0;
 	config->averageLine = 0.0;
-	config->lowerNoise = 0;
 
 	config->logScale = 1;
 	config->reverseCompare = 0;
@@ -122,6 +122,7 @@ void CleanParameters(parameters *config)
 	config->plotDifferences = 1;
 	config->plotMissing = 1;
 	config->plotSpectrogram = 1;
+	config->plotNoiseFloor = 1;
 	config->averagePlot = 0;
 	config->weightedAveragePlot = 1;
 

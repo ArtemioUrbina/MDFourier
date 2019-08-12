@@ -1411,6 +1411,9 @@ void FindFloor(AudioSignal *Signal, parameters *config)
 			loudest.amplitude,
 			loudest.hertz,
 			loudest.amplitude < PCM_16BIT_MIN_AMPLITUDE ? "(not significant)" : "");
+
+		if(Signal->role == ROLE_REF)
+			config->referenceNoiseFloor = loudest.amplitude;
 	}
 
 	noiseFreq = FindNoiseBlockAverage(Signal, config);
@@ -1932,10 +1935,10 @@ double CalculateWeightedError(double pError, parameters *config)
 {
 	int option = 0;
 
-	if(pError < 0)
+	if(pError < 0.0)
 	{
 		pError = fabs(pError);
-		logmsg("pERROR < 0!\n");
+		//logmsg("pERROR < 0!\n");
 	}
 
 	option = config->outputFilterFunction;
@@ -2223,7 +2226,7 @@ int FindDifferenceTypeTotals(int type, long int *cntAmplBlkDiff, long int *cmpAm
 
 	for(int b = 0; b < config->types.totalChunks; b++)
 	{
-		if(config->Differences.BlockDiffArray[b].type <= TYPE_CONTROL)
+		if(config->Differences.BlockDiffArray[b].type < TYPE_SILENCE)
 			continue;
 
 		if(type == config->Differences.BlockDiffArray[b].type)

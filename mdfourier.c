@@ -1284,11 +1284,6 @@ int CalculateMaxCompare(int block, AudioSignal *Signal, parameters *config, int 
 
 	limit = config->significantAmplitude;
 
-	// Allow a different range for Noise channel when specified
-	// in the config File
-	if(config->lowerNoise && GetBlockChannel(config, block) == CHANNEL_NOISE)
-		limit = SIGNIFICANT_VOLUME;
-
 	if(Signal->role == ROLE_COMP)
 		limit += -20;	// Allow going 20 dbfs "deeper"
 
@@ -1327,11 +1322,19 @@ double CompareAudioBlocks(AudioSignal *ReferenceSignal, AudioSignal *ComparisonS
 
 		/* Ignore Control blocks */
 		type = GetBlockType(config, block);
-		if(type <= TYPE_CONTROL)
+		if(type < TYPE_CONTROL)
 			continue;
 
-		refSize = CalculateMaxCompare(block, ReferenceSignal, config, 1);
-		testSize = CalculateMaxCompare(block, ComparisonSignal, config, 0);
+		if(type != TYPE_SILENCE)
+		{
+			refSize = CalculateMaxCompare(block, ReferenceSignal, config, 1);
+			testSize = CalculateMaxCompare(block, ComparisonSignal, config, 0);
+		}
+		else
+		{
+			refSize = config->MaxFreq;
+			testSize = config->MaxFreq;
+		}
 
 		if(config->verbose)
 		{

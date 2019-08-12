@@ -49,13 +49,14 @@
 
 #include "incbeta.h"
 
-#define MDVERSION "0.933"
+#define MDVERSION "0.936 beta"
 
 
 #define MAX_FREQ_COUNT		100000 	/* Number of frequencies to compare(MAX) */
 #define FREQ_COUNT			2000	/* Number of frequencies to compare(default) */
 #define SIGNIFICANT_VOLUME	-62.0
 #define NS_SIGNIFICANT_VOLUME	-66.0
+#define NS_LOWEST_AMPLITUDE		-120
 #define	PCM_16BIT_MIN_AMPLITUDE	-96.0
 
 #define TYPE_SILENCE	0
@@ -333,6 +334,7 @@ typedef struct parameters_st {
 	AudioDifference	Differences;
 	double			origSignificantAmplitude;
 	double			significantAmplitude;
+	double			referenceNoiseFloor;
 	double			smallerFramerate;
 	double			referenceFramerate;
 	int				logScale;
@@ -351,12 +353,12 @@ typedef struct parameters_st {
 	int				plotDifferences;
 	int				plotMissing;
 	int				plotSpectrogram;
+	int				plotNoiseFloor;
 	int				averagePlot;
 	int				weightedAveragePlot;
 	int				drawWindows;
 	int				averageIgnore;
 	double			averageLine;
-	int				lowerNoise;
 
 	double 			plotResX;
 	double			plotResY;

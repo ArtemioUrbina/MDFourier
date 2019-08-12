@@ -80,7 +80,7 @@ int CreateDifferenceArray(parameters *config)
 		int type = TYPE_NOTYPE;
 
 		type = GetBlockType(config, i);
-		if(type > TYPE_SILENCE)
+		if(type >= TYPE_SILENCE)
 		{
 			BlockDiffArray[i].freqMissArray = CreateFreqDifferences(config);
 			if(!BlockDiffArray[i].freqMissArray)
@@ -182,6 +182,9 @@ int InsertAmplDifference(int block, double freq, double refAmplitude, double com
 	if(!config->Differences.BlockDiffArray)
 		return 0;
 
+	if(!config->Differences.BlockDiffArray[block].amplDiffArray)
+		return 0;
+
 	if(block > config->types.totalChunks)
 		return 0;
 	
@@ -240,6 +243,9 @@ int InsertFreqNotFound(int block, double freq, double amplitude, double weighted
 		return 0;
 
 	if(!config->Differences.BlockDiffArray)
+		return 0;
+
+	if(!config->Differences.BlockDiffArray[block].freqMissArray)
 		return 0;
 
 	if(block > config->types.totalChunks)
@@ -338,7 +344,7 @@ void PrintDifferenceArray(parameters *config)
 
 	for(int b = 0; b < config->types.totalChunks; b++)
 	{
-		if(GetBlockType(config, b) <= TYPE_CONTROL)
+		if(GetBlockType(config, b) < TYPE_CONTROL)
 			continue;
 
 		OutputFileOnlyStart();
