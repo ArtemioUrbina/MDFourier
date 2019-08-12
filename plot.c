@@ -61,6 +61,8 @@
 #define DIFFERENCE_AVG_TITLE		"DIFFERENT AMPLITUDES AVERAGED [%s]"
 #define NOISE_TITLE					"NOISE FLOOR AVERAGED"
 #define NOISE_AVG_TITLE				"NOISE FLOOR AVERAGED"
+#define SPECTROGRAM_NOISE_REF		"REFERENCE NOISE FLOOR SPECTROGRAM [%s]"
+#define SPECTROGRAM_NOISE_COM		"COMPARISON NOISE FLOOR SPECTROGRAM [%s]"
 
 #if defined (WIN32)
 	#include <direct.h>
@@ -193,7 +195,7 @@ void PlotResults(AudioSignal *Signal, parameters *config)
 				clock_gettime(CLOCK_MONOTONIC, &lstart);
 	
 			logmsg(" - Noise Floor Difference");
-			PlotNoiseFloor(config);
+			PlotNoiseFloor(Signal, config);
 			logmsg("\n");
 	
 	
@@ -295,7 +297,7 @@ void PlotSpectrograms(AudioSignal *Signal, parameters *config)
 	
 	ShortenFileName(basename(Signal->SourceFile), tmpName);
 	frequencies = CreateFlatFrequencies(Signal, &size, config);
-	if(PlotEachTypeSpectrogram(frequencies, size, tmpName, Signal->role, config) > 1)
+	if(PlotEachTypeSpectrogram(frequencies, size, tmpName, Signal->role, config, Signal) > 1)
 	{
 		PlotAllSpectrogram(frequencies, size, tmpName, Signal->role, config);
 		logmsg(PLOT_ADVANCE_CHAR);
@@ -305,7 +307,7 @@ void PlotSpectrograms(AudioSignal *Signal, parameters *config)
 	frequencies = NULL;
 }
 
-void PlotNoiseFloor(parameters *config)
+void PlotNoiseFloor(AudioSignal *Signal, parameters *config)
 {
 	long int 			size = 0;
 	FlatAmplDifference	*amplDiff = NULL;
@@ -317,10 +319,10 @@ void PlotNoiseFloor(parameters *config)
 		return;
 	}
 
-	//PlotNoiseDifferentAmplitudes(amplDiff, size, config->compareName, config);
+	//PlotNoiseDifferentAmplitudes(amplDiff, size, config->compareName, config, Signal);
 	
 	//if(config->averagePlot)
-	PlotNoiseDifferentAmplitudesAveraged(amplDiff, size, config->compareName, config);
+	PlotNoiseDifferentAmplitudesAveraged(amplDiff, size, config->compareName, config, Signal);
 	
 	free(amplDiff);
 	amplDiff = NULL;
@@ -438,6 +440,7 @@ void DrawGridZeroDBCentered(PlotFile *plot, double dBFS, double dbIncrement, dou
 		pl_linemod_r(plot->plotter, "solid");
 	}
 
+	pl_endpath_r(plot->plotter);
 	pl_pencolor_r (plot->plotter, 0, 0xFFFF, 0);
 }
 
@@ -462,6 +465,7 @@ void DrawGridZeroToLimit(PlotFile *plot, double dBFS, double dbIncrement, double
 
 	pl_pencolor_r (plot->plotter, 0, 0xFFFF, 0);
 	pl_flinewidth_r(plot->plotter, 1);
+	pl_endpath_r(plot->plotter);
 }
 
 void DrawLabelsZeroDBCentered(PlotFile *plot, double dBFS, double dbIncrement, double hz, double hzIncrement,  parameters *config)
@@ -812,6 +816,17 @@ void DrawMatchBar(PlotFile *plot, int colorName, double x, double y, double widt
 	}
 }
 
+void DrawNoiseLines(PlotFile *plot, double start, double end, AudioSignal *Signal, parameters *config)
+{
+	pl_pencolor_r (plot->plotter, 0xAAAA, 0xAAAA, 0);
+	pl_linemod_r(plot->plotter, "dotdashed");
+	if(Signal->gridFrequency)
+		pl_fline_r(plot->plotter, transformtoLog(Signal->gridFrequency, config), start, transformtoLog(Signal->gridFrequency, config), end);
+	if(Signal->scanrateFrequency)
+		pl_fline_r(plot->plotter, transformtoLog(Signal->scanrateFrequency, config), start, transformtoLog(Signal->scanrateFrequency, config), end);
+	pl_linemod_r(plot->plotter, "solid");
+}
+
 
 void PlotAllDifferentAmplitudes(FlatAmplDifference *amplDiff, long int size, char *filename, parameters *config)
 {
@@ -924,7 +939,7 @@ void PlotSingleTypeDifferentAmplitudes(FlatAmplDifference *amplDiff, long int si
 	ClosePlot(&plot);
 }
 
-int PlotNoiseDifferentAmplitudes(FlatAmplDifference *amplDiff, long int size, char *filename, parameters *config)
+int PlotNoiseDifferentAmplitudes(FlatAmplDifference *amplDiff, long int size, char *filename, parameters *config, AudioSignal *Signal)
 {
 	int 		i = 0, type = 0;
 	char		name[BUFFER_SIZE];
@@ -936,7 +951,7 @@ int PlotNoiseDifferentAmplitudes(FlatAmplDifference *amplDiff, long int size, ch
 		{
 			sprintf(name, "NF_%s_%d_%02d%s_", filename, i,
 				type, config->types.typeArray[i].typeName);
-			PlotSilenceBlockDifferentAmplitudes(amplDiff, size, type, name, config);
+			PlotSilenceBlockDifferentAmplitudes(amplDiff, size, type, name, config, Signal);
 			logmsg(PLOT_ADVANCE_CHAR);
 			return 1;
 		}
@@ -944,7 +959,7 @@ int PlotNoiseDifferentAmplitudes(FlatAmplDifference *amplDiff, long int size, ch
 	return 0;
 }
 
-void PlotSilenceBlockDifferentAmplitudes(FlatAmplDifference *amplDiff, long int size, int type, char *filename, parameters *config)
+void PlotSilenceBlockDifferentAmplitudes(FlatAmplDifference *amplDiff, long int size, int type, char *filename, parameters *config, AudioSignal *Signal)
 {
 	PlotFile	plot;
 	double		dBFS = config->maxDbPlotZC;
@@ -983,6 +998,8 @@ void PlotSilenceBlockDifferentAmplitudes(FlatAmplDifference *amplDiff, long int 
 
 	DrawGridZeroDBCentered(&plot, dBFS, VERT_SCALE_STEP, config->endHzPlot, 1000, config);
 	DrawLabelsZeroDBCentered(&plot, dBFS, VERT_SCALE_STEP, config->endHzPlot, 1000, config);
+
+	DrawNoiseLines(&plot, 0, endAmplitude, Signal, config);
 
 	for(int a = 0; a < size; a++)
 	{
@@ -1046,6 +1063,7 @@ void PlotAllMissingFrequencies(FlatFreqDifference *freqDiff, long int size, char
 
 			SetPenColor(freqDiff[f].color, intensity, &plot);
 			pl_fline_r(plot.plotter, x,	y, x, significant);
+			pl_endpath_r(plot.plotter);
 		}
 	}
 	
@@ -1108,6 +1126,7 @@ void PlotSingleTypeMissingFrequencies(FlatFreqDifference *freqDiff, long int siz
 
 			SetPenColor(freqDiff[f].color, intensity, &plot);
 			pl_fline_r(plot.plotter, x,	y, x, significant);
+			pl_endpath_r(plot.plotter);
 		}
 	}
 	
@@ -1150,6 +1169,7 @@ void PlotAllSpectrogram(FlatFrequency *freqs, long int size, char *filename, int
 	
 			SetPenColor(freqs[f].color, intensity, &plot);
 			pl_fline_r(plot.plotter, x,	y, x, significant);
+			pl_endpath_r(plot.plotter);
 		}
 	}
 
@@ -1158,9 +1178,9 @@ void PlotAllSpectrogram(FlatFrequency *freqs, long int size, char *filename, int
 	ClosePlot(&plot);
 }
 
-int PlotEachTypeSpectrogram(FlatFrequency *freqs, long int size, char *filename, int signal, parameters *config)
+int PlotEachTypeSpectrogram(FlatFrequency *freqs, long int size, char *filename, int signal, parameters *config, AudioSignal *Signal)
 {
-	int 		i = 0, type = 0, types = 0;
+	int 		i = 0, type = 0, types = 0, silence = 0;
 	char		name[BUFFER_SIZE];
 
 	for(i = 0; i < config->types.typeCount; i++)
@@ -1173,6 +1193,15 @@ int PlotEachTypeSpectrogram(FlatFrequency *freqs, long int size, char *filename,
 			PlotSingleTypeSpectrogram(freqs, size, type, name, signal, config);
 			logmsg(PLOT_ADVANCE_CHAR);
 			types ++;
+		}
+
+		if(config->plotNoiseFloor && !silence && type == TYPE_SILENCE)
+		{
+			sprintf(name, "NF_SP_%s_%02d%s", filename, 
+					config->types.typeArray[i].type, config->types.typeArray[i].typeName);
+			PlotNoiseSpectrogram(freqs, size, type, name, signal, config, Signal);
+			logmsg(PLOT_ADVANCE_CHAR);
+			silence = 1;
 		}
 	}
 	return types;
@@ -1210,11 +1239,69 @@ void PlotSingleTypeSpectrogram(FlatFrequency *freqs, long int size, int type, ch
 			//pl_flinewidth_r(plot.plotter, 100*range_0_1);
 			SetPenColor(freqs[f].color, intensity, &plot);
 			pl_fline_r(plot.plotter, x,	y, x, significant);
+			pl_endpath_r(plot.plotter);
 		}
 	}
 	
 	DrawColorScale(&plot, type, MODE_SPEC, config->plotResX/50, config->plotResY/15, config->plotResX/80, config->plotResY/1.15, 0, significant, VERT_SCALE_STEP,config);
 	DrawLabelsMDF(&plot, signal == ROLE_REF ? SPECTROGRAM_TITLE_REF : SPECTROGRAM_TITLE_COM, GetTypeName(config, type), signal == ROLE_REF ? PLOT_SINGLE_REF : PLOT_SINGLE_COM, config);
+	ClosePlot(&plot);
+}
+
+void PlotNoiseSpectrogram(FlatFrequency *freqs, long int size, int type, char *filename, int signal, parameters *config, AudioSignal *Signal)
+{
+	PlotFile	plot;
+	double		startAmplitude = config->significantAmplitude, endAmplitude = PCM_16BIT_MIN_AMPLITUDE;
+
+	if(!config)
+		return;
+
+	// Find limits
+	for(int f = 0; f < size; f++)
+	{
+		if(freqs[f].type == type)
+		{
+			if(freqs[f].amplitude > startAmplitude)
+				startAmplitude = freqs[f].amplitude;
+			if(freqs[f].amplitude < endAmplitude)
+				endAmplitude = freqs[f].amplitude;
+		}
+	}
+	FillPlot(&plot, filename, config->plotResX, config->plotResY, config->startHzPlot, endAmplitude, config->endHzPlot, 0.0, 1, config);
+
+	if(!CreatePlotFile(&plot))
+		return;
+
+	DrawLabelsZeroToLimit(&plot, endAmplitude, VERT_SCALE_STEP,config->endHzPlot, 1000, config);
+	DrawGridZeroToLimit(&plot, endAmplitude, VERT_SCALE_STEP,config->endHzPlot, 1000, config);
+
+	DrawNoiseLines(&plot, 0, endAmplitude, Signal, config);
+
+	for(int f = 0; f < size; f++)
+	{
+		if(freqs[f].type == type)
+		{ 
+			long int intensity;
+			double x, y;
+
+			x = transformtoLog(freqs[f].hertz, config);
+			y = freqs[f].amplitude;
+			intensity = CalculateWeightedError(((fabs(endAmplitude) - fabs(startAmplitude)) - (fabs(freqs[f].amplitude)- fabs(startAmplitude)))/(fabs(endAmplitude)-fabs(startAmplitude)), config)*0xffff;
+			
+			//pl_flinewidth_r(plot.plotter, 100*range_0_1);
+			SetPenColor(freqs[f].color, intensity, &plot);
+			pl_fline_r(plot.plotter, x, y, x, endAmplitude);
+			pl_endpath_r(plot.plotter);
+
+			OutputFileOnlyStart();
+			logmsg("Plot: %g %g %ld (%g,%g,%g,%g)\n", freqs[f].hertz, y, intensity,
+					x, y, x, endAmplitude);
+			OutputFileOnlyEnd();
+		}
+	}
+	
+	DrawColorScale(&plot, type, MODE_SPEC, config->plotResX/50, config->plotResY/15, config->plotResX/80, config->plotResY/1.15, (int)startAmplitude, (int)(endAmplitude-startAmplitude), VERT_SCALE_STEP,config);
+	DrawLabelsMDF(&plot, signal == ROLE_REF ? SPECTROGRAM_NOISE_REF : SPECTROGRAM_NOISE_COM, GetTypeName(config, type), signal == ROLE_REF ? PLOT_SINGLE_REF : PLOT_SINGLE_COM, config);
 	ClosePlot(&plot);
 }
 
@@ -1266,6 +1353,7 @@ void PlotWindow(windowManager *wm, long int frames, parameters *config)
 	pl_pencolor_r (plot.plotter, 0, 0x5555, 0);
 	pl_fline_r(plot.plotter, 0, 1, 1, 1);
 	pl_fline_r(plot.plotter, 0, 0, 1, 0);
+	pl_endpath_r(plot.plotter);
 
 	pl_pencolor_r (plot.plotter, 0, 0xFFFF, 0);	
 	for(int i = 0; i < size; i++)
@@ -1305,6 +1393,7 @@ void PlotBetaFunctions(parameters *config)
 		pl_fline_r(plot.plotter, 0, .5, 1, .5);
 		pl_fline_r(plot.plotter, 0, .25, 1, .25);
 		pl_fline_r(plot.plotter, 0, .75, 1, .75);
+		pl_endpath_r(plot.plotter);
 	
 		pl_pencolor_r (plot.plotter, 0, 0xFFFF, 0);	
 		for(int i = 0; i < 320; i++)
@@ -1593,13 +1682,21 @@ FlatFrequency *CreateFlatFrequencies(AudioSignal *Signal, long int *size, parame
 		type = GetBlockType(config, block);
 		significant = config->significantAmplitude;
 
-		if(type > TYPE_SILENCE)
+		if(type >= TYPE_SILENCE)
 		{
 			for(i = 0; i < config->MaxFreq; i++)
 			{
-				if(Signal->Blocks[block].freq[i].hertz && Signal->Blocks[block].freq[i].amplitude > significant)
+				int insert = 0;
+
+				if(type > TYPE_SILENCE && Signal->Blocks[block].freq[i].hertz && Signal->Blocks[block].freq[i].amplitude > significant)
+					insert = 1;
+				if(type == TYPE_SILENCE && Signal->Blocks[block].freq[i].hertz)
+					insert = 1;
+
+				if(insert)
 					count ++;
-				else
+				
+				if(Signal->Blocks[block].freq[i].hertz == 0)
 					break;
 			}
 		}
@@ -1608,8 +1705,8 @@ FlatFrequency *CreateFlatFrequencies(AudioSignal *Signal, long int *size, parame
 	Freqs = (FlatFrequency*)malloc(sizeof(FlatFrequency)*count);
 	if(!Freqs)
 		return NULL;
-
 	memset(Freqs, 0, sizeof(FlatFrequency)*count);
+
 	for(block = 0; block < config->types.totalChunks; block++)
 	{
 		int type = 0, color = 0;
@@ -1617,13 +1714,20 @@ FlatFrequency *CreateFlatFrequencies(AudioSignal *Signal, long int *size, parame
 
 		type = GetBlockType(config, block);
 		significant = config->significantAmplitude;
-		if(type > TYPE_SILENCE)
+		if(type >= TYPE_SILENCE)
 		{
 			color = MatchColor(GetBlockColor(config, block));
 	
 			for(i = 0; i < config->MaxFreq; i++)
 			{
-				if(Signal->Blocks[block].freq[i].hertz && Signal->Blocks[block].freq[i].amplitude > significant)
+				int insert = 0;
+
+				if(type > TYPE_SILENCE && Signal->Blocks[block].freq[i].hertz && Signal->Blocks[block].freq[i].amplitude > significant)
+					insert = 1;
+				if(type == TYPE_SILENCE && Signal->Blocks[block].freq[i].hertz)
+					insert = 1;
+
+				if(insert)
 				{
 					FlatFrequency tmp;
 	
@@ -1642,7 +1746,7 @@ FlatFrequency *CreateFlatFrequencies(AudioSignal *Signal, long int *size, parame
 	}
 	
 	logmsg(PLOT_PROCESS_CHAR);
-	FlatFrequenciesByAmplitude_tim_sort(Freqs, count);
+	FlatFrequenciesByAmplitude_tim_sort(Freqs, counter);
 	logmsg(PLOT_PROCESS_CHAR);
 
 	*size = counter;
@@ -1985,7 +2089,7 @@ int PlotDifferentAmplitudesAveraged(FlatAmplDifference *amplDiff, long int size,
 	return types;
 }
 
-int PlotNoiseDifferentAmplitudesAveraged(FlatAmplDifference *amplDiff, long int size, char *filename, parameters *config)
+int PlotNoiseDifferentAmplitudesAveraged(FlatAmplDifference *amplDiff, long int size, char *filename, parameters *config, AudioSignal *Signal)
 {
 	int 				i = 0;
 	char				name[BUFFER_SIZE];
@@ -2006,7 +2110,7 @@ int PlotNoiseDifferentAmplitudesAveraged(FlatAmplDifference *amplDiff, long int 
 
 			if(averagedArray)
 			{
-				PlotNoiseDifferentAmplitudesAveragedInternal(amplDiff, size, type, name, averagedArray, avgsize, config);
+				PlotNoiseDifferentAmplitudesAveragedInternal(amplDiff, size, type, name, averagedArray, avgsize, config, Signal);
 				logmsg(PLOT_ADVANCE_CHAR);
 				free(averagedArray);
 				averagedArray = NULL;
@@ -2018,7 +2122,7 @@ int PlotNoiseDifferentAmplitudesAveraged(FlatAmplDifference *amplDiff, long int 
 	return 0;
 }
 
-void PlotNoiseDifferentAmplitudesAveragedInternal(FlatAmplDifference *amplDiff, long int size, int type, char *filename, AveragedFrequencies *averaged, long int avgsize, parameters *config)
+void PlotNoiseDifferentAmplitudesAveragedInternal(FlatAmplDifference *amplDiff, long int size, int type, char *filename, AveragedFrequencies *averaged, long int avgsize, parameters *config, AudioSignal *Signal)
 {
 	PlotFile	plot;
 	double		dbs = config->maxDbPlotZC;
@@ -2058,6 +2162,8 @@ void PlotNoiseDifferentAmplitudesAveragedInternal(FlatAmplDifference *amplDiff, 
 
 	DrawGridZeroDBCentered(&plot, dbs, VERT_SCALE_STEP, config->endHzPlot, 1000, config);
 	DrawLabelsZeroDBCentered(&plot, dbs, VERT_SCALE_STEP, config->endHzPlot, 1000, config);
+
+	DrawNoiseLines(&plot, dbs, -1*dbs, Signal, config);
 
 	for(long int a = 0; a < size; a++)
 	{

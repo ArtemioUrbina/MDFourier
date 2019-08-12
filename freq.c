@@ -1938,7 +1938,7 @@ double CalculateWeightedError(double pError, parameters *config)
 	if(pError < 0.0)
 	{
 		pError = fabs(pError);
-		//logmsg("pERROR < 0!\n");
+		logmsg("pERROR < 0!\n");
 	}
 
 	option = config->outputFilterFunction;
