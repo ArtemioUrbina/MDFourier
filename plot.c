@@ -1263,46 +1263,11 @@ void PlotSingleTypeSpectrogram(FlatFrequency *freqs, long int size, int type, ch
 void PlotNoiseSpectrogram(FlatFrequency *freqs, long int size, int type, char *filename, int signal, parameters *config, AudioSignal *Signal)
 {
 	PlotFile	plot;
-	int			filled = 0;
 	double		startAmplitude = config->significantAmplitude, endAmplitude = PCM_16BIT_MIN_AMPLITUDE;
 
 	if(!config)
 		return;
 
-	if(Signal->role == ROLE_COMP)
-	{
-		if(config->refNoiseMax != 0)
-		{
-			startAmplitude = config->refNoiseMin;
-			endAmplitude = config->refNoiseMax;
-			filled = 1;
-		}
-		else
-			logmsg("WARNING: Noise Floor Reference values were not set\n");
-	}
-
-	if(Signal->role == ROLE_REF || !filled )
-	{
-		// Find limits
-		for(int f = 0; f < size; f++)
-		{
-			if(freqs[f].type == type)
-			{
-				if(freqs[f].amplitude > startAmplitude)
-					startAmplitude = freqs[f].amplitude;
-				if(freqs[f].amplitude < endAmplitude)
-					endAmplitude = freqs[f].amplitude;
-			}
-		}
-		if(endAmplitude < NS_LOWEST_AMPLITUDE)
-			endAmplitude = NS_LOWEST_AMPLITUDE;
-
-		config->refNoiseMin = startAmplitude;
-		config->refNoiseMax = endAmplitude;
-	}
-
-	// Old way, absolute way
-	/*
 	// Find limits
 	for(int f = 0; f < size; f++)
 	{
@@ -1314,7 +1279,24 @@ void PlotNoiseSpectrogram(FlatFrequency *freqs, long int size, int type, char *f
 				endAmplitude = freqs[f].amplitude;
 		}
 	}
-	*/
+
+	if(endAmplitude < NS_LOWEST_AMPLITUDE)
+		endAmplitude = NS_LOWEST_AMPLITUDE;
+
+	if(Signal->role == ROLE_COMP)
+	{
+		if(config->refNoiseMax != 0)
+			endAmplitude = config->refNoiseMax;
+		else
+			logmsg("WARNING: Noise Floor Reference values were not set\n");
+	}
+
+	if(Signal->role == ROLE_REF)
+	{
+		config->refNoiseMin = startAmplitude;
+		config->refNoiseMax = endAmplitude;
+	}
+
 	FillPlot(&plot, filename, config->plotResX, config->plotResY, config->startHzPlot, endAmplitude, config->endHzPlot, 0.0, 1, config);
 
 	if(!CreatePlotFile(&plot))
