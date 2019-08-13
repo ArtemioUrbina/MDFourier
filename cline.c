@@ -46,6 +46,9 @@ void PrintUsage()
 	logmsg("	 -z: Uses <z>ero Padding to equal 1 Hz FFT bins\n");
 	logmsg("	 -n: <N>ormalize: 't' Time Domain Max, 'f' Frequency Domain Max or 'a' Average\n");
 	logmsg("	 -B: Do not do stereo channel audio <B>alancing\n");
+	logmsg("	 -V: Ignore a<V>erage for analysis\n");
+	logmsg("	 -I: <I>gnore frame rate difference for analysis\n");
+	logmsg("	 -k: cloc<k> FFTW operations\n");
 	logmsg("   Output options:\n");
 	logmsg("	 -l: <l>og output to file [reference]_vs_[compare].txt\n");
 	logmsg("	 -v: Enable <v>erbose mode, spits all the FFTW results\n");
@@ -56,8 +59,8 @@ void PrintUsage()
 	logmsg("	 -D: Don't create <D>ifferences Plots\n");
 	logmsg("	 -M: Don't create <M>issing Plots\n");
 	logmsg("	 -S: Don't create <S>pectrogram Plots\n");
+	logmsg("	 -F: Don't create Noise <F>loor Plots\n");
 	logmsg("	 -d: Max <d>BFS for plots vertically\n");
-	logmsg("	 -k: cloc<k> FFTW operations\n");
 	logmsg("	 -j: (text) Cuts per block information and shows <j>ust total results\n");
 	logmsg("	 -x: (text) Enables e<x>tended log results. Shows a table with all matches\n");
 	logmsg("	 -m: (text) Enables Show all blocks compared with <m>atched frequencies\n");
@@ -116,6 +119,9 @@ void CleanParameters(parameters *config)
 	config->reverseCompare = 0;
 	config->normType = max_frequency;
 
+	config->refNoiseMin = 0;
+	config->refNoiseMax = 0;
+
 	config->plotResX = PLOT_RES_X;
 	config->plotResY = PLOT_RES_Y;
 
@@ -162,7 +168,7 @@ int commandline(int argc , char *argv[], parameters *config)
 	
 	CleanParameters(config);
 
-	while ((c = getopt (argc, argv, "hxjzmviklygLHo:s:e:f:t:p:a:w:r:c:d:P:SDMNRAWVXDBIn:")) != -1)
+	while ((c = getopt (argc, argv, "hxjzmviklygLHo:s:e:f:t:p:a:w:r:c:d:P:SDMNRFAWVXDBIn:")) != -1)
 	switch (c)
 	  {
 	  case 'h':
@@ -304,6 +310,9 @@ int commandline(int argc , char *argv[], parameters *config)
 	  case 'S':
 		config->plotSpectrogram = 0;
 		break;
+	  case 'F':
+		config->plotNoiseFloor = 0;
+		break;
 	  case 'N':
 		config->logScale = 0;
 		break;
@@ -414,7 +423,7 @@ int commandline(int argc , char *argv[], parameters *config)
 	}
 
 	if(!config->plotDifferences && !config->plotMissing &&
-		!config->plotSpectrogram && !config->averagePlot)
+		!config->plotSpectrogram && !config->averagePlot && !config->plotNoiseFloor)
 	{
 		logmsg("It makes no sense to process everything and plot nothing\nAborting.\n");
 		return 0;

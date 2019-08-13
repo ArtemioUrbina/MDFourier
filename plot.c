@@ -185,7 +185,7 @@ void PlotResults(AudioSignal *Signal, parameters *config)
 		}
 	}
 
-	if(config->plotNoiseFloor)
+	if(!config->ignoreFloor && config->plotNoiseFloor)
 	{
 		if(config->referenceNoiseFloor)
 		{
@@ -194,7 +194,7 @@ void PlotResults(AudioSignal *Signal, parameters *config)
 			if(config->clock)
 				clock_gettime(CLOCK_MONOTONIC, &lstart);
 	
-			logmsg(" - Noise Floor Difference");
+			logmsg(" - Noise Floor");
 			PlotNoiseFloor(Signal, config);
 			logmsg("\n");
 	
@@ -208,7 +208,7 @@ void PlotResults(AudioSignal *Signal, parameters *config)
 			}
 		}
 		else
-			logmsg(" - Noise Floor Difference ommited, no noise floor found.");
+			logmsg("\n - Noise Floor graphs ommited: no noise floor value found.");
 	}
 
 	ReturnToMainPath(&CurrentPath);
@@ -566,6 +566,18 @@ void DrawLabelsMDF(PlotFile *plot, char *Gname, char *GType, int type, parameter
 			pl_fmove_r(plot->plotter, x, y);
 			pl_alabel_r(plot->plotter, 'l', 'l', label);
 		}
+	}
+
+	if(config->normType != max_frequency)
+	{
+		pl_fmove_r(plot->plotter, config->plotResX-config->plotResX/5, -1*config->plotResY/2+config->plotResY/100);
+		pl_pencolor_r(plot->plotter, 0xeeee, 0xeeee, 0);
+		if(config->normType == max_time)
+			pl_alabel_r(plot->plotter, 'l', 'l', "Time domain normalization");
+		if(config->normType == average)
+			pl_alabel_r(plot->plotter, 'l', 'l', "Averaged normalzation");
+		if(config->normType == none)
+			pl_alabel_r(plot->plotter, 'l', 'l', "WARNING: No Normalization, PLEASE DISREGARD");
 	}
 }
 
@@ -1188,7 +1200,7 @@ int PlotEachTypeSpectrogram(FlatFrequency *freqs, long int size, char *filename,
 		type = config->types.typeArray[i].type;
 		if(type > TYPE_CONTROL)
 		{
-			sprintf(name, "SP_%s_%02d%s", filename, 
+			sprintf(name, "SP_%c_%s_%02d%s", signal == ROLE_REF ? 'A' : 'B', filename, 
 					config->types.typeArray[i].type, config->types.typeArray[i].typeName);
 			PlotSingleTypeSpectrogram(freqs, size, type, name, signal, config);
 			logmsg(PLOT_ADVANCE_CHAR);
@@ -1197,7 +1209,7 @@ int PlotEachTypeSpectrogram(FlatFrequency *freqs, long int size, char *filename,
 
 		if(config->plotNoiseFloor && !silence && type == TYPE_SILENCE)
 		{
-			sprintf(name, "NF_SP_%s_%02d%s", filename, 
+			sprintf(name, "NF_SP_%c_%s_%02d%s", signal == ROLE_REF ? 'A' : 'B', filename, 
 					config->types.typeArray[i].type, config->types.typeArray[i].typeName);
 			PlotNoiseSpectrogram(freqs, size, type, name, signal, config, Signal);
 			logmsg(PLOT_ADVANCE_CHAR);
@@ -1251,11 +1263,46 @@ void PlotSingleTypeSpectrogram(FlatFrequency *freqs, long int size, int type, ch
 void PlotNoiseSpectrogram(FlatFrequency *freqs, long int size, int type, char *filename, int signal, parameters *config, AudioSignal *Signal)
 {
 	PlotFile	plot;
+	int			filled = 0;
 	double		startAmplitude = config->significantAmplitude, endAmplitude = PCM_16BIT_MIN_AMPLITUDE;
 
 	if(!config)
 		return;
 
+	if(Signal->role == ROLE_COMP)
+	{
+		if(config->refNoiseMax != 0)
+		{
+			startAmplitude = config->refNoiseMin;
+			endAmplitude = config->refNoiseMax;
+			filled = 1;
+		}
+		else
+			logmsg("WARNING: Noise Floor Reference values were not set\n");
+	}
+
+	if(Signal->role == ROLE_REF || !filled )
+	{
+		// Find limits
+		for(int f = 0; f < size; f++)
+		{
+			if(freqs[f].type == type)
+			{
+				if(freqs[f].amplitude > startAmplitude)
+					startAmplitude = freqs[f].amplitude;
+				if(freqs[f].amplitude < endAmplitude)
+					endAmplitude = freqs[f].amplitude;
+			}
+		}
+		if(endAmplitude < NS_LOWEST_AMPLITUDE)
+			endAmplitude = NS_LOWEST_AMPLITUDE;
+
+		config->refNoiseMin = startAmplitude;
+		config->refNoiseMax = endAmplitude;
+	}
+
+	// Old way, absolute way
+	/*
 	// Find limits
 	for(int f = 0; f < size; f++)
 	{
@@ -1267,6 +1314,7 @@ void PlotNoiseSpectrogram(FlatFrequency *freqs, long int size, int type, char *f
 				endAmplitude = freqs[f].amplitude;
 		}
 	}
+	*/
 	FillPlot(&plot, filename, config->plotResX, config->plotResY, config->startHzPlot, endAmplitude, config->endHzPlot, 0.0, 1, config);
 
 	if(!CreatePlotFile(&plot))
@@ -1279,7 +1327,7 @@ void PlotNoiseSpectrogram(FlatFrequency *freqs, long int size, int type, char *f
 
 	for(int f = 0; f < size; f++)
 	{
-		if(freqs[f].type == type)
+		if(freqs[f].type == type && freqs[f].amplitude >= endAmplitude)
 		{ 
 			long int intensity;
 			double x, y;

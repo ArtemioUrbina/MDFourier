@@ -548,8 +548,11 @@ int LoadAndProcessAudioFiles(AudioSignal **ReferenceSignal, AudioSignal **Compar
 	CalculateAmplitudes(*ReferenceSignal, ZeroDbMagnitudeRef, config);
 	CalculateAmplitudes(*ComparisonSignal, ZeroDbMagnitudeRef, config);
 
-	FindStandAloneFloor(*ReferenceSignal, config);
-	FindStandAloneFloor(*ComparisonSignal, config);
+	if(!config->ignoreFloor)
+	{
+		FindStandAloneFloor(*ReferenceSignal, config);
+		FindStandAloneFloor(*ComparisonSignal, config);
+	}
 
 	/* analyze silence floor if available */
 	if(!config->ignoreFloor && (*ReferenceSignal)->hasFloor)

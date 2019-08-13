@@ -49,11 +49,11 @@
 
 #include "incbeta.h"
 
-#define MDVERSION "0.938 beta"
+#define MDVERSION "0.940"
 
 #define MAX_FREQ_COUNT		100000 	/* Number of frequencies to compare(MAX) */
 #define FREQ_COUNT			2000	/* Number of frequencies to compare(default) */
-#define SIGNIFICANT_VOLUME	-62.0
+#define SIGNIFICANT_VOLUME	-60.0
 #define NS_SIGNIFICANT_VOLUME	-66.0
 #define NS_LOWEST_AMPLITUDE		-120
 #define	PCM_16BIT_MIN_AMPLITUDE	-96.0
@@ -365,6 +365,9 @@ typedef struct parameters_st {
 	fftw_plan		sync_plan;
 	fftw_plan		model_plan;
 	fftw_plan		reverse_plan;
+
+	double			refNoiseMin;
+	double			refNoiseMax;
 
 #ifdef MDWAVE
 	int				maxBlanked;
