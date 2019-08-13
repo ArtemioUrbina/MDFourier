@@ -45,6 +45,7 @@ void CMDFourierGUIDlg::DoDataExchange(CDataExchange* pDX)
 	DDX_Control(pDX, IDC_MISSING, m_MissBttn);
 	DDX_Control(pDX, IDC_SPECTROGRAM, m_SpectrBttn);
 	DDX_Control(pDX, IDC_PROFILE, m_Profiles);
+	DDX_Control(pDX, IDC_NOISEFLOOR, m_NoiseFloor);
 }
 
 BEGIN_MESSAGE_MAP(CMDFourierGUIDlg, CDialogEx)
@@ -62,6 +63,7 @@ BEGIN_MESSAGE_MAP(CMDFourierGUIDlg, CDialogEx)
 	ON_BN_CLICKED(IDC_MISSING, &CMDFourierGUIDlg::OnBnClickedMissing)
 	ON_BN_CLICKED(IDC_SPECTROGRAM, &CMDFourierGUIDlg::OnBnClickedSpectrogram)
 	ON_BN_CLICKED(IDC_AVERAGE, &CMDFourierGUIDlg::OnBnClickedAverage)
+	ON_BN_CLICKED(IDC_NOISEFLOOR, &CMDFourierGUIDlg::OnBnClickedNoisefloor)
 END_MESSAGE_MAP()
 
 
@@ -87,6 +89,7 @@ BOOL CMDFourierGUIDlg::OnInitDialog()
 	m_DiffBttn.SetCheck(TRUE);
 	m_MissBttn.SetCheck(TRUE);
 	m_SpectrBttn.SetCheck(TRUE);
+	m_NoiseFloor.SetCheck(TRUE);
 	m_AveragePlot_Bttn.SetCheck(FALSE);
 
 	FillComboBoxes();
@@ -288,6 +291,8 @@ void CMDFourierGUIDlg::ExecuteCommand(CString Compare)
 		command += " -M";
 	if(m_SpectrBttn.GetCheck() != BST_CHECKED)
 		command += " -S";
+	if(m_NoiseFloor.GetCheck() != BST_CHECKED)
+		command += " -F";
 
 	if(m_EnableExtraBttn.GetCheck() == BST_CHECKED)
 		m_ExtraParamsEditBox.GetWindowText(extraCmd);
@@ -539,13 +544,18 @@ int CMDFourierGUIDlg::FindProfiles(CString sPath, CString pattern)
 			}
 			ProfileName = text;
 			fclose(file);
+			while(ProfileName.GetLength() && ProfileName.GetAt(0) == ' ')
+				ProfileName = ProfileName.Right(ProfileName.GetLength() - 1);
+			if(!ProfileName.GetLength())
+				ProfileName = L"Unnamed profile!";
 			InsertValueInCombo(ProfileName, FileName, Profiles[count++], m_Profiles);
 		}
 	}
 
 	finder.Close();
-	InsertValueInCombo(L"Select a profile", L"NONE", Profiles[count], m_Profiles);
-	m_Profiles.SetCurSel(count);
+	InsertValueInCombo(L" Select a profile", L"NONE", Profiles[count], m_Profiles);
+
+	m_Profiles.SetCurSel(0);
 	return count;
 }
 
@@ -595,6 +605,7 @@ void CMDFourierGUIDlg::ManageWindows(BOOL Enable)
 	m_DiffBttn.EnableWindow(Enable);
 	m_MissBttn.EnableWindow(Enable);
 	m_SpectrBttn.EnableWindow(Enable);
+	m_NoiseFloor.EnableWindow(Enable);
 	m_AveragePlot_Bttn.EnableWindow(Enable);
 
 	m_Profiles.EnableWindow(Enable);
@@ -628,6 +639,8 @@ void CMDFourierGUIDlg::CheckPlotSelection(CButton &clicked)
 		checked ++;
 	if(m_SpectrBttn.GetCheck() == BST_CHECKED)
 		checked ++;
+	if(m_NoiseFloor.GetCheck() == BST_CHECKED)
+		checked ++;
 	if(m_AveragePlot_Bttn.GetCheck() == BST_CHECKED)
 		checked ++;
 
@@ -653,4 +666,9 @@ void CMDFourierGUIDlg::OnBnClickedSpectrogram()
 void CMDFourierGUIDlg::OnBnClickedAverage()
 {
 	CheckPlotSelection(m_AveragePlot_Bttn);
+}
+
+void CMDFourierGUIDlg::OnBnClickedNoisefloor()
+{
+	CheckPlotSelection(m_NoiseFloor);
 }

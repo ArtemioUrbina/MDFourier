@@ -98,4 +98,6 @@ public:
 	afx_msg void OnBnClickedMissing();
 	afx_msg void OnBnClickedSpectrogram();
 	afx_msg void OnBnClickedAverage();
+	CButton m_NoiseFloor;
+	afx_msg void OnBnClickedNoisefloor();
 };
