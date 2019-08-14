@@ -800,10 +800,8 @@ int LoadFile(FILE *file, AudioSignal *Signal, parameters *config, char *fileName
 	}
 	else
 	{
-		double diff = 0, expected = 0;
-
 		/* Find the start offset */
-		/*
+		
 		logmsg(" - Detecting audio signal: ");
 		Signal->startOffset = DetectSignalStart(Signal->Samples, Signal->header, 0, 0, NULL, config);
 		if(Signal->startOffset == -1)
@@ -816,7 +814,9 @@ int LoadFile(FILE *file, AudioSignal *Signal, parameters *config, char *fileName
 				Signal->startOffset);
 		Signal->endOffset = SecondsToBytes(Signal->header.fmt.SamplesPerSec, 
 								GetSignalTotalDuration(Signal->framerate, config), NULL, NULL, NULL);
-		*/
+		
+	/*
+		double diff = 0, expected = 0;
 
 		// Files must be identically trimmed for this to work at some level
 		Signal->startOffset = 0;
@@ -850,6 +850,7 @@ int LoadFile(FILE *file, AudioSignal *Signal, parameters *config, char *fileName
 			if(!config->ignoreFrameRateDiff)
 				return 0;
 		}
+		*/
 	}
 
 	if(seconds < GetSignalTotalDuration(Signal->framerate, config))
@@ -1162,8 +1163,8 @@ int ProcessFile(AudioSignal *Signal, parameters *config)
 		}
 
 		// MDWAVE exists for this, but just in case it is ever needed within MDFourier
-		if(config->noSyncProfile)
-			SaveWAVEChunk(NULL, Signal, buffer, i, loadedBlockSize-difference, config);
+		//if(config->noSyncProfile)
+			//SaveWAVEChunk(NULL, Signal, buffer, i, loadedBlockSize-difference, config);
 
 		pos += loadedBlockSize;
 		pos += discardBytes;

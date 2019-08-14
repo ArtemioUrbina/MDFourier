@@ -185,7 +185,7 @@ void PlotResults(AudioSignal *Signal, parameters *config)
 		}
 	}
 
-	if(!config->ignoreFloor && config->plotNoiseFloor)
+	if(!config->noSyncProfile && !config->ignoreFloor && config->plotNoiseFloor)
 	{
 		if(config->referenceNoiseFloor)
 		{
@@ -578,6 +578,13 @@ void DrawLabelsMDF(PlotFile *plot, char *Gname, char *GType, int type, parameter
 			pl_alabel_r(plot->plotter, 'l', 'l', "Averaged normalzation");
 		if(config->normType == none)
 			pl_alabel_r(plot->plotter, 'l', 'l', "WARNING: No Normalization, PLEASE DISREGARD");
+	}
+
+	if(config->noSyncProfile)
+	{
+		pl_fmove_r(plot->plotter, config->plotResX-config->plotResX/5, -1*config->plotResY/2+config->plotResY/20);
+		pl_pencolor_r(plot->plotter, 0xeeee, 0xeeee, 0);
+		pl_alabel_r(plot->plotter, 'l', 'l', "WARNING: NO SYNC profile, PLEASE DISREGARD");
 	}
 }
 

@@ -106,7 +106,7 @@ void CalcuateFrequencyBrackets(AudioSignal *Signal, parameters *config)
 	}
 	else
 	{
-		if(config->noSyncProfile)
+		if(!config->noSyncProfile)
 			logmsg("\nWARNING: Frequency Brackets can't be found since there is no Silence block in MFN file\n\n");
 	}
 }
@@ -1315,9 +1315,9 @@ void FindStandAloneFloor(AudioSignal *Signal, parameters *config)
 		return;
 	
 	Silentindex = GetFirstSilenceIndex(config);
-	if(Silentindex == NO_INDEX)
+	if(config->noSyncProfile || Silentindex == NO_INDEX)
 	{
-		logmsg("There is no Silence block defined in the current format\n");
+		logmsg("There is no Silence block defined in the current profile\n");
 		return;
 	}
 

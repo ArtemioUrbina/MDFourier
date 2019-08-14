@@ -48,11 +48,10 @@ void Header_wave(int log);
 void CleanUp(AudioSignal **ReferenceSignal, parameters *config);
 void CloseFiles(FILE **ref);
 void RemoveFLACTemp(char *referenceFile);
+int ExecuteMDWave(parameters *config, int invert);
 
 int main(int argc , char *argv[])
 {
-	FILE				*reference = NULL;
-	AudioSignal  		*ReferenceSignal = NULL;
 	parameters			config;
 	struct	timespec	start, end;
 
@@ -68,25 +67,52 @@ int main(int argc , char *argv[])
 
 	if(!LoadProfile(&config))
 		return 1;
+	if(ExecuteMDWave(&config, 0) == 1)
+		return 1;
 
-	if(IsFlac(config.referenceFile))
+	if(!LoadProfile(&config))
+		return 1;
+	if(ExecuteMDWave(&config, 1) == 1)
+		return 1;
+
+	if(config.clock)
+	{
+		double	elapsedSeconds;
+		clock_gettime(CLOCK_MONOTONIC, &end);
+		elapsedSeconds = TimeSpecToSeconds(&end) - TimeSpecToSeconds(&start);
+		logmsg(" - clk: MDWave took %0.2fs\n", elapsedSeconds);
+	}
+}
+
+int ExecuteMDWave(parameters *config, int invert)
+{
+	FILE				*reference = NULL;
+	AudioSignal  		*ReferenceSignal = NULL;
+
+	if(invert)
+	{
+		logmsg("\n* Calculating values for Discard file\n");
+		config->invert = 1;
+	}
+
+	if(IsFlac(config->referenceFile))
 	{
 		char tmpFile[BUFFER_SIZE];
 		struct	timespec	start, end;
 
-		if(config.clock)
+		if(config->clock)
 			clock_gettime(CLOCK_MONOTONIC, &start);
 
-		if(config.verbose)
+		if(config->verbose)
 			logmsg(" - Decoding FLAC\n");
-		renameFLAC(config.referenceFile, tmpFile);
-		if(!FLACtoWAV(config.referenceFile, tmpFile))
+		renameFLAC(config->referenceFile, tmpFile);
+		if(!FLACtoWAV(config->referenceFile, tmpFile))
 		{
-			logmsg("\nInvalid FLAC file %s\n", config.referenceFile);
+			logmsg("\nInvalid FLAC file %s\n", config->referenceFile);
 			remove(tmpFile);
-			return 0;
+			return 1;
 		}
-		if(config.clock)
+		if(config->clock)
 		{
 			double	elapsedSeconds;
 			clock_gettime(CLOCK_MONOTONIC, &end);
@@ -96,71 +122,65 @@ int main(int argc , char *argv[])
 		reference = fopen(tmpFile, "rb");
 	}
 	else
-		reference = fopen(config.referenceFile, "rb");
+		reference = fopen(config->referenceFile, "rb");
 	if(!reference)
 	{
-		logmsg("\tCould not open REFERENCE file: \"%s\"\n", config.referenceFile);
-		RemoveFLACTemp(config.referenceFile);
-		CleanUp(&ReferenceSignal, &config);
-		return 0;
+		logmsg("\tCould not open REFERENCE file: \"%s\"\n", config->referenceFile);
+		RemoveFLACTemp(config->referenceFile);
+		CleanUp(&ReferenceSignal, config);
+		return 1;
 	}
 
-	ReferenceSignal = CreateAudioSignal(&config);
+	ReferenceSignal = CreateAudioSignal(config);
 	if(!ReferenceSignal)
 	{
 		CloseFiles(&reference);
-		RemoveFLACTemp(config.referenceFile);
-		CleanUp(&ReferenceSignal, &config);
+		RemoveFLACTemp(config->referenceFile);
+		CleanUp(&ReferenceSignal, config);
 		logmsg("Not enough memory for Data Structures\n");
-		return 0;
+		return 1;
 	}
 
-	if(!config.useCompProfile)
+	if(!config->useCompProfile)
 		ReferenceSignal->role = ROLE_REF;
 	else
 		ReferenceSignal->role = ROLE_COMP;
 
-	logmsg("\n* Loading Reference audio file %s\n", config.referenceFile);
-	if(!LoadFile(reference, ReferenceSignal, &config, config.referenceFile))
+	logmsg("\n* Loading Reference audio file %s\n", config->referenceFile);
+	if(!LoadFile(reference, ReferenceSignal, config, config->referenceFile))
 	{
 		CloseFiles(&reference);
-		RemoveFLACTemp(config.referenceFile);
-		CleanUp(&ReferenceSignal, &config);
-		return 0;
-	}
-
-	CloseFiles(&reference);
-	RemoveFLACTemp(config.referenceFile);
-
-	config.referenceFramerate = ReferenceSignal->framerate;
-
-	if(config.channel == 's')
-	{
-		int block = NO_INDEX;
-
-		block = GetFirstMonoIndex(&config);
-		if(block != NO_INDEX)
-			CheckBalance(ReferenceSignal, block, &config);
-	}
-
-	logmsg("* Processing Audio file %s\n", config.referenceFile);
-	if(!ProcessFile(ReferenceSignal, &config))
-	{
-		CleanUp(&ReferenceSignal, &config);
+		RemoveFLACTemp(config->referenceFile);
+		CleanUp(&ReferenceSignal, config);
 		return 1;
 	}
 
-	logmsg("* Max blanked frequencies per block %d\n", config.maxBlanked);
-	
-	CleanUp(&ReferenceSignal, &config);
+	CloseFiles(&reference);
+	RemoveFLACTemp(config->referenceFile);
 
-	if(config.clock)
+	config->referenceFramerate = ReferenceSignal->framerate;
+
+	if(config->channel == 's')
 	{
-		double	elapsedSeconds;
-		clock_gettime(CLOCK_MONOTONIC, &end);
-		elapsedSeconds = TimeSpecToSeconds(&end) - TimeSpecToSeconds(&start);
-		logmsg(" - clk: MDWave took %0.2fs\n", elapsedSeconds);
+		int block = NO_INDEX;
+
+		block = GetFirstMonoIndex(config);
+		if(block != NO_INDEX)
+			CheckBalance(ReferenceSignal, block, config);
 	}
+
+	logmsg("* Processing Audio\n");
+	if(!ProcessFile(ReferenceSignal, config))
+	{
+		CleanUp(&ReferenceSignal, config);
+		return 1;
+	}
+
+	//logmsg("* Max blanked frequencies per block %d\n", config->maxBlanked);
+	CleanUp(&ReferenceSignal, config);
+
+	if(invert)
+		printf("\nResults stored in %s\n", config->folderName);
 	
 	return(0);
 }
@@ -620,6 +640,27 @@ int ProcessInternal(AudioSignal *Signal, long int element, long int pos, int *sy
 	return 1;
 }
 
+int CreateChunksFolder(parameters *config)
+{
+	char name[BUFFER_SIZE*2];
+
+	sprintf(name, "%s\\Chunks", config->folderName);
+#if defined (WIN32)
+	if(_mkdir(name) != 0)
+	{
+		if(errno != EEXIST)
+			return 0;
+	}
+#else
+	if(mkdir(name, 0755) != 0)
+	{
+		if(errno != EEXIST)
+			return 0;
+	}
+#endif
+	return 1;
+}
+
 int ProcessFile(AudioSignal *Signal, parameters *config)
 {
 	long int		pos = 0;
@@ -702,7 +743,9 @@ int ProcessFile(AudioSignal *Signal, parameters *config)
 
 		if(config->chunks)
 		{
-			sprintf(tempName, "%03ld_Source_%010ld_%s_%03d_chunk_", 
+			if(!CreateChunksFolder(config))
+				return 0;
+			sprintf(tempName, "Chunks\\%03ld_Source_%010ld_%s_%03d_chunk_", 
 				i, pos+syncAdvance, 
 				GetBlockName(config, i), GetBlockSubIndex(config, i));
 			ComposeFileName(Name, tempName, ".wav", config);
@@ -801,7 +844,9 @@ int ProcessFile(AudioSignal *Signal, parameters *config)
 
 		if(config->chunks)
 		{
-			sprintf(tempName, "%03ld_%s_Processed_%s_%03d_chunk_", i, 
+			if(!CreateChunksFolder(config))
+				return 0;
+			sprintf(tempName, "Chunks\\%03ld_%s_Processed_%s_%03d_chunk_", i, 
 				GenerateFileNamePrefix(config), GetBlockName(config, i), 
 				GetBlockSubIndex(config, i));
 			ComposeFileName(Name, tempName, ".wav", config);
@@ -1001,8 +1046,8 @@ int ProcessSamples(AudioBlocks *AudioArray, int16_t *samples, size_t size, long 
 			CutOff < Signal->floorAmplitude && Signal->floorAmplitude != 0.0)
 			CutOff = Signal->floorAmplitude;
 
-		//Process the whole frequency spectrum
-		for(i = startBin; i < endBin; i++)
+		//Process the defined frequency spectrum
+		for(i = 1; i < boxsize*(samplerate/2)+1; i++)
 		{
 			double amplitude = 0, magnitude = 0;
 			int blank = 0;
@@ -1010,16 +1055,13 @@ int ProcessSamples(AudioBlocks *AudioArray, int16_t *samples, size_t size, long 
 			magnitude = CalculateMagnitude(spectrum[i], monoSignalSize);
 			amplitude = CalculateAmplitude(magnitude, Signal->MaxMagnitude.magnitude);
 
+			if(amplitude <= CutOff)
+				blank = 1;
+			if(i < startBin || i > endBin)
+				blank = 1;
+
 			if(config->invert)
-			{
-				if(amplitude > CutOff)
-					blank = 1;
-			}
-			else
-			{
-				if(amplitude <= CutOff)
-					blank = 1;
-			}
+				blank = !blank;
 
 			if(blank)
 			{
@@ -1035,7 +1077,7 @@ int ProcessSamples(AudioBlocks *AudioArray, int16_t *samples, size_t size, long 
 				blanked ++;
 			}
 		}
-	
+		
 		// Magic! iFFTW
 		fftw_execute(pBack); 
 		fftw_destroy_plan(pBack);
@@ -1118,7 +1160,7 @@ int commandline_wave(int argc , char *argv[], parameters *config)
 	config->chunks = 0;
 	config->useCompProfile = 0;
 
-	while ((c = getopt (argc, argv, "hvzcklyCBxis:e:f:t:p:a:w:r:P:I")) != -1)
+	while ((c = getopt (argc, argv, "hvzcklyCBis:e:f:t:p:a:w:r:P:I")) != -1)
 	switch (c)
 	  {
 	  case 'h':
@@ -1140,9 +1182,6 @@ int commandline_wave(int argc , char *argv[], parameters *config)
 	  case 'z':
 		config->ZeroPad = 1;
 		break;
-	  case 'x':
-		config->invert = 1;   // RELEVANT HERE!
-		break;
 	  case 'i':
 		config->ignoreFloor = 1;   // RELEVANT HERE!
 		break;
@@ -1155,8 +1194,8 @@ int commandline_wave(int argc , char *argv[], parameters *config)
 			config->startHz = START_HZ;
 		break;
 	  case 'e':
-		config->endHz = atoi(optarg);
-		if(config->endHz < START_HZ*2 || config->endHz > END_HZ)
+		config->endHz = atof(optarg);
+		if(config->endHz < START_HZ*2.0 || config->endHz > END_HZ)
 			config->endHz = END_HZ;
 		break;
 	  case 'f':
@@ -1171,7 +1210,7 @@ int commandline_wave(int argc , char *argv[], parameters *config)
 		break;
 	  case 'p':
 		config->significantAmplitude = atof(optarg);
-		if(config->significantAmplitude <= -100.0 || config->significantAmplitude >= -1.0)
+		if(config->significantAmplitude <= -120.0 || config->significantAmplitude >= -1.0)
 			config->significantAmplitude = SIGNIFICANT_VOLUME;
 		config->origSignificantAmplitude = config->significantAmplitude;
 		break;
@@ -1301,9 +1340,9 @@ int commandline_wave(int argc , char *argv[], parameters *config)
 	if(config->MaxFreq != FREQ_COUNT)
 		logmsg("\tMax frequencies to use from FFTW are %d (default %d)\n", config->MaxFreq, FREQ_COUNT);
 	if(config->startHz != START_HZ)
-		logmsg("\tFrequency start range for FFTW is now %d (default %d)\n", config->startHz, START_HZ);
+		logmsg("\tFrequency start range for FFTW is now %g (default %g)\n", config->startHz, START_HZ);
 	if(config->endHz != END_HZ)
-		logmsg("\tFrequency end range for FFTW is now %d (default %d)\n", config->endHz, END_HZ);
+		logmsg("\tFrequency end range for FFTW is now %g (default %g)\n", config->endHz, END_HZ);
 	if(config->window != 'n')
 		logmsg("\tA %s window will be applied to each block to be compared\n", GetWindow(config->window));
 	else
@@ -1328,7 +1367,6 @@ void PrintUsage_wave()
 	logmsg("	 -c: Enable Audio <c>hunk creation, an individual WAV for each block\n");
 	logmsg("	 -w: enable <w>indowing. Default is a custom Tukey window.\n");
 	logmsg("		'n' none, 't' Tukey, 'h' Hann, 'f' FlatTop & 'm' Hamming\n");
-	logmsg("	 -x: e<x>cludes results to generate discarded frequencies wav file\n");
 	logmsg("	 -i: <i>gnores the silence block noise floor if present\n");
 	logmsg("	 -f: Change the number of <f>requencies to use from FFTW\n");
 	logmsg("	 -s: Defines <s>tart of the frequency range to compare with FFT\n");

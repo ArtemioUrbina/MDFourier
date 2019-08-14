@@ -482,7 +482,7 @@ double ProcessChunkForSyncPulse(int16_t *samples, size_t size, long samplerate, 
 		double Hertz;
 
 		magnitude = CalculateMagnitude(spectrum[i], size);
-		Hertz = CalculateFrequency(i, boxsize, config->ZeroPad);
+		Hertz = CalculateFrequency(i, boxsize, 0);
 
 		if(config->laxSync && target)
 		{

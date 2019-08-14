@@ -254,7 +254,7 @@ int commandline(int argc , char *argv[], parameters *config)
 		break;
 	  case 'p':
 		config->significantAmplitude = atof(optarg);
-		if(config->significantAmplitude <= -100.0 || config->significantAmplitude >= -1.0)
+		if(config->significantAmplitude <= -120.0 || config->significantAmplitude >= -1.0)
 			config->significantAmplitude = SIGNIFICANT_VOLUME;
 		config->origSignificantAmplitude = config->significantAmplitude;
 		break;
