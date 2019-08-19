@@ -234,6 +234,9 @@ void PlotAmpDifferences(parameters *config)
 		return;
 	}
 
+	if(config->outputCSV)
+		SaveCSV(amplDiff, size, config->compareName, config);
+
 	if(config->plotDifferences)
 	{
 		if(PlotEachTypeDifferentAmplitudes(amplDiff, size, config->compareName, config) > 1)
@@ -346,7 +349,7 @@ int FillPlot(PlotFile *plot, char *name, int sizex, int sizey, double x0, double
 	return 1;
 }
 
-int CreatePlotFile(PlotFile *plot)
+int CreatePlotFile(PlotFile *plot, parameters *config)
 {
 	char		size[20];
 
@@ -373,7 +376,10 @@ int CreatePlotFile(PlotFile *plot)
 	}
 	pl_fspace_r(plot->plotter, plot->x0, plot->y0, plot->x1, plot->y1);
 	pl_flinewidth_r(plot->plotter, plot->penWidth);
-	pl_bgcolor_r(plot->plotter, 0, 0, 0);
+	if(config->whiteBG)
+		pl_bgcolor_r(plot->plotter, 0xffff, 0xffff, 0xffff);
+	else
+		pl_bgcolor_r(plot->plotter, 0, 0, 0);
 	pl_erase_r(plot->plotter);
 
 	return 1;
@@ -580,7 +586,7 @@ void DrawLabelsMDF(PlotFile *plot, char *Gname, char *GType, int type, parameter
 			pl_alabel_r(plot->plotter, 'l', 'l', "WARNING: No Normalization, PLEASE DISREGARD");
 	}
 
-	if(config->noSyncProfile)
+	if(config->noSyncProfile && type < PLOT_SINGLE_REF)
 	{
 		pl_fmove_r(plot->plotter, config->plotResX-config->plotResX/5, -1*config->plotResY/2+config->plotResY/20);
 		pl_pencolor_r(plot->plotter, 0xeeee, 0xeeee, 0);
@@ -846,6 +852,43 @@ void DrawNoiseLines(PlotFile *plot, double start, double end, AudioSignal *Signa
 	pl_linemod_r(plot->plotter, "solid");
 }
 
+void SaveCSV(FlatAmplDifference *amplDiff, long int size, char *filename, parameters *config)
+{
+	FILE 		*csv = NULL;
+	char		name[BUFFER_SIZE];
+
+	if(!config)
+		return;
+
+	if(!amplDiff)
+		return;
+
+	if(!config->Differences.BlockDiffArray)
+		return;
+
+	sprintf(name, "%s.csv", filename);
+	
+	csv = fopen(name, "wb");
+	if(!csv)
+		return;
+	fprintf(csv, "Type, Frequency(Hz), Diff(dbfs)\n");
+	for(int a = 0; a < size; a++)
+	{
+		if(amplDiff[a].type > TYPE_CONTROL)
+		{ 
+			//long int intensity;
+
+			// If channel is defined as noise, don't draw the lower than visible ones
+			if(amplDiff[a].refAmplitude > config->significantAmplitude)
+			{
+				//intensity = CalculateWeightedError((fabs(config->significantAmplitude) - fabs(amplDiff[a].refAmplitude))/fabs(config->significantAmplitude), config)*0xffff;
+	
+				fprintf(csv, "%s, %g,%g\n", GetTypeName(config, amplDiff[a].type), amplDiff[a].hertz, amplDiff[a].diffAmplitude);
+			}
+		}
+	}
+	fclose(csv);
+}
 
 void PlotAllDifferentAmplitudes(FlatAmplDifference *amplDiff, long int size, char *filename, parameters *config)
 {
@@ -865,7 +908,7 @@ void PlotAllDifferentAmplitudes(FlatAmplDifference *amplDiff, long int size, cha
 	sprintf(name, "DA_ALL_%s", filename);
 	FillPlot(&plot, name, config->plotResX, config->plotResY, config->startHzPlot, -1*dBFS, config->endHzPlot, dBFS, 1, config);
 
-	if(!CreatePlotFile(&plot))
+	if(!CreatePlotFile(&plot, config))
 		return;
 
 	DrawGridZeroDBCentered(&plot, dBFS, VERT_SCALE_STEP, config->endHzPlot, 1000, config);
@@ -931,7 +974,7 @@ void PlotSingleTypeDifferentAmplitudes(FlatAmplDifference *amplDiff, long int si
 
 	FillPlot(&plot, filename, config->plotResX, config->plotResY, config->startHzPlot, -1*dBFS, config->endHzPlot, dBFS, 1, config);
 
-	if(!CreatePlotFile(&plot))
+	if(!CreatePlotFile(&plot, config))
 		return;
 
 	DrawGridZeroDBCentered(&plot, dBFS, VERT_SCALE_STEP, config->endHzPlot, 1000, config);
@@ -1012,7 +1055,7 @@ void PlotSilenceBlockDifferentAmplitudes(FlatAmplDifference *amplDiff, long int 
 
 	FillPlot(&plot, filename, config->plotResX, config->plotResY, config->startHzPlot, -1*dBFS, config->endHzPlot, dBFS, 1, config);
 
-	if(!CreatePlotFile(&plot))
+	if(!CreatePlotFile(&plot, config))
 		return;
 
 	DrawGridZeroDBCentered(&plot, dBFS, VERT_SCALE_STEP, config->endHzPlot, 1000, config);
@@ -1062,7 +1105,7 @@ void PlotAllMissingFrequencies(FlatFreqDifference *freqDiff, long int size, char
 	sprintf(name, "MIS_ALL_%s", filename);
 	FillPlot(&plot, name, config->plotResX, config->plotResY, config->startHzPlot, significant, config->endHzPlot, 0.0, 1, config);
 
-	if(!CreatePlotFile(&plot))
+	if(!CreatePlotFile(&plot, config))
 		return;
 
 	DrawGridZeroToLimit(&plot, significant, VERT_SCALE_STEP, config->endHzPlot, 1000, config);
@@ -1126,7 +1169,7 @@ void PlotSingleTypeMissingFrequencies(FlatFreqDifference *freqDiff, long int siz
 
 	FillPlot(&plot, filename, config->plotResX, config->plotResY, config->startHzPlot, significant, config->endHzPlot, 0.0, 1, config);
 
-	if(!CreatePlotFile(&plot))
+	if(!CreatePlotFile(&plot, config))
 		return;
 
 	DrawGridZeroToLimit(&plot, significant, VERT_SCALE_STEP, config->endHzPlot, 1000, config);
@@ -1168,7 +1211,7 @@ void PlotAllSpectrogram(FlatFrequency *freqs, long int size, char *filename, int
 	sprintf(name, "SP_ALL_%s", filename);
 	FillPlot(&plot, name, config->plotResX, config->plotResY, config->startHzPlot, significant, config->endHzPlot, 0.0, 1, config);
 
-	if(!CreatePlotFile(&plot))
+	if(!CreatePlotFile(&plot, config))
 		return;
 
 	DrawGridZeroToLimit(&plot, significant, VERT_SCALE_STEP, config->endHzPlot, 1000, config);
@@ -1238,7 +1281,7 @@ void PlotSingleTypeSpectrogram(FlatFrequency *freqs, long int size, int type, ch
 
 	FillPlot(&plot, filename, config->plotResX, config->plotResY, config->startHzPlot, significant, config->endHzPlot, 0.0, 1, config);
 
-	if(!CreatePlotFile(&plot))
+	if(!CreatePlotFile(&plot, config))
 		return;
 
 	DrawLabelsZeroToLimit(&plot, significant, VERT_SCALE_STEP,config->endHzPlot, 1000, config);
@@ -1306,7 +1349,7 @@ void PlotNoiseSpectrogram(FlatFrequency *freqs, long int size, int type, char *f
 
 	FillPlot(&plot, filename, config->plotResX, config->plotResY, config->startHzPlot, endAmplitude, config->endHzPlot, 0.0, 1, config);
 
-	if(!CreatePlotFile(&plot))
+	if(!CreatePlotFile(&plot, config))
 		return;
 
 	DrawLabelsZeroToLimit(&plot, endAmplitude, VERT_SCALE_STEP,config->endHzPlot, 1000, config);
@@ -1378,7 +1421,7 @@ void PlotWindow(windowManager *wm, long int frames, parameters *config)
 	sprintf(name, "WindowPlot_%s", GetWindow(config->window));
 	FillPlot(&plot, name, 320, 384, 0, -0.1, 1, 1.1, 0.001, config);
 
-	if(!CreatePlotFile(&plot))
+	if(!CreatePlotFile(&plot, config))
 		return;
 
 	// Frames Grid
@@ -1415,7 +1458,7 @@ void PlotBetaFunctions(parameters *config)
 		sprintf(name, "BetaFunctionPlot_%d", type);
 		FillPlot(&plot, name, 320, 384, 0, -0.1, 1, 1.1, 0.001, config);
 	
-		if(!CreatePlotFile(&plot))
+		if(!CreatePlotFile(&plot, config))
 			return;
 	
 		pl_pencolor_r (plot.plotter, 0, 0x5555, 0);
@@ -1803,7 +1846,7 @@ void PlotTest(char *filename, parameters *config)
 	sprintf(name, "Test_%s", filename);
 	FillPlot(&plot, name, config->plotResX, config->plotResY, config->startHzPlot, -1*dBFS, config->endHzPlot, dBFS, 1, config);
 
-	if(!CreatePlotFile(&plot))
+	if(!CreatePlotFile(&plot, config))
 		return;
 
 	DrawGridZeroDBCentered(&plot, dBFS, VERT_SCALE_STEP, config->endHzPlot, 1000, config);
@@ -1828,7 +1871,7 @@ void PlotTestZL(char *filename, parameters *config)
 	sprintf(name, "Test_ZL_%s", filename);
 	FillPlot(&plot, name, config->plotResX, config->plotResY, config->startHzPlot, config->significantAmplitude, config->endHzPlot, 0.0, 1, config);
 
-	if(!CreatePlotFile(&plot))
+	if(!CreatePlotFile(&plot, config))
 		return;
 
 	DrawGridZeroToLimit(&plot, config->significantAmplitude, VERT_SCALE_STEP, config->endHzPlot, 1000, config);
@@ -2194,7 +2237,7 @@ void PlotNoiseDifferentAmplitudesAveragedInternal(FlatAmplDifference *amplDiff, 
 
 	FillPlot(&plot, filename, config->plotResX, config->plotResY, config->startHzPlot, -1*dbs, config->endHzPlot, dbs, 1, config);
 
-	if(!CreatePlotFile(&plot))
+	if(!CreatePlotFile(&plot, config))
 		return;
 
 	DrawGridZeroDBCentered(&plot, dbs, VERT_SCALE_STEP, config->endHzPlot, 1000, config);
@@ -2282,7 +2325,7 @@ void PlotSingleTypeDifferentAmplitudesAveraged(FlatAmplDifference *amplDiff, lon
 
 	FillPlot(&plot, filename, config->plotResX, config->plotResY, config->startHzPlot, -1*dbs, config->endHzPlot, dbs, 1, config);
 
-	if(!CreatePlotFile(&plot))
+	if(!CreatePlotFile(&plot, config))
 		return;
 
 	DrawGridZeroDBCentered(&plot, dbs, VERT_SCALE_STEP, config->endHzPlot, 1000, config);
@@ -2381,7 +2424,7 @@ void PlotAllDifferentAmplitudesAveraged(FlatAmplDifference *amplDiff, long int s
 	
 	FillPlot(&plot, filename, config->plotResX, config->plotResY, config->startHzPlot, -1*dBFS, config->endHzPlot, dBFS, 1, config);
 
-	if(!CreatePlotFile(&plot))
+	if(!CreatePlotFile(&plot, config))
 		return;
 
 	DrawGridZeroDBCentered(&plot, dBFS, VERT_SCALE_STEP, config->endHzPlot, 1000, config);

@@ -52,8 +52,10 @@ void PrintUsage()
 	logmsg("   Output options:\n");
 	logmsg("	 -l: <l>og output to file [reference]_vs_[compare].txt\n");
 	logmsg("	 -v: Enable <v>erbose mode, spits all the FFTW results\n");
+	logmsg("	 -C: Create <C>SV file with plot values.\n");
 	logmsg("	 -g: Create avera<g>e points over the plotted graphs\n");
 	logmsg("	 -A: Do not weight values in <A>veraged Plot (implies -g)\n");
+	logmsg("	 -W: Use <W>hite background for plots.\n");
 	logmsg("	 -L: Create 800x400 plots as shown in the manual\n");
 	logmsg("	 -H: Create 1920x1080 plots\n");
 	logmsg("	 -D: Don't create <D>ifferences Plots\n");
@@ -114,6 +116,8 @@ void CleanParameters(parameters *config)
 	config->labelNames = 1;
 	config->averageIgnore = 0;
 	config->averageLine = 0.0;
+	config->outputCSV = 0;
+	config->whiteBG = 0;
 
 	config->logScale = 1;
 	config->reverseCompare = 0;
@@ -168,7 +172,7 @@ int commandline(int argc , char *argv[], parameters *config)
 	
 	CleanParameters(config);
 
-	while ((c = getopt (argc, argv, "hxjzmviklygLHo:s:e:f:t:p:a:w:r:c:d:P:SDMNRFAWVXDBIn:")) != -1)
+	while ((c = getopt (argc, argv, "hxjzmviklygLHo:s:e:f:t:p:a:w:r:c:d:P:SDMNRCFAWVXDBIn:")) != -1)
 	switch (c)
 	  {
 	  case 'h':
@@ -209,7 +213,7 @@ int commandline(int argc , char *argv[], parameters *config)
 		EnableLog();
 		break;
 	  case 'W':
-		config->drawWindows = 1;
+		config->whiteBG = 1;
 		break;
 	  case 'L':
 		config->plotResX = PLOT_RES_X_LOW;
@@ -327,6 +331,9 @@ int commandline(int argc , char *argv[], parameters *config)
 		break;
 	  case 'V':
 		config->averageIgnore = 1;
+		break;
+	  case 'C':
+		config->outputCSV = 1;
 		break;
 	  case 'n':
 		switch(optarg[0])
