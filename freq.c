@@ -322,15 +322,15 @@ int LoadProfile(parameters *config)
 	if(strcmp(buffer, "MDFourierAudioBlockFile") == 0)
 	{
 		sscanf(lineBuffer, "%*s %s\n", buffer);
-		if(atof(buffer) < 1.3)
+		if(atof(buffer) < 1.4)
 		{
-			logmsg("Please update your profile files to version 1.3\n");
+			logmsg("Please update your profile files to version 1.4\n");
 			fclose(file);
 			return 0;
 		}
-		if(atof(buffer) > 1.3)
+		if(atof(buffer) > 1.4)
 		{
-			logmsg("This executable can parse \"MDFourierAudioBlockFile 1.3\" files only\n");
+			logmsg("This executable can parse \"MDFourierAudioBlockFile 1.4\" files only\n");
 			fclose(file);
 			return 0;
 		}

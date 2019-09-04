@@ -229,7 +229,7 @@ void RemoveFLACTemp(char *referenceFile)
 
 char *GenerateFileNamePrefix(parameters *config)
 {
-	return(config->invert ? "Discarded" : "Used");
+	return(config->invert ? "2_Discarded" : "1_Used");
 }
 
 int LoadFile(FILE *file, AudioSignal *Signal, parameters *config, char *fileName)
@@ -461,6 +461,13 @@ int MoveSampleBlockInternal(AudioSignal *Signal, long int element, long int pos,
 	seconds = FramesToSeconds(frames, config->referenceFramerate);
 	bytes = SecondsToBytes(Signal->header.fmt.SamplesPerSec, seconds, NULL, NULL, NULL);
 
+	if(pos + bytes > Signal->header.fmt.Subchunk2Size)
+	{
+		bytes = Signal->header.fmt.Subchunk2Size - pos;
+		if(config->verbose)
+			logmsg(" - Inernal sync adjust: Signal is smaller than expected\n");
+	}
+
 	if(config->verbose)
 		logmsg(" - Internal Segment Info:\n\tFinal Offset: %ld Frames: %d Seconds: %g Bytes: %ld\n",
 				pos+internalSyncOffset, frames, seconds, bytes);
@@ -490,6 +497,7 @@ int MoveSampleBlockInternal(AudioSignal *Signal, long int element, long int pos,
 				pos, buffsize);
 	}
 	*/
+
 	memcpy(sampleBuffer, Signal->Samples + pos + internalSyncOffset, buffsize);
 	memset(Signal->Samples + pos, 0, bytes);
 	memcpy(Signal->Samples + pos, sampleBuffer, buffsize);
@@ -514,6 +522,12 @@ int MoveSampleBlockExternal(AudioSignal *Signal, long int element, long int pos,
 	seconds = FramesToSeconds(frames, config->referenceFramerate);
 	bytes = SecondsToBytes(Signal->header.fmt.SamplesPerSec, seconds, NULL, NULL, NULL);
 
+	if(pos + bytes > Signal->header.fmt.Subchunk2Size)
+	{
+		bytes = Signal->header.fmt.Subchunk2Size - pos;
+		if(config->verbose)
+			logmsg(" - Inernal sync adjust: Signal is smaller than expected\n");
+	}
 	if(config->verbose)
 		logmsg(" - Internal Segment Info:\n\tFinal Offset: %ld Frames: %d Seconds: %g Bytes: %ld\n",
 				pos+internalSyncOffset, frames, seconds, bytes);
@@ -547,6 +561,7 @@ int MoveSampleBlockExternal(AudioSignal *Signal, long int element, long int pos,
 				pos, buffsize);
 	}
 	*/
+
 	memcpy(sampleBuffer, Signal->Samples + pos + internalSyncOffset, buffsize);
 	memset(Signal->Samples + pos + internalSyncOffset, 0, buffsize);
 	memcpy(Signal->Samples + pos, sampleBuffer, buffsize);
@@ -758,11 +773,11 @@ int ProcessFile(AudioSignal *Signal, parameters *config)
 				return 0;
 		}
 
-		if(config->chunks)
+		if(config->chunks && !config->invert)
 		{
 			if(!CreateChunksFolder(config))
 				return 0;
-			sprintf(tempName, "Chunks\\%03ld_Source_%010ld_%s_%03d_chunk_", 
+			sprintf(tempName, "Chunks\\%03ld_0_Source_%010ld_%s_%03d_chunk_", 
 				i, pos+syncAdvance, 
 				GetBlockName(config, i), GetBlockSubIndex(config, i));
 			ComposeFileName(Name, tempName, ".wav", config);

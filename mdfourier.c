@@ -885,6 +885,13 @@ int MoveSampleBlockInternal(AudioSignal *Signal, long int element, long int pos,
 	seconds = FramesToSeconds(frames, config->referenceFramerate);
 	bytes = SecondsToBytes(Signal->header.fmt.SamplesPerSec, seconds, NULL, NULL, NULL);
 
+	if(pos + bytes > Signal->header.fmt.Subchunk2Size)
+	{
+		bytes = Signal->header.fmt.Subchunk2Size - pos;
+		if(config->verbose)
+			logmsg(" - Inernal sync adjust: Signal is smaller than expected\n");
+	}
+
 	if(config->verbose)
 		logmsg(" - Internal Segment Info:\n\tFinal Offset: %ld Frames: %d Seconds: %g Bytes: %ld\n",
 				pos+internalSyncOffset, frames, seconds, bytes);
@@ -938,6 +945,12 @@ int MoveSampleBlockExternal(AudioSignal *Signal, long int element, long int pos,
 	seconds = FramesToSeconds(frames, config->referenceFramerate);
 	bytes = SecondsToBytes(Signal->header.fmt.SamplesPerSec, seconds, NULL, NULL, NULL);
 
+	if(pos + bytes > Signal->header.fmt.Subchunk2Size)
+	{
+		bytes = Signal->header.fmt.Subchunk2Size - pos;
+		if(config->verbose)
+			logmsg(" - Inernal sync adjust: Signal is smaller than expected\n");
+	}
 	if(config->verbose)
 		logmsg(" - Internal Segment Info:\n\tFinal Offset: %ld Frames: %d Seconds: %g Bytes: %ld\n",
 				pos+internalSyncOffset, frames, seconds, bytes);
