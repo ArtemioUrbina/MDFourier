@@ -43,7 +43,7 @@ int LoadAudioBlockStructure(FILE *file, parameters *config);
 int LoadAudioNoSyncProfile(FILE *file, parameters *config);
 int GetFirstSilenceIndex(parameters *config);
 int GetFirstMonoIndex(parameters *config);
-long int GetLastSilenceByteOffset(double framerate, wav_hdr header, int frameAdjust, parameters *config);
+long int GetLastSilenceByteOffset(double framerate, wav_hdr header, int frameAdjust, double silenceOffset, parameters *config);
 int GetActiveAudioBlocks(parameters *config);
 int GetTotalAudioBlocks(parameters *config);
 long int GetLongestElementFrames(parameters *config);

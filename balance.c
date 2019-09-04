@@ -55,7 +55,7 @@ int CheckBalance(AudioSignal *Signal, int block, parameters *config)
 	longest = FramesToSeconds(Signal->framerate, GetLongestElementFrames(config));
 	if(!longest)
 	{
-		logmsg("Block definitions are invalid, total length is 0\n");
+		logmsg("Block definitions are invalid, total length is 0.\n");
 		return 0;
 	}
 
@@ -189,6 +189,7 @@ int CheckBalance(AudioSignal *Signal, int block, parameters *config)
 			ratio = Channels[0].freq[0].magnitude/Channels[1].freq[matchIndex].magnitude;
 		}
 
+		/*
 		if(channDiff >= 1.0 || (channDiff > 0.0 && !config->channelBalance))
 		{
 			logmsg("\nWARNING for %s file\n", Signal->role == ROLE_REF ? "Reference" : "Comparison");
@@ -206,12 +207,17 @@ int CheckBalance(AudioSignal *Signal, int block, parameters *config)
 		else
 		{
 			if(config->verbose)
-				logmsg(" - %s signal stereo imbalance: %s channel is higher by %g%%\n",
+				logmsg(" - %s signal stereo imbalance: %s channel is higher by %0.2g%%\n",
 					Signal->role == ROLE_REF ? "Reference" : "Comparison",
 					diffNam == 'l' ? "left" : "right", channDiff);
 		}
+		*/
 		
-
+		
+		logmsg(" - %s signal stereo imbalance: %s channel is higher by %0.5f%%\n",
+				Signal->role == ROLE_REF ? "Reference" : "Comparison",
+				diffNam == 'l' ? "left" : "right", channDiff);
+		
 		if(config->channelBalance)
 			BalanceAudioChannel(Signal, diffNam, ratio);
 	}

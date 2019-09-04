@@ -330,6 +330,7 @@ int LoadAndProcessAudioFiles(AudioSignal **ReferenceSignal, AudioSignal **Compar
 		block = GetFirstMonoIndex(config);
 		if(block != NO_INDEX)
 		{
+			logmsg("\n* Comparing Stereo channel amplitude\n");
 			if(config->verbose)
 				logmsg(" - Mono block used for balance: %s# %d\n", 
 					GetBlockName(config, block), GetBlockSubIndex(config, block));
@@ -548,11 +549,14 @@ int LoadAndProcessAudioFiles(AudioSignal **ReferenceSignal, AudioSignal **Compar
 	CalculateAmplitudes(*ReferenceSignal, ZeroDbMagnitudeRef, config);
 	CalculateAmplitudes(*ComparisonSignal, ZeroDbMagnitudeRef, config);
 
+	// Display Aboslute and independent Noise Floor
+	/*
 	if(!config->ignoreFloor)
 	{
 		FindStandAloneFloor(*ReferenceSignal, config);
 		FindStandAloneFloor(*ComparisonSignal, config);
 	}
+	*/
 
 	/* analyze silence floor if available */
 	if(!config->ignoreFloor && (*ReferenceSignal)->hasFloor)
@@ -975,7 +979,7 @@ int MoveSampleBlockExternal(AudioSignal *Signal, long int element, long int pos,
 	return 1;
 }
 
-int ProcessInternal(AudioSignal *Signal, long int element, long int pos, int *syncinternal, long int *advanceFrames, parameters *config)
+int ProcessInternal(AudioSignal *Signal, long int element, long int pos, int *syncinternal, long int *advanceFrames, int knownLength, parameters *config)
 {
 	if(*syncinternal)
 		*syncinternal = 0;
@@ -1006,7 +1010,7 @@ int ProcessInternal(AudioSignal *Signal, long int element, long int pos, int *sy
 			logmsg("\tERROR: Profile has no Sync Index. Aborting.\n");
 			return 0;
 		}
-		if(lastsync > element)
+		if(knownLength) // lastsync > element
 		{
 			logmsg(" - %s command delay: %g ms [%g frames]\n",
 				GetBlockName(config, element),
@@ -1169,9 +1173,15 @@ int ProcessFile(AudioSignal *Signal, parameters *config)
 		pos += loadedBlockSize;
 		pos += discardBytes;
 
-		if(Signal->Blocks[i].type == TYPE_INTERNAL)
+		if(Signal->Blocks[i].type == TYPE_INTERNAL_KNOWN)
 		{
-			if(!ProcessInternal(Signal, i, pos, &syncinternal, &syncAdvance, config))
+			if(!ProcessInternal(Signal, i, pos, &syncinternal, &syncAdvance, 1, config))
+				return 0;
+		}
+
+		if(Signal->Blocks[i].type == TYPE_INTERNAL_UNKNOWN)
+		{
+			if(!ProcessInternal(Signal, i, pos, &syncinternal, &syncAdvance, 0, config))
 				return 0;
 		}
 

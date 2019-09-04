@@ -166,7 +166,17 @@ int ExecuteMDWave(parameters *config, int invert)
 
 		block = GetFirstMonoIndex(config);
 		if(block != NO_INDEX)
+		{
+			logmsg("\n* Comparing Stereo channel amplitude\n");
+			if(config->verbose)
+				logmsg(" - Mono block used for balance: %s# %d\n", 
+					GetBlockName(config, block), GetBlockSubIndex(config, block));
 			CheckBalance(ReferenceSignal, block, config);
+		}
+		else
+		{
+			logmsg(" - No mono block for stereo balance check\n");
+		}
 	}
 
 	logmsg("* Processing Audio\n");
@@ -468,6 +478,7 @@ int MoveSampleBlockInternal(AudioSignal *Signal, long int element, long int pos,
 		return 0;
 	}
 
+	/*
 	if(config->verbose)
 	{
 		logmsg(" - MOVEMENTS:\n");
@@ -478,6 +489,7 @@ int MoveSampleBlockInternal(AudioSignal *Signal, long int element, long int pos,
 		logmsg("\tStore: Pos: %ld Bytes: %ld\n",
 				pos, buffsize);
 	}
+	*/
 	memcpy(sampleBuffer, Signal->Samples + pos + internalSyncOffset, buffsize);
 	memset(Signal->Samples + pos, 0, bytes);
 	memcpy(Signal->Samples + pos, sampleBuffer, buffsize);
@@ -523,6 +535,7 @@ int MoveSampleBlockExternal(AudioSignal *Signal, long int element, long int pos,
 		return 0;
 	}
 
+	/*
 	if(config->verbose)
 	{
 		logmsg(" - MOVEMENTS:\n");
@@ -533,6 +546,7 @@ int MoveSampleBlockExternal(AudioSignal *Signal, long int element, long int pos,
 		logmsg("\tStore: Pos: %ld Bytes: %ld\n",
 				pos, buffsize);
 	}
+	*/
 	memcpy(sampleBuffer, Signal->Samples + pos + internalSyncOffset, buffsize);
 	memset(Signal->Samples + pos + internalSyncOffset, 0, buffsize);
 	memcpy(Signal->Samples + pos, sampleBuffer, buffsize);
@@ -541,7 +555,7 @@ int MoveSampleBlockExternal(AudioSignal *Signal, long int element, long int pos,
 	return 1;
 }
 
-int ProcessInternal(AudioSignal *Signal, long int element, long int pos, int *syncinternal, long int *advanceFrames, parameters *config)
+int ProcessInternal(AudioSignal *Signal, long int element, long int pos, int *syncinternal, long int *advanceFrames, int knownLength, parameters *config)
 {
 	if(*syncinternal)
 		*syncinternal = 0;
@@ -572,15 +586,17 @@ int ProcessInternal(AudioSignal *Signal, long int element, long int pos, int *sy
 			logmsg("\tERROR: Profile has no Sync Index. Aborting.\n");
 			return 0;
 		}
-		if(lastsync > element)
+		if(knownLength)
 		{
 			logmsg(" - %s command delay: %g ms [%g frames]\n",
 				GetBlockName(config, element),
 				BytesToSeconds(Signal->header.fmt.SamplesPerSec, internalSyncOffset)*1000.0,
 				BytesToFrames(Signal->header.fmt.SamplesPerSec, internalSyncOffset, config->referenceFramerate));
+			/*
 			if(config->verbose)
 					logmsg("  > Found at: %ld Previous: %ld Offset: %ld\n\tPulse Length: %ld Half Sync Length: %ld\n", 
 						pos + internalSyncOffset, pos, internalSyncOffset, pulseLength, syncLength/2);
+			*/
 
 			// skip sync tone-which is silence-taken from config file
 			internalSyncOffset += syncLength;
@@ -590,14 +606,14 @@ int ProcessInternal(AudioSignal *Signal, long int element, long int pos, int *sy
 		}
 		else  // Our sync is outside the frame detection zone
 		{
-			long int 	halfSyncLength = 0, diffOffset = 0;
+			long int 	halfSyncLength = 0; //, diffOffset = 0;
 
 			halfSyncLength = syncLength/2;
 
 			if(pulseLength > halfSyncLength)
 				pulseLength = halfSyncLength; 
 
-			diffOffset = halfSyncLength - pulseLength;
+			//diffOffset = halfSyncLength - pulseLength;
 			/*
 			if(internalSyncOffset == 0 && diffOffset) // we are in negative offset territory (emulator)
 			{
@@ -621,10 +637,11 @@ int ProcessInternal(AudioSignal *Signal, long int element, long int pos, int *sy
 					BytesToSeconds(Signal->header.fmt.SamplesPerSec, internalSyncOffset)*1000.0,
 					BytesToFrames(Signal->header.fmt.SamplesPerSec, internalSyncOffset, config->referenceFramerate));
 
+				/*
 				if(config->verbose)
 					logmsg("  > Found at: %ld Previous: %ld Offset: %ld\n\tPulse Length: %ld Half Sync Length: %ld\n", 
 						pos + internalSyncOffset - diffOffset, pos, diffOffset, pulseLength, halfSyncLength);
-
+				*/
 			}
 			
 			// skip the pulse real duration to sync perfectly
@@ -755,13 +772,16 @@ int ProcessFile(AudioSignal *Signal, parameters *config)
 		pos += loadedBlockSize;
 		pos += discardBytes;
 
-		if(Signal->Blocks[i].type == TYPE_INTERNAL)
+		if(Signal->Blocks[i].type == TYPE_INTERNAL_KNOWN)
 		{
-			long int advance = 0;
-
-			if(!ProcessInternal(Signal, i, pos, &syncinternal, &syncAdvance, config))
+			if(!ProcessInternal(Signal, i, pos, &syncinternal, &syncAdvance, 1, config))
 				return 0;
-			pos += advance;
+		}
+
+		if(Signal->Blocks[i].type == TYPE_INTERNAL_UNKNOWN)
+		{
+			if(!ProcessInternal(Signal, i, pos, &syncinternal, &syncAdvance, 0, config))
+				return 0;
 		}
 
 		i++;
@@ -932,13 +952,13 @@ int ProcessSamples(AudioBlocks *AudioArray, int16_t *samples, size_t size, long 
 	signal = (double*)malloc(sizeof(double)*(monoSignalSize+1));
 	if(!signal)
 	{
-		logmsg("Not enough memory\n");
+		logmsg("Not enough memory (malloc)\n");
 		return(0);
 	}
 	spectrum = (fftw_complex*)fftw_malloc(sizeof(fftw_complex)*(monoSignalSize/2+1));
 	if(!spectrum)
 	{
-		logmsg("Not enough memory\n");
+		logmsg("Not enough memory (fftw_malloc)\n");
 		return(0);
 	}
 
@@ -973,7 +993,7 @@ int ProcessSamples(AudioBlocks *AudioArray, int16_t *samples, size_t size, long 
 			config->reverse_plan = fftw_plan_dft_c2r_1d(monoSignalSize, spectrum, signal, FFTW_MEASURE);
 			if(!config->reverse_plan)
 			{
-				logmsg("FFTW failed to create FFTW_MEASURE plan\n");
+				logmsg("FFTW failed to create FFTW_MEASURE reverse plan\n");
 				free(signal);
 				signal = NULL;
 				return 0;
@@ -1047,7 +1067,7 @@ int ProcessSamples(AudioBlocks *AudioArray, int16_t *samples, size_t size, long 
 			CutOff = Signal->floorAmplitude;
 
 		//Process the defined frequency spectrum
-		for(i = 1; i < boxsize*(samplerate/2)+1; i++)
+		for(i = 1; i < floor(boxsize*(samplerate/2)+1); i++)
 		{
 			double amplitude = 0, magnitude = 0;
 			int blank = 0;

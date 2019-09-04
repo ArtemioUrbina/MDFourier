@@ -55,6 +55,8 @@ protected:
 	CButton m_DiffBttn;
 	CButton m_MissBttn;
 	CButton m_SpectrBttn;
+	CButton m_NoiseFloor;
+	CButton m_MDWave;
 
 	CComboBox m_WindowTypeSelect;
 	CComboBox m_CurveAdjustSelect;
@@ -98,6 +100,6 @@ public:
 	afx_msg void OnBnClickedMissing();
 	afx_msg void OnBnClickedSpectrogram();
 	afx_msg void OnBnClickedAverage();
-	CButton m_NoiseFloor;
 	afx_msg void OnBnClickedNoisefloor();
+	afx_msg void OnBnClickedMdwave();
 };

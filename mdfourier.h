@@ -49,7 +49,7 @@
 
 #include "incbeta.h"
 
-#define MDVERSION "0.945"
+#define MDVERSION "0.947"
 
 #define MAX_FREQ_COUNT		100000 	/* Number of frequencies to compare(MAX) */
 #define FREQ_COUNT			2000	/* Number of frequencies to compare(default) */
@@ -58,12 +58,13 @@
 #define NS_LOWEST_AMPLITUDE		-120
 #define	PCM_16BIT_MIN_AMPLITUDE	-96.0
 
-#define TYPE_SILENCE	0
-#define TYPE_SYNC		-1
-#define TYPE_NOTYPE		-2
-#define TYPE_INTERNAL	-3
-#define TYPE_SKIP		-4
-#define TYPE_CONTROL	TYPE_SILENCE
+#define TYPE_SILENCE			0
+#define TYPE_SYNC				-1
+#define TYPE_NOTYPE				-2
+#define TYPE_INTERNAL_KNOWN		-3
+#define TYPE_INTERNAL_UNKNOWN	-4
+#define TYPE_SKIP				-5
+#define TYPE_CONTROL			TYPE_SILENCE
 
 #define NO_INDEX 		-100
 #define	NO_AMPLITUDE	-1000
@@ -78,7 +79,7 @@
 /* +/- Tolerance in frequency Difference to be the same one */
 #define HERTZ_DIFF			0.0
 
-#define START_HZ	10.0
+#define START_HZ	20.0
 #define END_HZ		20000.0
 
 #define DB_HEIGHT	18.0
@@ -338,6 +339,8 @@ typedef struct parameters_st {
 	double			referenceFramerate;
 	int				logScale;
 	int				debugSync;
+	int				syncTolerance;
+	int				syncErrors;
 	int				reverseCompare;
 	int				ZeroPad;
 	enum normalize	normType;

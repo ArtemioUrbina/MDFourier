@@ -46,6 +46,7 @@ void CMDFourierGUIDlg::DoDataExchange(CDataExchange* pDX)
 	DDX_Control(pDX, IDC_SPECTROGRAM, m_SpectrBttn);
 	DDX_Control(pDX, IDC_PROFILE, m_Profiles);
 	DDX_Control(pDX, IDC_NOISEFLOOR, m_NoiseFloor);
+	DDX_Control(pDX, IDC_MDWAVE, m_MDWave);
 }
 
 BEGIN_MESSAGE_MAP(CMDFourierGUIDlg, CDialogEx)
@@ -64,6 +65,7 @@ BEGIN_MESSAGE_MAP(CMDFourierGUIDlg, CDialogEx)
 	ON_BN_CLICKED(IDC_SPECTROGRAM, &CMDFourierGUIDlg::OnBnClickedSpectrogram)
 	ON_BN_CLICKED(IDC_AVERAGE, &CMDFourierGUIDlg::OnBnClickedAverage)
 	ON_BN_CLICKED(IDC_NOISEFLOOR, &CMDFourierGUIDlg::OnBnClickedNoisefloor)
+	ON_BN_CLICKED(IDC_MDWAVE, &CMDFourierGUIDlg::OnBnClickedMdwave)
 END_MESSAGE_MAP()
 
 
@@ -179,7 +181,7 @@ void CMDFourierGUIDlg::OnBnClickedOk()
 
 	if(!cDos.m_fDone)
 	{
-		MessageBox(L"MDFourier is running, please wait for results.", L"Please wait");
+		MessageBox(L"Please wait for results.", L"Please wait");
 		return;
 	}
 
@@ -608,6 +610,8 @@ void CMDFourierGUIDlg::ManageWindows(BOOL Enable)
 	m_NoiseFloor.EnableWindow(Enable);
 	m_AveragePlot_Bttn.EnableWindow(Enable);
 
+	m_MDWave.EnableWindow(Enable);
+
 	m_Profiles.EnableWindow(Enable);
 }
 
@@ -671,4 +675,68 @@ void CMDFourierGUIDlg::OnBnClickedAverage()
 void CMDFourierGUIDlg::OnBnClickedNoisefloor()
 {
 	CheckPlotSelection(m_NoiseFloor);
+}
+
+void CMDFourierGUIDlg::OnBnClickedMdwave()
+{
+	CString profile;
+	CString	command, extraCmd;
+	CString	window;
+
+	UpdateWindow();
+
+	m_OpenResultsBttn.EnableWindow(FALSE);
+
+	profile = GetSelectedCommandLineValue(m_Profiles, COUNT_PROFILES);
+	if(profile == L"NONE")
+	{
+		MessageBox(L"Please select a profile for the comparison.", L"Action needed");
+		return;
+	}
+
+	if(!cDos.m_fDone)
+	{
+		MessageBox(L"Please wait for results.", L"Please wait");
+		return;
+	}
+
+	if(!m_Reference.GetLength())
+	{
+		MessageBox(L"Please select a Reference audio file.", L"Error");
+		return;
+	}
+
+	profile = GetSelectedCommandLineValue(m_Profiles, COUNT_PROFILES);
+	window = GetSelectedCommandLineValue(m_WindowTypeSelect, COUNT_WINDOWS);
+
+	command.Format(L"mdwave.exe -P \"%s\" -r \"%s\" -w %s -l -c", 
+			profile, m_Reference, window);
+
+	if(m_AlignFFTW.GetCheck() == BST_CHECKED)
+		command += " -z";
+
+	if(m_VerboseLog_Bttn.GetCheck() == BST_CHECKED)
+	{
+		command += " -v";
+		cDos.verbose = TRUE;
+	}
+	else
+		cDos.verbose = FALSE;
+
+	if(m_EnableExtraBttn.GetCheck() == BST_CHECKED)
+		m_ExtraParamsEditBox.GetWindowText(extraCmd);
+	if(extraCmd.GetLength())
+	{
+		command += L" ";
+		command += extraCmd;
+	}
+
+	ManageWindows(FALSE);
+
+	SetTimer(IDT_DOS, 250, 0);
+
+	m_OutputCtrl.SetWindowText(L"");
+	m_ComparisonLbl.SetWindowText(L"");
+
+	cDos.Start(command);
 }

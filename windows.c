@@ -105,7 +105,8 @@ int initWindows(windowManager *wm, double framerate, int SamplesPerSec, char win
 		if(!existsInArray(config->types.typeArray[i].frames*flip, lengths, count))
 			lengths[count++] = config->types.typeArray[i].frames*flip;
 
-		if(config->types.typeArray[i].type == TYPE_INTERNAL)
+		if(config->types.typeArray[i].type == TYPE_INTERNAL_KNOWN ||
+			config->types.typeArray[i].type == TYPE_INTERNAL_UNKNOWN)
 		{
 			if(insideInternal)
 				insideInternal = 0;

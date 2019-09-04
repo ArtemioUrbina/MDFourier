@@ -1,15 +1,19 @@
-MDFourierAudioBlockFile 1.3
-Mega Drive/Sega Genesis + CD-ROM
+MDFourierAudioBlockFile 1.4
+Mega Drive/Sega Genesis + CD-ROM [new]
 16.688 262
 8820 -25 25 14 18 10
-10
+14
 Sync s 1 20 red s
 Silence n 1 20 gray s
 FM 1 96 20 green s
 PSG 2 60 20 yellow m
 Noise 3 16 20 aqua m
-CD-ROM i 1 1 red s 8000 0.300
-CD-DA 4 32 20 orange s
-CD-ROM i 1 1 red s 0 0
 Silence n 1 20 gray s
 Sync s 1 20 red s
+Wait k 1 4 red m
+PCMSTART k 1 2 red m
+PCM 4 7 20 magenta m
+PCMEND k 1 2 red m
+CD-ROM i 1 2 red s 8000 0.300
+CD-DA 5 40 20 orange s
+CD-ROM i 1 2 red s 0 0

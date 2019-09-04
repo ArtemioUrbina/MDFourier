@@ -108,6 +108,8 @@ void CleanParameters(parameters *config)
 	config->referenceFramerate = 0;
 	config->ZeroPad = 0;
 	config->debugSync = 0;
+	config->syncTolerance = 0;
+	config->syncErrors = 0;
 	config->drawWindows = 0;
 	config->channelBalance = 1;
 	config->laxSync = 1;
@@ -172,7 +174,7 @@ int commandline(int argc , char *argv[], parameters *config)
 	
 	CleanParameters(config);
 
-	while ((c = getopt (argc, argv, "hxjzmviklygLHo:s:e:f:t:p:a:w:r:c:d:P:SDMNRCFAWVXDBIn:")) != -1)
+	while ((c = getopt (argc, argv, "hxjzmviklygLHo:s:e:f:t:p:a:w:r:c:d:P:SDMNRCFAWVXDBIn:Y:")) != -1)
 	switch (c)
 	  {
 	  case 'h':
@@ -202,6 +204,12 @@ int commandline(int argc , char *argv[], parameters *config)
 		break;
 	  case 'y':
 		config->debugSync = 1;
+		break;
+	  case 'Y':
+		config->syncTolerance = atoi(optarg);
+		if(config->syncTolerance < 0 || config->syncTolerance > 100)
+			config->syncTolerance = 100;
+		break;
 		break;
 	  case 'X':
 		config->laxSync = 0;

@@ -592,6 +592,13 @@ void DrawLabelsMDF(PlotFile *plot, char *Gname, char *GType, int type, parameter
 		pl_pencolor_r(plot->plotter, 0xeeee, 0xeeee, 0);
 		pl_alabel_r(plot->plotter, 'l', 'l', "WARNING: NO SYNC profile, PLEASE DISREGARD");
 	}
+
+	if(config->syncErrors)
+	{
+		pl_fmove_r(plot->plotter, config->plotResX-config->plotResX/5, -1*config->plotResY/2+config->plotResY/200);
+		pl_pencolor_r(plot->plotter, 0xeeee, 0xeeee, 0);
+		pl_alabel_r(plot->plotter, 'l', 'l', "WARNING: Imperfect sync used");
+	}
 }
 
 void DrawLabelsZeroToLimit(PlotFile *plot, double dBFS, double dbIncrement, double hz, double hzIncrement,  parameters *config)
@@ -843,10 +850,19 @@ void DrawMatchBar(PlotFile *plot, int colorName, double x, double y, double widt
 
 void DrawNoiseLines(PlotFile *plot, double start, double end, AudioSignal *Signal, parameters *config)
 {
+	int harmonic = 0;
+
 	pl_pencolor_r (plot->plotter, 0xAAAA, 0xAAAA, 0);
 	pl_linemod_r(plot->plotter, "dotdashed");
 	if(Signal->gridFrequency)
-		pl_fline_r(plot->plotter, transformtoLog(Signal->gridFrequency, config), start, transformtoLog(Signal->gridFrequency, config), end);
+	{
+		for(harmonic = 0; harmonic < 32; harmonic++)
+		{
+			pl_pencolor_r (plot->plotter, 0xAAAA-0x400*harmonic, 0xAAAA-0x400*harmonic, 0);
+			pl_fline_r(plot->plotter, transformtoLog(Signal->gridFrequency*harmonic, config), start, transformtoLog(Signal->gridFrequency*harmonic, config), end);
+		}
+	}
+	pl_pencolor_r (plot->plotter, 0xAAAA, 0xAAAA, 0);
 	if(Signal->scanrateFrequency)
 		pl_fline_r(plot->plotter, transformtoLog(Signal->scanrateFrequency, config), start, transformtoLog(Signal->scanrateFrequency, config), end);
 	pl_linemod_r(plot->plotter, "solid");
@@ -905,7 +921,7 @@ void PlotAllDifferentAmplitudes(FlatAmplDifference *amplDiff, long int size, cha
 	if(!config->Differences.BlockDiffArray)
 		return;
 
-	sprintf(name, "DA_ALL_%s", filename);
+	sprintf(name, "DA__ALL_%s", filename);
 	FillPlot(&plot, name, config->plotResX, config->plotResY, config->startHzPlot, -1*dBFS, config->endHzPlot, dBFS, 1, config);
 
 	if(!CreatePlotFile(&plot, config))
@@ -1102,7 +1118,7 @@ void PlotAllMissingFrequencies(FlatFreqDifference *freqDiff, long int size, char
 		return;
 
 	significant = config->significantAmplitude;
-	sprintf(name, "MIS_ALL_%s", filename);
+	sprintf(name, "MIS__ALL_%s", filename);
 	FillPlot(&plot, name, config->plotResX, config->plotResY, config->startHzPlot, significant, config->endHzPlot, 0.0, 1, config);
 
 	if(!CreatePlotFile(&plot, config))
@@ -1208,7 +1224,7 @@ void PlotAllSpectrogram(FlatFrequency *freqs, long int size, char *filename, int
 
 	significant = config->significantAmplitude;
 
-	sprintf(name, "SP_ALL_%s", filename);
+	sprintf(name, "SP__ALL_%s", filename);
 	FillPlot(&plot, name, config->plotResX, config->plotResY, config->startHzPlot, significant, config->endHzPlot, 0.0, 1, config);
 
 	if(!CreatePlotFile(&plot, config))
@@ -2150,7 +2166,7 @@ int PlotDifferentAmplitudesAveraged(FlatAmplDifference *amplDiff, long int size,
 
 	if(types > 1 && averagedArray && averagedSizes)
 	{
-		sprintf(name, "DA_ALL_AVG_%s", filename);
+		sprintf(name, "DA__ALL_AVG_%s", filename);
 		PlotAllDifferentAmplitudesAveraged(amplDiff, size, name, averagedArray, averagedSizes, config);
 		logmsg(PLOT_ADVANCE_CHAR);
 	}

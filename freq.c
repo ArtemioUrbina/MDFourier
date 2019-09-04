@@ -481,7 +481,10 @@ int LoadAudioBlockStructure(FILE *file, parameters *config)
 				config->types.typeArray[i].type = TYPE_SYNC;
 				break;
 			case 'i':
-				config->types.typeArray[i].type = TYPE_INTERNAL;
+				config->types.typeArray[i].type = TYPE_INTERNAL_KNOWN;
+				break;
+			case 'I':
+				config->types.typeArray[i].type = TYPE_INTERNAL_UNKNOWN;
 				break;
 			case 'k':
 				config->types.typeArray[i].type = TYPE_SKIP;
@@ -496,7 +499,8 @@ int LoadAudioBlockStructure(FILE *file, parameters *config)
 				break;
 		}
 		
-		if(config->types.typeArray[i].type == TYPE_INTERNAL)
+		if(config->types.typeArray[i].type == TYPE_INTERNAL_KNOWN ||
+			config->types.typeArray[i].type == TYPE_INTERNAL_UNKNOWN)
 		{
 			if(insideInternal)
 				insideInternal = 0;
@@ -917,7 +921,7 @@ int GetFirstMonoIndex(parameters *config)
 	return NO_INDEX;
 }
 
-long int GetLastSilenceByteOffset(double framerate, wav_hdr header, int frameAdjust, parameters *config)
+long int GetLastSilenceByteOffset(double framerate, wav_hdr header, int frameAdjust, double silenceOffset, parameters *config)
 {
 	if(!config)
 		return NO_INDEX;
@@ -931,8 +935,8 @@ long int GetLastSilenceByteOffset(double framerate, wav_hdr header, int frameAdj
 			offset = FramesToSeconds(GetBlockFrameOffset(i, config) - frameAdjust, framerate);
 			offset = SecondsToBytes(header.fmt.SamplesPerSec, offset, NULL, NULL, NULL);
 
-			// and at 3/4 the silence length
-			length = FramesToSeconds(config->types.typeArray[i].frames/4*3, framerate);
+			// testing with 1/4
+			length = FramesToSeconds(config->types.typeArray[i].frames*silenceOffset, framerate);
 			length = SecondsToBytes(header.fmt.SamplesPerSec, length, NULL, NULL, NULL);
 			offset += length;
 			return(offset);
@@ -1199,7 +1203,9 @@ int GetInternalSyncTone(int pos, parameters *config)
 	for(int i = 0; i < config->types.typeCount; i++)
 	{
 		elementsCounted += config->types.typeArray[i].elementCount;
-		if(elementsCounted > pos && config->types.typeArray[i].type == TYPE_INTERNAL)
+		if(elementsCounted > pos && 
+			(config->types.typeArray[i].type == TYPE_INTERNAL_KNOWN ||
+			 config->types.typeArray[i].type == TYPE_INTERNAL_UNKNOWN))
 			return(config->types.typeArray[i].syncTone);
 	}
 	
@@ -1217,8 +1223,9 @@ double GetInternalSyncLen(int pos, parameters *config)
 	for(int i = 0; i < config->types.typeCount; i++)
 	{
 		elementsCounted += config->types.typeArray[i].elementCount;
-		if(elementsCounted > pos && config->types.typeArray[i].type == TYPE_INTERNAL)
-			return(config->types.typeArray[i].syncLen);
+		if(config->types.typeArray[i].type == TYPE_INTERNAL_KNOWN ||
+			config->types.typeArray[i].type == TYPE_INTERNAL_UNKNOWN)
+				return(config->types.typeArray[i].syncLen);
 	}
 	
 	logmsg("WARNING: sync lenght request for invalid block\n");
@@ -1236,7 +1243,8 @@ int GetInternalSyncTotalLength(int pos, parameters *config)
 	{
 		if(index >= pos)
 		{
-			if(config->types.typeArray[i].type == TYPE_INTERNAL)
+			if(config->types.typeArray[i].type == TYPE_INTERNAL_KNOWN ||
+				config->types.typeArray[i].type == TYPE_INTERNAL_UNKNOWN)
 			{
 				if(!inside)
 					inside = 1;
@@ -1359,11 +1367,10 @@ void FindStandAloneFloor(AudioSignal *Signal, parameters *config)
 	{
 		loudest.amplitude = CalculateAmplitude(loudest.magnitude, maxMagnitude);
 
-		logmsg(" - %s signal noise floor: %g dBFS [%g Hz] %s\n", 
+		logmsg(" - %s signal noise floor: %g dBFS [%g Hz]\n", 
 			Signal->role == ROLE_REF ? "Reference" : "Comparison",
 			loudest.amplitude,
-			loudest.hertz,
-			loudest.amplitude < PCM_16BIT_MIN_AMPLITUDE ? "(not significant)" : "");
+			loudest.hertz);
 	}
 	else
 	{
