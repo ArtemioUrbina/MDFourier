@@ -1389,10 +1389,12 @@ void PlotNoiseSpectrogram(FlatFrequency *freqs, long int size, int type, char *f
 			pl_fline_r(plot.plotter, x, y, x, endAmplitude);
 			pl_endpath_r(plot.plotter);
 
+			/*
 			OutputFileOnlyStart();
 			logmsg("Plot: %g %g %ld (%g,%g,%g,%g)\n", freqs[f].hertz, y, intensity,
 					x, y, x, endAmplitude);
 			OutputFileOnlyEnd();
+			*/
 		}
 	}
 	

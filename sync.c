@@ -148,7 +148,7 @@ long int DetectEndPulse(char *AllSamples, long int startpulse, wav_hdr header, d
 	return position;
 }
 
-long int DetectPulseTrainSequence(Pulses *pulseArray, double targetFrequency, long int TotalMS, int factor, int *maxdetected, int *errcount, parameters *config)
+long int DetectPulseTrainSequence(Pulses *pulseArray, double targetFrequency, long int TotalMS, int factor, int *maxdetected, int *errcount, long int start, parameters *config)
 {
 	int					reset_tolerance = 0;
 	long int			inside_pulse = 0, inside_silence = 0;
@@ -160,7 +160,7 @@ long int DetectPulseTrainSequence(Pulses *pulseArray, double targetFrequency, lo
 
 	*maxdetected = 0;
 	*errcount = 0;
-	for(i = 0; i < TotalMS; i++)
+	for(i = start; i < TotalMS; i++)
 	{
 		if(pulseArray[i].amplitude >= config->types.pulseMinVol 
 			&& pulseArray[i].hertz == targetFrequency)
@@ -359,7 +359,7 @@ long int DetectPulseInternal(char *Samples, wav_hdr header, int factor, long int
 	long int			loadedBlockSize = 0;
 	char				*buffer;
 	size_t			 	buffersize = 0;
-	long int			pos = 0, millisecondSize = 0;
+	long int			pos = 0, millisecondSize = 0, startPos = 0;
 	Pulses				*pulseArray;
 	double				targetFrequency = 0;
 
@@ -378,6 +378,7 @@ long int DetectPulseInternal(char *Samples, wav_hdr header, int factor, long int
 	if(offset)
 	{
 		i = offset/buffersize;
+		startPos = i;
 		if(offset < header.fmt.Subchunk2Size/2)
 			TotalMS = TotalMS/4 + i;
 	}
@@ -440,13 +441,11 @@ long int DetectPulseInternal(char *Samples, wav_hdr header, int factor, long int
 		i++;
 	}
 
-/*
 	if(config->debugSync)
-		logmsg("MaxMagnitude: %g MaxPosition: %ld\n", 
+		logmsg("After Analysis MaxMagnitude: %g MaxPosition: %ld\n", 
 				*MaxMagnitude, pulseArray[TotalMS-1].bytes);
-*/
 
-	for(i = 0; i < TotalMS; i++)
+	for(i = startPos; i < TotalMS; i++)
 	{
 		if(pulseArray[i].hertz)
 			pulseArray[i].amplitude = CalculateAmplitude(pulseArray[i].magnitude, *MaxMagnitude);
@@ -458,19 +457,20 @@ long int DetectPulseInternal(char *Samples, wav_hdr header, int factor, long int
 	if(config->debugSync)
 	{
 		logmsg("===== Searching for %gHz at %ddBFS =======\n", targetFrequency, config->types.pulseMinVol);
-		for(i = 0; i < TotalMS; i++)
+		for(i = startPos; i < TotalMS; i++)
 		{
 			if(pulseArray[i].amplitude >= config->types.pulseMinVol && pulseArray[i].hertz == targetFrequency)
-				logmsg("B: %ld Hz: %g A: %g\n", 
+				logmsg("B: %ld Hz: %g A: %g M: %g\n", 
 					pulseArray[i].bytes, 
 					pulseArray[i].hertz, 
-					pulseArray[i].amplitude);
+					pulseArray[i].amplitude,
+					pulseArray[i].magnitude);
 		}
 		logmsg("========  End listing =========\n");
 	}
 	*/
 
-	offset = DetectPulseTrainSequence(pulseArray, targetFrequency, TotalMS, factor, maxdetected, errcount, config);
+	offset = DetectPulseTrainSequence(pulseArray, targetFrequency, TotalMS, factor, maxdetected, errcount, startPos, config);
 
 	free(pulseArray);
 	free(buffer);
