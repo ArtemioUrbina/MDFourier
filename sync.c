@@ -80,13 +80,14 @@ long int DetectPulse(char *AllSamples, wav_hdr header, double *MaxMagnitude, par
 	return position;
 }
 
-#define END_SYNC_MAX_TRIES 4
+#define END_SYNC_MAX_TRIES		4
+#define END_SYNC_VALUES			{ 3.0/4.0, 1.0/2.0, 1.0/6.0, 0.0 }
 
 long int DetectEndPulse(char *AllSamples, long int startpulse, wav_hdr header, double *MaxMagnitude, parameters *config)
 {
 	int			maxdetected = 0, frameAdjust = 0, tries = 0, maxtries = END_SYNC_MAX_TRIES, errcount = 0;
 	long int 	position = 0, offset = 0;
-	double		silenceOffset[END_SYNC_MAX_TRIES] = { 3.0/4.0, 1.0/2.0, 1.0/6.0, 0.0 };
+	double		silenceOffset[END_SYNC_MAX_TRIES] = END_SYNC_VALUES;
 
 	OutputFileOnlyStart();
 	do
@@ -363,6 +364,9 @@ long int DetectPulseInternal(char *Samples, wav_hdr header, int factor, long int
 	Pulses				*pulseArray;
 	double				targetFrequency = 0;
 
+	if(config->debugSync)
+		logmsg("Before Analysis MaxMagnitude: %g\n", *MaxMagnitude);
+
 	// Not a real ms, just approximate
 	millisecondSize = RoundTo4bytes(floor((((double)header.fmt.SamplesPerSec*4.0)/1000.0)/(double)factor), NULL, NULL, NULL);
 	buffersize = millisecondSize*sizeof(char); 
@@ -377,10 +381,23 @@ long int DetectPulseInternal(char *Samples, wav_hdr header, int factor, long int
 	pos = offset;
 	if(offset)
 	{
+		double msLen = 0;
+
 		i = offset/buffersize;
 		startPos = i;
-		if(offset < header.fmt.Subchunk2Size/2)
-			TotalMS = TotalMS/4 + i;
+		//if(offset < header.fmt.Subchunk2Size/2)
+/*
+		TotalMS = TotalMS/4 + i;
+		logmsg("\nWas [B:%ld-%ld/%ld-%ld] ", i*buffersize, TotalMS*buffersize, i, TotalMS);
+*/
+		// check for the duration of the sync pulses
+		msLen = GetLastSyncDuration(GetMSPerFrame(NULL, config), config)*1000;
+		//Times 8 to convert to out internal units, and times 2 for the actual length we want
+		TotalMS = i + msLen*8*2;
+/*
+		logmsg("changed to [B:%ld-%ld/%ld-%ld]\n(MS:%g B:%ld BS:%ld F:%d)\n", 
+				i*buffersize, TotalMS*buffersize, i, TotalMS, msLen, msLen*8*2, (long)buffersize, factor);
+*/
 	}
 	else
 		TotalMS /= 4;
@@ -436,8 +453,8 @@ long int DetectPulseInternal(char *Samples, wav_hdr header, int factor, long int
 		ProcessChunkForSyncPulse((int16_t*)buffer, loadedBlockSize/2, 
 				header.fmt.SamplesPerSec, &pulseArray[i], 
 				config->channel == 's' ? 'l' : config->channel, targetFrequency, config);
-		if(pulseArray[i].magnitude > *MaxMagnitude)
-			*MaxMagnitude = pulseArray[i].magnitude;
+			if(pulseArray[i].magnitude > *MaxMagnitude)
+				*MaxMagnitude = pulseArray[i].magnitude;
 		i++;
 	}
 
@@ -468,7 +485,7 @@ long int DetectPulseInternal(char *Samples, wav_hdr header, int factor, long int
 		}
 		logmsg("========  End listing =========\n");
 	}
-	*/
+*/
 
 	offset = DetectPulseTrainSequence(pulseArray, targetFrequency, TotalMS, factor, maxdetected, errcount, startPos, config);
 

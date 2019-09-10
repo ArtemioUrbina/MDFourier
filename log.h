@@ -43,6 +43,6 @@ void logmsg(char *fmt, ... );
 int setLogName(char *name);
 void endLog();
 
-int SaveWAVEChunk(char *filename, AudioSignal *Signal, char *buffer, long int block, long int loadedBlockSize, parameters *config);
+int SaveWAVEChunk(char *filename, AudioSignal *Signal, char *buffer, long int block, long int loadedBlockSize, int diff, parameters *config);
 
 #endif

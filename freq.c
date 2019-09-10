@@ -380,7 +380,7 @@ int LoadAudioBlockStructure(FILE *file, parameters *config)
 	config->types.referenceMSPerFrame = strtod(buffer, NULL);
 	if(!config->types.referenceMSPerFrame)
 	{
-		logmsg("Invalid Frame Rate Adjustment '%s'\n", lineBuffer);
+		logmsg("Invalid line count Adjustment '%s'\n", lineBuffer);
 		fclose(file);
 		return 0;
 	}
@@ -883,6 +883,27 @@ int GetLastSyncElementIndex(parameters *config)
 		}
 	}
 	
+	return 0;
+}
+
+double GetLastSyncDuration(double framerate, parameters *config)
+{
+	int		first = 0;
+
+	if(!config)
+		return NO_INDEX;
+
+	first = GetFirstSyncIndex(config);
+	for(int i = config->types.typeCount - 1; i > first; i--)
+	{
+		if(config->types.typeArray[i].type == TYPE_SYNC)
+		{
+			double	frames = 0;
+
+			frames = config->types.typeArray[i].elementCount * config->types.typeArray[i].frames;
+			return(FramesToSeconds(frames, framerate));
+		}
+	}
 	return 0;
 }
 
@@ -1843,25 +1864,15 @@ int InsertFrequencySorted(AudioBlocks *AudioArray, Frequency element, long int c
 
 void FillFrequencyStructures(AudioBlocks *AudioArray, parameters *config)
 {
-	long int i = 0, startBin= 0, endBin = 0, count = 0;
-	double boxsize = 0, size = 0;
+	long int i = 0, startBin= 0, endBin = 0, count = 0, size = 0;
+	double boxsize = 0;
 
 	size = AudioArray->fftwValues.size;
 	// Round to 3 decimal places so that 48kHz and 44 kHz line up
 	boxsize = RoundFloat(AudioArray->fftwValues.seconds, 3);
 
-	//if(AudioArray->type != TYPE_SILENCE)
-	{
-		startBin = ceil(config->startHz*boxsize);
-		endBin = floor(config->endHz*boxsize);
-	}
-	/*
-	else
-	{
-		startBin = ceil(START_HZ*boxsize);
-		endBin = floor(END_HZ*boxsize);
-	}
-	*/
+	startBin = ceil(config->startHz*boxsize);
+	endBin = floor(config->endHz*boxsize);
 
 	for(i = startBin; i < endBin; i++)
 	{

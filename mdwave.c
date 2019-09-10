@@ -781,7 +781,7 @@ int ProcessFile(AudioSignal *Signal, parameters *config)
 				i, pos+syncAdvance, 
 				GetBlockName(config, i), GetBlockSubIndex(config, i));
 			ComposeFileName(Name, tempName, ".wav", config);
-			SaveWAVEChunk(Name, Signal, buffer, 0, loadedBlockSize, config); 
+			SaveWAVEChunk(Name, Signal, buffer, 0, loadedBlockSize, 0, config); 
 		}
 
 		pos += loadedBlockSize;
@@ -885,7 +885,7 @@ int ProcessFile(AudioSignal *Signal, parameters *config)
 				GenerateFileNamePrefix(config), GetBlockName(config, i), 
 				GetBlockSubIndex(config, i));
 			ComposeFileName(Name, tempName, ".wav", config);
-			SaveWAVEChunk(Name, Signal, buffer, 0, loadedBlockSize, config);
+			SaveWAVEChunk(Name, Signal, buffer, 0, loadedBlockSize, 0, config);
 		}
 
 		i++;
@@ -1082,7 +1082,7 @@ int ProcessSamples(AudioBlocks *AudioArray, int16_t *samples, size_t size, long 
 			CutOff = Signal->floorAmplitude;
 
 		//Process the defined frequency spectrum
-		for(i = 1; i < floor(boxsize*(samplerate/2)+1); i++)
+		for(i = 1; i < floor(boxsize*(samplerate/2)); i++)
 		{
 			double amplitude = 0, magnitude = 0;
 			int blank = 0;

@@ -48,6 +48,7 @@ int GetActiveAudioBlocks(parameters *config);
 int GetTotalAudioBlocks(parameters *config);
 long int GetLongestElementFrames(parameters *config);
 long int GetSignalTotalFrames(parameters *config);
+double GetLastSyncDuration(double framerate, parameters *config);
 double GetSignalTotalDuration(double framerate, parameters *config);
 long int GetBlockFrames(parameters *config, int pos);
 char *GetBlockName(parameters *config, int pos);

@@ -115,7 +115,7 @@ void endLog()
 	}
 }
 
-int SaveWAVEChunk(char *filename, AudioSignal *Signal, char *buffer, long int block, long int loadedBlockSize, parameters *config)
+int SaveWAVEChunk(char *filename, AudioSignal *Signal, char *buffer, long int block, long int loadedBlockSize, int diff, parameters *config)
 {
 	FILE 		*chunk = NULL;
 	wav_hdr		cheader;
@@ -126,15 +126,15 @@ int SaveWAVEChunk(char *filename, AudioSignal *Signal, char *buffer, long int bl
 	{
 		char Name[2048];
 
-		sprintf(Name, "%03ld_SRC_%s_%03d_%s", 
+		sprintf(Name, "%03ld_SRC_%s_%03d_%s_%s", 
 			block, GetBlockName(config, block), GetBlockSubIndex(config, block), 
-			basename(Signal->SourceFile));
+			basename(Signal->SourceFile), diff ? "_diff_": "");
 		ComposeFileName(FName, Name, ".wav", config);
 		chunk = fopen(FName, "wb");
 		filename = FName;
 	}
-	
-	chunk = fopen(filename, "wb");
+	else
+		chunk = fopen(filename, "wb");
 	if(!chunk)
 	{
 		logmsg("\tCould not open chunk file %s\n", filename);
@@ -145,12 +145,14 @@ int SaveWAVEChunk(char *filename, AudioSignal *Signal, char *buffer, long int bl
 	cheader.fmt.Subchunk2Size = loadedBlockSize;
 	if(fwrite(&cheader, 1, sizeof(wav_hdr), chunk) != sizeof(wav_hdr))
 	{
+		fclose(chunk);
 		logmsg("\tCould not write chunk header to file %s\n", filename);
 		return(0);
 	}
 
 	if(fwrite(buffer, 1, sizeof(char)*loadedBlockSize, chunk) != sizeof(char)*loadedBlockSize)
 	{
+		fclose(chunk);
 		logmsg("\tCould not write samples to chunk file %s\n", filename);
 		return (0);
 	}
