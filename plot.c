@@ -543,10 +543,16 @@ void DrawLabelsMDF(PlotFile *plot, char *Gname, char *GType, int type, parameter
 		if(type == PLOT_COMPARE)
 		{
 			pl_pencolor_r(plot->plotter, 0, 0xeeee, 0);
-			sprintf(label, "Reference:   %s", basename(config->referenceFile));
+			if(config->referenceSignal)
+				sprintf(label, "Reference:   %s [%gms]", basename(config->referenceFile), config->referenceSignal->framerate);
+			else
+				sprintf(label, "Reference:   %s", basename(config->referenceFile));
 			pl_fmove_r(plot->plotter, config->plotResX/2-config->plotResX/10, -1*config->plotResY/2+config->plotResY/80+config->plotResY/40);
 			pl_alabel_r(plot->plotter, 'l', 'l', label);
-			sprintf(label, "Comparison: %s", basename(config->targetFile));
+			if(config->comparisonSignal)
+				sprintf(label, "Comparison: %s [%gms]", basename(config->targetFile), config->comparisonSignal->framerate);
+			else
+				sprintf(label, "Comparison: %s", basename(config->targetFile));
 			pl_fmove_r(plot->plotter, config->plotResX/2-config->plotResX/10, -1*config->plotResY/2+config->plotResY/80);
 			pl_alabel_r(plot->plotter, 'l', 'l', label);
 		}
@@ -1403,6 +1409,7 @@ void PlotNoiseSpectrogram(FlatFrequency *freqs, long int size, int type, char *f
 	ClosePlot(&plot);
 }
 
+/*
 void VisualizeWindows(windowManager *wm, parameters *config)
 {
 	if(!wm)
@@ -1419,7 +1426,9 @@ void VisualizeWindows(windowManager *wm, parameters *config)
 		PlotWindow(wm, wm->windowArray[i].frames, config);
 	}
 }
+*/
 
+/*
 void PlotWindow(windowManager *wm, long int frames, parameters *config)
 {
 	PlotFile plot;
@@ -1459,6 +1468,7 @@ void PlotWindow(windowManager *wm, long int frames, parameters *config)
 	
 	ClosePlot(&plot);
 }
+*/
 
 void PlotBetaFunctions(parameters *config)
 {

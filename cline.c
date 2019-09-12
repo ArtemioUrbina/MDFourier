@@ -163,6 +163,10 @@ void CleanParameters(parameters *config)
 	config->sync_plan = NULL;
 	config->model_plan = NULL;
 	config->reverse_plan = NULL;
+
+	config->comparePAL = 0;
+	config->referenceSignal = NULL;
+	config->comparisonSignal = NULL;
 }
 
 int commandline(int argc , char *argv[], parameters *config)
@@ -174,7 +178,7 @@ int commandline(int argc , char *argv[], parameters *config)
 	
 	CleanParameters(config);
 
-	while ((c = getopt (argc, argv, "hxjzmviklygLHo:s:e:f:t:p:a:w:r:c:d:P:SDMNRCFAWVXDBIn:Y:")) != -1)
+	while ((c = getopt (argc, argv, "hxjzmviklygLHo:s:e:f:t:p:a:w:r:c:d:P:SDMNRCFAWVXDBIn:Y:K")) != -1)
 	switch (c)
 	  {
 	  case 'h':
@@ -210,9 +214,11 @@ int commandline(int argc , char *argv[], parameters *config)
 		if(config->syncTolerance < 0 || config->syncTolerance > 100)
 			config->syncTolerance = 100;
 		break;
-		break;
 	  case 'X':
 		config->laxSync = 0;
+		break;
+	  case 'K':
+		config->comparePAL = 1;
 		break;
 	  case 'g':
 		config->averagePlot = 1;

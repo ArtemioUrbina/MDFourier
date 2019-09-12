@@ -68,7 +68,7 @@ int CheckBalance(AudioSignal *Signal, int block, parameters *config)
 	}
 
 	// Use flattop for Amplitude accuracy
-	if(!initWindows(&windows, Signal->framerate, Signal->header.fmt.SamplesPerSec, 'f', config))
+	if(!initWindows(&windows, Signal->header.fmt.SamplesPerSec, 'f', config))
 		return 0;
 
 	if(config->clock)
@@ -81,11 +81,12 @@ int CheckBalance(AudioSignal *Signal, int block, parameters *config)
 
 		frames = GetBlockFrames(config, i);
 		duration = FramesToSeconds(Signal->framerate, frames);
-		windowUsed = getWindowByLength(&windows, frames);
 		
 		loadedBlockSize = SecondsToBytes(Signal->header.fmt.SamplesPerSec, duration, &leftover, &discardBytes, &leftDecimals);
 
 		difference = GetByteSizeDifferenceByFrameRate(Signal->framerate, frames, Signal->header.fmt.SamplesPerSec, config);
+
+		windowUsed = getWindowByLength(&windows, frames, config->smallerFramerate);
 
 		if(i == block)
 		{

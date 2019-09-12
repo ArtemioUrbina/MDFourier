@@ -728,7 +728,7 @@ int ProcessFile(AudioSignal *Signal, parameters *config)
 		return(0);
 	}
 
-	if(!initWindows(&windows, Signal->framerate, Signal->header.fmt.SamplesPerSec, config->window, config))
+	if(!initWindows(&windows, Signal->header.fmt.SamplesPerSec, config->window, config))
 		return 0;
 
 	CompareFrameRates(Signal->framerate, GetMSPerFrame(Signal, config), config);
@@ -738,6 +738,9 @@ int ProcessFile(AudioSignal *Signal, parameters *config)
 		double duration = 0, framerate = 0;
 		long int frames = 0, difference = 0;
 
+		Signal->Blocks[i].index = GetBlockSubIndex(config, i);
+		Signal->Blocks[i].type = GetBlockType(config, i);
+
 		if(!syncinternal)
 			framerate = Signal->framerate;
 		else
@@ -745,18 +748,13 @@ int ProcessFile(AudioSignal *Signal, parameters *config)
 
 		frames = GetBlockFrames(config, i);
 		duration = FramesToSeconds(framerate, frames);
-		
-		if(!syncinternal)
-			windowUsed = getWindowByLength(&windows, frames);
-		else
-			windowUsed = getWindowByLengthForInternalSync(&windows, frames);
-		
+				
 		loadedBlockSize = SecondsToBytes(Signal->header.fmt.SamplesPerSec, duration, &leftover, &discardBytes, &leftDecimals);
 
 		difference = GetByteSizeDifferenceByFrameRate(framerate, frames, Signal->header.fmt.SamplesPerSec, config);
 
-		Signal->Blocks[i].index = GetBlockSubIndex(config, i);
-		Signal->Blocks[i].type = GetBlockType(config, i);
+		if(Signal->Blocks[i].type >= TYPE_SILENCE)
+			windowUsed = getWindowByLength(&windows, frames, framerate);
 
 		//logmsg("Loaded %ld Left %ld Discard %ld difference %ld Decimals %g\n", loadedBlockSize, leftover, discardBytes, difference, leftDecimals);
 		memset(buffer, 0, buffersize);
@@ -850,7 +848,8 @@ int ProcessFile(AudioSignal *Signal, parameters *config)
 
 		frames = GetBlockFrames(config, i);
 		duration = FramesToSeconds(Signal->framerate, frames);
-		windowUsed = getWindowByLength(&windows, frames);
+		if(Signal->Blocks[i].type >= TYPE_SILENCE)
+			windowUsed = getWindowByLength(&windows, frames, Signal->framerate);
 		
 		loadedBlockSize = SecondsToBytes(Signal->header.fmt.SamplesPerSec, duration, &leftover, &discardBytes, &leftDecimals);
 

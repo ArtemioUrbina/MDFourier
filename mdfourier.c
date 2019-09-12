@@ -205,6 +205,7 @@ int LoadAndProcessAudioFiles(AudioSignal **ReferenceSignal, AudioSignal **Compar
 	FILE				*reference = NULL;
 	FILE				*compare = NULL;
 	double				ZeroDbMagnitudeRef = 0;
+	parameters			config2, *useconfig = NULL;
 
 	if(IsFlac(config->referenceFile))
 	{
@@ -290,7 +291,17 @@ int LoadAndProcessAudioFiles(AudioSignal **ReferenceSignal, AudioSignal **Compar
 	}
 	(*ReferenceSignal)->role = ROLE_REF;
 
-	*ComparisonSignal = CreateAudioSignal(config);
+	if(config->comparePAL)
+	{
+		config2 = *config;
+		sprintf(config2.profileFile, "profiles//mdfblocksGEN_PAL.mfn");
+		if(!LoadProfile(&config2))
+			return 1;
+		*ComparisonSignal = CreateAudioSignal(&config2);
+	}
+	else
+		*ComparisonSignal = CreateAudioSignal(config);
+
 	if(!*ComparisonSignal)
 	{
 		CloseFiles(&reference, &compare);
@@ -310,7 +321,12 @@ int LoadAndProcessAudioFiles(AudioSignal **ReferenceSignal, AudioSignal **Compar
 	}
 
 	logmsg("\n* Loading 'Comparison' audio file %s\n", config->targetFile);
-	if(!LoadFile(compare, *ComparisonSignal, config, config->targetFile))
+	if(config->comparePAL)
+		useconfig = &config2;
+	else
+		useconfig = config;
+	
+	if(!LoadFile(compare, *ComparisonSignal, useconfig, config->targetFile))
 	{
 		CloseFiles(&reference, &compare);
 		RemoveFLACTemp(config->referenceFile, config->targetFile);
@@ -322,6 +338,8 @@ int LoadAndProcessAudioFiles(AudioSignal **ReferenceSignal, AudioSignal **Compar
 	RemoveFLACTemp(config->referenceFile, config->targetFile);
 
 	config->referenceFramerate = (*ReferenceSignal)->framerate;
+
+	CompareFrameRates((*ReferenceSignal)->framerate, (*ComparisonSignal)->framerate, config);
 
 	if(config->channel == 's')
 	{
@@ -390,8 +408,6 @@ int LoadAndProcessAudioFiles(AudioSignal **ReferenceSignal, AudioSignal **Compar
 		//SaveWAVEChunk(NULL, *ReferenceSignal, (*ReferenceSignal)->Samples, 0, (*ReferenceSignal)->header.fmt.Subchunk2Size, config); 
 		//SaveWAVEChunk(NULL, *ComparisonSignal, (*ComparisonSignal)->Samples, 0, (*ComparisonSignal)->header.fmt.Subchunk2Size, config); 
 	}
-
-	CompareFrameRates((*ReferenceSignal)->framerate, (*ComparisonSignal)->framerate, config);
 	
 	logmsg("\n* Executing Discrete Fast Fourier Transforms on 'Reference' file\n");
 	if(!ProcessFile(*ReferenceSignal, config))
@@ -583,6 +599,9 @@ int LoadAndProcessAudioFiles(AudioSignal **ReferenceSignal, AudioSignal **Compar
 		PrintFrequencies(*ReferenceSignal, config);
 		PrintFrequencies(*ComparisonSignal, config);
 	}
+
+	config->referenceSignal = *ReferenceSignal;
+	config->comparisonSignal = *ComparisonSignal;
 	return 1;
 }
 
@@ -773,7 +792,7 @@ int LoadFile(FILE *file, AudioSignal *Signal, parameters *config, char *fileName
 					Signal->endOffset);
 			Signal->framerate = CalculateFrameRate(Signal, config);
 			logmsg(" - Detected %g Hz video signal (%gms per frame) from Audio file\n", 
-						CalculateScanRate(Signal), Signal->framerate);
+						roundFloat(CalculateScanRate(Signal)), Signal->framerate);
 
 			expected = GetMSPerFrame(Signal, config);
 			diff = fabs(100.0 - Signal->framerate*100.0/expected);
@@ -1124,12 +1143,12 @@ int ProcessFile(AudioSignal *Signal, parameters *config)
 		return(0);
 	}
 
-	if(!initWindows(&windows, Signal->framerate, Signal->header.fmt.SamplesPerSec, config->window, config))
+	if(!initWindows(&windows, Signal->header.fmt.SamplesPerSec, config->window, config))
 		return 0;
 
 	if(config->drawWindows)
 	{
-		VisualizeWindows(&windows, config);
+		//VisualizeWindows(&windows, config);
 		PlotBetaFunctions(config);
 	}
 
@@ -1141,6 +1160,9 @@ int ProcessFile(AudioSignal *Signal, parameters *config)
 		double duration = 0, framerate = 0;
 		long int frames = 0, difference = 0;
 
+		Signal->Blocks[i].index = GetBlockSubIndex(config, i);
+		Signal->Blocks[i].type = GetBlockType(config, i);
+
 		if(!syncinternal)
 			framerate = Signal->framerate;
 		else
@@ -1149,20 +1171,23 @@ int ProcessFile(AudioSignal *Signal, parameters *config)
 		frames = GetBlockFrames(config, i);
 		duration = FramesToSeconds(framerate, frames);
 		
-		if(!syncinternal)
-			windowUsed = getWindowByLength(&windows, frames);
-		else
-			windowUsed = getWindowByLengthForInternalSync(&windows, frames);
-		
 		loadedBlockSize = SecondsToBytes(Signal->header.fmt.SamplesPerSec, duration, &leftover, &discardBytes, &leftDecimals);
 
 		difference = GetByteSizeDifferenceByFrameRate(framerate, frames, Signal->header.fmt.SamplesPerSec, config);
 
-		Signal->Blocks[i].index = GetBlockSubIndex(config, i);
-		Signal->Blocks[i].type = GetBlockType(config, i);
+		// config->smallerFramerate
+		if(Signal->Blocks[i].type >= TYPE_SILENCE) // We get the smaller window, since we'll truncate
+		{
+			if(!syncinternal)
+				windowUsed = getWindowByLength(&windows, frames, config->smallerFramerate);
+			else
+				windowUsed = getWindowByLength(&windows, frames, framerate);
+		}
 
-		//logmsg("loadedBlockSize -diff %ld leftover %ld discardBytes %ld leftDecimals %g\n",
-			//	loadedBlockSize - difference, leftover, discardBytes, leftDecimals);
+/*
+		logmsg("loadedBlockSize %ld Diff %ld loadedBlockSize -diff %ld leftover %ld discardBytes %ld leftDecimals %g\n",
+				loadedBlockSize, difference, loadedBlockSize - difference, leftover, discardBytes, leftDecimals);
+*/
 		memset(buffer, 0, buffersize);
 		if(pos + loadedBlockSize > Signal->header.fmt.Subchunk2Size)
 		{
@@ -1180,8 +1205,13 @@ int ProcessFile(AudioSignal *Signal, parameters *config)
 		}
 
 		// MDWAVE exists for this, but just in case it is ever needed within MDFourier
-		//if(config->noSyncProfile)
-			//SaveWAVEChunk(NULL, Signal, buffer, i, loadedBlockSize-difference, config);
+#ifdef CHECKWAV
+		if(config->verbose)
+		{
+			SaveWAVEChunk(NULL, Signal, buffer, i, loadedBlockSize-difference, 0, config);
+			SaveWAVEChunk(NULL, Signal, Signal->Samples + pos + loadedBlockSize, i, difference, 1, config);
+		}
+#endif
 
 		pos += loadedBlockSize;
 		pos += discardBytes;
@@ -1233,6 +1263,14 @@ int ExecuteDFFT(AudioBlocks *AudioArray, int16_t *samples, size_t size, long sam
 		logmsg("No Array for results\n");
 		return 0;
 	}
+
+#ifdef	FFTSIZEDEBUG
+	if(config->fftsize == 0)
+		config->fftsize = (long)size;
+	else
+		if((long)size != config->fftsize)
+			logmsg("WARNING: Got Different FFT Size %ld, first is %ld\n", (long)size, config->fftsize);
+#endif
 
 	stereoSignalSize = (long)size;
 	monoSignalSize = stereoSignalSize/2;	 /* 4 is 2 16 bit values */
@@ -1288,7 +1326,14 @@ int ExecuteDFFT(AudioBlocks *AudioArray, int16_t *samples, size_t size, long sam
 			signal[i] = ((double)samples[i*2]+(double)samples[i*2+1])/2.0;
 
 		if(window)
+		{
 			signal[i] *= window[i];
+#ifdef CHECKWAV
+			// for saving the wav with window
+			samples[i*2] *= window[i];
+			samples[i*2+1] *= window[i];
+#endif
+		}
 	}
 
 	fftw_execute(p); 

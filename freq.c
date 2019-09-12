@@ -358,7 +358,7 @@ int LoadAudioBlockStructure(FILE *file, parameters *config)
 {
 	int		insideInternal = 0;
 	char	lineBuffer[LINE_BUFFER_SIZE];
-	char	buffer[PARAM_BUFFER_SIZE];
+	char	buffer[PARAM_BUFFER_SIZE], buffer2[PARAM_BUFFER_SIZE];
 
 	config->noSyncProfile = 0;
 
@@ -371,7 +371,7 @@ int LoadAudioBlockStructure(FILE *file, parameters *config)
 	}
 
 	readLine(lineBuffer, file);
-	if(sscanf(lineBuffer, "%s %f\n", buffer, &config->types.referenceLineCount) != 2)
+	if(sscanf(lineBuffer, "%s %s\n", buffer, buffer2) != 2)
 	{
 		logmsg("Invalid Frame Rate Adjustment '%s'\n", lineBuffer);
 		fclose(file);
@@ -379,6 +379,13 @@ int LoadAudioBlockStructure(FILE *file, parameters *config)
 	}
 	config->types.referenceMSPerFrame = strtod(buffer, NULL);
 	if(!config->types.referenceMSPerFrame)
+	{
+		logmsg("Invalid line count Adjustment '%s'\n", lineBuffer);
+		fclose(file);
+		return 0;
+	}
+	config->types.referenceLineCount = strtod(buffer2, NULL);
+	if(!config->types.referenceLineCount)
 	{
 		logmsg("Invalid line count Adjustment '%s'\n", lineBuffer);
 		fclose(file);
@@ -796,11 +803,18 @@ void CompareFrameRates(double framerate1, double framerate2, parameters *config)
 	double diff = 0;
 
 	diff = fabs(framerate1 - framerate2);
-	if(diff > 0.0)
+	if(diff == 0.0)
+		config->smallerFramerate = framerate1;
+	else
 	{
 		config->smallerFramerate = 
 				GetLowerFrameRate(framerate1, 
 									framerate2);
+		/*
+		config->biggerFramerate = 
+				GetBiggerFrameRate(framerate1, 
+									framerate2);
+		*/
 		if(config->verbose && diff > 0.001)
 			logmsg("\n= Different frame rates found (%g), compensating to %g =\n", 
 				diff, config->smallerFramerate);
@@ -811,7 +825,10 @@ long int GetByteSizeDifferenceByFrameRate(double framerate, long int frames, lon
 {
 	long int difference = 0;
 
-	if(config->smallerFramerate != 0 && framerate > config->smallerFramerate)
+	if(config->smallerFramerate == 0)
+		return 0;
+
+	if(framerate > config->smallerFramerate)
 	{
 		long int SmallerBytes = 0;
 		long int BiggerBytes = 0;
@@ -821,6 +838,7 @@ long int GetByteSizeDifferenceByFrameRate(double framerate, long int frames, lon
 	
 		difference = BiggerBytes - SmallerBytes;
 	}
+
 	return difference;
 }
 
@@ -1874,6 +1892,10 @@ void FillFrequencyStructures(AudioBlocks *AudioArray, parameters *config)
 	startBin = ceil(config->startHz*boxsize);
 	endBin = floor(config->endHz*boxsize);
 
+	/*
+	logmsg("Size: %ld BoxSize: %g StartBin: %ld EndBin %ld\n",
+		 size, boxsize, startBin, endBin);
+	*/
 	for(i = startBin; i < endBin; i++)
 	{
 		double		Hertz;
@@ -2174,7 +2196,8 @@ double CalculateFrameRateNS(AudioSignal *Signal, double Frames, parameters *conf
 
 double CalculateScanRate(AudioSignal *Signal)
 {
-	return(roundFloat(1000.0/Signal->framerate));
+	//return(roundFloat(1000.0/Signal->framerate));
+	return(1000.0/Signal->framerate);
 }
 
 double FindDifferenceAverage(parameters *config)

@@ -31,39 +31,180 @@
 #include "log.h"
 #include "freq.h"
 
-int existsInArray(long int element, double *array, int count)
+#define MAX_WINDOWS	100
+
+int initWindows(windowManager *wm, int SamplesPerSec, char winType, parameters *config)
 {
-	if(!array)
+	if(!wm || !config)
 		return 0;
 
-	for(int i = 0; i < count; i++)
+	wm->MaxWindow = 0;
+	wm->SamplesPerSec = 0;
+	wm->winType = 'n';
+	
+	if(winType == 'n')
 	{
-		if(element == array[i])
-			return 1;
+		wm->windowArray = NULL;
+		wm->windowCount = 0;
+		return 1;
 	}
 
-	return 0;
+	// Create the wm
+	wm->windowArray = (windowUnit*)malloc(sizeof(windowUnit)*MAX_WINDOWS);
+	if(!wm->windowArray)
+	{
+		logmsg("Not enough memory for window manager\n");
+		return 0;
+	}
+	wm->windowCount = 0;
+	wm->MaxWindow = MAX_WINDOWS-1;
+	wm->SamplesPerSec = SamplesPerSec;
+	wm->winType = winType;
+
+	memset(wm->windowArray, 0, sizeof(windowUnit)*MAX_WINDOWS);
+
+	return 1;
 }
 
-double *getWindowByLength(windowManager *wm, long int frames)
+double *CreateWindow(windowManager *wm, long int frames, double framerate)
 {
-	if(!wm)
-		return 0;
+	double		seconds = 0;
+	double		*window = NULL;
+	long int	size = 0;
 
-	for(int i = 0; i < wm->windowCount; i++)
+	if(!wm)
+		return NULL;
+
+	if(wm->winType == 'n')
+		return NULL;
+
+	if(wm->windowCount == wm->MaxWindow)
 	{
-		if(frames == wm->windowArray[i].frames)
-			return wm->windowArray[i].window;
+		logmsg("ERROR: Reached Max window limit %d\n", wm->MaxWindow);
+		return NULL;
 	}
 
+	seconds = FramesToSeconds(frames, framerate);
+	size = floor(wm->SamplesPerSec*seconds);
+	if(!size)
+	{
+		logmsg("ERROR: Asked for window with null size %ld Frames %g Framerate\n", frames, framerate);
+		return NULL;
+	}
+	//logmsg("**** Creating window size %ld (%ld frames %g fr)\n", size, frames, framerate);
+	if(wm->winType == 't')
+	{
+		window = tukeyWindow(size);
+		if(!window)
+		{
+			logmsg ("Tukey window creation failed\n");
+			return NULL;
+		}
+		wm->windowArray[wm->windowCount].window = window;
+		wm->windowArray[wm->windowCount].seconds = seconds;
+		wm->windowArray[wm->windowCount].size = size;
+		wm->windowCount++;
+		return window;
+	}
+
+	if(wm->winType == 'f')
+	{
+		window = flattopWindow(size);
+		if(!window)
+		{
+			logmsg ("Flattop window creation failed\n");
+			return NULL;
+		}
+		wm->windowArray[wm->windowCount].window = window;
+		wm->windowArray[wm->windowCount].seconds = seconds;
+		wm->windowArray[wm->windowCount].size = size;
+		wm->windowCount++;
+		return window;
+	}
+
+	if(wm->winType == 'h')
+	{
+		window = hannWindow(size);
+		if(!window)
+		{
+			logmsg ("Hann window creation failed\n");
+			return NULL;
+		}
+		wm->windowArray[wm->windowCount].window = window;
+		wm->windowArray[wm->windowCount].seconds = seconds;
+		wm->windowArray[wm->windowCount].size = size;
+		wm->windowCount++;
+		return window;
+	}
+
+	if(wm->winType == 'm')
+	{
+		window = hammingWindow(size);
+		if(!window)
+		{
+			logmsg ("Hamming window creation failed\n");
+			return NULL;
+		}
+		wm->windowArray[wm->windowCount].window = window;
+		wm->windowArray[wm->windowCount].seconds = seconds;
+		wm->windowArray[wm->windowCount].size = size;
+		wm->windowCount++;
+		return window;
+	}
+
+	logmsg("FAILED Creating window size %g (%ld frames %g fr)\n", frames*framerate, frames, framerate);
 	return NULL;
 }
 
-double *getWindowByLengthForInternalSync(windowManager *wm, long int frames)
+double *getWindowByLength(windowManager *wm, long int frames, double framerate)
 {
-	return(getWindowByLength(wm, frames*-1));
+	double		seconds = 0;
+	long int	size = 0;
+
+	if(!wm)
+		return 0;
+
+	seconds = FramesToSeconds(frames, framerate);
+	size = floor(wm->SamplesPerSec*seconds);
+	for(int i = 0; i < wm->windowCount; i++)
+	{
+		//logmsg("Comparing pos %d: %g to %g from %d\n", i, seconds, wm->windowArray[i].seconds, wm->windowCount);
+		if(size == wm->windowArray[i].size)
+		{
+			//logmsg("Served window size %ld (%ld frames %g fr)\n", size, frames, framerate);
+			return wm->windowArray[i].window;
+		}
+	}
+
+	return CreateWindow(wm, frames, framerate);
 }
 
+void freeWindows(windowManager *wm)
+{
+	if(!wm)
+		return;
+
+	for(int i = 0; i < wm->windowCount; i++)
+	{
+		if(wm->windowArray[i].window)
+		{
+			free(wm->windowArray[i].window);
+			wm->windowArray[i].window = NULL;
+		}
+	}
+	if(wm->windowCount)
+	{
+		free(wm->windowArray);
+		wm->windowArray = NULL;
+		wm->windowCount = 0;
+	}
+
+	wm->MaxWindow = 0;
+	wm->SamplesPerSec = 0;
+	wm->winType = 'n';
+}
+
+/*
 long int getWindowSizeByLength(windowManager *wm, long int frames)
 {
 	if(!wm)
@@ -77,7 +218,26 @@ long int getWindowSizeByLength(windowManager *wm, long int frames)
 
 	return 0;
 }
+*/
 
+
+/*
+int existsInArray(long int element, double *array, int count)
+{
+	if(!array)
+		return 0;
+
+	for(int i = 0; i < count; i++)
+	{
+		if(element == array[i])
+			return 1;
+	}
+
+	return 0;
+}
+*/
+
+/*
 int initWindows(windowManager *wm, double framerate, int SamplesPerSec, char winType, parameters *config)
 {
 	double 	lengths[1024];	// yes, we are lazy
@@ -188,27 +348,11 @@ int initWindows(windowManager *wm, double framerate, int SamplesPerSec, char win
 
 	return 1;
 }
-
-
-void freeWindows(windowManager *wm)
-{
-	if(!wm)
-		return;
-
-	for(int i = 0; i < wm->windowCount; i++)
-	{
-		if(wm->windowArray[i].window)
-			free(wm->windowArray[i].window);
-	}
-	if(wm->windowCount)
-		free(wm->windowArray);
-	wm->windowArray = NULL;
-	wm->windowCount = 0;
-}
+*/
 
 
 // reduce scalloping loss 
-double *flattopWindow(int n)
+double *flattopWindow(long int n)
 {
 	int half, i, idx;
 	double *w;
@@ -254,9 +398,9 @@ double *flattopWindow(int n)
 
 
 // Only attenuate the edges to reduce errors
-double *tukeyWindow(int n)
+double *tukeyWindow(long int n)
 {
-	int i;
+	long int i;
 	double *w, M = 0, alpha = 0;
  
 	w = (double*) calloc(n, sizeof(double));
@@ -276,9 +420,9 @@ double *tukeyWindow(int n)
 	return(w);
 }
 
-double *hannWindow(int n)
+double *hannWindow(long int n)
 {
-	int half, i, idx;
+	long int half, i, idx;
 	double *w;
  
 	w = (double*) calloc(n, sizeof(double));
@@ -312,9 +456,9 @@ double *hannWindow(int n)
 	return(w);
 }
 
-double *hammingWindow(int n)
+double *hammingWindow(long int n)
 {
-	int half, i, idx;
+	long int half, i, idx;
 	double *w;
  
 	w = (double*) calloc(n, sizeof(double));

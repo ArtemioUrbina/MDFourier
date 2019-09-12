@@ -49,7 +49,7 @@
 
 #include "incbeta.h"
 
-#define MDVERSION "0.950"
+#define MDVERSION "0.953 BETA TEST"
 
 #define MAX_FREQ_COUNT		100000 	/* Number of frequencies to compare(MAX) */
 #define FREQ_COUNT			2000	/* Number of frequencies to compare(default) */
@@ -83,7 +83,7 @@
 #define END_HZ		20000.0
 
 #define DB_HEIGHT	18.0
-#define DB_DIFF		8.0
+#define DB_DIFF		12.0
 
 #define PLOT_RES_X 1600.0
 #define PLOT_RES_Y 800.0
@@ -110,6 +110,8 @@
 	#define MAX_FOLDER_NAME	50
 	#define MAX_FILE_NAME	25
 #endif
+
+//#define FFTSIZEDEBUG	1
 
 enum normalize
 {
@@ -150,7 +152,7 @@ typedef struct abd_st {
 	int				totalChunks;
 	int				regularChunks;
 	double			referenceMSPerFrame;
-	float			referenceLineCount;
+	double			referenceLineCount;
 	double			comparisonMSPerFrame;
 	int				pulseSyncFreq;
 	int				pulseMinVol;
@@ -256,12 +258,16 @@ typedef struct AudioSt {
 typedef struct window_unit_st {
 	double		*window;
 	long int	frames;
+	double		seconds;
 	long int	size;
 } windowUnit;
 
 typedef struct window_st {
 	windowUnit	*windowArray;
 	int windowCount;
+	int MaxWindow;
+	int SamplesPerSec;
+	char winType;
 } windowManager;
 
 /********************************************************/
@@ -374,12 +380,20 @@ typedef struct parameters_st {
 	double			refNoiseMin;
 	double			refNoiseMax;
 
+	int				comparePAL;
+
 #ifdef MDWAVE
 	int				maxBlanked;
 	int				invert;
 	int				chunks;
 	int				useCompProfile;
 #endif
+
+#ifdef	FFTSIZEDEBUG
+	long			fftsize;
+#endif
+	AudioSignal		*referenceSignal;
+	AudioSignal		*comparisonSignal;
 } parameters;
 
 

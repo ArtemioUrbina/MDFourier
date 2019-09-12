@@ -36,15 +36,14 @@
 #define M_PI 3.1415926535897932384626433832795
 #endif
 
-double *hannWindow(int n);
-double *flattopWindow(int n);
-double *tukeyWindow(int n);
-double *hammingWindow(int n);
+double *hannWindow(long int n);
+double *flattopWindow(long int n);
+double *tukeyWindow(long int n);
+double *hammingWindow(long int n);
 
-int initWindows(windowManager *wm, double framerate, int SamplesPerSec, char winType, parameters *config);
-double *getWindowByLength(windowManager *windows, long int frames);
-long int getWindowSizeByLength(windowManager *wm, long int frames);
-double *getWindowByLengthForInternalSync(windowManager *wm, long int frames);
+int initWindows(windowManager *wm, int SamplesPerSec, char winType, parameters *config);
+double *getWindowByLength(windowManager *wm, long int frames, double framerate);
+double *CreateWindow(windowManager *wm, long int frames, double framerate);
 void freeWindows(windowManager *windows);
 double CompensateValueForWindow(double value, char winType);
 double CalculateCorrectionFactor(windowManager *wm, long int frames);
