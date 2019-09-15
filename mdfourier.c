@@ -727,8 +727,11 @@ int LoadFile(FILE *file, AudioSignal *Signal, parameters *config, char *fileName
 		Signal->header.fmt.SamplesPerSec, Signal->header.fmt.bitsPerSample, seconds);
 
 	if(seconds < GetSignalTotalDuration(Signal->framerate, config))
+	{
 		logmsg(" - WARNING: Estimated file length is smaller than the expected %g seconds\n",
 				GetSignalTotalDuration(Signal->framerate, config));
+		config->smallFile = 1;
+	}
 
 	Signal->Samples = (char*)malloc(sizeof(char)*Signal->header.fmt.Subchunk2Size);
 	if(!Signal->Samples)
@@ -1191,6 +1194,7 @@ int ProcessFile(AudioSignal *Signal, parameters *config)
 		memset(buffer, 0, buffersize);
 		if(pos + loadedBlockSize > Signal->header.fmt.Subchunk2Size)
 		{
+			config->smallFile = 1;
 			logmsg("\tunexpected end of File, please record the full Audio Test from the 240p Test Suite.\n");
 			break;
 		}

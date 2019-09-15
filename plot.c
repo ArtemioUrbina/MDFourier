@@ -53,7 +53,6 @@
 #define SORT_CMP(x, y)  ((x).amplitude < (y).amplitude ? -1 : ((x).amplitude == (y).amplitude ? 0 : 1))
 #include "sort.h"  // https://github.com/swenson/sort/
 
-#define ALL_LABEL					"ALL"
 #define DIFFERENCE_TITLE			"DIFFERENT AMPLITUDES [%s]"
 #define MISSING_TITLE				"MISSING FREQUENCIES [%s]"
 #define SPECTROGRAM_TITLE_REF		"REFERENCE SPECTROGRAM [%s]"
@@ -63,6 +62,8 @@
 #define NOISE_AVG_TITLE				"NOISE FLOOR AVERAGED"
 #define SPECTROGRAM_NOISE_REF		"REFERENCE NOISE FLOOR SPECTROGRAM [%s]"
 #define SPECTROGRAM_NOISE_COM		"COMPARISON NOISE FLOOR SPECTROGRAM [%s]"
+
+#define ALL_LABEL					"ALL"
 
 #if defined (WIN32)
 	#include <direct.h>
@@ -527,34 +528,86 @@ void DrawLabelsMDF(PlotFile *plot, char *Gname, char *GType, int type, parameter
 {
 	char	label[BUFFER_SIZE];
 
-	sprintf(label, Gname, GType);
 	pl_fspace_r(plot->plotter, 0, -1*config->plotResY/2, config->plotResX, config->plotResY/2);
 
-	pl_fmove_r(plot->plotter, config->plotResX/40, config->plotResY/2-config->plotResY/30);
+	/* Profile */
+	pl_fmove_r(plot->plotter, config->plotResX/40, config->plotResY/2-config->plotResY/30+BAR_HEIGHT/2);
+	pl_pencolor_r(plot->plotter, 0xaaaa, 0xaaaa, 0xaaaa);
+	pl_alabel_r(plot->plotter, 'l', 'l', config->types.Name);
+
+	/* Plot Label */
+	sprintf(label, Gname, GType);
+	pl_fmove_r(plot->plotter, config->plotResX/40, config->plotResY/2-config->plotResY/30-BAR_HEIGHT);
 	pl_pencolor_r(plot->plotter, 0xcccc, 0xcccc, 0xcccc);
 	pl_alabel_r(plot->plotter, 'l', 'l', label);
 
-	pl_fmove_r(plot->plotter, config->plotResX/40, -1*config->plotResY/2+config->plotResY/100);
+	/* Version */
+	pl_fmove_r(plot->plotter, config->plotResX/45, -1*config->plotResY/2+config->plotResY/100);
 	pl_pencolor_r(plot->plotter, 0, 0xcccc, 0);
 	pl_alabel_r(plot->plotter, 'l', 'l', "MDFourier "MDVERSION" for 240p Test Suite by Artemio Urbina");
 
+	/* Window */
+	pl_fmove_r(plot->plotter, config->plotResX/20*19, -1*config->plotResY/2+config->plotResY/80);
+	pl_pencolor_r(plot->plotter, 0xaaaa, 0xaaaa, 0xaaaa);
+	switch(config->window)
+	{
+		case 'n':
+			pl_alabel_r(plot->plotter, 'l', 'l', "Rectangle");
+			break;
+		case 't':
+			pl_alabel_r(plot->plotter, 'l', 'l', "Tukey");
+			break;
+		case 'f':
+			pl_alabel_r(plot->plotter, 'l', 'l', "Flattop");
+			break;
+		case 'h':
+			pl_alabel_r(plot->plotter, 'l', 'l', "Hann");
+			break;
+		case 'm':
+			pl_alabel_r(plot->plotter, 'l', 'l', "Hamming");
+			break;
+		default:
+			pl_alabel_r(plot->plotter, 'l', 'l', "UNKOWN");
+			break;
+	}
+	/* File information */
 	if(config->labelNames)
 	{
 		if(type == PLOT_COMPARE)
 		{
 			pl_pencolor_r(plot->plotter, 0, 0xeeee, 0);
 			if(config->referenceSignal)
-				sprintf(label, "Reference:   %s [%gms]", basename(config->referenceFile), config->referenceSignal->framerate);
+			{
+				sprintf(label, "Reference:   %.94s", basename(config->referenceFile));
+				pl_fmove_r(plot->plotter, config->plotResX/2-config->plotResX/50*9, -1*config->plotResY/2+config->plotResY/80+config->plotResY/40);
+				pl_alabel_r(plot->plotter, 'l', 'l', label);
+
+				sprintf(label, "[%0.4fms %0.4fhz]", config->referenceSignal->framerate, roundFloat(CalculateScanRate(config->referenceSignal)));
+				pl_fmove_r(plot->plotter, config->plotResX/20*17, -1*config->plotResY/2+config->plotResY/80+config->plotResY/40);
+				pl_alabel_r(plot->plotter, 'l', 'l', label);
+			}
 			else
-				sprintf(label, "Reference:   %s", basename(config->referenceFile));
-			pl_fmove_r(plot->plotter, config->plotResX/2-config->plotResX/10, -1*config->plotResY/2+config->plotResY/80+config->plotResY/40);
-			pl_alabel_r(plot->plotter, 'l', 'l', label);
+			{
+				sprintf(label, "Reference:   %.94s", basename(config->referenceFile));
+				pl_fmove_r(plot->plotter, config->plotResX/2-config->plotResX/10, -1*config->plotResY/2+config->plotResY/80+config->plotResY/40);
+				pl_alabel_r(plot->plotter, 'l', 'l', label);
+			}
 			if(config->comparisonSignal)
-				sprintf(label, "Comparison: %s [%gms]", basename(config->targetFile), config->comparisonSignal->framerate);
-			else
+			{
 				sprintf(label, "Comparison: %s", basename(config->targetFile));
-			pl_fmove_r(plot->plotter, config->plotResX/2-config->plotResX/10, -1*config->plotResY/2+config->plotResY/80);
-			pl_alabel_r(plot->plotter, 'l', 'l', label);
+				pl_fmove_r(plot->plotter, config->plotResX/2-config->plotResX/50*9, -1*config->plotResY/2+config->plotResY/80);
+				pl_alabel_r(plot->plotter, 'l', 'l', label);
+
+				sprintf(label, "[%0.4fms %0.4fhz]", config->comparisonSignal->framerate, roundFloat(CalculateScanRate(config->comparisonSignal)));
+				pl_fmove_r(plot->plotter, config->plotResX/20*17, -1*config->plotResY/2+config->plotResY/80);
+				pl_alabel_r(plot->plotter, 'l', 'l', label);
+			}
+			else
+			{
+				sprintf(label, "Comparison: %s", basename(config->targetFile));
+				pl_fmove_r(plot->plotter, config->plotResX/2-config->plotResX/10, -1*config->plotResY/2+config->plotResY/80);
+				pl_alabel_r(plot->plotter, 'l', 'l', label);
+			}
 		}
 		else
 		{
@@ -580,9 +633,18 @@ void DrawLabelsMDF(PlotFile *plot, char *Gname, char *GType, int type, parameter
 		}
 	}
 
+	/* Warnings */
+
+	if(config->smallFile)
+	{
+		pl_fmove_r(plot->plotter, config->plotResX-config->plotResX/5, -1*config->plotResY/2+config->plotResY/100+8*BAR_HEIGHT);
+		pl_pencolor_r(plot->plotter, 0xeeee, 0xeeee, 0);
+		pl_alabel_r(plot->plotter, 'l', 'l', "WARNING: File was shorter than expected");
+	}
+
 	if(config->normType != max_frequency)
 	{
-		pl_fmove_r(plot->plotter, config->plotResX-config->plotResX/5, -1*config->plotResY/2+config->plotResY/100);
+		pl_fmove_r(plot->plotter, config->plotResX-config->plotResX/5, -1*config->plotResY/2+config->plotResY/100+6*BAR_HEIGHT);
 		pl_pencolor_r(plot->plotter, 0xeeee, 0xeeee, 0);
 		if(config->normType == max_time)
 			pl_alabel_r(plot->plotter, 'l', 'l', "Time domain normalization");
@@ -594,16 +656,27 @@ void DrawLabelsMDF(PlotFile *plot, char *Gname, char *GType, int type, parameter
 
 	if(config->noSyncProfile && type < PLOT_SINGLE_REF)
 	{
-		pl_fmove_r(plot->plotter, config->plotResX-config->plotResX/5, -1*config->plotResY/2+config->plotResY/20);
+		pl_fmove_r(plot->plotter, config->plotResX-config->plotResX/5, -1*config->plotResY/2+config->plotResY/20+5*BAR_HEIGHT);
 		pl_pencolor_r(plot->plotter, 0xeeee, 0xeeee, 0);
 		pl_alabel_r(plot->plotter, 'l', 'l', "WARNING: NO SYNC profile, PLEASE DISREGARD");
 	}
 
 	if(config->syncErrors)
 	{
-		pl_fmove_r(plot->plotter, config->plotResX-config->plotResX/5, -1*config->plotResY/2+config->plotResY/200);
+		pl_fmove_r(plot->plotter, config->plotResX-config->plotResX/5, -1*config->plotResY/2+config->plotResY/200+5*BAR_HEIGHT);
 		pl_pencolor_r(plot->plotter, 0xeeee, 0xeeee, 0);
 		pl_alabel_r(plot->plotter, 'l', 'l', "WARNING: Imperfect sync used");
+	}
+
+	if(config->channel != 's')
+	{
+		pl_fmove_r(plot->plotter, config->plotResX-config->plotResX/10, config->plotResY/2-config->plotResY/30-BAR_HEIGHT);
+		pl_pencolor_r(plot->plotter, 0xcccc, 0xcccc, 0xcccc);
+
+		if(config->channel == 'l')
+			pl_alabel_r(plot->plotter, 'l', 'l', "Left Channel");
+		if(config->channel == 'r')
+			pl_alabel_r(plot->plotter, 'l', 'l', "Right Channel");
 	}
 }
 

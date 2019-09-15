@@ -362,6 +362,7 @@ int LoadAudioBlockStructure(FILE *file, parameters *config)
 
 	config->noSyncProfile = 0;
 
+	/* Line 2: Profile Name */
 	readLine(lineBuffer, file);
 	if(sscanf(lineBuffer, "%255[^\n]\n", config->types.Name) != 1)
 	{
@@ -370,6 +371,7 @@ int LoadAudioBlockStructure(FILE *file, parameters *config)
 		return 0;
 	}
 
+	/* Line 3: Frame rates */
 	readLine(lineBuffer, file);
 	if(sscanf(lineBuffer, "%s %s\n", buffer, buffer2) != 2)
 	{
@@ -392,6 +394,7 @@ int LoadAudioBlockStructure(FILE *file, parameters *config)
 		return 0;
 	}
 
+	/* Line 4: Sync Info */
 	readLine(lineBuffer, file);
 	if(sscanf(lineBuffer, "%d %d %d %d %d %d\n", 
 		&config->types.pulseSyncFreq,

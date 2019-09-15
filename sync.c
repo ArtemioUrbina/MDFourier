@@ -57,12 +57,12 @@ long int DetectPulse(char *AllSamples, wav_hdr header, double *MaxMagnitude, par
 		OutputFileOnlyStart();
 	}
 
-	offset = position;
-	if(offset >= 2*44)  // return 2 "byte segments" as dictated by ratio "4" above
-		offset -= 2*44;
-
 	if(config->debugSync)
-		logmsg("First round start pulse detected at %ld, refinement\n", offset);
+		logmsg("First round start pulse detected at %ld, refinement\n", position);
+
+	offset = position;
+	if(offset >= 8*44)  // return 6 "byte segments" as dictated by ratio "4" above
+		offset -= 8*44;
 
 	maxdetected = 0;
 	errcount = 0;
@@ -89,6 +89,7 @@ long int DetectEndPulse(char *AllSamples, long int startpulse, wav_hdr header, d
 	long int 	position = 0, offset = 0;
 	double		silenceOffset[END_SYNC_MAX_TRIES] = END_SYNC_VALUES;
 
+	*MaxMagnitude= 0;
 	OutputFileOnlyStart();
 	do
 	{
@@ -127,12 +128,12 @@ long int DetectEndPulse(char *AllSamples, long int startpulse, wav_hdr header, d
 		return -1;
 	}
 
-	offset = position;
-	if(offset >= 2*44)  // return 2 segments at ratio 4 above
-		offset -= 2*44;
-	
 	if(config->debugSync)
-		logmsg("First round end pulse detected at %ld, refinement\n", offset);
+		logmsg("First round end pulse detected at %ld, refinement\n", position);
+
+	offset = position;
+	if(offset >= 8*44)  // return 6 segments at ratio 4 above
+		offset -= 8*44;
 
 	maxdetected = 0;
 	errcount = 0;
@@ -149,6 +150,162 @@ long int DetectEndPulse(char *AllSamples, long int startpulse, wav_hdr header, d
 	return position;
 }
 
+long int DetectPulseTrainSequence(Pulses *pulseArray, double targetFrequency, long int TotalMS, int factor, int *maxdetected, int *errcount, long int start, parameters *config)
+{
+	long	i, sequence_start = 0;
+	int		frame_pulse_count = 0, frame_silence_count = 0, 
+			pulse_count = 0, silence_count = 0, freq_pos = 0, lastcounted = 0;
+	long	count = 0;
+	double	averageAmplitude = 0, lastFreqs[4];
+
+	*maxdetected = 0;
+	*errcount = 0;
+
+	memset(lastFreqs, 0, sizeof(double)*4);
+	for(i = start; i < TotalMS; i++)
+	{
+		if(pulseArray[i].hertz)
+		{
+			lastFreqs[freq_pos++] = pulseArray[i].hertz;
+			if(freq_pos > 3)
+				freq_pos = 0;
+			if(lastFreqs[0] == targetFrequency && lastFreqs[1] == targetFrequency &&
+				lastFreqs[2] == targetFrequency && lastFreqs[3] == targetFrequency)
+			{
+				averageAmplitude += pulseArray[i].amplitude;
+				count ++;
+			}
+		}
+	}
+
+	// Get an amplitude below the average value for the pulses
+	averageAmplitude /= count;
+	averageAmplitude += -6;
+
+	if(averageAmplitude < -35)  // if we have too much noise at the TargetFrequency, gamble
+	{
+		if(config->debugSync)
+			logmsg("Average Amplitude was %g, changing to -30\n", averageAmplitude);
+		averageAmplitude = -30;
+	}
+
+	//avg = max + config->types.pulseMinVol;
+	if(config->debugSync)
+		logmsg("== Searching for %g Average Amplitude %g looking for %d (%d*%d)\n", 
+			targetFrequency, averageAmplitude, config->types.pulseFrameMaxLen*factor,
+			config->types.pulseFrameMaxLen, factor);
+
+	for(i = start; i < TotalMS; i++)
+	{
+		if(pulseArray[i].hertz)
+		{
+			if(pulseArray[i].amplitude >= averageAmplitude
+				&& pulseArray[i].hertz == targetFrequency)
+			{
+				frame_pulse_count++;
+				lastcounted = 1;
+				if(config->debugSync)
+					logmsg("%7ld [%5gHz %0.2f dBFS]Pulse Frame counted %d\n", 
+						pulseArray[i].bytes, pulseArray[i].hertz, pulseArray[i].amplitude, 
+						frame_pulse_count);
+	
+				if(!sequence_start)
+				{
+					if(config->debugSync)
+						logmsg("This starts the sequence\n");
+					sequence_start = pulseArray[i].bytes;
+					frame_silence_count = 0;
+				}
+	
+				if(frame_silence_count >= config->types.pulseFrameMaxLen*factor)
+				{
+					silence_count++;
+	
+					if(config->debugSync)
+						logmsg("Closed a silence cycle %d\n", silence_count);
+					if(silence_count > config->types.pulseCount)
+					{
+						if(config->debugSync)
+							logmsg("Resets the sequence\n");
+						sequence_start = 0;
+						silence_count = 0;
+					}
+				}
+	
+				if(frame_silence_count)
+					frame_silence_count = 0;
+			}
+			else
+			{
+				if(pulseArray[i].amplitude < averageAmplitude)
+				{
+					frame_silence_count ++;
+					lastcounted = 0;
+					if(config->debugSync)
+						logmsg("%7ld [%5gHz %0.2f dBFS] Silence Frame counted %d\n", 
+							pulseArray[i].bytes, pulseArray[i].hertz, pulseArray[i].amplitude, 
+							frame_silence_count);
+
+					if(frame_pulse_count >= config->types.pulseFrameMaxLen*factor)
+					{
+						pulse_count++;
+		
+						if(config->debugSync)
+							logmsg("Closed a pulse cycle %d, silence count %d\n", pulse_count, silence_count);
+						if(pulse_count == config->types.pulseCount && silence_count == pulse_count - 1)
+						{
+							if(config->debugSync)
+								logmsg("Completed the sequence %ld\n", sequence_start);
+							*errcount = 0;
+							return sequence_start;
+						}
+					}
+		
+					if(frame_pulse_count > 0)
+					{
+						if(!pulse_count && sequence_start)
+						{
+							if(config->debugSync)
+								logmsg("Resets the sequence (no pulse count)\n");
+							sequence_start = 0;
+						}
+		
+						frame_pulse_count = 0;
+					}
+				}
+				else
+				{
+					if(lastcounted == 0)
+					{
+						logmsg("NON SKIPPED and counting as silence\n");
+						frame_silence_count++;
+					}
+
+					if(config->debugSync)
+						logmsg("%7ld [%5gHz %0.2f dBFS] Non Frame skipped %d\n", 
+							pulseArray[i].bytes, pulseArray[i].hertz, pulseArray[i].amplitude, 
+							frame_silence_count);
+				}
+			}
+		}
+		else
+		{
+			if(lastcounted == 0)
+			{
+				frame_silence_count++;
+				logmsg("SKIPPED and counting as silence\n");
+			}
+			else
+				logmsg("SKIPPED\n");
+		}
+	}
+
+	if(config->debugSync)
+		logmsg("Failed\n");
+	*maxdetected = pulse_count;
+	return -1;
+}
+/*
 long int DetectPulseTrainSequence(Pulses *pulseArray, double targetFrequency, long int TotalMS, int factor, int *maxdetected, int *errcount, long int start, parameters *config)
 {
 	int					reset_tolerance = 0;
@@ -190,8 +347,8 @@ long int DetectPulseTrainSequence(Pulses *pulseArray, double targetFrequency, lo
 				{
 					reset_tolerance = 0;
 					if(config->debugSync)
-						logmsg("pulse reset due to discontinuity at %ld: %ld and %ld\n", 
-								pulseArray[i].bytes, i, last_pulse_pos);
+						logmsg("pulse %ld reset due to discontinuity at %ld: %ld and %ld [%gHz %gdBFS]\n", 
+								pulse_count, pulseArray[i].bytes, i, last_pulse_pos, pulseArray[i].hertz, pulseArray[i].amplitude);
 	
 					pulse_count = 0;
 					sequence_start = 0;
@@ -204,8 +361,8 @@ long int DetectPulseTrainSequence(Pulses *pulseArray, double targetFrequency, lo
 				last_pulse_pos = i;
 
 				if(config->debugSync)
-					logmsg("PULSE Increment [%ld] at %ld (%ld)\n", 
-						inside_pulse, pulseArray[i].bytes, i);
+					logmsg("PULSE Increment [%ld] at %ld (%ld) [%gHz %gdBFs]\n", 
+						inside_pulse, pulseArray[i].bytes, i, pulseArray[i].hertz, pulseArray[i].amplitude);
 
 				pulse_amplitudes += pulseArray[i].amplitude;
 			}
@@ -219,7 +376,8 @@ long int DetectPulseTrainSequence(Pulses *pulseArray, double targetFrequency, lo
 				{
 					reset_tolerance = 0;
 					if(config->debugSync)
-						logmsg("reset pulse too long %ld at %ld\n", inside_pulse, pulseArray[i].bytes);
+						logmsg("reset pulse %ld too long %ld at %ld\n", 
+							pulse_count, inside_pulse, pulseArray[i].bytes);
 	
 					pulse_count = 0;
 					sequence_start = 0;
@@ -235,6 +393,10 @@ long int DetectPulseTrainSequence(Pulses *pulseArray, double targetFrequency, lo
 		else  // Was not matched to the pulse values
 		{
 			//if(inside_pulse >= config->types.pulseFrameMinLen*factor)
+			if(config->debugSync)
+				logmsg("OUTSIDE ELEMENT %ld [%gHz %gdBFS]\n", 
+						pulseArray[i].bytes, pulseArray[i].hertz, pulseArray[i].amplitude);
+
 			if(inside_pulse || inside_silence)
 			{
 				if(last_silence_pos && i > last_silence_pos + 4)
@@ -260,8 +422,8 @@ long int DetectPulseTrainSequence(Pulses *pulseArray, double targetFrequency, lo
 					inside_silence++;
 
 					if(config->debugSync)
-						logmsg("SILENCE Increment [%ld] at %ld (%ld)\n", 
-							inside_silence, pulseArray[i].bytes, i);
+						logmsg("SILENCE Increment [%ld] at %ld (%ld) [%gHz %gdBFs]\n", 
+							inside_silence, pulseArray[i].bytes, i, pulseArray[i].hertz, pulseArray[i].amplitude);
 
 					silence_amplitudes += pulseArray[i].amplitude;
 				}
@@ -299,8 +461,8 @@ long int DetectPulseTrainSequence(Pulses *pulseArray, double targetFrequency, lo
 						{
 							reset_tolerance = 0;
 							if(config->debugSync)
-								logmsg("reset Pulse No amplitude difference S: %g P: %g Compare: %d at %ld\n",
-										silence_amplitude, pulse_amplitude, config->types.pulseVolDiff, pulseArray[i].bytes);
+								logmsg("reset Pulse %ld No amplitude difference S: %g P: %g Compare: %d at %ld\n",
+										pulse_count, silence_amplitude, pulse_amplitude, config->types.pulseVolDiff, pulseArray[i].bytes);
 	
 							pulse_count = 0;
 							sequence_start = 0;
@@ -318,7 +480,8 @@ long int DetectPulseTrainSequence(Pulses *pulseArray, double targetFrequency, lo
 					{
 						reset_tolerance = 0;
 						if(config->debugSync)
-							logmsg("reset Pulse too much silence at %ld\n", pulseArray[i].bytes);
+							logmsg("reset Pulse %ld too much silence at %ld\n",
+								 pulse_count, pulseArray[i].bytes);
 	
 						pulse_count = 0;
 						sequence_start = 0;
@@ -327,32 +490,32 @@ long int DetectPulseTrainSequence(Pulses *pulseArray, double targetFrequency, lo
 					}
 				}
 			}
-			/*
-			else
-			{
-				if(inside_pulse >= config->types.pulseFrameMaxLen*factor || inside_silence >= config->types.pulseFrameMaxLen*factor)
-				{
-					reset_tolerance++;
-					if(reset_tolerance > config->syncTolerance)
-					{
-						reset_tolerance = 0;
-						if(config->debugSync)
-							logmsg("reset Pulse OB at %ld\n", pulseArray[i].bytes);
+			
+			//else
+			//{
+			//	if(inside_pulse >= config->types.pulseFrameMaxLen*factor || inside_silence >= config->types.pulseFrameMaxLen*factor)
+			//	{
+			//		reset_tolerance++;
+			//		if(reset_tolerance > config->syncTolerance)
+			//		{
+			//			reset_tolerance = 0;
+			//			if(config->debugSync)
+			//				logmsg("reset Pulse OB at %ld\n", pulseArray[i].bytes);
 	
-						pulse_count = 0;
-						sequence_start = 0;
-						inside_silence = 0;
-						inside_pulse = 0;
-					}
-				}
-			}
-			*/
+			//			pulse_count = 0;
+			//			sequence_start = 0;
+			//			inside_silence = 0;
+			//			inside_pulse = 0;
+			//		}
+			//	}
+			//}
 		}
 	}
 
 	*maxdetected = pulse_count;
 	return -1;
 }
+*/
 
 long int DetectPulseInternal(char *Samples, wav_hdr header, int factor, long int offset, int *maxdetected, double *MaxMagnitude, int *errcount, parameters *config)
 {
@@ -451,10 +614,11 @@ long int DetectPulseInternal(char *Samples, wav_hdr header, int factor, long int
 
 		// We use left channel by default, we don't know about channel imbalances yet
 		ProcessChunkForSyncPulse((int16_t*)buffer, loadedBlockSize/2, 
-				header.fmt.SamplesPerSec, &pulseArray[i], 
-				config->channel == 's' ? 'l' : config->channel, targetFrequency, config);
-			if(pulseArray[i].magnitude > *MaxMagnitude)
-				*MaxMagnitude = pulseArray[i].magnitude;
+			header.fmt.SamplesPerSec, &pulseArray[i], 
+			config->channel == 's' ? 'l' : config->channel, targetFrequency, config);
+
+		if(pulseArray[i].magnitude > *MaxMagnitude)
+			*MaxMagnitude = pulseArray[i].magnitude;
 		i++;
 	}
 
@@ -464,7 +628,7 @@ long int DetectPulseInternal(char *Samples, wav_hdr header, int factor, long int
 
 	for(i = startPos; i < TotalMS; i++)
 	{
-		if(pulseArray[i].hertz)
+		if(pulseArray[i].hertz)  // this can be zero if samples were zeroed
 			pulseArray[i].amplitude = CalculateAmplitude(pulseArray[i].magnitude, *MaxMagnitude);
 		else
 			pulseArray[i].amplitude = NO_AMPLITUDE;
@@ -476,7 +640,7 @@ long int DetectPulseInternal(char *Samples, wav_hdr header, int factor, long int
 		logmsg("===== Searching for %gHz at %ddBFS =======\n", targetFrequency, config->types.pulseMinVol);
 		for(i = startPos; i < TotalMS; i++)
 		{
-			if(pulseArray[i].amplitude >= config->types.pulseMinVol && pulseArray[i].hertz == targetFrequency)
+			//if(pulseArray[i].amplitude >= config->types.pulseMinVol && pulseArray[i].hertz == targetFrequency)
 				logmsg("B: %ld Hz: %g A: %g M: %g\n", 
 					pulseArray[i].bytes, 
 					pulseArray[i].hertz, 
@@ -718,7 +882,7 @@ long int DetectSignalStartInternal(char *Samples, wav_hdr header, int factor, lo
 
 	for(i = 0; i < TotalMS; i++)
 	{
-		if(pulseArray[i].hertz)
+		if(pulseArray[i].hertz)  // we can get this empty due to zeroes in samples
 			pulseArray[i].amplitude = CalculateAmplitude(pulseArray[i].magnitude, MaxMagnitude);
 		else
 			pulseArray[i].amplitude = NO_AMPLITUDE;

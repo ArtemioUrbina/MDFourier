@@ -369,6 +369,7 @@ typedef struct parameters_st {
 	double			averageLine;
 	int				outputCSV;
 	int				whiteBG;
+	int				smallFile;
 
 	double 			plotResX;
 	double			plotResY;

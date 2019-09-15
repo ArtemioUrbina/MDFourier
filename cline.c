@@ -112,7 +112,7 @@ void CleanParameters(parameters *config)
 	config->syncErrors = 0;
 	config->drawWindows = 0;
 	config->channelBalance = 1;
-	config->laxSync = 1;
+	config->laxSync = 0;
 	config->showPercent = 1;
 	config->ignoreFrameRateDiff = 0;
 	config->labelNames = 1;
@@ -120,6 +120,7 @@ void CleanParameters(parameters *config)
 	config->averageLine = 0.0;
 	config->outputCSV = 0;
 	config->whiteBG = 0;
+	config->smallFile = 0;
 
 	config->logScale = 1;
 	config->reverseCompare = 0;
