@@ -102,4 +102,7 @@ public:
 	afx_msg void OnBnClickedAverage();
 	afx_msg void OnBnClickedNoisefloor();
 	afx_msg void OnBnClickedMdwave();
+	CButton m_comparePAL;
+	afx_msg void OnBnClickedSwap();
+	CButton m_Swap_Bttn;
 };

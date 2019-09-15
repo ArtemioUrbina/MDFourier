@@ -47,6 +47,8 @@ void CMDFourierGUIDlg::DoDataExchange(CDataExchange* pDX)
 	DDX_Control(pDX, IDC_PROFILE, m_Profiles);
 	DDX_Control(pDX, IDC_NOISEFLOOR, m_NoiseFloor);
 	DDX_Control(pDX, IDC_MDWAVE, m_MDWave);
+	DDX_Control(pDX, IDC_VSPAL, m_comparePAL);
+	DDX_Control(pDX, IDC_SWAP, m_Swap_Bttn);
 }
 
 BEGIN_MESSAGE_MAP(CMDFourierGUIDlg, CDialogEx)
@@ -66,6 +68,7 @@ BEGIN_MESSAGE_MAP(CMDFourierGUIDlg, CDialogEx)
 	ON_BN_CLICKED(IDC_AVERAGE, &CMDFourierGUIDlg::OnBnClickedAverage)
 	ON_BN_CLICKED(IDC_NOISEFLOOR, &CMDFourierGUIDlg::OnBnClickedNoisefloor)
 	ON_BN_CLICKED(IDC_MDWAVE, &CMDFourierGUIDlg::OnBnClickedMdwave)
+	ON_BN_CLICKED(IDC_SWAP, &CMDFourierGUIDlg::OnBnClickedSwap)
 END_MESSAGE_MAP()
 
 
@@ -236,7 +239,7 @@ void CMDFourierGUIDlg::OnBnClickedOk()
 			return;
 		}
 		
-		while(fwscanf_s(file, L"%s\n", item, 2056) == 1)
+		while(fwscanf_s(file, L"%[^\n]\n", item, 2056) == 1)
 			elementCount++;
 
 		elements = new CString[elementCount];
@@ -248,7 +251,7 @@ void CMDFourierGUIDlg::OnBnClickedOk()
 
 		fseek(file, 0, SEEK_SET);
 
-		while(fwscanf_s(file, L"%s\n", item, 2056) == 1)
+		while(fwscanf_s(file, L"%[^\n]\n", item, 2056) == 1)
 			elements[elementPos++] = item;
 		
 		fclose(file);
@@ -295,6 +298,9 @@ void CMDFourierGUIDlg::ExecuteCommand(CString Compare)
 		command += " -S";
 	if(m_NoiseFloor.GetCheck() != BST_CHECKED)
 		command += " -F";
+
+	if(m_comparePAL.GetCheck() == BST_CHECKED)
+		command += " -K";
 
 	if(m_EnableExtraBttn.GetCheck() == BST_CHECKED)
 		m_ExtraParamsEditBox.GetWindowText(extraCmd);
@@ -347,7 +353,7 @@ void CMDFourierGUIDlg::OnTimer(UINT_PTR nIDEvent)
 
     if(!cDos.m_fAbortNow && cDos.m_fDone)
 	{
-		int		pos = 0;
+		int		pos = 0, errorFound = 0, finished = 0;
 		CString	searchFor = L"Results stored in ";
 
         KillTimer(IDT_DOS);
@@ -385,13 +391,22 @@ void CMDFourierGUIDlg::OnTimer(UINT_PTR nIDEvent)
 			cDos.Release();
 
 			MessageBox(errorMsg, L"Error from MDFourier");
+			errorFound = 1;
 		}
 
 		elementPos++;
 
 		if(elementPos < elementCount)
-			ExecuteCommand(elements[elementPos]);
+		{
+			if(!errorFound)
+				ExecuteCommand(elements[elementPos]);
+			else
+				finished = 1;
+		}
 		else
+			finished = 1;
+
+		if(finished)
 		{
 			elementCount = 0;
 			elementPos = 0;
@@ -608,8 +623,10 @@ void CMDFourierGUIDlg::ManageWindows(BOOL Enable)
 	m_MissBttn.EnableWindow(Enable);
 	m_SpectrBttn.EnableWindow(Enable);
 	m_NoiseFloor.EnableWindow(Enable);
+	m_comparePAL.EnableWindow(Enable);
 	m_AveragePlot_Bttn.EnableWindow(Enable);
 
+	m_Swap_Bttn.EnableWindow(Enable);
 	m_MDWave.EnableWindow(Enable);
 
 	m_Profiles.EnableWindow(Enable);
@@ -690,7 +707,7 @@ void CMDFourierGUIDlg::OnBnClickedMdwave()
 	profile = GetSelectedCommandLineValue(m_Profiles, COUNT_PROFILES);
 	if(profile == L"NONE")
 	{
-		MessageBox(L"Please select a profile for the comparison.", L"Action needed");
+		MessageBox(L"Please select a profile for the segmentation process.", L"Action needed");
 		return;
 	}
 
@@ -739,4 +756,24 @@ void CMDFourierGUIDlg::OnBnClickedMdwave()
 	m_ComparisonLbl.SetWindowText(L"");
 
 	cDos.Start(command);
+}
+
+
+void CMDFourierGUIDlg::OnBnClickedSwap()
+{
+	int pos = 0;
+	CString tmp;
+
+	tmp = m_ComparisonFile;
+	tmp.MakeLower();
+	pos = tmp.Find(L".mfl", 0);
+	if(pos != -1)
+		return;
+	
+	tmp = m_Reference;
+
+	m_Reference = m_ComparisonFile;
+	m_ReferenceLbl.SetWindowText(m_Reference); 
+	m_ComparisonFile = tmp;
+	m_ComparisonLbl.SetWindowText(m_ComparisonFile);
 }
