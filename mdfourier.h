@@ -155,10 +155,7 @@ typedef struct abd_st {
 	double			referenceLineCount;
 	double			comparisonMSPerFrame;
 	int				pulseSyncFreq;
-	int				pulseMinVol;
-	int				pulseVolDiff;
-	int				pulseFrameMinLen;
-	int				pulseFrameMaxLen;
+	int				pulseFrameLen;
 	int				pulseCount;
 
 	AudioBlockType	*typeArray;
@@ -345,13 +342,10 @@ typedef struct parameters_st {
 	double			referenceFramerate;
 	int				logScale;
 	int				debugSync;
-	int				syncTolerance;
-	int				syncErrors;
 	int				reverseCompare;
 	int				ZeroPad;
 	enum normalize	normType;
 	int				channelBalance;
-	int				laxSync;
 	int				showPercent;
 	int				noSyncProfile;
 	double			NoSyncTotalFrames;

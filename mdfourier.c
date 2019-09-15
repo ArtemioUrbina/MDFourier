@@ -757,15 +757,13 @@ int LoadFile(FILE *file, AudioSignal *Signal, parameters *config, char *fileName
 
 	if(GetFirstSyncIndex(config) != NO_INDEX)
 	{
-		double maxMag = 0;
-
 		if(config->clock)
 			clock_gettime(CLOCK_MONOTONIC, &start);
 
 		/* Find the start offset */
 		if(config->verbose)
 			logmsg(" - Sync pulse train: ");
-		Signal->startOffset = DetectPulse(Signal->Samples, Signal->header, &maxMag, config);
+		Signal->startOffset = DetectPulse(Signal->Samples, Signal->header,  config);
 		if(Signal->startOffset == -1)
 		{
 			logmsg("\nERROR: Starting pulse train was not detected.\n");
@@ -782,7 +780,7 @@ int LoadFile(FILE *file, AudioSignal *Signal, parameters *config, char *fileName
 
 			if(config->verbose)
 				logmsg(" to");
-			Signal->endOffset = DetectEndPulse(Signal->Samples, Signal->startOffset, Signal->header, &maxMag, config);
+			Signal->endOffset = DetectEndPulse(Signal->Samples, Signal->startOffset, Signal->header, config);
 			if(Signal->endOffset == -1)
 			{
 				logmsg("\nERROR: Trailing sync pulse train was not detected, aborting.\n");
@@ -1051,11 +1049,10 @@ int ProcessInternal(AudioSignal *Signal, long int element, long int pos, int *sy
 				GetBlockName(config, element),
 				BytesToSeconds(Signal->header.fmt.SamplesPerSec, internalSyncOffset)*1000.0,
 				BytesToFrames(Signal->header.fmt.SamplesPerSec, internalSyncOffset, config->referenceFramerate));
-			/*
+
 			if(config->verbose)
 					logmsg("  > Found at: %ld Previous: %ld Offset: %ld\n\tPulse Length: %ld Half Sync Length: %ld\n", 
 						pos + internalSyncOffset, pos, internalSyncOffset, pulseLength, syncLength/2);
-			*/
 
 			// skip sync tone-which is silence-taken from config file
 			internalSyncOffset += syncLength;
@@ -1096,11 +1093,9 @@ int ProcessInternal(AudioSignal *Signal, long int element, long int pos, int *sy
 					BytesToSeconds(Signal->header.fmt.SamplesPerSec, internalSyncOffset)*1000.0,
 					BytesToFrames(Signal->header.fmt.SamplesPerSec, internalSyncOffset, config->referenceFramerate));
 
-				/*
 				if(config->verbose)
-					logmsg("  > Found at: %ld Previous: %ld Offset: %ld\n\tPulse Length: %ld Half Sync Length: %ld\n", 
-						pos + internalSyncOffset - diffOffset, pos, diffOffset, pulseLength, halfSyncLength);
-				*/
+					logmsg("  > Found at: %ld Previous: %ld\n\tPulse Length: %ld Half Sync Length: %ld\n", 
+						pos + internalSyncOffset, pos, pulseLength, halfSyncLength);
 			}
 			
 			// skip the pulse real duration to sync perfectly

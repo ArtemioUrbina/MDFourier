@@ -313,7 +313,7 @@ int LoadProfile(parameters *config)
 	file = fopen(config->profileFile, "r");
 	if(!file)
 	{
-		logmsg("Could not load profile configuration file: \"%s\"\n", config->profileFile);
+		logmsg("ERROR: Could not load profile configuration file: \"%s\"\n", config->profileFile);
 		return 0;
 	}
 	
@@ -322,15 +322,15 @@ int LoadProfile(parameters *config)
 	if(strcmp(buffer, "MDFourierAudioBlockFile") == 0)
 	{
 		sscanf(lineBuffer, "%*s %s\n", buffer);
-		if(atof(buffer) < 1.4)
+		if(atof(buffer) < 1.5)
 		{
-			logmsg("Please update your profile files to version 1.4\n");
+			logmsg("ERROR: Please update your profile files to version 1.5\n");
 			fclose(file);
 			return 0;
 		}
-		if(atof(buffer) > 1.4)
+		if(atof(buffer) > 1.5)
 		{
-			logmsg("This executable can parse \"MDFourierAudioBlockFile 1.4\" files only\n");
+			logmsg("ERROR: This executable can parse \"MDFourierAudioBlockFile 1.4\" files only\n");
 			fclose(file);
 			return 0;
 		}
@@ -342,14 +342,14 @@ int LoadProfile(parameters *config)
 		sscanf(lineBuffer, "%*s %s\n", buffer);
 		if(atof(buffer) > 1.1)
 		{
-			logmsg("This executable can parse \"MDFourierNoSyncProfile 1.1\" files only\n");
+			logmsg("ERROR: This executable can parse \"MDFourierNoSyncProfile 1.1\" files only\n");
 			fclose(file);
 			return 0;
 		}
 		return(LoadAudioNoSyncProfile(file, config));
 	}
 
-	logmsg("Not an MD Fourier Audio Profile File\n");
+	logmsg("ERROR: Not an MD Fourier Audio Profile File\n");
 	fclose(file);
 	return 0;
 }
@@ -366,7 +366,7 @@ int LoadAudioBlockStructure(FILE *file, parameters *config)
 	readLine(lineBuffer, file);
 	if(sscanf(lineBuffer, "%255[^\n]\n", config->types.Name) != 1)
 	{
-		logmsg("Invalid Name '%s'\n", lineBuffer);
+		logmsg("ERROR: Invalid Name '%s'\n", lineBuffer);
 		fclose(file);
 		return 0;
 	}
@@ -375,72 +375,54 @@ int LoadAudioBlockStructure(FILE *file, parameters *config)
 	readLine(lineBuffer, file);
 	if(sscanf(lineBuffer, "%s %s\n", buffer, buffer2) != 2)
 	{
-		logmsg("Invalid Frame Rate Adjustment '%s'\n", lineBuffer);
+		logmsg("ERROR: Invalid Frame Rate Adjustment '%s'\n", lineBuffer);
 		fclose(file);
 		return 0;
 	}
 	config->types.referenceMSPerFrame = strtod(buffer, NULL);
 	if(!config->types.referenceMSPerFrame)
 	{
-		logmsg("Invalid line count Adjustment '%s'\n", lineBuffer);
+		logmsg("ERROR: Invalid line count Adjustment '%s'\n", lineBuffer);
 		fclose(file);
 		return 0;
 	}
 	config->types.referenceLineCount = strtod(buffer2, NULL);
 	if(!config->types.referenceLineCount)
 	{
-		logmsg("Invalid line count Adjustment '%s'\n", lineBuffer);
+		logmsg("ERROR: Invalid line count Adjustment '%s'\n", lineBuffer);
 		fclose(file);
 		return 0;
 	}
 
 	/* Line 4: Sync Info */
 	readLine(lineBuffer, file);
-	if(sscanf(lineBuffer, "%d %d %d %d %d %d\n", 
+	if(sscanf(lineBuffer, "%d %d %d\n", 
 		&config->types.pulseSyncFreq,
-		&config->types.pulseMinVol,
-		&config->types.pulseVolDiff,
-		&config->types.pulseFrameMinLen,
-		&config->types.pulseFrameMaxLen,
-		&config->types.pulseCount) != 6)
+		&config->types.pulseFrameLen,
+		&config->types.pulseCount) != 3)
 	{
-		logmsg("Invalid Pulse Parameters '%s'\n", lineBuffer);
+		logmsg("ERROR: Invalid Pulse Parameters '%s'\n", lineBuffer);
 		fclose(file);
 		return 0;
 	}
 	
 	if(!config->types.pulseSyncFreq)
 	{
-		logmsg("Invalid Pulse Sync Frequency:\n%s\n", lineBuffer);
+		logmsg("ERROR: Invalid Pulse Sync Frequency:\n%s\n", lineBuffer);
 		fclose(file);
 		return 0;
 	}
 
-	if(!config->types.pulseMinVol)
+	if(!config->types.pulseFrameLen)
 	{
-		logmsg("Invalid Pulse Minimum Amplitude:\n%s\n", lineBuffer);
-		fclose(file);
-		return 0;
-	}
-
-	if(!config->types.pulseVolDiff)
-	{
-		logmsg("Invalid Pulse Amplitude Difference:\n%s\n", lineBuffer);
-		fclose(file);
-		return 0;
-	}
-
-	if(!config->types.pulseFrameMinLen || !config->types.pulseFrameMaxLen ||
-		config->types.pulseFrameMinLen >= config->types.pulseFrameMaxLen)
-	{
-		logmsg("Invalid Pulse Min Max Range:\n%s\n", lineBuffer);
+		logmsg("ERROR: Invalid Pulse Length:\n%s\n", lineBuffer);
 		fclose(file);
 		return 0;
 	}
 
 	if(!config->types.pulseCount)
 	{
-		logmsg("Invalid Pulse Count value:\n%s\n", lineBuffer);
+		logmsg("ERROR: Invalid Pulse Count value:\n%s\n", lineBuffer);
 		fclose(file);
 		return 0;
 	}
@@ -450,14 +432,14 @@ int LoadAudioBlockStructure(FILE *file, parameters *config)
 	config->types.typeCount = atoi(buffer);
 	if(!config->types.typeCount)
 	{
-		logmsg("Invalid type count '%s'\n", buffer);
+		logmsg("ERROR: Invalid type count '%s'\n", buffer);
 		fclose(file);
 		return 0;
 	}
 	config->types.typeArray = (AudioBlockType*)malloc(sizeof(AudioBlockType)*config->types.typeCount);
 	if(!config->types.typeArray)
 	{
-		logmsg("Not enough memory\n");
+		logmsg("ERROR: Not enough memory\n");
 		fclose(file);
 		return 0;
 	}
@@ -470,14 +452,14 @@ int LoadAudioBlockStructure(FILE *file, parameters *config)
 		readLine(lineBuffer, file);
 		if(sscanf(lineBuffer, "%s ", config->types.typeArray[i].typeName) != 1)
 		{
-			logmsg("Invalid Block Name %s\n", config->types.typeArray[i].typeName);
+			logmsg("ERROR: Invalid Block Name %s\n", config->types.typeArray[i].typeName);
 			fclose(file);
 			return 0;
 		}
 
 		if(sscanf(lineBuffer, "%*s %c ", &type) != 1)
 		{
-			logmsg("Invalid Block Type %c\n", type);
+			logmsg("ERROR: Invalid Block Type %c\n", type);
 			fclose(file);
 			return 0;
 		}
@@ -502,7 +484,7 @@ int LoadAudioBlockStructure(FILE *file, parameters *config)
 			default:
 				if(sscanf(lineBuffer, "%*s %d ", &config->types.typeArray[i].type) != 1)
 				{
-					logmsg("Invalid MD Fourier Block ID\n", config->types.typeArray[i].type);
+					logmsg("ERROR: Invalid MD Fourier Block ID\n", config->types.typeArray[i].type);
 					fclose(file);
 					return 0;
 				}
@@ -525,7 +507,7 @@ int LoadAudioBlockStructure(FILE *file, parameters *config)
 				&config->types.typeArray[i].syncTone,
 				&config->types.typeArray[i].syncLen) != 6)
 			{
-				logmsg("Invalid MD Fourier Audio Blocks File (Element Count, frames, color, channel): %s\n", lineBuffer);
+				logmsg("ERROR: Invalid MD Fourier Audio Blocks File (Element Count, frames, color, channel): %s\n", lineBuffer);
 				fclose(file);
 				return 0;
 			}
@@ -538,7 +520,7 @@ int LoadAudioBlockStructure(FILE *file, parameters *config)
 				&config->types.typeArray[i].color [0],
 				&config->types.typeArray[i].channel) != 4)
 			{
-				logmsg("Invalid MD Fourier Audio Blocks File (Element Count, frames, color, channel): %s\n", lineBuffer);
+				logmsg("ERROR: Invalid MD Fourier Audio Blocks File (Element Count, frames, color, channel): %s\n", lineBuffer);
 				fclose(file);
 				return 0;
 			}
@@ -546,21 +528,21 @@ int LoadAudioBlockStructure(FILE *file, parameters *config)
 
 		if(!config->types.typeArray[i].elementCount)
 		{
-			logmsg("Element Count must have a value > 0\n");
+			logmsg("ERROR: Element Count must have a value > 0\n");
 			fclose(file);
 			return 0;
 		}
 
 		if(!config->types.typeArray[i].frames)
 		{
-			logmsg("Frames must have a value > 0\n");
+			logmsg("ERROR: Frames must have a value > 0\n");
 			fclose(file);
 			return 0;
 		}
 	
 		if(MatchColor(config->types.typeArray[i].color) == COLOR_NONE)
 		{
-			logmsg("Unrecognized color \"%s\" aborting\n", 
+			logmsg("ERROR: Unrecognized color \"%s\" aborting\n", 
 				config->types.typeArray[i].color);
 			fclose(file);
 			return 0;
@@ -569,7 +551,7 @@ int LoadAudioBlockStructure(FILE *file, parameters *config)
 
 	if(insideInternal)
 	{
-		logmsg("Internal sync detection block didn't have a closing section\n");
+		logmsg("ERROR: Internal sync detection block didn't have a closing section\n");
 		return 0;
 	}
 
@@ -577,7 +559,7 @@ int LoadAudioBlockStructure(FILE *file, parameters *config)
 	config->types.totalChunks = GetTotalAudioBlocks(config);
 	if(!config->types.totalChunks)
 	{
-		logmsg("Total Audio Blocks should be at least 1\n");
+		logmsg("ERROR: Total Audio Blocks should be at least 1\n");
 		return 0;
 	}
 

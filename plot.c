@@ -656,18 +656,10 @@ void DrawLabelsMDF(PlotFile *plot, char *Gname, char *GType, int type, parameter
 
 	if(config->noSyncProfile && type < PLOT_SINGLE_REF)
 	{
-		pl_fmove_r(plot->plotter, config->plotResX-config->plotResX/5, -1*config->plotResY/2+config->plotResY/20+5*BAR_HEIGHT);
+		pl_fmove_r(plot->plotter, config->plotResX-config->plotResX/5, -1*config->plotResY/2+config->plotResY/20+4*BAR_HEIGHT);
 		pl_pencolor_r(plot->plotter, 0xeeee, 0xeeee, 0);
 		pl_alabel_r(plot->plotter, 'l', 'l', "WARNING: NO SYNC profile, PLEASE DISREGARD");
 	}
-
-	if(config->syncErrors)
-	{
-		pl_fmove_r(plot->plotter, config->plotResX-config->plotResX/5, -1*config->plotResY/2+config->plotResY/200+5*BAR_HEIGHT);
-		pl_pencolor_r(plot->plotter, 0xeeee, 0xeeee, 0);
-		pl_alabel_r(plot->plotter, 'l', 'l', "WARNING: Imperfect sync used");
-	}
-
 	if(config->channel != 's')
 	{
 		pl_fmove_r(plot->plotter, config->plotResX-config->plotResX/10, config->plotResY/2-config->plotResY/30-BAR_HEIGHT);

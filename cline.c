@@ -108,11 +108,8 @@ void CleanParameters(parameters *config)
 	config->referenceFramerate = 0;
 	config->ZeroPad = 0;
 	config->debugSync = 0;
-	config->syncTolerance = 0;
-	config->syncErrors = 0;
 	config->drawWindows = 0;
 	config->channelBalance = 1;
-	config->laxSync = 0;
 	config->showPercent = 1;
 	config->ignoreFrameRateDiff = 0;
 	config->labelNames = 1;
@@ -153,10 +150,7 @@ void CleanParameters(parameters *config)
 	config->types.referenceMSPerFrame = 0;
 	config->types.comparisonMSPerFrame = 0;
 	config->types.pulseSyncFreq = 8820;
-	config->types.pulseMinVol = -25;
-	config->types.pulseVolDiff = 25;
-	config->types.pulseFrameMinLen = 14;
-	config->types.pulseFrameMaxLen = 18;
+	config->types.pulseFrameLen = 14;
 	config->types.pulseCount = 10;
 	config->types.typeArray = NULL;
 	config->types.typeCount = 0;
@@ -179,7 +173,7 @@ int commandline(int argc , char *argv[], parameters *config)
 	
 	CleanParameters(config);
 
-	while ((c = getopt (argc, argv, "hxjzmviklygLHo:s:e:f:t:p:a:w:r:c:d:P:SDMNRCFAWVXDBIn:Y:K")) != -1)
+	while ((c = getopt (argc, argv, "hxjzmviklygLHo:s:e:f:t:p:a:w:r:c:d:P:SDMNRCFAWVDBIn:K")) != -1)
 	switch (c)
 	  {
 	  case 'h':
@@ -209,14 +203,6 @@ int commandline(int argc , char *argv[], parameters *config)
 		break;
 	  case 'y':
 		config->debugSync = 1;
-		break;
-	  case 'Y':
-		config->syncTolerance = atoi(optarg);
-		if(config->syncTolerance < 0 || config->syncTolerance > 100)
-			config->syncTolerance = 100;
-		break;
-	  case 'X':
-		config->laxSync = 0;
 		break;
 	  case 'K':
 		config->comparePAL = 1;
