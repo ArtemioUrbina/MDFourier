@@ -35,11 +35,11 @@ typedef struct pulses_st {
 	long int bytes;
 } Pulses;
 
-long int DetectPulse(char *AllSamples, wav_hdr header, parameters *config);
-long int DetectEndPulse(char *AllSamples, long int startpulse, wav_hdr header, parameters *config);
-long int DetectPulseInternal(char *Samples, wav_hdr header, int factor, long int offset, int *maxDetected, parameters *config);
+long int DetectPulse(char *AllSamples, wav_hdr header, int role, parameters *config);
+long int DetectEndPulse(char *AllSamples, long int startpulse, wav_hdr header, int role, parameters *config);
+long int DetectPulseInternal(char *Samples, wav_hdr header, int factor, long int offset, int *maxDetected, int role, parameters *config);
 double ProcessChunkForSyncPulse(int16_t *samples, size_t size, long samplerate, Pulses *pulse, char channel, parameters *config);
-long int DetectPulseTrainSequence(Pulses *pulseArray, double targetFrequency, long int TotalMS, int factor, int *maxdetected, long int start, parameters *config);
+long int DetectPulseTrainSequence(Pulses *pulseArray, double targetFrequency, long int TotalMS, int factor, int *maxdetected, long int start, int role, parameters *config);
 
 long int DetectSignalStart(char *AllSamples, wav_hdr header, long int offset, int syncKnow, long int *endPulse, parameters *config);
 long int DetectSignalStartInternal(char *Samples, wav_hdr header, int factor, long int offset, int syncKnow, int *maxdetected, long int *endPulse, parameters *config);

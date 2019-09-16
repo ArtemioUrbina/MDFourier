@@ -49,7 +49,7 @@
 
 #include "incbeta.h"
 
-#define MDVERSION "0.953 BETA TEST"
+#define MDVERSION "0.954"
 
 #define MAX_FREQ_COUNT		100000 	/* Number of frequencies to compare(MAX) */
 #define FREQ_COUNT			2000	/* Number of frequencies to compare(default) */
@@ -136,6 +136,9 @@ typedef struct max_mag {
 	long int	block;
 } MaxMagn;
 
+#define NTSC	0
+#define PAL		1
+
 typedef struct abt_st {
 	char		typeName[128];
 	int 		type;
@@ -147,16 +150,19 @@ typedef struct abt_st {
 	double		syncLen;
 } AudioBlockType;
 
+typedef struct sync_st {
+	double			MSPerFrame;
+	double			LineCount;
+	int				pulseSyncFreq;
+	int				pulseFrameLen;
+	int				pulseCount;
+} VideoBlockDef;
+
 typedef struct abd_st {
 	char			Name[256];
 	int				totalChunks;
 	int				regularChunks;
-	double			referenceMSPerFrame;
-	double			referenceLineCount;
-	double			comparisonMSPerFrame;
-	int				pulseSyncFreq;
-	int				pulseFrameLen;
-	int				pulseCount;
+	VideoBlockDef	SyncFormat[2];
 
 	AudioBlockType	*typeArray;
 	int				typeCount;
@@ -375,7 +381,8 @@ typedef struct parameters_st {
 	double			refNoiseMin;
 	double			refNoiseMax;
 
-	int				comparePAL;
+	int				videoFormatRef;
+	int				videoFormatCom;
 
 #ifdef MDWAVE
 	int				maxBlanked;

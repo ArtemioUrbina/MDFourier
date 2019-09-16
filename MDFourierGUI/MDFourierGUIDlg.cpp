@@ -47,8 +47,9 @@ void CMDFourierGUIDlg::DoDataExchange(CDataExchange* pDX)
 	DDX_Control(pDX, IDC_PROFILE, m_Profiles);
 	DDX_Control(pDX, IDC_NOISEFLOOR, m_NoiseFloor);
 	DDX_Control(pDX, IDC_MDWAVE, m_MDWave);
-	DDX_Control(pDX, IDC_VSPAL, m_comparePAL);
 	DDX_Control(pDX, IDC_SWAP, m_Swap_Bttn);
+	DDX_Control(pDX, IDC_REF_SYNC, m_RefSync);
+	DDX_Control(pDX, IDC_COM_SYNC, m_ComSync);
 }
 
 BEGIN_MESSAGE_MAP(CMDFourierGUIDlg, CDialogEx)
@@ -267,14 +268,16 @@ void CMDFourierGUIDlg::OnBnClickedOk()
 void CMDFourierGUIDlg::ExecuteCommand(CString Compare)
 {
 	CString	command, extraCmd;
-	CString	window, adjust, profile;
+	CString	window, adjust, profile, syncFormatRef, syncFormatComp;
 
 	profile = GetSelectedCommandLineValue(m_Profiles, COUNT_PROFILES);
 	window = GetSelectedCommandLineValue(m_WindowTypeSelect, COUNT_WINDOWS);
 	adjust = GetSelectedCommandLineValue(m_CurveAdjustSelect, COUNT_CURVES);
+	syncFormatRef = GetSelectedCommandLineValue(m_RefSync, COUNT_SYNCTYPE);
+	syncFormatComp = GetSelectedCommandLineValue(m_ComSync, COUNT_SYNCTYPE);
 
-	command.Format(L"mdfourier.exe -P \"%s\" -r \"%s\" -c \"%s\" -w %s -o %s -l", 
-			profile, m_Reference, Compare, window, adjust);
+	command.Format(L"mdfourier.exe -P \"%s\" -r \"%s\" -c \"%s\" -w %s -o %s -Y %s -Z %s -l", 
+			profile, m_Reference, Compare, window, adjust, syncFormatRef, syncFormatComp);
 
 	if(m_AlignFFTW.GetCheck() == BST_CHECKED)
 		command += " -z";
@@ -298,9 +301,6 @@ void CMDFourierGUIDlg::ExecuteCommand(CString Compare)
 		command += " -S";
 	if(m_NoiseFloor.GetCheck() != BST_CHECKED)
 		command += " -F";
-
-	if(m_comparePAL.GetCheck() == BST_CHECKED)
-		command += " -K";
 
 	if(m_EnableExtraBttn.GetCheck() == BST_CHECKED)
 		m_ExtraParamsEditBox.GetWindowText(extraCmd);
@@ -498,7 +498,6 @@ void CMDFourierGUIDlg::FillComboBoxes()
 	InsertValueInCombo(L"Flattop", L"f", WindowConvert[2], m_WindowTypeSelect);
 	InsertValueInCombo(L"Hann", L"h", WindowConvert[3], m_WindowTypeSelect);
 	InsertValueInCombo(L"Hamming", L"m", WindowConvert[4], m_WindowTypeSelect);
-
 	m_WindowTypeSelect.SetCurSel(1);
 
 	InsertValueInCombo(L"None", L"0", CurveConvert[0], m_CurveAdjustSelect);
@@ -507,8 +506,15 @@ void CMDFourierGUIDlg::FillComboBoxes()
 	InsertValueInCombo(L"Neutral", L"3", CurveConvert[3], m_CurveAdjustSelect);
 	InsertValueInCombo(L"Low", L"4", CurveConvert[4], m_CurveAdjustSelect);
 	InsertValueInCombo(L"Dimm", L"5", CurveConvert[5], m_CurveAdjustSelect);
-
 	m_CurveAdjustSelect.SetCurSel(3);
+
+	InsertValueInCombo(L"NTSC", L"0", SyncType[0], m_RefSync);
+	InsertValueInCombo(L"PAL", L"1", SyncType[1], m_RefSync);
+	m_RefSync.SetCurSel(0);
+
+	InsertValueInCombo(L"NTSC", L"0", SyncType[0], m_ComSync);
+	InsertValueInCombo(L"PAL", L"1", SyncType[1], m_ComSync);
+	m_ComSync.SetCurSel(0);
 }
 
 int CMDFourierGUIDlg::FindProfiles(CString sPath, CString pattern)
@@ -623,11 +629,13 @@ void CMDFourierGUIDlg::ManageWindows(BOOL Enable)
 	m_MissBttn.EnableWindow(Enable);
 	m_SpectrBttn.EnableWindow(Enable);
 	m_NoiseFloor.EnableWindow(Enable);
-	m_comparePAL.EnableWindow(Enable);
 	m_AveragePlot_Bttn.EnableWindow(Enable);
 
 	m_Swap_Bttn.EnableWindow(Enable);
 	m_MDWave.EnableWindow(Enable);
+
+	m_RefSync.EnableWindow(Enable);
+	m_ComSync.EnableWindow(Enable);
 
 	m_Profiles.EnableWindow(Enable);
 }
@@ -698,7 +706,7 @@ void CMDFourierGUIDlg::OnBnClickedMdwave()
 {
 	CString profile;
 	CString	command, extraCmd;
-	CString	window;
+	CString	window, syncFormat;
 
 	UpdateWindow();
 
@@ -725,9 +733,10 @@ void CMDFourierGUIDlg::OnBnClickedMdwave()
 
 	profile = GetSelectedCommandLineValue(m_Profiles, COUNT_PROFILES);
 	window = GetSelectedCommandLineValue(m_WindowTypeSelect, COUNT_WINDOWS);
+	syncFormat = GetSelectedCommandLineValue(m_RefSync, COUNT_SYNCTYPE);
 
-	command.Format(L"mdwave.exe -P \"%s\" -r \"%s\" -w %s -l -c", 
-			profile, m_Reference, window);
+	command.Format(L"mdwave.exe -P \"%s\" -r \"%s\" -w %s -Y %s -l -c", 
+			profile, m_Reference, window, syncFormat);
 
 	if(m_AlignFFTW.GetCheck() == BST_CHECKED)
 		command += " -z";
@@ -754,10 +763,10 @@ void CMDFourierGUIDlg::OnBnClickedMdwave()
 
 	m_OutputCtrl.SetWindowText(L"");
 	m_ComparisonLbl.SetWindowText(L"");
+	m_ComparisonFile = L"";
 
 	cDos.Start(command);
 }
-
 
 void CMDFourierGUIDlg::OnBnClickedSwap()
 {

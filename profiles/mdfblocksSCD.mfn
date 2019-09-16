@@ -1,7 +1,7 @@
 MDFourierAudioBlockFile 1.5
 Mega Drive/Sega Genesis + CD-ROM [new]
-16.688 262
-8820 14 10
+NTSC 16.688 262 8820 14 10
+PAL 20 313 8820 17 10
 17
 Sync s 1 20 red s
 Silence n 1 20 gray s

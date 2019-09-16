@@ -94,7 +94,7 @@ void CalcuateFrequencyBrackets(AudioSignal *Signal, parameters *config)
 		gridNoise = fabs(60.0 - roundFloat(1000.0/Signal->framerate)) < 5 ? 60.0 : 50.0;
 		Signal->gridFrequency = FindFrequencyBracket(gridNoise, Signal->Blocks[index].fftwValues.size, Signal->header.fmt.SamplesPerSec);
 
-		scanNoise = CalculateScanRate(Signal)*GetLineCount(config);
+		scanNoise = CalculateScanRate(Signal)*(double)GetLineCount(Signal->role, config);
 		Signal->scanrateFrequency = FindFrequencyBracket(scanNoise, Signal->Blocks[index].fftwValues.size, Signal->header.fmt.SamplesPerSec);
 
 		if(config->verbose)
@@ -340,7 +340,7 @@ int LoadProfile(parameters *config)
 	if(strcmp(buffer, "MDFourierNoSyncProfile") == 0)
 	{
 		sscanf(lineBuffer, "%*s %s\n", buffer);
-		if(atof(buffer) > 1.1)
+		if(atof(buffer) != 1.1)
 		{
 			logmsg("ERROR: This executable can parse \"MDFourierNoSyncProfile 1.1\" files only\n");
 			fclose(file);
@@ -356,9 +356,9 @@ int LoadProfile(parameters *config)
 
 int LoadAudioBlockStructure(FILE *file, parameters *config)
 {
-	int		insideInternal = 0;
+	int		insideInternal = 0, i = 0;
 	char	lineBuffer[LINE_BUFFER_SIZE];
-	char	buffer[PARAM_BUFFER_SIZE], buffer2[PARAM_BUFFER_SIZE];
+	char	buffer[PARAM_BUFFER_SIZE], buffer2[PARAM_BUFFER_SIZE], buffer3[PARAM_BUFFER_SIZE];
 
 	config->noSyncProfile = 0;
 
@@ -371,62 +371,58 @@ int LoadAudioBlockStructure(FILE *file, parameters *config)
 		return 0;
 	}
 
-	/* Line 3: Frame rates */
-	readLine(lineBuffer, file);
-	if(sscanf(lineBuffer, "%s %s\n", buffer, buffer2) != 2)
+	/* Line 3: NTSC and PAL Frame rates and Sync */
+	for(i = 0; i < 2; i++)
 	{
-		logmsg("ERROR: Invalid Frame Rate Adjustment '%s'\n", lineBuffer);
-		fclose(file);
-		return 0;
-	}
-	config->types.referenceMSPerFrame = strtod(buffer, NULL);
-	if(!config->types.referenceMSPerFrame)
-	{
-		logmsg("ERROR: Invalid line count Adjustment '%s'\n", lineBuffer);
-		fclose(file);
-		return 0;
-	}
-	config->types.referenceLineCount = strtod(buffer2, NULL);
-	if(!config->types.referenceLineCount)
-	{
-		logmsg("ERROR: Invalid line count Adjustment '%s'\n", lineBuffer);
-		fclose(file);
-		return 0;
-	}
-
-	/* Line 4: Sync Info */
-	readLine(lineBuffer, file);
-	if(sscanf(lineBuffer, "%d %d %d\n", 
-		&config->types.pulseSyncFreq,
-		&config->types.pulseFrameLen,
-		&config->types.pulseCount) != 3)
-	{
-		logmsg("ERROR: Invalid Pulse Parameters '%s'\n", lineBuffer);
-		fclose(file);
-		return 0;
-	}
+		readLine(lineBuffer, file);
+		if(sscanf(lineBuffer, "%s %s %s %d %d %d\n", 
+								buffer, buffer2, buffer3,
+								&config->types.SyncFormat[i].pulseSyncFreq,
+								&config->types.SyncFormat[i].pulseFrameLen,
+								&config->types.SyncFormat[i].pulseCount) != 6)
+		{
+			logmsg("ERROR: Invalid Frame Rate Adjustment '%s'\n", lineBuffer);
+			fclose(file);
+			return 0;
+		}
+		config->types.SyncFormat[i].MSPerFrame = strtod(buffer2, NULL);
+		if(!config->types.SyncFormat[i].MSPerFrame)
+		{
+			logmsg("ERROR: Invalid line count Adjustment '%s'\n", lineBuffer);
+			fclose(file);
+			return 0;
+		}
+		config->types.SyncFormat[i].LineCount = strtod(buffer3, NULL);
+		if(!config->types.SyncFormat[i].LineCount)
+		{
+			logmsg("ERROR: Invalid line count Adjustment '%s'\n", lineBuffer);
+			fclose(file);
+			return 0;
+		}
 	
-	if(!config->types.pulseSyncFreq)
-	{
-		logmsg("ERROR: Invalid Pulse Sync Frequency:\n%s\n", lineBuffer);
-		fclose(file);
-		return 0;
+		if(!config->types.SyncFormat[i].pulseSyncFreq)
+		{
+			logmsg("ERROR: Invalid Pulse Sync Frequency:\n%s\n", lineBuffer);
+			fclose(file);
+			return 0;
+		}
+	
+		if(!config->types.SyncFormat[i].pulseFrameLen)
+		{
+			logmsg("ERROR: Invalid Pulse Length:\n%s\n", lineBuffer);
+			fclose(file);
+			return 0;
+		}
+	
+		if(!config->types.SyncFormat[i].pulseCount)
+		{
+			logmsg("ERROR: Invalid Pulse Count value:\n%s\n", lineBuffer);
+			fclose(file);
+			return 0;
+		}
 	}
 
-	if(!config->types.pulseFrameLen)
-	{
-		logmsg("ERROR: Invalid Pulse Length:\n%s\n", lineBuffer);
-		fclose(file);
-		return 0;
-	}
-
-	if(!config->types.pulseCount)
-	{
-		logmsg("ERROR: Invalid Pulse Count value:\n%s\n", lineBuffer);
-		fclose(file);
-		return 0;
-	}
-
+	/* Line 5: Type count */
 	readLine(lineBuffer, file);
 	sscanf(lineBuffer, "%s\n", buffer);
 	config->types.typeCount = atoi(buffer);
@@ -445,6 +441,7 @@ int LoadAudioBlockStructure(FILE *file, parameters *config)
 	}
 	memset(config->types.typeArray, 0, sizeof(AudioBlockType));
 
+	/* Line 6 and beyond: types */
 	for(int i = 0; i < config->types.typeCount; i++)
 	{
 		char type = 0;
@@ -582,9 +579,9 @@ int LoadAudioNoSyncProfile(FILE *file, parameters *config)
 	}
 
 	sscanf(lineBuffer, "%*s %s\n", buffer);
-	if(atof(buffer) > 1.0)
+	if(atof(buffer) != 1.1)
 	{
-		logmsg("This executable can parse 1.0 files only\n");
+		logmsg("This executable can parse 1.1 files only\n");
 		fclose(file);
 		return 0;
 	}
@@ -604,8 +601,8 @@ int LoadAudioNoSyncProfile(FILE *file, parameters *config)
 		fclose(file);
 		return 0;
 	}
-	config->types.referenceMSPerFrame = strtod(buffer, NULL);
-	if(!config->types.referenceMSPerFrame)
+	config->types.SyncFormat[0].MSPerFrame = strtod(buffer, NULL);
+	if(!config->types.SyncFormat[0].MSPerFrame)
 	{
 		logmsg("Invalid Reference Frame Rate Adjustment '%s'\n", lineBuffer);
 		fclose(file);
@@ -619,8 +616,8 @@ int LoadAudioNoSyncProfile(FILE *file, parameters *config)
 		fclose(file);
 		return 0;
 	}
-	config->types.comparisonMSPerFrame = strtod(buffer, NULL);
-	if(!config->types.comparisonMSPerFrame)
+	config->types.SyncFormat[1].MSPerFrame = strtod(buffer, NULL);
+	if(!config->types.SyncFormat[1].MSPerFrame)
 	{
 		logmsg("Invalid Comparison Frame Rate Adjustment '%s'\n", lineBuffer);
 		fclose(file);
@@ -752,27 +749,20 @@ double GetMSPerFrame(AudioSignal *Signal, parameters *config)
 {
 	if(!config)
 		return 0;
-
-	if(!Signal || !config->noSyncProfile)
-		return(roundFloat(config->types.referenceMSPerFrame));
-	if(Signal->role == ROLE_COMP)
-		return(roundFloat(config->types.comparisonMSPerFrame));
-	if(Signal->role == NO_ROLE)
-		logmsg("WARNING: No role assigned, using Reference Frame Rate\n");
-	return(roundFloat(config->types.referenceMSPerFrame));
+	if(!Signal)
+	{
+		logmsg("ERROR: Null Signal for GetMSPerFrame\n");
+		return 0;
+	}
+	return(roundFloat(getMSPerFrameInternal(Signal->role, config)));
 }
 
-double GetLineCount(parameters *config)
+double GetMSPerFrameRole(int role, parameters *config)
 {
 	if(!config)
 		return 0;
 
-	return(roundFloat(config->types.referenceLineCount));
-}
-
-double GetPulseSyncFreq(parameters *config)
-{
-	return(config->types.pulseSyncFreq);
+	return(roundFloat(getMSPerFrameInternal(role, config)));
 }
 
 double GetLowerFrameRate(double framerateA, double framerateB)
@@ -2292,6 +2282,51 @@ int FindMissingTypeTotals(int type, long int *cntFreqBlkDiff, long int *cmpFreqB
 	}
 
 	return 1;
+}
+
+int getPulseCount(int role, parameters *config)
+{
+	if(role == ROLE_REF)
+		return(config->types.SyncFormat[config->videoFormatRef].pulseCount);
+	else
+		return(config->types.SyncFormat[config->videoFormatCom].pulseCount);
+}
+
+int getPulseFrameLen(int role, parameters *config)
+{
+	if(role == ROLE_REF)
+		return(config->types.SyncFormat[config->videoFormatRef].pulseFrameLen);
+	else
+		return(config->types.SyncFormat[config->videoFormatCom].pulseFrameLen);
+}
+
+int GetPulseSyncFreq(int role, parameters *config)
+{
+	if(role == ROLE_REF)
+		return(config->types.SyncFormat[config->videoFormatRef].pulseSyncFreq);
+	else
+		return(config->types.SyncFormat[config->videoFormatCom].pulseSyncFreq);
+}
+
+int GetLineCount(int role, parameters *config)
+{
+	if(role == ROLE_REF)
+		return(config->types.SyncFormat[config->videoFormatRef].LineCount);
+	else
+		return(config->types.SyncFormat[config->videoFormatCom].LineCount);
+}
+
+double getMSPerFrameInternal(int role, parameters *config)
+{
+	if(role == NO_ROLE)
+	{
+		logmsg("WARNING: No role assigned, using Reference Frame Rate\n");
+		return(config->types.SyncFormat[config->videoFormatRef].MSPerFrame);
+	}	
+	if(role == ROLE_REF)
+		return(config->types.SyncFormat[config->videoFormatRef].MSPerFrame);
+	else
+		return(config->types.SyncFormat[config->videoFormatCom].MSPerFrame);
 }
 
 /*

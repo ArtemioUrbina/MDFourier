@@ -57,13 +57,10 @@ int GetBlockType(parameters *config, int pos);
 char *GetBlockColor(parameters *config, int pos);
 char *GetTypeColor(parameters *config, int type);
 char *GetTypeName(parameters *config, int type);
-double GetMSPerFrame(AudioSignal *Signal, parameters *config);
-double GetLineCount(parameters *config);
 void ReleaseAudioBlockStructure(parameters *config);
 void PrintAudioBlocks(parameters *config);
 long int GetLastSyncFrameOffset(wav_hdr header, parameters *config);
 long int GetBlockFrameOffset(int block, parameters *config);
-double GetPulseSyncFreq(parameters *config);
 long int GetByteSizeDifferenceByFrameRate(double framerate, long int frames, long int samplerate, parameters *config);
 int GetFirstSyncIndex(parameters *config);
 int GetLastSyncIndex(parameters *config);
@@ -123,5 +120,13 @@ double FindDifferenceAverage(parameters *config);
 void SubstractDifferenceAverage(parameters *config, double average);
 int FindDifferenceTypeTotals(int type, long int *cntAmplBlkDiff, long int *cmpAmplBlkDiff, parameters *config);
 int FindMissingTypeTotals(int type, long int *cntFreqBlkDiff, long int *cmpFreqBlkDiff, parameters *config);
+
+int GetPulseSyncFreq(int role, parameters *config);
+int getPulseCount(int role, parameters *config);
+int getPulseFrameLen(int role, parameters *config);
+double getMSPerFrameInternal(int role, parameters *config);
+int GetLineCount(int role, parameters *config);
+double GetMSPerFrame(AudioSignal *Signal, parameters *config);
+double GetMSPerFrameRole(int role, parameters *config);
 
 #endif

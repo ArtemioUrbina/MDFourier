@@ -118,6 +118,8 @@ void CleanParameters(parameters *config)
 	config->outputCSV = 0;
 	config->whiteBG = 0;
 	config->smallFile = 0;
+	config->videoFormatRef = NTSC;
+	config->videoFormatCom = NTSC;
 
 	config->logScale = 1;
 	config->reverseCompare = 0;
@@ -147,11 +149,8 @@ void CleanParameters(parameters *config)
 	
 	config->types.totalChunks = 0;
 	config->types.regularChunks = 0;
-	config->types.referenceMSPerFrame = 0;
-	config->types.comparisonMSPerFrame = 0;
-	config->types.pulseSyncFreq = 8820;
-	config->types.pulseFrameLen = 14;
-	config->types.pulseCount = 10;
+
+	memset(config->types.SyncFormat, 0, sizeof(VideoBlockDef)*2);
 	config->types.typeArray = NULL;
 	config->types.typeCount = 0;
 
@@ -159,7 +158,6 @@ void CleanParameters(parameters *config)
 	config->model_plan = NULL;
 	config->reverse_plan = NULL;
 
-	config->comparePAL = 0;
 	config->referenceSignal = NULL;
 	config->comparisonSignal = NULL;
 }
@@ -173,7 +171,7 @@ int commandline(int argc , char *argv[], parameters *config)
 	
 	CleanParameters(config);
 
-	while ((c = getopt (argc, argv, "hxjzmviklygLHo:s:e:f:t:p:a:w:r:c:d:P:SDMNRCFAWVDBIn:K")) != -1)
+	while ((c = getopt (argc, argv, "hxjzmviklygLHo:s:e:f:t:p:a:w:r:c:d:P:SDMNRCFAWVDBIn:Y:Z:")) != -1)
 	switch (c)
 	  {
 	  case 'h':
@@ -203,9 +201,6 @@ int commandline(int argc , char *argv[], parameters *config)
 		break;
 	  case 'y':
 		config->debugSync = 1;
-		break;
-	  case 'K':
-		config->comparePAL = 1;
 		break;
 	  case 'g':
 		config->averagePlot = 1;
@@ -336,6 +331,16 @@ int commandline(int argc , char *argv[], parameters *config)
 	  case 'C':
 		config->outputCSV = 1;
 		break;
+	  case 'Y':
+		config->videoFormatRef = atof(optarg);
+		if(config->videoFormatRef < NTSC|| config->videoFormatRef > PAL)
+			config->videoFormatRef = NTSC;
+		break;
+	  case 'Z':
+		config->videoFormatCom = atof(optarg);
+		if(config->videoFormatCom < NTSC|| config->videoFormatCom > PAL)
+			config->videoFormatCom = NTSC;
+		break;
 	  case 'n':
 		switch(optarg[0])
 		{
@@ -386,6 +391,10 @@ int commandline(int argc , char *argv[], parameters *config)
 		  logmsg("Max frequency range for FFTW -%c requires an argument: %d-%d\n", START_HZ*2, END_HZ, optopt);
 		else if (optopt == 'd')
 		  logmsg("Max DB Height for Plots -%c requires an argument: %g-%g\n", 0.1, 60.0, optopt);
+		else if (optopt == 'Y')
+		  logmsg("Reference format: Use 0 for NTSC and 1 for PAL\n");
+		else if (optopt == 'Z')
+		  logmsg("Comparison format: Use 0 for NTSC and 1 for PAL\n");
 		else if (isprint (optopt))
 		  logmsg("Unknown option `-%c'.\n", optopt);
 		else if (optopt == 'P')

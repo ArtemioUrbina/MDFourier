@@ -11,6 +11,7 @@
 #define	COUNT_CURVES	6
 #define COUNT_WINDOWS	5
 #define	COUNT_PROFILES	255
+#define COUNT_SYNCTYPE	2
 
 typedef struct commandline_st {
 	CString	Name;
@@ -57,6 +58,9 @@ protected:
 	CButton m_SpectrBttn;
 	CButton m_NoiseFloor;
 	CButton m_MDWave;
+	CButton m_Swap_Bttn;
+	CComboBox m_RefSync;
+	CComboBox m_ComSync;
 
 	CComboBox m_WindowTypeSelect;
 	CComboBox m_CurveAdjustSelect;
@@ -67,6 +71,7 @@ protected:
 	CommandLineArray WindowConvert[COUNT_WINDOWS];
 	CommandLineArray CurveConvert[COUNT_CURVES];
 	CommandLineArray Profiles[COUNT_PROFILES];
+	CommandLineArray SyncType[COUNT_SYNCTYPE];
 
 	CString listName;
 	CString	*elements;
@@ -102,7 +107,5 @@ public:
 	afx_msg void OnBnClickedAverage();
 	afx_msg void OnBnClickedNoisefloor();
 	afx_msg void OnBnClickedMdwave();
-	CButton m_comparePAL;
 	afx_msg void OnBnClickedSwap();
-	CButton m_Swap_Bttn;
 };

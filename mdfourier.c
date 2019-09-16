@@ -205,7 +205,6 @@ int LoadAndProcessAudioFiles(AudioSignal **ReferenceSignal, AudioSignal **Compar
 	FILE				*reference = NULL;
 	FILE				*compare = NULL;
 	double				ZeroDbMagnitudeRef = 0;
-	parameters			config2, *useconfig = NULL;
 
 	if(IsFlac(config->referenceFile))
 	{
@@ -291,17 +290,7 @@ int LoadAndProcessAudioFiles(AudioSignal **ReferenceSignal, AudioSignal **Compar
 	}
 	(*ReferenceSignal)->role = ROLE_REF;
 
-	if(config->comparePAL)
-	{
-		config2 = *config;
-		sprintf(config2.profileFile, "profiles//mdfblocksGEN_PAL.mfn");
-		if(!LoadProfile(&config2))
-			return 1;
-		*ComparisonSignal = CreateAudioSignal(&config2);
-	}
-	else
-		*ComparisonSignal = CreateAudioSignal(config);
-
+	*ComparisonSignal = CreateAudioSignal(config);
 	if(!*ComparisonSignal)
 	{
 		CloseFiles(&reference, &compare);
@@ -321,12 +310,7 @@ int LoadAndProcessAudioFiles(AudioSignal **ReferenceSignal, AudioSignal **Compar
 	}
 
 	logmsg("\n* Loading 'Comparison' audio file %s\n", config->targetFile);
-	if(config->comparePAL)
-		useconfig = &config2;
-	else
-		useconfig = config;
-	
-	if(!LoadFile(compare, *ComparisonSignal, useconfig, config->targetFile))
+	if(!LoadFile(compare, *ComparisonSignal, config, config->targetFile))
 	{
 		CloseFiles(&reference, &compare);
 		RemoveFLACTemp(config->referenceFile, config->targetFile);
@@ -763,7 +747,7 @@ int LoadFile(FILE *file, AudioSignal *Signal, parameters *config, char *fileName
 		/* Find the start offset */
 		if(config->verbose)
 			logmsg(" - Sync pulse train: ");
-		Signal->startOffset = DetectPulse(Signal->Samples, Signal->header,  config);
+		Signal->startOffset = DetectPulse(Signal->Samples, Signal->header, Signal->role, config);
 		if(Signal->startOffset == -1)
 		{
 			logmsg("\nERROR: Starting pulse train was not detected.\n");
@@ -780,7 +764,7 @@ int LoadFile(FILE *file, AudioSignal *Signal, parameters *config, char *fileName
 
 			if(config->verbose)
 				logmsg(" to");
-			Signal->endOffset = DetectEndPulse(Signal->Samples, Signal->startOffset, Signal->header, config);
+			Signal->endOffset = DetectEndPulse(Signal->Samples, Signal->startOffset, Signal->header, Signal->role, config);
 			if(Signal->endOffset == -1)
 			{
 				logmsg("\nERROR: Trailing sync pulse train was not detected, aborting.\n");

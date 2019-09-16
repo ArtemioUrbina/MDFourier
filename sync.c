@@ -30,7 +30,7 @@
 #include "log.h"
 #include "freq.h"
 
-long int DetectPulse(char *AllSamples, wav_hdr header, parameters *config)
+long int DetectPulse(char *AllSamples, wav_hdr header, int role, parameters *config)
 {
 	int			maxdetected = 0, errcount = 0;
 	long int	position = 0, offset = 0;
@@ -40,7 +40,7 @@ long int DetectPulse(char *AllSamples, wav_hdr header, parameters *config)
 	if(config->debugSync)
 		logmsg("\nStarting Detect start pulse\n");
 
-	position = DetectPulseInternal(AllSamples, header, 4, 0, &maxdetected, config);
+	position = DetectPulseInternal(AllSamples, header, 4, 0, &maxdetected, role, config);
 	if(position == -1)
 	{
 		if(config->debugSync)
@@ -66,7 +66,7 @@ long int DetectPulse(char *AllSamples, wav_hdr header, parameters *config)
 
 	maxdetected = 0;
 	errcount = 0;
-	position = DetectPulseInternal(AllSamples, header, 9, offset, &maxdetected, config);
+	position = DetectPulseInternal(AllSamples, header, 9, offset, &maxdetected, role, config);
 	if(config->debugSync)
 		logmsg("Start pulse return value %ld\n", position);
 	OutputFileOnlyEnd();
@@ -77,7 +77,7 @@ long int DetectPulse(char *AllSamples, wav_hdr header, parameters *config)
 #define END_SYNC_MAX_TRIES		4
 #define END_SYNC_VALUES			{ 3.0/4.0, 1.0/2.0, 1.0/6.0, 0.0 }
 
-long int DetectEndPulse(char *AllSamples, long int startpulse, wav_hdr header, parameters *config)
+long int DetectEndPulse(char *AllSamples, long int startpulse, wav_hdr header, int role, parameters *config)
 {
 	int			maxdetected = 0, frameAdjust = 0, tries = 0, maxtries = END_SYNC_MAX_TRIES, errcount = 0;
 	long int 	position = 0, offset = 0;
@@ -87,7 +87,7 @@ long int DetectEndPulse(char *AllSamples, long int startpulse, wav_hdr header, p
 	do
 	{
 		// Use defaults to calculate real frame rate
-		offset = GetLastSilenceByteOffset(GetMSPerFrame(NULL, config), header, frameAdjust, silenceOffset[tries], config) + startpulse;
+		offset = GetLastSilenceByteOffset(GetMSPerFrameRole(role, config), header, frameAdjust, silenceOffset[tries], config) + startpulse;
 	
 		frameAdjust = 0;
 		if(config->debugSync)
@@ -95,7 +95,7 @@ long int DetectEndPulse(char *AllSamples, long int startpulse, wav_hdr header, p
 	
 		maxdetected = 0;
 		errcount = 0;
-		position = DetectPulseInternal(AllSamples, header, 4, offset, &maxdetected, config);
+		position = DetectPulseInternal(AllSamples, header, 4, offset, &maxdetected, role, config);
 		if(position == -1 && !maxdetected)
 		{
 			if(config->debugSync)
@@ -103,7 +103,7 @@ long int DetectEndPulse(char *AllSamples, long int startpulse, wav_hdr header, p
 		}
 
 		if(position == -1 && maxdetected)
-			frameAdjust = config->types.pulseCount - maxdetected/2;
+			frameAdjust = getPulseCount(role, config) - maxdetected/2;
 		tries ++;
 	}while(position == -1 && tries < maxtries);
 
@@ -130,7 +130,7 @@ long int DetectEndPulse(char *AllSamples, long int startpulse, wav_hdr header, p
 
 	maxdetected = 0;
 	errcount = 0;
-	position = DetectPulseInternal(AllSamples, header, 9, offset, &maxdetected, config);
+	position = DetectPulseInternal(AllSamples, header, 9, offset, &maxdetected, role, config);
 	if(config->debugSync)
 		logmsg("End pulse return value %ld\n", position);
 	OutputFileOnlyEnd();
@@ -218,7 +218,7 @@ double findAverageAmplitudeForTarget(Pulses *pulseArray, double targetFrequency,
 	return averageAmplitude;
 }
 
-long int DetectPulseTrainSequence(Pulses *pulseArray, double targetFrequency, long int TotalMS, int factor, int *maxdetected, long int start, parameters *config)
+long int DetectPulseTrainSequence(Pulses *pulseArray, double targetFrequency, long int TotalMS, int factor, int *maxdetected, long int start, int role, parameters *config)
 {
 	long	i, sequence_start = 0;
 	int		frame_pulse_count = 0, frame_silence_count = 0, 
@@ -231,8 +231,8 @@ long int DetectPulseTrainSequence(Pulses *pulseArray, double targetFrequency, lo
 
 	if(config->debugSync)
 		logmsg("== Searching for %g Average Amplitude %g looking for %d (%d*%d)\n", 
-			targetFrequency, averageAmplitude, config->types.pulseFrameLen*factor,
-			config->types.pulseFrameLen, factor);
+			targetFrequency, averageAmplitude, getPulseFrameLen(role, config)*factor,
+			getPulseFrameLen(role, config), factor);
 
 	for(i = start; i < TotalMS; i++)
 	{
@@ -256,13 +256,13 @@ long int DetectPulseTrainSequence(Pulses *pulseArray, double targetFrequency, lo
 					frame_silence_count = 0;
 				}
 	
-				if(frame_silence_count >= config->types.pulseFrameLen*factor)
+				if(frame_silence_count >= getPulseFrameLen(role, config)*factor)
 				{
 					silence_count++;
 	
 					if(config->debugSync)
 						logmsg("Closed a silence cycle %d\n", silence_count);
-					if(silence_count > config->types.pulseCount)
+					if(silence_count > getPulseCount(role, config))
 					{
 						if(config->debugSync)
 							logmsg("Resets the sequence\n");
@@ -285,14 +285,14 @@ long int DetectPulseTrainSequence(Pulses *pulseArray, double targetFrequency, lo
 							pulseArray[i].bytes, pulseArray[i].hertz, pulseArray[i].amplitude, 
 							frame_silence_count);
 
-					if(frame_pulse_count >= config->types.pulseFrameLen*factor)
+					if(frame_pulse_count >= getPulseFrameLen(role, config)*factor)
 					{
 						pulse_count++;
 		
 						if(config->debugSync)
 							logmsg("Closed a pulse cycle %d, silence count %d\n", pulse_count, silence_count);
 						
-						if(pulse_count == config->types.pulseCount && silence_count == pulse_count - 1)
+						if(pulse_count == getPulseCount(role, config) && silence_count == pulse_count - 1)
 						{
 							if(config->debugSync)
 								logmsg("Completed the sequence %ld\n", sequence_start);
@@ -316,13 +316,15 @@ long int DetectPulseTrainSequence(Pulses *pulseArray, double targetFrequency, lo
 				{
 					if(lastcounted == 0)
 					{
-						logmsg("NON SKIPPED and counting as silence\n");
+						if(config->debugSync)
+							logmsg("NON SKIPPED and counting as silence\n");
 						frame_silence_count++;
 					}
 
-					if(lastcounted == 1 && frame_pulse_count >= config->types.pulseFrameLen*factor)
+					if(lastcounted == 1 && frame_pulse_count >= getPulseFrameLen(role, config)*factor)
 					{
-						logmsg("NON SKIPPED and counting as silence due to pulse count\n");
+						if(config->debugSync)
+							logmsg("NON SKIPPED and counting as silence due to pulse count\n");
 						frame_silence_count++;
 					}
 
@@ -338,10 +340,12 @@ long int DetectPulseTrainSequence(Pulses *pulseArray, double targetFrequency, lo
 			if(lastcounted == 0)
 			{
 				frame_silence_count++;
-				logmsg("SKIPPED and counting as silence\n");
+				if(config->debugSync)
+					logmsg("SKIPPED and counting as silence\n");
 			}
 			else
-				logmsg("SKIPPED\n");
+				if(config->debugSync)
+					logmsg("SKIPPED\n");
 		}
 	}
 
@@ -351,7 +355,7 @@ long int DetectPulseTrainSequence(Pulses *pulseArray, double targetFrequency, lo
 	return -1;
 }
 
-long int DetectPulseInternal(char *Samples, wav_hdr header, int factor, long int offset, int *maxdetected, parameters *config)
+long int DetectPulseInternal(char *Samples, wav_hdr header, int factor, long int offset, int *maxdetected, int role, parameters *config)
 {
 	long int			i = 0, TotalMS = 0;
 	long int			loadedBlockSize = 0;
@@ -385,7 +389,7 @@ long int DetectPulseInternal(char *Samples, wav_hdr header, int factor, long int
 		logmsg("\nWas [B:%ld-%ld/%ld-%ld] ", i*buffersize, TotalMS*buffersize, i, TotalMS);
 */
 		// check for the duration of the sync pulses
-		msLen = GetLastSyncDuration(GetMSPerFrame(NULL, config), config)*1000;
+		msLen = GetLastSyncDuration(GetMSPerFrameRole(role, config), config)*1000;
 		//Times 8 to convert to out internal units, and times 2 for the actual length we want
 		TotalMS = i + msLen*8*2;
 /*
@@ -404,12 +408,12 @@ long int DetectPulseInternal(char *Samples, wav_hdr header, int factor, long int
 	}
 	memset(pulseArray, 0, sizeof(Pulses)*TotalMS);
 
-	targetFrequency = FindFrequencyBracket(GetPulseSyncFreq(config), 	
+	targetFrequency = FindFrequencyBracket(GetPulseSyncFreq(role, config), 	
 						millisecondSize/2, header.fmt.SamplesPerSec);
 	if(config->debugSync)
 	{
-		logmsg("Defined Sync %g Adjusted to %g\n", 
-				GetPulseSyncFreq(config), targetFrequency);
+		logmsg("Defined Sync %d Adjusted to %g\n", 
+				GetPulseSyncFreq(role, config), targetFrequency);
 		logmsg("Start ms %ld Total MS: %ld (%ld)\n",
 			 i, TotalMS, header.fmt.Subchunk2Size / buffersize - 1);
 	}
@@ -479,7 +483,7 @@ long int DetectPulseInternal(char *Samples, wav_hdr header, int factor, long int
 	}
 */
 
-	offset = DetectPulseTrainSequence(pulseArray, targetFrequency, TotalMS, factor, maxdetected, startPos, config);
+	offset = DetectPulseTrainSequence(pulseArray, targetFrequency, TotalMS, factor, maxdetected, startPos, role, config);
 
 	free(pulseArray);
 	free(buffer);

@@ -159,6 +159,7 @@ int ExecuteMDWave(parameters *config, int invert)
 	RemoveFLACTemp(config->referenceFile);
 
 	config->referenceFramerate = ReferenceSignal->framerate;
+	config->smallerFramerate = ReferenceSignal->framerate;
 
 	if(config->channel == 's')
 	{
@@ -353,7 +354,7 @@ int LoadFile(FILE *file, AudioSignal *Signal, parameters *config, char *fileName
 		/* Find the start offset */
 		if(config->verbose)
 			logmsg(" - Sync pulse train: ");
-		Signal->startOffset = DetectPulse(Signal->Samples, Signal->header, config);
+		Signal->startOffset = DetectPulse(Signal->Samples, Signal->header, Signal->role, config);
 		if(Signal->startOffset == -1)
 		{
 			logmsg("\nStarting pulse train was not detected\n");
@@ -370,7 +371,7 @@ int LoadFile(FILE *file, AudioSignal *Signal, parameters *config, char *fileName
 
 			if(config->verbose)
 				logmsg(" to");
-			Signal->endOffset = DetectEndPulse(Signal->Samples, Signal->startOffset, Signal->header, config);
+			Signal->endOffset = DetectEndPulse(Signal->Samples, Signal->startOffset, Signal->header, Signal->role, config);
 			if(Signal->endOffset == -1)
 			{
 				logmsg("\nERROR: Trailing sync pulse train was not detected, aborting.\n");
@@ -752,7 +753,7 @@ int ProcessFile(AudioSignal *Signal, parameters *config)
 		difference = GetByteSizeDifferenceByFrameRate(framerate, frames, Signal->header.fmt.SamplesPerSec, config);
 
 		if(Signal->Blocks[i].type >= TYPE_SILENCE)
-			windowUsed = getWindowByLength(&windows, frames, framerate);
+			windowUsed = getWindowByLength(&windows, frames, Signal->framerate);
 
 		//logmsg("Loaded %ld Left %ld Discard %ld difference %ld Decimals %g\n", loadedBlockSize, leftover, discardBytes, difference, leftDecimals);
 		memset(buffer, 0, buffersize);
@@ -1192,7 +1193,7 @@ int commandline_wave(int argc , char *argv[], parameters *config)
 	config->chunks = 0;
 	config->useCompProfile = 0;
 
-	while ((c = getopt (argc, argv, "hvzcklyCBis:e:f:t:p:a:w:r:P:I")) != -1)
+	while ((c = getopt (argc, argv, "hvzcklyCBis:e:f:t:p:a:w:r:P:IY:")) != -1)
 	switch (c)
 	  {
 	  case 'h':
@@ -1245,6 +1246,11 @@ int commandline_wave(int argc , char *argv[], parameters *config)
 		if(config->significantAmplitude <= -120.0 || config->significantAmplitude >= -1.0)
 			config->significantAmplitude = SIGNIFICANT_VOLUME;
 		config->origSignificantAmplitude = config->significantAmplitude;
+		break;
+	  case 'Y':
+		config->videoFormatRef = atof(optarg);
+		if(config->videoFormatRef < NTSC|| config->videoFormatRef > PAL)
+			config->videoFormatRef = NTSC;
 		break;
 	  case 'a':
 		switch(optarg[0])
@@ -1310,6 +1316,8 @@ int commandline_wave(int argc , char *argv[], parameters *config)
 		  logmsg("Max frequency range for FFTW -%c requires an argument: %d-%d\n", START_HZ*2, END_HZ, optopt);
 		else if (optopt == 'P')
 		  logmsg("Profile File -%c requires a file argument\n", optopt);
+		else if (optopt == 'Y')
+		  logmsg("Reference format: Use 0 for NTSC and 1 for PAL\n");
 		else if (isprint (optopt))
 		  logmsg("Unknown option `-%c'.\n", optopt);
 		else
