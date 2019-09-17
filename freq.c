@@ -578,14 +578,6 @@ int LoadAudioNoSyncProfile(FILE *file, parameters *config)
 		config->plotDifferences = 0;
 	}
 
-	sscanf(lineBuffer, "%*s %s\n", buffer);
-	if(atof(buffer) != 1.1)
-	{
-		logmsg("This executable can parse 1.1 files only\n");
-		fclose(file);
-		return 0;
-	}
-
 	readLine(lineBuffer, file);
 	if(sscanf(lineBuffer, "%s\n", config->types.Name) != 1)
 	{

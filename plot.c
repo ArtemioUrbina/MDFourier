@@ -582,7 +582,7 @@ void DrawLabelsMDF(PlotFile *plot, char *Gname, char *GType, int type, parameter
 				pl_fmove_r(plot->plotter, config->plotResX/2-config->plotResX/50*9, -1*config->plotResY/2+config->plotResY/80+config->plotResY/40);
 				pl_alabel_r(plot->plotter, 'l', 'l', label);
 
-				sprintf(label, "[%0.4fms %0.4fhz]", config->referenceSignal->framerate, roundFloat(CalculateScanRate(config->referenceSignal)));
+				sprintf(label, "[%0.4fms %0.4fHz]", config->referenceSignal->framerate, roundFloat(CalculateScanRate(config->referenceSignal)));
 				pl_fmove_r(plot->plotter, config->plotResX/20*17, -1*config->plotResY/2+config->plotResY/80+config->plotResY/40);
 				pl_alabel_r(plot->plotter, 'l', 'l', label);
 			}
@@ -598,7 +598,7 @@ void DrawLabelsMDF(PlotFile *plot, char *Gname, char *GType, int type, parameter
 				pl_fmove_r(plot->plotter, config->plotResX/2-config->plotResX/50*9, -1*config->plotResY/2+config->plotResY/80);
 				pl_alabel_r(plot->plotter, 'l', 'l', label);
 
-				sprintf(label, "[%0.4fms %0.4fhz]", config->comparisonSignal->framerate, roundFloat(CalculateScanRate(config->comparisonSignal)));
+				sprintf(label, "[%0.4fms %0.4fHz]", config->comparisonSignal->framerate, roundFloat(CalculateScanRate(config->comparisonSignal)));
 				pl_fmove_r(plot->plotter, config->plotResX/20*17, -1*config->plotResY/2+config->plotResY/80);
 				pl_alabel_r(plot->plotter, 'l', 'l', label);
 			}

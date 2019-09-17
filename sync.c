@@ -337,15 +337,17 @@ long int DetectPulseTrainSequence(Pulses *pulseArray, double targetFrequency, lo
 		}
 		else
 		{
-			if(lastcounted == 0)
+			//if(lastcounted == 0)
 			{
 				frame_silence_count++;
 				if(config->debugSync)
 					logmsg("SKIPPED and counting as silence\n");
 			}
+			/*
 			else
 				if(config->debugSync)
 					logmsg("SKIPPED\n");
+			*/
 		}
 	}
 
