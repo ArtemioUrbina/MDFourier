@@ -49,7 +49,7 @@
 
 #include "incbeta.h"
 
-#define MDVERSION "0.954"
+#define MDVERSION "0.955"
 
 #define MAX_FREQ_COUNT		100000 	/* Number of frequencies to compare(MAX) */
 #define FREQ_COUNT			2000	/* Number of frequencies to compare(default) */
@@ -370,6 +370,7 @@ typedef struct parameters_st {
 	int				outputCSV;
 	int				whiteBG;
 	int				smallFile;
+	int				syncTolerance;
 
 	double 			plotResX;
 	double			plotResY;

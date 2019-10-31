@@ -48,6 +48,7 @@ void PrintUsage()
 	logmsg("	 -B: Do not do stereo channel audio <B>alancing\n");
 	logmsg("	 -V: Ignore a<V>erage for analysis\n");
 	logmsg("	 -I: <I>gnore frame rate difference for analysis\n");
+	logmsg("	 -T: Increase Sync detection <T>olerance\n");
 	logmsg("	 -k: cloc<k> FFTW operations\n");
 	logmsg("   Output options:\n");
 	logmsg("	 -l: <l>og output to file [reference]_vs_[compare].txt\n");
@@ -120,6 +121,7 @@ void CleanParameters(parameters *config)
 	config->smallFile = 0;
 	config->videoFormatRef = NTSC;
 	config->videoFormatCom = NTSC;
+	config->syncTolerance = 0;
 
 	config->logScale = 1;
 	config->reverseCompare = 0;
@@ -171,7 +173,7 @@ int commandline(int argc , char *argv[], parameters *config)
 	
 	CleanParameters(config);
 
-	while ((c = getopt (argc, argv, "hxjzmviklygLHo:s:e:f:t:p:a:w:r:c:d:P:SDMNRCFAWVDBIn:Y:Z:")) != -1)
+	while ((c = getopt (argc, argv, "Aa:BCc:Dd:e:Ff:ghHiIjklLmMNn:o:p:P:Rr:Ss:t:TvVWw:xyY:zZ:")) != -1)
 	switch (c)
 	  {
 	  case 'h':
@@ -251,6 +253,9 @@ int commandline(int argc , char *argv[], parameters *config)
 		config->tolerance = atof(optarg);
 		if(config->tolerance < 0.0 || config->tolerance > 40.0)
 			config->tolerance = DBS_TOLERANCE;
+		break;
+	  case 'T':
+		config->syncTolerance = 1;
 		break;
 	  case 'p':
 		config->significantAmplitude = atof(optarg);

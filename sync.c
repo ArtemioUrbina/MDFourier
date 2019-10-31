@@ -238,6 +238,8 @@ long int DetectPulseTrainSequence(Pulses *pulseArray, double targetFrequency, lo
 	{
 		if(pulseArray[i].hertz)
 		{
+			if(config->syncTolerance)
+				targetFrequency = pulseArray[i].hertz;
 			if(pulseArray[i].amplitude >= averageAmplitude
 				&& pulseArray[i].hertz == targetFrequency)
 			{
@@ -290,8 +292,11 @@ long int DetectPulseTrainSequence(Pulses *pulseArray, double targetFrequency, lo
 						pulse_count++;
 		
 						if(config->debugSync)
-							logmsg("Closed a pulse cycle %d, silence count %d\n", pulse_count, silence_count);
+							logmsg("Closed pulse #%d cycle, silence count %d pulse count %d\n", pulse_count, silence_count, frame_pulse_count);
 						
+						if(config->syncTolerance)
+							silence_count = pulse_count - 1;
+
 						if(pulse_count == getPulseCount(role, config) && silence_count == pulse_count - 1)
 						{
 							if(config->debugSync)
@@ -341,7 +346,33 @@ long int DetectPulseTrainSequence(Pulses *pulseArray, double targetFrequency, lo
 			{
 				frame_silence_count++;
 				if(config->debugSync)
-					logmsg("SKIPPED and counting as silence\n");
+				{
+					if(pulseArray[i].hertz)
+						logmsg("SKIPPED and counting as silence %gHz %gdBFs\n",
+							pulseArray[i].hertz, pulseArray[i].amplitude);
+					else
+						logmsg("SKIPPED and counting as silence [NULL]\n");
+				}
+
+				// Extra CHECK for emulators
+				if(frame_pulse_count >= getPulseFrameLen(role, config)*factor)
+				{
+					pulse_count++;
+	
+					if(config->debugSync)
+						logmsg("Closed pulse #%d cycle, silence count %d pulse count %d [NULLs]\n", pulse_count, silence_count, frame_pulse_count);
+					
+					if(config->syncTolerance)
+						silence_count = pulse_count - 1;
+
+					if(pulse_count == getPulseCount(role, config) && silence_count == pulse_count - 1)
+					{
+						if(config->debugSync)
+							logmsg("Completed the sequence %ld [NULLs]\n", sequence_start);
+						return sequence_start;
+					}
+					frame_pulse_count = 0;
+				}
 			}
 			/*
 			else
