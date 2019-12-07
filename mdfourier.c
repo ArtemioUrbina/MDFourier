@@ -697,10 +697,11 @@ int LoadFile(FILE *file, AudioSignal *Signal, parameters *config, char *fileName
 	
 	if(Signal->header.fmt.SamplesPerSec/2 < config->endHz)
 	{
-		logmsg(" - %d Hz sample rate was too low for %d-%d Hz analysis\n",
+		logmsg(" - %d Hz sample rate was too low for %gHz-%gHz analysis\n",
 			 Signal->header.fmt.SamplesPerSec, config->startHz, config->endHz);
 		config->endHz = Signal->header.fmt.SamplesPerSec/2;
-		logmsg(" - changed to %d-%d Hz\n", config->startHz, config->endHz);
+		logmsg(" - Changed to %gHz-%gHz\n", config->startHz, config->endHz);
+		config->nyquistLimit = 1;
 	}
 
 	// Default if none is found

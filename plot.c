@@ -2306,7 +2306,7 @@ int PlotNoiseDifferentAmplitudesAveraged(FlatAmplDifference *amplDiff, long int 
 void PlotNoiseDifferentAmplitudesAveragedInternal(FlatAmplDifference *amplDiff, long int size, int type, char *filename, AveragedFrequencies *averaged, long int avgsize, parameters *config, AudioSignal *Signal)
 {
 	PlotFile	plot;
-	double		dbs = config->maxDbPlotZC;
+	double		dbs = config->maxDbPlotZC, vertscale = VERT_SCALE_STEP;;
 	int			color = 0;
 	double		startAmplitude = config->referenceNoiseFloor, endAmplitude = PCM_16BIT_MIN_AMPLITUDE;
 
@@ -2341,8 +2341,12 @@ void PlotNoiseDifferentAmplitudesAveragedInternal(FlatAmplDifference *amplDiff, 
 	if(!CreatePlotFile(&plot, config))
 		return;
 
-	DrawGridZeroDBCentered(&plot, dbs, VERT_SCALE_STEP, config->endHzPlot, 1000, config);
-	DrawLabelsZeroDBCentered(&plot, dbs, VERT_SCALE_STEP, config->endHzPlot, 1000, config);
+	if(dbs > 90)
+		vertscale *= 2;
+	if(dbs > 200)
+		vertscale *= 10;
+	DrawGridZeroDBCentered(&plot, dbs, vertscale, config->endHzPlot, 1000, config);
+	DrawLabelsZeroDBCentered(&plot, dbs, vertscale, config->endHzPlot, 1000, config);
 
 	DrawNoiseLines(&plot, dbs, -1*dbs, Signal, config);
 

@@ -49,7 +49,7 @@
 
 #include "incbeta.h"
 
-#define MDVERSION "0.955"
+#define MDVERSION "0.956"
 
 #define MAX_FREQ_COUNT		100000 	/* Number of frequencies to compare(MAX) */
 #define FREQ_COUNT			2000	/* Number of frequencies to compare(default) */
@@ -384,6 +384,7 @@ typedef struct parameters_st {
 
 	int				videoFormatRef;
 	int				videoFormatCom;
+	int				nyquistLimit;
 
 #ifdef MDWAVE
 	int				maxBlanked;

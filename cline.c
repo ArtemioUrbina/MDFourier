@@ -162,6 +162,8 @@ void CleanParameters(parameters *config)
 
 	config->referenceSignal = NULL;
 	config->comparisonSignal = NULL;
+
+	config->nyquistLimit = 0;
 }
 
 int commandline(int argc , char *argv[], parameters *config)

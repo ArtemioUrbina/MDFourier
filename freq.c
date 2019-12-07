@@ -1858,6 +1858,8 @@ void FillFrequencyStructures(AudioBlocks *AudioArray, parameters *config)
 
 	startBin = ceil(config->startHz*boxsize);
 	endBin = floor(config->endHz*boxsize);
+	if(config->nyquistLimit)
+		endBin -= 1;
 
 	/*
 	logmsg("Size: %ld BoxSize: %g StartBin: %ld EndBin %ld\n",
