@@ -1,6 +1,6 @@
 /* example_c_decode_file - Simple FLAC file decoder using libFLAC
- * Copyright (C) 2007-2009  Josh Coalson
- * Copyright (C) 2011-2016  Xiph.Org Foundation
+ * Copyright (C) 2007-2009	Josh Coalson
+ * Copyright (C) 2011-2016	Xiph.Org Foundation
  *
  * This program is free software; you can redistribute it and/or
  * modify it under the terms of the GNU General Public License
@@ -22,7 +22,7 @@
  * file.  It only supports 16-bit stereo files.
  *
  * Complete API documentation can be found at:
- *   http://xiph.org/flac/api/
+ *	 http://xiph.org/flac/api/
  */
 
 #ifdef HAVE_CONFIG_H
@@ -42,6 +42,18 @@ extern int getExtensionLength(char *filename);
 
 int errorFLAC = 0;
 
+char *strtoupper(char *str)
+{
+	unsigned char *p = (unsigned char *)str;
+	
+	while (*p) {
+		*p = toupper((unsigned char)*p);
+		p++;
+	}
+	
+	return str;
+}
+
 int IsFlac(char *name)
 {
 	const char *ext = NULL;
@@ -52,7 +64,7 @@ int IsFlac(char *name)
 		char extHC[10];
 
 		strncpy(extHC, ext, 4);
-		if(strncmp(strupr(extHC), "FLAC", 4) == 0)
+		if(strncmp(strtoupper(extHC), "FLAC", 4) == 0)
 			return 1;
 	}
 	return 0;
@@ -135,7 +147,7 @@ int FLACtoWAV(char *input, char *output)
 		if(!ok)
 		{
 			fprintf(stderr, "decoding: %s\n", ok? "succeeded" : "FAILED");
-			fprintf(stderr, "   state: %s\n", FLAC__StreamDecoderStateString[FLAC__stream_decoder_get_state(decoder)]);
+			fprintf(stderr, "	state: %s\n", FLAC__StreamDecoderStateString[FLAC__stream_decoder_get_state(decoder)]);
 
 			errorFLAC++;
 		}
@@ -203,7 +215,7 @@ FLAC__StreamDecoderWriteStatus write_callback(const FLAC__StreamDecoder *decoder
 	for(i = 0; i < frame->header.blocksize; i++) {
 		if(
 			!write_little_endian_int16(f, (FLAC__int16)buffer[0][i]) ||  /* left channel */
-			!write_little_endian_int16(f, (FLAC__int16)buffer[1][i])     /* right channel */
+			!write_little_endian_int16(f, (FLAC__int16)buffer[1][i])	 /* right channel */
 		) {
 			fprintf(stderr, "ERROR: write error\n");
 			return FLAC__STREAM_DECODER_WRITE_STATUS_ABORT;
@@ -225,8 +237,8 @@ void metadata_callback(const FLAC__StreamDecoder *decoder, const FLAC__StreamMet
 		channels = metadata->data.stream_info.channels;
 		bps = metadata->data.stream_info.bits_per_sample;
 
-		//fprintf(stderr, "sample rate    : %u Hz\n", sample_rate);
-		//fprintf(stderr, "channels       : %u\n", channels);
+		//fprintf(stderr, "sample rate	  : %u Hz\n", sample_rate);
+		//fprintf(stderr, "channels 	  : %u\n", channels);
 		//fprintf(stderr, "bits per sample: %u\n", bps);
 		//fprintf(stderr, "total samples  : %" PRIu64 "\n", total_samples);
 	}

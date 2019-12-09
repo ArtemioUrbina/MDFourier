@@ -9,7 +9,7 @@ MINGW_LIB = -L/usr/local/lib -Wl,-Bstatic
 #EXTRA_LFLAGS = $(MINGW_LIB)
 
 CCFLAGS = $(EXTRA_CFLAGS) -Wfatal-errors -Wpedantic -Wall -std=gnu99 $(OPT)
-LFLAGS = $(EXTRA_LFLAGS) -lm -lfftw3 -lplot -lpng -lz -lflac
+LFLAGS = $(EXTRA_LFLAGS) -lm -lfftw3 -lplot -lpng -lz -lFLAC
 
 all: mdfourier mdwave
 
