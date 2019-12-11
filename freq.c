@@ -221,6 +221,10 @@ void CleanAudio(AudioSignal *Signal, parameters *config)
 	Signal->scanrateFrequency = 0;
 	Signal->SilenceBinSize = 0;
 
+	Signal->nyquistLimit = 0;
+	Signal->startHz = config->startHz;
+	Signal->endHz = config->endHz;
+
 	memset(&Signal->header, 0, sizeof(wav_hdr));
 }
 
@@ -1848,10 +1852,11 @@ int InsertFrequencySorted(AudioBlocks *AudioArray, Frequency element, long int c
 	return 0;
 }
 
-void FillFrequencyStructures(AudioBlocks *AudioArray, parameters *config)
+void FillFrequencyStructures(AudioSignal *Signal, AudioBlocks *AudioArray, parameters *config)
 {
-	long int i = 0, startBin= 0, endBin = 0, count = 0, size = 0;
-	double boxsize = 0;
+	long int 	i = 0, startBin= 0, endBin = 0, count = 0, size = 0;
+	double 		boxsize = 0;
+	int			nyquistLimit = 0;
 
 	size = AudioArray->fftwValues.size;
 	// Round to 3 decimal places so that 48kHz and 44 kHz line up
@@ -1859,7 +1864,13 @@ void FillFrequencyStructures(AudioBlocks *AudioArray, parameters *config)
 
 	startBin = ceil(config->startHz*boxsize);
 	endBin = floor(config->endHz*boxsize);
-	if(config->nyquistLimit)
+	if(Signal && Signal->nyquistLimit)
+		nyquistLimit = 1;
+
+	if(!Signal && config->nyquistLimit)
+		nyquistLimit = 1;
+	
+	if(nyquistLimit)
 		endBin = ceil(size/2);
 
 	/*
@@ -2118,7 +2129,7 @@ double CalculateFrameRate(AudioSignal *Signal, parameters *config)
 
 	diff = roundFloat(fabs(expectedFR - framerate));
 	//The range to report this on will probably vary by console...
-	if(config->verbose && diff > 0.001) // > 0.001 && diff < 0.02)
+	if(config->verbose && diff > 0.001) //   && diff < 0.02)
 	{
 		double ACsamplerate = 0;
 
@@ -2133,6 +2144,7 @@ double CalculateFrameRate(AudioSignal *Signal, parameters *config)
 	return framerate;
 }
 
+/*
 double CalculateFrameRateNS(AudioSignal *Signal, double Frames, parameters *config)
 {
 	double framerate = 0, endOffset = 0, startOffset = 0, samplerate = 0;
@@ -2149,7 +2161,7 @@ double CalculateFrameRateNS(AudioSignal *Signal, double Frames, parameters *conf
 
 	diff = roundFloat(fabs(expectedFR - framerate));
 	//The range to report this on will probably vary by console...
-	if(config->verbose && diff > 0.001 && diff < 0.02)
+	if(config->verbose && diff > 0.001) //  && diff < 0.02)
 	{
 		double ACsamplerate = 0;
 
@@ -2163,6 +2175,7 @@ double CalculateFrameRateNS(AudioSignal *Signal, double Frames, parameters *conf
 
 	return framerate;
 }
+*/
 
 double CalculateScanRate(AudioSignal *Signal)
 {

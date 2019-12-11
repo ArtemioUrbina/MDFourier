@@ -307,10 +307,16 @@ int LoadFile(FILE *file, AudioSignal *Signal, parameters *config, char *fileName
 	
 	if(Signal->header.fmt.SamplesPerSec/2 < config->endHz)
 	{
-		logmsg(" - %d Hz sample rate was too low for %d-%d Hz analysis\n",
+		logmsg(" - %d Hz sample rate was too low for %gHz-%gHz analysis\n",
 			 Signal->header.fmt.SamplesPerSec, config->startHz, config->endHz);
-		config->endHz = Signal->header.fmt.SamplesPerSec/2;
-		logmsg(" - changed to %d-%d Hz\n", config->startHz, config->endHz);
+
+		Signal->endHz = Signal->header.fmt.SamplesPerSec/2;
+		Signal->nyquistLimit = 1;
+
+		config->endHz = Signal->endHz;
+		config->nyquistLimit = 1;
+
+		logmsg(" - Changed to %gHz-%gHz\n", config->startHz, config->endHz);
 	}
 
 	// Default if none is found
@@ -1055,7 +1061,7 @@ int ProcessSamples(AudioBlocks *AudioArray, int16_t *samples, size_t size, long 
 		AudioArray->fftwValues.size = monoSignalSize;
 		AudioArray->fftwValues.seconds = seconds;
 
-		FillFrequencyStructures(AudioArray, config);
+		FillFrequencyStructures(NULL, AudioArray, config);
 	}
 
 	if(reverse)

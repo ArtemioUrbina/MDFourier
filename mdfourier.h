@@ -49,7 +49,7 @@
 
 #include "incbeta.h"
 
-#define MDVERSION "0.95"
+#define MDVERSION "0.960"
 
 #define MAX_FREQ_COUNT		100000 	/* Number of frequencies to compare(MAX) */
 #define FREQ_COUNT			2000	/* Number of frequencies to compare(default) */
@@ -252,6 +252,10 @@ typedef struct AudioSt {
 	double		gridFrequency;
 	double		scanrateFrequency;
 	double		SilenceBinSize;
+
+	int			nyquistLimit;
+	double		startHz;
+	double		endHz;
 
 	AudioBlocks *Blocks;
 }  AudioSignal;

@@ -699,9 +699,11 @@ int LoadFile(FILE *file, AudioSignal *Signal, parameters *config, char *fileName
 	{
 		logmsg(" - %d Hz sample rate was too low for %gHz-%gHz analysis\n",
 			 Signal->header.fmt.SamplesPerSec, config->startHz, config->endHz);
-		config->endHz = Signal->header.fmt.SamplesPerSec/2;
+
+		Signal->endHz = Signal->header.fmt.SamplesPerSec/2;
+		Signal->nyquistLimit = 1;
+
 		logmsg(" - Changed to %gHz-%gHz\n", config->startHz, config->endHz);
-		config->nyquistLimit = 1;
 	}
 
 	// Default if none is found
@@ -1185,7 +1187,7 @@ int ProcessFile(AudioSignal *Signal, parameters *config)
 			if(!ExecuteDFFT(&Signal->Blocks[i], (int16_t*)buffer, (loadedBlockSize-difference)/2, Signal->header.fmt.SamplesPerSec, windowUsed, config))
 				return 0;
 
-			FillFrequencyStructures(&Signal->Blocks[i], config);
+			FillFrequencyStructures(Signal, &Signal->Blocks[i], config);
 		}
 
 		// MDWAVE exists for this, but just in case it is ever needed within MDFourier

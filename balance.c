@@ -123,8 +123,8 @@ int CheckBalance(AudioSignal *Signal, int block, parameters *config)
 				logmsg("ERROR: Not enough memory for Data Structures\n");
 				return 0;
 			}
-			FillFrequencyStructures(&Channels[0], config);
-			FillFrequencyStructures(&Channels[1], config);
+			FillFrequencyStructures(Signal, &Channels[0], config);
+			FillFrequencyStructures(Signal, &Channels[1], config);
 		}
 
 		pos += loadedBlockSize;

@@ -162,8 +162,7 @@ void CleanParameters(parameters *config)
 
 	config->referenceSignal = NULL;
 	config->comparisonSignal = NULL;
-
-	config->nyquistLimit = 0;
+	config->nyquistLimit = 0;  // only used in MDWave
 }
 
 int commandline(int argc , char *argv[], parameters *config)
