@@ -1843,7 +1843,8 @@ int InsertFrequencySorted(AudioBlocks *AudioArray, Frequency element, long int c
 		}
 	}
 
- 	logmsg("\nWARNING InsertFrequencySorted No match found!\n\n");
+ 	logmsg("\nWARNING InsertFrequencySorted No match found! (size: %ld freq: %g mag: %g)\n\n", 
+			currentsize, element.hertz, element.magnitude);
 	return 0;
 }
 
@@ -1859,7 +1860,7 @@ void FillFrequencyStructures(AudioBlocks *AudioArray, parameters *config)
 	startBin = ceil(config->startHz*boxsize);
 	endBin = floor(config->endHz*boxsize);
 	if(config->nyquistLimit)
-		endBin -= 1;
+		endBin = ceil(size/2);
 
 	/*
 	logmsg("Size: %ld BoxSize: %g StartBin: %ld EndBin %ld\n",
@@ -2117,7 +2118,7 @@ double CalculateFrameRate(AudioSignal *Signal, parameters *config)
 
 	diff = roundFloat(fabs(expectedFR - framerate));
 	//The range to report this on will probably vary by console...
-	if(config->verbose && diff > 0.001 && diff < 0.02)
+	if(config->verbose && diff > 0.001) // > 0.001 && diff < 0.02)
 	{
 		double ACsamplerate = 0;
 
