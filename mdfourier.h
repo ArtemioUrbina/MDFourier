@@ -49,7 +49,7 @@
 
 #include "incbeta.h"
 
-#define MDVERSION "0.961"
+#define MDVERSION "0.962"
 
 #define MAX_FREQ_COUNT		100000 	/* Number of frequencies to compare(MAX) */
 #define FREQ_COUNT			2000	/* Number of frequencies to compare(default) */

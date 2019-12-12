@@ -252,8 +252,8 @@ long int DetectPulseTrainSequence(Pulses *pulseArray, double targetFrequency, lo
 				frame_pulse_count++;
 				lastcounted = 1;
 				if(config->debugSync)
-					logmsg("%7ld [%5gHz %0.2f dBFS]Pulse Frame counted %d\n", 
-						pulseArray[i].bytes, pulseArray[i].hertz, pulseArray[i].amplitude, 
+					logmsg("[i:%ld] byte:%7ld [%5gHz %0.2f dBFS]Pulse Frame counted %d\n", 
+						i, pulseArray[i].bytes, pulseArray[i].hertz, pulseArray[i].amplitude, 
 						frame_pulse_count);
 	
 				if(!sequence_start)
@@ -289,8 +289,8 @@ long int DetectPulseTrainSequence(Pulses *pulseArray, double targetFrequency, lo
 					frame_silence_count ++;
 					lastcounted = 0;
 					if(config->debugSync)
-						logmsg("%7ld [%5gHz %0.2f dBFS] Silence Frame counted %d\n", 
-							pulseArray[i].bytes, pulseArray[i].hertz, pulseArray[i].amplitude, 
+						logmsg("[i:%ld] byte:%7ld [%5gHz %0.2f dBFS] Silence Frame counted %d\n", 
+							i, pulseArray[i].bytes, pulseArray[i].hertz, pulseArray[i].amplitude, 
 							frame_silence_count);
 
 					if(frame_pulse_count >= getPulseFrameLen(role, config)*factor)
@@ -429,13 +429,15 @@ long int DetectPulseInternal(char *Samples, wav_hdr header, int factor, long int
 */
 		// check for the duration of the sync pulses
 		msLen = GetLastSyncDuration(GetMSPerFrameRole(role, config), config)*1000;
+		if(factor == 4)  // are we exploring?
+			msLen *= 1.5;  // widen so that the silence offset is compensated for
 		//Times 8 to convert to out internal units, and times 2 for the actual length we want
-		TotalMS = i + floor(msLen*factor*2);
-/*
-		logmsg("changed to:\tBytes:%ld-%ld/ms:%ld-%ld]\n\tms len: %g Bytes: %g Buffer Size: %d Factor: %d\n", 
+		TotalMS = i + floor(msLen*factor);
+
+		if(config->debugSync)
+			logmsg("changed to:\tBytes:%ld-%ld/ms:%ld-%ld]\n\tms len: %g Bytes: %g Buffer Size: %d Factor: %d\n", 
 				i*buffersize, TotalMS*buffersize, i, TotalMS,
-				msLen, floor(msLen*factor*2), (int)buffersize, factor);
-*/
+				msLen, floor(msLen*factor), (int)buffersize, factor);
 	}
 	else
 		TotalMS /= 4;
