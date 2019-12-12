@@ -91,7 +91,7 @@ long int DetectEndPulse(char *AllSamples, long int startpulse, wav_hdr header, i
 	
 		frameAdjust = 0;
 		if(config->debugSync)
-			logmsg("Starting Detect end pulse with offset %ld [%g silence]\n", offset, silenceOffset[tries]);
+			logmsg("\nStarting Detect end pulse with offset %ld [%g silence]\n", offset, silenceOffset[tries]);
 	
 		maxdetected = 0;
 		errcount = 0;
@@ -197,6 +197,12 @@ double findAverageAmplitudeForTarget(Pulses *pulseArray, double targetFrequency,
 	double averageAmplitude = 0;
 
 	averageAmplitude = executeFindAverageAmplitudeForTarget(pulseArray, targetFrequency, TotalMS, start);
+
+	if(config->debugSync)
+		logmsg("Searching for Average amplitude in block: F %g Total Start byte: %ld milliseconds to check: %ld\n", 
+			targetFrequency, 
+			pulseArray[start].bytes,
+			TotalMS);
 
 	if(averageAmplitude < -20)  // if we have too much noise at the TargetFrequency, smooth it out
 	{
@@ -424,10 +430,11 @@ long int DetectPulseInternal(char *Samples, wav_hdr header, int factor, long int
 		// check for the duration of the sync pulses
 		msLen = GetLastSyncDuration(GetMSPerFrameRole(role, config), config)*1000;
 		//Times 8 to convert to out internal units, and times 2 for the actual length we want
-		TotalMS = i + msLen*8*2;
+		TotalMS = i + floor(msLen*factor*2);
 /*
-		logmsg("changed to [B:%ld-%ld/%ld-%ld]\n(MS:%g B:%ld BS:%ld F:%d)\n", 
-				i*buffersize, TotalMS*buffersize, i, TotalMS, msLen, msLen*8*2, (long)buffersize, factor);
+		logmsg("changed to:\tBytes:%ld-%ld/ms:%ld-%ld]\n\tms len: %g Bytes: %g Buffer Size: %d Factor: %d\n", 
+				i*buffersize, TotalMS*buffersize, i, TotalMS,
+				msLen, floor(msLen*factor*2), (int)buffersize, factor);
 */
 	}
 	else

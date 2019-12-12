@@ -67,6 +67,7 @@ void PrintUsage()
 	logmsg("	 -j: (text) Cuts per block information and shows <j>ust total results\n");
 	logmsg("	 -x: (text) Enables e<x>tended log results. Shows a table with all matches\n");
 	logmsg("	 -m: (text) Enables Show all blocks compared with <m>atched frequencies\n");
+	logmsg("	 -y: Debug Sync pulses\n");
 }
 
 void Header(int log)
