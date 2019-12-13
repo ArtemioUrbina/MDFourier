@@ -79,10 +79,13 @@ long int DetectPulse(char *AllSamples, wav_hdr header, int role, parameters *con
 	return position;
 }
 
-#define END_SYNC_MAX_TRIES		21
+// positions relative to the expected one
+// Start with common sense ones, then search all around the place
+#define END_SYNC_MAX_TRIES		24
 #define END_SYNC_VALUES			{ 0.50, 0.25, 0.0, 1.25, 1.50,\
 								0.9, 0.8, 0.7, 0.6, 1.6, 1.7, 1.8, 1.9, \
-								0.1, 1.1, 0.3, 1.3, 0.4, 1.4, 1.0, 2.0 }
+								0.4, 0.3, 0.1, 1.1, 1.3, 1.4,\
+								1.0, -1,0, 2.0, -2.0 }
 
 long int DetectEndPulse(char *AllSamples, long int startpulse, wav_hdr header, int role, parameters *config)
 {
