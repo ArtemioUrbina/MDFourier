@@ -30,6 +30,11 @@
 #include "log.h"
 #include "freq.h"
 
+// There are the number of subdivisions to use. 
+//The higher, the less precise in frequency but more in position and vice versa
+#define	FACTOR_EXPLORE	4
+#define	FACTOR_DETECT	9
+
 long int DetectPulse(char *AllSamples, wav_hdr header, int role, parameters *config)
 {
 	int			maxdetected = 0, errcount = 0;
@@ -40,7 +45,7 @@ long int DetectPulse(char *AllSamples, wav_hdr header, int role, parameters *con
 	if(config->debugSync)
 		logmsg("\nStarting Detect start pulse\n");
 
-	position = DetectPulseInternal(AllSamples, header, 4, 0, &maxdetected, role, config);
+	position = DetectPulseInternal(AllSamples, header, FACTOR_EXPLORE, 0, &maxdetected, role, config);
 	if(position == -1)
 	{
 		if(config->debugSync)
@@ -66,7 +71,7 @@ long int DetectPulse(char *AllSamples, wav_hdr header, int role, parameters *con
 
 	maxdetected = 0;
 	errcount = 0;
-	position = DetectPulseInternal(AllSamples, header, 9, offset, &maxdetected, role, config);
+	position = DetectPulseInternal(AllSamples, header, FACTOR_DETECT, offset, &maxdetected, role, config);
 	if(config->debugSync)
 		logmsg("Start pulse return value %ld\n", position);
 	OutputFileOnlyEnd();
@@ -74,8 +79,10 @@ long int DetectPulse(char *AllSamples, wav_hdr header, int role, parameters *con
 	return position;
 }
 
-#define END_SYNC_MAX_TRIES		4
-#define END_SYNC_VALUES			{ 3.0/4.0, 1.0/2.0, 1.0/6.0, 0.0 }
+#define END_SYNC_MAX_TRIES		21
+#define END_SYNC_VALUES			{ 0.50, 0.25, 0.0, 1.25, 1.50,\
+								0.9, 0.8, 0.7, 0.6, 1.6, 1.7, 1.8, 1.9, \
+								0.1, 1.1, 0.3, 1.3, 0.4, 1.4, 1.0, 2.0 }
 
 long int DetectEndPulse(char *AllSamples, long int startpulse, wav_hdr header, int role, parameters *config)
 {
@@ -84,26 +91,45 @@ long int DetectEndPulse(char *AllSamples, long int startpulse, wav_hdr header, i
 	double		silenceOffset[END_SYNC_MAX_TRIES] = END_SYNC_VALUES;
 
 	OutputFileOnlyStart();
+
+	// Try a clean detection
+	offset = GetLastSilenceByteOffset(GetMSPerFrameRole(role, config), header, 0, 1, config) + startpulse;
+	if(config->debugSync)
+		logmsg("\nStarting CLEAN Detect end pulse with offset %ld\n", offset);
+	position = DetectPulseInternal(AllSamples, header, FACTOR_DETECT, offset, &maxdetected, role, config);
+	if(position != -1)
+	{
+		OutputFileOnlyEnd();
+		return position;
+	}
+	
+	// We try to figure out position of the pulses
+	if(config->debugSync)
+		logmsg("End pulse CLEAN detection failed started search at %ld bytes\n", offset);
+
 	do
 	{
 		// Use defaults to calculate real frame rate
 		offset = GetLastSilenceByteOffset(GetMSPerFrameRole(role, config), header, frameAdjust, silenceOffset[tries], config) + startpulse;
 	
-		frameAdjust = 0;
 		if(config->debugSync)
-			logmsg("\nStarting Detect end pulse with offset %ld [%g silence]\n", offset, silenceOffset[tries]);
+			logmsg("\nStarting Detect end pulse with offset %ld [%g silence]\n\tMaxDetected %d frameAdjust: %d\n",
+				offset, silenceOffset[tries], maxdetected, frameAdjust);
 	
+		frameAdjust = 0;
 		maxdetected = 0;
 		errcount = 0;
-		position = DetectPulseInternal(AllSamples, header, 4, offset, &maxdetected, role, config);
+		position = DetectPulseInternal(AllSamples, header, FACTOR_EXPLORE, offset, &maxdetected, role, config);
 		if(position == -1 && !maxdetected)
 		{
 			if(config->debugSync)
 				logmsg("End pulse failed try %d, started search at %ld bytes [%g silence]\n", tries+1, offset, silenceOffset[tries]);
 		}
 
+		/*
 		if(position == -1 && maxdetected)
 			frameAdjust = getPulseCount(role, config) - maxdetected/2;
+		*/
 		tries ++;
 	}while(position == -1 && tries < maxtries);
 
@@ -130,7 +156,7 @@ long int DetectEndPulse(char *AllSamples, long int startpulse, wav_hdr header, i
 
 	maxdetected = 0;
 	errcount = 0;
-	position = DetectPulseInternal(AllSamples, header, 9, offset, &maxdetected, role, config);
+	position = DetectPulseInternal(AllSamples, header, FACTOR_DETECT, offset, &maxdetected, role, config);
 	if(config->debugSync)
 		logmsg("End pulse return value %ld\n", position);
 	OutputFileOnlyEnd();
@@ -185,6 +211,16 @@ double executeFindAverageAmplitudeForTarget(Pulses *pulseArray, double targetFre
 		}
 	}
 
+	if(!count)
+	{
+		logmsg("WARNING! Average Amplitude values not found in range\n");
+		for(i = start; i < TotalMS; i++)
+		{
+			if(pulseArray[i].hertz)
+				logmsg("byte: %ld ms: %ld hz: %g amp: %g\n", pulseArray[i].bytes, i, pulseArray[i].hertz, pulseArray[i].amplitude);
+		}
+		return 0;
+	}
 	// Get an amplitude below the average value for the pulses
 	averageAmplitude /= count;
 	averageAmplitude += -6;
@@ -234,6 +270,8 @@ long int DetectPulseTrainSequence(Pulses *pulseArray, double targetFrequency, lo
 	*maxdetected = 0;
 
 	averageAmplitude = findAverageAmplitudeForTarget(pulseArray, targetFrequency, TotalMS, start, config);
+	if(averageAmplitude == 0)
+		return -1;
 
 	if(config->debugSync)
 		logmsg("== Searching for %g Average Amplitude %g looking for %d (%d*%d)\n", 
@@ -429,7 +467,7 @@ long int DetectPulseInternal(char *Samples, wav_hdr header, int factor, long int
 */
 		// check for the duration of the sync pulses
 		msLen = GetLastSyncDuration(GetMSPerFrameRole(role, config), config)*1000;
-		if(factor == 4)  // are we exploring?
+		if(factor == FACTOR_EXPLORE)  // are we exploring?
 			msLen *= 1.5;  // widen so that the silence offset is compensated for
 		//Times 8 to convert to out internal units, and times 2 for the actual length we want
 		TotalMS = i + floor(msLen*factor);
@@ -644,7 +682,7 @@ long int DetectSignalStart(char *AllSamples, wav_hdr header, long int offset, in
 	if(config->debugSync)
 		logmsg("\nStarting Detect Signal\n");
 
-	position = DetectSignalStartInternal(AllSamples, header, 9, offset, syncKnow, &maxdetected, endPulse, config);
+	position = DetectSignalStartInternal(AllSamples, header, FACTOR_DETECT, offset, syncKnow, &maxdetected, endPulse, config);
 	if(position == -1)
 	{
 		if(config->debugSync)

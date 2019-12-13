@@ -945,7 +945,6 @@ long int GetLastSilenceByteOffset(double framerate, wav_hdr header, int frameAdj
 			offset = FramesToSeconds(GetBlockFrameOffset(i, config) - frameAdjust, framerate);
 			offset = SecondsToBytes(header.fmt.SamplesPerSec, offset, NULL, NULL, NULL);
 
-			// testing with 1/4
 			length = FramesToSeconds(config->types.typeArray[i].frames*silenceOffset, framerate);
 			length = SecondsToBytes(header.fmt.SamplesPerSec, length, NULL, NULL, NULL);
 			offset += length;
