@@ -142,7 +142,7 @@ int SaveWAVEChunk(char *filename, AudioSignal *Signal, char *buffer, long int bl
 	}
 
 	cheader.riff.ChunkSize = loadedBlockSize+36;
-	cheader.fmt.Subchunk2Size = loadedBlockSize;
+	cheader.data.DataSize = loadedBlockSize;
 	if(fwrite(&cheader, 1, sizeof(wav_hdr), chunk) != sizeof(wav_hdr))
 	{
 		fclose(chunk);

@@ -389,8 +389,8 @@ int LoadAndProcessAudioFiles(AudioSignal **ReferenceSignal, AudioSignal **Compar
 		NormalizeAudioByRatio(*ReferenceSignal, ratioRef);
 
 		// Uncomment if you want to check the WAV files as normalized
-		//SaveWAVEChunk(NULL, *ReferenceSignal, (*ReferenceSignal)->Samples, 0, (*ReferenceSignal)->header.fmt.Subchunk2Size, config); 
-		//SaveWAVEChunk(NULL, *ComparisonSignal, (*ComparisonSignal)->Samples, 0, (*ComparisonSignal)->header.fmt.Subchunk2Size, config); 
+		//SaveWAVEChunk(NULL, *ReferenceSignal, (*ReferenceSignal)->Samples, 0, (*ReferenceSignal)->header.data.DataSize, config); 
+		//SaveWAVEChunk(NULL, *ComparisonSignal, (*ComparisonSignal)->Samples, 0, (*ComparisonSignal)->header.data.DataSize, config); 
 	}
 	
 	logmsg("\n* Executing Discrete Fast Fourier Transforms on 'Reference' file\n");
@@ -677,9 +677,18 @@ int LoadFile(FILE *file, AudioSignal *Signal, parameters *config, char *fileName
 		return(0);
 	}
 
-	if(Signal->header.fmt.AudioFormat != 1) /* Check for PCM */
+	if(Signal->header.fmt.Subchunk1Size + 8 > sizeof(fmt_hdr))  // Add the fmt and chunksize length: 8 bytes
+		fseek(file, Signal->header.fmt.Subchunk1Size + 8 - sizeof(fmt_hdr), SEEK_CUR);
+
+	if(fread(&Signal->header.data, 1, sizeof(data_hdr), file) != sizeof(data_hdr))
 	{
-		logmsg("\tERROR: Invalid Audio File. Only PCM encoding is supported\n\tPlease convert file to PCM 16 bit 44/48kHz.");
+		logmsg("\tERROR: Invalid Audio file. File too small.\n");
+		return(0);
+	}
+
+	if(Signal->header.fmt.AudioFormat != WAVE_FORMAT_PCM) /* Check for PCM */
+	{
+		logmsg("\tERROR: Invalid Audio File. Only 16 bit PCM supported.\n\tPlease convert file to 16 bit PCM.");
 		return(0);
 	}
 
@@ -691,7 +700,7 @@ int LoadFile(FILE *file, AudioSignal *Signal, parameters *config, char *fileName
 
 	if(Signal->header.fmt.bitsPerSample != 16) /* Check bit depth */
 	{
-		logmsg("\tERROR: Invalid Audio file. Only 16 bit supported for now.\n\tPlease use 16 bit 44/48kHz.");
+		logmsg("\tERROR: Invalid Audio file. Only 16 bit supported for now.\n\tPlease use 16 bit.");
 		return(0);
 	}
 	
@@ -709,7 +718,7 @@ int LoadFile(FILE *file, AudioSignal *Signal, parameters *config, char *fileName
 	// Default if none is found
 	Signal->framerate = GetMSPerFrame(Signal, config);
 
-	seconds = (double)Signal->header.fmt.Subchunk2Size/4.0/(double)Signal->header.fmt.SamplesPerSec;
+	seconds = (double)Signal->header.data.DataSize/4.0/(double)Signal->header.fmt.SamplesPerSec;
 	logmsg(" - Audio file is %dHz %dbits and %g seconds long\n", 
 		Signal->header.fmt.SamplesPerSec, Signal->header.fmt.bitsPerSample, seconds);
 
@@ -720,15 +729,15 @@ int LoadFile(FILE *file, AudioSignal *Signal, parameters *config, char *fileName
 		config->smallFile = 1;
 	}
 
-	Signal->Samples = (char*)malloc(sizeof(char)*Signal->header.fmt.Subchunk2Size);
+	Signal->Samples = (char*)malloc(sizeof(char)*Signal->header.data.DataSize);
 	if(!Signal->Samples)
 	{
 		logmsg("\tERROR: All Chunks malloc failed!\n");
 		return(0);
 	}
 
-	if(fread(Signal->Samples, 1, sizeof(char)*Signal->header.fmt.Subchunk2Size, file) !=
-			 sizeof(char)*Signal->header.fmt.Subchunk2Size)
+	if(fread(Signal->Samples, 1, sizeof(char)*Signal->header.data.DataSize, file) !=
+			 sizeof(char)*Signal->header.data.DataSize)
 	{
 		logmsg("\tERROR: Could not read the whole sample block from disk to RAM.\n");
 		return(0);
@@ -831,7 +840,7 @@ int LoadFile(FILE *file, AudioSignal *Signal, parameters *config, char *fileName
 
 		// Files must be identically trimmed for this to work at some level
 		Signal->startOffset = 0;
-		Signal->endOffset = Signal->header.fmt.Subchunk2Size;
+		Signal->endOffset = Signal->header.data.DataSize;
 
 		expected = Signal->framerate;
 
@@ -892,9 +901,9 @@ int MoveSampleBlockInternal(AudioSignal *Signal, long int element, long int pos,
 	seconds = FramesToSeconds(frames, config->referenceFramerate);
 	bytes = SecondsToBytes(Signal->header.fmt.SamplesPerSec, seconds, NULL, NULL, NULL);
 
-	if(pos + bytes > Signal->header.fmt.Subchunk2Size)
+	if(pos + bytes > Signal->header.data.DataSize)
 	{
-		bytes = Signal->header.fmt.Subchunk2Size - pos;
+		bytes = Signal->header.data.DataSize - pos;
 		if(config->verbose)
 			logmsg(" - Inernal sync adjust: Signal is smaller than expected\n");
 	}
@@ -952,9 +961,9 @@ int MoveSampleBlockExternal(AudioSignal *Signal, long int element, long int pos,
 	seconds = FramesToSeconds(frames, config->referenceFramerate);
 	bytes = SecondsToBytes(Signal->header.fmt.SamplesPerSec, seconds, NULL, NULL, NULL);
 
-	if(pos + bytes > Signal->header.fmt.Subchunk2Size)
+	if(pos + bytes > Signal->header.data.DataSize)
 	{
-		bytes = Signal->header.fmt.Subchunk2Size - pos;
+		bytes = Signal->header.data.DataSize - pos;
 		if(config->verbose)
 			logmsg(" - Inernal sync adjust: Signal is smaller than expected\n");
 	}
@@ -967,8 +976,8 @@ int MoveSampleBlockExternal(AudioSignal *Signal, long int element, long int pos,
 		return 0;
 	}
 
-	if(pos + internalSyncOffset + bytes - paddingSize > Signal->header.fmt.Subchunk2Size)
-		bytes = Signal->header.fmt.Subchunk2Size - (pos + internalSyncOffset)+paddingSize;
+	if(pos + internalSyncOffset + bytes - paddingSize > Signal->header.data.DataSize)
+		bytes = Signal->header.data.DataSize - (pos + internalSyncOffset)+paddingSize;
 
 	buffsize = bytes - paddingSize;
 
@@ -1174,7 +1183,7 @@ int ProcessFile(AudioSignal *Signal, parameters *config)
 				loadedBlockSize, difference, loadedBlockSize - difference, leftover, discardBytes, leftDecimals);
 */
 		memset(buffer, 0, buffersize);
-		if(pos + loadedBlockSize > Signal->header.fmt.Subchunk2Size)
+		if(pos + loadedBlockSize > Signal->header.data.DataSize)
 		{
 			config->smallFile = 1;
 			logmsg("\tunexpected end of File, please record the full Audio Test from the 240p Test Suite.\n");

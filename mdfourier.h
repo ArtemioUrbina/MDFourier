@@ -49,7 +49,7 @@
 
 #include "incbeta.h"
 
-#define MDVERSION "0.963"
+#define MDVERSION "0.964"
 
 #define MAX_FREQ_COUNT		100000 	/* Number of frequencies to compare(MAX) */
 #define FREQ_COUNT			2000	/* Number of frequencies to compare(default) */
@@ -186,6 +186,12 @@ typedef struct	SYB_CHUNK
 	uint32_t		Size;			/* Size of the SubChunk */
 } sub_chunk;
 
+#define	WAVE_FORMAT_PCM			0x0001
+#define	WAVE_FORMAT_IEEE_FLOAT	0x0003
+#define	WAVE_FORMAT_ALAW		0x0006
+#define	WAVE_FORMAT_MULAW		0x0007
+#define WAVE_FORMAT_EXTENSIBLE	0xFFFE
+
 typedef struct	FMT_HEADER
 {
 	/* "fmt" sub-chunk */
@@ -197,15 +203,20 @@ typedef struct	FMT_HEADER
 	uint32_t		bytesPerSec;	/* bytes per second */
 	uint16_t		blockAlign; 	/* 2=16-bit mono, 4=16-bit stereo */
 	uint16_t		bitsPerSample;	/* Number of bits per sample */
-	/* "data" sub-chunk */
-	uint8_t 		Subchunk2ID[4]; /* "data"  string */
-	uint32_t		Subchunk2Size;	/* Sampled data length */
 } fmt_hdr;
+
+typedef struct	DATA_HEADER
+{
+	/* "data" sub-chunk */
+	uint8_t 		DataID[4]; /* "data"  string */
+	uint32_t		DataSize;	/* Sampled data length */
+} data_hdr;
 
 typedef struct	WAV_HEADER
 {
 	riff_hdr	riff;
 	fmt_hdr		fmt;
+	data_hdr	data;
 } wav_hdr;
 
 /********************************************************/

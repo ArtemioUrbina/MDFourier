@@ -97,7 +97,7 @@ int CheckBalance(AudioSignal *Signal, int block, parameters *config)
 			Channels[1].type = Channels[0].type;
 
 			memset(buffer, 0, buffersize);
-			if(pos + loadedBlockSize > Signal->header.fmt.Subchunk2Size)
+			if(pos + loadedBlockSize > Signal->header.data.DataSize)
 			{
 				logmsg("\tunexpected end of File, please record the full Audio Test from the 240p Test Suite\n");
 				break;

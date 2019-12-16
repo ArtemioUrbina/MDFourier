@@ -322,7 +322,7 @@ int LoadFile(FILE *file, AudioSignal *Signal, parameters *config, char *fileName
 	// Default if none is found
 	Signal->framerate = GetMSPerFrame(Signal, config);
 
-	seconds = (double)Signal->header.fmt.Subchunk2Size/4.0/(double)Signal->header.fmt.SamplesPerSec;
+	seconds = (double)Signal->header.data.DataSize/4.0/(double)Signal->header.fmt.SamplesPerSec;
 	logmsg(" - Audio file is PCM %dHz %dbits and %g seconds long\n", 
 		Signal->header.fmt.SamplesPerSec, Signal->header.fmt.bitsPerSample, seconds);
 
@@ -330,15 +330,15 @@ int LoadFile(FILE *file, AudioSignal *Signal, parameters *config, char *fileName
 		logmsg(" - WARNING: Estimated file length is smaller than the expected %g seconds\n",
 				GetSignalTotalDuration(Signal->framerate, config));
 
-	Signal->Samples = (char*)malloc(sizeof(char)*Signal->header.fmt.Subchunk2Size);
+	Signal->Samples = (char*)malloc(sizeof(char)*Signal->header.data.DataSize);
 	if(!Signal->Samples)
 	{
 		logmsg("\tAll Chunks malloc failed!\n");
 		return(0);
 	}
 
-	if(fread(Signal->Samples, 1, sizeof(char)*Signal->header.fmt.Subchunk2Size, file) !=
-			 sizeof(char)*Signal->header.fmt.Subchunk2Size)
+	if(fread(Signal->Samples, 1, sizeof(char)*Signal->header.data.DataSize, file) !=
+			 sizeof(char)*Signal->header.data.DataSize)
 	{
 		logmsg("\tCould not read the whole sample block from disk to RAM\n");
 		return(0);
@@ -466,9 +466,9 @@ int MoveSampleBlockInternal(AudioSignal *Signal, long int element, long int pos,
 	seconds = FramesToSeconds(frames, config->referenceFramerate);
 	bytes = SecondsToBytes(Signal->header.fmt.SamplesPerSec, seconds, NULL, NULL, NULL);
 
-	if(pos + bytes > Signal->header.fmt.Subchunk2Size)
+	if(pos + bytes > Signal->header.data.DataSize)
 	{
-		bytes = Signal->header.fmt.Subchunk2Size - pos;
+		bytes = Signal->header.data.DataSize - pos;
 		if(config->verbose)
 			logmsg(" - Inernal sync adjust: Signal is smaller than expected\n");
 	}
@@ -527,9 +527,9 @@ int MoveSampleBlockExternal(AudioSignal *Signal, long int element, long int pos,
 	seconds = FramesToSeconds(frames, config->referenceFramerate);
 	bytes = SecondsToBytes(Signal->header.fmt.SamplesPerSec, seconds, NULL, NULL, NULL);
 
-	if(pos + bytes > Signal->header.fmt.Subchunk2Size)
+	if(pos + bytes > Signal->header.data.DataSize)
 	{
-		bytes = Signal->header.fmt.Subchunk2Size - pos;
+		bytes = Signal->header.data.DataSize - pos;
 		if(config->verbose)
 			logmsg(" - Inernal sync adjust: Signal is smaller than expected\n");
 	}
@@ -542,8 +542,8 @@ int MoveSampleBlockExternal(AudioSignal *Signal, long int element, long int pos,
 		return 0;
 	}
 
-	if(pos + internalSyncOffset + bytes - paddingSize > Signal->header.fmt.Subchunk2Size)
-		bytes = Signal->header.fmt.Subchunk2Size - (pos + internalSyncOffset)+paddingSize;
+	if(pos + internalSyncOffset + bytes - paddingSize > Signal->header.data.DataSize)
+		bytes = Signal->header.data.DataSize - (pos + internalSyncOffset)+paddingSize;
 
 	buffsize = bytes - paddingSize;
 
@@ -763,7 +763,7 @@ int ProcessFile(AudioSignal *Signal, parameters *config)
 
 		//logmsg("Loaded %ld Left %ld Discard %ld difference %ld Decimals %g\n", loadedBlockSize, leftover, discardBytes, difference, leftDecimals);
 		memset(buffer, 0, buffersize);
-		if(pos + loadedBlockSize > Signal->header.fmt.Subchunk2Size)
+		if(pos + loadedBlockSize > Signal->header.data.DataSize)
 		{
 			logmsg("\tunexpected end of File, please record the full Audio Test from the 240p Test Suite\n");
 			break;
@@ -861,7 +861,7 @@ int ProcessFile(AudioSignal *Signal, parameters *config)
 		difference = GetByteSizeDifferenceByFrameRate(Signal->framerate, frames, Signal->header.fmt.SamplesPerSec, config);
 
 		memset(buffer, 0, buffersize);
-		if(pos + loadedBlockSize > Signal->header.fmt.Subchunk2Size)
+		if(pos + loadedBlockSize > Signal->header.data.DataSize)
 		{
 			logmsg("\tunexpected end of File, please record the full Audio Test from the 240p Test Suite\n");
 			break;
@@ -896,7 +896,7 @@ int ProcessFile(AudioSignal *Signal, parameters *config)
 	}
 
 	// clear the rest of the buffer
-	memset(Signal->Samples + pos, 0, (sizeof(char)*(Signal->header.fmt.Subchunk2Size - pos)));
+	memset(Signal->Samples + pos, 0, (sizeof(char)*(Signal->header.data.DataSize - pos)));
 
 	ComposeFileName(Name, GenerateFileNamePrefix(config), ".wav", config);
 	processed = fopen(Name, "wb");
@@ -912,8 +912,8 @@ int ProcessFile(AudioSignal *Signal, parameters *config)
 		return(0);
 	}
 
-	if(fwrite(Signal->Samples, 1, sizeof(char)*Signal->header.fmt.Subchunk2Size, processed) !=
-			 sizeof(char)*Signal->header.fmt.Subchunk2Size)
+	if(fwrite(Signal->Samples, 1, sizeof(char)*Signal->header.data.DataSize, processed) !=
+			 sizeof(char)*Signal->header.data.DataSize)
 	{
 		logmsg("\tCould not write samples to processed file\n");
 		return (0);

@@ -455,7 +455,7 @@ long int DetectPulseInternal(char *Samples, wav_hdr header, int factor, long int
 		return(0);
 	}
 
-	TotalMS = header.fmt.Subchunk2Size / buffersize - 1;
+	TotalMS = header.data.DataSize / buffersize - 1;
 	pos = offset;
 	if(offset)
 	{
@@ -463,7 +463,7 @@ long int DetectPulseInternal(char *Samples, wav_hdr header, int factor, long int
 
 		i = offset/buffersize;
 		startPos = i;
-		//if(offset < header.fmt.Subchunk2Size/2)
+		//if(offset < header.data.DataSize/2)
 /*
 		TotalMS = TotalMS/4 + i;
 		logmsg("\nWas [B:%ld-%ld/%ld-%ld] ", i*buffersize, TotalMS*buffersize, i, TotalMS);
@@ -472,7 +472,6 @@ long int DetectPulseInternal(char *Samples, wav_hdr header, int factor, long int
 		msLen = GetLastSyncDuration(GetMSPerFrameRole(role, config), config)*1000;
 		if(factor == FACTOR_EXPLORE)  // are we exploring?
 			msLen *= 1.5;  // widen so that the silence offset is compensated for
-		//Times 8 to convert to out internal units, and times 2 for the actual length we want
 		TotalMS = i + floor(msLen*factor);
 
 		if(config->debugSync)
@@ -498,7 +497,7 @@ long int DetectPulseInternal(char *Samples, wav_hdr header, int factor, long int
 		logmsg("Defined Sync %d Adjusted to %g\n", 
 				GetPulseSyncFreq(role, config), targetFrequency);
 		logmsg("Start ms %ld Total MS: %ld (%ld)\n",
-			 i, TotalMS, header.fmt.Subchunk2Size / buffersize - 1);
+			 i, TotalMS, header.data.DataSize / buffersize - 1);
 	}
 
 	while(i < TotalMS)
@@ -506,7 +505,7 @@ long int DetectPulseInternal(char *Samples, wav_hdr header, int factor, long int
 		loadedBlockSize = millisecondSize;
 
 		memset(buffer, 0, buffersize);
-		if(pos + loadedBlockSize > header.fmt.Subchunk2Size)
+		if(pos + loadedBlockSize > header.data.DataSize)
 		{
 			logmsg("\tunexpected end of File, please record the full Audio Test from the 240p Test Suite\n");
 			break;
@@ -724,7 +723,7 @@ long int DetectSignalStartInternal(char *Samples, wav_hdr header, int factor, lo
 		return(0);
 	}
 	
-	TotalMS = header.fmt.Subchunk2Size / buffersize - 1;
+	TotalMS = header.data.DataSize / buffersize - 1;
 	pulseArray = (Pulses*)malloc(sizeof(Pulses)*TotalMS);
 	if(!pulseArray)
 	{
@@ -747,7 +746,7 @@ long int DetectSignalStartInternal(char *Samples, wav_hdr header, int factor, lo
 		loadedBlockSize = millisecondSize;
 
 		memset(buffer, 0, buffersize);
-		if(pos + loadedBlockSize > header.fmt.Subchunk2Size)
+		if(pos + loadedBlockSize > header.data.DataSize)
 		{
 			logmsg("\tunexpected end of File, please record the full Audio Test from the 240p Test Suite\n");
 			break;
