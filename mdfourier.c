@@ -1582,6 +1582,7 @@ double CompareAudioBlocks(AudioSignal *ReferenceSignal, AudioSignal *ComparisonS
 /* Tiem domain normalization functions */
 
 // this is never used
+/*
 void NormalizeAudio(AudioSignal *Signal)
 {
 	long int 	i = 0, start = 0, end = 0;
@@ -1609,8 +1610,9 @@ void NormalizeAudio(AudioSignal *Signal)
 	ratio = (double)0x7FFF/(double)maxSampleValue;
 
 	for(i = start; i < end; i++)
-		samples[i] = (int16_t)((double)samples[i])*ratio;
+		samples[i] = (int16_t)((((double)samples[i])*ratio)+0.5);
 }
+*/
 
 // These work in the time domain
 void NormalizeAudioByRatio(AudioSignal *Signal, double ratio)
@@ -1628,8 +1630,9 @@ void NormalizeAudioByRatio(AudioSignal *Signal, double ratio)
 	start = Signal->startOffset/2;
 	end = Signal->endOffset/2;
 
+	// improvement suggested by plgDavid
 	for(i = start; i < end; i++)
-		samples[i] = (int16_t)((double)samples[i])*ratio;
+		samples[i] = (int16_t)((((double)samples[i])*ratio)+0.5);
 }
 
 // Find the Maximum Amplitude in the Audio File

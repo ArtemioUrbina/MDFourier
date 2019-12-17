@@ -438,6 +438,8 @@ void DrawGridZeroDBCentered(PlotFile *plot, double dBFS, double dbIncrement, dou
 	}
 	pl_fline_r(plot->plotter, transformtoLog(1000, config), -1*dBFS, transformtoLog(1000, config), dBFS);
 	pl_fline_r(plot->plotter, transformtoLog(10000, config), -1*dBFS, transformtoLog(10000, config), dBFS);
+	if(config->endHzPlot > 20000)
+		pl_fline_r(plot->plotter, transformtoLog(20000, config), -1*dBFS, transformtoLog(20000, config), dBFS);
 
 	if(config->averageLine != 0.0)
 	{
@@ -520,6 +522,13 @@ void DrawLabelsZeroDBCentered(PlotFile *plot, double dBFS, double dbIncrement, d
 	pl_fmove_r(plot->plotter, config->plotResX/hz*transformtoLog(10000, config), config->plotResY/2-config->plotResY/100);
 	sprintf(label, "%dkHz", 10);
 	pl_alabel_r(plot->plotter, 'c', 'c', label);
+
+	if(config->endHzPlot > 20000)
+	{
+		pl_fmove_r(plot->plotter, config->plotResX/hz*transformtoLog(20000, config), config->plotResY/2-config->plotResY/100);
+		sprintf(label, "%dkHz", 20);
+		pl_alabel_r(plot->plotter, 'c', 'c', label);
+	}
 
 	pl_fspace_r(plot->plotter, plot->x0, plot->y0, plot->x1, plot->y1);
 }
