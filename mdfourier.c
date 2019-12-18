@@ -1579,7 +1579,7 @@ double CompareAudioBlocks(AudioSignal *ReferenceSignal, AudioSignal *ComparisonS
 	return 0;
 }
 
-/* Tiem domain normalization functions */
+/* Time domain normalization functions */
 
 // this is never used
 /*
@@ -1614,7 +1614,7 @@ void NormalizeAudio(AudioSignal *Signal)
 }
 */
 
-// These work in the time domain
+// These work in the time domain only, not during regular use
 void NormalizeAudioByRatio(AudioSignal *Signal, double ratio)
 {
 	long int 	i = 0, start = 0, end = 0;

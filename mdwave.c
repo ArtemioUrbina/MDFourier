@@ -287,9 +287,18 @@ int LoadFile(FILE *file, AudioSignal *Signal, parameters *config, char *fileName
 		return(0);
 	}
 
-	if(Signal->header.fmt.AudioFormat != 1) /* Check for PCM */
+	if(Signal->header.fmt.Subchunk1Size + 8 > sizeof(fmt_hdr))  // Add the fmt and chunksize length: 8 bytes
+		fseek(file, Signal->header.fmt.Subchunk1Size + 8 - sizeof(fmt_hdr), SEEK_CUR);
+
+	if(fread(&Signal->header.data, 1, sizeof(data_hdr), file) != sizeof(data_hdr))
 	{
-		logmsg("\tInvalid Audio File: Only PCM is supported\n\tPlease use PCM 16 bit");
+		logmsg("\tERROR: Invalid Audio file. File too small.\n");
+		return(0);
+	}
+
+	if(Signal->header.fmt.AudioFormat != WAVE_FORMAT_PCM) /* Check for PCM */
+	{
+		logmsg("\tERROR: Invalid Audio File. Only 16 bit PCM supported.\n\tPlease convert file to 16 bit PCM.");
 		return(0);
 	}
 
