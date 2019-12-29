@@ -44,6 +44,7 @@ int LoadAudioNoSyncProfile(FILE *file, parameters *config);
 int GetFirstSilenceIndex(parameters *config);
 int GetFirstMonoIndex(parameters *config);
 long int GetLastSilenceByteOffset(double framerate, wav_hdr header, int frameAdjust, double silenceOffset, parameters *config);
+long int GetSecondSilenceByteOffset(double framerate, wav_hdr header, int frameAdjust, double silenceOffset, parameters *config);
 int GetActiveAudioBlocks(parameters *config);
 int GetTotalAudioBlocks(parameters *config);
 long int GetLongestElementFrames(parameters *config);
@@ -120,6 +121,7 @@ double FindDifferenceAverage(parameters *config);
 void SubstractDifferenceAverage(parameters *config, double average);
 int FindDifferenceTypeTotals(int type, long int *cntAmplBlkDiff, long int *cmpAmplBlkDiff, parameters *config);
 int FindMissingTypeTotals(int type, long int *cntFreqBlkDiff, long int *cmpFreqBlkDiff, parameters *config);
+int FindDifferenceWithinInterval(int type, long int *inside, long int *count, double MaxInterval, parameters *config);
 
 int GetPulseSyncFreq(int role, parameters *config);
 int getPulseCount(int role, parameters *config);

@@ -66,7 +66,11 @@ void logmsg(char *fmt, ... )
 	}
 
 	if(do_log && logfile)
+	{
 		vfprintf(logfile, fmt, arguments);
+		// uncomment to output to log file ASAP when debugging
+		//fflush(logfile);
+	}
 
 	va_end(arguments);
 	return;

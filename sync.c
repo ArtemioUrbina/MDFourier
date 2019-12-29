@@ -96,7 +96,7 @@ long int DetectEndPulse(char *AllSamples, long int startpulse, wav_hdr header, i
 	OutputFileOnlyStart();
 
 	// Try a clean detection
-	offset = GetLastSilenceByteOffset(GetMSPerFrameRole(role, config), header, 0, 1, config) + startpulse;
+	offset = GetSecondSilenceByteOffset(GetMSPerFrameRole(role, config), header, 0, 1, config) + startpulse;
 	if(config->debugSync)
 		logmsg("\nStarting CLEAN Detect end pulse with offset %ld\n", offset);
 	position = DetectPulseInternal(AllSamples, header, FACTOR_DETECT, offset, &maxdetected, role, config);
@@ -113,7 +113,7 @@ long int DetectEndPulse(char *AllSamples, long int startpulse, wav_hdr header, i
 	do
 	{
 		// Use defaults to calculate real frame rate
-		offset = GetLastSilenceByteOffset(GetMSPerFrameRole(role, config), header, frameAdjust, silenceOffset[tries], config) + startpulse;
+		offset = GetSecondSilenceByteOffset(GetMSPerFrameRole(role, config), header, frameAdjust, silenceOffset[tries], config) + startpulse;
 	
 		if(config->debugSync)
 			logmsg("\nStarting Detect end pulse with offset %ld [%g silence]\n\tMaxDetected %d frameAdjust: %d\n",

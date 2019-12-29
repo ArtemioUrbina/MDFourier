@@ -954,6 +954,33 @@ long int GetLastSilenceByteOffset(double framerate, wav_hdr header, int frameAdj
 	return 0;
 }
 
+long int GetSecondSilenceByteOffset(double framerate, wav_hdr header, int frameAdjust, double silenceOffset, parameters *config)
+{
+	int silence_count = 0, i = 0;
+
+	if(!config)
+		return NO_INDEX;
+
+	for(i = 0; i < config->types.typeCount; i++)
+	{
+		if(config->types.typeArray[i].type == TYPE_SILENCE)
+			silence_count ++;
+		if(silence_count == 2)
+		{
+			double offset = 0, length = 0;
+
+			offset = FramesToSeconds(GetBlockFrameOffset(i, config) - frameAdjust, framerate);
+			offset = SecondsToBytes(header.fmt.SamplesPerSec, offset, NULL, NULL, NULL);
+
+			length = FramesToSeconds(config->types.typeArray[i].frames*silenceOffset, framerate);
+			length = SecondsToBytes(header.fmt.SamplesPerSec, length, NULL, NULL, NULL);
+			offset += length;
+			return(offset);
+		}
+	}
+	return 0;
+}
+
 long int GetBlockFrameOffset(int block, parameters *config)
 {
 	double offset = 0;
@@ -1955,10 +1982,15 @@ double CalculateWeightedError(double pError, parameters *config)
 {
 	int option = 0;
 
-	if(pError < 0.0)
+	if(pError < 0.0)  // this should never happen
 	{
+		logmsg("pERROR < 0! (%g)\n", pError);
 		pError = fabs(pError);
-		logmsg("pERROR < 0!\n");
+		if(pError > 1)
+		{
+			logmsg("pERROR > 1! (%g)\n", pError);
+			return 1;
+		}
 	}
 
 	option = config->outputFilterFunction;
@@ -2198,10 +2230,9 @@ double FindDifferenceAverage(parameters *config)
 		if(config->Differences.BlockDiffArray[b].type <= TYPE_CONTROL)
 			continue;
 
-
 		for(int a = 0; a < config->Differences.BlockDiffArray[b].cntAmplBlkDiff; a++)
 		{
-			AvgDifAmp += fabs(config->Differences.BlockDiffArray[b].amplDiffArray[a].diffAmplitude);
+			AvgDifAmp += config->Differences.BlockDiffArray[b].amplDiffArray[a].diffAmplitude;
 			count ++;
 		}
 	}
@@ -2290,6 +2321,42 @@ int FindMissingTypeTotals(int type, long int *cntFreqBlkDiff, long int *cmpFreqB
 
 	return 1;
 }
+
+int FindDifferenceWithinInterval(int type, long int *inside, long int *count, double MaxInterval, parameters *config)
+{
+	if(!config)
+		return 0;
+
+	if(!config->Differences.BlockDiffArray)
+		return 0;
+
+	if(!inside || !count)
+		return 0;
+
+	*inside = 0;
+	*count = 0;
+
+	for(int b = 0; b < config->types.totalChunks; b++)
+	{
+		if(config->Differences.BlockDiffArray[b].type < TYPE_SILENCE)
+			continue;
+
+		if(type == config->Differences.BlockDiffArray[b].type)
+		{
+			for(int a = 0; a < config->Differences.BlockDiffArray[b].cntAmplBlkDiff; a++)
+			{
+				if(fabs(config->Differences.BlockDiffArray[b].amplDiffArray[a].diffAmplitude) <= MaxInterval)
+					(*inside)++;
+				
+			}
+			(*inside) += config->Differences.BlockDiffArray[b].perfectAmplMatch;
+			(*count) += config->Differences.BlockDiffArray[b].cmpAmplBlkDiff;
+		}
+	}
+
+	return 1;
+}
+
 
 int getPulseCount(int role, parameters *config)
 {

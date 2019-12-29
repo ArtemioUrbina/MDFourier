@@ -94,9 +94,9 @@ int main(int argc , char *argv[])
 	CompareAudioBlocks(ReferenceSignal, ComparisonSignal, &config);
 	average = FindDifferenceAverage(&config);
 	logmsg("Average difference is %g dBFS\n", average);
-	if(average > DB_DIFF)
+	if(fabs(average) > DB_DIFF)
 	{
-		logmsg(" - WARNING: The average difference is too high.\n");
+		//logmsg(" - WARNING: The average difference is too high.\n");
 		if(config.averageIgnore)
 		{
 			logmsg("\tThis is abnormal, if results make no sense you can try:\n");
@@ -1509,6 +1509,9 @@ double CompareAudioBlocks(AudioSignal *ReferenceSignal, AudioSignal *ComparisonS
 				{
 					/* Adjusted Amplitude to tolerance */
 				}
+			
+				if(test == 0) // perfect match
+					IncrementPerfectMatch(block, config);
 			}
 
 			if(!found)

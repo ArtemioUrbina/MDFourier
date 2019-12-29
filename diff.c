@@ -219,6 +219,22 @@ int IncrementCompared(int block, parameters *config)
 	return 1;
 }
 
+int IncrementPerfectMatch(int block, parameters *config)
+{
+	if(!config)
+		return 0;
+
+	if(!config->Differences.BlockDiffArray)
+		return 0;
+
+	if(block > config->types.totalChunks)
+		return 0;
+
+	config->Differences.BlockDiffArray[block].perfectAmplMatch ++;
+	
+	return 1;
+}
+
 
 int IncrementCmpFreqNotFound(int block, parameters *config)
 {

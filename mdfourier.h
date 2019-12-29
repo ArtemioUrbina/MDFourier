@@ -49,7 +49,7 @@
 
 #include "incbeta.h"
 
-#define MDVERSION "0.964"
+#define MDVERSION "0.970"
 
 #define MAX_FREQ_COUNT		100000 	/* Number of frequencies to compare(MAX) */
 #define FREQ_COUNT			2000	/* Number of frequencies to compare(default) */
@@ -307,6 +307,7 @@ typedef struct blk_diff_st {
 	FreqDifference *freqMissArray;
 	long int		cntFreqBlkDiff;
 	long int		cmpFreqBlkDiff;
+	long int		perfectAmplMatch;
 	double			weightedFreqBlkDiff;
 
 	AmplDifference *amplDiffArray;

@@ -63,6 +63,11 @@
 #define SPECTROGRAM_NOISE_REF		"REFERENCE NOISE FLOOR SPECTROGRAM [%s]"
 #define SPECTROGRAM_NOISE_COM		"COMPARISON NOISE FLOOR SPECTROGRAM [%s]"
 
+#define	BAR_DIFF_DB_TOLERANCE	1.0
+
+#define BAR_DIFF					"Frequencies w/amplitude difference"
+#define BAR_WITHIN					"Matches within 1dBFS"
+
 #define ALL_LABEL					"ALL"
 
 #if defined (WIN32)
@@ -658,7 +663,7 @@ void DrawLabelsMDF(PlotFile *plot, char *Gname, char *GType, int type, parameter
 		if(config->normType == max_time)
 			pl_alabel_r(plot->plotter, 'l', 'l', "Time domain normalization");
 		if(config->normType == average)
-			pl_alabel_r(plot->plotter, 'l', 'l', "Averaged normalzation");
+			pl_alabel_r(plot->plotter, 'l', 'l', "Averaged normalization");
 		if(config->normType == none)
 			pl_alabel_r(plot->plotter, 'l', 'l', "WARNING: No Normalization, PLEASE DISREGARD");
 	}
@@ -773,25 +778,52 @@ void DrawColorScale(PlotFile *plot, int type, int mode, double x, double y, doub
 	}
 
 	SetPenColor(colorName, 0xaaaa, plot);
-	pl_fmove_r(plot->plotter, x, y-config->plotResY/50);
+	pl_fmove_r(plot->plotter, x+4*width+config->plotResX/60, y);
 	pl_alabel_r(plot->plotter, 'l', 'l', label);
 	labelwidth = pl_flabelwidth_r(plot->plotter, label);
 
 	if(mode != MODE_SPEC)
 	{
+		double barwidth = 0;
+
 		if(mode == MODE_DIFF)
+		{
 			FindDifferenceTypeTotals(type, &cnt, &cmp, config);
+
+			SetPenColor(COLOR_GRAY, 0xaaaa, plot);
+			pl_fmove_r(plot->plotter, x+4*width+config->plotResX/60, y+1.5*BAR_HEIGHT);
+			pl_alabel_r(plot->plotter, 'l', 'l', BAR_DIFF);
+		}
 		if(mode == MODE_MISS)
+		{
 			FindMissingTypeTotals(type, &cnt, &cmp, config);
-		DrawMatchBar(plot, colorName,
-			x+labelwidth+BAR_WIDTH*0.2, y-config->plotResY/50, BAR_WIDTH, BAR_HEIGHT,
-			cnt, cmp, config);
+		}
+		barwidth = DrawMatchBar(plot, colorName,
+			x+4*width+config->plotResX/60+labelwidth+BAR_WIDTH*0.2, y,
+			BAR_WIDTH, BAR_HEIGHT, 
+			(double)cnt, (double)cmp, config);
+		if(mode == MODE_DIFF)
+		{
+			int tmp_width = 0;
+
+			tmp_width = x+4*width+config->plotResX/60+labelwidth+BAR_WIDTH*0.2 + 1.4*barwidth;
+
+			FindDifferenceWithinInterval(type, &cnt, &cmp, BAR_DIFF_DB_TOLERANCE, config);
+
+			SetPenColor(COLOR_GRAY, 0xaaaa, plot);
+			pl_fmove_r(plot->plotter, x+tmp_width+config->plotResX/60+labelwidth, y+1.5*BAR_HEIGHT);
+			pl_alabel_r(plot->plotter, 'l', 'l', BAR_WITHIN);
+			DrawMatchBar(plot, colorName,
+				x+tmp_width+config->plotResX/60+labelwidth+BAR_WIDTH*0.2, y,
+				BAR_WIDTH, BAR_HEIGHT, 
+				(double)cnt, (double)cmp, config);
+		}
 	}
 }
 
 void DrawColorAllTypeScale(PlotFile *plot, int mode, double x, double y, double width, double height, double endDbs, double dbIncrement, parameters *config)
 {
-	double 	segments = 0, maxlabel = 0;
+	double 	segments = 0, maxlabel = 0, maxbarwidth = 0;
 	int		*colorName = NULL, *typeID = NULL;
 	int		numTypes = 0, t = 0;
 
@@ -875,18 +907,52 @@ void DrawColorAllTypeScale(PlotFile *plot, int mode, double x, double y, double 
 
 	if(mode != MODE_SPEC)
 	{
+		// Draw label if needed
+		if(mode == MODE_DIFF)
+		{
+			SetPenColor(COLOR_GRAY, 0xaaaa, plot);
+			pl_fmove_r(plot->plotter, x+2*width+config->plotResX/60, y+(numTypes-1)*config->plotResY/50+1.5*BAR_HEIGHT);
+			pl_alabel_r(plot->plotter, 'l', 'l', BAR_DIFF);
+		}
+
 		for(int t = 0; t < numTypes; t++)
 		{
+			double		barwidth = 0;
 			long int	cnt = 0, cmp = 0;
 	
 			if(mode == MODE_DIFF)
 				FindDifferenceTypeTotals(typeID[t], &cnt, &cmp, config);
 			if(mode == MODE_MISS)
 				FindMissingTypeTotals(typeID[t], &cnt, &cmp, config);
-			DrawMatchBar(plot, colorName[t],
+			barwidth = DrawMatchBar(plot, colorName[t],
 					x+2*width+config->plotResX/60+maxlabel+BAR_WIDTH*0.2, y+(numTypes-1)*config->plotResY/50-t*config->plotResY/50,
 					BAR_WIDTH, BAR_HEIGHT, 
-					cnt, cmp, config);
+					(double)cnt, (double)cmp, config);
+			if(barwidth > maxbarwidth)
+				maxbarwidth = barwidth;
+		}
+	}
+
+	// Draw Match within bars
+	if(mode == MODE_DIFF)
+	{
+		long int	cnt = 0, cmp = 0;
+		int 		tmp_width = 0;
+
+		tmp_width = 2*width + 2*maxbarwidth + maxlabel;
+
+		SetPenColor(COLOR_GRAY, 0xaaaa, plot);
+		pl_fmove_r(plot->plotter, x+tmp_width+config->plotResX/50, y+(numTypes-1)*config->plotResY/50+1.5*BAR_HEIGHT);
+		pl_alabel_r(plot->plotter, 'l', 'l', BAR_WITHIN);
+
+		for(int t = 0; t < numTypes; t++)
+		{
+			FindDifferenceWithinInterval(typeID[t], &cnt, &cmp, BAR_DIFF_DB_TOLERANCE, config);
+
+			DrawMatchBar(plot, colorName[t],
+				x+tmp_width+config->plotResX/60+BAR_WIDTH*0.2, y+(numTypes-1)*config->plotResY/50-t*config->plotResY/50,
+				BAR_WIDTH, BAR_HEIGHT, 
+				(double)cnt, (double)cmp, config);
 		}
 	}
 
@@ -896,9 +962,10 @@ void DrawColorAllTypeScale(PlotFile *plot, int mode, double x, double y, double 
 	typeID = NULL;
 }
 
-void DrawMatchBar(PlotFile *plot, int colorName, double x, double y, double width, double height, double notFound, double total, parameters *config)
+double DrawMatchBar(PlotFile *plot, int colorName, double x, double y, double width, double height, double notFound, double total, parameters *config)
 {
 	char percent[40];
+	double labelwidth = 0, maxlabel = 0;
 
 	pl_fspace_r(plot->plotter, 0, 0, config->plotResX, config->plotResY);
 
@@ -929,11 +996,15 @@ void DrawMatchBar(PlotFile *plot, int colorName, double x, double y, double widt
 		pl_ffontname_r(plot->plotter, "HersheySans");
 
 		sprintf(percent, "%5.2f%% of %ld", notFound*100.0/total, (long int)total);
-	
+
 		SetPenColor(colorName, 0x8888, plot);
 		pl_fmove_r(plot->plotter, x+width*1.10, y);
 		pl_alabel_r(plot->plotter, 'l', 'l', percent);
+		labelwidth = pl_flabelwidth_r(plot->plotter, percent);
+		if(labelwidth > maxlabel)
+			maxlabel = labelwidth;
 	}
+	return maxlabel;
 }
 
 void DrawNoiseLines(PlotFile *plot, double start, double end, AudioSignal *Signal, parameters *config)
@@ -1215,21 +1286,24 @@ void PlotAllMissingFrequencies(FlatFreqDifference *freqDiff, long int size, char
 	DrawGridZeroToLimit(&plot, significant, VERT_SCALE_STEP, config->endHzPlot, 1000, config);
 	DrawLabelsZeroToLimit(&plot, significant, VERT_SCALE_STEP, config->endHzPlot, 1000, config);
 
-	for(int f = size; f >= 0 ; f--)
+	if(size)
 	{
-		if(freqDiff[f].type > TYPE_CONTROL)
-		{ 
-			long int intensity;
-			double x, y;
-
-			x = transformtoLog(freqDiff[f].hertz, config);
-			y = freqDiff[f].amplitude;
-
-			intensity = CalculateWeightedError((fabs(significant) - fabs(freqDiff[f].amplitude))/fabs(significant), config)*0xffff;
-
-			SetPenColor(freqDiff[f].color, intensity, &plot);
-			pl_fline_r(plot.plotter, x,	y, x, significant);
-			pl_endpath_r(plot.plotter);
+		for(int f = size; f >= 0 ; f--)
+		{
+			if(freqDiff[f].type > TYPE_CONTROL)
+			{ 
+				long int intensity;
+				double x, y;
+	
+				x = transformtoLog(freqDiff[f].hertz, config);
+				y = freqDiff[f].amplitude;
+	
+				intensity = CalculateWeightedError((fabs(significant) - fabs(freqDiff[f].amplitude))/fabs(significant), config)*0xffff;
+				
+				SetPenColor(freqDiff[f].color, intensity, &plot);
+				pl_fline_r(plot.plotter, x,	y, x, significant);
+				pl_endpath_r(plot.plotter);
+			}
 		}
 	}
 	
@@ -1321,21 +1395,23 @@ void PlotAllSpectrogram(FlatFrequency *freqs, long int size, char *filename, int
 	DrawGridZeroToLimit(&plot, significant, VERT_SCALE_STEP, config->endHzPlot, 1000, config);
 	DrawLabelsZeroToLimit(&plot, significant, VERT_SCALE_STEP, config->endHzPlot, 1000, config);
 
-	//for(int f = 0; f < size; f++)
-	for(int f = size; f >= 0; f--)
+	if(size)
 	{
-		if(freqs[f].type > TYPE_CONTROL)
-		{ 
-			long int intensity;
-			double x, y;
-
-			x = transformtoLog(freqs[f].hertz, config);
-			y = freqs[f].amplitude;
-			intensity = CalculateWeightedError((fabs(significant) - fabs(freqs[f].amplitude))/fabs(significant), config)*0xffff;
+		for(int f = size; f >= 0; f--)
+		{
+			if(freqs[f].type > TYPE_CONTROL)
+			{ 
+				long int intensity;
+				double x, y;
 	
-			SetPenColor(freqs[f].color, intensity, &plot);
-			pl_fline_r(plot.plotter, x,	y, x, significant);
-			pl_endpath_r(plot.plotter);
+				x = transformtoLog(freqs[f].hertz, config);
+				y = freqs[f].amplitude;
+				intensity = CalculateWeightedError((fabs(significant) - fabs(freqs[f].amplitude))/fabs(significant), config)*0xffff;
+		
+				SetPenColor(freqs[f].color, intensity, &plot);
+				pl_fline_r(plot.plotter, x,	y, x, significant);
+				pl_endpath_r(plot.plotter);
+			}
 		}
 	}
 

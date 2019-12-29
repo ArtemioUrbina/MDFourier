@@ -40,6 +40,7 @@ int InsertAmplDifference(int block, double freq, double refAmplitude, double com
 int IncrementCmpAmplDifference(int block, parameters *config);
 int IncrementCmpFreqNotFound(int block, parameters *config);
 int IncrementCompared(int block, parameters *config);
+int IncrementPerfectMatch(int block, parameters *config);
 void PrintDifferentFrequencies(int block, parameters *config);
 void PrintDifferentAmplitudes(int block, parameters *config);
 void PrintDifferenceArray(parameters *config);
