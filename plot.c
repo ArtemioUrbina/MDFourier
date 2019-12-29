@@ -65,8 +65,9 @@
 
 #define	BAR_DIFF_DB_TOLERANCE	1.0
 
-#define BAR_DIFF					"Frequencies w/amplitude difference"
-#define BAR_WITHIN					"Matches within 1dBFS"
+#define BAR_HEADER					"Matched frequencies"
+#define BAR_DIFF					"w/any amplitude difference"
+#define BAR_WITHIN					"within 1dBFS"
 
 #define ALL_LABEL					"ALL"
 
@@ -784,7 +785,7 @@ void DrawColorScale(PlotFile *plot, int type, int mode, double x, double y, doub
 
 	if(mode != MODE_SPEC)
 	{
-		double barwidth = 0;
+		double bar_text_width = 0;
 
 		if(mode == MODE_DIFF)
 		{
@@ -798,23 +799,28 @@ void DrawColorScale(PlotFile *plot, int type, int mode, double x, double y, doub
 		{
 			FindMissingTypeTotals(type, &cnt, &cmp, config);
 		}
-		barwidth = DrawMatchBar(plot, colorName,
+		bar_text_width = DrawMatchBar(plot, colorName,
 			x+4*width+config->plotResX/60+labelwidth+BAR_WIDTH*0.2, y,
 			BAR_WIDTH, BAR_HEIGHT, 
 			(double)cnt, (double)cmp, config);
 		if(mode == MODE_DIFF)
 		{
-			int tmp_width = 0;
+			int x_offset = 0;
 
-			tmp_width = x+4*width+config->plotResX/60+labelwidth+BAR_WIDTH*0.2 + 1.4*barwidth;
+			x_offset = x+4*width+config->plotResX/60+labelwidth+BAR_WIDTH + bar_text_width;
 
 			FindDifferenceWithinInterval(type, &cnt, &cmp, BAR_DIFF_DB_TOLERANCE, config);
 
 			SetPenColor(COLOR_GRAY, 0xaaaa, plot);
-			pl_fmove_r(plot->plotter, x+tmp_width+config->plotResX/60+labelwidth, y+1.5*BAR_HEIGHT);
+			pl_fmove_r(plot->plotter, 1.1*x_offset, y+1.5*BAR_HEIGHT);
 			pl_alabel_r(plot->plotter, 'l', 'l', BAR_WITHIN);
+
+			SetPenColor(COLOR_GRAY, 0xaaaa, plot);
+			pl_fmove_r(plot->plotter, x_offset, y+3*BAR_HEIGHT);
+			pl_alabel_r(plot->plotter, 'c', 'c', BAR_HEADER);
+
 			DrawMatchBar(plot, colorName,
-				x+tmp_width+config->plotResX/60+labelwidth+BAR_WIDTH*0.2, y,
+				1.1*x_offset, y,
 				BAR_WIDTH, BAR_HEIGHT, 
 				(double)cnt, (double)cmp, config);
 		}
@@ -937,20 +943,24 @@ void DrawColorAllTypeScale(PlotFile *plot, int mode, double x, double y, double 
 	if(mode == MODE_DIFF)
 	{
 		long int	cnt = 0, cmp = 0;
-		int 		tmp_width = 0;
+		int 		x_offset = 0;
 
-		tmp_width = 2*width + 2*maxbarwidth + maxlabel;
+		x_offset = x+2*width+config->plotResX/60+BAR_WIDTH+maxbarwidth + maxlabel;
 
 		SetPenColor(COLOR_GRAY, 0xaaaa, plot);
-		pl_fmove_r(plot->plotter, x+tmp_width+config->plotResX/50, y+(numTypes-1)*config->plotResY/50+1.5*BAR_HEIGHT);
+		pl_fmove_r(plot->plotter, 1.1*x_offset, y+(numTypes-1)*config->plotResY/50+1.5*BAR_HEIGHT);
 		pl_alabel_r(plot->plotter, 'l', 'l', BAR_WITHIN);
+
+		SetPenColor(COLOR_GRAY, 0xaaaa, plot);
+		pl_fmove_r(plot->plotter, x_offset, y+(numTypes-1)*config->plotResY/50+3*BAR_HEIGHT);
+		pl_alabel_r(plot->plotter, 'c', 'c', BAR_HEADER);
 
 		for(int t = 0; t < numTypes; t++)
 		{
 			FindDifferenceWithinInterval(typeID[t], &cnt, &cmp, BAR_DIFF_DB_TOLERANCE, config);
 
 			DrawMatchBar(plot, colorName[t],
-				x+tmp_width+config->plotResX/60+BAR_WIDTH*0.2, y+(numTypes-1)*config->plotResY/50-t*config->plotResY/50,
+				1.1*x_offset, y+(numTypes-1)*config->plotResY/50-t*config->plotResY/50,
 				BAR_WIDTH, BAR_HEIGHT, 
 				(double)cnt, (double)cmp, config);
 		}

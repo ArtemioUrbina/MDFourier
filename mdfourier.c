@@ -42,7 +42,7 @@ int LoadAndProcessAudioFiles(AudioSignal **ReferenceSignal, AudioSignal **Compar
 int LoadFile(FILE *file, AudioSignal *Signal, parameters *config, char *fileName);
 int ProcessFile(AudioSignal *Signal, parameters *config);
 int ExecuteDFFT(AudioBlocks *AudioArray, int16_t *samples, size_t size, long samplerate, double *window, parameters *config);
-double CompareAudioBlocks(AudioSignal *ReferenceSignal, AudioSignal *ComparisonSignal, parameters *config);
+int CompareAudioBlocks(AudioSignal *ReferenceSignal, AudioSignal *ComparisonSignal, parameters *config);
 void CleanUp(AudioSignal **ReferenceSignal, AudioSignal **ComparisonSignal, parameters *config);
 void CloseFiles(FILE **ref, FILE **comp);
 void NormalizeAudio(AudioSignal *Signal);
@@ -91,7 +91,8 @@ int main(int argc , char *argv[])
 		return 1;
 
 	logmsg("\n* Comparing frequencies: ");
-	CompareAudioBlocks(ReferenceSignal, ComparisonSignal, &config);
+	if(!CompareAudioBlocks(ReferenceSignal, ComparisonSignal, &config))
+		return 1;
 	average = FindDifferenceAverage(&config);
 	logmsg("Average difference is %g dBFS\n", average);
 	if(fabs(average) > DB_DIFF)
@@ -140,7 +141,8 @@ int main(int argc , char *argv[])
 	
 		logmsg(" - Using %g dBFS as minimum significant amplitude for analysis\n",
 			config.significantAmplitude);
-		CompareAudioBlocks(ComparisonSignal, ReferenceSignal, &config);
+		if(!CompareAudioBlocks(ComparisonSignal, ReferenceSignal, &config))
+			return 1;
 	
 		PlotResults(ComparisonSignal, &config);
 	}
@@ -1372,7 +1374,7 @@ int CalculateMaxCompare(int block, AudioSignal *Signal, parameters *config, int 
 	return config->MaxFreq;
 }
 
-double CompareAudioBlocks(AudioSignal *ReferenceSignal, AudioSignal *ComparisonSignal, parameters *config)
+int CompareAudioBlocks(AudioSignal *ReferenceSignal, AudioSignal *ComparisonSignal, parameters *config)
 {
 	int				block = 0;
 	struct timespec	start, end;
@@ -1415,11 +1417,12 @@ double CompareAudioBlocks(AudioSignal *ReferenceSignal, AudioSignal *ComparisonS
 		{
 			int found = 0, index = 0;
 
-			/* Ignore CRT noise */
-			//if(IsCRTNoise(ReferenceSignal->Blocks[block].freq[freq].hertz))
-				//continue;
+			if(!IncrementCompared(block, config))
+			{
+				logmsg("Internal consistency failure, please send error log\n");
+				return 0;
+			}
 
-			IncrementCompared(block, config);
 			for(int comp = 0; comp < testSize; comp++)
 			{
 				if(!ComparisonSignal->Blocks[block].freq[comp].matched && 
@@ -1478,7 +1481,7 @@ double CompareAudioBlocks(AudioSignal *ReferenceSignal, AudioSignal *ComparisonS
 				double test;
 
 				test = fabs(fabs(ComparisonSignal->Blocks[block].freq[index].amplitude) - fabs(ReferenceSignal->Blocks[block].freq[freq].amplitude));
-				if(test > config->tolerance)
+				if(test != 0.0 && test > config->tolerance)  // 0 by default
 				{
 					/* Difference in Amplitude */
 					double value = 1;
@@ -1505,13 +1508,15 @@ double CompareAudioBlocks(AudioSignal *ReferenceSignal, AudioSignal *ComparisonS
 							ComparisonSignal->Blocks[block].freq[index].amplitude, value, config);
 				}
 	
-				if(test && test <= config->tolerance)
+				if(test != 0.0 && test <= config->tolerance)
 				{
 					/* Adjusted Amplitude to tolerance */
 				}
 			
-				if(test == 0) // perfect match
+				if(test == 0.0) // perfect match
+				{
 					IncrementPerfectMatch(block, config);
+				}
 			}
 
 			if(!found)
@@ -1579,7 +1584,7 @@ double CompareAudioBlocks(AudioSignal *ReferenceSignal, AudioSignal *ComparisonS
 		elapsedSeconds = TimeSpecToSeconds(&end) - TimeSpecToSeconds(&start);
 		logmsg(" - clk: Comparing frequencies took %0.2fs\n", elapsedSeconds);
 	}
-	return 0;
+	return 1;
 }
 
 /* Time domain normalization functions */
