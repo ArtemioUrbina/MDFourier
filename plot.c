@@ -238,7 +238,7 @@ void PlotResults(AudioSignal *Signal, parameters *config)
 			}
 		}
 		else
-			logmsg("\n - Noise Floor graphs ommited: no noise floor value found.");
+			logmsg(" - Noise Floor graphs ommited: no noise floor value found.\n");
 	}
 
 	ReturnToMainPath(&CurrentPath);

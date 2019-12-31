@@ -726,7 +726,7 @@ int LoadFile(FILE *file, AudioSignal *Signal, parameters *config, char *fileName
 		Signal->endHz = Signal->header.fmt.SamplesPerSec/2;
 		Signal->nyquistLimit = 1;
 
-		logmsg(" - Changed to %gHz-%gHz\n", config->startHz, config->endHz);
+		logmsg(" - Changed to %gHz-%gHz for this file\n", config->startHz, Signal->endHz);
 	}
 
 	// Default if none is found
