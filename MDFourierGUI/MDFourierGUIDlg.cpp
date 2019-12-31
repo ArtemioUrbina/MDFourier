@@ -641,6 +641,7 @@ void CMDFourierGUIDlg::ManageWindows(BOOL Enable)
 	m_SpectrBttn.EnableWindow(Enable);
 	m_NoiseFloor.EnableWindow(Enable);
 	m_TimeSpectr.EnableWindow(Enable);
+	m_Fullres_Time_Spectrogram.EnableWindow(Enable);
 	m_AveragePlot_Bttn.EnableWindow(Enable);
 
 	m_Swap_Bttn.EnableWindow(Enable);
