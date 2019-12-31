@@ -162,5 +162,7 @@ void PlotNoiseDifferentAmplitudesAveragedInternal(FlatAmplDifference *amplDiff, 
 void PlotNoiseSpectrogram(FlatFrequency *freqs, long int size, int type, char *filename, int signal, parameters *config, AudioSignal *Signal);
 void SaveCSV(FlatAmplDifference *amplDiff, long int size, char *filename, parameters *config);
 
+void DrawFrequencyHorizontalGrid(PlotFile *plot, double hz, double hzIncrement, parameters *config);
+void PlotTimeSpectrogram(AudioSignal *Signal, parameters *config);
 
 #endif

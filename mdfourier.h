@@ -49,7 +49,7 @@
 
 #include "incbeta.h"
 
-#define MDVERSION "0.970"
+#define MDVERSION "0.971"
 
 #define MAX_FREQ_COUNT		100000 	/* Number of frequencies to compare(MAX) */
 #define FREQ_COUNT			2000	/* Number of frequencies to compare(default) */
@@ -379,6 +379,7 @@ typedef struct parameters_st {
 	int				plotDifferences;
 	int				plotMissing;
 	int				plotSpectrogram;
+	int				plotTimeSpectrogram;
 	int				plotNoiseFloor;
 	int				averagePlot;
 	int				weightedAveragePlot;

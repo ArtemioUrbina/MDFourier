@@ -73,8 +73,7 @@ int main(int argc , char *argv[])
 		return 1;
 	}
 
-	if(config.clock)
-		clock_gettime(CLOCK_MONOTONIC, &start);
+	clock_gettime(CLOCK_MONOTONIC, &start);
 
 	if(!LoadProfile(&config))
 		return 1;
@@ -160,6 +159,19 @@ int main(int argc , char *argv[])
 
 			ReturnToMainPath(&CurrentPath);
 		}
+
+		if(config.plotTimeSpectrogram)
+		{
+			char 	*CurrentPath = NULL;
+
+			CurrentPath = GetCurrentPathAndChangeToResultsFolder(&config);
+
+			logmsg(" - Time Spectrogram Comparison");
+			PlotTimeSpectrogram(ComparisonSignal, &config);
+			logmsg("\n");
+
+			ReturnToMainPath(&CurrentPath);
+		}
 	}
 
 	if(IsLogEnabled())
@@ -173,12 +185,12 @@ int main(int argc , char *argv[])
 
 	CleanUp(&ReferenceSignal, &ComparisonSignal, &config);
 
-	if(config.clock)
+	//if(config.clock)
 	{
 		double	elapsedSeconds;
 		clock_gettime(CLOCK_MONOTONIC, &end);
 		elapsedSeconds = TimeSpecToSeconds(&end) - TimeSpecToSeconds(&start);
-		logmsg(" - clk: MDFourier took %0.2fs\n", elapsedSeconds);
+		logmsg("* MDFourier Analysis took %0.2f seconds\n", elapsedSeconds);
 	}
 
 	printf("\nResults stored in %s\n", config.folderName);

@@ -57,6 +57,8 @@
 #define MISSING_TITLE				"MISSING FREQUENCIES [%s]"
 #define SPECTROGRAM_TITLE_REF		"REFERENCE SPECTROGRAM [%s]"
 #define SPECTROGRAM_TITLE_COM		"COMPARISON SPECTROGRAM [%s]"
+#define TSPECTROGRAM_TITLE_REF		"REFERENCE TIME SPECTROGRAM [%s]"
+#define TSPECTROGRAM_TITLE_COM		"COMPARISON TIME SPECTROGRAM [%s]"
 #define DIFFERENCE_AVG_TITLE		"DIFFERENT AMPLITUDES AVERAGED [%s]"
 #define NOISE_TITLE					"NOISE FLOOR AVERAGED"
 #define NOISE_AVG_TITLE				"NOISE FLOOR AVERAGED"
@@ -82,6 +84,8 @@
 
 #define	VERT_SCALE_STEP			3
 #define	VERT_SCALE_STEP_BAR		3
+
+#define	COLOR_BARS_WIDTH_SCALE	120
 
 char *GetCurrentPathAndChangeToResultsFolder(parameters *config)
 {
@@ -187,6 +191,27 @@ void PlotResults(AudioSignal *Signal, parameters *config)
 			clock_gettime(CLOCK_MONOTONIC, &lend);
 			elapsedSeconds = TimeSpecToSeconds(&lend) - TimeSpecToSeconds(&lstart);
 			logmsg(" - clk: Spectrogram took %0.2fs\n", elapsedSeconds);
+		}
+	}
+
+	if(config->plotTimeSpectrogram)
+	{
+		struct	timespec	lstart, lend;
+
+		if(config->clock)
+			clock_gettime(CLOCK_MONOTONIC, &lstart);
+
+		logmsg(" - Time Spectrogram");
+		PlotTimeSpectrogram(Signal, config);
+		logmsg("\n");
+
+
+		if(config->clock)
+		{
+			double	elapsedSeconds;
+			clock_gettime(CLOCK_MONOTONIC, &lend);
+			elapsedSeconds = TimeSpecToSeconds(&lend) - TimeSpecToSeconds(&lstart);
+			logmsg(" - clk: Time Spectrogram took %0.2fs\n", elapsedSeconds);
 		}
 	}
 
@@ -540,6 +565,9 @@ void DrawLabelsZeroDBCentered(PlotFile *plot, double dBFS, double dbIncrement, d
 void DrawLabelsMDF(PlotFile *plot, char *Gname, char *GType, int type, parameters *config)
 {
 	char	label[BUFFER_SIZE];
+
+	pl_ffontsize_r(plot->plotter, config->plotResY/60);
+	pl_ffontname_r(plot->plotter, "HersheySans");
 
 	pl_fspace_r(plot->plotter, 0, -1*config->plotResY/2, config->plotResX, config->plotResY/2);
 
@@ -1132,7 +1160,7 @@ void PlotAllDifferentAmplitudes(FlatAmplDifference *amplDiff, long int size, cha
 		}
 	}
 
-	DrawColorAllTypeScale(&plot, MODE_DIFF, config->plotResX/50, config->plotResY/15, config->plotResX/80, config->plotResY/1.15, config->significantAmplitude, VERT_SCALE_STEP_BAR, config);
+	DrawColorAllTypeScale(&plot, MODE_DIFF, config->plotResX/100, config->plotResY/15, config->plotResX/COLOR_BARS_WIDTH_SCALE, config->plotResY/1.15, config->significantAmplitude, VERT_SCALE_STEP_BAR, config);
 	DrawLabelsMDF(&plot, DIFFERENCE_TITLE, ALL_LABEL, PLOT_COMPARE, config);
 
 	ClosePlot(&plot);
@@ -1195,8 +1223,8 @@ void PlotSingleTypeDifferentAmplitudes(FlatAmplDifference *amplDiff, long int si
 	}
 
 	DrawColorScale(&plot, type, MODE_DIFF,
-		config->plotResX/50, config->plotResY/15, 
-		config->plotResX/80, config->plotResY/1.15,
+		config->plotResX/100, config->plotResY/15, 
+		config->plotResX/COLOR_BARS_WIDTH_SCALE, config->plotResY/1.15,
 		0, config->significantAmplitude, VERT_SCALE_STEP_BAR, config);
 	DrawLabelsMDF(&plot, DIFFERENCE_TITLE, GetTypeName(config, type), PLOT_COMPARE, config);
 	ClosePlot(&plot);
@@ -1282,8 +1310,8 @@ void PlotSilenceBlockDifferentAmplitudes(FlatAmplDifference *amplDiff, long int 
 	}
 
 	DrawColorScale(&plot, type, MODE_DIFF,
-		config->plotResX/50, config->plotResY/15, 
-		config->plotResX/80, config->plotResY/1.15,
+		config->plotResX/100, config->plotResY/15, 
+		config->plotResX/COLOR_BARS_WIDTH_SCALE, config->plotResY/1.15,
 		(int)startAmplitude, (int)(endAmplitude-startAmplitude), VERT_SCALE_STEP_BAR, config);
 
 	DrawLabelsMDF(&plot, NOISE_TITLE, GetTypeName(config, type), PLOT_COMPARE, config);
@@ -1333,7 +1361,7 @@ void PlotAllMissingFrequencies(FlatFreqDifference *freqDiff, long int size, char
 		}
 	}
 	
-	DrawColorAllTypeScale(&plot, MODE_MISS, config->plotResX/50, config->plotResY/15, config->plotResX/80, config->plotResY/1.15, significant, VERT_SCALE_STEP_BAR, config);
+	DrawColorAllTypeScale(&plot, MODE_MISS, config->plotResX/100, config->plotResY/15, config->plotResX/COLOR_BARS_WIDTH_SCALE, config->plotResY/1.15, significant, VERT_SCALE_STEP_BAR, config);
 	DrawLabelsMDF(&plot, MISSING_TITLE, ALL_LABEL, PLOT_COMPARE, config);
 	ClosePlot(&plot);
 }
@@ -1396,7 +1424,7 @@ void PlotSingleTypeMissingFrequencies(FlatFreqDifference *freqDiff, long int siz
 		}
 	}
 	
-	DrawColorScale(&plot, type, MODE_MISS, config->plotResX/50, config->plotResY/15, config->plotResX/80, config->plotResY/1.15, 0, significant, VERT_SCALE_STEP_BAR, config);
+	DrawColorScale(&plot, type, MODE_MISS, config->plotResX/100, config->plotResY/15, config->plotResX/COLOR_BARS_WIDTH_SCALE, config->plotResY/1.15, 0, significant, VERT_SCALE_STEP_BAR, config);
 	DrawLabelsMDF(&plot, MISSING_TITLE, GetTypeName(config, type), PLOT_COMPARE, config);
 	ClosePlot(&plot);
 }
@@ -1441,7 +1469,7 @@ void PlotAllSpectrogram(FlatFrequency *freqs, long int size, char *filename, int
 		}
 	}
 
-	DrawColorAllTypeScale(&plot, MODE_SPEC, config->plotResX/50, config->plotResY/15, config->plotResX/80, config->plotResY/1.15, significant, VERT_SCALE_STEP_BAR, config);
+	DrawColorAllTypeScale(&plot, MODE_SPEC, config->plotResX/100, config->plotResY/15, config->plotResX/COLOR_BARS_WIDTH_SCALE, config->plotResY/1.15, significant, VERT_SCALE_STEP_BAR, config);
 	DrawLabelsMDF(&plot, signal == ROLE_REF ? SPECTROGRAM_TITLE_REF : SPECTROGRAM_TITLE_COM, ALL_LABEL, signal == ROLE_REF ? PLOT_SINGLE_REF : PLOT_SINGLE_COM, config);
 	ClosePlot(&plot);
 }
@@ -1511,7 +1539,7 @@ void PlotSingleTypeSpectrogram(FlatFrequency *freqs, long int size, int type, ch
 		}
 	}
 	
-	DrawColorScale(&plot, type, MODE_SPEC, config->plotResX/50, config->plotResY/15, config->plotResX/80, config->plotResY/1.15, 0, significant, VERT_SCALE_STEP,config);
+	DrawColorScale(&plot, type, MODE_SPEC, config->plotResX/100, config->plotResY/15, config->plotResX/COLOR_BARS_WIDTH_SCALE, config->plotResY/1.15, 0, significant, VERT_SCALE_STEP,config);
 	DrawLabelsMDF(&plot, signal == ROLE_REF ? SPECTROGRAM_TITLE_REF : SPECTROGRAM_TITLE_COM, GetTypeName(config, type), signal == ROLE_REF ? PLOT_SINGLE_REF : PLOT_SINGLE_COM, config);
 	ClosePlot(&plot);
 }
@@ -1588,7 +1616,7 @@ void PlotNoiseSpectrogram(FlatFrequency *freqs, long int size, int type, char *f
 		}
 	}
 	
-	DrawColorScale(&plot, type, MODE_SPEC, config->plotResX/50, config->plotResY/15, config->plotResX/80, config->plotResY/1.15, (int)startAmplitude, (int)(endAmplitude-startAmplitude), VERT_SCALE_STEP,config);
+	DrawColorScale(&plot, type, MODE_SPEC, config->plotResX/100, config->plotResY/15, config->plotResX/COLOR_BARS_WIDTH_SCALE, config->plotResY/1.15, (int)startAmplitude, (int)(endAmplitude-startAmplitude), VERT_SCALE_STEP,config);
 	DrawLabelsMDF(&plot, signal == ROLE_REF ? SPECTROGRAM_NOISE_REF : SPECTROGRAM_NOISE_COM, GetTypeName(config, type), signal == ROLE_REF ? PLOT_SINGLE_REF : PLOT_SINGLE_COM, config);
 	ClosePlot(&plot);
 }
@@ -2067,7 +2095,7 @@ void PlotTest(char *filename, parameters *config)
 	srand(time(NULL));
 
 	DrawLabelsMDF(&plot, "PLOT TEST [%s]", "ZDBC", PLOT_COMPARE, config);
-	DrawColorAllTypeScale(&plot, MODE_DIFF, config->plotResX/50, config->plotResY/15, config->plotResX/80, config->plotResY/1.15, config->significantAmplitude, VERT_SCALE_STEP_BAR, config);
+	DrawColorAllTypeScale(&plot, MODE_DIFF, config->plotResX/100, config->plotResY/15, config->plotResX/COLOR_BARS_WIDTH_SCALE, config->plotResY/1.15, config->significantAmplitude, VERT_SCALE_STEP_BAR, config);
 
 	ClosePlot(&plot);
 }
@@ -2089,7 +2117,7 @@ void PlotTestZL(char *filename, parameters *config)
 	DrawGridZeroToLimit(&plot, config->significantAmplitude, VERT_SCALE_STEP, config->endHzPlot, 1000, config);
 	DrawLabelsZeroToLimit(&plot, config->significantAmplitude, VERT_SCALE_STEP, config->endHzPlot, 1000, config);
 
-	DrawColorScale(&plot, 1, MODE_SPEC, config->plotResX/50, config->plotResY/15, config->plotResX/80, config->plotResY/1.15, 0, SIGNIFICANT_VOLUME, VERT_SCALE_STEP_BAR, config);
+	DrawColorScale(&plot, 1, MODE_SPEC, config->plotResX/100, config->plotResY/15, config->plotResX/COLOR_BARS_WIDTH_SCALE, config->plotResY/1.15, 0, SIGNIFICANT_VOLUME, VERT_SCALE_STEP_BAR, config);
 	
 	DrawLabelsMDF(&plot, "PLOT TEST [%s]", "GZL", PLOT_COMPARE, config);
 	ClosePlot(&plot);
@@ -2517,8 +2545,8 @@ void PlotNoiseDifferentAmplitudesAveragedInternal(FlatAmplDifference *amplDiff, 
 	}
 
 	DrawColorScale(&plot, type, MODE_DIFF,
-		config->plotResX/50, config->plotResY/15, 
-		config->plotResX/80, config->plotResY/1.15,
+		config->plotResX/100, config->plotResY/15, 
+		config->plotResX/COLOR_BARS_WIDTH_SCALE, config->plotResY/1.15,
 		(int)startAmplitude, (int)(endAmplitude-startAmplitude), VERT_SCALE_STEP_BAR, config);
 	DrawLabelsMDF(&plot, NOISE_AVG_TITLE, GetTypeName(config, type), PLOT_COMPARE, config);
 	ClosePlot(&plot);
@@ -2618,7 +2646,7 @@ void PlotSingleTypeDifferentAmplitudesAveraged(FlatAmplDifference *amplDiff, lon
 		pl_endpath_r(plot.plotter);
 	}
 
-	DrawColorScale(&plot, type, MODE_DIFF, config->plotResX/50, config->plotResY/15, config->plotResX/80, config->plotResY/1.15, 0, config->significantAmplitude, VERT_SCALE_STEP_BAR, config);
+	DrawColorScale(&plot, type, MODE_DIFF, config->plotResX/100, config->plotResY/15, config->plotResX/COLOR_BARS_WIDTH_SCALE, config->plotResY/1.15, 0, config->significantAmplitude, VERT_SCALE_STEP_BAR, config);
 	DrawLabelsMDF(&plot, DIFFERENCE_AVG_TITLE, GetTypeName(config, type), PLOT_COMPARE, config);
 	ClosePlot(&plot);
 }
@@ -2726,8 +2754,94 @@ void PlotAllDifferentAmplitudesAveraged(FlatAmplDifference *amplDiff, long int s
 		currType++;
 	}
 
-	DrawColorAllTypeScale(&plot, MODE_DIFF, config->plotResX/50, config->plotResY/15, config->plotResX/80, config->plotResY/1.15, config->significantAmplitude, VERT_SCALE_STEP_BAR, config);
+	DrawColorAllTypeScale(&plot, MODE_DIFF, config->plotResX/100, config->plotResY/15, config->plotResX/COLOR_BARS_WIDTH_SCALE, config->plotResY/1.15, config->significantAmplitude, VERT_SCALE_STEP_BAR, config);
 	DrawLabelsMDF(&plot, DIFFERENCE_AVG_TITLE, ALL_LABEL, PLOT_COMPARE, config);
+
+	ClosePlot(&plot);
+}
+
+void DrawFrequencyHorizontalGrid(PlotFile *plot, double hz, double hzIncrement, parameters *config)
+{
+	pl_pencolor_r (plot->plotter, 0, 0x5555, 0);
+	for(int i = hzIncrement; i < hz; i += hzIncrement)
+		pl_fline_r(plot->plotter, 0, i, config->plotResX, i);
+
+	pl_pencolor_r (plot->plotter, 0, 0x7777, 0);
+	pl_fline_r(plot->plotter, 0, 10000, config->plotResX, 10000);
+	pl_fline_r(plot->plotter, 0, 20000, config->plotResX, 20000);
+
+	pl_endpath_r(plot->plotter);
+}
+
+void PlotTimeSpectrogram(AudioSignal *Signal, parameters *config)
+{
+	PlotFile	plot;
+	double		significant = 0, x = 0, width = 0, blockcount = 0;
+	long int	block = 0, i = 0;
+	char		filename[BUFFER_SIZE], name[BUFFER_SIZE/2];
+
+	if(!Signal || !config)
+		return;
+
+	ShortenFileName(basename(Signal->SourceFile), name);
+	sprintf(filename, "T_SP_%c_%s", Signal->role == ROLE_REF ? 'A' : 'B', name);
+
+	for(block = 0; block < config->types.totalChunks; block++)
+	{
+		int 	type = 0;
+
+		type = GetBlockType(config, block);
+		if(type > TYPE_SILENCE)
+			blockcount++;
+	}
+
+	if(!blockcount)
+		return;
+
+	//significant = config->significantAmplitude;
+	significant = PCM_16BIT_MIN_AMPLITUDE;
+
+	FillPlot(&plot, filename, config->plotResX, config->plotResY, 
+			0, 0, config->plotResX, config->endHzPlot, 1, config);
+
+	if(!CreatePlotFile(&plot, config))
+		return;
+
+	DrawFrequencyHorizontalGrid(&plot, config->endHzPlot, 1000, config);
+
+	width = config->plotResX / blockcount;
+	for(block = 0; block < config->types.totalChunks; block++)
+	{
+		int 	type = 0, color = 0;
+
+		type = GetBlockType(config, block);
+		color = MatchColor(GetBlockColor(config, block));
+
+		if(type > TYPE_SILENCE)
+		{
+			for(i = 0; i < config->MaxFreq; i++)
+			{
+				if(Signal->Blocks[block].freq[i].hertz && Signal->Blocks[block].freq[i].amplitude > significant)
+				{
+					long int intensity;
+					double y, amplitude;
+
+					// x is fixed by block division
+					y = Signal->Blocks[block].freq[i].hertz;
+					amplitude = Signal->Blocks[block].freq[i].amplitude;
+					
+					intensity = CalculateWeightedError(fabs(fabs(significant) - fabs(amplitude))/fabs(significant), config)*0xffff;
+						SetPenColor(color, intensity, &plot);
+					pl_fline_r(plot.plotter, x,	y, x+width, y);
+					pl_endpath_r(plot.plotter);
+				}
+			}
+			x += width;
+		}
+	}
+
+	DrawColorAllTypeScale(&plot, MODE_SPEC, config->plotResX/100, config->plotResY/15, config->plotResX/COLOR_BARS_WIDTH_SCALE, config->plotResY/1.15, significant, VERT_SCALE_STEP_BAR, config);
+	DrawLabelsMDF(&plot, Signal->role == ROLE_REF ? TSPECTROGRAM_TITLE_REF : TSPECTROGRAM_TITLE_COM, ALL_LABEL, Signal->role == ROLE_REF ? PLOT_SINGLE_REF : PLOT_SINGLE_COM, config);
 
 	ClosePlot(&plot);
 }

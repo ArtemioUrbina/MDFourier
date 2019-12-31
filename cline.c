@@ -42,7 +42,6 @@ void PrintUsage()
 	logmsg("	 -s: Defines <s>tart of the frequency range to compare with FFT\n");
 	logmsg("	 -e: Defines <e>nd of the frequency range to compare with FFT\n");
 	logmsg("	 -i: <i>gnores the silence block noise floor if present\n");
-	logmsg("	 -t: Defines the <t>olerance when comparing amplitudes in dBFS\n");
 	logmsg("	 -z: Uses <z>ero Padding to equal 1 Hz FFT bins\n");
 	logmsg("	 -n: <N>ormalize: 't' Time Domain Max, 'f' Frequency Domain Max or 'a' Average\n");
 	logmsg("	 -B: Do not do stereo channel audio <B>alancing\n");
@@ -63,6 +62,7 @@ void PrintUsage()
 	logmsg("	 -D: Don't create <D>ifferences Plots\n");
 	logmsg("	 -M: Don't create <M>issing Plots\n");
 	logmsg("	 -S: Don't create <S>pectrogram Plots\n");
+	logmsg("	 -t: Create Time Spectrogram Plots\n");
 	logmsg("	 -F: Don't create Noise <F>loor Plots\n");
 	logmsg("	 -d: Max <d>BFS for plots vertically\n");
 	logmsg("	 -j: (text) Cuts per block information and shows <j>ust total results\n");
@@ -139,6 +139,7 @@ void CleanParameters(parameters *config)
 	config->plotDifferences = 1;
 	config->plotMissing = 1;
 	config->plotSpectrogram = 1;
+	config->plotTimeSpectrogram = 0;
 	config->plotNoiseFloor = 1;
 	config->averagePlot = 0;
 	config->weightedAveragePlot = 1;
@@ -177,7 +178,7 @@ int commandline(int argc , char *argv[], parameters *config)
 	
 	CleanParameters(config);
 
-	while ((c = getopt (argc, argv, "Aa:Bb:Cc:Dd:e:Ff:ghHiIjklLmMNn:o:p:P:Rr:Ss:t:TvVWw:xyY:zZ:")) != -1)
+	while ((c = getopt (argc, argv, "Aa:Bb:Cc:Dd:e:Ff:ghHiIjklLmMNn:o:p:P:Rr:Ss:tTvVWw:xyY:zZ:")) != -1)
 	switch (c)
 	  {
 	  case 'h':
@@ -259,9 +260,7 @@ int commandline(int argc , char *argv[], parameters *config)
 			config->MaxFreq = MAX_FREQ_COUNT;
 		break;
 	  case 't':
-		config->tolerance = atof(optarg);
-		if(config->tolerance < 0.0 || config->tolerance > 40.0)
-			config->tolerance = DBS_TOLERANCE;
+		config->plotTimeSpectrogram = 1;
 		break;
 	  case 'T':
 		config->syncTolerance = 1;
@@ -393,8 +392,6 @@ int commandline(int argc , char *argv[], parameters *config)
 		  logmsg("FFT Window option -%c requires an argument: n,t,f or h\n", optopt);
 		else if (optopt == 'o')
 		  logmsg("Output curve -%c requires an argument 0-4\n", optopt);
-		else if (optopt == 't')
-		  logmsg("Amplitude tolerance -%c requires an argument: 0.0-40.0 dBFS\n", optopt);
 		else if (optopt == 'p')
 		  logmsg("Significant Amplitude -%c requires an argument: -1.0 to -100.0 dBFS\n", optopt);
 		else if (optopt == 'f')
@@ -437,18 +434,18 @@ int commandline(int argc , char *argv[], parameters *config)
 
 	if(config->extendedResults && config->justResults)
 	{
-		logmsg("Just Results cancels Extended results\n");
+		logmsg("* Just Results cancels Extended results\n");
 		return 0;
 	}
 
 	if(config->showAll && config->justResults)
 	{
-		logmsg("Just Results cancels Show All\n");
+		logmsg("* Just Results cancels Show All\n");
 		return 0;
 	}
 	if(config->endHz <= config->startHz)
 	{
-		logmsg("Invalid frequency range for FFTW (%g Hz to %g Hz)\n", 
+		logmsg("* Invalid frequency range for FFTW (%g Hz to %g Hz)\n", 
 				config->startHz, config->endHz);
 		return 0;
 	}
@@ -456,14 +453,14 @@ int commandline(int argc , char *argv[], parameters *config)
 	if(!config->plotDifferences && !config->plotMissing &&
 		!config->plotSpectrogram && !config->averagePlot && !config->plotNoiseFloor)
 	{
-		logmsg("It makes no sense to process everything and plot nothing\nAborting.\n");
+		logmsg("* It makes no sense to process everything and plot nothing\nAborting.\n");
 		return 0;
 	}
 
 	file = fopen(config->profileFile, "rb");
 	if(!file)
 	{
-		logmsg("ERROR: Could not load profile configuration file: \"%s\"\n", config->profileFile);
+		logmsg("* ERROR: Could not load profile configuration file: \"%s\"\n", config->profileFile);
 		return 0;
 	}
 	fclose(file);
@@ -471,7 +468,7 @@ int commandline(int argc , char *argv[], parameters *config)
 	file = fopen(config->referenceFile, "rb");
 	if(!file)
 	{
-		logmsg("\tERROR: Could not open REFERENCE file: \"%s\"\n", config->referenceFile);
+		logmsg("* ERROR: Could not open REFERENCE file: \"%s\"\n", config->referenceFile);
 		return 0;
 	}
 	fclose(file);
@@ -479,14 +476,14 @@ int commandline(int argc , char *argv[], parameters *config)
 	file = fopen(config->targetFile, "rb");
 	if(!file)
 	{
-		logmsg("\tERROR: Could not open COMPARE file: \"%s\"\n", config->targetFile);
+		logmsg("* ERROR: Could not open COMPARE file: \"%s\"\n", config->targetFile);
 		return 0;
 	}
 	fclose(file);
 
 	if(!CreateFolderName(config))
 	{
-		logmsg("ERROR: Could not create output folders\n");
+		logmsg("* ERROR: Could not create output folders\n");
 		return 0;
 	}
 	CreateBaseName(config);
