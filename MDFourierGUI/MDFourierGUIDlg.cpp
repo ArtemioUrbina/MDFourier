@@ -50,6 +50,8 @@ void CMDFourierGUIDlg::DoDataExchange(CDataExchange* pDX)
 	DDX_Control(pDX, IDC_SWAP, m_Swap_Bttn);
 	DDX_Control(pDX, IDC_REF_SYNC, m_RefSync);
 	DDX_Control(pDX, IDC_COM_SYNC, m_ComSync);
+	DDX_Control(pDX, IDC_TIMESP, m_TimeSpectr);
+	DDX_Control(pDX, IDC_FULLRESTS, m_Fullres_Time_Spectrogram);
 }
 
 BEGIN_MESSAGE_MAP(CMDFourierGUIDlg, CDialogEx)
@@ -70,6 +72,7 @@ BEGIN_MESSAGE_MAP(CMDFourierGUIDlg, CDialogEx)
 	ON_BN_CLICKED(IDC_NOISEFLOOR, &CMDFourierGUIDlg::OnBnClickedNoisefloor)
 	ON_BN_CLICKED(IDC_MDWAVE, &CMDFourierGUIDlg::OnBnClickedMdwave)
 	ON_BN_CLICKED(IDC_SWAP, &CMDFourierGUIDlg::OnBnClickedSwap)
+	ON_BN_CLICKED(IDC_TIMESP, &CMDFourierGUIDlg::OnBnClickedTimesp)
 END_MESSAGE_MAP()
 
 
@@ -96,7 +99,9 @@ BOOL CMDFourierGUIDlg::OnInitDialog()
 	m_MissBttn.SetCheck(TRUE);
 	m_SpectrBttn.SetCheck(TRUE);
 	m_NoiseFloor.SetCheck(TRUE);
-	m_AveragePlot_Bttn.SetCheck(FALSE);
+	m_AveragePlot_Bttn.SetCheck(TRUE);
+	m_TimeSpectr.SetCheck(FALSE);
+	m_Fullres_Time_Spectrogram.EnableWindow(FALSE);
 
 	FillComboBoxes();
 
@@ -301,6 +306,12 @@ void CMDFourierGUIDlg::ExecuteCommand(CString Compare)
 		command += " -S";
 	if(m_NoiseFloor.GetCheck() != BST_CHECKED)
 		command += " -F";
+	if(m_TimeSpectr.GetCheck() == BST_CHECKED)
+	{
+		command += " -t";
+		if(m_Fullres_Time_Spectrogram.GetCheck())
+			command += " -f 20000";
+	}
 
 	if(m_EnableExtraBttn.GetCheck() == BST_CHECKED)
 		m_ExtraParamsEditBox.GetWindowText(extraCmd);
@@ -629,6 +640,7 @@ void CMDFourierGUIDlg::ManageWindows(BOOL Enable)
 	m_MissBttn.EnableWindow(Enable);
 	m_SpectrBttn.EnableWindow(Enable);
 	m_NoiseFloor.EnableWindow(Enable);
+	m_TimeSpectr.EnableWindow(Enable);
 	m_AveragePlot_Bttn.EnableWindow(Enable);
 
 	m_Swap_Bttn.EnableWindow(Enable);
@@ -670,6 +682,8 @@ void CMDFourierGUIDlg::CheckPlotSelection(CButton &clicked)
 		checked ++;
 	if(m_NoiseFloor.GetCheck() == BST_CHECKED)
 		checked ++;
+	if(m_TimeSpectr.GetCheck() == BST_CHECKED)
+		checked ++;
 	if(m_AveragePlot_Bttn.GetCheck() == BST_CHECKED)
 		checked ++;
 
@@ -700,6 +714,16 @@ void CMDFourierGUIDlg::OnBnClickedAverage()
 void CMDFourierGUIDlg::OnBnClickedNoisefloor()
 {
 	CheckPlotSelection(m_NoiseFloor);
+}
+
+
+void CMDFourierGUIDlg::OnBnClickedTimesp()
+{
+	CheckPlotSelection(m_TimeSpectr);
+	if(m_TimeSpectr.GetCheck() == BST_CHECKED)
+		m_Fullres_Time_Spectrogram.EnableWindow(TRUE);
+	else
+		m_Fullres_Time_Spectrogram.EnableWindow(FALSE);
 }
 
 void CMDFourierGUIDlg::OnBnClickedMdwave()
@@ -786,3 +810,5 @@ void CMDFourierGUIDlg::OnBnClickedSwap()
 	m_ComparisonFile = tmp;
 	m_ComparisonLbl.SetWindowText(m_ComparisonFile);
 }
+
+

@@ -59,6 +59,8 @@ protected:
 	CButton m_NoiseFloor;
 	CButton m_MDWave;
 	CButton m_Swap_Bttn;
+	CButton m_TimeSpectr;
+	CButton m_Fullres_Time_Spectrogram;
 	CComboBox m_RefSync;
 	CComboBox m_ComSync;
 
@@ -108,4 +110,5 @@ public:
 	afx_msg void OnBnClickedNoisefloor();
 	afx_msg void OnBnClickedMdwave();
 	afx_msg void OnBnClickedSwap();
+	afx_msg void OnBnClickedTimesp();
 };
