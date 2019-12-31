@@ -63,11 +63,9 @@
 #define SPECTROGRAM_NOISE_REF		"REFERENCE NOISE FLOOR SPECTROGRAM [%s]"
 #define SPECTROGRAM_NOISE_COM		"COMPARISON NOISE FLOOR SPECTROGRAM [%s]"
 
-#define	BAR_DIFF_DB_TOLERANCE	1.0
-
 #define BAR_HEADER					"Matched frequencies"
 #define BAR_DIFF					"w/any amplitude difference"
-#define BAR_WITHIN					"within 1dBFS"
+#define BAR_WITHIN					"within %gdBFS"
 
 #define ALL_LABEL					"ALL"
 
@@ -649,6 +647,14 @@ void DrawLabelsMDF(PlotFile *plot, char *Gname, char *GType, int type, parameter
 	}
 
 	/* Warnings */
+	// Add from top, change last multiplier for BAR HEIGHT
+
+	if(config->AmpBarRange > BAR_DIFF_DB_TOLERANCE)
+	{
+		pl_fmove_r(plot->plotter, config->plotResX-config->plotResX/5, -1*config->plotResY/2+config->plotResY/100+10*BAR_HEIGHT);
+		pl_pencolor_r(plot->plotter, 0xeeee, 0xeeee, 0);
+		pl_alabel_r(plot->plotter, 'l', 'l', "WARNING: Tolerance raised for matches");
+	}
 
 	if(config->smallFile)
 	{
@@ -805,15 +811,20 @@ void DrawColorScale(PlotFile *plot, int type, int mode, double x, double y, doub
 			(double)cnt, (double)cmp, config);
 		if(mode == MODE_DIFF)
 		{
-			int x_offset = 0;
+			int 	x_offset = 0;
+			char	header[100];
 
 			x_offset = x+4*width+config->plotResX/60+labelwidth+BAR_WIDTH + bar_text_width;
 
-			FindDifferenceWithinInterval(type, &cnt, &cmp, BAR_DIFF_DB_TOLERANCE, config);
+			FindDifferenceWithinInterval(type, &cnt, &cmp, config->AmpBarRange, config);
 
-			SetPenColor(COLOR_GRAY, 0xaaaa, plot);
+			if(config->AmpBarRange > BAR_DIFF_DB_TOLERANCE)
+				SetPenColor(COLOR_YELLOW, 0xaaaa, plot);
+			else
+				SetPenColor(COLOR_GRAY, 0xaaaa, plot);
 			pl_fmove_r(plot->plotter, 1.1*x_offset, y+1.5*BAR_HEIGHT);
-			pl_alabel_r(plot->plotter, 'l', 'l', BAR_WITHIN);
+			sprintf(header, BAR_WITHIN, config->AmpBarRange);
+			pl_alabel_r(plot->plotter, 'l', 'l', header);
 
 			SetPenColor(COLOR_GRAY, 0xaaaa, plot);
 			pl_fmove_r(plot->plotter, x_offset, y+3*BAR_HEIGHT);
@@ -944,12 +955,17 @@ void DrawColorAllTypeScale(PlotFile *plot, int mode, double x, double y, double 
 	{
 		long int	cnt = 0, cmp = 0;
 		int 		x_offset = 0;
+		char		header[100];
 
 		x_offset = x+2*width+config->plotResX/60+BAR_WIDTH+maxbarwidth + maxlabel;
 
-		SetPenColor(COLOR_GRAY, 0xaaaa, plot);
+		if(config->AmpBarRange > BAR_DIFF_DB_TOLERANCE)
+			SetPenColor(COLOR_YELLOW, 0xaaaa, plot);
+		else
+			SetPenColor(COLOR_GRAY, 0xaaaa, plot);
 		pl_fmove_r(plot->plotter, 1.1*x_offset, y+(numTypes-1)*config->plotResY/50+1.5*BAR_HEIGHT);
-		pl_alabel_r(plot->plotter, 'l', 'l', BAR_WITHIN);
+		sprintf(header, BAR_WITHIN, config->AmpBarRange);
+		pl_alabel_r(plot->plotter, 'l', 'l', header);
 
 		SetPenColor(COLOR_GRAY, 0xaaaa, plot);
 		pl_fmove_r(plot->plotter, x_offset, y+(numTypes-1)*config->plotResY/50+3*BAR_HEIGHT);
@@ -957,7 +973,7 @@ void DrawColorAllTypeScale(PlotFile *plot, int mode, double x, double y, double 
 
 		for(int t = 0; t < numTypes; t++)
 		{
-			FindDifferenceWithinInterval(typeID[t], &cnt, &cmp, BAR_DIFF_DB_TOLERANCE, config);
+			FindDifferenceWithinInterval(typeID[t], &cnt, &cmp, config->AmpBarRange, config);
 
 			DrawMatchBar(plot, colorName[t],
 				1.1*x_offset, y+(numTypes-1)*config->plotResY/50-t*config->plotResY/50,

@@ -66,6 +66,8 @@
 #define TYPE_SKIP				-5
 #define TYPE_CONTROL			TYPE_SILENCE
 
+#define	BAR_DIFF_DB_TOLERANCE	1.0
+
 #define NO_INDEX 		-100
 #define	NO_AMPLITUDE	-1000
 
@@ -387,6 +389,7 @@ typedef struct parameters_st {
 	int				whiteBG;
 	int				smallFile;
 	int				syncTolerance;
+	double			AmpBarRange;
 
 	double 			plotResX;
 	double			plotResY;

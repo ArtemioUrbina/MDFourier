@@ -54,6 +54,7 @@ void PrintUsage()
 	logmsg("	 -l: <l>og output to file [reference]_vs_[compare].txt\n");
 	logmsg("	 -v: Enable <v>erbose mode, spits all the FFTW results\n");
 	logmsg("	 -C: Create <C>SV file with plot values.\n");
+	logmsg("	 -b: Change <b>ar value for frequency match tolerance, default is 1.0dBFS.\n");
 	logmsg("	 -g: Create avera<g>e points over the plotted graphs\n");
 	logmsg("	 -A: Do not weight values in <A>veraged Plot (implies -g)\n");
 	logmsg("	 -W: Use <W>hite background for plots.\n");
@@ -123,6 +124,7 @@ void CleanParameters(parameters *config)
 	config->videoFormatRef = NTSC;
 	config->videoFormatCom = NTSC;
 	config->syncTolerance = 0;
+	config->AmpBarRange = BAR_DIFF_DB_TOLERANCE;
 
 	config->logScale = 1;
 	config->reverseCompare = 0;
@@ -175,7 +177,7 @@ int commandline(int argc , char *argv[], parameters *config)
 	
 	CleanParameters(config);
 
-	while ((c = getopt (argc, argv, "Aa:BCc:Dd:e:Ff:ghHiIjklLmMNn:o:p:P:Rr:Ss:t:TvVWw:xyY:zZ:")) != -1)
+	while ((c = getopt (argc, argv, "Aa:Bb:Cc:Dd:e:Ff:ghHiIjklLmMNn:o:p:P:Rr:Ss:t:TvVWw:xyY:zZ:")) != -1)
 	switch (c)
 	  {
 	  case 'h':
@@ -245,6 +247,11 @@ int commandline(int argc , char *argv[], parameters *config)
 		config->maxDbPlotZC = atof(optarg);
 		if(config->maxDbPlotZC < 0.1 || config->maxDbPlotZC > 96.0)
 			config->maxDbPlotZC = DB_HEIGHT;
+		break;
+	  case 'b':
+		config->AmpBarRange = atof(optarg);
+		if(config->AmpBarRange < 0 || config->AmpBarRange > 16)
+			config->AmpBarRange = BAR_DIFF_DB_TOLERANCE;
 		break;
 	  case 'f':
 		config->MaxFreq = atoi(optarg);
