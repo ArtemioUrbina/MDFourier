@@ -500,6 +500,8 @@ void DrawGridZeroToLimit(PlotFile *plot, double dBFS, double dbIncrement, double
 	}
 	pl_fline_r(plot->plotter, transformtoLog(1000, config), dBFS, transformtoLog(1000, config), 0);
 	pl_fline_r(plot->plotter, transformtoLog(10000, config), dBFS, transformtoLog(10000, config), 0);	
+	if(config->endHzPlot > 20000)
+		pl_fline_r(plot->plotter, transformtoLog(20000, config), dBFS, transformtoLog(20000, config), 0);	
 
 	pl_pencolor_r (plot->plotter, 0, 0xFFFF, 0);
 	pl_flinewidth_r(plot->plotter, 1);
@@ -765,6 +767,13 @@ void DrawLabelsZeroToLimit(PlotFile *plot, double dBFS, double dbIncrement, doub
 	pl_fmove_r(plot->plotter, config->plotResX/hz*transformtoLog(10000, config), -config->plotResY/100);
 	sprintf(label, "%dkHz", 10);
 	pl_alabel_r(plot->plotter, 'c', 'c', label);
+
+	if(config->endHzPlot > 20000)
+	{
+		pl_fmove_r(plot->plotter, config->plotResX/hz*transformtoLog(20000, config), config->plotResY/2-config->plotResY/100);
+		sprintf(label, "%dkHz", 20);
+		pl_alabel_r(plot->plotter, 'c', 'c', label);
+	}
 
 	pl_fspace_r(plot->plotter, plot->x0, plot->y0, plot->x1, plot->y1);
 }
@@ -2768,7 +2777,8 @@ void DrawFrequencyHorizontalGrid(PlotFile *plot, double hz, double hzIncrement, 
 
 	pl_pencolor_r (plot->plotter, 0, 0x7777, 0);
 	pl_fline_r(plot->plotter, 0, 10000, config->plotResX, 10000);
-	pl_fline_r(plot->plotter, 0, 20000, config->plotResX, 20000);
+	if(config->endHzPlot > 20000)
+		pl_fline_r(plot->plotter, 0, 20000, config->plotResX, 20000);
 
 	pl_endpath_r(plot->plotter);
 }
@@ -2817,9 +2827,9 @@ void PlotTimeSpectrogram(AudioSignal *Signal, parameters *config)
 		type = GetBlockType(config, block);
 		color = MatchColor(GetBlockColor(config, block));
 
-		if(type > TYPE_SILENCE)
+		if(type > TYPE_SILENCE && config->MaxFreq > 0)
 		{
-			for(i = 0; i < config->MaxFreq; i++)
+			for(i = config->MaxFreq; i >= 0; i--)
 			{
 				if(Signal->Blocks[block].freq[i].hertz && Signal->Blocks[block].freq[i].amplitude > significant)
 				{

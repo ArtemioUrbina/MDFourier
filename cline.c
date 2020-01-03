@@ -451,7 +451,8 @@ int commandline(int argc , char *argv[], parameters *config)
 	}
 
 	if(!config->plotDifferences && !config->plotMissing &&
-		!config->plotSpectrogram && !config->averagePlot && !config->plotNoiseFloor)
+		!config->plotSpectrogram && !config->averagePlot &&
+		!config->plotNoiseFloor && !config->plotTimeSpectrogram)
 	{
 		logmsg("* It makes no sense to process everything and plot nothing\nAborting.\n");
 		return 0;

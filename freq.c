@@ -1896,7 +1896,7 @@ void FillFrequencyStructures(AudioSignal *Signal, AudioBlocks *AudioArray, param
 	if(!Signal && config->nyquistLimit)
 		nyquistLimit = 1;
 	
-	if(nyquistLimit)
+	if(nyquistLimit || endBin > size/2)
 		endBin = ceil(size/2);
 
 	/*

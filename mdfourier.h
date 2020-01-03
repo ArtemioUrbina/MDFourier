@@ -53,6 +53,7 @@
 
 #define MAX_FREQ_COUNT		100000 	/* Number of frequencies to compare(MAX) */
 #define FREQ_COUNT			2000	/* Number of frequencies to compare(default) */
+
 #define SIGNIFICANT_VOLUME	-60.0
 #define NS_SIGNIFICANT_VOLUME	-66.0
 #define NS_LOWEST_AMPLITUDE		-120

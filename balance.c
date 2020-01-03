@@ -149,9 +149,10 @@ int CheckBalance(AudioSignal *Signal, int block, parameters *config)
 	if(Channels[0].freq[0].hertz != Channels[1].freq[matchIndex].hertz)
 	{
 		logmsg("\nWARNING: Channel balance block has different frequency content.\n");
-		logmsg("\tNot a MONO signal for balance check. [%s# %d (%d) at %g Hz vs (%g Hz and %g Hz)]\n",
-					GetBlockName(config, block), GetBlockSubIndex(config, block),
-					block, Channels[0].freq[0].hertz, Channels[1].freq[0].hertz, Channels[1].freq[1].hertz);
+		logmsg("\tNot a MONO signal for balance check. [%s# %d (%d) at %g Hz / %g vs %g Hz / %g]\n",
+					GetBlockName(config, block), GetBlockSubIndex(config, block), block, 
+					Channels[0].freq[0].hertz, Channels[0].freq[0].magnitude,
+					Channels[1].freq[0].hertz, Channels[1].freq[0].magnitude);
 
 		if(config->verbose)
 		{
