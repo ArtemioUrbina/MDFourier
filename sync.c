@@ -81,11 +81,15 @@ long int DetectPulse(char *AllSamples, wav_hdr header, int role, parameters *con
 
 // positions relative to the expected one
 // Start with common sense ones, then search all around the place
-#define END_SYNC_MAX_TRIES		24
+// 2.1 and above were added for PAL MD at 60 detection. Yes, that is 2.1
+
+#define END_SYNC_MAX_TRIES		44
 #define END_SYNC_VALUES			{ 0.50, 0.25, 0.0, 1.25, 1.50,\
 								0.9, 0.8, 0.7, 0.6, 1.6, 1.7, 1.8, 1.9, \
 								0.4, 0.3, 0.1, 1.1, 1.3, 1.4,\
-								1.0, -1,0, 2.0, -2.0 }
+								1.0, -1,0, 2.0, -2.0,\
+								2.1, 2.2, 2.3, 2.4, 2.5, 2.5, 2.7, 2.8, 2.9, 3.0,\
+								-2.1, -2.2, -2.3, -2.4, -2.5, -2.5, -2.7, -2.8, -2.9, -3.0 }
 
 long int DetectEndPulse(char *AllSamples, long int startpulse, wav_hdr header, int role, parameters *config)
 {

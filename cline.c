@@ -57,18 +57,18 @@ void PrintUsage()
 	logmsg("	 -g: Create avera<g>e points over the plotted graphs\n");
 	logmsg("	 -A: Do not weight values in <A>veraged Plot (implies -g)\n");
 	logmsg("	 -W: Use <W>hite background for plots.\n");
-	logmsg("	 -L: Create 800x400 plots as shown in the manual\n");
+	logmsg("	 -L: Create 800x400 plots, as used in the manual\n");
 	logmsg("	 -H: Create 1920x1080 plots\n");
 	logmsg("	 -D: Don't create <D>ifferences Plots\n");
 	logmsg("	 -M: Don't create <M>issing Plots\n");
 	logmsg("	 -S: Don't create <S>pectrogram Plots\n");
-	logmsg("	 -t: Create Time Spectrogram Plots\n");
 	logmsg("	 -F: Don't create Noise <F>loor Plots\n");
+	logmsg("	 -t: Create Time Spectrogram Plots\n");
 	logmsg("	 -d: Max <d>BFS for plots vertically\n");
 	logmsg("	 -j: (text) Cuts per block information and shows <j>ust total results\n");
 	logmsg("	 -x: (text) Enables e<x>tended log results. Shows a table with all matches\n");
 	logmsg("	 -m: (text) Enables Show all blocks compared with <m>atched frequencies\n");
-	logmsg("	 -y: Debug Sync pulses\n");
+	logmsg("	 -y: Output debug Sync pulse detection algorithm information\n");
 }
 
 void Header(int log)
@@ -125,6 +125,7 @@ void CleanParameters(parameters *config)
 	config->videoFormatCom = NTSC;
 	config->syncTolerance = 0;
 	config->AmpBarRange = BAR_DIFF_DB_TOLERANCE;
+	config->FullTimeSpectroScale = 0;
 
 	config->logScale = 1;
 	config->reverseCompare = 0;
@@ -178,7 +179,7 @@ int commandline(int argc , char *argv[], parameters *config)
 	
 	CleanParameters(config);
 
-	while ((c = getopt (argc, argv, "Aa:Bb:Cc:Dd:e:Ff:ghHiIjklLmMNn:o:p:P:Rr:Ss:tTvVWw:xyY:zZ:")) != -1)
+	while ((c = getopt (argc, argv, "Aa:Bb:Cc:Dd:Ee:Ff:ghHiIjklLmMNn:o:p:P:Rr:Ss:tTvVWw:xyY:zZ:")) != -1)
 	switch (c)
 	  {
 	  case 'h':
@@ -217,6 +218,9 @@ int commandline(int argc , char *argv[], parameters *config)
 		break;
 	  case 'W':
 		config->whiteBG = 1;
+		break;
+	  case 'E':
+		config->FullTimeSpectroScale = 1;
 		break;
 	  case 'L':
 		config->plotResX = PLOT_RES_X_LOW;
@@ -443,6 +447,10 @@ int commandline(int argc , char *argv[], parameters *config)
 		logmsg("* Just Results cancels Show All\n");
 		return 0;
 	}
+
+	if(config->FullTimeSpectroScale)
+		config->MaxFreq = END_HZ;
+
 	if(config->endHz <= config->startHz)
 	{
 		logmsg("* Invalid frequency range for FFTW (%g Hz to %g Hz)\n", 

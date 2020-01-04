@@ -164,5 +164,6 @@ void SaveCSV(FlatAmplDifference *amplDiff, long int size, char *filename, parame
 
 void DrawFrequencyHorizontalGrid(PlotFile *plot, double hz, double hzIncrement, parameters *config);
 void PlotTimeSpectrogram(AudioSignal *Signal, parameters *config);
+void PlotTimeSpectrogramMissing(char * filename, parameters *config);
 
 #endif

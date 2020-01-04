@@ -55,15 +55,16 @@
 
 #define DIFFERENCE_TITLE			"DIFFERENT AMPLITUDES [%s]"
 #define MISSING_TITLE				"MISSING FREQUENCIES [%s]"
-#define SPECTROGRAM_TITLE_REF		"REFERENCE SPECTROGRAM [%s]"
-#define SPECTROGRAM_TITLE_COM		"COMPARISON SPECTROGRAM [%s]"
-#define TSPECTROGRAM_TITLE_REF		"REFERENCE TIME SPECTROGRAM [%s]"
-#define TSPECTROGRAM_TITLE_COM		"COMPARISON TIME SPECTROGRAM [%s]"
+#define MISSING_TITLE_TS			"MISSING FREQUENCIES - TIME SPECTROGRAM [%s]"
+#define SPECTROGRAM_TITLE_REF		"REFERENCE - SPECTROGRAM [%s]"
+#define SPECTROGRAM_TITLE_COM		"COMPARISON - SPECTROGRAM [%s]"
+#define TSPECTROGRAM_TITLE_REF		"REFERENCE - TIME SPECTROGRAM [%s]"
+#define TSPECTROGRAM_TITLE_COM		"COMPARISON - TIME SPECTROGRAM [%s]"
 #define DIFFERENCE_AVG_TITLE		"DIFFERENT AMPLITUDES AVERAGED [%s]"
 #define NOISE_TITLE					"NOISE FLOOR AVERAGED"
 #define NOISE_AVG_TITLE				"NOISE FLOOR AVERAGED"
-#define SPECTROGRAM_NOISE_REF		"REFERENCE NOISE FLOOR SPECTROGRAM [%s]"
-#define SPECTROGRAM_NOISE_COM		"COMPARISON NOISE FLOOR SPECTROGRAM [%s]"
+#define SPECTROGRAM_NOISE_REF		"REFERENCE NOISE FLOOR - SPECTROGRAM [%s]"
+#define SPECTROGRAM_NOISE_COM		"COMPARISON NOISE FLOOR - SPECTROGRAM [%s]"
 
 #define BAR_HEADER					"Matched frequencies"
 #define BAR_DIFF					"w/any amplitude difference"
@@ -317,6 +318,8 @@ void PlotFreqMissing(parameters *config)
 		PlotAllMissingFrequencies(freqDiff, size, config->compareName, config);
 		logmsg(PLOT_ADVANCE_CHAR);
 	}
+	if(!config->FullTimeSpectroScale)
+		PlotTimeSpectrogramMissing(config->compareName, config);
 
 	free(freqDiff);
 	freqDiff = NULL;
@@ -2808,8 +2811,10 @@ void PlotTimeSpectrogram(AudioSignal *Signal, parameters *config)
 	if(!blockcount)
 		return;
 
-	//significant = config->significantAmplitude;
-	significant = PCM_16BIT_MIN_AMPLITUDE;
+	if(config->FullTimeSpectroScale)
+		significant = PCM_16BIT_MIN_AMPLITUDE;
+	else
+		significant = config->significantAmplitude;
 
 	FillPlot(&plot, filename, config->plotResX, config->plotResY, 
 			0, 0, config->plotResX, config->endHzPlot, 1, config);
@@ -2852,6 +2857,80 @@ void PlotTimeSpectrogram(AudioSignal *Signal, parameters *config)
 
 	DrawColorAllTypeScale(&plot, MODE_SPEC, config->plotResX/100, config->plotResY/15, config->plotResX/COLOR_BARS_WIDTH_SCALE, config->plotResY/1.15, significant, VERT_SCALE_STEP_BAR, config);
 	DrawLabelsMDF(&plot, Signal->role == ROLE_REF ? TSPECTROGRAM_TITLE_REF : TSPECTROGRAM_TITLE_COM, ALL_LABEL, Signal->role == ROLE_REF ? PLOT_SINGLE_REF : PLOT_SINGLE_COM, config);
+
+	ClosePlot(&plot);
+}
+
+
+void PlotTimeSpectrogramMissing(char *sourcename, parameters *config)
+{
+	PlotFile	plot;
+	double		significant = 0, x = 0, width = 0, blockcount = 0;
+	char		name[BUFFER_SIZE/2], filename[BUFFER_SIZE];
+
+	if(!config)
+		return;
+
+	ShortenFileName(basename(sourcename), name);
+	sprintf(filename, "MISSING_T_SP_%s", name);
+
+	for(long int block = 0; block < config->types.totalChunks; block++)
+	{
+		int 	type = 0;
+
+		type = GetBlockType(config, block);
+		if(type > TYPE_SILENCE)
+			blockcount++;
+	}
+
+	if(!blockcount)
+		return;
+
+	if(config->FullTimeSpectroScale)
+		significant = PCM_16BIT_MIN_AMPLITUDE;
+	else
+		significant = config->significantAmplitude;
+
+	FillPlot(&plot, filename, config->plotResX, config->plotResY, 
+			0, 0, config->plotResX, config->endHzPlot, 1, config);
+
+	if(!CreatePlotFile(&plot, config))
+		return;
+
+	DrawFrequencyHorizontalGrid(&plot, config->endHzPlot, 1000, config);
+
+	width = config->plotResX / blockcount;
+
+	for(long int b = 0; b < config->types.totalChunks; b++)
+	{
+		int 	type = 0, color = 0;
+
+		type = GetBlockType(config, b);
+		color = MatchColor(GetBlockColor(config, b));
+		
+		type = GetBlockType(config, b);
+		if(type > TYPE_SILENCE && config->MaxFreq > 0)
+		{
+			for(int f = 0; f < config->Differences.BlockDiffArray[b].cntFreqBlkDiff; f++)
+			{
+				long int intensity;
+				double y, amplitude;
+
+				// x is fixed by block division
+				y = config->Differences.BlockDiffArray[b].freqMissArray[f].hertz;
+				amplitude = config->Differences.BlockDiffArray[b].freqMissArray[f].amplitude;
+
+				intensity = CalculateWeightedError(fabs(fabs(significant) - fabs(amplitude))/fabs(significant), config)*0xffff;
+					SetPenColor(color, intensity, &plot);
+				pl_fline_r(plot.plotter, x,	y, x+width, y);
+				pl_endpath_r(plot.plotter);
+			}
+			x += width;
+		}
+	}
+
+	DrawColorAllTypeScale(&plot, MODE_SPEC, config->plotResX/100, config->plotResY/15, config->plotResX/COLOR_BARS_WIDTH_SCALE, config->plotResY/1.15, significant, VERT_SCALE_STEP_BAR, config);
+	DrawLabelsMDF(&plot, MISSING_TITLE_TS, ALL_LABEL, PLOT_COMPARE, config);
 
 	ClosePlot(&plot);
 }

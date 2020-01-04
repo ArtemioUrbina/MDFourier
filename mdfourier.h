@@ -51,7 +51,7 @@
 
 #define MDVERSION "0.971"
 
-#define MAX_FREQ_COUNT		100000 	/* Number of frequencies to compare(MAX) */
+#define MAX_FREQ_COUNT		40000 	/* Number of frequencies to compare(MAX) */
 #define FREQ_COUNT			2000	/* Number of frequencies to compare(default) */
 
 #define SIGNIFICANT_VOLUME	-60.0
@@ -392,6 +392,7 @@ typedef struct parameters_st {
 	int				smallFile;
 	int				syncTolerance;
 	double			AmpBarRange;
+	int				FullTimeSpectroScale;
 
 	double 			plotResX;
 	double			plotResY;
