@@ -310,7 +310,7 @@ void CMDFourierGUIDlg::ExecuteCommand(CString Compare)
 	{
 		command += " -t";
 		if(m_Fullres_Time_Spectrogram.GetCheck())
-			command += " -f 20000";
+			command += " -E";
 	}
 
 	if(m_EnableExtraBttn.GetCheck() == BST_CHECKED)
