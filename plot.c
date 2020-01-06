@@ -158,29 +158,34 @@ void PlotResults(AudioSignal *ReferenceSignal, AudioSignal *ComparisonSignal, pa
 
 	if(config->plotMissing)
 	{
-		struct	timespec	lstart, lend;
-
-		if(config->clock)
-			clock_gettime(CLOCK_MONOTONIC, &lstart);
-
-		logmsg(" - Missing and Extra Frequencies");
-		PlotFreqMissing(config);
 		if(!config->FullTimeSpectroScale)
 		{
+			struct	timespec	lstart, lend;
+	
+			if(config->clock)
+				clock_gettime(CLOCK_MONOTONIC, &lstart);
+	
+			logmsg(" - Missing and Extra Frequencies");
+	
+			// Old Missig plots, rendered obsolete?
+			//PlotFreqMissing(config);
 			PlotTimeSpectrogramUnMatchedContent(ReferenceSignal, config);
 			logmsg(PLOT_ADVANCE_CHAR);
 			PlotTimeSpectrogramUnMatchedContent(ComparisonSignal, config);
 			logmsg(PLOT_ADVANCE_CHAR);
+	
+			logmsg("\n");
+	
+			if(config->clock)
+			{
+				double	elapsedSeconds;
+				clock_gettime(CLOCK_MONOTONIC, &lend);
+				elapsedSeconds = TimeSpecToSeconds(&lend) - TimeSpecToSeconds(&lstart);
+				logmsg(" - clk: Missing took %0.2fs\n", elapsedSeconds);
+			}
 		}
-		logmsg("\n");
-
-		if(config->clock)
-		{
-			double	elapsedSeconds;
-			clock_gettime(CLOCK_MONOTONIC, &lend);
-			elapsedSeconds = TimeSpecToSeconds(&lend) - TimeSpecToSeconds(&lstart);
-			logmsg(" - clk: Missing took %0.2fs\n", elapsedSeconds);
-		}
+		else
+			logmsg(" X Skipped: Missing and Extra Frequencies, due to range\n");
 	}
 
 	if(config->plotSpectrogram)
@@ -229,30 +234,35 @@ void PlotResults(AudioSignal *ReferenceSignal, AudioSignal *ComparisonSignal, pa
 		}
 	}
 
-	if(!config->noSyncProfile && !config->ignoreFloor && config->plotNoiseFloor)
+	if(config->plotNoiseFloor)
 	{
-		if(config->referenceNoiseFloor)
+		if(!config->noSyncProfile && !config->ignoreFloor)
 		{
-			struct	timespec	lstart, lend;
-	
-			if(config->clock)
-				clock_gettime(CLOCK_MONOTONIC, &lstart);
-	
-			logmsg(" - Noise Floor");
-			PlotNoiseFloor(ReferenceSignal, config);
-			logmsg("\n");
-	
-	
-			if(config->clock)
+			if(ReferenceSignal->hasFloor && ComparisonSignal->hasFloor)
 			{
-				double	elapsedSeconds;
-				clock_gettime(CLOCK_MONOTONIC, &lend);
-				elapsedSeconds = TimeSpecToSeconds(&lend) - TimeSpecToSeconds(&lstart);
-				logmsg(" - clk: Noise Floor took %0.2fs\n", elapsedSeconds);
+				struct	timespec	lstart, lend;
+		
+				if(config->clock)
+					clock_gettime(CLOCK_MONOTONIC, &lstart);
+		
+				logmsg(" - Noise Floor");
+				PlotNoiseFloor(ReferenceSignal, config);
+				logmsg("\n");
+		
+		
+				if(config->clock)
+				{
+					double	elapsedSeconds;
+					clock_gettime(CLOCK_MONOTONIC, &lend);
+					elapsedSeconds = TimeSpecToSeconds(&lend) - TimeSpecToSeconds(&lstart);
+					logmsg(" - clk: Noise Floor took %0.2fs\n", elapsedSeconds);
+				}
 			}
+			else
+				logmsg(" X Noise Floor graphs ommited: no noise floor value found.\n");
 		}
 		else
-			logmsg(" - Noise Floor graphs ommited: no noise floor value found.\n");
+			logmsg(" X Noise floor plots make no sense with current parameters.\n");
 	}
 
 	ReturnToMainPath(&CurrentPath);
@@ -2821,6 +2831,12 @@ void PlotTimeSpectrogram(AudioSignal *Signal, parameters *config)
 	else
 		significant = config->significantAmplitude;
 
+/*
+	FillPlot(&plot, filename, config->plotResX, config->plotResY, 
+			-0.18*config->plotResX, -0.75*config->plotResY, 
+			config->plotResX, 1.05*config->endHzPlot,
+			1, config);
+*/
 	FillPlot(&plot, filename, config->plotResX, config->plotResY, 
 			0, 0, config->plotResX, config->endHzPlot, 1, config);
 
