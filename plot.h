@@ -98,7 +98,7 @@ typedef struct flat_FrequencySt {
 	int		color;
 } FlatFrequency;
 
-void PlotResults(AudioSignal *Signal, parameters *config);
+void PlotResults(AudioSignal *ReferenceSignal, AudioSignal *ComparisonSignal, parameters *config);
 void PlotAmpDifferences(parameters *config);
 void PlotAllWeightedAmpDifferences(parameters *config);
 void PlotFreqMissing(parameters *config);
@@ -129,7 +129,7 @@ int PlotEachTypeSpectrogram(FlatFrequency *freqs, long int size, char *filename,
 void PlotSingleTypeSpectrogram(FlatFrequency *freqs, long int size, int type, char *filename, int signal, parameters *config);
 void PlotAllSpectrogram(FlatFrequency *freqs, long int size, char *filename, int signal, parameters *config);
 
-void PlotWindow(windowManager *wm, long int frames, parameters *config);
+void PlotWindow(windowUnit *windowUnit, parameters *config);
 void PlotBetaFunctions(parameters *config);
 
 FlatAmplDifference *CreateFlatDifferences(parameters *config, long int *size, diffPlotType plotType);
@@ -164,6 +164,6 @@ void SaveCSV(FlatAmplDifference *amplDiff, long int size, char *filename, parame
 
 void DrawFrequencyHorizontalGrid(PlotFile *plot, double hz, double hzIncrement, parameters *config);
 void PlotTimeSpectrogram(AudioSignal *Signal, parameters *config);
-void PlotTimeSpectrogramMissing(char * filename, parameters *config);
+void PlotTimeSpectrogramUnMatchedContent(AudioSignal *Signal, parameters *config);
 
 #endif

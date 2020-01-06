@@ -204,153 +204,6 @@ void freeWindows(windowManager *wm)
 	wm->winType = 'n';
 }
 
-/*
-long int getWindowSizeByLength(windowManager *wm, long int frames)
-{
-	if(!wm)
-		return 0;
-
-	for(int i = 0; i < wm->windowCount; i++)
-	{
-		if(frames == wm->windowArray[i].frames)
-			return wm->windowArray[i].size;
-	}
-
-	return 0;
-}
-*/
-
-
-/*
-int existsInArray(long int element, double *array, int count)
-{
-	if(!array)
-		return 0;
-
-	for(int i = 0; i < count; i++)
-	{
-		if(element == array[i])
-			return 1;
-	}
-
-	return 0;
-}
-*/
-
-/*
-int initWindows(windowManager *wm, double framerate, int SamplesPerSec, char winType, parameters *config)
-{
-	double 	lengths[1024];	// yes, we are lazy
-	int 	count = 0, flip = 1, insideInternal = 0;
-
-	if(!wm || !config)
-		return 0;
-	
-	if(winType == 'n')
-	{
-		wm->windowArray = NULL;
-		wm->windowCount = 0;
-		return 1;
-	}
-
-	// Count how many differen window sizes are needed
-	for(int i = 0; i < config->types.typeCount; i++)
-	{
-		// Check if we need to use the default frame rate
-		if(insideInternal)
-			flip = -1;
-		else
-			flip = 1;
-
-		if(!existsInArray(config->types.typeArray[i].frames*flip, lengths, count))
-			lengths[count++] = config->types.typeArray[i].frames*flip;
-
-		if(config->types.typeArray[i].type == TYPE_INTERNAL_KNOWN ||
-			config->types.typeArray[i].type == TYPE_INTERNAL_UNKNOWN)
-		{
-			if(insideInternal)
-				insideInternal = 0;
-			else
-				insideInternal = 1;
-		}
-	}
-
-	if(!count)
-	{
-		logmsg("There are no blocks with valid lengths\n");
-		return 0;
-	}
-
-	// Create the wm
-	wm->windowArray = (windowUnit*)malloc(sizeof(windowUnit)*count);
-	wm->windowCount = count;
-
-	for(int i = 0; i < count; i++)
-	{
-		double seconds = 0;
-
-		wm->windowArray[i].window = NULL;
-		wm->windowArray[i].frames = lengths[i];
-		wm->windowArray[i].size = 0;
-
-		// Adjust in case they have different frame rates
-		if(config->smallerFramerate != 0 && config->smallerFramerate < framerate)
-			framerate = config->smallerFramerate;
-
-		if(lengths[i] < 0) // TYPE_INTERNAL
-			framerate = config->referenceFramerate;
-
-		seconds = FramesToSeconds(fabs(wm->windowArray[i].frames), framerate);
-		if(winType == 't')
-		{
-			wm->windowArray[i].window = tukeyWindow(SamplesPerSec*seconds);
-			if(!wm->windowArray[i].window)
-			{
-				logmsg ("Tukey window creation failed\n");
-				return(0);
-			}
-			wm->windowArray[i].size = SamplesPerSec*seconds;
-		}
-
-		if(winType == 'f')
-		{
-			wm->windowArray[i].window = flattopWindow(SamplesPerSec*seconds);
-			if(!wm->windowArray[i].window)
-			{
-				logmsg ("FlatTop window creation failed\n");
-				return(0);
-			}
-			wm->windowArray[i].size = SamplesPerSec*seconds;
-		}
-
-		if(winType == 'h')
-		{
-			wm->windowArray[i].window = hannWindow(SamplesPerSec*seconds);
-			if(!wm->windowArray[i].window)
-			{
-				logmsg ("Hann window creation failed\n");
-				return(0);
-			}
-			wm->windowArray[i].size = SamplesPerSec*seconds;
-		}
-
-		if(winType == 'm')
-		{
-			wm->windowArray[i].window = hammingWindow(SamplesPerSec*seconds);
-			if(!wm->windowArray[i].window)
-			{
-				logmsg ("Hamming window creation failed\n");
-				return(0);
-			}
-			wm->windowArray[i].size = SamplesPerSec*seconds;
-		}
-	}
-
-	return 1;
-}
-*/
-
-
 // reduce scalloping loss 
 double *flattopWindow(long int n)
 {
@@ -358,6 +211,11 @@ double *flattopWindow(long int n)
 	double *w;
  
 	w = (double*) calloc(n, sizeof(double));
+	if(!w)
+	{
+		logmsg("Not enough memory for window\n");
+		return NULL;
+	}
 	memset(w, 0, n*sizeof(double));
  
 	if(n%2==0)
@@ -404,6 +262,11 @@ double *tukeyWindow(long int n)
 	double *w, M = 0, alpha = 0;
  
 	w = (double*) calloc(n, sizeof(double));
+	if(!w)
+	{
+		logmsg("Not enough memory for window\n");
+		return NULL;
+	}
 	memset(w, 0, n*sizeof(double));
  
 	alpha = 0.65;
@@ -426,6 +289,11 @@ double *hannWindow(long int n)
 	double *w;
  
 	w = (double*) calloc(n, sizeof(double));
+	if(!w)
+	{
+		logmsg("Not enough memory for window\n");
+		return NULL;
+	}
 	memset(w, 0, n*sizeof(double));
 
 	if(n%2==0)
@@ -462,6 +330,11 @@ double *hammingWindow(long int n)
 	double *w;
  
 	w = (double*) calloc(n, sizeof(double));
+	if(!w)
+	{
+		logmsg("Not enough memory for window\n");
+		return NULL;
+	}
 	memset(w, 0, n*sizeof(double));
 
 	if(n%2==0)
@@ -489,6 +362,59 @@ double *hammingWindow(long int n)
 		}
 	}
  
+	return(w);
+}
+
+double cheby_poly(int n, double x)
+{
+	double res;
+
+	if (fabs(x) <= 1)
+		res = cos(n*acos(x));
+	else
+		res = cosh(n*acosh(x));
+	return res;
+}
+
+/**************************************************************************
+ Dolph-Chebyshev Window
+ - Taken from http://practicalcryptography.com/miscellaneous/machine-learning/implementing-dolph-chebyshev-window/
+-atten is the required sidelobe attenuation (e.g. if you want -60dB atten, use '60')
+***************************************************************************/
+double *cheby_win(long int N, float atten)
+{
+	int nn, i;
+	double M, n, sum = 0, max=0;
+	double tg = pow(10,atten/20);  /* 1/r term [2], 10^gamma [2] */
+	double x0 = cosh((1.0/(N-1))*acosh(tg));
+	double *w = NULL;
+
+	w = (double*) calloc(N, sizeof(double));
+	if(!w)
+	{
+		logmsg("Not enough memory for window\n");
+		return NULL;
+	}
+	memset(w, 0, N*sizeof(double));
+
+	M = (N-1)/2;
+	if(N%2==0)
+		M = M + 0.5; /* handle even length windows */
+	for(nn=0; nn<(N/2+1); nn++)
+	{
+		n = nn-M;
+		sum = 0;
+		for(i=1; i<=M; i++)
+		{
+			sum += cheby_poly(N-1,x0*cos(M_PI*i/N))*cos(2.0*n*M_PI*i/N);
+		}
+		w[nn] = tg + 2*sum;
+		w[N-nn-1] = w[nn];
+		if(w[nn]>max)
+			max = w[nn];
+	}
+	for(nn=0; nn<N; nn++)
+		w[nn] /= max; /* normalise everything */
 	return(w);
 }
 

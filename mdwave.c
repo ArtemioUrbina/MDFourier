@@ -1251,11 +1251,6 @@ int commandline_wave(int argc , char *argv[], parameters *config)
 		if(config->MaxFreq < 1 || config->MaxFreq > MAX_FREQ_COUNT)
 			config->MaxFreq = MAX_FREQ_COUNT;
 		break;
-	  case 't':
-		config->tolerance = atof(optarg);
-		if(config->tolerance < 0.0 || config->tolerance > 100.0)
-			config->tolerance = DBS_TOLERANCE;
-		break;
 	  case 'p':
 		config->significantAmplitude = atof(optarg);
 		if(config->significantAmplitude <= -120.0 || config->significantAmplitude >= -1.0)
@@ -1321,8 +1316,6 @@ int commandline_wave(int argc , char *argv[], parameters *config)
 		  logmsg("Audio channel option -%c requires an argument: l,r or s\n", optopt);
 		else if (optopt == 'w')
 		  logmsg("FFT Window option -%c requires an argument: n,t,f or h\n", optopt);
-		else if (optopt == 't')
-		  logmsg("Magitude tolerance -%c requires an argument: 0.0-100.0\n", optopt);
 		else if (optopt == 'f')
 		  logmsg("Max # of frequencies to use from FFTW -%c requires an argument: 1-%d\n", optopt, MAX_FREQ_COUNT);
 		else if (optopt == 's')
@@ -1390,8 +1383,6 @@ int commandline_wave(int argc , char *argv[], parameters *config)
 
 	if(config->channel != 's')
 		logmsg("\tAudio Channel is: %s\n", GetChannel(config->channel));
-	if(config->tolerance != 0.0)
-		logmsg("\tAmplitude tolerance while comparing is +/-%0.2f dBFS\n", config->tolerance);
 	if(config->MaxFreq != FREQ_COUNT)
 		logmsg("\tMax frequencies to use from FFTW are %d (default %d)\n", config->MaxFreq, FREQ_COUNT);
 	if(config->startHz != START_HZ)

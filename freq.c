@@ -1961,14 +1961,7 @@ void PrintComparedBlocks(AudioBlocks *ReferenceArray, AudioBlocks *ComparedArray
 				ComparedArray->freq[match].amplitude)
 					logmsg("FA");
 				else
-				{
-					double diff = fabs(fabs(ReferenceArray->freq[j].amplitude) - 
-						fabs(ComparedArray->freq[match].amplitude));
-					if(diff < config->tolerance)
-						logmsg("FT");
-					else
-						logmsg("F-");
-				}
+					logmsg("F-");
 			}
 			logmsg("\n");
 		}

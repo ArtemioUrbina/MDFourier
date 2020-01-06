@@ -316,7 +316,7 @@ void PrintDifferentAmplitudes(int block, parameters *config)
 
 	OutputFileOnlyStart();
 
-	if(config->Differences.BlockDiffArray[block].cntFreqBlkDiff)
+	if(config->Differences.BlockDiffArray[block].cntAmplBlkDiff)
 		logmsg("\nDifferent Amplitudes:\n");
 
 	for(int a = 0; a < config->Differences.BlockDiffArray[block].cntAmplBlkDiff; a++)

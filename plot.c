@@ -56,6 +56,8 @@
 #define DIFFERENCE_TITLE			"DIFFERENT AMPLITUDES [%s]"
 #define MISSING_TITLE				"MISSING FREQUENCIES [%s]"
 #define MISSING_TITLE_TS			"MISSING FREQUENCIES - TIME SPECTROGRAM [%s]"
+#define EXTRA_TITLE_TS_REF			"COMPARISON - MISSING FREQUENCIES - TIME SPECTROGRAM [%s]"
+#define EXTRA_TITLE_TS_COM			"COMPARISON - EXTRA FREQUENCIES - TIME SPECTROGRAM [%s]"
 #define SPECTROGRAM_TITLE_REF		"REFERENCE - SPECTROGRAM [%s]"
 #define SPECTROGRAM_TITLE_COM		"COMPARISON - SPECTROGRAM [%s]"
 #define TSPECTROGRAM_TITLE_REF		"REFERENCE - TIME SPECTROGRAM [%s]"
@@ -124,7 +126,7 @@ void ReturnToMainPath(char **CurrentPath)
 	*CurrentPath = NULL;
 }
 
-void PlotResults(AudioSignal *Signal, parameters *config)
+void PlotResults(AudioSignal *ReferenceSignal, AudioSignal *ComparisonSignal, parameters *config)
 {
 	struct	timespec	start, end;
 	char 	*CurrentPath = NULL;
@@ -161,8 +163,15 @@ void PlotResults(AudioSignal *Signal, parameters *config)
 		if(config->clock)
 			clock_gettime(CLOCK_MONOTONIC, &lstart);
 
-		logmsg(" - Missing");
+		logmsg(" - Missing and Extra Frequencies");
 		PlotFreqMissing(config);
+		if(!config->FullTimeSpectroScale)
+		{
+			PlotTimeSpectrogramUnMatchedContent(ReferenceSignal, config);
+			logmsg(PLOT_ADVANCE_CHAR);
+			PlotTimeSpectrogramUnMatchedContent(ComparisonSignal, config);
+			logmsg(PLOT_ADVANCE_CHAR);
+		}
 		logmsg("\n");
 
 		if(config->clock)
@@ -181,8 +190,9 @@ void PlotResults(AudioSignal *Signal, parameters *config)
 		if(config->clock)
 			clock_gettime(CLOCK_MONOTONIC, &lstart);
 
-		logmsg(" - Spectrogram");
-		PlotSpectrograms(Signal, config);
+		logmsg(" - Spectrograms");
+		PlotSpectrograms(ReferenceSignal, config);
+		PlotSpectrograms(ComparisonSignal, config);
 		logmsg("\n");
 
 
@@ -203,7 +213,10 @@ void PlotResults(AudioSignal *Signal, parameters *config)
 			clock_gettime(CLOCK_MONOTONIC, &lstart);
 
 		logmsg(" - Time Spectrogram");
-		PlotTimeSpectrogram(Signal, config);
+		PlotTimeSpectrogram(ReferenceSignal, config);
+		logmsg(PLOT_ADVANCE_CHAR);
+		PlotTimeSpectrogram(ComparisonSignal, config);
+		logmsg(PLOT_ADVANCE_CHAR);
 		logmsg("\n");
 
 
@@ -226,7 +239,7 @@ void PlotResults(AudioSignal *Signal, parameters *config)
 				clock_gettime(CLOCK_MONOTONIC, &lstart);
 	
 			logmsg(" - Noise Floor");
-			PlotNoiseFloor(Signal, config);
+			PlotNoiseFloor(ReferenceSignal, config);
 			logmsg("\n");
 	
 	
@@ -318,8 +331,6 @@ void PlotFreqMissing(parameters *config)
 		PlotAllMissingFrequencies(freqDiff, size, config->compareName, config);
 		logmsg(PLOT_ADVANCE_CHAR);
 	}
-	if(!config->FullTimeSpectroScale)
-		PlotTimeSpectrogramMissing(config->compareName, config);
 
 	free(freqDiff);
 	freqDiff = NULL;
@@ -1633,7 +1644,6 @@ void PlotNoiseSpectrogram(FlatFrequency *freqs, long int size, int type, char *f
 	ClosePlot(&plot);
 }
 
-/*
 void VisualizeWindows(windowManager *wm, parameters *config)
 {
 	if(!wm)
@@ -1647,27 +1657,23 @@ void VisualizeWindows(windowManager *wm, parameters *config)
 		//for(long int j = 0; j < wm->windowArray[i].size; j++)
 			//logmsg("Window %ld %g\n", j, wm->windowArray[i].window[j]);
 
-		PlotWindow(wm, wm->windowArray[i].frames, config);
+		PlotWindow(&wm->windowArray[i], config);
 	}
 }
-*/
 
-/*
-void PlotWindow(windowManager *wm, long int frames, parameters *config)
+void PlotWindow(windowUnit *windowUnit, parameters *config)
 {
 	PlotFile plot;
 	char	 name[BUFFER_SIZE];
-	double 	 *window = NULL;
+	double 	 *window = NULL, frames;
 	long int size;
 
-	if(!config || !wm || !wm->windowArray)
+	if(!config || !windowUnit)
 		return;
 
-	window = getWindowByLength(wm, frames);
-	if(!window)
-		return;
-
-	size = getWindowSizeByLength(wm, frames);
+	window = windowUnit->window;
+	frames = windowUnit->frames;
+	size = windowUnit->size;
 
 	sprintf(name, "WindowPlot_%s", GetWindow(config->window));
 	FillPlot(&plot, name, 320, 384, 0, -0.1, 1, 1.1, 0.001, config);
@@ -1692,7 +1698,6 @@ void PlotWindow(windowManager *wm, long int frames, parameters *config)
 	
 	ClosePlot(&plot);
 }
-*/
 
 void PlotBetaFunctions(parameters *config)
 {
@@ -2846,7 +2851,7 @@ void PlotTimeSpectrogram(AudioSignal *Signal, parameters *config)
 					amplitude = Signal->Blocks[block].freq[i].amplitude;
 					
 					intensity = CalculateWeightedError(fabs(fabs(significant) - fabs(amplitude))/fabs(significant), config)*0xffff;
-						SetPenColor(color, intensity, &plot);
+					SetPenColor(color, intensity, &plot);
 					pl_fline_r(plot.plotter, x,	y, x+width, y);
 					pl_endpath_r(plot.plotter);
 				}
@@ -2861,20 +2866,23 @@ void PlotTimeSpectrogram(AudioSignal *Signal, parameters *config)
 	ClosePlot(&plot);
 }
 
-
-void PlotTimeSpectrogramMissing(char *sourcename, parameters *config)
+void PlotTimeSpectrogramUnMatchedContent(AudioSignal *Signal, parameters *config)
 {
 	PlotFile	plot;
 	double		significant = 0, x = 0, width = 0, blockcount = 0;
-	char		name[BUFFER_SIZE/2], filename[BUFFER_SIZE];
+	long int	block = 0, i = 0;
+	char		filename[BUFFER_SIZE], name[BUFFER_SIZE/2];
 
-	if(!config)
+	if(!Signal || !config)
 		return;
 
-	ShortenFileName(basename(sourcename), name);
-	sprintf(filename, "MISSING_T_SP_%s", name);
+	ShortenFileName(basename(Signal->SourceFile), name);
+	if(Signal->role == ROLE_REF)
+		sprintf(filename, "MISSING-A-T_SP_%s", name);
+	else
+		sprintf(filename, "MISSING-EXTRA_T_SP_%s", name);
 
-	for(long int block = 0; block < config->types.totalChunks; block++)
+	for(block = 0; block < config->types.totalChunks; block++)
 	{
 		int 	type = 0;
 
@@ -2900,37 +2908,39 @@ void PlotTimeSpectrogramMissing(char *sourcename, parameters *config)
 	DrawFrequencyHorizontalGrid(&plot, config->endHzPlot, 1000, config);
 
 	width = config->plotResX / blockcount;
-
-	for(long int b = 0; b < config->types.totalChunks; b++)
+	for(block = 0; block < config->types.totalChunks; block++)
 	{
 		int 	type = 0, color = 0;
 
-		type = GetBlockType(config, b);
-		color = MatchColor(GetBlockColor(config, b));
-		
-		type = GetBlockType(config, b);
+		type = GetBlockType(config, block);
+		color = MatchColor(GetBlockColor(config, block));
+
 		if(type > TYPE_SILENCE && config->MaxFreq > 0)
 		{
-			for(int f = 0; f < config->Differences.BlockDiffArray[b].cntFreqBlkDiff; f++)
+			for(i = config->MaxFreq; i >= 0; i--)
 			{
-				long int intensity;
-				double y, amplitude;
+				if(Signal->Blocks[block].freq[i].hertz && !Signal->Blocks[block].freq[i].matched
+					&& Signal->Blocks[block].freq[i].amplitude > significant)
+				{
+					long int intensity;
+					double y, amplitude;
 
-				// x is fixed by block division
-				y = config->Differences.BlockDiffArray[b].freqMissArray[f].hertz;
-				amplitude = config->Differences.BlockDiffArray[b].freqMissArray[f].amplitude;
-
-				intensity = CalculateWeightedError(fabs(fabs(significant) - fabs(amplitude))/fabs(significant), config)*0xffff;
+					// x is fixed by block division
+					y = Signal->Blocks[block].freq[i].hertz;
+					amplitude = Signal->Blocks[block].freq[i].amplitude;
+					
+					intensity = CalculateWeightedError(fabs(fabs(significant) - fabs(amplitude))/fabs(significant), config)*0xffff;
 					SetPenColor(color, intensity, &plot);
-				pl_fline_r(plot.plotter, x,	y, x+width, y);
-				pl_endpath_r(plot.plotter);
+					pl_fline_r(plot.plotter, x,	y, x+width, y);
+					pl_endpath_r(plot.plotter);
+				}
 			}
 			x += width;
 		}
 	}
 
 	DrawColorAllTypeScale(&plot, MODE_SPEC, config->plotResX/100, config->plotResY/15, config->plotResX/COLOR_BARS_WIDTH_SCALE, config->plotResY/1.15, significant, VERT_SCALE_STEP_BAR, config);
-	DrawLabelsMDF(&plot, MISSING_TITLE_TS, ALL_LABEL, PLOT_COMPARE, config);
+	DrawLabelsMDF(&plot, Signal->role == ROLE_REF ? EXTRA_TITLE_TS_REF : EXTRA_TITLE_TS_COM, ALL_LABEL, PLOT_SINGLE_COM, config);
 
 	ClosePlot(&plot);
 }

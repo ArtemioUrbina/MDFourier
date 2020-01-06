@@ -32,8 +32,7 @@
 
 void PrintUsage()
 {
-	// b,d and y options are not documented since they are mostly for testing or found not as usefull as desired
-	logmsg("  usage: mdfourier -r reference.wav -c compare.wav\n");
+	logmsg("  usage: mdfourier -P profile.mdf -r reference.wav -c compare.wav\n");
 	logmsg("   FFT and Analysis options:\n");
 	logmsg("	 -a: select <a>udio channel to compare. 's', 'l' or 'r'\n");
 	logmsg("	 -w: enable <w>indowing. Default is a custom Tukey window.\n");
@@ -47,7 +46,10 @@ void PrintUsage()
 	logmsg("	 -B: Do not do stereo channel audio <B>alancing\n");
 	logmsg("	 -V: Ignore a<V>erage for analysis\n");
 	logmsg("	 -I: <I>gnore frame rate difference for analysis\n");
+	logmsg("	 -p: Define the significant volume value in dBFS\n");
 	logmsg("	 -T: Increase Sync detection <T>olerance\n");
+	logmsg("	 -Y: Define the Reference Video Format 0:NTSC 1:PAL\n");
+	logmsg("	 -Z: Define the Comparison Video Format 0:NTSC 1:PAL\n");
 	logmsg("	 -k: cloc<k> FFTW operations\n");
 	logmsg("   Output options:\n");
 	logmsg("	 -l: <l>og output to file [reference]_vs_[compare].txt\n");
@@ -64,6 +66,10 @@ void PrintUsage()
 	logmsg("	 -S: Don't create <S>pectrogram Plots\n");
 	logmsg("	 -F: Don't create Noise <F>loor Plots\n");
 	logmsg("	 -t: Create Time Spectrogram Plots\n");
+	logmsg("	 -o: Define the output filter function for color weights [0-5]\n");
+	logmsg("	 -E: Defines Full frequency rang<E> for Time Spectrogram plots\n");
+	logmsg("	 -R: Do the reverse compare plots\n");
+	logmsg("	 -N: Use li<N>ear scale instead of logaritmic scale for plots\n");
 	logmsg("	 -d: Max <d>BFS for plots vertically\n");
 	logmsg("	 -j: (text) Cuts per block information and shows <j>ust total results\n");
 	logmsg("	 -x: (text) Enables e<x>tended log results. Shows a table with all matches\n");
@@ -87,7 +93,6 @@ void CleanParameters(parameters *config)
 	memset(config, 0, sizeof(parameters));
 
 	sprintf(config->profileFile, PROFILE_FILE);
-	config->tolerance = DBS_TOLERANCE;
 	config->startHz = START_HZ;
 	config->endHz = END_HZ;
 	config->startHzPlot = 0;
@@ -179,101 +184,13 @@ int commandline(int argc , char *argv[], parameters *config)
 	
 	CleanParameters(config);
 
-	while ((c = getopt (argc, argv, "Aa:Bb:Cc:Dd:Ee:Ff:ghHiIjklLmMNn:o:p:P:Rr:Ss:tTvVWw:xyY:zZ:")) != -1)
+	// Available: GJKOQqUuX0123456789
+	while ((c = getopt (argc, argv, "Aa:Bb:Cc:Dd:Ee:Ff:gHhIijkLlMmNn:o:P:p:Rr:Ss:TtVvWw:xY:yZ:z")) != -1)
 	switch (c)
 	  {
-	  case 'h':
-		PrintUsage();
-		return 0;
-		break;
-	  case 'x':
-		config->extendedResults = 1;
-		break;
-	  case 'j':
-		config->justResults = 1;
-		break;
-	  case 'm':
-		config->showAll = 1;
-		break;
-	  case 'z':
-		config->ZeroPad = 1;
-		break;
-	  case 'v':
-		config->verbose = 1;
-		break;
-	  case 'i':
-		config->ignoreFloor = 1;
-		break;
-	  case 'k':
-		config->clock = 1;
-		break;
-	  case 'y':
-		config->debugSync = 1;
-		break;
-	  case 'g':
+	  case 'A':
 		config->averagePlot = 1;
-		break;
-	  case 'l':
-		EnableLog();
-		break;
-	  case 'W':
-		config->whiteBG = 1;
-		break;
-	  case 'E':
-		config->FullTimeSpectroScale = 1;
-		break;
-	  case 'L':
-		config->plotResX = PLOT_RES_X_LOW;
-		config->plotResY = PLOT_RES_Y_LOW;
-		config->showPercent = 0;
-		break;
-	  case 'H':
-		config->plotResX = PLOT_RES_X_HIGH;
-		config->plotResY = PLOT_RES_Y_HIGH;
-		break;
-	  case 'o':
-		config->outputFilterFunction = atoi(optarg);
-		if(config->outputFilterFunction < 0 || config->outputFilterFunction > 5)
-			config->outputFilterFunction = 3;
-		if(!config->outputFilterFunction)
-			config->useOutputFilter = 0;
-		break;
-	  case 's':
-		config->startHz = atof(optarg);
-		if(config->startHz < 1.0 || config->startHz > END_HZ-100.0)
-			config->startHz = START_HZ;
-		break;
-	  case 'e':
-		config->endHz = atof(optarg);
-		if(config->endHz < START_HZ*2.0 || config->endHz > END_HZ)
-			config->endHz = END_HZ;
-		break;
-	  case 'd':
-		config->maxDbPlotZC = atof(optarg);
-		if(config->maxDbPlotZC < 0.1 || config->maxDbPlotZC > 96.0)
-			config->maxDbPlotZC = DB_HEIGHT;
-		break;
-	  case 'b':
-		config->AmpBarRange = atof(optarg);
-		if(config->AmpBarRange < 0 || config->AmpBarRange > 16)
-			config->AmpBarRange = BAR_DIFF_DB_TOLERANCE;
-		break;
-	  case 'f':
-		config->MaxFreq = atoi(optarg);
-		if(config->MaxFreq < 1 || config->MaxFreq > MAX_FREQ_COUNT)
-			config->MaxFreq = MAX_FREQ_COUNT;
-		break;
-	  case 't':
-		config->plotTimeSpectrogram = 1;
-		break;
-	  case 'T':
-		config->syncTolerance = 1;
-		break;
-	  case 'p':
-		config->significantAmplitude = atof(optarg);
-		if(config->significantAmplitude <= -120.0 || config->significantAmplitude >= -1.0)
-			config->significantAmplitude = SIGNIFICANT_VOLUME;
-		config->origSignificantAmplitude = config->significantAmplitude;
+		config->weightedAveragePlot = 0;
 		break;
 	  case 'a':
 		switch(optarg[0])
@@ -290,73 +207,84 @@ int commandline(int argc , char *argv[], parameters *config)
 				break;
 		}
 		break;
-	 case 'w':
-		switch(optarg[0])
-		{
-			case 'n':
-			case 'f':
-			case 'h':
-			case 't':
-			case 'm':
-				config->window = optarg[0];
-				break;
-			default:
-				logmsg("Invalid Window for FFT option '%c'\n", optarg[0]);
-				logmsg("\tUse n for None, t for Tukey window (default), f for Flattop, h for Hann or m for Hamming window\n");
-				return 0;
-				break;
-		}
+	  case 'B':
+		config->channelBalance = 0;
 		break;
-	  case 'r':
-		sprintf(config->referenceFile, "%s", optarg);
-		ref = 1;
+	  case 'b':
+		config->AmpBarRange = atof(optarg);
+		if(config->AmpBarRange < 0 || config->AmpBarRange > 16)
+			config->AmpBarRange = BAR_DIFF_DB_TOLERANCE;
+		break;
+	  case 'C':
+		config->outputCSV = 1;
 		break;
 	  case 'c':
 		sprintf(config->targetFile, "%s", optarg);
 		tar = 1;
 		break;
-	  case 'P':
-		sprintf(config->profileFile, "%s", optarg);
-		break;
 	  case 'D':
 		config->plotDifferences = 0;
 		break;
-	  case 'M':
-		config->plotMissing = 0;
+	  case 'd':
+		config->maxDbPlotZC = atof(optarg);
+		if(config->maxDbPlotZC < 0.1 || config->maxDbPlotZC > 96.0)
+			config->maxDbPlotZC = DB_HEIGHT;
 		break;
-	  case 'S':
-		config->plotSpectrogram = 0;
+	  case 'E':
+		config->FullTimeSpectroScale = 1;
+		break;
+	  case 'e':
+		config->endHz = atof(optarg);
+		if(config->endHz < START_HZ*2.0 || config->endHz > END_HZ)
+			config->endHz = END_HZ;
 		break;
 	  case 'F':
 		config->plotNoiseFloor = 0;
 		break;
-	  case 'N':
-		config->logScale = 0;
+	  case 'f':
+		config->MaxFreq = atoi(optarg);
+		if(config->MaxFreq < 1 || config->MaxFreq > MAX_FREQ_COUNT)
+			config->MaxFreq = MAX_FREQ_COUNT;
 		break;
-	  case 'R':
-		config->reverseCompare = 1;
+	  case 'g':
+		config->averagePlot = 1;
 		break;
-	  case 'B':
-		config->channelBalance = 0;
+	  case 'H':
+		config->plotResX = PLOT_RES_X_HIGH;
+		config->plotResY = PLOT_RES_Y_HIGH;
+		break;
+	  case 'h':
+		PrintUsage();
+		return 0;
 		break;
 	  case 'I':
 		config->ignoreFrameRateDiff = 1;
 		break;
-	  case 'V':
-		config->averageIgnore = 1;
+	  case 'i':
+		config->ignoreFloor = 1;
 		break;
-	  case 'C':
-		config->outputCSV = 1;
+	  case 'j':
+		config->justResults = 1;
 		break;
-	  case 'Y':
-		config->videoFormatRef = atof(optarg);
-		if(config->videoFormatRef < NTSC|| config->videoFormatRef > PAL)
-			config->videoFormatRef = NTSC;
+	  case 'k':
+		config->clock = 1;
 		break;
-	  case 'Z':
-		config->videoFormatCom = atof(optarg);
-		if(config->videoFormatCom < NTSC|| config->videoFormatCom > PAL)
-			config->videoFormatCom = NTSC;
+	  case 'L':
+		config->plotResX = PLOT_RES_X_LOW;
+		config->plotResY = PLOT_RES_Y_LOW;
+		config->showPercent = 0;
+		break;
+	  case 'l':
+		EnableLog();
+		break;
+	  case 'M':
+		config->plotMissing = 0;
+		break;
+	  case 'm':
+		config->showAll = 1;
+		break;
+	  case 'N':
+		config->logScale = 0;
 		break;
 	  case 'n':
 		switch(optarg[0])
@@ -380,40 +308,121 @@ int commandline(int argc , char *argv[], parameters *config)
 				break;
 		}
 		break;
+	  case 'o':
+		config->outputFilterFunction = atoi(optarg);
+		if(config->outputFilterFunction < 0 || config->outputFilterFunction > 5)
+			config->outputFilterFunction = 3;
+		if(!config->outputFilterFunction)
+			config->useOutputFilter = 0;
 		break;
-	  case 'A':
-		config->averagePlot = 1;
-		config->weightedAveragePlot = 0;
+	  case 'P':
+		sprintf(config->profileFile, "%s", optarg);
+		break;
+	  case 'p':
+		config->significantAmplitude = atof(optarg);
+		if(config->significantAmplitude <= -120.0 || config->significantAmplitude >= -1.0)
+			config->significantAmplitude = SIGNIFICANT_VOLUME;
+		config->origSignificantAmplitude = config->significantAmplitude;
+		break;
+	  case 'R':
+		config->reverseCompare = 1;
+		break;
+	  case 'r':
+		sprintf(config->referenceFile, "%s", optarg);
+		ref = 1;
+		break;
+	  case 'S':
+		config->plotSpectrogram = 0;
+		break;
+	  case 's':
+		config->startHz = atof(optarg);
+		if(config->startHz < 1.0 || config->startHz > END_HZ-100.0)
+			config->startHz = START_HZ;
+		break;
+	  case 'T':
+		config->syncTolerance = 1;
+		break;
+	  case 't':
+		config->plotTimeSpectrogram = 1;
+		break;
+	  case 'V':
+		config->averageIgnore = 1;
+		break;
+	  case 'v':
+		config->verbose = 1;
+		break;
+	  case 'W':
+		config->whiteBG = 1;
+		break;
+	 case 'w':
+		switch(optarg[0])
+		{
+			case 'n':
+			case 'f':
+			case 'h':
+			case 't':
+			case 'm':
+				config->window = optarg[0];
+				break;
+			default:
+				logmsg("Invalid Window for FFT option '%c'\n", optarg[0]);
+				logmsg("\tUse n for None, t for Tukey window (default), f for Flattop, h for Hann or m for Hamming window\n");
+				return 0;
+				break;
+		}
+		break;
+	  case 'x':
+		config->extendedResults = 1;
+		break;
+	  case 'Y':
+		config->videoFormatRef = atoi(optarg);
+		if(config->videoFormatRef < NTSC|| config->videoFormatRef > PAL)
+			config->videoFormatRef = NTSC;
+		break;
+	  case 'y':
+		config->debugSync = 1;
+		break;
+	  case 'Z':
+		config->videoFormatCom = atoi(optarg);
+		if(config->videoFormatCom < NTSC|| config->videoFormatCom > PAL)
+			config->videoFormatCom = NTSC;
+		break;
+	  case 'z':
+		config->ZeroPad = 1;
 		break;
 	  case '?':
-		if (optopt == 'r')
-		  logmsg("Reference File -%c requires an argument.\n", optopt);
+		if (optopt == 'a')
+		  logmsg("Audio channel option -%c requires an argument: l,r or s\n", optopt);
+		else if (optopt == 'b')
+		  logmsg("Bar Difference -%c option requires a real number.\n", optopt);
 		else if (optopt == 'c')
 		  logmsg("Compare File -%c requires an argument.\n", optopt);
-		else if (optopt == 'a')
-		  logmsg("Audio channel option -%c requires an argument: l,r or s\n", optopt);
-		else if (optopt == 'w')
-		  logmsg("FFT Window option -%c requires an argument: n,t,f or h\n", optopt);
-		else if (optopt == 'o')
-		  logmsg("Output curve -%c requires an argument 0-4\n", optopt);
-		else if (optopt == 'p')
-		  logmsg("Significant Amplitude -%c requires an argument: -1.0 to -100.0 dBFS\n", optopt);
-		else if (optopt == 'f')
-		  logmsg("Max # of frequencies to use from FFTW -%c requires an argument: 1-%d\n", optopt, MAX_FREQ_COUNT);
-		else if (optopt == 's')
-		  logmsg("Min frequency range for FFTW -%c requires an argument: %d-%d\n", 1, END_HZ-100, optopt);
-		else if (optopt == 'e')
-		  logmsg("Max frequency range for FFTW -%c requires an argument: %d-%d\n", START_HZ*2, END_HZ, optopt);
 		else if (optopt == 'd')
 		  logmsg("Max DB Height for Plots -%c requires an argument: %g-%g\n", 0.1, 60.0, optopt);
+		else if (optopt == 'e')
+		  logmsg("Max frequency range for FFTW -%c requires an argument: %d-%d\n", START_HZ*2, END_HZ, optopt);
+		else if (optopt == 'f')
+		  logmsg("Max # of frequencies to use from FFTW -%c requires an argument: 1-%d\n", optopt, MAX_FREQ_COUNT);
+		else if (optopt == 'n')
+		  logmsg("Normalizatiuon type -%c requires an argument:\n\tUse 't' Time Domain Max, 'f' Frequency Domain Max or 'a' Average\n");
+		else if (optopt == 'o')
+		  logmsg("Output curve -%c requires an argument 0-4\n", optopt);
+		else if (optopt == 'P')
+		  logmsg("Profile File -%c requires a file argument\n", optopt);
+		else if (optopt == 'p')
+		  logmsg("Significant Amplitude -%c requires an argument: -1.0 to -100.0 dBFS\n", optopt);
+		else if (optopt == 'r')
+		  logmsg("Reference File -%c requires an argument.\n", optopt);
+		else if (optopt == 's')
+		  logmsg("Min frequency range for FFTW -%c requires an argument: %d-%d\n", 1, END_HZ-100, optopt);
+		else if (optopt == 'w')
+		  logmsg("FFT Window option -%c requires an argument: n,t,f or h\n", optopt);
 		else if (optopt == 'Y')
 		  logmsg("Reference format: Use 0 for NTSC and 1 for PAL\n");
 		else if (optopt == 'Z')
 		  logmsg("Comparison format: Use 0 for NTSC and 1 for PAL\n");
 		else if (isprint (optopt))
 		  logmsg("Unknown option `-%c'.\n", optopt);
-		else if (optopt == 'P')
-		  logmsg("Profile File -%c requires a file argument\n", optopt);
 		else
 		  logmsg("Unknown option character `\\x%x'.\n", optopt);
 		return 0;
@@ -531,8 +540,6 @@ int commandline(int argc , char *argv[], parameters *config)
 			logmsg("\tIgnoring Silence block noise floor\n");
 		if(config->channel != 's')
 			logmsg("\tAudio Channel is: %s\n", GetChannel(config->channel));
-		if(config->tolerance != 0.0)
-			logmsg("\tAmplitude tolerance while comparing is +/-%0.2f dBFS\n", config->tolerance);
 		if(config->MaxFreq != FREQ_COUNT)
 			logmsg("\tMax frequencies to use from FFTW are %d (default %d)\n", config->MaxFreq, FREQ_COUNT);
 		if(config->startHz != START_HZ)

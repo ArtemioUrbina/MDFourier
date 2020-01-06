@@ -118,7 +118,7 @@ int main(int argc , char *argv[])
 	}
 
 	logmsg("* Plotting results to PNGs:\n");
-	PlotResults(ReferenceSignal, &config);
+	PlotResults(ReferenceSignal, ComparisonSignal, &config);
 
 	if(config.reverseCompare)
 	{
@@ -143,35 +143,7 @@ int main(int argc , char *argv[])
 		if(!CompareAudioBlocks(ComparisonSignal, ReferenceSignal, &config))
 			return 1;
 	
-		PlotResults(ComparisonSignal, &config);
-	}
-	else
-	{
-		if(config.plotSpectrogram)
-		{
-			char 	*CurrentPath = NULL;
-
-			CurrentPath = GetCurrentPathAndChangeToResultsFolder(&config);
-
-			logmsg(" - Spectrogram Comparison");
-			PlotSpectrograms(ComparisonSignal, &config);
-			logmsg("\n");
-
-			ReturnToMainPath(&CurrentPath);
-		}
-
-		if(config.plotTimeSpectrogram)
-		{
-			char 	*CurrentPath = NULL;
-
-			CurrentPath = GetCurrentPathAndChangeToResultsFolder(&config);
-
-			logmsg(" - Time Spectrogram Comparison");
-			PlotTimeSpectrogram(ComparisonSignal, &config);
-			logmsg("\n");
-
-			ReturnToMainPath(&CurrentPath);
-		}
+		PlotResults(ComparisonSignal, ReferenceSignal, &config);
 	}
 
 	if(IsLogEnabled())
@@ -776,7 +748,7 @@ int LoadFile(FILE *file, AudioSignal *Signal, parameters *config, char *fileName
 		Signal->startOffset = DetectPulse(Signal->Samples, Signal->header, Signal->role, config);
 		if(Signal->startOffset == -1)
 		{
-			logmsg("\nERROR: Starting pulse train was not detected.\n");
+			logmsg("\nERROR: Starting pulse train was not detected.\nYou can try using -T for a frequency tolerant pulse detection algorithm\n");
 			return 0;
 		}
 		if(config->verbose)
@@ -1154,12 +1126,6 @@ int ProcessFile(AudioSignal *Signal, parameters *config)
 	if(!initWindows(&windows, Signal->header.fmt.SamplesPerSec, config->window, config))
 		return 0;
 
-	if(config->drawWindows)
-	{
-		//VisualizeWindows(&windows, config);
-		PlotBetaFunctions(config);
-	}
-
 	if(config->clock)
 		clock_gettime(CLOCK_MONOTONIC, &start);
 
@@ -1251,6 +1217,12 @@ int ProcessFile(AudioSignal *Signal, parameters *config)
 		logmsg(" - clk: Processing took %0.2fs\n", elapsedSeconds);
 	}
 
+	if(config->drawWindows)
+	{
+		VisualizeWindows(&windows, config);
+		PlotBetaFunctions(config);
+	}
+
 	free(buffer);
 	freeWindows(&windows);
 
@@ -1272,14 +1244,6 @@ int ExecuteDFFT(AudioBlocks *AudioArray, int16_t *samples, size_t size, long sam
 		logmsg("No Array for results\n");
 		return 0;
 	}
-
-#ifdef	FFTSIZEDEBUG
-	if(config->fftsize == 0)
-		config->fftsize = (long)size;
-	else
-		if((long)size != config->fftsize)
-			logmsg("WARNING: Got Different FFT Size %ld, first is %ld\n", (long)size, config->fftsize);
-#endif
 
 	stereoSignalSize = (long)size;
 	monoSignalSize = stereoSignalSize/2;	 /* 4 is 2 16 bit values */
@@ -1377,10 +1341,6 @@ int CalculateMaxCompare(int block, AudioSignal *Signal, parameters *config, int 
 		/* Amplitude is too low */
 		if(limitRef && Signal->Blocks[block].freq[freq].amplitude < limit)
 			return freq;
-
-		/* Amplitude is too low with tolerance */
-		if(!limitRef && Signal->Blocks[block].freq[freq].amplitude < limit - config->tolerance*2)
-			return freq;
 	}
 
 	return config->MaxFreq;
@@ -1428,75 +1388,26 @@ int CompareAudioBlocks(AudioSignal *ReferenceSignal, AudioSignal *ComparisonSign
 		for(int freq = 0; freq < refSize; freq++)
 		{
 			int found = 0, index = 0;
+			double WeightValue = 1;
 
 			if(!IncrementCompared(block, config))
 			{
-				logmsg("Internal consistency failure, please send error log\n");
+				logmsg("Internal consistency failure, please send error log (compare)\n");
 				return 0;
 			}
 
 			for(int comp = 0; comp < testSize; comp++)
 			{
-				if(!ComparisonSignal->Blocks[block].freq[comp].matched && 
+				if(!ReferenceSignal->Blocks[block].freq[freq].matched &&
+					!ComparisonSignal->Blocks[block].freq[comp].matched && 
 					ReferenceSignal->Blocks[block].freq[freq].hertz ==
 					ComparisonSignal->Blocks[block].freq[comp].hertz)
 				{
 					ComparisonSignal->Blocks[block].freq[comp].matched = freq + 1;
 					ReferenceSignal->Blocks[block].freq[freq].matched = comp + 1;
+
 					found = 1;
 					index = comp;
-					break;
-				}
-			}
-
-/*
-			if(!found && GetTypeChannel(config, type) == CHANNEL_NOISE) // search with tolerance, if done in one pass, false positives emerge 
-			{
-				double	lowest = 22050;
-				int 	lowIndex = -1;
-
-				// Find closest match
-				for(long int comp = 0; comp < testSize; comp++)
-				{
-					if(!ComparisonSignal->Blocks[block].freq[comp].matched)
-					{
-						double hertzDiff;
-	
-						hertzDiff = fabs(ComparisonSignal->Blocks[block].freq[comp].hertz -
-										 ReferenceSignal->Blocks[block].freq[freq].hertz);
-
-						if(hertzDiff <= 2.0)
-						{
-							if(hertzDiff < lowest)
-							{
-								lowest = hertzDiff;
-								lowIndex = comp;
-							}
-						}
-					}
-				}
-
-				if(lowIndex >= 0)
-				{
-					ComparisonSignal->Blocks[block].freq[lowIndex].matched = freq + 1;
-					ReferenceSignal->Blocks[block].freq[freq].matched = lowIndex + 1;
-
-					found = 2;
-					index = lowIndex;
-
-					// Adjusted Frequency to tolerance
-				}
-			}
-*/
-			if(found)  /* Now in either case, compare amplitudes */
-			{
-				double test;
-
-				test = fabs(fabs(ComparisonSignal->Blocks[block].freq[index].amplitude) - fabs(ReferenceSignal->Blocks[block].freq[freq].amplitude));
-				if(test != 0.0 && test > config->tolerance)  // 0 by default
-				{
-					/* Difference in Amplitude */
-					double value = 1;
 
 					if(config->useOutputFilter)
 					{
@@ -1507,54 +1418,50 @@ int CompareAudioBlocks(AudioSignal *ReferenceSignal, AudioSignal *ComparisonSign
 						// we get the proportional linear error in range 0-1
 						if(amplitude >= config->significantAmplitude)
 						{
-							value = (fabs(config->significantAmplitude)-fabs(amplitude))/fabs(config->significantAmplitude);
-							if(value)
-								value = CalculateWeightedError(value, config);
+							WeightValue = (fabs(config->significantAmplitude)-fabs(amplitude))/fabs(config->significantAmplitude);
+							if(WeightValue != 0.0)
+								WeightValue = CalculateWeightedError(WeightValue, config);
 						}
 						else
-							value = 0;
+							WeightValue = 0;
 					}
-
-					InsertAmplDifference(block, ReferenceSignal->Blocks[block].freq[freq].hertz, 
-							ReferenceSignal->Blocks[block].freq[freq].amplitude,
-							ComparisonSignal->Blocks[block].freq[index].amplitude, value, config);
-				}
-	
-				if(test != 0.0 && test <= config->tolerance)
-				{
-					/* Adjusted Amplitude to tolerance */
-				}
-			
-				if(test == 0.0) // perfect match
-				{
-					IncrementPerfectMatch(block, config);
+					break;
 				}
 			}
 
-			if(!found)
+  			/* Now in either case, compare amplitudes */
+			if(found)
 			{
-				/* Frequency Not Found */
-				double value = 1;
-						
-				if(config->useOutputFilter)
+				double test;
+
+				test = fabs(fabs(ComparisonSignal->Blocks[block].freq[index].amplitude) - fabs(ReferenceSignal->Blocks[block].freq[freq].amplitude));
+				if(test != 0.0)
 				{
-					double amplitude;
-
-					amplitude = ReferenceSignal->Blocks[block].freq[freq].amplitude;
-
-					// we get the proportional linear error in range 0-1
-					if(amplitude >= config->significantAmplitude)
+					if(!InsertAmplDifference(block, ReferenceSignal->Blocks[block].freq[freq].hertz, 
+							ReferenceSignal->Blocks[block].freq[freq].amplitude,
+							ComparisonSignal->Blocks[block].freq[index].amplitude, WeightValue, config))
 					{
-						value = (fabs(config->significantAmplitude)-fabs(amplitude))/fabs(config->significantAmplitude);
-						if(value)
-							value = CalculateWeightedError(value, config);
+						logmsg("Internal consistency failure, please send error log (AmplDiff)\n");
+						return 0;
 					}
-					else
-						value = 0;
 				}
-
-				InsertFreqNotFound(block, ReferenceSignal->Blocks[block].freq[freq].hertz, 
-					ReferenceSignal->Blocks[block].freq[freq].amplitude, value, config);
+				else /* perfect match */
+				{
+					if(!IncrementPerfectMatch(block, config))
+					{
+						logmsg("Internal consistency failure, please send error log (perfect)\n");
+						return 0;
+					}
+				}
+			}
+			else /* Frequency Not Found */
+			{
+				if(!InsertFreqNotFound(block, ReferenceSignal->Blocks[block].freq[freq].hertz, 
+					ReferenceSignal->Blocks[block].freq[freq].amplitude, WeightValue, config))
+				{
+					logmsg("Internal consistency failure, please send error log (Not found)\n");
+					return 0;
+				}
 			}
 		}
 

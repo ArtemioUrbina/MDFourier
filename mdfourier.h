@@ -72,10 +72,6 @@
 #define NO_INDEX 		-100
 #define	NO_AMPLITUDE	-1000
 
-/* This is the difference allowed between reference and compared */
-/* amplitudes to match, in dbs */
-#define DBS_TOLERANCE	0
-
 /* Width of each peak */
 #define HERTZ_WIDTH			0.0
 
@@ -113,8 +109,6 @@
 	#define MAX_FOLDER_NAME	50
 	#define MAX_FILE_NAME	25
 #endif
-
-//#define FFTSIZEDEBUG	1
 
 enum normalize
 {
@@ -343,7 +337,6 @@ typedef struct parameters_st {
 	char			baseName[BUFFER_SIZE];
 	char			compareName[BUFFER_SIZE];
 	char			profileFile[BUFFER_SIZE];
-	double			tolerance;
 	double			startHz, endHz;
 	double			startHzPlot, endHzPlot;
 	double			maxDbPlotZC;
@@ -415,9 +408,6 @@ typedef struct parameters_st {
 	int				useCompProfile;
 #endif
 
-#ifdef	FFTSIZEDEBUG
-	long			fftsize;
-#endif
 	AudioSignal		*referenceSignal;
 	AudioSignal		*comparisonSignal;
 } parameters;
