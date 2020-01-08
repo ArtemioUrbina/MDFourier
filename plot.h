@@ -47,6 +47,7 @@ typedef struct plot_st {
 	FILE			*file;
 	int				sizex, sizey;
 	double			x0, x1, y0, y1;
+	double			Rx0, Rx1, Ry0, Ry1;
 	double			penWidth;
 } PlotFile;
 

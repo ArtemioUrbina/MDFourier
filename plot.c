@@ -55,9 +55,8 @@
 
 #define DIFFERENCE_TITLE			"DIFFERENT AMPLITUDES [%s]"
 #define MISSING_TITLE				"MISSING FREQUENCIES [%s]"
-#define MISSING_TITLE_TS			"MISSING FREQUENCIES - TIME SPECTROGRAM [%s]"
-#define EXTRA_TITLE_TS_REF			"COMPARISON - MISSING FREQUENCIES - TIME SPECTROGRAM [%s]"
-#define EXTRA_TITLE_TS_COM			"COMPARISON - EXTRA FREQUENCIES - TIME SPECTROGRAM [%s]"
+#define EXTRA_TITLE_TS_REF			"COMPARISON - MISSING FREQUENCIES - TIME SPECTROGRAM [%s] (Frequencies expected in Comparison file from the Reference template)"
+#define EXTRA_TITLE_TS_COM			"COMPARISON - EXTRA FREQUENCIES - TIME SPECTROGRAM [%s] (Frequencies found in Comparison File and not in Reference file)"
 #define SPECTROGRAM_TITLE_REF		"REFERENCE - SPECTROGRAM [%s]"
 #define SPECTROGRAM_TITLE_COM		"COMPARISON - SPECTROGRAM [%s]"
 #define TSPECTROGRAM_TITLE_REF		"REFERENCE - TIME SPECTROGRAM [%s]"
@@ -73,6 +72,11 @@
 #define BAR_WITHIN					"within %gdBFS"
 
 #define ALL_LABEL					"ALL"
+
+#define X0BORDER	200
+#define Y0BORDER 	100
+#define X1BORDER	80
+#define Y1BORDER 	50
 
 #if defined (WIN32)
 	#include <direct.h>
@@ -387,6 +391,8 @@ void PlotNoiseFloor(AudioSignal *Signal, parameters *config)
 
 int FillPlot(PlotFile *plot, char *name, int sizex, int sizey, double x0, double y0, double x1, double y1, double penWidth, parameters *config)
 {
+	double dX = 0, dY = 0;
+
 	plot->plotter = NULL;
 	plot->plotter_params = NULL;
 	plot->file = NULL;
@@ -395,11 +401,29 @@ int FillPlot(PlotFile *plot, char *name, int sizex, int sizey, double x0, double
 
 	plot->sizex = sizex;
 	plot->sizey = sizey;
-	plot->x0 = x0;
-	plot->y0 = y0;
-	plot->x1 = x1;
-	plot->y1 = y1;
+
+	plot->Rx0 = x0;
+	plot->Rx1 = x1;
+	plot->Ry0 = y0;
+	plot->Ry1 = y1;
+
+	// Commented for partial release
+	//dX = X0BORDER*fabs(x0 - x1)/sizex;
+	//dY = Y0BORDER*fabs(y0 - y1)/sizey;
+
+	// Commented for partial release
+	plot->x0 = x0-dX;
+	plot->y0 = y0-dY;
+
+	//dX = X1BORDER*fabs(x0 - x1)/sizex;
+	//dY = Y1BORDER*fabs(y0 - y1)/sizey;
+
+	plot->x1 = x1+dX;
+	plot->y1 = y1+dY;
+
 	plot->penWidth = penWidth;
+
+	//logmsg("Plot %g %g -> %g %g\n", plot->x0, plot->y0, plot->x1, plot->y1);
 	return 1;
 }
 
@@ -435,6 +459,12 @@ int CreatePlotFile(PlotFile *plot, parameters *config)
 	else
 		pl_bgcolor_r(plot->plotter, 0, 0, 0);
 	pl_erase_r(plot->plotter);
+
+	/*
+	SetPenColor(COLOR_GREEN, 0xffff, plot);	
+	pl_fbox_r(plot->plotter, plot->Rx0,  plot->Ry0,  plot->Rx1,  plot->Ry1);
+	pl_endsubpath_r(plot->plotter);
+	*/
 
 	return 1;
 }
@@ -537,6 +567,7 @@ void DrawLabelsZeroDBCentered(PlotFile *plot, double dBFS, double dbIncrement, d
 	double segments = 0;
 	char label[20];
 
+	pl_savestate_r(plot->plotter);
 	pl_fspace_r(plot->plotter, 0, -1*config->plotResY/2, config->plotResX, config->plotResY/2);
 
 	pl_ffontname_r(plot->plotter, "HersheySans");
@@ -585,7 +616,8 @@ void DrawLabelsZeroDBCentered(PlotFile *plot, double dBFS, double dbIncrement, d
 		pl_alabel_r(plot->plotter, 'c', 'c', label);
 	}
 
-	pl_fspace_r(plot->plotter, plot->x0, plot->y0, plot->x1, plot->y1);
+	pl_restorestate_r(plot->plotter);
+	//pl_fspace_r(plot->plotter, plot->x0, plot->y0, plot->x1, plot->y1);
 }
 
 void DrawLabelsMDF(PlotFile *plot, char *Gname, char *GType, int type, parameters *config)
@@ -2831,12 +2863,6 @@ void PlotTimeSpectrogram(AudioSignal *Signal, parameters *config)
 	else
 		significant = config->significantAmplitude;
 
-/*
-	FillPlot(&plot, filename, config->plotResX, config->plotResY, 
-			-0.18*config->plotResX, -0.75*config->plotResY, 
-			config->plotResX, 1.05*config->endHzPlot,
-			1, config);
-*/
 	FillPlot(&plot, filename, config->plotResX, config->plotResY, 
 			0, 0, config->plotResX, config->endHzPlot, 1, config);
 
@@ -2956,7 +2982,7 @@ void PlotTimeSpectrogramUnMatchedContent(AudioSignal *Signal, parameters *config
 	}
 
 	DrawColorAllTypeScale(&plot, MODE_SPEC, config->plotResX/100, config->plotResY/15, config->plotResX/COLOR_BARS_WIDTH_SCALE, config->plotResY/1.15, significant, VERT_SCALE_STEP_BAR, config);
-	DrawLabelsMDF(&plot, Signal->role == ROLE_REF ? EXTRA_TITLE_TS_REF : EXTRA_TITLE_TS_COM, ALL_LABEL, PLOT_SINGLE_COM, config);
+	DrawLabelsMDF(&plot, Signal->role == ROLE_REF ? EXTRA_TITLE_TS_REF : EXTRA_TITLE_TS_COM, ALL_LABEL, PLOT_COMPARE, config);
 
 	ClosePlot(&plot);
 }

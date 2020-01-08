@@ -173,6 +173,11 @@ void CleanParameters(parameters *config)
 	config->referenceSignal = NULL;
 	config->comparisonSignal = NULL;
 	config->nyquistLimit = 0;  // only used in MDWave
+
+	config->clkBlock = NO_CLK;
+	config->clkFreq = 0;
+	config->clkFreqCount = 0;
+	config->clkRatio = 0;
 }
 
 int commandline(int argc , char *argv[], parameters *config)

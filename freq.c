@@ -151,14 +151,15 @@ AudioSignal *CreateAudioSignal(parameters *config)
 	Signal = (AudioSignal*)malloc(sizeof(AudioSignal));
 	if(!Signal)
 	{
-		logmsg("Not enough memory for Data Structures\n");
+		logmsg("Not enough memory for Data Structures (AS)\n");
 		return NULL;
 	}
 
 	Signal->Blocks = (AudioBlocks*)malloc(sizeof(AudioBlocks)*config->types.totalChunks);
 	if(!Signal->Blocks)
 	{
-		logmsg("Not enough memory for Data Structures\n");	
+		logmsg("Not enough memory for Data Structures (Blocks %d)\n", 
+			config->types.totalChunks);	
 		return NULL;
 	}
 
@@ -167,12 +168,11 @@ AudioSignal *CreateAudioSignal(parameters *config)
 		Signal->Blocks[n].freq = (Frequency*)malloc(sizeof(Frequency)*config->MaxFreq);
 		if(!Signal->Blocks[n].freq)
 		{
-			logmsg("Not enough memory for Data Structures\n");
+			logmsg("Not enough memory for Data Structures (Chunk %d)\n", n);
 			return NULL;
 		}
 	}
 
-	Signal->role = NO_ROLE;
 	CleanAudio(Signal, config);
 	return Signal;
 }
@@ -203,6 +203,7 @@ void CleanAudio(AudioSignal *Signal, parameters *config)
 		Signal->Blocks[n].fftwValues.seconds = 0;
 	}
 	Signal->SourceFile[0] = '\0';
+	Signal->role = NO_ROLE;
 
 	Signal->hasFloor = 0;
 	Signal->floorFreq = 0.0;
@@ -326,15 +327,15 @@ int LoadProfile(parameters *config)
 	if(strcmp(buffer, "MDFourierAudioBlockFile") == 0)
 	{
 		sscanf(lineBuffer, "%*s %s\n", buffer);
-		if(atof(buffer) < 1.5)
+		if(atof(buffer) < 1.6)
 		{
-			logmsg("ERROR: Please update your profile files to version 1.5\n");
+			logmsg("ERROR: Please update your profile files to version 1.6\n");
 			fclose(file);
 			return 0;
 		}
-		if(atof(buffer) > 1.5)
+		if(atof(buffer) > 1.6)
 		{
-			logmsg("ERROR: This executable can parse \"MDFourierAudioBlockFile 1.4\" files only\n");
+			logmsg("ERROR: This executable can parse \"MDFourierAudioBlockFile 1.6\" files only\n");
 			fclose(file);
 			return 0;
 		}
@@ -426,7 +427,30 @@ int LoadAudioBlockStructure(FILE *file, parameters *config)
 		}
 	}
 
-	/* Line 5: Type count */
+	/* Line 5: CLK estimation */
+	readLine(lineBuffer, file);
+	if(sscanf(lineBuffer, "%s %c", config->clkName, &config->clkProcess) != 2)
+	{
+		logmsg("ERROR: Invalid MD Fourier Audio Blocks File (CLK): %s\n", lineBuffer);
+		fclose(file);
+		return 0;
+	}
+	if(config->clkProcess == 'y')
+	{
+		if(sscanf(lineBuffer, "%*s %*c %d %d %d %lf %d\n", 
+			&config->clkBlock,
+			&config->clkFreq,
+			&config->clkFreqCount,
+			&config->clkAmpl,
+			&config->clkRatio) != 5)
+		{
+			logmsg("ERROR: Invalid MD Fourier Audio Blocks File (CLK): %s\n", lineBuffer);
+			fclose(file);
+			return 0;
+		}
+	}
+
+	/* Line 6: Type count */
 	readLine(lineBuffer, file);
 	sscanf(lineBuffer, "%s\n", buffer);
 	config->types.typeCount = atoi(buffer);
@@ -443,9 +467,9 @@ int LoadAudioBlockStructure(FILE *file, parameters *config)
 		fclose(file);
 		return 0;
 	}
-	memset(config->types.typeArray, 0, sizeof(AudioBlockType));
+	memset(config->types.typeArray, 0, sizeof(AudioBlockType)*config->types.typeCount);
 
-	/* Line 6 and beyond: types */
+	/* Line 7 and beyond: types */
 	for(int i = 0; i < config->types.typeCount; i++)
 	{
 		char type = 0;
@@ -2394,6 +2418,71 @@ double getMSPerFrameInternal(int role, parameters *config)
 		return(config->types.SyncFormat[config->videoFormatRef].MSPerFrame);
 	else
 		return(config->types.SyncFormat[config->videoFormatCom].MSPerFrame);
+}
+
+double CalculateClk(AudioSignal *Signal, parameters *config)
+{
+	double HighestFreq = 0, HighestAmpFreq = 0;
+
+	if(config->clkProcess != 'y')
+		return 0;
+
+	if(!Signal)
+		return 0;
+
+	if(!Signal->Blocks)
+		return 0;
+
+	if(config->clkBlock > config->types.totalChunks)
+		return 0;
+
+	if(config->clkFreqCount > config->MaxFreq)
+		return 0;
+
+	if(config->ZeroPad)
+
+		//return Signal->Blocks[config->clkBlock].freq[0].hertz * config->clkRatio;
+	{
+		double count = 0;
+		double sum = 0;
+
+		logmsg("- First: %g\n", Signal->Blocks[config->clkBlock].freq[0].hertz * config->clkRatio);
+		for(int i = 0; i < config->clkFreqCount; i++)
+		{
+			double currentFreq = 0, currentAmp = 0, difference = 0;
+
+			currentFreq = Signal->Blocks[config->clkBlock].freq[i].hertz;
+			currentAmp = Signal->Blocks[config->clkBlock].freq[i].amplitude;
+			if(!HighestAmpFreq)
+				HighestAmpFreq = currentAmp;
+			difference = fabs(fabs(currentAmp) - fabs(HighestAmpFreq));
+			if(difference < config->clkAmpl)
+			{
+				sum += currentFreq;
+				count ++;
+			}
+		}
+		return sum/count * config->clkRatio;
+	}
+
+	for(int i = 0; i < config->clkFreqCount; i++)
+	{
+		double currentFreq = 0, currentAmp = 0, difference = 0;
+
+		currentFreq = Signal->Blocks[config->clkBlock].freq[i].hertz;
+		currentAmp = Signal->Blocks[config->clkBlock].freq[i].amplitude;
+		if(!HighestAmpFreq)
+			HighestAmpFreq = currentAmp;
+		else
+		{
+			difference = fabs(fabs(currentAmp) - fabs(HighestAmpFreq));
+			if(difference > config->clkAmpl && HighestFreq != 0)
+				break;
+		}
+		if(difference <= config->clkAmpl && currentFreq > HighestFreq)
+			HighestFreq = currentFreq;
+	}
+	return HighestFreq * config->clkRatio;
 }
 
 /*

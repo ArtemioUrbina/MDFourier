@@ -130,5 +130,6 @@ double getMSPerFrameInternal(int role, parameters *config);
 int GetLineCount(int role, parameters *config);
 double GetMSPerFrame(AudioSignal *Signal, parameters *config);
 double GetMSPerFrameRole(int role, parameters *config);
+double CalculateClk(AudioSignal *Signal, parameters *config);
 
 #endif

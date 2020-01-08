@@ -89,6 +89,17 @@ int main(int argc , char *argv[])
 	if(!LoadAndProcessAudioFiles(&ReferenceSignal, &ComparisonSignal, &config))
 		return 1;
 
+	if(config.clkProcess == 'y')
+	{
+		logmsg("\n* Estimated %s Clocks based on expected Frequency at %d Hz:\n", config.clkName, config.clkFreq);
+		if(!config.ZeroPad)
+			logmsg(" - [To improve clock heuristic accurancy, use the 'Align Transform to 1hz' option]\n");
+		logmsg(" - Reference %s: %g Hz\n", basename(ReferenceSignal->SourceFile), 
+			CalculateClk(ReferenceSignal, &config));
+		logmsg(" - Comparison %s: %g Hz\n", basename(ComparisonSignal->SourceFile), 
+			CalculateClk(ComparisonSignal, &config));
+	}
+
 	logmsg("\n* Comparing frequencies: ");
 	if(!CompareAudioBlocks(ReferenceSignal, ComparisonSignal, &config))
 		return 1;

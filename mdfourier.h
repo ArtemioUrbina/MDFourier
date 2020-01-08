@@ -49,7 +49,7 @@
 
 #include "incbeta.h"
 
-#define MDVERSION "0.971"
+#define MDVERSION "0.972"
 
 #define MAX_FREQ_COUNT		40000 	/* Number of frequencies to compare(MAX) */
 #define FREQ_COUNT			2000	/* Number of frequencies to compare(default) */
@@ -104,6 +104,8 @@
 #define	CHANNEL_MONO	'm'
 #define	CHANNEL_STEREO	's'
 #define	CHANNEL_NOISE	'n'
+
+#define	NO_CLK	-1
 
 #if defined (WIN32)
 	#define MAX_FOLDER_NAME	50
@@ -407,6 +409,15 @@ typedef struct parameters_st {
 	int				chunks;
 	int				useCompProfile;
 #endif
+
+// Values only used for clock frequency
+	char		clkName[20];
+	char		clkProcess;
+	int			clkBlock;
+	int			clkFreq;
+	int			clkFreqCount;
+	double		clkAmpl;
+	int			clkRatio;
 
 	AudioSignal		*referenceSignal;
 	AudioSignal		*comparisonSignal;
