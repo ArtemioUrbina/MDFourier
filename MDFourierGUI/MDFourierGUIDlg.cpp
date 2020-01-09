@@ -73,6 +73,8 @@ BEGIN_MESSAGE_MAP(CMDFourierGUIDlg, CDialogEx)
 	ON_BN_CLICKED(IDC_MDWAVE, &CMDFourierGUIDlg::OnBnClickedMdwave)
 	ON_BN_CLICKED(IDC_SWAP, &CMDFourierGUIDlg::OnBnClickedSwap)
 	ON_BN_CLICKED(IDC_TIMESP, &CMDFourierGUIDlg::OnBnClickedTimesp)
+	ON_MESSAGE(WM_DROPFILES, OnDropFiles)// Message Handler for Drang and Drop
+	ON_CBN_DROPDOWN(IDC_PROFILE, &CMDFourierGUIDlg::OnCbnDropdownProfile)
 END_MESSAGE_MAP()
 
 
@@ -108,6 +110,7 @@ BOOL CMDFourierGUIDlg::OnInitDialog()
 	m_OpenResultsBttn.EnableWindow(FALSE);
 	DosWaitCount = 0;
 
+	DragAcceptFiles(TRUE);
 	return TRUE;  // return TRUE  unless you set the focus to a control
 }
 
@@ -535,28 +538,31 @@ int CMDFourierGUIDlg::FindProfiles(CString sPath, CString pattern)
 	BOOL bFind = FALSE;
 	CString	search;
    
+	m_Profiles.ResetContent();
 	search.Format(L"%s\\%s", sPath, pattern);
 	bFind = finder.FindFile(search);
 	while(bFind)
 	{
+		CString FileName;
 		bFind = finder.FindNextFileW();
         
-		if(finder.IsDots() || finder.IsDirectory())
+		FileName = finder.GetFileName();
+		if(finder.IsDots() || finder.IsDirectory() || FileName.Right(3).CompareNoCase(pattern.Right(3)) != 0)
 			continue;
 		else
 		{
 			FILE *file;
 			errno_t err;
 			wchar_t text[2056];
-			CString FileName, ProfileName;
+			CString FullFileName, ProfileName;
 
-			FileName.Format(L"%s\\%s", sPath, finder.GetFileName());
-			err = _wfopen_s(&file, FileName, L"r");
+			FullFileName.Format(L"%s\\%s", sPath, FileName);
+			err = _wfopen_s(&file, FullFileName, L"r");
 			if(err != 0)
 			{
 				CString	msg;
 
-				msg.Format(L"Could not load Profile file: %s\n", FileName);
+				msg.Format(L"Could not load Profile file: %s\n", FullFileName);
 				MessageBox(msg, L"Invalid Profile File");
 				return FALSE;
 			}
@@ -564,7 +570,7 @@ int CMDFourierGUIDlg::FindProfiles(CString sPath, CString pattern)
 			{
 				CString	msg;
 
-				msg.Format(L"Could not load Profile file: %s\n", FileName);
+				msg.Format(L"Could not load Profile file: %s\n", FullFileName);
 				MessageBox(msg, L"Invalid Profile File Header");
 				return FALSE;
 			}
@@ -572,7 +578,7 @@ int CMDFourierGUIDlg::FindProfiles(CString sPath, CString pattern)
 			{
 				CString	msg;
 
-				msg.Format(L"Could not load Profile file: %s\n", FileName);
+				msg.Format(L"Could not load Profile file: %s\n", FullFileName);
 				MessageBox(msg, L"Invalid Profile Name");
 				return FALSE;
 			}
@@ -582,7 +588,7 @@ int CMDFourierGUIDlg::FindProfiles(CString sPath, CString pattern)
 				ProfileName = ProfileName.Right(ProfileName.GetLength() - 1);
 			if(!ProfileName.GetLength())
 				ProfileName = L"Unnamed profile!";
-			InsertValueInCombo(ProfileName, FileName, Profiles[count++], m_Profiles);
+			InsertValueInCombo(ProfileName, FullFileName, Profiles[count++], m_Profiles);
 		}
 	}
 
@@ -604,7 +610,7 @@ int CMDFourierGUIDlg::CheckDependencies()
 	if(err != 0)
 	{
 		GetCurrentDirectory(MAX_PATH, pwd);
-		msg.Format(L"Please place mdfourier.exe in:\n %s", pwd);
+		msg.Format(L"GUI ran from folder:\n%s\nPlease place mdfourier.exe in:\n %s", pwd, pwd);
 		MessageBox(msg, L"Error mdfourier.exe not found");
 		return FALSE;
 	}
@@ -617,7 +623,6 @@ int CMDFourierGUIDlg::CheckDependencies()
 		MessageBox(msg, L"Error mdfblocks.mfn not found");
 		return FALSE;
 	}
-	//m_Profiles.SetCurSel(0);
 
 	return TRUE;
 }
@@ -787,8 +792,8 @@ void CMDFourierGUIDlg::OnBnClickedMdwave()
 	SetTimer(IDT_DOS, 250, 0);
 
 	m_OutputCtrl.SetWindowText(L"");
-	m_ComparisonLbl.SetWindowText(L"");
-	m_ComparisonFile = L"";
+	//m_ComparisonLbl.SetWindowText(L"");
+	//m_ComparisonFile = L"";
 
 	cDos.Start(command);
 }
@@ -812,4 +817,97 @@ void CMDFourierGUIDlg::OnBnClickedSwap()
 	m_ComparisonLbl.SetWindowText(m_ComparisonFile);
 }
 
+bool CMDFourierGUIDlg::VerifyFileExtension(CString filename, int type)
+{
+	if(filename.Right(3).CompareNoCase(L"wav") == 0)
+		return true;
+	if(filename.Right(4).CompareNoCase(L"flac") == 0)
+		return true;
+	if(type == 1 && filename.Right(3).CompareNoCase(L"mfl") == 0)
+		return true;
+	return false;
+}
 
+LRESULT CMDFourierGUIDlg::OnDropFiles(WPARAM wParam, LPARAM lParam)
+{
+	TCHAR	szDroppedFile[MAX_PATH];
+	HDROP	hDrop ;
+	int		nFiles;
+
+	hDrop = (HDROP)wParam;
+	UpdateData();
+	
+	nFiles = DragQueryFile(hDrop, -1, szDroppedFile, MAX_PATH);
+	if(nFiles > 1)
+	{
+		int valid = 0;
+
+		for(int i = 0; i < nFiles; i++)
+		{
+			DragQueryFile(hDrop, i, szDroppedFile, MAX_PATH);
+			if(VerifyFileExtension(szDroppedFile, i))
+				valid ++;
+		}
+
+		if(valid == nFiles && nFiles == 2)
+		{
+			for(int i = 0; i < nFiles; i++)
+			{
+				DragQueryFile(hDrop, i, szDroppedFile, MAX_PATH);
+				if(VerifyFileExtension(szDroppedFile, i))
+				{
+					if(i == 0)
+					{
+						m_Reference = szDroppedFile;
+						m_ReferenceLbl.SetWindowText(m_Reference); 
+					}
+					if(i == 1)
+					{
+						m_ComparisonFile = szDroppedFile;
+						m_ComparisonLbl.SetWindowText(m_ComparisonFile);
+					}
+				}
+			}
+		}
+	}
+	else
+	{
+		DragQueryFile(hDrop, 0, szDroppedFile, MAX_PATH);
+		if(VerifyFileExtension(szDroppedFile, m_Reference.GetLength() && !m_ComparisonFile.GetLength()))
+		{
+			if(m_Reference.GetLength() && m_ComparisonFile.GetLength())
+			{
+				m_Reference.Empty();
+				m_ReferenceLbl.SetWindowText(m_Reference); 
+				m_ComparisonFile.Empty();
+				m_ComparisonLbl.SetWindowText(m_ComparisonFile);
+			}
+
+			if(!m_Reference.GetLength())
+			{
+				m_Reference = szDroppedFile;
+				m_ReferenceLbl.SetWindowText(m_Reference); 
+			}
+			else
+			{
+				m_ComparisonFile = szDroppedFile;
+				m_ComparisonLbl.SetWindowText(m_ComparisonFile);
+			}
+		}
+	}
+	return 0;
+
+}
+
+void CMDFourierGUIDlg::OnCbnDropdownProfile()
+{
+	if(!FindProfiles(L"profiles", L"*.mfn"))
+	{
+		CString msg;
+		TCHAR	pwd[MAX_PATH];
+
+		GetCurrentDirectory(MAX_PATH, pwd);
+		msg.Format(L"Please place profile files (*.mfn) in folder:\n %s\\profiles", pwd);
+		MessageBox(msg, L"Error mdfblocks.mfn not found");
+	}
+}

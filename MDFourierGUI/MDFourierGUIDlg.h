@@ -28,9 +28,10 @@ public:
 // Dialog Data
 	enum { IDD = IDD_MDFOURIERGUI_DIALOG };
 
+	LRESULT  OnDropFiles(WPARAM wParam,LPARAM lParam);
+
 	protected:
 	virtual void DoDataExchange(CDataExchange* pDX);	// DDX/DDV support
-
 
 // Implementation
 protected:
@@ -88,6 +89,7 @@ protected:
 	void ExecuteCommand(CString Compare);
 	void CheckPlotSelection(CButton &clicked);
 	int FindProfiles(CString sPath, CString pattern);
+	bool VerifyFileExtension(CString filename, int type);
 
 	// Generated message map functions
 	virtual BOOL OnInitDialog();
@@ -111,4 +113,5 @@ public:
 	afx_msg void OnBnClickedMdwave();
 	afx_msg void OnBnClickedSwap();
 	afx_msg void OnBnClickedTimesp();
+	afx_msg void OnCbnDropdownProfile();
 };
