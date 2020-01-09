@@ -41,7 +41,7 @@
 int LoadAndProcessAudioFiles(AudioSignal **ReferenceSignal, AudioSignal **ComparisonSignal, parameters *config);
 int LoadFile(FILE *file, AudioSignal *Signal, parameters *config, char *fileName);
 int ProcessFile(AudioSignal *Signal, parameters *config);
-int ExecuteDFFT(AudioBlocks *AudioArray, int16_t *samples, size_t size, long samplerate, double *window, parameters *config);
+int ExecuteDFFT(AudioBlocks *AudioArray, int16_t *samples, size_t size, long samplerate, double *window, int AudioChannels, parameters *config);
 int CompareAudioBlocks(AudioSignal *ReferenceSignal, AudioSignal *ComparisonSignal, parameters *config);
 void CleanUp(AudioSignal **ReferenceSignal, AudioSignal **ComparisonSignal, parameters *config);
 void CloseFiles(FILE **ref, FILE **comp);
@@ -322,7 +322,8 @@ int LoadAndProcessAudioFiles(AudioSignal **ReferenceSignal, AudioSignal **Compar
 
 	CompareFrameRates((*ReferenceSignal)->framerate, (*ComparisonSignal)->framerate, config);
 
-	if(config->channel == 's')
+	if(config->channel == 's' && 
+		((*ReferenceSignal)->AudioChannels == 2 || (*ComparisonSignal)->AudioChannels == 2))
 	{
 		int block = NO_INDEX;
 
@@ -689,7 +690,10 @@ int LoadFile(FILE *file, AudioSignal *Signal, parameters *config, char *fileName
 		return(0);
 	}
 
-	if(Signal->header.fmt.NumOfChan != 2) /* Check for Stereo */
+	if(Signal->header.fmt.NumOfChan == 2 || Signal->header.fmt.NumOfChan == 1) /* Check for Stereo and Mono */
+		Signal->AudioChannels = Signal->header.fmt.NumOfChan;
+
+	if(Signal->AudioChannels == INVALID_CHANNELS)
 	{
 		logmsg("\tERROR: Invalid Audio file. Only Stereo files are supported.\n");
 		return(0);
@@ -715,9 +719,12 @@ int LoadFile(FILE *file, AudioSignal *Signal, parameters *config, char *fileName
 	// Default if none is found
 	Signal->framerate = GetMSPerFrame(Signal, config);
 
-	seconds = (double)Signal->header.data.DataSize/4.0/(double)Signal->header.fmt.SamplesPerSec;
-	logmsg(" - Audio file is %dHz %dbits and %g seconds long\n", 
-		Signal->header.fmt.SamplesPerSec, Signal->header.fmt.bitsPerSample, seconds);
+	seconds = (double)Signal->header.data.DataSize/2.0/(double)Signal->header.fmt.SamplesPerSec/Signal->AudioChannels;
+	logmsg(" - Audio file is %dHz %dbits %s and %g seconds long\n", 
+		Signal->header.fmt.SamplesPerSec, 
+		Signal->header.fmt.bitsPerSample, 
+		Signal->AudioChannels == 2 ? "Stereo" : "Mono", 
+		seconds);
 
 	if(seconds < GetSignalTotalDuration(Signal->framerate, config))
 	{
@@ -764,7 +771,7 @@ int LoadFile(FILE *file, AudioSignal *Signal, parameters *config, char *fileName
 		}
 		if(config->verbose)
 			logmsg(" %gs [%ld bytes]", 
-				BytesToSeconds(Signal->header.fmt.SamplesPerSec, Signal->startOffset),
+				BytesToSeconds(Signal->header.fmt.SamplesPerSec, Signal->startOffset, Signal->AudioChannels),
 				Signal->startOffset);
 
 		if(GetLastSyncIndex(config) != NO_INDEX)
@@ -782,7 +789,7 @@ int LoadFile(FILE *file, AudioSignal *Signal, parameters *config, char *fileName
 			}
 			if(config->verbose)
 				logmsg(" %gs [%ld bytes]\n", 
-					BytesToSeconds(Signal->header.fmt.SamplesPerSec, Signal->endOffset),
+					BytesToSeconds(Signal->header.fmt.SamplesPerSec, Signal->endOffset, Signal->AudioChannels),
 					Signal->endOffset);
 			Signal->framerate = CalculateFrameRate(Signal, config);
 			logmsg(" - Detected %g Hz video signal (%gms per frame) from Audio file\n", 
@@ -827,10 +834,12 @@ int LoadFile(FILE *file, AudioSignal *Signal, parameters *config, char *fileName
 			return 0;
 		}
 		logmsg(" %gs [%ld bytes]\n", 
-				BytesToSeconds(Signal->header.fmt.SamplesPerSec, Signal->startOffset),
+				BytesToSeconds(Signal->header.fmt.SamplesPerSec, Signal->startOffset, Signal->AudioChannels),
 				Signal->startOffset);
 		Signal->endOffset = SecondsToBytes(Signal->header.fmt.SamplesPerSec, 
-								GetSignalTotalDuration(Signal->framerate, config), NULL, NULL, NULL);
+								GetSignalTotalDuration(Signal->framerate, config), 
+								Signal->AudioChannels, 
+								NULL, NULL, NULL);
 		
 	/*
 		double diff = 0, expected = 0;
@@ -844,7 +853,7 @@ int LoadFile(FILE *file, AudioSignal *Signal, parameters *config, char *fileName
 		if(Signal->role == ROLE_REF)
 		{
 			double seconds = 0;
-			seconds = BytesToSeconds(Signal->header.fmt.SamplesPerSec, Signal->endOffset);
+			seconds = BytesToSeconds(Signal->header.fmt.SamplesPerSec, Signal->endOffset, Signal->AudioChannels);
 			config->NoSyncTotalFrames = (seconds*1000)/expected;
 			Signal->framerate = expected;
 			logmsg(" - Loaded %g Hz video signal (%gms per frame) from profile file\n", 
@@ -896,7 +905,7 @@ int MoveSampleBlockInternal(AudioSignal *Signal, long int element, long int pos,
 	}
 
 	seconds = FramesToSeconds(frames, config->referenceFramerate);
-	bytes = SecondsToBytes(Signal->header.fmt.SamplesPerSec, seconds, NULL, NULL, NULL);
+	bytes = SecondsToBytes(Signal->header.fmt.SamplesPerSec, seconds, Signal->AudioChannels, NULL, NULL, NULL);
 
 	if(pos + bytes > Signal->header.data.DataSize)
 	{
@@ -956,7 +965,7 @@ int MoveSampleBlockExternal(AudioSignal *Signal, long int element, long int pos,
 	}
 
 	seconds = FramesToSeconds(frames, config->referenceFramerate);
-	bytes = SecondsToBytes(Signal->header.fmt.SamplesPerSec, seconds, NULL, NULL, NULL);
+	bytes = SecondsToBytes(Signal->header.fmt.SamplesPerSec, seconds, Signal->AudioChannels, NULL, NULL, NULL);
 
 	if(pos + bytes > Signal->header.data.DataSize)
 	{
@@ -1027,7 +1036,7 @@ int ProcessInternal(AudioSignal *Signal, long int element, long int pos, int *sy
 		}
 
 		pulseLength = endPulse - internalSyncOffset;
-		syncLength = SecondsToBytes(Signal->header.fmt.SamplesPerSec, syncLen, NULL, NULL, NULL);
+		syncLength = SecondsToBytes(Signal->header.fmt.SamplesPerSec, syncLen, Signal->AudioChannels, NULL, NULL, NULL);
 		internalSyncOffset -= pos;
 
 		lastsync = GetLastSyncElementIndex(config);
@@ -1040,8 +1049,8 @@ int ProcessInternal(AudioSignal *Signal, long int element, long int pos, int *sy
 		{
 			logmsg(" - %s command delay: %g ms [%g frames]\n",
 				GetBlockName(config, element),
-				BytesToSeconds(Signal->header.fmt.SamplesPerSec, internalSyncOffset)*1000.0,
-				BytesToFrames(Signal->header.fmt.SamplesPerSec, internalSyncOffset, config->referenceFramerate));
+				BytesToSeconds(Signal->header.fmt.SamplesPerSec, internalSyncOffset, Signal->AudioChannels)*1000.0,
+				BytesToFrames(Signal->header.fmt.SamplesPerSec, internalSyncOffset, config->referenceFramerate, Signal->AudioChannels));
 
 			if(config->verbose)
 					logmsg("  > Found at: %ld Previous: %ld Offset: %ld\n\tPulse Length: %ld Half Sync Length: %ld\n", 
@@ -1068,8 +1077,8 @@ int ProcessInternal(AudioSignal *Signal, long int element, long int pos, int *sy
 			{
 				logmsg(" - %s command delay: %g ms [%g frames] (Emulator)\n",
 					GetBlockName(config, element),
-					-1.0*BytesToSeconds(Signal->header.fmt.SamplesPerSec, diffOffset)*1000.0,
-					-1.0*BytesToFrames(Signal->header.fmt.SamplesPerSec, diffOffset, config->referenceFramerate));
+					-1.0*BytesToSeconds(Signal->header.fmt.SamplesPerSec, diffOffset, Signal->AudioChannels)*1000.0,
+					-1.0*BytesToFrames(Signal->header.fmt.SamplesPerSec, diffOffset, config->referenceFramerate, Signal->AudioChannels));
 
 				if(config->verbose)
 					logmsg("  > Found at: %ld Previous: %ld Offset: %ld\n\tPulse Length: %ld Half Sync Length: %ld\n", 
@@ -1083,8 +1092,8 @@ int ProcessInternal(AudioSignal *Signal, long int element, long int pos, int *sy
 
 				logmsg(" - %s command delay: %g ms [%g frames]\n",
 					GetBlockName(config, element),
-					BytesToSeconds(Signal->header.fmt.SamplesPerSec, internalSyncOffset)*1000.0,
-					BytesToFrames(Signal->header.fmt.SamplesPerSec, internalSyncOffset, config->referenceFramerate));
+					BytesToSeconds(Signal->header.fmt.SamplesPerSec, internalSyncOffset, Signal->AudioChannels)*1000.0,
+					BytesToFrames(Signal->header.fmt.SamplesPerSec, internalSyncOffset, config->referenceFramerate, Signal->AudioChannels));
 
 				if(config->verbose)
 					logmsg("  > Found at: %ld Previous: %ld\n\tPulse Length: %ld Half Sync Length: %ld\n", 
@@ -1126,7 +1135,7 @@ int ProcessFile(AudioSignal *Signal, parameters *config)
 		return 0;
 	}
 
-	buffersize = SecondsToBytes(Signal->header.fmt.SamplesPerSec, longest, NULL, NULL, NULL);
+	buffersize = SecondsToBytes(Signal->header.fmt.SamplesPerSec, longest, Signal->AudioChannels, NULL, NULL, NULL);
 	buffer = (char*)malloc(buffersize);
 	if(!buffer)
 	{
@@ -1156,9 +1165,9 @@ int ProcessFile(AudioSignal *Signal, parameters *config)
 		frames = GetBlockFrames(config, i);
 		duration = FramesToSeconds(framerate, frames);
 		
-		loadedBlockSize = SecondsToBytes(Signal->header.fmt.SamplesPerSec, duration, &leftover, &discardBytes, &leftDecimals);
+		loadedBlockSize = SecondsToBytes(Signal->header.fmt.SamplesPerSec, duration, Signal->AudioChannels, &leftover, &discardBytes, &leftDecimals);
 
-		difference = GetByteSizeDifferenceByFrameRate(framerate, frames, Signal->header.fmt.SamplesPerSec, config);
+		difference = GetByteSizeDifferenceByFrameRate(framerate, frames, Signal->header.fmt.SamplesPerSec, Signal->AudioChannels, config);
 
 		// config->smallerFramerate
 		if(Signal->Blocks[i].type >= TYPE_SILENCE) // We get the smaller window, since we'll truncate
@@ -1184,7 +1193,7 @@ int ProcessFile(AudioSignal *Signal, parameters *config)
 
 		if(Signal->Blocks[i].type >= TYPE_SILENCE)
 		{
-			if(!ExecuteDFFT(&Signal->Blocks[i], (int16_t*)buffer, (loadedBlockSize-difference)/2, Signal->header.fmt.SamplesPerSec, windowUsed, config))
+			if(!ExecuteDFFT(&Signal->Blocks[i], (int16_t*)buffer, (loadedBlockSize-difference)/2, Signal->header.fmt.SamplesPerSec, windowUsed, Signal->AudioChannels, config))
 				return 0;
 
 			FillFrequencyStructures(Signal, &Signal->Blocks[i], config);
@@ -1241,14 +1250,15 @@ int ProcessFile(AudioSignal *Signal, parameters *config)
 }
 
 
-int ExecuteDFFT(AudioBlocks *AudioArray, int16_t *samples, size_t size, long samplerate, double *window, parameters *config)
+int ExecuteDFFT(AudioBlocks *AudioArray, int16_t *samples, size_t size, long samplerate, double *window, int AudioChannels, parameters *config)
 {
 	fftw_plan		p = NULL;
-	long		  	stereoSignalSize = 0;	
-	long		  	i = 0, monoSignalSize = 0, zeropadding = 0;
-	double		  	*signal = NULL;
-	fftw_complex  	*spectrum = NULL;
-	double		 	seconds = 0;
+	char			channel = 0;
+	long			stereoSignalSize = 0;	
+	long			i = 0, monoSignalSize = 0, zeropadding = 0;
+	double			*signal = NULL;
+	fftw_complex	*spectrum = NULL;
+	double			seconds = 0;
 	
 	if(!AudioArray)
 	{
@@ -1257,8 +1267,8 @@ int ExecuteDFFT(AudioBlocks *AudioArray, int16_t *samples, size_t size, long sam
 	}
 
 	stereoSignalSize = (long)size;
-	monoSignalSize = stereoSignalSize/2;	 /* 4 is 2 16 bit values */
-	seconds = (double)size/((double)samplerate*2);
+	monoSignalSize = stereoSignalSize/AudioChannels;	 /* 4 is 2 16 bit values */
+	seconds = (double)size/((double)samplerate*AudioChannels);
 
 	if(config->ZeroPad)  /* disabled by default */
 		zeropadding = GetZeroPadValues(&monoSignalSize, &seconds, samplerate);
@@ -1300,13 +1310,18 @@ int ExecuteDFFT(AudioBlocks *AudioArray, int16_t *samples, size_t size, long sam
 	memset(signal, 0, sizeof(double)*(monoSignalSize+1));
 	memset(spectrum, 0, sizeof(fftw_complex)*(monoSignalSize/2+1));
 
+	if(AudioChannels == 1)
+		channel = 'l';
+	else
+		channel = config->channel;
+
 	for(i = 0; i < monoSignalSize - zeropadding; i++)
 	{
-		if(config->channel == 'l')
-			signal[i] = (double)samples[i*2];
-		if(config->channel == 'r')
+		if(channel == 'l')
+			signal[i] = (double)samples[i*AudioChannels];
+		if(channel == 'r')
 			signal[i] = (double)samples[i*2+1];
-		if(config->channel == 's')
+		if(channel == 's')
 			signal[i] = ((double)samples[i*2]+(double)samples[i*2+1])/2.0;
 
 		if(window)
@@ -1621,11 +1636,11 @@ int16_t FindLocalMaximumAroundSample(AudioSignal *Signal, MaxVolum refMax)
 
 	if(refMax.framerate != Signal->framerate)
 	{
-		refSeconds = BytesToSeconds(refMax.samplerate, refMax.offset);
+		refSeconds = BytesToSeconds(refMax.samplerate, refMax.offset, Signal->AudioChannels);
 		refFrames = refSeconds/(refMax.framerate/1000.0);
 	
 		tarSeconds = FramesToSeconds(refFrames, Signal->framerate);
-		pos = start + SecondsToBytes(Signal->header.fmt.SamplesPerSec, tarSeconds, NULL, NULL, NULL);
+		pos = start + SecondsToBytes(Signal->header.fmt.SamplesPerSec, tarSeconds, Signal->AudioChannels, NULL, NULL, NULL);
 	}
 	else
 	{

@@ -377,7 +377,7 @@ int LoadFile(FILE *file, AudioSignal *Signal, parameters *config, char *fileName
 		}
 		if(config->verbose)
 			logmsg(" %gs [%ld bytes]", 
-				BytesToSeconds(Signal->header.fmt.SamplesPerSec, Signal->startOffset),
+				BytesToSeconds(Signal->header.fmt.SamplesPerSec, Signal->startOffset, Signal->AudioChannels),
 				Signal->startOffset);
 
 		if(GetLastSyncIndex(config) != NO_INDEX)
@@ -395,7 +395,7 @@ int LoadFile(FILE *file, AudioSignal *Signal, parameters *config, char *fileName
 			}
 			if(config->verbose)
 				logmsg(" %gs [%ld bytes]\n", 
-					BytesToSeconds(Signal->header.fmt.SamplesPerSec, Signal->endOffset),
+					BytesToSeconds(Signal->header.fmt.SamplesPerSec, Signal->endOffset, Signal->AudioChannels),
 					Signal->endOffset);
 			Signal->framerate = CalculateFrameRate(Signal, config);
 			logmsg(" - Detected %g Hz video signal (%gms per frame) from Audio file\n", 
@@ -441,10 +441,11 @@ int LoadFile(FILE *file, AudioSignal *Signal, parameters *config, char *fileName
 			return 0;
 		}
 		logmsg(" %gs [%ld bytes]\n", 
-				BytesToSeconds(Signal->header.fmt.SamplesPerSec, Signal->startOffset),
+				BytesToSeconds(Signal->header.fmt.SamplesPerSec, Signal->startOffset, Signal->AudioChannels),
 				Signal->startOffset);
 		Signal->endOffset = SecondsToBytes(Signal->header.fmt.SamplesPerSec, 
-				GetSignalTotalDuration(Signal->framerate, config), NULL, NULL, NULL);
+				GetSignalTotalDuration(Signal->framerate, config), 
+				Signal->AudioChannels, NULL, NULL, NULL);
 	}
 
 	if(seconds < GetSignalTotalDuration(Signal->framerate, config))
@@ -473,7 +474,7 @@ int MoveSampleBlockInternal(AudioSignal *Signal, long int element, long int pos,
 	}
 
 	seconds = FramesToSeconds(frames, config->referenceFramerate);
-	bytes = SecondsToBytes(Signal->header.fmt.SamplesPerSec, seconds, NULL, NULL, NULL);
+	bytes = SecondsToBytes(Signal->header.fmt.SamplesPerSec, seconds, Signal->AudioChannels, NULL, NULL, NULL);
 
 	if(pos + bytes > Signal->header.data.DataSize)
 	{
@@ -534,7 +535,7 @@ int MoveSampleBlockExternal(AudioSignal *Signal, long int element, long int pos,
 	}
 
 	seconds = FramesToSeconds(frames, config->referenceFramerate);
-	bytes = SecondsToBytes(Signal->header.fmt.SamplesPerSec, seconds, NULL, NULL, NULL);
+	bytes = SecondsToBytes(Signal->header.fmt.SamplesPerSec, seconds, Signal->AudioChannels, NULL, NULL, NULL);
 
 	if(pos + bytes > Signal->header.data.DataSize)
 	{
@@ -606,7 +607,7 @@ int ProcessInternal(AudioSignal *Signal, long int element, long int pos, int *sy
 		}
 
 		pulseLength = endPulse - internalSyncOffset;
-		syncLength = SecondsToBytes(Signal->header.fmt.SamplesPerSec, syncLen, NULL, NULL, NULL);
+		syncLength = SecondsToBytes(Signal->header.fmt.SamplesPerSec, syncLen, Signal->AudioChannels, NULL, NULL, NULL);
 		internalSyncOffset -= pos;
 
 		lastsync = GetLastSyncElementIndex(config);
@@ -619,8 +620,8 @@ int ProcessInternal(AudioSignal *Signal, long int element, long int pos, int *sy
 		{
 			logmsg(" - %s command delay: %g ms [%g frames]\n",
 				GetBlockName(config, element),
-				BytesToSeconds(Signal->header.fmt.SamplesPerSec, internalSyncOffset)*1000.0,
-				BytesToFrames(Signal->header.fmt.SamplesPerSec, internalSyncOffset, config->referenceFramerate));
+				BytesToSeconds(Signal->header.fmt.SamplesPerSec, internalSyncOffset, Signal->AudioChannels)*1000.0,
+				BytesToFrames(Signal->header.fmt.SamplesPerSec, internalSyncOffset, config->referenceFramerate, Signal->AudioChannels));
 			/*
 			if(config->verbose)
 					logmsg("  > Found at: %ld Previous: %ld Offset: %ld\n\tPulse Length: %ld Half Sync Length: %ld\n", 
@@ -648,8 +649,8 @@ int ProcessInternal(AudioSignal *Signal, long int element, long int pos, int *sy
 			{
 				logmsg(" - %s command delay: %g ms [%g frames] (Emulator)\n",
 					GetBlockName(config, element),
-					-1.0*BytesToSeconds(Signal->header.fmt.SamplesPerSec, diffOffset)*1000.0,
-					-1.0*BytesToFrames(Signal->header.fmt.SamplesPerSec, diffOffset, config->referenceFramerate));
+					-1.0*BytesToSeconds(Signal->header.fmt.SamplesPerSec, diffOffset, Signal->AudioChannels)*1000.0,
+					-1.0*BytesToFrames(Signal->header.fmt.SamplesPerSec, diffOffset, config->referenceFramerate, Signal->AudioChannels));
 
 				if(config->verbose)
 					logmsg("  > Found at: %ld Previous: %ld Offset: %ld\n\tPulse Length: %ld Half Sync Length: %ld\n", 
@@ -663,8 +664,8 @@ int ProcessInternal(AudioSignal *Signal, long int element, long int pos, int *sy
 
 				logmsg(" - %s command delay: %g ms [%g frames]\n",
 					GetBlockName(config, element),
-					BytesToSeconds(Signal->header.fmt.SamplesPerSec, internalSyncOffset)*1000.0,
-					BytesToFrames(Signal->header.fmt.SamplesPerSec, internalSyncOffset, config->referenceFramerate));
+					BytesToSeconds(Signal->header.fmt.SamplesPerSec, internalSyncOffset, Signal->AudioChannels)*1000.0,
+					BytesToFrames(Signal->header.fmt.SamplesPerSec, internalSyncOffset, config->referenceFramerate, Signal->AudioChannels));
 
 				/*
 				if(config->verbose)
@@ -734,7 +735,7 @@ int ProcessFile(AudioSignal *Signal, parameters *config)
 		return 0;
 	}
 
-	buffersize = SecondsToBytes(Signal->header.fmt.SamplesPerSec, longest, NULL, NULL, NULL);
+	buffersize = SecondsToBytes(Signal->header.fmt.SamplesPerSec, longest, Signal->AudioChannels, NULL, NULL, NULL);
 	buffer = (char*)malloc(buffersize);
 	if(!buffer)
 	{
@@ -763,9 +764,9 @@ int ProcessFile(AudioSignal *Signal, parameters *config)
 		frames = GetBlockFrames(config, i);
 		duration = FramesToSeconds(framerate, frames);
 				
-		loadedBlockSize = SecondsToBytes(Signal->header.fmt.SamplesPerSec, duration, &leftover, &discardBytes, &leftDecimals);
+		loadedBlockSize = SecondsToBytes(Signal->header.fmt.SamplesPerSec, duration, Signal->AudioChannels, &leftover, &discardBytes, &leftDecimals);
 
-		difference = GetByteSizeDifferenceByFrameRate(framerate, frames, Signal->header.fmt.SamplesPerSec, config);
+		difference = GetByteSizeDifferenceByFrameRate(framerate, frames, Signal->header.fmt.SamplesPerSec, Signal->AudioChannels, config);
 
 		if(Signal->Blocks[i].type >= TYPE_SILENCE)
 			windowUsed = getWindowByLength(&windows, frames, Signal->framerate);
@@ -865,9 +866,9 @@ int ProcessFile(AudioSignal *Signal, parameters *config)
 		if(Signal->Blocks[i].type >= TYPE_SILENCE)
 			windowUsed = getWindowByLength(&windows, frames, Signal->framerate);
 		
-		loadedBlockSize = SecondsToBytes(Signal->header.fmt.SamplesPerSec, duration, &leftover, &discardBytes, &leftDecimals);
+		loadedBlockSize = SecondsToBytes(Signal->header.fmt.SamplesPerSec, duration, Signal->AudioChannels, &leftover, &discardBytes, &leftDecimals);
 
-		difference = GetByteSizeDifferenceByFrameRate(Signal->framerate, frames, Signal->header.fmt.SamplesPerSec, config);
+		difference = GetByteSizeDifferenceByFrameRate(Signal->framerate, frames, Signal->header.fmt.SamplesPerSec, Signal->AudioChannels, config);
 
 		memset(buffer, 0, buffersize);
 		if(pos + loadedBlockSize > Signal->header.data.DataSize)

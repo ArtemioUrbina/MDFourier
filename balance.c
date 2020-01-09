@@ -48,6 +48,13 @@ int CheckBalance(AudioSignal *Signal, int block, parameters *config)
 	double			leftDecimals = 0, diff = 0;
 	AudioBlocks		Channels[2];
 
+	if(Signal->AudioChannels != 2)
+	{
+		logmsg(" - %s signal is mono\n",
+			Signal->role == ROLE_REF ? "Reference" : "Comparison");
+		return 0;
+	}
+
 	memset(&Channels, 0, sizeof(AudioBlocks)*2);
 
 	pos = Signal->startOffset;
@@ -59,7 +66,7 @@ int CheckBalance(AudioSignal *Signal, int block, parameters *config)
 		return 0;
 	}
 
-	buffersize = SecondsToBytes(Signal->header.fmt.SamplesPerSec, longest, NULL, NULL, NULL);
+	buffersize = SecondsToBytes(Signal->header.fmt.SamplesPerSec, longest, Signal->AudioChannels, NULL, NULL, NULL);
 	buffer = (char*)malloc(buffersize);
 	if(!buffer)
 	{
@@ -82,9 +89,9 @@ int CheckBalance(AudioSignal *Signal, int block, parameters *config)
 		frames = GetBlockFrames(config, i);
 		duration = FramesToSeconds(Signal->framerate, frames);
 		
-		loadedBlockSize = SecondsToBytes(Signal->header.fmt.SamplesPerSec, duration, &leftover, &discardBytes, &leftDecimals);
+		loadedBlockSize = SecondsToBytes(Signal->header.fmt.SamplesPerSec, duration, Signal->AudioChannels, &leftover, &discardBytes, &leftDecimals);
 
-		difference = GetByteSizeDifferenceByFrameRate(Signal->framerate, frames, Signal->header.fmt.SamplesPerSec, config);
+		difference = GetByteSizeDifferenceByFrameRate(Signal->framerate, frames, Signal->header.fmt.SamplesPerSec, Signal->AudioChannels, config);
 
 		windowUsed = getWindowByLength(&windows, frames, config->smallerFramerate);
 
@@ -223,6 +230,9 @@ int CheckBalance(AudioSignal *Signal, int block, parameters *config)
 		if(config->channelBalance)
 			BalanceAudioChannel(Signal, diffNam, ratio);
 	}
+	else
+		logmsg(" - %s signal has no stereo imbalance\n",
+			Signal->role == ROLE_REF ? "Reference" : "Comparison");
 
 	if(config->clock)
 	{

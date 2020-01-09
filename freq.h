@@ -62,7 +62,7 @@ void ReleaseAudioBlockStructure(parameters *config);
 void PrintAudioBlocks(parameters *config);
 long int GetLastSyncFrameOffset(wav_hdr header, parameters *config);
 long int GetBlockFrameOffset(int block, parameters *config);
-long int GetByteSizeDifferenceByFrameRate(double framerate, long int frames, long int samplerate, parameters *config);
+long int GetByteSizeDifferenceByFrameRate(double framerate, long int frames, long int samplerate, int AudioChannels, parameters *config);
 int GetFirstSyncIndex(parameters *config);
 int GetLastSyncIndex(parameters *config);
 int GetLastSyncElementIndex(parameters *config);
@@ -97,12 +97,12 @@ void PrintComparedBlocks(AudioBlocks *ReferenceArray, AudioBlocks *ComparedArray
 
 double CalculateWeightedError(double pError, parameters *config);
 double RoundFloat(double x, int p);
-long int RoundTo4bytes(double src, int *leftover, int *discard, double *leftDecimals);
+long int RoundToNbytes(double src, int AudioChannels, int *leftover, int *discard, double *leftDecimals);
 double GetDecimalValues(double value);
-double BytesToSeconds(long int samplerate, long int bytes);
+double BytesToSeconds(long int samplerate, long int bytes, int AudioChannels);
 double FramesToSeconds(double frames, double framerate);
-long int SecondsToBytes(long int samplerate, double seconds, int *leftover, int *discard, double *leftDecimals);
-double BytesToFrames(long int samplerate, long int bytes, double framerate);
+long int SecondsToBytes(long int samplerate, double seconds, int AudioChannels, int *leftover, int *discard, double *leftDecimals);
+double BytesToFrames(long int samplerate, long int bytes, double framerate, int AudioChannels);
 
 double CalculateMagnitude(fftw_complex value, long int size);
 double CalculateAmplitude(double magnitude, double MaxMagnitude);
@@ -115,7 +115,7 @@ double CalculateScanRate(AudioSignal *Signal);
 double FindFrequencyBinSizeForBlock(AudioSignal *Signal, long int block);
 long int GetZeroPadValues(long int *monoSignalSize, double *seconds, long int samplerate);
 void CalcuateFrequencyBrackets(AudioSignal *signal, parameters *config);
-double FindFrequencyBracket(double frequency, size_t size, long samplerate);
+double FindFrequencyBracket(double frequency, size_t size, int AudioChannels, long samplerate);
 
 double FindDifferenceAverage(parameters *config);
 void SubstractDifferenceAverage(parameters *config, double average);

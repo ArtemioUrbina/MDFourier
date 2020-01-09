@@ -79,7 +79,7 @@
 #define HERTZ_DIFF			0.0
 
 #define START_HZ	20.0
-#define END_HZ		20000.0
+#define END_HZ		24000.0
 
 #define DB_HEIGHT	18.0
 #define DB_DIFF		12.0
@@ -104,6 +104,8 @@
 #define	CHANNEL_MONO	'm'
 #define	CHANNEL_STEREO	's'
 #define	CHANNEL_NOISE	'n'
+
+#define	INVALID_CHANNELS	-1
 
 #define	NO_CLK	-1
 
@@ -243,6 +245,7 @@ typedef struct AudioBlock_st {
 
 typedef struct AudioSt {
 	char		SourceFile[BUFFER_SIZE];
+	int			AudioChannels;
 	int			role;
 
 	int 		hasFloor;
