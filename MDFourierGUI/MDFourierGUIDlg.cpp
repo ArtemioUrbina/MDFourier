@@ -833,6 +833,7 @@ LRESULT CMDFourierGUIDlg::OnDropFiles(WPARAM wParam, LPARAM lParam)
 	TCHAR	szDroppedFile[MAX_PATH];
 	HDROP	hDrop ;
 	int		nFiles;
+	bool	erase = false;
 
 	hDrop = (HDROP)wParam;
 	UpdateData();
@@ -860,11 +861,13 @@ LRESULT CMDFourierGUIDlg::OnDropFiles(WPARAM wParam, LPARAM lParam)
 					{
 						m_Reference = szDroppedFile;
 						m_ReferenceLbl.SetWindowText(m_Reference); 
+						erase = true;
 					}
 					if(i == 1)
 					{
 						m_ComparisonFile = szDroppedFile;
 						m_ComparisonLbl.SetWindowText(m_ComparisonFile);
+						erase = true;
 					}
 				}
 			}
@@ -881,20 +884,25 @@ LRESULT CMDFourierGUIDlg::OnDropFiles(WPARAM wParam, LPARAM lParam)
 				m_ReferenceLbl.SetWindowText(m_Reference); 
 				m_ComparisonFile.Empty();
 				m_ComparisonLbl.SetWindowText(m_ComparisonFile);
+				erase = true;
 			}
 
 			if(!m_Reference.GetLength())
 			{
 				m_Reference = szDroppedFile;
 				m_ReferenceLbl.SetWindowText(m_Reference); 
+				erase = true;
 			}
 			else
 			{
 				m_ComparisonFile = szDroppedFile;
 				m_ComparisonLbl.SetWindowText(m_ComparisonFile);
+				erase = true;
 			}
 		}
 	}
+	if(erase)
+		m_OutputCtrl.SetWindowText(L"");
 	return 0;
 
 }
