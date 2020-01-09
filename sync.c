@@ -63,16 +63,19 @@ long int DetectPulse(char *AllSamples, wav_hdr header, int role, parameters *con
 		OutputFileOnlyStart();
 	}
 
+	/*
 	if(config->debugSync)
 		logmsg("First round start pulse detected at %ld, refinement\n", position);
 
 	offset = position;
-	if(offset >= 8*44)  // return 6 "byte segments" as dictated by ratio "4" above
-		offset -= 8*44;
+	if(offset >= 8*10*AudioChannels)  // return 8 "ms segments" as dictated by ratio "9" below
+		offset -= 8*10*AudioChannels;
 
 	maxdetected = 0;
 	errcount = 0;
 	position = DetectPulseInternal(AllSamples, header, FACTOR_DETECT, offset, &maxdetected, role, AudioChannels, config);
+	*/
+
 	if(config->debugSync)
 		logmsg("Start pulse return value %ld\n", position);
 	OutputFileOnlyEnd();
@@ -156,16 +159,19 @@ long int DetectEndPulse(char *AllSamples, long int startpulse, wav_hdr header, i
 		return -1;
 	}
 
+	/*
 	if(config->debugSync)
 		logmsg("First round end pulse detected at %ld, refinement\n", position);
 
 	offset = position;
-	if(offset >= 8*44)  // return 6 segments at ratio 4 above
-		offset -= 8*44;
+	if(offset >= 8*10*AudioChannels)  // return 8 "ms segments" as dictated by ratio "9" below
+		offset -= 8*10*AudioChannels;
 
 	maxdetected = 0;
 	errcount = 0;
 	position = DetectPulseInternal(AllSamples, header, FACTOR_DETECT, offset, &maxdetected, role, AudioChannels, config);
+	*/
+
 	if(config->debugSync)
 		logmsg("End pulse return value %ld\n", position);
 	OutputFileOnlyEnd();
@@ -222,12 +228,14 @@ double executeFindAverageAmplitudeForTarget(Pulses *pulseArray, double targetFre
 
 	if(!count)
 	{
-		logmsg("WARNING! Average Amplitude values not found in range\n");
+		logmsg("WARNING! Average Amplitude values for sync not found in range (NULL from digital/emu)\n");
+		/*
 		for(i = start; i < TotalMS; i++)
 		{
 			if(pulseArray[i].hertz)
 				logmsg("byte: %ld ms: %ld hz: %g amp: %g\n", pulseArray[i].bytes, i, pulseArray[i].hertz, pulseArray[i].amplitude);
 		}
+		*/
 		return 0;
 	}
 	// Get an amplitude below the average value for the pulses

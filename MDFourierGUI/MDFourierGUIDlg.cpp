@@ -100,8 +100,8 @@ BOOL CMDFourierGUIDlg::OnInitDialog()
 	m_SpectrBttn.SetCheck(TRUE);
 	m_NoiseFloor.SetCheck(TRUE);
 	m_AveragePlot_Bttn.SetCheck(TRUE);
-	m_TimeSpectr.SetCheck(FALSE);
-	m_Fullres_Time_Spectrogram.EnableWindow(FALSE);
+	m_TimeSpectr.SetCheck(TRUE);
+	m_Fullres_Time_Spectrogram.EnableWindow(TRUE);
 
 	FillComboBoxes();
 

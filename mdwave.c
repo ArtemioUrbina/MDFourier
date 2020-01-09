@@ -302,9 +302,12 @@ int LoadFile(FILE *file, AudioSignal *Signal, parameters *config, char *fileName
 		return(0);
 	}
 
-	if(Signal->header.fmt.NumOfChan != 2) /* Check for Stereo */
+	if(Signal->header.fmt.NumOfChan == 2 || Signal->header.fmt.NumOfChan == 1) /* Check for Stereo and Mono */
+		Signal->AudioChannels = Signal->header.fmt.NumOfChan;
+
+	if(Signal->AudioChannels == INVALID_CHANNELS)
 	{
-		logmsg("\tInvalid Audio file: Only Stereo supported\n");
+		logmsg("\tERROR: Invalid Audio file. Only Stereo files are supported.\n");
 		return(0);
 	}
 
@@ -332,12 +335,18 @@ int LoadFile(FILE *file, AudioSignal *Signal, parameters *config, char *fileName
 	Signal->framerate = GetMSPerFrame(Signal, config);
 
 	seconds = (double)Signal->header.data.DataSize/4.0/(double)Signal->header.fmt.SamplesPerSec;
-	logmsg(" - Audio file is PCM %dHz %dbits and %g seconds long\n", 
-		Signal->header.fmt.SamplesPerSec, Signal->header.fmt.bitsPerSample, seconds);
+	logmsg(" - Audio file is %dHz %dbits %s and %g seconds long\n", 
+		Signal->header.fmt.SamplesPerSec, 
+		Signal->header.fmt.bitsPerSample, 
+		Signal->AudioChannels == 2 ? "Stereo" : "Mono", 
+		seconds);
 
 	if(seconds < GetSignalTotalDuration(Signal->framerate, config))
+	{
 		logmsg(" - WARNING: Estimated file length is smaller than the expected %g seconds\n",
 				GetSignalTotalDuration(Signal->framerate, config));
+		config->smallFile = 1;
+	}
 
 	Signal->Samples = (char*)malloc(sizeof(char)*Signal->header.data.DataSize);
 	if(!Signal->Samples)
@@ -346,6 +355,7 @@ int LoadFile(FILE *file, AudioSignal *Signal, parameters *config, char *fileName
 		return(0);
 	}
 
+	Signal->SamplesStart = ftell(file);
 	if(fread(Signal->Samples, 1, sizeof(char)*Signal->header.data.DataSize, file) !=
 			 sizeof(char)*Signal->header.data.DataSize)
 	{
@@ -791,7 +801,7 @@ int ProcessFile(AudioSignal *Signal, parameters *config)
 			if(!CreateChunksFolder(config))
 				return 0;
 			sprintf(tempName, "Chunks\\%03ld_0_Source_%010ld_%s_%03d_chunk_", 
-				i, pos+syncAdvance, 
+				i, pos+syncAdvance+Signal->SamplesStart, 
 				GetBlockName(config, i), GetBlockSubIndex(config, i));
 			ComposeFileName(Name, tempName, ".wav", config);
 			SaveWAVEChunk(Name, Signal, buffer, 0, loadedBlockSize, 0, config); 

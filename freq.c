@@ -817,8 +817,6 @@ void CompareFrameRates(double framerate1, double framerate2, parameters *config)
 	}
 }
 
-
-// TODO: Needs to check if it needs per file parameters or just the analyzed file
 long int GetByteSizeDifferenceByFrameRate(double framerate, long int frames, long int samplerate, int AudioChannels, parameters *config)
 {
 	long int difference = 0;
@@ -2190,7 +2188,7 @@ double CalculateFrameRate(AudioSignal *Signal, parameters *config)
 		logmsg(" - %s file framerate difference is %g.\n",
 				Signal->role == ROLE_REF ? "Reference" : "Comparision",
 				diff);
-		logmsg("\tAssuming recording is not form an emulator\n\tAudio Card sample rate estimated at %g\n",
+		logmsg("\tAssuming recording is not from an emulator\n\tAudio Card sample rate estimated at %g\n",
 				ACsamplerate);
 		
 	}

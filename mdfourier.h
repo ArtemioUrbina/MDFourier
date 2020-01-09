@@ -253,6 +253,7 @@ typedef struct AudioSt {
 	double		floorAmplitude;
 
 	char 		*Samples;
+	long int	SamplesStart;
 	double		framerate;
 	wav_hdr		header;
 
