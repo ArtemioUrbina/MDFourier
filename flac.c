@@ -173,19 +173,23 @@ FLAC__StreamDecoderWriteStatus write_callback(const FLAC__StreamDecoder *decoder
 		fprintf(stderr, "ERROR: MDFourier only works for FLAC files that have a total_samples count in STREAMINFO\n");
 		return FLAC__STREAM_DECODER_WRITE_STATUS_ABORT;
 	}
-	if(channels != 2 || bps != 16) {
-		fprintf(stderr, "ERROR: Please use a 16bit stereo stream\n");
+	if(bps != 16) {
+		fprintf(stderr, "ERROR: Please use a 16bit stream\n");
 		return FLAC__STREAM_DECODER_WRITE_STATUS_ABORT;
 	}
-	if(frame->header.channels != 2) {
-		fprintf(stderr, "ERROR: This frame contains %d channels (should be 2)\n", frame->header.channels);
+	if(channels != frame->header.channels) {
+		fprintf(stderr, "ERROR: Channel definition discrepancy %d vs %d\n", channels, frame->header.channels);
+		return FLAC__STREAM_DECODER_WRITE_STATUS_ABORT;
+	}
+	if(channels != 2 && channels != 1) {
+		fprintf(stderr, "ERROR: Please use a mono or stereo stream\n");
 		return FLAC__STREAM_DECODER_WRITE_STATUS_ABORT;
 	}
 	if(buffer [0] == NULL) {
 		fprintf(stderr, "ERROR: buffer [0] is NULL\n");
 		return FLAC__STREAM_DECODER_WRITE_STATUS_ABORT;
 	}
-	if(buffer [1] == NULL) {
+	if(channels == 2 && buffer [1] == NULL) {
 		fprintf(stderr, "ERROR: buffer [1] is NULL\n");
 		return FLAC__STREAM_DECODER_WRITE_STATUS_ABORT;
 	}
@@ -215,7 +219,7 @@ FLAC__StreamDecoderWriteStatus write_callback(const FLAC__StreamDecoder *decoder
 	for(i = 0; i < frame->header.blocksize; i++) {
 		if(
 			!write_little_endian_int16(f, (FLAC__int16)buffer[0][i]) ||  /* left channel */
-			!write_little_endian_int16(f, (FLAC__int16)buffer[1][i])	 /* right channel */
+			(channels == 2 && !write_little_endian_int16(f, (FLAC__int16)buffer[1][i]))	 /* right channel */
 		) {
 			fprintf(stderr, "ERROR: write error\n");
 			return FLAC__STREAM_DECODER_WRITE_STATUS_ABORT;
