@@ -110,6 +110,8 @@ BOOL CMDFourierGUIDlg::OnInitDialog()
 	m_OpenResultsBttn.EnableWindow(FALSE);
 	DosWaitCount = 0;
 
+	mdwave = false;
+
 	DragAcceptFiles(TRUE);
 	return TRUE;  // return TRUE  unless you set the focus to a control
 }
@@ -324,6 +326,7 @@ void CMDFourierGUIDlg::ExecuteCommand(CString Compare)
 		command += extraCmd;
 	}
 
+	mdwave = false;
 	ManageWindows(FALSE);
 
 	SetTimer(IDT_DOS, 250, 0);
@@ -656,6 +659,9 @@ void CMDFourierGUIDlg::ManageWindows(BOOL Enable)
 	m_ComSync.EnableWindow(Enable);
 
 	m_Profiles.EnableWindow(Enable);
+
+	if(mdwave)
+		m_ComparisonLbl.EnableWindow(Enable);
 }
 
 
@@ -787,6 +793,7 @@ void CMDFourierGUIDlg::OnBnClickedMdwave()
 		command += extraCmd;
 	}
 
+	mdwave = true;
 	ManageWindows(FALSE);
 
 	SetTimer(IDT_DOS, 250, 0);

@@ -80,6 +80,7 @@ protected:
 	CString	*elements;
 	int		elementCount;
 	int		elementPos;
+	bool	mdwave;
 
 	void FillComboBoxes();
 	int CheckDependencies();
