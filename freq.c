@@ -2444,13 +2444,12 @@ double CalculateClk(AudioSignal *Signal, parameters *config)
 		return 0;
 
 	if(config->ZeroPad)
-
-		//return Signal->Blocks[config->clkBlock].freq[0].hertz * config->clkRatio;
+		return Signal->Blocks[config->clkBlock].freq[0].hertz * config->clkRatio;
+/*
 	{
 		double count = 0;
 		double sum = 0;
 
-		logmsg("- First: %g\n", Signal->Blocks[config->clkBlock].freq[0].hertz * config->clkRatio);
 		for(int i = 0; i < config->clkFreqCount; i++)
 		{
 			double currentFreq = 0, currentAmp = 0, difference = 0;
@@ -2468,7 +2467,7 @@ double CalculateClk(AudioSignal *Signal, parameters *config)
 		}
 		return sum/count * config->clkRatio;
 	}
-
+*/
 	for(int i = 0; i < config->clkFreqCount; i++)
 	{
 		double currentFreq = 0, currentAmp = 0, difference = 0;

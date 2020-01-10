@@ -125,7 +125,7 @@ int ExecuteMDWave(parameters *config, int invert)
 		reference = fopen(config->referenceFile, "rb");
 	if(!reference)
 	{
-		logmsg("\tCould not open REFERENCE file: \"%s\"\n", config->referenceFile);
+		logmsg("\nERROR: Could not open REFERENCE file: \"%s\"\n", config->referenceFile);
 		RemoveFLACTemp(config->referenceFile);
 		CleanUp(&ReferenceSignal, config);
 		return 1;
@@ -1351,27 +1351,27 @@ int commandline_wave(int argc , char *argv[], parameters *config)
 	
 	for (index = optind; index < argc; index++)
 	{
-		logmsg("Invalid argument %s\n", argv[index]);
+		logmsg("ERROR: Invalid argument %s\n", argv[index]);
 		return 0;
 	}
 
 	if(!ref)
 	{
-		logmsg("Please define the reference audio file\n");
+		logmsg("ERROR: Please define the reference audio file\n");
 		return 0;
 	}
 
 	if(config->endHz <= config->startHz)
 	{
-		logmsg("Invalid frequency range for FFTW (%d Hz to %d Hz)\n", config->startHz, config->endHz);
+		logmsg("ERROR: Invalid frequency range for FFTW (%d Hz to %d Hz)\n", config->startHz, config->endHz);
 		return 0;
 	}
 
 	file = fopen(config->referenceFile, "rb");
 	if(!file)
 	{
-		logmsg("\tCould not open REFERENCE file: \"%s\"\n", config->referenceFile);
-		return 1;
+		logmsg("\nERROR: Could not open REFERENCE file: \"%s\"\n", config->referenceFile);
+		return 0;
 	}
 	fclose(file);
 
@@ -1411,7 +1411,7 @@ int commandline_wave(int argc , char *argv[], parameters *config)
 	if(config->invert)
 		logmsg("\tSaving Discarded part fo the signal to WAV file\n");
 	if(config->chunks)
-		logmsg("\tSaving WAv chunks to individual files\n");
+		logmsg("\tSaving WAV chunks to individual files\n");
 
 	return 1;
 }
