@@ -334,7 +334,7 @@ int LoadFile(FILE *file, AudioSignal *Signal, parameters *config, char *fileName
 	// Default if none is found
 	Signal->framerate = GetMSPerFrame(Signal, config);
 
-	seconds = (double)Signal->header.data.DataSize/4.0/(double)Signal->header.fmt.SamplesPerSec;
+	seconds = (double)Signal->header.data.DataSize/2.0/(double)Signal->header.fmt.SamplesPerSec/Signal->AudioChannels;
 	logmsg(" - Audio file is %dHz %dbits %s and %g seconds long\n", 
 		Signal->header.fmt.SamplesPerSec, 
 		Signal->header.fmt.bitsPerSample, 
@@ -962,6 +962,7 @@ int ProcessFile(AudioSignal *Signal, parameters *config)
 int ProcessSamples(AudioBlocks *AudioArray, int16_t *samples, size_t size, long samplerate, double *window, parameters *config, int reverse, AudioSignal *Signal)
 {
 	fftw_plan		p = NULL, pBack = NULL;
+	char			channel = 0;
 	long		  	stereoSignalSize = 0, blanked = 0;	
 	long		  	i = 0, monoSignalSize = 0, zeropadding = 0; 
 	double		  	*signal = NULL;
@@ -977,8 +978,8 @@ int ProcessSamples(AudioBlocks *AudioArray, int16_t *samples, size_t size, long 
 	}
 
 	stereoSignalSize = (long)size;
-	monoSignalSize = stereoSignalSize/2;	 // 4 is 2 16 bit values
-	seconds = (double)size/((double)samplerate*2);
+	monoSignalSize = stereoSignalSize/Signal->AudioChannels;	 // 4 is 2 16 bit values
+	seconds = (double)size/((double)samplerate*Signal->AudioChannels);
 
 	if(config->ZeroPad)  /* disabled by default */
 		zeropadding = GetZeroPadValues(&monoSignalSize, &seconds, samplerate);
@@ -1048,19 +1049,26 @@ int ProcessSamples(AudioBlocks *AudioArray, int16_t *samples, size_t size, long 
 		}
 	}
 
+	if(Signal->AudioChannels == 1)
+		channel = 'l';
+	else
+		channel = config->channel;
+
+
 	for(i = 0; i < monoSignalSize - zeropadding; i++)
 	{
-		if(config->channel == 'l')
+		if(channel == 'l')
 		{
-			signal[i] = (double)samples[i*2];
-			samples[i*2+1] = 0;
+			signal[i] = (double)samples[i*Signal->AudioChannels];
+			if(Signal->AudioChannels == 2)
+				samples[i*2+1] = 0;
 		}
-		if(config->channel == 'r')
+		if(channel == 'r')
 		{
 			signal[i] = (double)samples[i*2+1];
 			samples[i*2] = 0;
 		}
-		if(config->channel == 's')
+		if(channel == 's')
 		{
 			signal[i] = ((double)samples[i*2]+(double)samples[i*2+1])/2.0;
 			samples[i*2] = signal[i];
@@ -1153,17 +1161,18 @@ int ProcessSamples(AudioBlocks *AudioArray, int16_t *samples, size_t size, long 
 				// uncomment if needed
 				//value = (signal[i]/window[i])/monoSignalSize;
 				value = signal[i]/monoSignalSize; /* check CalculateMagnitude if changed */
-				if(config->channel == 'l')
+				if(channel == 'l')
 				{
-					samples[i*2] = round(value);
-					samples[i*2+1] = 0;
+					samples[i*Signal->AudioChannels] = round(value);
+					if(Signal->AudioChannels == 2)
+						samples[i*2+1] = 0;
 				}
-				if(config->channel == 'r')
+				if(channel == 'r')
 				{
 					samples[i*2] = 0;
 					samples[i*2+1] = round(value);
 				}
-				if(config->channel == 's')
+				if(channel == 's')
 				{
 					samples[i*2] = round(value);
 					samples[i*2+1] = round(value);
@@ -1179,8 +1188,9 @@ int ProcessSamples(AudioBlocks *AudioArray, int16_t *samples, size_t size, long 
 				value = signal[i]/monoSignalSize;
 				if(config->channel == 'l')
 				{
-					samples[i*2] = round(value);
-					samples[i*2+1] = 0;
+					samples[i*Signal->AudioChannels] = round(value);
+					if(Signal->AudioChannels == 2)
+						samples[i*2+1] = 0;
 				}
 				if(config->channel == 'r')
 				{
