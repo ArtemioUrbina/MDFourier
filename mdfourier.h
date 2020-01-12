@@ -59,12 +59,13 @@
 #define NS_LOWEST_AMPLITUDE		-120
 #define	PCM_16BIT_MIN_AMPLITUDE	-96.0
 
-#define TYPE_SILENCE			0
-#define TYPE_SYNC				-1
-#define TYPE_NOTYPE				-2
-#define TYPE_INTERNAL_KNOWN		-3
-#define TYPE_INTERNAL_UNKNOWN	-4
-#define TYPE_SKIP				-5
+#define TYPE_NOTYPE				0
+#define TYPE_SILENCE			-1
+#define TYPE_SYNC				-2
+#define TYPE_INTERNAL_KNOWN		-4
+#define TYPE_INTERNAL_UNKNOWN	-5
+#define TYPE_SKIP				-6
+#define TYPE_TIMEDOMAIN			-7
 #define TYPE_CONTROL			TYPE_SILENCE
 
 
@@ -75,6 +76,7 @@
 #define TYPE_INTERNAL_KNOWN_C	'i'
 #define TYPE_INTERNAL_UNKNOWN_C	'I'
 #define TYPE_SKIP_C				'k'
+#define TYPE_TIMEDOMAIN_C		't'
 
 #define	BAR_DIFF_DB_TOLERANCE	1.0
 
@@ -151,6 +153,7 @@ typedef struct max_mag {
 
 typedef struct abt_st {
 	char		typeName[128];
+	char		typeDisplayName[128];
 	int 		type;
 	int			elementCount;
 	int			frames;
@@ -158,6 +161,7 @@ typedef struct abt_st {
 	char		channel;
 	int			syncTone;
 	double		syncLen;
+	int			IsaddOnData;
 } AudioBlockType;
 
 typedef struct sync_st {

@@ -842,7 +842,7 @@ void DrawColorScale(PlotFile *plot, int type, int mode, double x, double y, doub
 	long int	cnt = 0, cmp = 0;
 	double		labelwidth = 0;
 
-	label = GetTypeName(config, type);
+	label = GetTypeDisplayName(config, type);
 	colorName = MatchColor(GetTypeColor(config, type));
 	pl_fspace_r(plot->plotter, 0, 0, config->plotResX, config->plotResY);
 	pl_filltype_r(plot->plotter, 1);
@@ -940,7 +940,7 @@ void DrawColorAllTypeScale(PlotFile *plot, int mode, double x, double y, double 
 	pl_fspace_r(plot->plotter, 0, 0, config->plotResX, config->plotResY);
 	pl_filltype_r(plot->plotter, 1);
 
-	numTypes = GetActiveBlockTypes(config);
+	numTypes = GetActiveBlockTypesNoRepeat(config);
 	segments = floor(fabs(endDbs/dbIncrement));
 
 	width *= numTypes;
@@ -956,7 +956,7 @@ void DrawColorAllTypeScale(PlotFile *plot, int mode, double x, double y, double 
 
 	for(int i = 0; i < config->types.typeCount; i++)
 	{
-		if(config->types.typeArray[i].type > TYPE_CONTROL)
+		if(config->types.typeArray[i].type > TYPE_CONTROL && !config->types.typeArray[i].IsaddOnData)
 		{
 			colorName[t] = MatchColor(GetTypeColor(config, config->types.typeArray[i].type));
 			typeID[t] = config->types.typeArray[i].type;
@@ -1005,7 +1005,7 @@ void DrawColorAllTypeScale(PlotFile *plot, int mode, double x, double y, double 
 		double	labelwidth = 0;
 		char 	*label = NULL;
 
-		label = GetTypeName(config, typeID[t]);
+		label = GetTypeDisplayName(config, typeID[t]);
 		SetPenColor(colorName[t], 0xaaaa, plot);
 		pl_fmove_r(plot->plotter, x+2*width+config->plotResX/60, y+(numTypes-1)*config->plotResY/50-t*config->plotResY/50);
 		pl_alabel_r(plot->plotter, 'l', 'l', label);
@@ -1239,7 +1239,7 @@ int PlotEachTypeDifferentAmplitudes(FlatAmplDifference *amplDiff, long int size,
 	for(i = 0; i < config->types.typeCount; i++)
 	{
 		type = config->types.typeArray[i].type;
-		if(type > TYPE_CONTROL)
+		if(type > TYPE_CONTROL && !config->types.typeArray[i].IsaddOnData)
 		{
 			sprintf(name, "DA_%s_%02d%s_", filename, 
 				type, config->types.typeArray[i].typeName);
@@ -1291,7 +1291,7 @@ void PlotSingleTypeDifferentAmplitudes(FlatAmplDifference *amplDiff, long int si
 		config->plotResX/100, config->plotResY/15, 
 		config->plotResX/COLOR_BARS_WIDTH_SCALE, config->plotResY/1.15,
 		0, config->significantAmplitude, VERT_SCALE_STEP_BAR, config);
-	DrawLabelsMDF(&plot, DIFFERENCE_TITLE, GetTypeName(config, type), PLOT_COMPARE, config);
+	DrawLabelsMDF(&plot, DIFFERENCE_TITLE, GetTypeDisplayName(config, type), PLOT_COMPARE, config);
 	ClosePlot(&plot);
 }
 
@@ -1303,7 +1303,7 @@ int PlotNoiseDifferentAmplitudes(FlatAmplDifference *amplDiff, long int size, ch
 	for(i = 0; i < config->types.typeCount; i++)
 	{
 		type = config->types.typeArray[i].type;
-		if(type == TYPE_SILENCE)
+		if(type == TYPE_SILENCE && !config->types.typeArray[i].IsaddOnData)
 		{
 			sprintf(name, "NF_%s_%d_%02d%s_", filename, i,
 				type, config->types.typeArray[i].typeName);
@@ -1379,7 +1379,7 @@ void PlotSilenceBlockDifferentAmplitudes(FlatAmplDifference *amplDiff, long int 
 		config->plotResX/COLOR_BARS_WIDTH_SCALE, config->plotResY/1.15,
 		(int)startAmplitude, (int)(endAmplitude-startAmplitude), VERT_SCALE_STEP_BAR, config);
 
-	DrawLabelsMDF(&plot, NOISE_TITLE, GetTypeName(config, type), PLOT_COMPARE, config);
+	DrawLabelsMDF(&plot, NOISE_TITLE, GetTypeDisplayName(config, type), PLOT_COMPARE, config);
 	ClosePlot(&plot);
 }
 
@@ -1439,7 +1439,7 @@ int PlotEachTypeMissingFrequencies(FlatFreqDifference *freqDiff, long int size, 
 	for(i = 0; i < config->types.typeCount; i++)
 	{
 		type = config->types.typeArray[i].type;
-		if(type > TYPE_CONTROL)
+		if(type > TYPE_CONTROL && !config->types.typeArray[i].IsaddOnData)
 		{
 			sprintf(name, "MISS_%s_%02d%s", filename, 
 							config->types.typeArray[i].type, config->types.typeArray[i].typeName);
@@ -1490,7 +1490,7 @@ void PlotSingleTypeMissingFrequencies(FlatFreqDifference *freqDiff, long int siz
 	}
 	
 	DrawColorScale(&plot, type, MODE_MISS, config->plotResX/100, config->plotResY/15, config->plotResX/COLOR_BARS_WIDTH_SCALE, config->plotResY/1.15, 0, significant, VERT_SCALE_STEP_BAR, config);
-	DrawLabelsMDF(&plot, MISSING_TITLE, GetTypeName(config, type), PLOT_COMPARE, config);
+	DrawLabelsMDF(&plot, MISSING_TITLE, GetTypeDisplayName(config, type), PLOT_COMPARE, config);
 	ClosePlot(&plot);
 }
 
@@ -1547,7 +1547,7 @@ int PlotEachTypeSpectrogram(FlatFrequency *freqs, long int size, char *filename,
 	for(i = 0; i < config->types.typeCount; i++)
 	{
 		type = config->types.typeArray[i].type;
-		if(type > TYPE_CONTROL)
+		if(type > TYPE_CONTROL && !config->types.typeArray[i].IsaddOnData)
 		{
 			sprintf(name, "SP_%c_%s_%02d%s", signal == ROLE_REF ? 'A' : 'B', filename, 
 					config->types.typeArray[i].type, config->types.typeArray[i].typeName);
@@ -1605,7 +1605,7 @@ void PlotSingleTypeSpectrogram(FlatFrequency *freqs, long int size, int type, ch
 	}
 	
 	DrawColorScale(&plot, type, MODE_SPEC, config->plotResX/100, config->plotResY/15, config->plotResX/COLOR_BARS_WIDTH_SCALE, config->plotResY/1.15, 0, significant, VERT_SCALE_STEP,config);
-	DrawLabelsMDF(&plot, signal == ROLE_REF ? SPECTROGRAM_TITLE_REF : SPECTROGRAM_TITLE_COM, GetTypeName(config, type), signal == ROLE_REF ? PLOT_SINGLE_REF : PLOT_SINGLE_COM, config);
+	DrawLabelsMDF(&plot, signal == ROLE_REF ? SPECTROGRAM_TITLE_REF : SPECTROGRAM_TITLE_COM, GetTypeDisplayName(config, type), signal == ROLE_REF ? PLOT_SINGLE_REF : PLOT_SINGLE_COM, config);
 	ClosePlot(&plot);
 }
 
@@ -1682,7 +1682,7 @@ void PlotNoiseSpectrogram(FlatFrequency *freqs, long int size, int type, char *f
 	}
 	
 	DrawColorScale(&plot, type, MODE_SPEC, config->plotResX/100, config->plotResY/15, config->plotResX/COLOR_BARS_WIDTH_SCALE, config->plotResY/1.15, (int)startAmplitude, (int)(endAmplitude-startAmplitude), VERT_SCALE_STEP,config);
-	DrawLabelsMDF(&plot, signal == ROLE_REF ? SPECTROGRAM_NOISE_REF : SPECTROGRAM_NOISE_COM, GetTypeName(config, type), signal == ROLE_REF ? PLOT_SINGLE_REF : PLOT_SINGLE_COM, config);
+	DrawLabelsMDF(&plot, signal == ROLE_REF ? SPECTROGRAM_NOISE_REF : SPECTROGRAM_NOISE_COM, GetTypeDisplayName(config, type), signal == ROLE_REF ? PLOT_SINGLE_REF : PLOT_SINGLE_COM, config);
 	ClosePlot(&plot);
 }
 
@@ -2418,12 +2418,7 @@ int PlotDifferentAmplitudesAveraged(FlatAmplDifference *amplDiff, long int size,
 	long int			*averagedSizes = NULL;
 	AveragedFrequencies	**averagedArray = NULL;
 
-	for(i = 0; i < config->types.typeCount; i++)
-	{
-		type = config->types.typeArray[i].type;
-		if(type > TYPE_CONTROL)
-			typeCount ++;
-	}
+	typeCount = GetActiveBlockTypesNoRepeat(config);
 
 	averagedArray = (AveragedFrequencies**)malloc(sizeof(AveragedFrequencies*)*typeCount);
 	if(!averagedArray)
@@ -2436,7 +2431,7 @@ int PlotDifferentAmplitudesAveraged(FlatAmplDifference *amplDiff, long int size,
 	for(i = 0; i < config->types.typeCount; i++)
 	{
 		type = config->types.typeArray[i].type;
-		if(type > TYPE_CONTROL)
+		if(type > TYPE_CONTROL && !config->types.typeArray[i].IsaddOnData)
 		{
 			long int chunks = AVERAGE_CHUNKS;
 
@@ -2486,7 +2481,7 @@ int PlotNoiseDifferentAmplitudesAveraged(FlatAmplDifference *amplDiff, long int 
 	for(i = 0; i < config->types.typeCount; i++)
 	{
 		int type = config->types.typeArray[i].type;
-		if(type == TYPE_SILENCE)
+		if(type == TYPE_SILENCE && !config->types.typeArray[i].IsaddOnData)
 		{
 			long int chunks = AVERAGE_CHUNKS;
 
@@ -2615,7 +2610,7 @@ void PlotNoiseDifferentAmplitudesAveragedInternal(FlatAmplDifference *amplDiff, 
 		config->plotResX/100, config->plotResY/15, 
 		config->plotResX/COLOR_BARS_WIDTH_SCALE, config->plotResY/1.15,
 		(int)startAmplitude, (int)(endAmplitude-startAmplitude), VERT_SCALE_STEP_BAR, config);
-	DrawLabelsMDF(&plot, NOISE_AVG_TITLE, GetTypeName(config, type), PLOT_COMPARE, config);
+	DrawLabelsMDF(&plot, NOISE_AVG_TITLE, GetTypeDisplayName(config, type), PLOT_COMPARE, config);
 	ClosePlot(&plot);
 }
 
@@ -2714,7 +2709,7 @@ void PlotSingleTypeDifferentAmplitudesAveraged(FlatAmplDifference *amplDiff, lon
 	}
 
 	DrawColorScale(&plot, type, MODE_DIFF, config->plotResX/100, config->plotResY/15, config->plotResX/COLOR_BARS_WIDTH_SCALE, config->plotResY/1.15, 0, config->significantAmplitude, VERT_SCALE_STEP_BAR, config);
-	DrawLabelsMDF(&plot, DIFFERENCE_AVG_TITLE, GetTypeName(config, type), PLOT_COMPARE, config);
+	DrawLabelsMDF(&plot, DIFFERENCE_AVG_TITLE, GetTypeDisplayName(config, type), PLOT_COMPARE, config);
 	ClosePlot(&plot);
 }
 
@@ -2762,7 +2757,7 @@ void PlotAllDifferentAmplitudesAveraged(FlatAmplDifference *amplDiff, long int s
 		int type = 0, color = 0;
 
 		type = config->types.typeArray[t].type;
-		if(type <= TYPE_CONTROL)
+		if(type <= TYPE_CONTROL || config->types.typeArray[t].IsaddOnData)
 			continue;
 
 		color = MatchColor(GetTypeColor(config, type));

@@ -482,6 +482,7 @@ int LoadAudioBlockStructure(FILE *file, parameters *config)
 			fclose(file);
 			return 0;
 		}
+		CleanName(config->types.typeArray[i].typeName, config->types.typeArray[i].typeDisplayName);
 
 		if(sscanf(lineBuffer, "%*s %c ", &type) != 1)
 		{
@@ -507,10 +508,13 @@ int LoadAudioBlockStructure(FILE *file, parameters *config)
 			case TYPE_SKIP_C:
 				config->types.typeArray[i].type = TYPE_SKIP;
 				break;
+			case TYPE_TIMEDOMAIN_C:
+				config->types.typeArray[i].type = TYPE_TIMEDOMAIN;
+				break;
 			default:
 				if(sscanf(lineBuffer, "%*s %d ", &config->types.typeArray[i].type) != 1)
 				{
-					logmsg("ERROR: Invalid MD Fourier Block ID\n", config->types.typeArray[i].type);
+					logmsg("ERROR: Invalid MD Fourier Block ID\n%s\n", lineBuffer);
 					fclose(file);
 					return 0;
 				}
@@ -573,6 +577,8 @@ int LoadAudioBlockStructure(FILE *file, parameters *config)
 			fclose(file);
 			return 0;
 		}
+
+		config->types.typeArray[i].IsaddOnData = MatchesPreviousType(config->types.typeArray[i].type, config);
 	}
 
 	if(insideInternal)
@@ -674,6 +680,7 @@ int LoadAudioNoSyncProfile(FILE *file, parameters *config)
 			fclose(file);
 			return 0;
 		}
+		CleanName(config->types.typeArray[i].typeName, config->types.typeArray[i].typeDisplayName);
 
 		if(sscanf(lineBuffer, "%*s %c ", &type) != 1)
 		{
@@ -772,13 +779,14 @@ void PrintAudioBlocks(parameters *config)
 		seconds *= config->types.typeArray[i].elementCount;
 		TotalSeconds += seconds;
 
-		logmsg("%s %s %d %d %s %c | Seconds: %g [%g to %g]\n", 
+		logmsg("%s %s %d %d %s %c %s | Seconds: %g [%g to %g]\n", 
 			config->types.typeArray[i].typeName,
 			type,
 			config->types.typeArray[i].elementCount,
 			config->types.typeArray[i].frames,
 			config->types.typeArray[i].color,
 			config->types.typeArray[i].channel,
+			config->types.typeArray[i].IsaddOnData ? "(r)" : "",
 			seconds, 
 			StartSeconds,
 			TotalSeconds);
@@ -880,6 +888,27 @@ int GetFirstSyncIndex(parameters *config)
 			index += config->types.typeArray[i].elementCount;
 	}
 	return NO_INDEX;
+}
+
+int MatchesPreviousType(int type, parameters *config)
+{
+	int count = 0;
+
+	if(!config)
+		return 0;
+
+	if(type < TYPE_CONTROL)
+		return 0;
+
+	for(int i = 0; i < config->types.typeCount; i++)
+	{
+		if(config->types.typeArray[i].type == type)
+			count++;
+	}
+	
+	if(count > 1)
+		return 1;
+	return 0;
 }
 
 int GetLastSyncIndex(parameters *config)
@@ -1071,6 +1100,21 @@ int GetActiveBlockTypes(parameters *config)
 	return count;
 }
 
+int GetActiveBlockTypesNoRepeat(parameters *config)
+{
+	int count = 0;
+
+	if(!config)
+		return 0;
+
+	for(int i = 0; i < config->types.typeCount; i++)
+	{
+		if(config->types.typeArray[i].type > TYPE_CONTROL && !config->types.typeArray[i].IsaddOnData)
+			count ++;
+	}
+	return count;
+}
+
 int GetActiveAudioBlocks(parameters *config)
 {
 	int count = 0;
@@ -1254,6 +1298,20 @@ char *GetTypeName(parameters *config, int type)
 	{
 		if(config->types.typeArray[i].type == type)
 			return(config->types.typeArray[i].typeName);
+	}
+	
+	return "Type Name";
+}
+
+char *GetTypeDisplayName(parameters *config, int type)
+{
+	if(!config)
+		return "nconfig";
+
+	for(int i = 0; i < config->types.typeCount; i++)
+	{
+		if(config->types.typeArray[i].type == type)
+			return(config->types.typeArray[i].typeDisplayName);
 	}
 	
 	return "Type Name";
@@ -2528,14 +2586,32 @@ char GetTypeProfileName(int type)
 		case TYPE_INTERNAL_UNKNOWN:
 			c = TYPE_INTERNAL_UNKNOWN_C;
 			break;
-		case TYPE_SKIP_C:
+		case TYPE_SKIP:
 			c = TYPE_SKIP_C;
+			break;
+		case TYPE_TIMEDOMAIN:
+			c = TYPE_TIMEDOMAIN_C;
 			break;
 		default:
 			c = TYPE_NULLTYPE_C;
 			break;
 	}
 	return c;
+}
+
+void CleanName(char *name, char *display)
+{
+	int size = 0, i = 0;
+
+	size = strlen(name);
+	for(i = 0; i < size; i++)
+	{
+		if(name[i] == '_')
+			display[i] = ' ';
+		else
+			display[i] = name[i];
+	}
+	display[i] = '\0';
 }
 
 /*

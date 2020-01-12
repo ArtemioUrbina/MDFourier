@@ -745,7 +745,7 @@ int ProcessFile(AudioSignal *Signal, parameters *config)
 	long int		loadedBlockSize = 0, i = 0, syncAdvance = 0;
 	struct timespec	start, end;
 	FILE			*processed = NULL;
-	char			Name[4096], tempName[4096];
+	char			Name[8000], tempName[4096];
 	int				leftover = 0, discardBytes = 0, syncinternal = 0;
 	double			leftDecimals = 0;
 
@@ -816,10 +816,10 @@ int ProcessFile(AudioSignal *Signal, parameters *config)
 		{
 			if(!CreateChunksFolder(config))
 				return 0;
-			sprintf(tempName, "Chunks\\%03ld_0_Source_%010ld_%s_%03d_chunk_", 
+			sprintf(Name, "%s\\Chunks\\%03ld_0_Source_%010ld_%s_%03d_chunk.wav", 
+				config->folderName,
 				i, pos+syncAdvance+Signal->SamplesStart, 
 				GetBlockName(config, i), GetBlockSubIndex(config, i));
-			ComposeFileName(Name, tempName, ".wav", config);
 			SaveWAVEChunk(Name, Signal, buffer, 0, loadedBlockSize, 0, config); 
 		}
 
