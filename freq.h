@@ -36,7 +36,7 @@
 #define PARAM_BUFFER_SIZE	512
 
 #define roundFloat(number) RoundFloat(number, 4)
-#define readLine(buffer, file) if(fgets(buffer, LINE_BUFFER_SIZE, file) == NULL) { logmsg("Invalid mdfblocks.mfn file\n");	return 0;	}
+#define readLine(buffer, file) if(fgets(buffer, LINE_BUFFER_SIZE, file) == NULL) { logmsg("Invalid Profile file (File ended prematurely)\n");	return 0;	}
 
 int LoadProfile(parameters *config);
 int LoadAudioBlockStructure(FILE *file, parameters *config);
@@ -123,6 +123,7 @@ int FindDifferenceTypeTotals(int type, long int *cntAmplBlkDiff, long int *cmpAm
 int FindMissingTypeTotals(int type, long int *cntFreqBlkDiff, long int *cmpFreqBlkDiff, parameters *config);
 int FindDifferenceWithinInterval(int type, long int *inside, long int *count, double MaxInterval, parameters *config);
 
+char GetTypeProfileName(int type);
 int GetPulseSyncFreq(int role, parameters *config);
 int getPulseCount(int role, parameters *config);
 int getPulseFrameLen(int role, parameters *config);

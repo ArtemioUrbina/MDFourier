@@ -476,7 +476,7 @@ int LoadAudioBlockStructure(FILE *file, parameters *config)
 		char type = 0;
 
 		readLine(lineBuffer, file);
-		if(sscanf(lineBuffer, "%s ", config->types.typeArray[i].typeName) != 1)
+		if(sscanf(lineBuffer, "%128s ", config->types.typeArray[i].typeName) != 1)
 		{
 			logmsg("ERROR: Invalid Block Name %s\n", config->types.typeArray[i].typeName);
 			fclose(file);
@@ -492,19 +492,19 @@ int LoadAudioBlockStructure(FILE *file, parameters *config)
 
 		switch(type)
 		{
-			case 'n':
+			case TYPE_SILENCE_C:
 				config->types.typeArray[i].type = TYPE_SILENCE;
 				break;
-			case 's':
+			case TYPE_SYNC_C:
 				config->types.typeArray[i].type = TYPE_SYNC;
 				break;
-			case 'i':
+			case TYPE_INTERNAL_KNOWN_C:
 				config->types.typeArray[i].type = TYPE_INTERNAL_KNOWN;
 				break;
-			case 'I':
+			case TYPE_INTERNAL_UNKNOWN_C:
 				config->types.typeArray[i].type = TYPE_INTERNAL_UNKNOWN;
 				break;
-			case 'k':
+			case TYPE_SKIP_C:
 				config->types.typeArray[i].type = TYPE_SKIP;
 				break;
 			default:
@@ -525,10 +525,10 @@ int LoadAudioBlockStructure(FILE *file, parameters *config)
 			else
 				insideInternal = 1;
 
-			if(sscanf(lineBuffer, "%*s %*c %d %d %s %c %d %lf\n", 
+			if(sscanf(lineBuffer, "%*s %*s %d %d %20s %c %d %lf\n", 
 				&config->types.typeArray[i].elementCount,
 				&config->types.typeArray[i].frames,
-				&config->types.typeArray[i].color [0],
+				&config->types.typeArray[i].color[0],
 				&config->types.typeArray[i].channel,
 				&config->types.typeArray[i].syncTone,
 				&config->types.typeArray[i].syncLen) != 6)
@@ -540,10 +540,10 @@ int LoadAudioBlockStructure(FILE *file, parameters *config)
 		}
 		else
 		{
-			if(sscanf(lineBuffer, "%*s %*c %d %d %s %c\n", 
+			if(sscanf(lineBuffer, "%*s %*s %d %d %20s %c\n", 
 				&config->types.typeArray[i].elementCount,
 				&config->types.typeArray[i].frames,
-				&config->types.typeArray[i].color [0],
+				&config->types.typeArray[i].color[0],
 				&config->types.typeArray[i].channel) != 4)
 			{
 				logmsg("ERROR: Invalid MD Fourier Audio Blocks File (Element Count, frames, color, channel): %s\n", lineBuffer);
@@ -554,14 +554,14 @@ int LoadAudioBlockStructure(FILE *file, parameters *config)
 
 		if(!config->types.typeArray[i].elementCount)
 		{
-			logmsg("ERROR: Element Count must have a value > 0\n");
+			logmsg("ERROR: Element Count must have a value > 0\n%s\n", lineBuffer);
 			fclose(file);
 			return 0;
 		}
 
 		if(!config->types.typeArray[i].frames)
 		{
-			logmsg("ERROR: Frames must have a value > 0\n");
+			logmsg("ERROR: Frames must have a value > 0\n%s\n", lineBuffer);
 			fclose(file);
 			return 0;
 		}
@@ -650,7 +650,7 @@ int LoadAudioNoSyncProfile(FILE *file, parameters *config)
 	config->types.typeCount = atoi(buffer);
 	if(!config->types.typeCount)
 	{
-		logmsg("Invalid type count '%s'\n", buffer);
+		logmsg("Invalid type count:\n'%s'\n", buffer);
 		fclose(file);
 		return 0;
 	}
@@ -668,16 +668,16 @@ int LoadAudioNoSyncProfile(FILE *file, parameters *config)
 		char type = 0;
 
 		readLine(lineBuffer, file);
-		if(sscanf(lineBuffer, "%s ", config->types.typeArray[i].typeName) != 1)
+		if(sscanf(lineBuffer, "%128s ", config->types.typeArray[i].typeName) != 1)
 		{
-			logmsg("Invalid Block Name %s\n", config->types.typeArray[i].typeName);
+			logmsg("Invalid Block Name\n%s\n", lineBuffer);
 			fclose(file);
 			return 0;
 		}
 
 		if(sscanf(lineBuffer, "%*s %c ", &type) != 1)
 		{
-			logmsg("Invalid Block Type %c\n", type);
+			logmsg("Invalid Block Type %s\n", lineBuffer);
 			fclose(file);
 			return 0;
 		}
@@ -700,7 +700,7 @@ int LoadAudioNoSyncProfile(FILE *file, parameters *config)
 				break;
 		}
 		
-		if(sscanf(lineBuffer, "%*s %*c %d %d %s %c\n", 
+		if(sscanf(lineBuffer, "%*s %*s %d %d %s %c\n", 
 			&config->types.typeArray[i].elementCount,
 			&config->types.typeArray[i].frames,
 			&config->types.typeArray[i].color [0],
@@ -751,18 +751,37 @@ int LoadAudioNoSyncProfile(FILE *file, parameters *config)
 
 void PrintAudioBlocks(parameters *config)
 {
+	double TotalSeconds = 0;
+
 	if(!config)
 		return;
 
 	for(int i = 0; i < config->types.typeCount; i++)
 	{
-		logmsg("%s %d %d %d %s %c\n", 
+		char	type[5], t;
+		double 	seconds = 0, StartSeconds = 0;
+
+		t = GetTypeProfileName(config->types.typeArray[i].type);
+		if(t == TYPE_NULLTYPE_C)
+			sprintf(type, "%d", config->types.typeArray[i].type);
+		else
+			sprintf(type, "%c", t);
+
+		StartSeconds = TotalSeconds;
+		seconds = FramesToSeconds(config->types.typeArray[i].frames, config->types.SyncFormat[0].MSPerFrame);
+		seconds *= config->types.typeArray[i].elementCount;
+		TotalSeconds += seconds;
+
+		logmsg("%s %s %d %d %s %c | Seconds: %g [%g to %g]\n", 
 			config->types.typeArray[i].typeName,
-			config->types.typeArray[i].type,
+			type,
 			config->types.typeArray[i].elementCount,
 			config->types.typeArray[i].frames,
 			config->types.typeArray[i].color,
-			config->types.typeArray[i].channel);
+			config->types.typeArray[i].channel,
+			seconds, 
+			StartSeconds,
+			TotalSeconds);
 	}
 }
 
@@ -2486,6 +2505,37 @@ double CalculateClk(AudioSignal *Signal, parameters *config)
 			HighestFreq = currentFreq;
 	}
 	return HighestFreq * config->clkRatio;
+}
+
+char GetTypeProfileName(int type)
+{
+	char c = TYPE_NULLTYPE_C;
+
+	switch(type)
+	{
+		case TYPE_SILENCE:
+			c = TYPE_SILENCE_C;
+			break;
+		case TYPE_SYNC:
+			c = TYPE_SYNC_C;
+			break;
+		case TYPE_NOTYPE:
+			c = TYPE_NOTYPE_C;
+			break;
+		case TYPE_INTERNAL_KNOWN:
+			c = TYPE_INTERNAL_KNOWN_C;
+			break;
+		case TYPE_INTERNAL_UNKNOWN:
+			c = TYPE_INTERNAL_UNKNOWN_C;
+			break;
+		case TYPE_SKIP_C:
+			c = TYPE_SKIP_C;
+			break;
+		default:
+			c = TYPE_NULLTYPE_C;
+			break;
+	}
+	return c;
 }
 
 /*

@@ -49,6 +49,7 @@ void CleanUp(AudioSignal **ReferenceSignal, parameters *config);
 void CloseFiles(FILE **ref);
 void RemoveFLACTemp(char *referenceFile);
 int ExecuteMDWave(parameters *config, int invert);
+void FlattenProfile(parameters *config);
 
 int main(int argc , char *argv[])
 {
@@ -67,13 +68,28 @@ int main(int argc , char *argv[])
 
 	if(!LoadProfile(&config))
 		return 1;
+
+	if(config.compressToBlocks)
+		FlattenProfile(&config);
+
 	if(ExecuteMDWave(&config, 0) == 1)
 		return 1;
 
-	if(!LoadProfile(&config))
-		return 1;
-	if(ExecuteMDWave(&config, 1) == 1)
-		return 1;
+	if(config.executefft)
+	{
+		if(!LoadProfile(&config))
+			return 1;
+
+		if(config.compressToBlocks)
+			FlattenProfile(&config);
+
+		if(ExecuteMDWave(&config, 1) == 1)
+			return 1;
+	}
+	else
+	{
+		printf("\nResults stored in %s\n", config.folderName);
+	}
 
 	if(config.clock)
 	{
@@ -790,7 +806,7 @@ int ProcessFile(AudioSignal *Signal, parameters *config)
 		}
 		memcpy(buffer, Signal->Samples + pos, loadedBlockSize);
 
-		if(Signal->Blocks[i].type >= TYPE_SILENCE)
+		if(Signal->Blocks[i].type >= TYPE_SILENCE && config->executefft)
 		{		
 			if(!ProcessSamples(&Signal->Blocks[i], (int16_t*)buffer, (loadedBlockSize-difference)/2, Signal->header.fmt.SamplesPerSec, windowUsed, config, 0, Signal))
 				return 0;
@@ -810,40 +826,46 @@ int ProcessFile(AudioSignal *Signal, parameters *config)
 		pos += loadedBlockSize;
 		pos += discardBytes;
 
-		if(Signal->Blocks[i].type == TYPE_INTERNAL_KNOWN)
+		if(config->executefft)
 		{
-			if(!ProcessInternal(Signal, i, pos, &syncinternal, &syncAdvance, 1, config))
-				return 0;
-		}
-
-		if(Signal->Blocks[i].type == TYPE_INTERNAL_UNKNOWN)
-		{
-			if(!ProcessInternal(Signal, i, pos, &syncinternal, &syncAdvance, 0, config))
-				return 0;
+			if(Signal->Blocks[i].type == TYPE_INTERNAL_KNOWN)
+			{
+				if(!ProcessInternal(Signal, i, pos, &syncinternal, &syncAdvance, 1, config))
+					return 0;
+			}
+	
+			if(Signal->Blocks[i].type == TYPE_INTERNAL_UNKNOWN)
+			{
+				if(!ProcessInternal(Signal, i, pos, &syncinternal, &syncAdvance, 0, config))
+					return 0;
+			}
 		}
 
 		i++;
 	}
 
-	GlobalNormalize(Signal, config);
-	CalcuateFrequencyBrackets(Signal, config);
-
-	if(Signal->hasFloor && !config->ignoreFloor) // analyze noise floor if available
+	if(config->executefft)
 	{
-		FindFloor(Signal, config);
-
-		if(Signal->floorAmplitude != 0.0 && Signal->floorAmplitude > config->significantAmplitude)
+		GlobalNormalize(Signal, config);
+		CalcuateFrequencyBrackets(Signal, config);
+	
+		if(Signal->hasFloor && !config->ignoreFloor) // analyze noise floor if available
 		{
-			config->significantAmplitude = Signal->floorAmplitude;
-			CreateBaseName(config);
+			FindFloor(Signal, config);
+	
+			if(Signal->floorAmplitude != 0.0 && Signal->floorAmplitude > config->significantAmplitude)
+			{
+				config->significantAmplitude = Signal->floorAmplitude;
+				CreateBaseName(config);
+			}
 		}
+	
+		logmsg(" - Using %g dBFS as minimum significant amplitude for analysis\n",
+				config->significantAmplitude);
+	
+		if(config->verbose)
+			PrintFrequencies(Signal, config);
 	}
-
-	logmsg(" - Using %g dBFS as minimum significant amplitude for analysis\n",
-			config->significantAmplitude);
-
-	if(config->verbose)
-		PrintFrequencies(Signal, config);
 
 	if(config->clock)
 	{
@@ -853,90 +875,93 @@ int ProcessFile(AudioSignal *Signal, parameters *config)
 		logmsg(" - clk: FFTW on Audio chunks took %0.2fs\n", elapsedSeconds);
 	}
 
-	if(config->clock)
-		clock_gettime(CLOCK_MONOTONIC, &start);
-
-	CreateBaseName(config);
-
-	// Clean up everything again
-	pos = Signal->startOffset;
-	leftover = 0;
-	discardBytes = 0;
-	leftDecimals = 0;
-	i = 0;
-
-	// redo after processing
-	while(i < config->types.totalChunks)
+	if(config->executefft)
 	{
-		double duration = 0;
-		long int frames = 0, difference = 0;
-
-		frames = GetBlockFrames(config, i);
-		duration = FramesToSeconds(Signal->framerate, frames);
-		if(Signal->Blocks[i].type >= TYPE_SILENCE)
-			windowUsed = getWindowByLength(&windows, frames, Signal->framerate);
-		
-		loadedBlockSize = SecondsToBytes(Signal->header.fmt.SamplesPerSec, duration, Signal->AudioChannels, &leftover, &discardBytes, &leftDecimals);
-
-		difference = GetByteSizeDifferenceByFrameRate(Signal->framerate, frames, Signal->header.fmt.SamplesPerSec, Signal->AudioChannels, config);
-
-		memset(buffer, 0, buffersize);
-		if(pos + loadedBlockSize > Signal->header.data.DataSize)
-		{
-			logmsg("\tunexpected end of File, please record the full Audio Test from the 240p Test Suite\n");
-			break;
-		}
-		memcpy(buffer, Signal->Samples + pos, loadedBlockSize);
+		if(config->clock)
+			clock_gettime(CLOCK_MONOTONIC, &start);
 	
-		if(Signal->Blocks[i].type >= TYPE_SILENCE)
+		CreateBaseName(config);
+	
+		// Clean up everything again
+		pos = Signal->startOffset;
+		leftover = 0;
+		discardBytes = 0;
+		leftDecimals = 0;
+		i = 0;
+	
+		// redo after processing
+		while(i < config->types.totalChunks)
 		{
-			// now rewrite array
-			if(!ProcessSamples(&Signal->Blocks[i], (int16_t*)buffer, (loadedBlockSize-difference)/2, Signal->header.fmt.SamplesPerSec, windowUsed, config, 1, Signal))
-				return 0;
-
-			// Now rewrite global
-			memcpy(Signal->Samples + pos, buffer, loadedBlockSize);
+			double duration = 0;
+			long int frames = 0, difference = 0;
+	
+			frames = GetBlockFrames(config, i);
+			duration = FramesToSeconds(Signal->framerate, frames);
+			if(Signal->Blocks[i].type >= TYPE_SILENCE)
+				windowUsed = getWindowByLength(&windows, frames, Signal->framerate);
+			
+			loadedBlockSize = SecondsToBytes(Signal->header.fmt.SamplesPerSec, duration, Signal->AudioChannels, &leftover, &discardBytes, &leftDecimals);
+	
+			difference = GetByteSizeDifferenceByFrameRate(Signal->framerate, frames, Signal->header.fmt.SamplesPerSec, Signal->AudioChannels, config);
+	
+			memset(buffer, 0, buffersize);
+			if(pos + loadedBlockSize > Signal->header.data.DataSize)
+			{
+				logmsg("\tunexpected end of File, please record the full Audio Test from the 240p Test Suite\n");
+				break;
+			}
+			memcpy(buffer, Signal->Samples + pos, loadedBlockSize);
+		
+			if(Signal->Blocks[i].type >= TYPE_SILENCE)
+			{
+				// now rewrite array
+				if(!ProcessSamples(&Signal->Blocks[i], (int16_t*)buffer, (loadedBlockSize-difference)/2, Signal->header.fmt.SamplesPerSec, windowUsed, config, 1, Signal))
+					return 0;
+	
+				// Now rewrite global
+				memcpy(Signal->Samples + pos, buffer, loadedBlockSize);
+			}
+	
+			pos += loadedBlockSize;
+			pos += discardBytes;
+	
+			if(config->chunks)
+			{
+				if(!CreateChunksFolder(config))
+					return 0;
+				sprintf(tempName, "Chunks\\%03ld_%s_Processed_%s_%03d_chunk_", i, 
+					GenerateFileNamePrefix(config), GetBlockName(config, i), 
+					GetBlockSubIndex(config, i));
+				ComposeFileName(Name, tempName, ".wav", config);
+				SaveWAVEChunk(Name, Signal, buffer, 0, loadedBlockSize, 0, config);
+			}
+	
+			i++;
 		}
 
-		pos += loadedBlockSize;
-		pos += discardBytes;
+		// clear the rest of the buffer
+		memset(Signal->Samples + pos, 0, (sizeof(char)*(Signal->header.data.DataSize - pos)));
 
-		if(config->chunks)
+		ComposeFileName(Name, GenerateFileNamePrefix(config), ".wav", config);
+		processed = fopen(Name, "wb");
+		if(!processed)
 		{
-			if(!CreateChunksFolder(config))
-				return 0;
-			sprintf(tempName, "Chunks\\%03ld_%s_Processed_%s_%03d_chunk_", i, 
-				GenerateFileNamePrefix(config), GetBlockName(config, i), 
-				GetBlockSubIndex(config, i));
-			ComposeFileName(Name, tempName, ".wav", config);
-			SaveWAVEChunk(Name, Signal, buffer, 0, loadedBlockSize, 0, config);
+			logmsg("\tCould not open processed file %s\n", Name);
+			return 0;
 		}
-
-		i++;
-	}
-
-	// clear the rest of the buffer
-	memset(Signal->Samples + pos, 0, (sizeof(char)*(Signal->header.data.DataSize - pos)));
-
-	ComposeFileName(Name, GenerateFileNamePrefix(config), ".wav", config);
-	processed = fopen(Name, "wb");
-	if(!processed)
-	{
-		logmsg("\tCould not open processed file %s\n", Name);
-		return 0;
-	}
-
-	if(fwrite(&Signal->header, 1, sizeof(wav_hdr), processed) != sizeof(wav_hdr))
-	{
-		logmsg("\tCould not write processed header\n");
-		return(0);
-	}
-
-	if(fwrite(Signal->Samples, 1, sizeof(char)*Signal->header.data.DataSize, processed) !=
-			 sizeof(char)*Signal->header.data.DataSize)
-	{
-		logmsg("\tCould not write samples to processed file\n");
-		return (0);
+	
+		if(fwrite(&Signal->header, 1, sizeof(wav_hdr), processed) != sizeof(wav_hdr))
+		{
+			logmsg("\tCould not write processed header\n");
+			return(0);
+		}
+	
+		if(fwrite(Signal->Samples, 1, sizeof(char)*Signal->header.data.DataSize, processed) !=
+			     sizeof(char)*Signal->header.data.DataSize)
+		{
+			logmsg("\tCould not write samples to processed file\n");
+			return (0);
+		}
 	}
 
 	if(processed)
@@ -1228,13 +1253,21 @@ int commandline_wave(int argc , char *argv[], parameters *config)
 	config->invert = 0;
 	config->chunks = 0;
 	config->useCompProfile = 0;
+	config->compressToBlocks = 0;
+	config->executefft = 1;
 
-	while ((c = getopt (argc, argv, "hvzcklyCBis:e:f:t:p:a:w:r:P:IY:")) != -1)
+	while ((c = getopt (argc, argv, "bnhvzcklyCBis:e:f:t:p:a:w:r:P:IY:")) != -1)
 	switch (c)
 	  {
 	  case 'h':
 		PrintUsage_wave();
 		return 0;
+		break;
+	  case 'b':
+		config->compressToBlocks = 1;
+		break;
+	  case 'n':
+		config->executefft = 0;
 		break;
 	  case 'v':
 		config->verbose = 1;
@@ -1457,4 +1490,23 @@ void Header_wave(int log)
 		logmsg("%s%s", title1, title2);
 	else
 		printf("%s%s", title1, title2);
+}
+
+
+void FlattenProfile(parameters *config)
+{
+	if(!config)
+		return;
+
+	for(int i = 0; i < config->types.typeCount; i++)
+	{
+		int total = 0;
+
+		total = config->types.typeArray[i].elementCount * config->types.typeArray[i].frames;
+		config->types.typeArray[i].elementCount = 1;
+		config->types.typeArray[i].frames = total;
+	}
+	config->types.regularChunks = GetActiveAudioBlocks(config);
+	config->types.totalChunks = GetTotalAudioBlocks(config);
+	PrintAudioBlocks(config);
 }

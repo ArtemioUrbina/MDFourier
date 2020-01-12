@@ -67,6 +67,15 @@
 #define TYPE_SKIP				-5
 #define TYPE_CONTROL			TYPE_SILENCE
 
+
+#define TYPE_NULLTYPE_C			'\0'
+#define TYPE_SILENCE_C			'n'
+#define TYPE_SYNC_C				's'
+#define TYPE_NOTYPE_C			'-'
+#define TYPE_INTERNAL_KNOWN_C	'i'
+#define TYPE_INTERNAL_UNKNOWN_C	'I'
+#define TYPE_SKIP_C				'k'
+
 #define	BAR_DIFF_DB_TOLERANCE	1.0
 
 #define NO_INDEX 		-100
@@ -407,13 +416,6 @@ typedef struct parameters_st {
 	int				videoFormatCom;
 	int				nyquistLimit;
 
-#ifdef MDWAVE
-	int				maxBlanked;
-	int				invert;
-	int				chunks;
-	int				useCompProfile;
-#endif
-
 // Values only used for clock frequency
 	char		clkName[20];
 	char		clkProcess;
@@ -425,6 +427,16 @@ typedef struct parameters_st {
 
 	AudioSignal		*referenceSignal;
 	AudioSignal		*comparisonSignal;
+
+#ifdef MDWAVE
+	int				maxBlanked;
+	int				invert;
+	int				chunks;
+	int				useCompProfile;
+	int				compressToBlocks;
+	int				executefft;
+#endif
+
 } parameters;
 
 
