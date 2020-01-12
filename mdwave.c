@@ -1508,5 +1508,5 @@ void FlattenProfile(parameters *config)
 	}
 	config->types.regularChunks = GetActiveAudioBlocks(config);
 	config->types.totalChunks = GetTotalAudioBlocks(config);
-	PrintAudioBlocks(config);
+	//PrintAudioBlocks(config);
 }

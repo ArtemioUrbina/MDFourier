@@ -1822,6 +1822,8 @@ int MatchColor(char *color)
 		return(COLOR_PURPLE);
 	if(strcmp(colorcopy, "gray") == 0)
 		return(COLOR_GRAY);
+	if(strcmp(colorcopy, "null") == 0)
+		return(COLOR_NULL);
 
 	logmsg("Unmatched color %s, using green\n", color);
 	return COLOR_GREEN;
@@ -1863,6 +1865,9 @@ void SetPenColor(int colorIndex, long int color, PlotFile *plot)
 		case COLOR_GRAY:
 			pl_pencolor_r(plot->plotter, color, color, color);
 			break;
+		case COLOR_NULL:
+			pl_pencolor_r(plot->plotter, 0, 0, 0);
+			break;
 		default:
 			pl_pencolor_r(plot->plotter, 0, color, 0);
 			break;
@@ -1899,6 +1904,9 @@ void SetFillColor(int colorIndex, long int color, PlotFile *plot)
 			break;
 		case COLOR_GRAY:
 			pl_fillcolor_r(plot->plotter, color, color, color);
+			break;
+		case COLOR_NULL:
+			pl_fillcolor_r(plot->plotter, 0, 0, 0);
 			break;
 		default:
 			pl_fillcolor_r(plot->plotter, 0, color, 0);
