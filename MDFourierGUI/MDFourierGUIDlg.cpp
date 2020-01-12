@@ -52,6 +52,7 @@ void CMDFourierGUIDlg::DoDataExchange(CDataExchange* pDX)
 	DDX_Control(pDX, IDC_COM_SYNC, m_ComSync);
 	DDX_Control(pDX, IDC_TIMESP, m_TimeSpectr);
 	DDX_Control(pDX, IDC_FULLRESTS, m_Fullres_Time_Spectrogram);
+	DDX_Control(pDX, IDCANCEL, m_close);
 }
 
 BEGIN_MESSAGE_MAP(CMDFourierGUIDlg, CDialogEx)
@@ -343,7 +344,10 @@ void CMDFourierGUIDlg::OnBnClickedCancel()
 		CDialogEx::OnCancel();
 	else
 	{
-		if(MessageBox(L"MDFourier is currently running.\nStop it?", L"Error", MB_OKCANCEL) == IDOK)
+		CString msg;
+
+		msg.Format(L"%s is currently running.\nStop it?", mdwave ? L"MDWave" : L"MDFourier");
+		if(MessageBox(msg, L"Error", MB_OKCANCEL) == IDOK)
 		{
 			DosWaitCount = 0;
 
@@ -662,12 +666,17 @@ void CMDFourierGUIDlg::ManageWindows(BOOL Enable)
 
 	if(mdwave)
 		m_ComparisonLbl.EnableWindow(Enable);
+
+	if(Enable)
+		m_close.SetWindowText(L"Close");
+	else
+		m_close.SetWindowText(L"Terminate");
 }
 
 
 void CMDFourierGUIDlg::OnBnClickedAbout()
 {
-	if(MessageBox(L"MDFourier Front End\n\nArtemio Urbina 2019\nCode available under GPL\n\nhttp://junkerhq.net/MDFourier/\n\nOpen website and manual?", L"About MDFourier", MB_OKCANCEL | MB_ICONQUESTION) == IDOK)
+	if(MessageBox(L"MDFourier Front End\n\nArtemio Urbina 2019-2020\nCode available under GPL\n\nhttp://junkerhq.net/MDFourier/\n\nOpen website and manual?", L"About MDFourier", MB_OKCANCEL | MB_ICONQUESTION) == IDOK)
 	{
 		ShellExecute(0, 0, L"http://junkerhq.net/MDFourier/", 0, 0 , SW_SHOW );
 	}
@@ -807,9 +816,11 @@ void CMDFourierGUIDlg::OnBnClickedMdwave()
 
 void CMDFourierGUIDlg::OnBnClickedSwap()
 {
-	int pos = 0;
+	int pos = 0, sel = 0;
 	CString tmp;
 
+	if(!m_Reference.GetLength() && !m_ComparisonFile.GetLength())
+		return;
 	tmp = m_ComparisonFile;
 	tmp.MakeLower();
 	pos = tmp.Find(L".mfl", 0);
@@ -822,6 +833,10 @@ void CMDFourierGUIDlg::OnBnClickedSwap()
 	m_ReferenceLbl.SetWindowText(m_Reference); 
 	m_ComparisonFile = tmp;
 	m_ComparisonLbl.SetWindowText(m_ComparisonFile);
+
+	sel = m_RefSync.GetCurSel();
+	m_RefSync.SetCurSel(m_ComSync.GetCurSel());
+	m_ComSync.SetCurSel(sel);
 }
 
 bool CMDFourierGUIDlg::VerifyFileExtension(CString filename, int type)
