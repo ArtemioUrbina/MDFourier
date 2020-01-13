@@ -807,7 +807,7 @@ int ProcessFile(AudioSignal *Signal, parameters *config)
 		memcpy(buffer, Signal->Samples + pos, loadedBlockSize);
 
 		if(Signal->Blocks[i].type >= TYPE_SILENCE && config->executefft)
-		{		
+		{
 			if(!ProcessSamples(&Signal->Blocks[i], (int16_t*)buffer, (loadedBlockSize-difference)/2, Signal->header.fmt.SamplesPerSec, windowUsed, config, 0, Signal))
 				return 0;
 		}
@@ -921,11 +921,20 @@ int ProcessFile(AudioSignal *Signal, parameters *config)
 				// Now rewrite global
 				memcpy(Signal->Samples + pos, buffer, loadedBlockSize);
 			}
+
+			if(Signal->Blocks[i].type < TYPE_SILENCE && !config->invert)
+			{
+				if(Signal->Blocks[i].type != TYPE_SYNC)
+				{
+					memset(buffer, 0, sizeof(char)*loadedBlockSize);
+					memcpy(Signal->Samples + pos, buffer, loadedBlockSize);
+				}
+			}
 	
 			pos += loadedBlockSize;
 			pos += discardBytes;
 	
-			if(config->chunks)
+			if(config->chunks && Signal->Blocks[i].type >= TYPE_SILENCE)
 			{
 				if(!CreateChunksFolder(config))
 					return 0;
@@ -957,7 +966,7 @@ int ProcessFile(AudioSignal *Signal, parameters *config)
 		}
 	
 		if(fwrite(Signal->Samples, 1, sizeof(char)*Signal->header.data.DataSize, processed) !=
-			     sizeof(char)*Signal->header.data.DataSize)
+				sizeof(char)*Signal->header.data.DataSize)
 		{
 			logmsg("\tCould not write samples to processed file\n");
 			return (0);
@@ -1079,7 +1088,6 @@ int ProcessSamples(AudioBlocks *AudioArray, int16_t *samples, size_t size, long 
 	else
 		channel = config->channel;
 
-
 	for(i = 0; i < monoSignalSize - zeropadding; i++)
 	{
 		if(channel == 'l')
@@ -1175,60 +1183,35 @@ int ProcessSamples(AudioBlocks *AudioArray, int16_t *samples, size_t size, long 
 		fftw_destroy_plan(pBack);
 		pBack = NULL;
 	
-		if(window)
+		for(i = 0; i < monoSignalSize - zeropadding; i++)
 		{
-			for(i = 0; i < monoSignalSize - zeropadding; i++)
+			double value;
+
+			// reversing window causes distortion since we have zeroes
+			// but we do want t see the windows in the iFFT anyway
+			// uncomment if needed
+			//if(window)
+			//value = (signal[i]/window[i])/monoSignalSize;
+			//else
+			value = signal[i]/monoSignalSize; /* check CalculateMagnitude if changed */
+			if(channel == 'l')
 			{
-				double value;
-	
-				// reversing window causes distortion since we have zeroes
-				// but we do want t see the windows in the iFFT anyway
-				// uncomment if needed
-				//value = (signal[i]/window[i])/monoSignalSize;
-				value = signal[i]/monoSignalSize; /* check CalculateMagnitude if changed */
-				if(channel == 'l')
-				{
-					samples[i*Signal->AudioChannels] = round(value);
-					if(Signal->AudioChannels == 2)
-						samples[i*2+1] = 0;
-				}
-				if(channel == 'r')
-				{
-					samples[i*2] = 0;
-					samples[i*2+1] = round(value);
-				}
-				if(channel == 's')
-				{
-					samples[i*2] = round(value);
-					samples[i*2+1] = round(value);
-				}
+				samples[i*Signal->AudioChannels] = round(value);
+				if(Signal->AudioChannels == 2)
+					samples[i*2+1] = 0;
+			}
+			if(channel == 'r')
+			{
+				samples[i*2] = 0;
+				samples[i*2+1] = round(value);
+			}
+			if(channel == 's')
+			{
+				samples[i*2] = round(value);
+				samples[i*2+1] = round(value);
 			}
 		}
-		else
-		{
-			for(i = 0; i < monoSignalSize - zeropadding; i++)
-			{
-				double value = 0;
-		
-				value = signal[i]/monoSignalSize;
-				if(config->channel == 'l')
-				{
-					samples[i*Signal->AudioChannels] = round(value);
-					if(Signal->AudioChannels == 2)
-						samples[i*2+1] = 0;
-				}
-				if(config->channel == 'r')
-				{
-					samples[i*2] = 0;
-					samples[i*2+1] = round(value);
-				}
-				if(config->channel == 's')
-				{
-					samples[i*2] = round(value);
-					samples[i*2+1] = round(value);
-				}
-			}
-		}
+
 		//logmsg("Blanked frequencies were %ld from %ld\n", blanked, monoSignalSize/2);
 		if(blanked > config->maxBlanked)
 			config->maxBlanked = blanked;

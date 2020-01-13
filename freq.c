@@ -579,6 +579,12 @@ int LoadAudioBlockStructure(FILE *file, parameters *config)
 		}
 
 		config->types.typeArray[i].IsaddOnData = MatchesPreviousType(config->types.typeArray[i].type, config);
+		// make silent if duplicate and not silence block
+		if(!config->useExtraData && config->types.typeArray[i].IsaddOnData)
+		{
+			if(config->types.typeArray[i].type != TYPE_SILENCE)
+				config->types.typeArray[i].type = TYPE_SKIP;
+		}
 	}
 
 	if(insideInternal)

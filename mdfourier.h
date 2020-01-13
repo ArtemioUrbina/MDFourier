@@ -4,7 +4,7 @@
  * Sega Genesis/Mega Drive audio hardware revisions, and
  * other hardware in the future
  *
- * Copyright (C)2019 Artemio Urbina
+ * Copyright (C)2019-2020 Artemio Urbina
  *
  * This file is part of the 240p Test Suite
  *
@@ -59,7 +59,7 @@
 #define NS_LOWEST_AMPLITUDE		-120
 #define	PCM_16BIT_MIN_AMPLITUDE	-96.0
 
-#define TYPE_NOTYPE				0
+#define TYPE_NOTYPE				-1000
 #define TYPE_SILENCE			-1
 #define TYPE_SYNC				-2
 #define TYPE_INTERNAL_KNOWN		-4
@@ -419,6 +419,7 @@ typedef struct parameters_st {
 	int				videoFormatRef;
 	int				videoFormatCom;
 	int				nyquistLimit;
+	int				useExtraData;
 
 // Values only used for clock frequency
 	char		clkName[20];

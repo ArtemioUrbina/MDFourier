@@ -51,6 +51,7 @@ void PrintUsage()
 	logmsg("	 -Y: Define the Reference Video Format 0:NTSC 1:PAL\n");
 	logmsg("	 -Z: Define the Comparison Video Format 0:NTSC 1:PAL\n");
 	logmsg("	 -k: cloc<k> FFTW operations\n");
+	logmsg("	 -X: do not include extra Data\n");
 	logmsg("   Output options:\n");
 	logmsg("	 -l: <l>og output to file [reference]_vs_[compare].txt\n");
 	logmsg("	 -v: Enable <v>erbose mode, spits all the FFTW results\n");
@@ -80,7 +81,7 @@ void PrintUsage()
 void Header(int log)
 {
 	char title1[] = "MDFourier " MDVERSION " [240p Test Suite Fourier Audio compare tool]\n";
-	char title2[] = "Artemio Urbina 2019 free software under GPL - http://junkerhq.net/MDFourier\n";
+	char title2[] = "Artemio Urbina 2019-2020 free software under GPL - http://junkerhq.net/MDFourier\n";
 
 	if(log)
 		logmsg("%s%s", title1, title2);
@@ -178,6 +179,7 @@ void CleanParameters(parameters *config)
 	config->clkFreq = 0;
 	config->clkFreqCount = 0;
 	config->clkRatio = 0;
+	config->useExtraData = 1;
 }
 
 int commandline(int argc , char *argv[], parameters *config)
@@ -189,8 +191,8 @@ int commandline(int argc , char *argv[], parameters *config)
 	
 	CleanParameters(config);
 
-	// Available: GJKOQqUuX0123456789
-	while ((c = getopt (argc, argv, "Aa:Bb:Cc:Dd:Ee:Ff:gHhIijkLlMmNn:o:P:p:Rr:Ss:TtVvWw:xY:yZ:z")) != -1)
+	// Available: GJKOQqUu0123456789
+	while ((c = getopt (argc, argv, "Aa:Bb:Cc:Dd:Ee:Ff:gHhIijkLlMmNn:o:P:p:Rr:Ss:TtVvWw:XxY:yZ:z")) != -1)
 	switch (c)
 	  {
 	  case 'A':
@@ -375,6 +377,9 @@ int commandline(int argc , char *argv[], parameters *config)
 				return 0;
 				break;
 		}
+		break;
+	  case 'X':
+		config->useExtraData = 0;
 		break;
 	  case 'x':
 		config->extendedResults = 1;
