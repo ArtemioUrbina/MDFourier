@@ -53,6 +53,7 @@ void CMDFourierGUIDlg::DoDataExchange(CDataExchange* pDX)
 	DDX_Control(pDX, IDC_TIMESP, m_TimeSpectr);
 	DDX_Control(pDX, IDC_FULLRESTS, m_Fullres_Time_Spectrogram);
 	DDX_Control(pDX, IDCANCEL, m_close);
+	DDX_Control(pDX, IDC_USEALLDATA, m_ExtraData);
 }
 
 BEGIN_MESSAGE_MAP(CMDFourierGUIDlg, CDialogEx)
@@ -104,7 +105,7 @@ BOOL CMDFourierGUIDlg::OnInitDialog()
 	m_NoiseFloor.SetCheck(TRUE);
 	m_AveragePlot_Bttn.SetCheck(TRUE);
 	m_TimeSpectr.SetCheck(TRUE);
-	m_Fullres_Time_Spectrogram.EnableWindow(TRUE);
+	m_ExtraData.SetCheck(TRUE);
 
 	FillComboBoxes();
 
@@ -318,6 +319,9 @@ void CMDFourierGUIDlg::ExecuteCommand(CString Compare)
 		if(m_Fullres_Time_Spectrogram.GetCheck())
 			command += " -E";
 	}
+
+	if(m_ExtraData.GetCheck() != BST_CHECKED)
+		command += " -X";
 
 	if(m_EnableExtraBttn.GetCheck() == BST_CHECKED)
 		m_ExtraParamsEditBox.GetWindowText(extraCmd);
@@ -642,6 +646,7 @@ void CMDFourierGUIDlg::ManageWindows(BOOL Enable)
 	m_WindowTypeSelect.EnableWindow(Enable);
 	m_CurveAdjustSelect.EnableWindow(Enable);
 	m_AlignFFTW.EnableWindow(Enable);
+	m_ExtraData.EnableWindow(Enable);
 	
 	m_VerboseLog_Bttn.EnableWindow(Enable);
 	if(m_EnableExtraBttn.GetCheck() == BST_CHECKED)

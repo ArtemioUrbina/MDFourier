@@ -49,6 +49,7 @@ protected:
 	CButton m_OpenResultsBttn;
 	CButton m_ExecuteBttn;
 	CButton m_close;
+	CButton m_ExtraData;
 	CButton m_ReferenceFileBttn;
 	CButton m_ComparisonFileBttn;
 	CButton m_AlignFFTW;
