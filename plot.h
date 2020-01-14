@@ -168,4 +168,7 @@ void DrawFrequencyHorizontalGrid(PlotFile *plot, double hz, double hzIncrement, 
 void PlotTimeSpectrogram(AudioSignal *Signal, parameters *config);
 void PlotTimeSpectrogramUnMatchedContent(AudioSignal *Signal, parameters *config);
 
+void PlotTimeDomainGraphs(AudioSignal *Signal, parameters *config);
+void PlotBlockTimeDomainGraph(AudioSignal *Signal, int block, char *name, int window, parameters *config);
+
 #endif

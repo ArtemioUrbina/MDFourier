@@ -132,6 +132,7 @@ void CleanParameters(parameters *config)
 	config->syncTolerance = 0;
 	config->AmpBarRange = BAR_DIFF_DB_TOLERANCE;
 	config->FullTimeSpectroScale = 0;
+	config->normalizationRatio = 0;
 
 	config->logScale = 1;
 	config->reverseCompare = 0;
@@ -148,6 +149,7 @@ void CleanParameters(parameters *config)
 	config->plotSpectrogram = 1;
 	config->plotTimeSpectrogram = 0;
 	config->plotNoiseFloor = 1;
+	config->plotTimeDomain = 1;
 	config->averagePlot = 0;
 	config->weightedAveragePlot = 1;
 
@@ -180,6 +182,7 @@ void CleanParameters(parameters *config)
 	config->clkFreqCount = 0;
 	config->clkRatio = 0;
 	config->useExtraData = 1;
+	config->compressToBlocks = 0;
 }
 
 int commandline(int argc , char *argv[], parameters *config)

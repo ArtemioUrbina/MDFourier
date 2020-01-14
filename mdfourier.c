@@ -43,9 +43,12 @@ int LoadFile(FILE *file, AudioSignal *Signal, parameters *config, char *fileName
 int ProcessFile(AudioSignal *Signal, parameters *config);
 int ExecuteDFFT(AudioBlocks *AudioArray, int16_t *samples, size_t size, long samplerate, double *window, int AudioChannels, parameters *config);
 int CompareAudioBlocks(AudioSignal *ReferenceSignal, AudioSignal *ComparisonSignal, parameters *config);
+int CopySamplesForTimeDomainPlot(AudioBlocks *AudioArray, int16_t *samples, size_t size, long samplerate, double *window, int AudioChannels, parameters *config);
 void CleanUp(AudioSignal **ReferenceSignal, AudioSignal **ComparisonSignal, parameters *config);
 void CloseFiles(FILE **ref, FILE **comp);
 void NormalizeAudio(AudioSignal *Signal);
+void NormalizeTimeDomainByFrequencyRatio(AudioSignal *Signal, parameters *config);
+void NormalizeBlockByRatio(AudioBlocks *AudioArray, double ratio);
 
 // Time domain
 MaxVolum FindMaxAmplitude(AudioSignal *Signal);
@@ -450,6 +453,7 @@ int LoadAndProcessAudioFiles(AudioSignal **ReferenceSignal, AudioSignal **Compar
 	
 		ratioRef = ComparisonLocalMaximum/MaxRef.magnitude;
 		NormalizeMagnitudesByRatio(*ReferenceSignal, ratioRef, config);
+		config->normalizationRatio = 1/ratioRef;
 
 		RefAvg = FindFundamentalMagnitudeAverage(*ReferenceSignal, config);
 		CompAvg = FindFundamentalMagnitudeAverage(*ComparisonSignal, config);
@@ -472,6 +476,7 @@ int LoadAndProcessAudioFiles(AudioSignal **ReferenceSignal, AudioSignal **Compar
 			PrintFrequenciesWMagnitudes(*ReferenceSignal, config);
 			PrintFrequenciesWMagnitudes(*ComparisonSignal, config);
 		}
+		NormalizeTimeDomainByFrequencyRatio(*ComparisonSignal, config);
 	}
 
 	if(config->normType == average)
@@ -1114,6 +1119,71 @@ int ProcessInternal(AudioSignal *Signal, long int element, long int pos, int *sy
 	return 1;
 }
 
+int CopySamplesForTimeDomainPlot(AudioBlocks *AudioArray, int16_t *samples, size_t size, long samplerate, double *window, int AudioChannels, parameters *config)
+{
+	char			channel = 0;
+	long			stereoSignalSize = 0;	
+	long			i = 0, monoSignalSize = 0;
+	double			seconds = 0;
+	int16_t			*signal = NULL, *window_samples = NULL;
+	
+	if(!AudioArray)
+	{
+		logmsg("No Array for results\n");
+		return 0;
+	}
+
+	stereoSignalSize = (long)size;
+	monoSignalSize = stereoSignalSize/AudioChannels;	 /* 4 is 2 16 bit values */
+	seconds = (double)size/((double)samplerate*AudioChannels);
+
+	signal = (int16_t*)malloc(sizeof(int16_t)*(monoSignalSize+1));
+	if(!signal)
+	{
+		logmsg("Not enough memory\n");
+		return(0);
+	}
+	memset(signal, 0, sizeof(int16_t)*(monoSignalSize+1));
+
+	if(window)
+	{
+		window_samples = (int16_t*)malloc(sizeof(int16_t)*(monoSignalSize+1));
+		if(!window_samples)
+		{
+			logmsg("Not enough memory\n");
+			return(0);
+		}
+		memset(window_samples, 0, sizeof(int16_t)*(monoSignalSize+1));
+	}
+
+	if(AudioChannels == 1)
+		channel = 'l';
+	else
+		channel = config->channel;
+
+	for(i = 0; i < monoSignalSize; i++)
+	{
+		if(channel == 'l')
+			signal[i] = (double)samples[i*AudioChannels];
+		if(channel == 'r')
+			signal[i] = (double)samples[i*2+1];
+		if(channel == 's')
+			signal[i] = (double)((double)samples[i*2]+(double)samples[i*2+1])/2.0;
+
+		if(window)
+			window_samples[i] = (double)((double)signal[i]*window[i]);
+	}
+
+	AudioArray->audio.samples = signal;
+	AudioArray->audio.size = monoSignalSize;
+	AudioArray->audio.seconds = seconds;
+
+	if(window)
+		AudioArray->audio.window_samples = window_samples;
+
+	return(1);
+}
+
 int ProcessFile(AudioSignal *Signal, parameters *config)
 {
 	long int		pos = 0;
@@ -1171,6 +1241,7 @@ int ProcessFile(AudioSignal *Signal, parameters *config)
 		difference = GetByteSizeDifferenceByFrameRate(framerate, frames, Signal->header.fmt.SamplesPerSec, Signal->AudioChannels, config);
 
 		// config->smallerFramerate
+		windowUsed = NULL;
 		if(Signal->Blocks[i].type >= TYPE_SILENCE) // We get the smaller window, since we'll truncate
 		{
 			if(!syncinternal)
@@ -1191,6 +1262,12 @@ int ProcessFile(AudioSignal *Signal, parameters *config)
 			break;
 		}
 		memcpy(buffer, Signal->Samples + pos, loadedBlockSize-difference);
+
+		if(Signal->Blocks[i].type == TYPE_TIMEDOMAIN)
+		{
+			if(!CopySamplesForTimeDomainPlot(&Signal->Blocks[i], (int16_t*)buffer, (loadedBlockSize-difference)/2, Signal->header.fmt.SamplesPerSec, windowUsed, Signal->AudioChannels, config))
+				return 0;
+		}
 
 		if(Signal->Blocks[i].type >= TYPE_SILENCE)
 		{
@@ -1238,7 +1315,7 @@ int ProcessFile(AudioSignal *Signal, parameters *config)
 		logmsg(" - clk: Processing took %0.2fs\n", elapsedSeconds);
 	}
 
-	if(config->drawWindows)
+	if(0 && config->drawWindows)
 	{
 		VisualizeWindows(&windows, config);
 		PlotBetaFunctions(config);
@@ -1340,12 +1417,12 @@ int ExecuteDFFT(AudioBlocks *AudioArray, int16_t *samples, size_t size, long sam
 	fftw_destroy_plan(p);
 	p = NULL;
 
-	free(signal);
-	signal = NULL;
-
 	AudioArray->fftwValues.spectrum = spectrum;
 	AudioArray->fftwValues.size = monoSignalSize;
 	AudioArray->fftwValues.seconds = seconds;
+
+	free(signal);
+	signal = NULL;
 
 	return(1);
 }
@@ -1587,6 +1664,50 @@ void NormalizeAudioByRatio(AudioSignal *Signal, double ratio)
 	// improvement suggested by plgDavid
 	for(i = start; i < end; i++)
 		samples[i] = (int16_t)((((double)samples[i])*ratio)+0.5);
+}
+
+// This is used to Normalize in the time domain, after findig the
+// frequency domain ratio
+
+void NormalizeTimeDomainByFrequencyRatio(AudioSignal *Signal, parameters *config)
+{
+	int i = 0;
+
+	if(config->normalizationRatio == 0)
+		return;
+	if(config->normType != max_frequency)
+		return;
+
+	for(i = 0; i < config->types.totalChunks; i++)
+	{
+		if(Signal->Blocks[i].audio.samples)
+			NormalizeBlockByRatio(&Signal->Blocks[i], config->normalizationRatio);
+	}
+}
+
+void NormalizeBlockByRatio(AudioBlocks *AudioArray, double ratio)
+{
+	long int 	i = 0;
+	int16_t		*samples = NULL;
+
+	if(!AudioArray)
+		return;
+	if(!ratio)
+		return;
+
+	samples = AudioArray->audio.samples;
+	if(!samples)
+		return;
+
+	// improvement suggested by plgDavid
+	for(i = 0; i < AudioArray->audio.size; i++)
+		samples[i] = (double)((((double)samples[i])*ratio)+0.5);
+
+	samples = AudioArray->audio.window_samples;
+	if(!samples)
+		return;
+	for(i = 0; i < AudioArray->audio.size; i++)
+		samples[i] = (double)((((double)samples[i])*ratio)+0.5);
 }
 
 // Find the Maximum Amplitude in the Audio File

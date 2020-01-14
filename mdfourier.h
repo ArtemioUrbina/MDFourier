@@ -49,7 +49,7 @@
 
 #include "incbeta.h"
 
-#define MDVERSION "0.975"
+#define MDVERSION "0.977"
 
 #define MAX_FREQ_COUNT		40000 	/* Number of frequencies to compare(MAX) */
 #define FREQ_COUNT			2000	/* Number of frequencies to compare(default) */
@@ -249,11 +249,19 @@ typedef struct fftw_spectrum_st {
 	double			seconds;
 } FFTWSpectrum;
 
+typedef struct samples_st {
+	int16_t			*samples;
+	int16_t			*window_samples;
+	long int		size;
+	double			seconds;
+} BlockSamples;
+
 typedef struct AudioBlock_st {
 	Frequency		*freq;
 	FFTWSpectrum	fftwValues;
 	int				index;
 	int				type;
+	BlockSamples	audio;
 } AudioBlocks;
 
 typedef struct AudioSt {
@@ -394,6 +402,7 @@ typedef struct parameters_st {
 	int				plotSpectrogram;
 	int				plotTimeSpectrogram;
 	int				plotNoiseFloor;
+	int				plotTimeDomain;
 	int				averagePlot;
 	int				weightedAveragePlot;
 	int				drawWindows;
@@ -405,6 +414,7 @@ typedef struct parameters_st {
 	int				syncTolerance;
 	double			AmpBarRange;
 	int				FullTimeSpectroScale;
+	double			normalizationRatio;
 
 	double 			plotResX;
 	double			plotResY;
@@ -420,6 +430,7 @@ typedef struct parameters_st {
 	int				videoFormatCom;
 	int				nyquistLimit;
 	int				useExtraData;
+	int				compressToBlocks;
 
 // Values only used for clock frequency
 	char		clkName[20];
@@ -438,7 +449,6 @@ typedef struct parameters_st {
 	int				invert;
 	int				chunks;
 	int				useCompProfile;
-	int				compressToBlocks;
 	int				executefft;
 #endif
 

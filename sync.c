@@ -104,7 +104,7 @@ long int DetectEndPulse(char *AllSamples, long int startpulse, wav_hdr header, i
 	OutputFileOnlyStart();
 
 	// Try a clean detection
-	offset = GetSecondSilenceByteOffset(GetMSPerFrameRole(role, config), header, 0, 1, config) + startpulse;
+	offset = GetSecondSyncSilenceByteOffset(GetMSPerFrameRole(role, config), header, 0, 1, config) + startpulse;
 	if(config->debugSync)
 		logmsg("\nStarting CLEAN Detect end pulse with offset %ld\n", offset);
 	AudioChannels = header.fmt.NumOfChan;
@@ -122,7 +122,7 @@ long int DetectEndPulse(char *AllSamples, long int startpulse, wav_hdr header, i
 	do
 	{
 		// Use defaults to calculate real frame rate
-		offset = GetSecondSilenceByteOffset(GetMSPerFrameRole(role, config), header, frameAdjust, silenceOffset[tries], config) + startpulse;
+		offset = GetSecondSyncSilenceByteOffset(GetMSPerFrameRole(role, config), header, frameAdjust, silenceOffset[tries], config) + startpulse;
 	
 		if(config->debugSync)
 			logmsg("\nStarting Detect end pulse with offset %ld [%g silence]\n\tMaxDetected %d frameAdjust: %d\n",

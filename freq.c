@@ -201,6 +201,11 @@ void CleanAudio(AudioSignal *Signal, parameters *config)
 		Signal->Blocks[n].fftwValues.spectrum = NULL;
 		Signal->Blocks[n].fftwValues.size = 0;
 		Signal->Blocks[n].fftwValues.seconds = 0;
+
+		Signal->Blocks[n].audio.samples = NULL;
+		Signal->Blocks[n].audio.window_samples = NULL;
+		Signal->Blocks[n].audio.size = 0;
+		Signal->Blocks[n].audio.seconds = 0;
 	}
 	Signal->SourceFile[0] = '\0';
 	Signal->AudioChannels = INVALID_CHANNELS;
@@ -251,9 +256,21 @@ void ReleaseAudio(AudioSignal *Signal, parameters *config)
 			fftw_free(Signal->Blocks[n].fftwValues.spectrum);
 			Signal->Blocks[n].fftwValues.spectrum = NULL;
 		}
-		Signal->Blocks[n].fftwValues.spectrum = NULL;
 		Signal->Blocks[n].fftwValues.size = 0;
 		Signal->Blocks[n].fftwValues.seconds = 0;
+
+		if(Signal->Blocks[n].audio.samples)
+		{
+			free(Signal->Blocks[n].audio.samples);
+			Signal->Blocks[n].audio.samples = NULL;
+		}
+		if(Signal->Blocks[n].audio.window_samples)
+		{
+			free(Signal->Blocks[n].audio.window_samples);
+			Signal->Blocks[n].audio.window_samples = NULL;
+		}
+		Signal->Blocks[n].audio.size = 0;
+		Signal->Blocks[n].audio.seconds = 0;
 	}
 
 	free(Signal->Blocks);
@@ -357,7 +374,26 @@ int LoadProfile(parameters *config)
 
 	logmsg("ERROR: Not an MD Fourier Audio Profile File\n");
 	fclose(file);
+
 	return 0;
+}
+
+void FlattenProfile(parameters *config)
+{
+	if(!config)
+		return;
+
+	for(int i = 0; i < config->types.typeCount; i++)
+	{
+		int total = 0;
+
+		total = config->types.typeArray[i].elementCount * config->types.typeArray[i].frames;
+		config->types.typeArray[i].elementCount = 1;
+		config->types.typeArray[i].frames = total;
+	}
+	config->types.regularChunks = GetActiveAudioBlocks(config);
+	config->types.totalChunks = GetTotalAudioBlocks(config);
+	logmsg("Audio Blocks flattened\n");
 }
 
 int LoadAudioBlockStructure(FILE *file, parameters *config)
@@ -603,7 +639,11 @@ int LoadAudioBlockStructure(FILE *file, parameters *config)
 
 	fclose(file);
 	
-	//PrintAudioBlocks(config);
+	if(config->compressToBlocks)
+		FlattenProfile(config);
+
+	if(config->verbose)
+		PrintAudioBlocks(config);
 	return 1;
 }
 
@@ -758,17 +798,23 @@ int LoadAudioNoSyncProfile(FILE *file, parameters *config)
 	config->significantAmplitude = NS_SIGNIFICANT_VOLUME;
 	fclose(file);
 	
-	//PrintAudioBlocks(config);
+	if(config->compressToBlocks)
+		FlattenProfile(config);
+
+	if(config->verbose)
+		PrintAudioBlocks(config);
 	return 1;
 }
 
 void PrintAudioBlocks(parameters *config)
 {
+	long int frames = 0;
 	double TotalSeconds = 0;
 
 	if(!config)
 		return;
 
+	OutputFileOnlyStart();
 	for(int i = 0; i < config->types.typeCount; i++)
 	{
 		char	type[5], t;
@@ -785,7 +831,8 @@ void PrintAudioBlocks(parameters *config)
 		seconds *= config->types.typeArray[i].elementCount;
 		TotalSeconds += seconds;
 
-		logmsg("%s %s %d %d %s %c %s | Seconds: %g [%g to %g]\n", 
+		logmsg("%s%s %s %d %d %s %c %s | Frames: %ld | Seconds: %g [%g to %g]\n", 
+			config->types.typeArray[i].type == TYPE_SKIP ? "     " : "",
 			config->types.typeArray[i].typeName,
 			type,
 			config->types.typeArray[i].elementCount,
@@ -793,10 +840,14 @@ void PrintAudioBlocks(parameters *config)
 			config->types.typeArray[i].color,
 			config->types.typeArray[i].channel,
 			config->types.typeArray[i].IsaddOnData ? "(r)" : "",
+			config->types.typeArray[i].elementCount*config->types.typeArray[i].frames,
 			seconds, 
 			StartSeconds,
 			TotalSeconds);
+		frames += config->types.typeArray[i].elementCount*config->types.typeArray[i].frames;
 	}
+	logmsg("Total frames: %ld\n", frames);
+	OutputFileOnlyEnd();
 }
 
 double GetMSPerFrame(AudioSignal *Signal, parameters *config)
@@ -1044,6 +1095,41 @@ long int GetSecondSilenceByteOffset(double framerate, wav_hdr header, int frameA
 	{
 		if(config->types.typeArray[i].type == TYPE_SILENCE)
 			silence_count ++;
+		if(silence_count == 2)
+		{
+			double offset = 0, length = 0;
+
+			offset = FramesToSeconds(GetBlockFrameOffset(i, config) - frameAdjust, framerate);
+			offset = SecondsToBytes(header.fmt.SamplesPerSec, offset, header.fmt.NumOfChan, NULL, NULL, NULL);
+
+			length = FramesToSeconds(config->types.typeArray[i].frames*silenceOffset, framerate);
+			length = SecondsToBytes(header.fmt.SamplesPerSec, length, header.fmt.NumOfChan, NULL, NULL, NULL);
+			offset += length;
+			return(offset);
+		}
+	}
+	return 0;
+}
+
+long int GetSecondSyncSilenceByteOffset(double framerate, wav_hdr header, int frameAdjust, double silenceOffset, parameters *config)
+{
+	int silence_count = 0, i = 0;
+
+	if(!config)
+		return NO_INDEX;
+
+	for(i = 0; i < config->types.typeCount; i++)
+	{
+		if(config->types.typeArray[i].type == TYPE_SILENCE)
+		{
+			if(!silence_count && i > 0 && config->types.typeArray[i-1].type == TYPE_SYNC)
+				silence_count ++;
+			else
+			{
+				if(i + 1 < config->types.typeCount && config->types.typeArray[i+1].type == TYPE_SYNC)
+					silence_count ++;
+			}
+		}
 		if(silence_count == 2)
 		{
 			double offset = 0, length = 0;

@@ -69,9 +69,6 @@ int main(int argc , char *argv[])
 	if(!LoadProfile(&config))
 		return 1;
 
-	if(config.compressToBlocks)
-		FlattenProfile(&config);
-
 	if(ExecuteMDWave(&config, 0) == 1)
 		return 1;
 
@@ -79,9 +76,6 @@ int main(int argc , char *argv[])
 	{
 		if(!LoadProfile(&config))
 			return 1;
-
-		if(config.compressToBlocks)
-			FlattenProfile(&config);
 
 		if(ExecuteMDWave(&config, 1) == 1)
 			return 1;
@@ -794,6 +788,7 @@ int ProcessFile(AudioSignal *Signal, parameters *config)
 
 		difference = GetByteSizeDifferenceByFrameRate(framerate, frames, Signal->header.fmt.SamplesPerSec, Signal->AudioChannels, config);
 
+		windowUsed = NULL;
 		if(Signal->Blocks[i].type >= TYPE_SILENCE)
 			windowUsed = getWindowByLength(&windows, frames, Signal->framerate);
 
@@ -1109,7 +1104,7 @@ int ProcessSamples(AudioBlocks *AudioArray, int16_t *samples, size_t size, long 
 		}
 
 		if(window)
-			signal[i] *= window[i];
+			signal[i] = (int16_t)((double)signal[i]*window[i]);
 	}
 
 	fftw_execute(p); 
@@ -1236,18 +1231,14 @@ int commandline_wave(int argc , char *argv[], parameters *config)
 	config->invert = 0;
 	config->chunks = 0;
 	config->useCompProfile = 0;
-	config->compressToBlocks = 0;
 	config->executefft = 1;
 
-	while ((c = getopt (argc, argv, "bnhvzcklyCBis:e:f:t:p:a:w:r:P:IY:")) != -1)
+	while ((c = getopt (argc, argv, "qnhvzcklyCBis:e:f:t:p:a:w:r:P:IY:")) != -1)
 	switch (c)
 	  {
 	  case 'h':
 		PrintUsage_wave();
 		return 0;
-		break;
-	  case 'b':
-		config->compressToBlocks = 1;
 		break;
 	  case 'n':
 		config->executefft = 0;
@@ -1293,6 +1284,9 @@ int commandline_wave(int argc , char *argv[], parameters *config)
 		if(config->significantAmplitude <= -120.0 || config->significantAmplitude >= -1.0)
 			config->significantAmplitude = SIGNIFICANT_VOLUME;
 		config->origSignificantAmplitude = config->significantAmplitude;
+		break;
+	  case 'q':
+		config->compressToBlocks = 1;
 		break;
 	  case 'Y':
 		config->videoFormatRef = atof(optarg);
@@ -1473,23 +1467,4 @@ void Header_wave(int log)
 		logmsg("%s%s", title1, title2);
 	else
 		printf("%s%s", title1, title2);
-}
-
-
-void FlattenProfile(parameters *config)
-{
-	if(!config)
-		return;
-
-	for(int i = 0; i < config->types.typeCount; i++)
-	{
-		int total = 0;
-
-		total = config->types.typeArray[i].elementCount * config->types.typeArray[i].frames;
-		config->types.typeArray[i].elementCount = 1;
-		config->types.typeArray[i].frames = total;
-	}
-	config->types.regularChunks = GetActiveAudioBlocks(config);
-	config->types.totalChunks = GetTotalAudioBlocks(config);
-	//PrintAudioBlocks(config);
 }

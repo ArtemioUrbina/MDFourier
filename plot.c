@@ -66,6 +66,8 @@
 #define NOISE_AVG_TITLE				"NOISE FLOOR AVERAGED"
 #define SPECTROGRAM_NOISE_REF		"REFERENCE NOISE FLOOR - SPECTROGRAM [%s]"
 #define SPECTROGRAM_NOISE_COM		"COMPARISON NOISE FLOOR - SPECTROGRAM [%s]"
+#define WAVEFORM_TITLE_REF			"REFERENCE - WAVEFORM[%s]"
+#define WAVEFORM_TITLE_COM			"COMPARISON - WAVEFORM [%s]"
 
 #define BAR_HEADER					"Matched frequencies"
 #define BAR_DIFF					"w/any amplitude difference"
@@ -267,6 +269,30 @@ void PlotResults(AudioSignal *ReferenceSignal, AudioSignal *ComparisonSignal, pa
 		}
 		else
 			logmsg(" X Noise floor plots make no sense with current parameters.\n");
+	}
+
+	if(config->plotTimeDomain)
+	{
+		struct	timespec	lstart, lend;
+
+		if(config->clock)
+			clock_gettime(CLOCK_MONOTONIC, &lstart);
+
+		logmsg(" - Time Domain Graphs");
+		PlotTimeDomainGraphs(ReferenceSignal, config);
+		
+		PlotTimeDomainGraphs(ComparisonSignal, config);
+		
+		logmsg("\n");
+
+
+		if(config->clock)
+		{
+			double	elapsedSeconds;
+			clock_gettime(CLOCK_MONOTONIC, &lend);
+			elapsedSeconds = TimeSpecToSeconds(&lend) - TimeSpecToSeconds(&lstart);
+			logmsg(" - clk: Time Spectrogram took %0.2fs\n", elapsedSeconds);
+		}
 	}
 
 	ReturnToMainPath(&CurrentPath);
@@ -1693,8 +1719,8 @@ void VisualizeWindows(windowManager *wm, parameters *config)
 
 	for(int i = 0; i < wm->windowCount; i++)
 	{
-		logmsg("Factor len %ld: %g\n", wm->windowArray[i].frames,
-			CalculateCorrectionFactor(wm, wm->windowArray[i].frames));
+		//logmsg("Factor len %ld: %g\n", wm->windowArray[i].frames,
+			//CalculateCorrectionFactor(wm, wm->windowArray[i].frames));
 
 		//for(long int j = 0; j < wm->windowArray[i].size; j++)
 			//logmsg("Window %ld %g\n", j, wm->windowArray[i].window[j]);
@@ -2986,6 +3012,81 @@ void PlotTimeSpectrogramUnMatchedContent(AudioSignal *Signal, parameters *config
 
 	DrawColorAllTypeScale(&plot, MODE_SPEC, config->plotResX/100, config->plotResY/15, config->plotResX/COLOR_BARS_WIDTH_SCALE, config->plotResY/1.15, significant, VERT_SCALE_STEP_BAR, config);
 	DrawLabelsMDF(&plot, Signal->role == ROLE_REF ? EXTRA_TITLE_TS_REF : EXTRA_TITLE_TS_COM, ALL_LABEL, PLOT_COMPARE, config);
+
+	ClosePlot(&plot);
+}
+
+
+void PlotTimeDomainGraphs(AudioSignal *Signal, parameters *config)
+{
+	int 		i = 0;
+	char		name[BUFFER_SIZE*2];
+
+	for(i = 0; i < config->types.totalChunks; i++)
+	{
+		if(Signal->Blocks[i].type == TYPE_TIMEDOMAIN)
+		{
+			sprintf(name, "TD_%05d_%s_%s_%05d%s_", i, Signal->role == ROLE_REF ? "1" : "2",
+				GetBlockName(config, i), GetBlockSubIndex(config, i), config->compareName);
+		
+			PlotBlockTimeDomainGraph(Signal, i, name, 0, config);
+			logmsg(PLOT_ADVANCE_CHAR);
+			if(Signal->Blocks[i].audio.window_samples)
+			{
+				sprintf(name, "TD_%05d_%s_%s_%05d%s_", i, Signal->role == ROLE_REF ? "3" : "4",
+					GetBlockName(config, i), GetBlockSubIndex(config, i), config->compareName);
+				PlotBlockTimeDomainGraph(Signal, i, name, 1, config);
+				logmsg(PLOT_ADVANCE_CHAR);
+			}
+		}
+	}
+}
+
+void PlotBlockTimeDomainGraph(AudioSignal *Signal, int block, char *name, int window, parameters *config)
+{
+	char		title[1024];
+	PlotFile	plot;
+	long int	color = 0, sample = 0, numSamples = 0;
+	int16_t		*samples = NULL;
+
+	if(!Signal || !config)
+		return;
+
+	if(block > config->types.totalChunks)
+		return;
+
+	if(!window)
+		samples = Signal->Blocks[block].audio.samples;
+	else
+		samples = Signal->Blocks[block].audio.window_samples;
+
+	if(Signal->Blocks[block].type == TYPE_SKIP)
+		color = 1;
+
+	if(!samples)
+		return;
+
+	numSamples = Signal->Blocks[block].audio.size;
+	FillPlot(&plot, name, config->plotResX, config->plotResY, 
+				0, -32768, numSamples, 32767, 1, config);
+
+	if(!CreatePlotFile(&plot, config))
+		return;
+
+	//DrawFrequencyHorizontalGrid(&plot, config->endHzPlot, 1000, config);
+	color = MatchColor(GetBlockColor(config, block));
+	SetPenColor(color, 0x6666, &plot);
+	pl_fline_r(plot.plotter, 0, 0, numSamples, 0);
+	pl_endpath_r(plot.plotter);
+
+	SetPenColor(color, 0xffff, &plot);
+	for(sample = 1; sample < numSamples; sample ++)
+		pl_fline_r(plot.plotter, sample-1, samples[sample-1], sample, samples[sample]);
+	pl_endpath_r(plot.plotter);
+
+	sprintf(title, "%s# %d%s", GetBlockName(config, block), GetBlockSubIndex(config, block),
+			window ? " Windowed" : "");
+	DrawLabelsMDF(&plot, Signal->role == ROLE_REF ? WAVEFORM_TITLE_REF : WAVEFORM_TITLE_COM, title, Signal->role == ROLE_REF ? PLOT_SINGLE_REF : PLOT_SINGLE_COM, config);
 
 	ClosePlot(&plot);
 }
