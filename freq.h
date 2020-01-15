@@ -82,7 +82,7 @@ AudioSignal *CreateAudioSignal(parameters *config);
 void CleanAudio(AudioSignal *Signal, parameters *config);
 void ReleaseAudio(AudioSignal *Signal, parameters *config);
 void CleanMatched(AudioSignal *ReferenceSignal, AudioSignal *TestSignal, parameters *config);
-void FillFrequencyStructures(AudioSignal *Signal, AudioBlocks *AudioArray, parameters *config);
+int FillFrequencyStructures(AudioSignal *Signal, AudioBlocks *AudioArray, parameters *config);
 void PrintFrequencies(AudioSignal *Signal, parameters *config);
 void PrintFrequenciesWMagnitudes(AudioSignal *Signal, parameters *config);
 void PrintFrequenciesBlock(AudioSignal *Signal, Frequency *freq, int type, parameters *config);

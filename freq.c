@@ -32,6 +32,12 @@
 #include "cline.h"
 #include "plot.h"
 
+#define SORT_NAME FFT_Frequency
+#define SORT_TYPE Frequency
+#define SORT_CMP(x, y)  ((x).magnitude > (y).magnitude ? -1 : ((x).magnitude == (y).magnitude ? 0 : 1))
+#include "sort.h"  // https://github.com/swenson/sort/
+
+
 double FindFrequencyBinSizeForBlock(AudioSignal *Signal, long int block)
 {
 	if(!Signal)
@@ -2031,47 +2037,12 @@ inline double CalculateFrequency(double boxindex, double boxsize, int HertzAlign
 	return Hertz;
 }
 
-int InsertFrequencySorted(AudioBlocks *AudioArray, Frequency element, long int currentsize)
-{
-	if(!AudioArray || !AudioArray->freq)
-		return 0;
-
-	if(!currentsize)
-	{
-		AudioArray->freq[0] = element;
-		return 1;
-	}
-
-	// worst case scenario
-	if(AudioArray->freq[currentsize-1].magnitude >= element.magnitude)
-	{
-		AudioArray->freq[currentsize] = element;
-		return 1;
-	}
-
-	for(long int j = 0; j < currentsize; j++)
-	{
-		if(element.magnitude > AudioArray->freq[j].magnitude)
-		{
-			// Move the previous values down the array 
-			for(int k = currentsize; k > j; k--)
-				AudioArray->freq[k] = AudioArray->freq[k - 1];
-	
-			AudioArray->freq[j] = element;
-			return 1;
-		}
-	}
-
- 	logmsg("\nWARNING InsertFrequencySorted No match found! (size: %ld freq: %g mag: %g)\n\n", 
-			currentsize, element.hertz, element.magnitude);
-	return 0;
-}
-
-void FillFrequencyStructures(AudioSignal *Signal, AudioBlocks *AudioArray, parameters *config)
+int FillFrequencyStructures(AudioSignal *Signal, AudioBlocks *AudioArray, parameters *config)
 {
 	long int 	i = 0, startBin= 0, endBin = 0, count = 0, size = 0;
 	double 		boxsize = 0;
 	int			nyquistLimit = 0;
+	Frequency	*f_array;
 
 	size = AudioArray->fftwValues.size;
 	// Round to 3 decimal places so that 48kHz and 44 kHz line up
@@ -2092,6 +2063,13 @@ void FillFrequencyStructures(AudioSignal *Signal, AudioBlocks *AudioArray, param
 	logmsgFileOnly("Size: %ld BoxSize: %g StartBin: %ld EndBin %ld\n",
 		 size, boxsize, startBin, endBin);
 	*/
+	f_array = (Frequency*)malloc(sizeof(Frequency)*(endBin-startBin));
+	if(!f_array)
+	{
+		logmsg("ERROR: Not enough memory (f_array)\n");
+		return 0;
+	}	
+
 	for(i = startBin; i < endBin; i++)
 	{
 		double		Hertz;
@@ -2107,13 +2085,22 @@ void FillFrequencyStructures(AudioSignal *Signal, AudioBlocks *AudioArray, param
 			element.amplitude = NO_AMPLITUDE;
 			element.phase = CalculatePhase(AudioArray->fftwValues.spectrum[i]);
 
-			if(InsertFrequencySorted(AudioArray, element, count))
-			{
-				if(count < config->MaxFreq - 1)
-					count++;
-			}
+			f_array[count++] = element;
 		}
 	}
+
+	FFT_Frequency_tim_sort(f_array, count);
+
+	i = 0;
+	while(i < count && i < config->MaxFreq)
+	{
+		AudioArray->freq[i] = f_array[i];
+		i++;
+	}
+
+	free(f_array);
+	f_array = NULL;
+	return 1;
 }
 
 void PrintComparedBlocks(AudioBlocks *ReferenceArray, AudioBlocks *ComparedArray, parameters *config, AudioSignal *Signal)

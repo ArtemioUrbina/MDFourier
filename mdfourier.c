@@ -1036,9 +1036,6 @@ int ProcessInternal(AudioSignal *Signal, long int element, long int pos, int *sy
 		long int	internalSyncOffset = 0,
 					endPulse = 0, pulseLength = 0, syncLength = 0;
 
-		if(config->FullTimeSpectroScale)
-			logmsg("\n");
-
 		*syncinternal = 1;
 		syncTone = GetInternalSyncTone(element, config);
 		syncLen = GetInternalSyncLen(element, config);
@@ -1282,7 +1279,8 @@ int ProcessFile(AudioSignal *Signal, parameters *config)
 			if(!ExecuteDFFT(&Signal->Blocks[i], (int16_t*)buffer, (loadedBlockSize-difference)/2, Signal->header.fmt.SamplesPerSec, windowUsed, Signal->AudioChannels, config))
 				return 0;
 
-			FillFrequencyStructures(Signal, &Signal->Blocks[i], config);
+			if(!FillFrequencyStructures(Signal, &Signal->Blocks[i], config))
+				return 0;
 		}
 
 		// MDWAVE exists for this, but just in case it is ever needed within MDFourier
@@ -1310,18 +1308,7 @@ int ProcessFile(AudioSignal *Signal, parameters *config)
 		}
 
 		i++;
-		if(config->FullTimeSpectroScale)
-		{
-			if(i == 1)
-				logmsg("  Processing %ld ticks\n  ", config->types.totalChunks);
-			logmsg(PLOT_ADVANCE_CHAR);
-			if(i % 80 == 0)
-				logmsg("\n  ");
-		}
 	}
-
-	if(config->FullTimeSpectroScale)
-		logmsg("\n  ");
 
 	if(config->normType != max_frequency)
 		FindMaxMagnitude(Signal, config);

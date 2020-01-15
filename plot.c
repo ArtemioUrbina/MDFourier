@@ -1697,11 +1697,6 @@ void PlotNoiseSpectrogram(FlatFrequency *freqs, long int size, int type, char *f
 			SetPenColor(freqs[f].color, intensity, &plot);
 			pl_fline_r(plot.plotter, x, y, x, endAmplitude);
 			pl_endpath_r(plot.plotter);
-
-			/*
-			logmsgFileOnly("Plot: %g %g %ld (%g,%g,%g,%g)\n", freqs[f].hertz, y, intensity,
-					x, y, x, endAmplitude);
-			*/
 		}
 	}
 	
@@ -3040,10 +3035,14 @@ void PlotTimeDomainGraphs(AudioSignal *Signal, parameters *config)
 	long int	plots = 0, i = 0;
 	char		name[BUFFER_SIZE*2];
 
+	if(!CreateTDFolder(config))
+	{
+		logmsg("Couldn't create Time Domain sub folder\n");
+		return;
+	}
+
 	if(config->plotAllNotes)
 	{
-		if(!CreateTDFolder(config))
-			logmsg("Couldn't create folder\n");
 		for(i = 0; i < config->types.totalChunks; i++)
 		{
 			if(config->plotAllNotes || Signal->Blocks[i].type == TYPE_TIMEDOMAIN)
@@ -3060,21 +3059,25 @@ void PlotTimeDomainGraphs(AudioSignal *Signal, parameters *config)
 	{
 		if(config->plotAllNotes || Signal->Blocks[i].type == TYPE_TIMEDOMAIN)
 		{
-			sprintf(name, "%sTD_%05ld_%s_%s_%05d%s_", config->plotAllNotes ? "TDPlots\\" : "",
+			sprintf(name, "TDPlots\\TD_%05ld_%s_%s_%05d%s_", 
 				i, Signal->role == ROLE_REF ? "1" : "2",
 				GetBlockName(config, i), GetBlockSubIndex(config, i), config->compareName);
 		
 			PlotBlockTimeDomainGraph(Signal, i, name, 0, config);
+
 			logmsg(PLOT_ADVANCE_CHAR);
 			plots++;
 			if(plots % 80 == 0)
 				logmsg("\n  ");
+
 			if(config->plotAllNotesWindowed && Signal->Blocks[i].audio.window_samples)
 			{
-				sprintf(name, "%sTD_%05ld_%s_%s_%05d%s_", config->plotAllNotes ? "TDPlots\\" : "",
+				sprintf(name, "TDPlots\\TD_%05ld_%s_%s_%05d%s_", 
 					i, Signal->role == ROLE_REF ? "3" : "4",
 					GetBlockName(config, i), GetBlockSubIndex(config, i), config->compareName);
+
 				PlotBlockTimeDomainGraph(Signal, i, name, 1, config);
+
 				logmsg(PLOT_ADVANCE_CHAR);
 				plots++;
 				if(plots % 80 == 0)

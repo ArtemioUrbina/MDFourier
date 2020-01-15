@@ -1117,7 +1117,8 @@ int ProcessSamples(AudioBlocks *AudioArray, int16_t *samples, size_t size, long 
 		AudioArray->fftwValues.size = monoSignalSize;
 		AudioArray->fftwValues.seconds = seconds;
 
-		FillFrequencyStructures(NULL, AudioArray, config);
+		if(!FillFrequencyStructures(NULL, AudioArray, config))
+			return 0;
 	}
 
 	if(reverse)
