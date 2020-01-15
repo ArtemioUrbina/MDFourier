@@ -8,10 +8,11 @@
 
 #define	IDT_DOS	1000
 
-#define	COUNT_CURVES	6
-#define COUNT_WINDOWS	5
-#define	COUNT_PROFILES	255
-#define COUNT_SYNCTYPE	2
+#define	COUNT_CURVES		6
+#define COUNT_WINDOWS		5
+#define	COUNT_PROFILES		255
+#define COUNT_SYNCTYPE		2
+#define COUNT_RESOLUTION	4
 
 typedef struct commandline_st {
 	CString	Name;
@@ -64,8 +65,10 @@ protected:
 	CButton m_Swap_Bttn;
 	CButton m_TimeSpectr;
 	CButton m_Fullres_Time_Spectrogram;
+	CButton m_TimeDomain;
 	CComboBox m_RefSync;
 	CComboBox m_ComSync;
+	CComboBox m_Resolution;
 
 	CComboBox m_WindowTypeSelect;
 	CComboBox m_CurveAdjustSelect;
@@ -77,12 +80,14 @@ protected:
 	CommandLineArray CurveConvert[COUNT_CURVES];
 	CommandLineArray Profiles[COUNT_PROFILES];
 	CommandLineArray SyncType[COUNT_SYNCTYPE];
+	CommandLineArray Resolutions[COUNT_RESOLUTION];
 
 	CString listName;
 	CString	*elements;
 	int		elementCount;
 	int		elementPos;
 	bool	mdwave;
+	bool	killingDOS;
 
 	void FillComboBoxes();
 	int CheckDependencies();
@@ -117,4 +122,5 @@ public:
 	afx_msg void OnBnClickedSwap();
 	afx_msg void OnBnClickedTimesp();
 	afx_msg void OnCbnDropdownProfile();
+	afx_msg void OnBnClickedPlotTd();
 };

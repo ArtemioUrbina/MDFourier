@@ -54,6 +54,8 @@ void CMDFourierGUIDlg::DoDataExchange(CDataExchange* pDX)
 	DDX_Control(pDX, IDC_FULLRESTS, m_Fullres_Time_Spectrogram);
 	DDX_Control(pDX, IDCANCEL, m_close);
 	DDX_Control(pDX, IDC_USEALLDATA, m_ExtraData);
+	DDX_Control(pDX, IDC_RESOLUTION, m_Resolution);
+	DDX_Control(pDX, IDC_PLOT_TD, m_TimeDomain);
 }
 
 BEGIN_MESSAGE_MAP(CMDFourierGUIDlg, CDialogEx)
@@ -77,6 +79,7 @@ BEGIN_MESSAGE_MAP(CMDFourierGUIDlg, CDialogEx)
 	ON_BN_CLICKED(IDC_TIMESP, &CMDFourierGUIDlg::OnBnClickedTimesp)
 	ON_MESSAGE(WM_DROPFILES, OnDropFiles)// Message Handler for Drang and Drop
 	ON_CBN_DROPDOWN(IDC_PROFILE, &CMDFourierGUIDlg::OnCbnDropdownProfile)
+	ON_BN_CLICKED(IDC_PLOT_TD, &CMDFourierGUIDlg::OnBnClickedPlotTd)
 END_MESSAGE_MAP()
 
 
@@ -106,6 +109,7 @@ BOOL CMDFourierGUIDlg::OnInitDialog()
 	m_AveragePlot_Bttn.SetCheck(TRUE);
 	m_TimeSpectr.SetCheck(TRUE);
 	m_ExtraData.SetCheck(TRUE);
+	m_TimeDomain.SetCheck(TRUE);
 
 	FillComboBoxes();
 
@@ -113,6 +117,7 @@ BOOL CMDFourierGUIDlg::OnInitDialog()
 	DosWaitCount = 0;
 
 	mdwave = false;
+	killingDOS = false;
 
 	DragAcceptFiles(TRUE);
 	return TRUE;  // return TRUE  unless you set the focus to a control
@@ -280,11 +285,12 @@ void CMDFourierGUIDlg::OnBnClickedOk()
 void CMDFourierGUIDlg::ExecuteCommand(CString Compare)
 {
 	CString	command, extraCmd;
-	CString	window, adjust, profile, syncFormatRef, syncFormatComp;
+	CString	window, adjust, profile, syncFormatRef, syncFormatComp, res;
 
 	profile = GetSelectedCommandLineValue(m_Profiles, COUNT_PROFILES);
 	window = GetSelectedCommandLineValue(m_WindowTypeSelect, COUNT_WINDOWS);
 	adjust = GetSelectedCommandLineValue(m_CurveAdjustSelect, COUNT_CURVES);
+	res = GetSelectedCommandLineValue(m_Resolution, COUNT_RESOLUTION);
 	syncFormatRef = GetSelectedCommandLineValue(m_RefSync, COUNT_SYNCTYPE);
 	syncFormatComp = GetSelectedCommandLineValue(m_ComSync, COUNT_SYNCTYPE);
 
@@ -313,12 +319,15 @@ void CMDFourierGUIDlg::ExecuteCommand(CString Compare)
 		command += " -S";
 	if(m_NoiseFloor.GetCheck() != BST_CHECKED)
 		command += " -F";
-	if(m_TimeSpectr.GetCheck() == BST_CHECKED)
-	{
+	if(m_TimeSpectr.GetCheck() != BST_CHECKED)
 		command += " -t";
+	else
+	{
 		if(m_Fullres_Time_Spectrogram.GetCheck())
 			command += " -E";
 	}
+	if(m_TimeDomain.GetCheck() != BST_CHECKED)
+		command += " -Q";
 
 	if(m_ExtraData.GetCheck() != BST_CHECKED)
 		command += " -X";
@@ -330,6 +339,9 @@ void CMDFourierGUIDlg::ExecuteCommand(CString Compare)
 		command += L" ";
 		command += extraCmd;
 	}
+
+	if(m_Resolution.GetCurSel() != 1)
+		command += L" -"+res;
 
 	mdwave = false;
 	ManageWindows(FALSE);
@@ -344,16 +356,24 @@ void CMDFourierGUIDlg::ExecuteCommand(CString Compare)
 
 void CMDFourierGUIDlg::OnBnClickedCancel()
 {
+	CString msg;
+
+	if(killingDOS)
+	{
+		msg.Format(L"%s is already being terminated, please wait", mdwave ? L"MDWave" : L"MDFourier");
+		if(MessageBox(msg, L"Please wait", MB_OK))
+			return;
+	}
+
 	if(cDos.m_fDone)
 		CDialogEx::OnCancel();
 	else
 	{
-		CString msg;
-
 		msg.Format(L"%s is currently running.\nStop it?", mdwave ? L"MDWave" : L"MDFourier");
-		if(MessageBox(msg, L"Error", MB_OKCANCEL) == IDOK)
+		if(MessageBox(msg, L"Terminate?", MB_OKCANCEL) == IDOK)
 		{
 			DosWaitCount = 0;
+			killingDOS = true;
 
 			cDos.Lock();
 			cDos.StopNow();
@@ -455,6 +475,7 @@ void CMDFourierGUIDlg::OnTimer(UINT_PTR nIDEvent)
 			cDos.KillNow();
 			cDos.m_fDone = TRUE;
 			m_OutputCtrl.SetWindowText(L"Process terminated.");
+			killingDOS = false;
 
 			elementCount = 0;
 			elementPos = 0;
@@ -540,6 +561,13 @@ void CMDFourierGUIDlg::FillComboBoxes()
 	InsertValueInCombo(L"NTSC", L"0", SyncType[0], m_ComSync);
 	InsertValueInCombo(L"PAL", L"1", SyncType[1], m_ComSync);
 	m_ComSync.SetCurSel(0);
+
+	InsertValueInCombo(L"800", L"0", Resolutions[0], m_Resolution);
+	InsertValueInCombo(L"1600", L"", Resolutions[1], m_Resolution);
+	InsertValueInCombo(L"1920", L"1", Resolutions[2], m_Resolution);
+	InsertValueInCombo(L"3840", L"4", Resolutions[3], m_Resolution);
+	m_Resolution.SetCurSel(1);
+
 }
 
 int CMDFourierGUIDlg::FindProfiles(CString sPath, CString pattern)
@@ -658,6 +686,7 @@ void CMDFourierGUIDlg::ManageWindows(BOOL Enable)
 	m_SpectrBttn.EnableWindow(Enable);
 	m_NoiseFloor.EnableWindow(Enable);
 	m_TimeSpectr.EnableWindow(Enable);
+	m_TimeDomain.EnableWindow(Enable);
 	m_Fullres_Time_Spectrogram.EnableWindow(Enable);
 	m_AveragePlot_Bttn.EnableWindow(Enable);
 
@@ -668,6 +697,7 @@ void CMDFourierGUIDlg::ManageWindows(BOOL Enable)
 	m_ComSync.EnableWindow(Enable);
 
 	m_Profiles.EnableWindow(Enable);
+	m_Resolution.EnableWindow(Enable);
 
 	if(mdwave)
 		m_ComparisonLbl.EnableWindow(Enable);
@@ -710,6 +740,8 @@ void CMDFourierGUIDlg::CheckPlotSelection(CButton &clicked)
 		checked ++;
 	if(m_TimeSpectr.GetCheck() == BST_CHECKED)
 		checked ++;
+	if(m_TimeDomain.GetCheck() == BST_CHECKED)
+		checked ++;
 	if(m_AveragePlot_Bttn.GetCheck() == BST_CHECKED)
 		checked ++;
 
@@ -750,6 +782,11 @@ void CMDFourierGUIDlg::OnBnClickedTimesp()
 		m_Fullres_Time_Spectrogram.EnableWindow(TRUE);
 	else
 		m_Fullres_Time_Spectrogram.EnableWindow(FALSE);
+}
+
+void CMDFourierGUIDlg::OnBnClickedPlotTd()
+{
+	CheckPlotSelection(m_TimeDomain);
 }
 
 void CMDFourierGUIDlg::OnBnClickedMdwave()
