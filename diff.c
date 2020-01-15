@@ -290,20 +290,16 @@ void PrintDifferentFrequencies(int block, parameters *config)
 	if(!config->Differences.BlockDiffArray)
 		return;
 
-	OutputFileOnlyStart();
-
 	if(config->Differences.BlockDiffArray[block].cntFreqBlkDiff)
-		logmsg("Frequencies not found:\n");
+		logmsgFileOnly("Frequencies not found:\n");
 
 	for(int f = 0; f < config->Differences.BlockDiffArray[block].cntFreqBlkDiff; f++)
 	{
-		logmsg("Frequency: %7g Hz\tAmplituide: %4.2f (%g)\n", 
+		logmsgFileOnly("Frequency: %7g Hz\tAmplituide: %4.2f (%g)\n", 
 			config->Differences.BlockDiffArray[block].freqMissArray[f].hertz,
 			config->Differences.BlockDiffArray[block].freqMissArray[f].amplitude,
 			config->Differences.BlockDiffArray[block].freqMissArray[f].weight);
 	}
-
-	OutputFileOnlyEnd();
 }
 
 void PrintDifferentAmplitudes(int block, parameters *config)
@@ -314,21 +310,17 @@ void PrintDifferentAmplitudes(int block, parameters *config)
 	if(!config->Differences.BlockDiffArray)
 		return;
 
-	OutputFileOnlyStart();
-
 	if(config->Differences.BlockDiffArray[block].cntAmplBlkDiff)
 		logmsg("\nDifferent Amplitudes:\n");
 
 	for(int a = 0; a < config->Differences.BlockDiffArray[block].cntAmplBlkDiff; a++)
 	{
-		logmsg("Frequency: %7g Hz\tAmplitude: %4.2f dBFS\tAmplitude Difference: %4.2f dBFS (%g)\n",
+		logmsgFileOnly("Frequency: %7g Hz\tAmplitude: %4.2f dBFS\tAmplitude Difference: %4.2f dBFS (%g)\n",
 			config->Differences.BlockDiffArray[block].amplDiffArray[a].hertz,
 			config->Differences.BlockDiffArray[block].amplDiffArray[a].refAmplitude,
 			config->Differences.BlockDiffArray[block].amplDiffArray[a].diffAmplitude,
 			config->Differences.BlockDiffArray[block].amplDiffArray[a].weight);
 	}
-
-	OutputFileOnlyEnd();
 }
 
 void PrintDifferenceArray(parameters *config)
@@ -345,16 +337,16 @@ void PrintDifferenceArray(parameters *config)
 		return;
 	}
 
-	logmsg("\nTotal Differences: %ld, Weighted: %g from %ld\nNonWeighted: %g%% Weighted: %g%%\n", 
+	logmsgFileOnly("\nTotal Differences: %ld, Weighted: %g from %ld\nNonWeighted: %g%% Weighted: %g%%\n", 
 				config->Differences.cntTotalAudioDiff,
 				config->Differences.weightedAudioDiff,
 				config->Differences.cntTotalCompared,
 				(double)config->Differences.cntTotalAudioDiff*100.0/(double)config->Differences.cntTotalCompared,
 				(double)config->Differences.weightedAudioDiff*100.0/(double)config->Differences.cntTotalCompared);
-	logmsg("Total Frequencies not Found %ld Total Amplitudes not matched: %ld\n",
+	logmsgFileOnly("Total Frequencies not Found %ld Total Amplitudes not matched: %ld\n",
 				config->Differences.cntFreqAudioDiff,
 				config->Differences.cntAmplAudioDiff);
-	logmsg("Total Weighted Frequencies not Found %g Total Amplitudes not matched: %g\n",
+	logmsgFileOnly("Total Weighted Frequencies not Found %g Total Amplitudes not matched: %g\n",
 				config->Differences.weightedFreqAudio,
 				config->Differences.weightedAmplAudio);
 
@@ -363,17 +355,13 @@ void PrintDifferenceArray(parameters *config)
 		if(GetBlockType(config, b) < TYPE_CONTROL)
 			continue;
 
-		OutputFileOnlyStart();
-
 		if(config->Differences.BlockDiffArray[b].cntAmplBlkDiff)
-			logmsg("\n\nBlock: %s# %d (%d) Not Found: %d Differences: %d FW: %g AW: %g\n", 
+			logmsgFileOnly("\n\nBlock: %s# %d (%d) Not Found: %d Differences: %d FW: %g AW: %g\n", 
 					GetBlockName(config, b), GetBlockSubIndex(config, b), b,
 					config->Differences.BlockDiffArray[b].cntFreqBlkDiff,
 					config->Differences.BlockDiffArray[b].cntAmplBlkDiff,
 					config->Differences.BlockDiffArray[b].weightedFreqBlkDiff,
 					config->Differences.BlockDiffArray[b].weightedAmplBlkDiff);
-
-		OutputFileOnlyEnd();
 
 		PrintDifferentFrequencies(b, config);
 		PrintDifferentAmplitudes(b, config);

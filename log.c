@@ -76,6 +76,17 @@ void logmsg(char *fmt, ... )
 	return;
 }
 
+void logmsgFileOnly(char *fmt, ... )
+{
+	va_list arguments;
+
+	va_start(arguments, fmt);
+	OutputFileOnlyStart();
+	logmsg(fmt, arguments);
+	OutputFileOnlyEnd();
+	va_end(arguments);
+}
+
 #if defined (WIN32)
 void FixLogFileName(char *name)
 {

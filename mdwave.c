@@ -1461,7 +1461,7 @@ void PrintUsage_wave()
 void Header_wave(int log)
 {
 	char title1[] = " MDWave " MDWVERSION " (MDFourier Companion)\n [240p Test Suite Fourier Audio compare tool]\n";
-	char title2[] = "Artemio Urbina 2019 free software under GPL - http://junkerhq.net/MDFourier\n";
+	char title2[] = "Artemio Urbina 2019-2020 free software under GPL - http://junkerhq.net/MDFourier\n";
 
 	if(log)
 		logmsg("%s%s", title1, title2);

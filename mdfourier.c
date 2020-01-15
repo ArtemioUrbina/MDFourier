@@ -173,10 +173,15 @@ int main(int argc , char *argv[])
 
 	//if(config.clock)
 	{
+		int minutes = 0;
 		double	elapsedSeconds;
 		clock_gettime(CLOCK_MONOTONIC, &end);
 		elapsedSeconds = TimeSpecToSeconds(&end) - TimeSpecToSeconds(&start);
-		logmsg("* MDFourier Analysis took %0.2f seconds\n", elapsedSeconds);
+		minutes = elapsedSeconds / 60.0;
+		logmsg("* MDFourier Analysis took %0.2f seconds", elapsedSeconds);
+		if(minutes)
+			logmsg(" (%d minute%s %0.2f seconds)", minutes, minutes == 1 ? "" : "s", elapsedSeconds - minutes*60);
+		logmsg("\n");
 	}
 
 	printf("\nResults stored in %s\n", config.folderName);
@@ -1031,6 +1036,9 @@ int ProcessInternal(AudioSignal *Signal, long int element, long int pos, int *sy
 		long int	internalSyncOffset = 0,
 					endPulse = 0, pulseLength = 0, syncLength = 0;
 
+		if(config->FullTimeSpectroScale)
+			logmsg("\n");
+
 		*syncinternal = 1;
 		syncTone = GetInternalSyncTone(element, config);
 		syncLen = GetInternalSyncLen(element, config);
@@ -1145,7 +1153,7 @@ int CopySamplesForTimeDomainPlot(AudioBlocks *AudioArray, int16_t *samples, size
 	}
 	memset(signal, 0, sizeof(int16_t)*(monoSignalSize+1));
 
-	if(window)
+	if(config->plotAllNotesWindowed && window)
 	{
 		window_samples = (int16_t*)malloc(sizeof(int16_t)*(monoSignalSize+1));
 		if(!window_samples)
@@ -1170,7 +1178,7 @@ int CopySamplesForTimeDomainPlot(AudioBlocks *AudioArray, int16_t *samples, size
 		if(channel == 's')
 			signal[i] = (double)((double)samples[i*2]+(double)samples[i*2+1])/2.0;
 
-		if(window)
+		if(config->plotAllNotesWindowed && window)
 			window_samples[i] = (double)((double)signal[i]*window[i]);
 	}
 
@@ -1178,7 +1186,7 @@ int CopySamplesForTimeDomainPlot(AudioBlocks *AudioArray, int16_t *samples, size
 	AudioArray->audio.size = monoSignalSize;
 	AudioArray->audio.seconds = seconds;
 
-	if(window)
+	if(config->plotAllNotesWindowed && window)
 		AudioArray->audio.window_samples = window_samples;
 
 	return(1);
@@ -1263,7 +1271,7 @@ int ProcessFile(AudioSignal *Signal, parameters *config)
 		}
 		memcpy(buffer, Signal->Samples + pos, loadedBlockSize-difference);
 
-		if(Signal->Blocks[i].type == TYPE_TIMEDOMAIN)
+		if(config->plotAllNotes || Signal->Blocks[i].type == TYPE_TIMEDOMAIN)
 		{
 			if(!CopySamplesForTimeDomainPlot(&Signal->Blocks[i], (int16_t*)buffer, (loadedBlockSize-difference)/2, Signal->header.fmt.SamplesPerSec, windowUsed, Signal->AudioChannels, config))
 				return 0;
@@ -1302,7 +1310,18 @@ int ProcessFile(AudioSignal *Signal, parameters *config)
 		}
 
 		i++;
+		if(config->FullTimeSpectroScale)
+		{
+			if(i == 1)
+				logmsg("  Processing %ld ticks\n  ", config->types.totalChunks);
+			logmsg(PLOT_ADVANCE_CHAR);
+			if(i % 80 == 0)
+				logmsg("\n  ");
+		}
 	}
+
+	if(config->FullTimeSpectroScale)
+		logmsg("\n  ");
 
 	if(config->normType != max_frequency)
 		FindMaxMagnitude(Signal, config);
@@ -1483,11 +1502,9 @@ int CompareAudioBlocks(AudioSignal *ReferenceSignal, AudioSignal *ComparisonSign
 
 		if(config->verbose)
 		{
-			OutputFileOnlyStart();
-			logmsg("Comparing %s# %d (%d) %ld vs %ld\n", 
+			logmsgFileOnly("Comparing %s# %d (%d) %ld vs %ld\n", 
 					GetBlockName(config, block), GetBlockSubIndex(config, block), block,
 					refSize, testSize);
-			OutputFileOnlyEnd();
 		}
 		for(int freq = 0; freq < refSize; freq++)
 		{
@@ -1573,32 +1590,24 @@ int CompareAudioBlocks(AudioSignal *ReferenceSignal, AudioSignal *ComparisonSign
 		{
 			if(config->extendedResults)
 			{
-				OutputFileOnlyStart();
-				logmsg("Unmatched Block Report for %s# %ld (%ld)\n", GetBlockName(config, block), GetBlockSubIndex(config, block), block);
+				logmsgFileOnly("Unmatched Block Report for %s# %ld (%ld)\n", GetBlockName(config, block), GetBlockSubIndex(config, block), block);
 				PrintComparedBlocks(&ReferenceSignal->Blocks[block], &ComparisonSignal->Blocks[block],
 					config, ReferenceSignal);
-				OutputFileOnlyEnd();
 			}
 		}
 		else
 		{
 			if(!config->justResults && config->showAll)
 			{
-				OutputFileOnlyStart();
-				logmsg("Matched Block Report for %s# %ld (%ld)\n", GetBlockName(config, block), GetBlockSubIndex(config, block), block);
+				logmsgFileOnly("Matched Block Report for %s# %ld (%ld)\n", GetBlockName(config, block), GetBlockSubIndex(config, block), block);
 				PrintComparedBlocks(&ReferenceSignal->Blocks[block], &ComparisonSignal->Blocks[block], 
 					config, ReferenceSignal);
-				OutputFileOnlyEnd();
 			}
 		}
 	}
 
 	if(config->extendedResults)
-	{
-		OutputFileOnlyStart();
 		PrintDifferenceArray(config);
-		OutputFileOnlyEnd();
-	}
 	
 	if(config->clock)
 	{

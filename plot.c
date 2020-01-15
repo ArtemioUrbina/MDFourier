@@ -271,7 +271,7 @@ void PlotResults(AudioSignal *ReferenceSignal, AudioSignal *ComparisonSignal, pa
 			logmsg(" X Noise floor plots make no sense with current parameters.\n");
 	}
 
-	if(config->plotTimeDomain)
+	if((config->hasTimeDomain && config->plotTimeDomain) || config->plotAllNotes)
 	{
 		struct	timespec	lstart, lend;
 
@@ -291,7 +291,7 @@ void PlotResults(AudioSignal *ReferenceSignal, AudioSignal *ComparisonSignal, pa
 			double	elapsedSeconds;
 			clock_gettime(CLOCK_MONOTONIC, &lend);
 			elapsedSeconds = TimeSpecToSeconds(&lend) - TimeSpecToSeconds(&lstart);
-			logmsg(" - clk: Time Spectrogram took %0.2fs\n", elapsedSeconds);
+			logmsg(" - clk: Time Domain took %0.2fs\n", elapsedSeconds);
 		}
 	}
 
@@ -1699,10 +1699,8 @@ void PlotNoiseSpectrogram(FlatFrequency *freqs, long int size, int type, char *f
 			pl_endpath_r(plot.plotter);
 
 			/*
-			OutputFileOnlyStart();
-			logmsg("Plot: %g %g %ld (%g,%g,%g,%g)\n", freqs[f].hertz, y, intensity,
+			logmsgFileOnly("Plot: %g %g %ld (%g,%g,%g,%g)\n", freqs[f].hertz, y, intensity,
 					x, y, x, endAmplitude);
-			OutputFileOnlyEnd();
 			*/
 		}
 	}
@@ -3016,27 +3014,71 @@ void PlotTimeSpectrogramUnMatchedContent(AudioSignal *Signal, parameters *config
 	ClosePlot(&plot);
 }
 
+int CreateTDFolder(parameters *config)
+{
+	char name[BUFFER_SIZE*2];
+
+	sprintf(name, "TDPlots\\");
+#if defined (WIN32)
+	if(_mkdir(name) != 0)
+	{
+		if(errno != EEXIST)
+			return 0;
+	}
+#else
+	if(mkdir(name, 0755) != 0)
+	{
+		if(errno != EEXIST)
+			return 0;
+	}
+#endif
+	return 1;
+}
 
 void PlotTimeDomainGraphs(AudioSignal *Signal, parameters *config)
 {
-	int 		i = 0;
+	long int	plots = 0, i = 0;
 	char		name[BUFFER_SIZE*2];
 
+	if(config->plotAllNotes)
+	{
+		if(!CreateTDFolder(config))
+			logmsg("Couldn't create folder\n");
+		for(i = 0; i < config->types.totalChunks; i++)
+		{
+			if(config->plotAllNotes || Signal->Blocks[i].type == TYPE_TIMEDOMAIN)
+			{
+				plots++;
+				if(config->plotAllNotesWindowed && Signal->Blocks[i].audio.window_samples)
+					plots++;
+			}
+		}
+		logmsg("\n  Creating %ld plots for %s:\n  ", plots, Signal->role == ROLE_REF ? "Reference" : "Comparison");
+	}
+	plots = 0;
 	for(i = 0; i < config->types.totalChunks; i++)
 	{
-		if(Signal->Blocks[i].type == TYPE_TIMEDOMAIN)
+		if(config->plotAllNotes || Signal->Blocks[i].type == TYPE_TIMEDOMAIN)
 		{
-			sprintf(name, "TD_%05d_%s_%s_%05d%s_", i, Signal->role == ROLE_REF ? "1" : "2",
+			sprintf(name, "%sTD_%05ld_%s_%s_%05d%s_", config->plotAllNotes ? "TDPlots\\" : "",
+				i, Signal->role == ROLE_REF ? "1" : "2",
 				GetBlockName(config, i), GetBlockSubIndex(config, i), config->compareName);
 		
 			PlotBlockTimeDomainGraph(Signal, i, name, 0, config);
 			logmsg(PLOT_ADVANCE_CHAR);
-			if(Signal->Blocks[i].audio.window_samples)
+			plots++;
+			if(plots % 80 == 0)
+				logmsg("\n  ");
+			if(config->plotAllNotesWindowed && Signal->Blocks[i].audio.window_samples)
 			{
-				sprintf(name, "TD_%05d_%s_%s_%05d%s_", i, Signal->role == ROLE_REF ? "3" : "4",
+				sprintf(name, "%sTD_%05ld_%s_%s_%05d%s_", config->plotAllNotes ? "TDPlots\\" : "",
+					i, Signal->role == ROLE_REF ? "3" : "4",
 					GetBlockName(config, i), GetBlockSubIndex(config, i), config->compareName);
 				PlotBlockTimeDomainGraph(Signal, i, name, 1, config);
 				logmsg(PLOT_ADVANCE_CHAR);
+				plots++;
+				if(plots % 80 == 0)
+					logmsg("\n  ");
 			}
 		}
 	}

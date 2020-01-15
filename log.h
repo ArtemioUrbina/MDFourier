@@ -39,6 +39,7 @@ void OutputFileOnlyStart();
 void OutputFileOnlyEnd();
 
 void logmsg(char *fmt, ... );
+void logmsgFileOnly(char *fmt, ... );
 
 int setLogName(char *name);
 void endLog();

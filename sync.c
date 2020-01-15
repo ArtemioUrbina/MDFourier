@@ -40,32 +40,25 @@ long int DetectPulse(char *AllSamples, wav_hdr header, int role, parameters *con
 	int			maxdetected = 0, errcount = 0, AudioChannels = 0;
 	long int	position = 0, offset = 0;
 
-	OutputFileOnlyStart();
-
 	if(config->debugSync)
-		logmsg("\nStarting Detect start pulse\n");
+		logmsgFileOnly("\nStarting Detect start pulse\n");
 
 	AudioChannels = header.fmt.NumOfChan;
 	position = DetectPulseInternal(AllSamples, header, FACTOR_EXPLORE, 0, &maxdetected, role, AudioChannels, config);
 	if(position == -1)
 	{
 		if(config->debugSync)
-			logmsg("First round start pulse failed\n", offset);
+			logmsgFileOnly("First round start pulse failed\n", offset);
 
-		OutputFileOnlyEnd();
 		return -1;
 	}
 
 	if(errcount && position != -1)
-	{
-		OutputFileOnlyEnd();
-		logmsg(" - Sync pulse had %d imperfections\n", errcount);
-		OutputFileOnlyStart();
-	}
+		logmsgFileOnly(" - Sync pulse had %d imperfections\n", errcount);
 
 	/*
 	if(config->debugSync)
-		logmsg("First round start pulse detected at %ld, refinement\n", position);
+		logmsgFileOnly("First round start pulse detected at %ld, refinement\n", position);
 
 	offset = position;
 	if(offset >= 8*10*AudioChannels)  // return 8 "ms segments" as dictated by ratio "9" below
@@ -77,8 +70,7 @@ long int DetectPulse(char *AllSamples, wav_hdr header, int role, parameters *con
 	*/
 
 	if(config->debugSync)
-		logmsg("Start pulse return value %ld\n", position);
-	OutputFileOnlyEnd();
+		logmsgFileOnly("Start pulse return value %ld\n", position);
 
 	return position;
 }
@@ -101,23 +93,18 @@ long int DetectEndPulse(char *AllSamples, long int startpulse, wav_hdr header, i
 	long int 	position = 0, offset = 0;
 	double		silenceOffset[END_SYNC_MAX_TRIES] = END_SYNC_VALUES;
 
-	OutputFileOnlyStart();
-
 	// Try a clean detection
 	offset = GetSecondSyncSilenceByteOffset(GetMSPerFrameRole(role, config), header, 0, 1, config) + startpulse;
 	if(config->debugSync)
-		logmsg("\nStarting CLEAN Detect end pulse with offset %ld\n", offset);
+		logmsgFileOnly("\nStarting CLEAN Detect end pulse with offset %ld\n", offset);
 	AudioChannels = header.fmt.NumOfChan;
 	position = DetectPulseInternal(AllSamples, header, FACTOR_DETECT, offset, &maxdetected, role, AudioChannels, config);
 	if(position != -1)
-	{
-		OutputFileOnlyEnd();
 		return position;
-	}
 	
 	// We try to figure out position of the pulses
 	if(config->debugSync)
-		logmsg("End pulse CLEAN detection failed started search at %ld bytes\n", offset);
+		logmsgFileOnly("End pulse CLEAN detection failed started search at %ld bytes\n", offset);
 
 	do
 	{
@@ -125,7 +112,7 @@ long int DetectEndPulse(char *AllSamples, long int startpulse, wav_hdr header, i
 		offset = GetSecondSyncSilenceByteOffset(GetMSPerFrameRole(role, config), header, frameAdjust, silenceOffset[tries], config) + startpulse;
 	
 		if(config->debugSync)
-			logmsg("\nStarting Detect end pulse with offset %ld [%g silence]\n\tMaxDetected %d frameAdjust: %d\n",
+			logmsgFileOnly("\nStarting Detect end pulse with offset %ld [%g silence]\n\tMaxDetected %d frameAdjust: %d\n",
 				offset, silenceOffset[tries], maxdetected, frameAdjust);
 	
 		frameAdjust = 0;
@@ -135,7 +122,7 @@ long int DetectEndPulse(char *AllSamples, long int startpulse, wav_hdr header, i
 		if(position == -1 && !maxdetected)
 		{
 			if(config->debugSync)
-				logmsg("End pulse failed try %d, started search at %ld bytes [%g silence]\n", tries+1, offset, silenceOffset[tries]);
+				logmsgFileOnly("End pulse failed try %d, started search at %ld bytes [%g silence]\n", tries+1, offset, silenceOffset[tries]);
 		}
 
 		/*
@@ -147,11 +134,7 @@ long int DetectEndPulse(char *AllSamples, long int startpulse, wav_hdr header, i
 
 
 	if(errcount && position != -1)
-	{
-		OutputFileOnlyEnd();
-		logmsg(" - Sync pulse had %d imperfections\n", errcount);
-		OutputFileOnlyStart();
-	}
+		logmsgFileOnly(" - Sync pulse had %d imperfections\n", errcount);
 
 	if(tries == maxtries)
 	{
@@ -161,7 +144,7 @@ long int DetectEndPulse(char *AllSamples, long int startpulse, wav_hdr header, i
 
 	/*
 	if(config->debugSync)
-		logmsg("First round end pulse detected at %ld, refinement\n", position);
+		logmsgFileOnly("First round end pulse detected at %ld, refinement\n", position);
 
 	offset = position;
 	if(offset >= 8*10*AudioChannels)  // return 8 "ms segments" as dictated by ratio "9" below
@@ -173,8 +156,7 @@ long int DetectEndPulse(char *AllSamples, long int startpulse, wav_hdr header, i
 	*/
 
 	if(config->debugSync)
-		logmsg("End pulse return value %ld\n", position);
-	OutputFileOnlyEnd();
+		logmsgFileOnly("End pulse return value %ld\n", position);
 
 	return position;
 }
@@ -190,14 +172,14 @@ void smoothAmplitudes(Pulses *pulseArray, double targetFrequency, long int Total
 			double average = 0;
 
 			/*
-			logmsg("Checking %7ld [%5gHz %0.2f dBFS]\n", 
+			logmsgFileOnly("Checking %7ld [%5gHz %0.2f dBFS]\n", 
 				pulseArray[i].bytes, pulseArray[i].hertz, pulseArray[i].amplitude);
 			*/
 			average = (pulseArray[i-1].amplitude + pulseArray[i].amplitude + pulseArray[i+1].amplitude)/3;
 			if(pulseArray[i].amplitude < average - 3 || pulseArray[i].amplitude > average + 3)
 			{
 				pulseArray[i].amplitude = average;
-				//logmsg(" -> Changed to %g\n", average);
+				//logmsgFileOnly(" -> Changed to %g\n", average);
 			}
 		}
 	}
@@ -228,12 +210,12 @@ double executeFindAverageAmplitudeForTarget(Pulses *pulseArray, double targetFre
 
 	if(!count)
 	{
-		logmsg("WARNING! Average Amplitude values for sync not found in range (NULL from digital/emu)\n");
+		logmsgFileOnly("WARNING! Average Amplitude values for sync not found in range (NULL from digital/emu)\n");
 		/*
 		for(i = start; i < TotalMS; i++)
 		{
 			if(pulseArray[i].hertz)
-				logmsg("byte: %ld ms: %ld hz: %g amp: %g\n", pulseArray[i].bytes, i, pulseArray[i].hertz, pulseArray[i].amplitude);
+				logmsgFileOnly("byte: %ld ms: %ld hz: %g amp: %g\n", pulseArray[i].bytes, i, pulseArray[i].hertz, pulseArray[i].amplitude);
 		}
 		*/
 		return 0;
@@ -252,7 +234,7 @@ double findAverageAmplitudeForTarget(Pulses *pulseArray, double targetFrequency,
 	averageAmplitude = executeFindAverageAmplitudeForTarget(pulseArray, targetFrequency, TotalMS, start);
 
 	if(config->debugSync)
-		logmsg("Searching for Average amplitude in block: F %g Total Start byte: %ld milliseconds to check: %ld\n", 
+		logmsgFileOnly("Searching for Average amplitude in block: F %g Total Start byte: %ld milliseconds to check: %ld\n", 
 			targetFrequency, 
 			pulseArray[start].bytes,
 			TotalMS);
@@ -260,17 +242,17 @@ double findAverageAmplitudeForTarget(Pulses *pulseArray, double targetFrequency,
 	if(averageAmplitude < -20)  // if we have too much noise at the TargetFrequency, smooth it out
 	{
 		if(config->debugSync)
-			logmsg("Average Amplitude was %g, smoothing range\n", averageAmplitude);
+			logmsgFileOnly("Average Amplitude was %g, smoothing range\n", averageAmplitude);
 		smoothAmplitudes(pulseArray, targetFrequency, TotalMS, start);
 		averageAmplitude = executeFindAverageAmplitudeForTarget(pulseArray, targetFrequency, TotalMS, start);
 		if(config->debugSync)
-			logmsg("Average Amplitude Smoothing result: %g\n", averageAmplitude);
+			logmsgFileOnly("Average Amplitude Smoothing result: %g\n", averageAmplitude);
 
 		if(averageAmplitude < -35)  // Still too much noise? gamble...
 		{
 			averageAmplitude = -30;
 			if(config->debugSync)
-				logmsg("Average Amplitude Still too high, forcing to: %g\n", averageAmplitude);
+				logmsgFileOnly("Average Amplitude Still too high, forcing to: %g\n", averageAmplitude);
 		}
 	}
 
@@ -291,7 +273,7 @@ long int DetectPulseTrainSequence(Pulses *pulseArray, double targetFrequency, lo
 		return -1;
 
 	if(config->debugSync)
-		logmsg("== Searching for %g Average Amplitude %g looking for %d (%d*%d)\n", 
+		logmsgFileOnly("== Searching for %g Average Amplitude %g looking for %d (%d*%d)\n", 
 			targetFrequency, averageAmplitude, getPulseFrameLen(role, config)*factor,
 			getPulseFrameLen(role, config), factor);
 
@@ -307,14 +289,14 @@ long int DetectPulseTrainSequence(Pulses *pulseArray, double targetFrequency, lo
 				frame_pulse_count++;
 				lastcounted = 1;
 				if(config->debugSync)
-					logmsg("[i:%ld] byte:%7ld [%5gHz %0.2f dBFS]Pulse Frame counted %d\n", 
+					logmsgFileOnly("[i:%ld] byte:%7ld [%5gHz %0.2f dBFS]Pulse Frame counted %d\n", 
 						i, pulseArray[i].bytes, pulseArray[i].hertz, pulseArray[i].amplitude, 
 						frame_pulse_count);
 	
 				if(!sequence_start)
 				{
 					if(config->debugSync)
-						logmsg("This starts the sequence\n");
+						logmsgFileOnly("This starts the sequence\n");
 					sequence_start = pulseArray[i].bytes;
 					frame_silence_count = 0;
 				}
@@ -324,11 +306,11 @@ long int DetectPulseTrainSequence(Pulses *pulseArray, double targetFrequency, lo
 					silence_count++;
 	
 					if(config->debugSync)
-						logmsg("Closed a silence cycle %d\n", silence_count);
+						logmsgFileOnly("Closed a silence cycle %d\n", silence_count);
 					if(silence_count > getPulseCount(role, config))
 					{
 						if(config->debugSync)
-							logmsg("Resets the sequence\n");
+							logmsgFileOnly("Resets the sequence\n");
 						sequence_start = 0;
 						silence_count = 0;
 					}
@@ -344,7 +326,7 @@ long int DetectPulseTrainSequence(Pulses *pulseArray, double targetFrequency, lo
 					frame_silence_count ++;
 					lastcounted = 0;
 					if(config->debugSync)
-						logmsg("[i:%ld] byte:%7ld [%5gHz %0.2f dBFS] Silence Frame counted %d\n", 
+						logmsgFileOnly("[i:%ld] byte:%7ld [%5gHz %0.2f dBFS] Silence Frame counted %d\n", 
 							i, pulseArray[i].bytes, pulseArray[i].hertz, pulseArray[i].amplitude, 
 							frame_silence_count);
 
@@ -353,7 +335,7 @@ long int DetectPulseTrainSequence(Pulses *pulseArray, double targetFrequency, lo
 						pulse_count++;
 		
 						if(config->debugSync)
-							logmsg("Closed pulse #%d cycle, silence count %d pulse count %d\n", pulse_count, silence_count, frame_pulse_count);
+							logmsgFileOnly("Closed pulse #%d cycle, silence count %d pulse count %d\n", pulse_count, silence_count, frame_pulse_count);
 						
 						if(config->syncTolerance)
 							silence_count = pulse_count - 1;
@@ -361,7 +343,7 @@ long int DetectPulseTrainSequence(Pulses *pulseArray, double targetFrequency, lo
 						if(pulse_count == getPulseCount(role, config) && silence_count == pulse_count - 1)
 						{
 							if(config->debugSync)
-								logmsg("Completed the sequence %ld\n", sequence_start);
+								logmsgFileOnly("Completed the sequence %ld\n", sequence_start);
 							return sequence_start;
 						}
 					}
@@ -371,7 +353,7 @@ long int DetectPulseTrainSequence(Pulses *pulseArray, double targetFrequency, lo
 						if(!pulse_count && sequence_start)
 						{
 							if(config->debugSync)
-								logmsg("Resets the sequence (no pulse count)\n");
+								logmsgFileOnly("Resets the sequence (no pulse count)\n");
 							sequence_start = 0;
 						}
 		
@@ -383,19 +365,19 @@ long int DetectPulseTrainSequence(Pulses *pulseArray, double targetFrequency, lo
 					if(lastcounted == 0)
 					{
 						if(config->debugSync)
-							logmsg("NON SKIPPED and counting as silence\n");
+							logmsgFileOnly("NON SKIPPED and counting as silence\n");
 						frame_silence_count++;
 					}
 
 					if(lastcounted == 1 && frame_pulse_count >= getPulseFrameLen(role, config)*factor)
 					{
 						if(config->debugSync)
-							logmsg("NON SKIPPED and counting as silence due to pulse count\n");
+							logmsgFileOnly("NON SKIPPED and counting as silence due to pulse count\n");
 						frame_silence_count++;
 					}
 
 					if(config->debugSync)
-						logmsg("%7ld [%5gHz %0.2f dBFS] Non Frame skipped %d\n", 
+						logmsgFileOnly("%7ld [%5gHz %0.2f dBFS] Non Frame skipped %d\n", 
 							pulseArray[i].bytes, pulseArray[i].hertz, pulseArray[i].amplitude, 
 							frame_silence_count);
 				}
@@ -409,10 +391,10 @@ long int DetectPulseTrainSequence(Pulses *pulseArray, double targetFrequency, lo
 				if(config->debugSync)
 				{
 					if(pulseArray[i].hertz)
-						logmsg("SKIPPED and counting as silence %gHz %gdBFs\n",
+						logmsgFileOnly("SKIPPED and counting as silence %gHz %gdBFs\n",
 							pulseArray[i].hertz, pulseArray[i].amplitude);
 					else
-						logmsg("SKIPPED and counting as silence [NULL]\n");
+						logmsgFileOnly("SKIPPED and counting as silence [NULL]\n");
 				}
 
 				// Extra CHECK for emulators
@@ -421,7 +403,7 @@ long int DetectPulseTrainSequence(Pulses *pulseArray, double targetFrequency, lo
 					pulse_count++;
 	
 					if(config->debugSync)
-						logmsg("Closed pulse #%d cycle, silence count %d pulse count %d [NULLs]\n", pulse_count, silence_count, frame_pulse_count);
+						logmsgFileOnly("Closed pulse #%d cycle, silence count %d pulse count %d [NULLs]\n", pulse_count, silence_count, frame_pulse_count);
 					
 					if(config->syncTolerance)
 						silence_count = pulse_count - 1;
@@ -429,7 +411,7 @@ long int DetectPulseTrainSequence(Pulses *pulseArray, double targetFrequency, lo
 					if(pulse_count == getPulseCount(role, config) && silence_count == pulse_count - 1)
 					{
 						if(config->debugSync)
-							logmsg("Completed the sequence %ld [NULLs]\n", sequence_start);
+							logmsgFileOnly("Completed the sequence %ld [NULLs]\n", sequence_start);
 						return sequence_start;
 					}
 					frame_pulse_count = 0;
@@ -438,13 +420,13 @@ long int DetectPulseTrainSequence(Pulses *pulseArray, double targetFrequency, lo
 			/*
 			else
 				if(config->debugSync)
-					logmsg("SKIPPED\n");
+					logmsgFileOnly("SKIPPED\n");
 			*/
 		}
 	}
 
 	if(config->debugSync)
-		logmsg("Failed\n");
+		logmsgFileOnly("Failed\n");
 	*maxdetected = pulse_count;
 	return -1;
 }
@@ -465,7 +447,7 @@ long int DetectPulseInternal(char *Samples, wav_hdr header, int factor, long int
 	buffer = (char*)malloc(buffersize);
 	if(!buffer)
 	{
-		logmsg("\tmalloc failed\n");
+		logmsgFileOnly("\tmalloc failed\n");
 		return(0);
 	}
 
@@ -485,7 +467,7 @@ long int DetectPulseInternal(char *Samples, wav_hdr header, int factor, long int
 		TotalMS = i + floor(msLen*factor);
 
 		if(config->debugSync)
-			logmsg("changed to:\n\tMS: %ld, BuffSize: %ld, Bytes:%ld-%ld/ms:%ld-%ld]\n\tms len: %g Bytes: %g Buffer Size: %d Factor: %d\n", 
+			logmsgFileOnly("changed to:\n\tMS: %ld, BuffSize: %ld, Bytes:%ld-%ld/ms:%ld-%ld]\n\tms len: %g Bytes: %g Buffer Size: %d Factor: %d\n", 
 				millisecondSize, buffersize, i*buffersize, TotalMS*buffersize, i, TotalMS,
 				msLen, floor(msLen*factor), (int)buffersize, factor);
 	}
@@ -495,7 +477,7 @@ long int DetectPulseInternal(char *Samples, wav_hdr header, int factor, long int
 	pulseArray = (Pulses*)malloc(sizeof(Pulses)*TotalMS);
 	if(!pulseArray)
 	{
-		logmsg("\tPulse malloc failed!\n");
+		logmsgFileOnly("\tPulse malloc failed!\n");
 		return(0);
 	}
 	memset(pulseArray, 0, sizeof(Pulses)*TotalMS);
@@ -504,9 +486,9 @@ long int DetectPulseInternal(char *Samples, wav_hdr header, int factor, long int
 						millisecondSize/2, AudioChannels, header.fmt.SamplesPerSec);
 	if(config->debugSync)
 	{
-		logmsg("Defined Sync %d Adjusted to %g\n", 
+		logmsgFileOnly("Defined Sync %d Adjusted to %g\n", 
 				GetPulseSyncFreq(role, config), targetFrequency);
-		logmsg("Start ms %ld Total MS: %ld (%ld)\n",
+		logmsgFileOnly("Start ms %ld Total MS: %ld (%ld)\n",
 			 i, TotalMS, header.data.DataSize / buffersize - 1);
 	}
 
@@ -517,7 +499,7 @@ long int DetectPulseInternal(char *Samples, wav_hdr header, int factor, long int
 		memset(buffer, 0, buffersize);
 		if(pos + loadedBlockSize > header.data.DataSize)
 		{
-			logmsg("\tunexpected end of File, please record the full Audio Test from the 240p Test Suite\n");
+			logmsgFileOnly("\tunexpected end of File, please record the full Audio Test from the 240p Test Suite\n");
 			break;
 		}
 
@@ -561,17 +543,17 @@ long int DetectPulseInternal(char *Samples, wav_hdr header, int factor, long int
 	/*
 	if(config->debugSync)
 	{
-		logmsg("===== Searching for %gHz =======\n", targetFrequency);
+		logmsgFileOnly("===== Searching for %gHz =======\n", targetFrequency);
 		for(i = startPos; i < TotalMS; i++)
 		{
 			//if(pulseArray[i].hertz == targetFrequency)
-				logmsg("B: %ld Hz: %g A: %g M: %g\n", 
+				logmsgFileOnly("B: %ld Hz: %g A: %g M: %g\n", 
 					pulseArray[i].bytes, 
 					pulseArray[i].hertz, 
 					pulseArray[i].amplitude,
 					pulseArray[i].magnitude);
 		}
-		logmsg("========  End listing =========\n");
+		logmsgFileOnly("========  End listing =========\n");
 	}
 */
 
@@ -601,13 +583,13 @@ double ProcessChunkForSyncPulse(int16_t *samples, size_t size, long samplerate, 
 	signal = (double*)malloc(sizeof(double)*(monoSignalSize+1));
 	if(!signal)
 	{
-		logmsg("Not enough memory\n");
+		logmsgFileOnly("Not enough memory\n");
 		return(0);
 	}
 	spectrum = (fftw_complex*)fftw_malloc(sizeof(fftw_complex)*(monoSignalSize/2+1));
 	if(!spectrum)
 	{
-		logmsg("Not enough memory\n");
+		logmsgFileOnly("Not enough memory\n");
 		return(0);
 	}
 
@@ -618,7 +600,7 @@ double ProcessChunkForSyncPulse(int16_t *samples, size_t size, long samplerate, 
 		config->sync_plan = fftw_plan_dft_r2c_1d(monoSignalSize, signal, spectrum, FFTW_MEASURE);
 		if(!config->sync_plan)
 		{
-			logmsg("FFTW failed to create FFTW_MEASURE plan\n");
+			logmsgFileOnly("FFTW failed to create FFTW_MEASURE plan\n");
 			free(signal);
 			signal = NULL;
 			fftw_free(spectrum);
@@ -630,7 +612,7 @@ double ProcessChunkForSyncPulse(int16_t *samples, size_t size, long samplerate, 
 	p = fftw_plan_dft_r2c_1d(monoSignalSize, signal, spectrum, FFTW_MEASURE);
 	if(!p)
 	{
-		logmsg("FFTW failed to create FFTW_MEASURE plan\n");
+		logmsgFileOnly("FFTW failed to create FFTW_MEASURE plan\n");
 
 		free(signal);
 		signal = NULL;
@@ -692,25 +674,21 @@ long int DetectSignalStart(char *AllSamples, wav_hdr header, long int offset, in
 	int			maxdetected = 0, AudioChannels = 0;
 	long int	position = 0;
 
-	OutputFileOnlyStart();
-
 	if(config->debugSync)
-		logmsg("\nStarting Detect Signal\n");
+		logmsgFileOnly("\nStarting Detect Signal\n");
 
 	AudioChannels = header.fmt.NumOfChan;
 	position = DetectSignalStartInternal(AllSamples, header, FACTOR_DETECT, offset, syncKnow, &maxdetected, endPulse, AudioChannels, config);
 	if(position == -1)
 	{
 		if(config->debugSync)
-			logmsg("Detect signal failed\n", offset);
+			logmsgFileOnly("Detect signal failed\n", offset);
 
-		OutputFileOnlyEnd();
 		return -1;
 	}
 
 	if(config->debugSync)
-		logmsg("Detect signal return value %ld\n", position);
-	OutputFileOnlyEnd();
+		logmsgFileOnly("Detect signal return value %ld\n", position);
 	return position;
 }
 
@@ -733,7 +711,7 @@ long int DetectSignalStartInternal(char *Samples, wav_hdr header, int factor, lo
 	buffer = (char*)malloc(buffersize);
 	if(!buffer)
 	{
-		logmsg("\tmalloc failed\n");
+		logmsgFileOnly("\tmalloc failed\n");
 		return(0);
 	}
 	
@@ -741,7 +719,7 @@ long int DetectSignalStartInternal(char *Samples, wav_hdr header, int factor, lo
 	pulseArray = (Pulses*)malloc(sizeof(Pulses)*TotalMS);
 	if(!pulseArray)
 	{
-		logmsg("\tPulse malloc failed!\n");
+		logmsgFileOnly("\tPulse malloc failed!\n");
 		return(0);
 	}
 	memset(pulseArray, 0, sizeof(Pulses)*TotalMS);
@@ -762,7 +740,7 @@ long int DetectSignalStartInternal(char *Samples, wav_hdr header, int factor, lo
 		memset(buffer, 0, buffersize);
 		if(pos + loadedBlockSize > header.data.DataSize)
 		{
-			logmsg("\tunexpected end of File, please record the full Audio Test from the 240p Test Suite\n");
+			logmsgFileOnly("\tunexpected end of File, please record the full Audio Test from the 240p Test Suite\n");
 			break;
 		}
 
@@ -804,15 +782,15 @@ long int DetectSignalStartInternal(char *Samples, wav_hdr header, int factor, lo
 	/*
 	if(config->debugSync)
 	{
-		//logmsg("===== Searching for %gHz  =======\n", targetFrequency);
+		//logmsgFileOnly("===== Searching for %gHz  =======\n", targetFrequency);
 		for(i = 0; i < TotalMS; i++)
 		{
-				logmsg("B: %ld Hz: %g A: %g\n", 
+				logmsgFileOnly("B: %ld Hz: %g A: %g\n", 
 					pulseArray[i].bytes, 
 					pulseArray[i].hertz, 
 					pulseArray[i].amplitude);
 		}
-		//logmsg("========  End listing =========\n");
+		//logmsgFileOnly("========  End listing =========\n");
 	}
 	*/
 
@@ -834,7 +812,7 @@ long int DetectSignalStartInternal(char *Samples, wav_hdr header, int factor, lo
 		{
 /*
 			if(config->debugSync)
-				logmsg("B: %ld Hz: %g A: %g avg: %g\n", 
+				logmsgFileOnly("B: %ld Hz: %g A: %g avg: %g\n", 
 					pulseArray[i].bytes, 
 					pulseArray[i].hertz, 
 					pulseArray[i].amplitude, 

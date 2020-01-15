@@ -98,8 +98,11 @@
 #define PLOT_RES_X 1600.0
 #define PLOT_RES_Y 800.0
 
-#define PLOT_RES_X_HIGH 1920.0
-#define PLOT_RES_Y_HIGH 1080.0
+#define PLOT_RES_X_1K 1920.0
+#define PLOT_RES_Y_1K 1080.0
+
+#define PLOT_RES_X_4K 3840.0
+#define PLOT_RES_Y_4K 2160.0
 
 #define PLOT_RES_X_LOW 800.0
 #define PLOT_RES_Y_LOW 400.0
@@ -403,6 +406,8 @@ typedef struct parameters_st {
 	int				plotTimeSpectrogram;
 	int				plotNoiseFloor;
 	int				plotTimeDomain;
+	int				plotAllNotes;
+	int				plotAllNotesWindowed;
 	int				averagePlot;
 	int				weightedAveragePlot;
 	int				drawWindows;
@@ -415,6 +420,7 @@ typedef struct parameters_st {
 	double			AmpBarRange;
 	int				FullTimeSpectroScale;
 	double			normalizationRatio;
+	int				hasTimeDomain;
 
 	double 			plotResX;
 	double			plotResY;

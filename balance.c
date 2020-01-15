@@ -163,12 +163,10 @@ int CheckBalance(AudioSignal *Signal, int block, parameters *config)
 
 		if(config->verbose)
 		{
-			OutputFileOnlyStart();
-			logmsg("Left Channel:\n");
+			logmsgFileOnly("Left Channel:\n");
 			PrintFrequenciesBlockMagnitude(NULL, Channels[0].freq, GetBlockType(config, block), config);
-			logmsg("Right Channel:\n");
+			logmsgFileOnly("Right Channel:\n");
 			PrintFrequenciesBlockMagnitude(NULL, Channels[1].freq, GetBlockType(config, block), config);
-			OutputFileOnlyEnd();
 		}
 		if(Channels[0].freq)
 			free(Channels[0].freq);

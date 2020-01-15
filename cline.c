@@ -66,7 +66,8 @@ void PrintUsage()
 	logmsg("	 -M: Don't create <M>issing Plots\n");
 	logmsg("	 -S: Don't create <S>pectrogram Plots\n");
 	logmsg("	 -F: Don't create Noise <F>loor Plots\n");
-	logmsg("	 -t: Create Time Spectrogram Plots\n");
+	logmsg("	 -t: Don't create Time Spectrogram Plots\n");
+	logmsg("	 -Q: Don't create Time Domain Plots\n");
 	logmsg("	 -o: Define the output filter function for color weights [0-5]\n");
 	logmsg("	 -E: Defines Full frequency rang<E> for Time Spectrogram plots\n");
 	logmsg("	 -R: Do the reverse compare plots\n");
@@ -133,6 +134,7 @@ void CleanParameters(parameters *config)
 	config->AmpBarRange = BAR_DIFF_DB_TOLERANCE;
 	config->FullTimeSpectroScale = 0;
 	config->normalizationRatio = 0;
+	config->hasTimeDomain = 0;
 
 	config->logScale = 1;
 	config->reverseCompare = 0;
@@ -147,9 +149,11 @@ void CleanParameters(parameters *config)
 	config->plotDifferences = 1;
 	config->plotMissing = 1;
 	config->plotSpectrogram = 1;
-	config->plotTimeSpectrogram = 0;
+	config->plotTimeSpectrogram = 1;
 	config->plotNoiseFloor = 1;
 	config->plotTimeDomain = 1;
+	config->plotAllNotes = 0;
+	config->plotAllNotesWindowed = 0;
 	config->averagePlot = 0;
 	config->weightedAveragePlot = 1;
 
@@ -194,8 +198,8 @@ int commandline(int argc , char *argv[], parameters *config)
 	
 	CleanParameters(config);
 
-	// Available: GJKOQqUu0123456789
-	while ((c = getopt (argc, argv, "Aa:Bb:Cc:Dd:Ee:Ff:gHhIijkLlMmNn:o:P:p:Rr:Ss:TtVvWw:XxY:yZ:z")) != -1)
+	// Available: GHJKLOq2356789
+	while ((c = getopt (argc, argv, "Aa:Bb:Cc:Dd:Ee:Ff:ghIijkLlMmNn:o:P:p:QRr:Ss:TtUuVvWw:XxY:yZ:z014")) != -1)
 	switch (c)
 	  {
 	  case 'A':
@@ -259,10 +263,6 @@ int commandline(int argc , char *argv[], parameters *config)
 	  case 'g':
 		config->averagePlot = 1;
 		break;
-	  case 'H':
-		config->plotResX = PLOT_RES_X_HIGH;
-		config->plotResY = PLOT_RES_Y_HIGH;
-		break;
 	  case 'h':
 		PrintUsage();
 		return 0;
@@ -278,11 +278,6 @@ int commandline(int argc , char *argv[], parameters *config)
 		break;
 	  case 'k':
 		config->clock = 1;
-		break;
-	  case 'L':
-		config->plotResX = PLOT_RES_X_LOW;
-		config->plotResY = PLOT_RES_Y_LOW;
-		config->showPercent = 0;
 		break;
 	  case 'l':
 		EnableLog();
@@ -334,6 +329,9 @@ int commandline(int argc , char *argv[], parameters *config)
 			config->significantAmplitude = SIGNIFICANT_VOLUME;
 		config->origSignificantAmplitude = config->significantAmplitude;
 		break;
+	  case 'Q':
+		config->plotTimeDomain = 1;
+		break;
 	  case 'R':
 		config->reverseCompare = 1;
 		break;
@@ -353,7 +351,14 @@ int commandline(int argc , char *argv[], parameters *config)
 		config->syncTolerance = 1;
 		break;
 	  case 't':
-		config->plotTimeSpectrogram = 1;
+		config->plotTimeSpectrogram = 0;
+		break;
+	  case 'U':
+		config->plotAllNotes = 1;
+		config->plotAllNotesWindowed = 1;
+		break;
+	  case 'u':
+		config->plotAllNotes = 1;
 		break;
 	  case 'V':
 		config->averageIgnore = 1;
@@ -402,6 +407,19 @@ int commandline(int argc , char *argv[], parameters *config)
 		break;
 	  case 'z':
 		config->ZeroPad = 1;
+		break;
+	  case '0':
+		config->plotResX = PLOT_RES_X_LOW;
+		config->plotResY = PLOT_RES_Y_LOW;
+		config->showPercent = 0;
+		break;
+	  case '1':
+		config->plotResX = PLOT_RES_X_1K;
+		config->plotResY = PLOT_RES_Y_1K;
+		break;
+	  case '4':
+		config->plotResX = PLOT_RES_X_4K;
+		config->plotResY = PLOT_RES_Y_4K;
 		break;
 	  case '?':
 		if (optopt == 'a')
@@ -482,7 +500,8 @@ int commandline(int argc , char *argv[], parameters *config)
 
 	if(!config->plotDifferences && !config->plotMissing &&
 		!config->plotSpectrogram && !config->averagePlot &&
-		!config->plotNoiseFloor && !config->plotTimeSpectrogram)
+		!config->plotNoiseFloor && !config->plotTimeSpectrogram &&
+		!config->plotTimeDomain)
 	{
 		logmsg("* It makes no sense to process everything and plot nothing\nAborting.\n");
 		return 0;
@@ -535,7 +554,6 @@ int commandline(int argc , char *argv[], parameters *config)
 
 	if(config->verbose)
 	{
-		logmsg("\tUsing %s profile configuration file\n", config->profileFile);
 		if(config->window != 'n')
 			logmsg("\tA %s window will be applied to each block to be compared\n", GetWindow(config->window));
 		else
@@ -547,30 +565,35 @@ int commandline(int argc , char *argv[], parameters *config)
 		}
 		else
 			logmsg("\tNo filtering will be applied to the results\n");
-		if(config->ZeroPad)
-			logmsg("\tFFT bins will be aligned to 1Hz, this is slower\n");
-		if(config->ignoreFloor)
-			logmsg("\tIgnoring Silence block noise floor\n");
-		if(config->channel != 's')
-			logmsg("\tAudio Channel is: %s\n", GetChannel(config->channel));
-		if(config->MaxFreq != FREQ_COUNT)
-			logmsg("\tMax frequencies to use from FFTW are %d (default %d)\n", config->MaxFreq, FREQ_COUNT);
-		if(config->startHz != START_HZ)
-			logmsg("\tFrequency start range for FFTW is now %g (default %g)\n", config->startHz, START_HZ);
-		if(config->endHz != END_HZ)
-			logmsg("\tFrequency end range for FFTW is now %g (default %g)\n", config->endHz, END_HZ);
-		if(config->normType != max_frequency)
-		{
-			if(config->normType == max_time)
-				logmsg("\tUsing Time Domain Normalization\n");
-			if(config->normType == average)
-				logmsg("\tUsing Average Fundamental Frequency Normalization\n");
-		}
-		if(!config->logScale)
-			logmsg("\tPlots will not be adjusted to log scale\n");
-		if(config->averagePlot && !config->weightedAveragePlot)
-			logmsg("\tAveraged Plots will not be weighted\n");
 	}
+
+	if(config->ZeroPad)
+		logmsg("\tFFT bins will be aligned to 1Hz, this is slower\n");
+	if(config->FullTimeSpectroScale)
+		logmsg("\tFull Time spectrogram selected, this is slower\n");
+	if(config->ZeroPad && config->FullTimeSpectroScale)
+		logmsg("\tGo and play an arcade game credit if you have a slow CPU like mine...\n");
+	if(config->ignoreFloor)
+		logmsg("\tIgnoring Silence block noise floor\n");
+	if(config->channel != 's')
+		logmsg("\tAudio Channel is: %s\n", GetChannel(config->channel));
+	if(config->MaxFreq != FREQ_COUNT)
+		logmsg("\tMax frequencies to use from FFTW are %d (default %d)\n", config->MaxFreq, FREQ_COUNT);
+	if(config->startHz != START_HZ)
+		logmsg("\tFrequency start range for FFTW is now %g (default %g)\n", config->startHz, START_HZ);
+	if(config->endHz != END_HZ)
+		logmsg("\tFrequency end range for FFTW is now %g (default %g)\n", config->endHz, END_HZ);
+	if(config->normType != max_frequency)
+	{
+		if(config->normType == max_time)
+			logmsg("\tUsing Time Domain Normalization\n");
+		if(config->normType == average)
+			logmsg("\tUsing Average Fundamental Frequency Normalization\n");
+	}
+	if(!config->logScale)
+		logmsg("\tPlots will not be adjusted to log scale\n");
+	if(config->averagePlot && !config->weightedAveragePlot)
+		logmsg("\tAveraged Plots will not be weighted\n");
 	return 1;
 }
 

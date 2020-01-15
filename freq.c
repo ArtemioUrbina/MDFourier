@@ -345,15 +345,15 @@ int LoadProfile(parameters *config)
 	if(strcmp(buffer, "MDFourierAudioBlockFile") == 0)
 	{
 		sscanf(lineBuffer, "%*s %s\n", buffer);
-		if(atof(buffer) < 1.6)
+		if(atof(buffer) < 1.7)
 		{
-			logmsg("ERROR: Please update your profile files to version 1.6\n");
+			logmsg("ERROR: Please update your profile files to version 1.7\n");
 			fclose(file);
 			return 0;
 		}
-		if(atof(buffer) > 1.6)
+		if(atof(buffer) > 1.7)
 		{
-			logmsg("ERROR: This executable can parse \"MDFourierAudioBlockFile 1.6\" files only\n");
+			logmsg("ERROR: This executable can parse \"MDFourierAudioBlockFile 1.7\" files only\n");
 			fclose(file);
 			return 0;
 		}
@@ -394,6 +394,16 @@ void FlattenProfile(parameters *config)
 	config->types.regularChunks = GetActiveAudioBlocks(config);
 	config->types.totalChunks = GetTotalAudioBlocks(config);
 	logmsg("Audio Blocks flattened\n");
+}
+
+void EndProfileLoad(parameters *config)
+{
+	logmsg("* Using profile [%s]\n", config->types.Name);	
+	if(config->compressToBlocks)
+		FlattenProfile(config);
+
+	if(config->verbose)
+		PrintAudioBlocks(config);
 }
 
 int LoadAudioBlockStructure(FILE *file, parameters *config)
@@ -546,6 +556,7 @@ int LoadAudioBlockStructure(FILE *file, parameters *config)
 				break;
 			case TYPE_TIMEDOMAIN_C:
 				config->types.typeArray[i].type = TYPE_TIMEDOMAIN;
+				config->hasTimeDomain++;
 				break;
 			default:
 				if(sscanf(lineBuffer, "%*s %d ", &config->types.typeArray[i].type) != 1)
@@ -638,12 +649,9 @@ int LoadAudioBlockStructure(FILE *file, parameters *config)
 	}
 
 	fclose(file);
-	
-	if(config->compressToBlocks)
-		FlattenProfile(config);
 
-	if(config->verbose)
-		PrintAudioBlocks(config);
+	EndProfileLoad(config);
+
 	return 1;
 }
 
@@ -798,11 +806,7 @@ int LoadAudioNoSyncProfile(FILE *file, parameters *config)
 	config->significantAmplitude = NS_SIGNIFICANT_VOLUME;
 	fclose(file);
 	
-	if(config->compressToBlocks)
-		FlattenProfile(config);
-
-	if(config->verbose)
-		PrintAudioBlocks(config);
+	EndProfileLoad(config);
 	return 1;
 }
 
@@ -814,7 +818,6 @@ void PrintAudioBlocks(parameters *config)
 	if(!config)
 		return;
 
-	OutputFileOnlyStart();
 	for(int i = 0; i < config->types.typeCount; i++)
 	{
 		char	type[5], t;
@@ -831,7 +834,7 @@ void PrintAudioBlocks(parameters *config)
 		seconds *= config->types.typeArray[i].elementCount;
 		TotalSeconds += seconds;
 
-		logmsg("%s%s %s %d %d %s %c %s | Frames: %ld | Seconds: %g [%g to %g]\n", 
+		logmsgFileOnly("%s%s %s %d %d %s %c %s | Frames: %ld | Seconds: %g [%g to %g]\n", 
 			config->types.typeArray[i].type == TYPE_SKIP ? "     " : "",
 			config->types.typeArray[i].typeName,
 			type,
@@ -846,8 +849,7 @@ void PrintAudioBlocks(parameters *config)
 			TotalSeconds);
 		frames += config->types.typeArray[i].elementCount*config->types.typeArray[i].frames;
 	}
-	logmsg("Total frames: %ld\n", frames);
-	OutputFileOnlyEnd();
+	logmsgFileOnly("Total frames: %ld\n", frames);
 }
 
 double GetMSPerFrame(AudioSignal *Signal, parameters *config)
@@ -1904,15 +1906,15 @@ void PrintFrequenciesBlockMagnitude(AudioSignal *Signal, Frequency *freq, int ty
 	{
 		if(freq[j].hertz)
 		{
-			logmsg("Frequency [%5d] %7g Hz Magnitude: %g Phase: %g",
+			logmsgFileOnly("Frequency [%5d] %7g Hz Magnitude: %g Phase: %g",
 				j, 
 				freq[j].hertz,
 				freq[j].magnitude,
 				freq[j].phase);
 			/* detect VideoRefresh frequency */
 			if(Signal && IsHRefreshNoise(Signal, freq[j].hertz))
-				logmsg(" [Horizontal Refresh Noise?]");
-			logmsg("\n");
+				logmsgFileOnly(" [Horizontal Refresh Noise?]");
+			logmsgFileOnly("\n");
 		}
 	}
 }
@@ -1942,51 +1944,45 @@ void PrintFrequenciesBlock(AudioSignal *Signal, Frequency *freq, int type, param
 
 		if(freq[j].hertz && freq[j].amplitude != NO_AMPLITUDE)
 		{
-			logmsg("Frequency [%5d] %7g Hz Amplitude: %g dBFS Phase: %g",
+			logmsgFileOnly("Frequency [%5d] %7g Hz Amplitude: %g dBFS Phase: %g",
 				j, 
 				freq[j].hertz,
 				freq[j].amplitude,
 				freq[j].phase);
 			/* detect VideoRefresh frequency */
 			if(Signal && IsHRefreshNoise(Signal, freq[j].hertz))
-				logmsg(" [Horizontal Refresh Noise?]");
-			logmsg("\n");
+				logmsgFileOnly(" [Horizontal Refresh Noise?]");
+			logmsgFileOnly("\n");
 		}
 	}
 }
 
 void PrintFrequenciesWMagnitudes(AudioSignal *Signal, parameters *config)
 {
-	OutputFileOnlyStart();
-
 	for(int block = 0; block < config->types.totalChunks; block++)
 	{
 		int type = TYPE_NOTYPE;
 
-		logmsg("==================== %s# %d (%d) ===================\n", 
+		logmsgFileOnly("==================== %s# %d (%d) ===================\n", 
 				GetBlockName(config, block), GetBlockSubIndex(config, block), block);
 
 		type = GetBlockType(config, block);
 		PrintFrequenciesBlockMagnitude(Signal, Signal->Blocks[block].freq, type, config);
 	}
-	OutputFileOnlyEnd();
 }
 
 void PrintFrequencies(AudioSignal *Signal, parameters *config)
 {
-	OutputFileOnlyStart();
-
 	for(int block = 0; block < config->types.totalChunks; block++)
 	{
 		int type = TYPE_NOTYPE;
 
-		logmsg("==================== %s# %d (%d) ===================\n", 
+		logmsgFileOnly("==================== %s# %d (%d) ===================\n", 
 				GetBlockName(config, block), GetBlockSubIndex(config, block), block);
 
 		type = GetBlockType(config, block);
 		PrintFrequenciesBlock(Signal, Signal->Blocks[block].freq, type, config);
 	}
-	OutputFileOnlyEnd();
 }
 
 /* check ProcessSamples in mdwave if changed, for reverse FFTW */
@@ -2094,7 +2090,7 @@ void FillFrequencyStructures(AudioSignal *Signal, AudioBlocks *AudioArray, param
 		endBin = ceil(size/2);
 
 	/*
-	logmsg("Size: %ld BoxSize: %g StartBin: %ld EndBin %ld\n",
+	logmsgFileOnly("Size: %ld BoxSize: %g StartBin: %ld EndBin %ld\n",
 		 size, boxsize, startBin, endBin);
 	*/
 	for(i = startBin; i < endBin; i++)
@@ -2123,8 +2119,6 @@ void FillFrequencyStructures(AudioSignal *Signal, AudioBlocks *AudioArray, param
 
 void PrintComparedBlocks(AudioBlocks *ReferenceArray, AudioBlocks *ComparedArray, parameters *config, AudioSignal *Signal)
 {
-	OutputFileOnlyStart();
-
 	/* changed Magnitude->amplitude */
 	for(int j = 0; j < config->MaxFreq; j++)
 	{
@@ -2135,34 +2129,32 @@ void PrintComparedBlocks(AudioBlocks *ReferenceArray, AudioBlocks *ComparedArray
 		{
 			int match = 0;
 
-			logmsg("[%5d] Ref: %7g Hz %6.4f dBFS [>%3d]", 
+			logmsgFileOnly("[%5d] Ref: %7g Hz %6.4f dBFS [>%3d]", 
 						j,
 						ReferenceArray->freq[j].hertz,
 						ReferenceArray->freq[j].amplitude,
 						ReferenceArray->freq[j].matched - 1);
 
 			if(ComparedArray->freq[j].hertz)
-				logmsg("\tComp: %7g Hz %6.4f dBFS [<%3d]", 
+				logmsgFileOnly("\tComp: %7g Hz %6.4f dBFS [<%3d]", 
 						ComparedArray->freq[j].hertz,
 						ComparedArray->freq[j].amplitude,
 						ComparedArray->freq[j].matched - 1);
 			else
-				logmsg("\tCompared:\tNULL");
+				logmsgFileOnly("\tCompared:\tNULL");
 			match = ReferenceArray->freq[j].matched - 1;
 			if(match != -1)
 			{
 				if(ReferenceArray->freq[j].amplitude == 
 				ComparedArray->freq[match].amplitude)
-					logmsg("FA");
+					logmsgFileOnly("FA");
 				else
-					logmsg("F-");
+					logmsgFileOnly("F-");
 			}
-			logmsg("\n");
+			logmsgFileOnly("\n");
 		}
 	}
-	logmsg("\n\n");
-
-	OutputFileOnlyEnd();
+	logmsgFileOnly("\n\n");
 }
 
 double CalculateWeightedError(double pError, parameters *config)
@@ -2710,8 +2702,6 @@ void CleanName(char *name, char *display)
 void DetectOvertoneStart(AudioSignal *Signal, parameters *config)
 {
 	Frequency *tones = NULL;
-
-	OutputFileOnlyStart();
 	
 	tones = (Frequency*)malloc(sizeof(Frequency)*config->MaxFreq);
 	if(!tones)
@@ -2740,7 +2730,7 @@ void DetectOvertoneStart(AudioSignal *Signal, parameters *config)
 					overtone = (int)round(freq.hertz) % (int)round(tones[f].hertz);
 					if(overtone == 0)
 					{
-						logmsg("Overtone found! %g[%d] Hz %g dBFS of %g[%d] Hz %g dBFS at pos %d\n", 
+						logmsgFileOnly("Overtone found! %g[%d] Hz %g dBFS of %g[%d] Hz %g dBFS at pos %d\n", 
 							freq.hertz, (int)round(freq.hertz), freq.amplitude, 
 							tones[f].hertz, (int)round(tones[f].hertz), tones[f].amplitude, i);
 						found = 1;
@@ -2763,8 +2753,6 @@ void DetectOvertoneStart(AudioSignal *Signal, parameters *config)
 	}
 	free(tones);
 	tones = NULL;
-
-	OutputFileOnlyEnd();
 }
 
 */
