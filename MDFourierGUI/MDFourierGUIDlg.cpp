@@ -562,10 +562,10 @@ void CMDFourierGUIDlg::FillComboBoxes()
 	InsertValueInCombo(L"PAL", L"1", SyncType[1], m_ComSync);
 	m_ComSync.SetCurSel(0);
 
-	InsertValueInCombo(L"800", L"0", Resolutions[0], m_Resolution);
-	InsertValueInCombo(L"1600", L"", Resolutions[1], m_Resolution);
-	InsertValueInCombo(L"1920", L"1", Resolutions[2], m_Resolution);
-	InsertValueInCombo(L"3840", L"4", Resolutions[3], m_Resolution);
+	InsertValueInCombo(L"Low", L"0", Resolutions[0], m_Resolution);
+	InsertValueInCombo(L"Default", L"", Resolutions[1], m_Resolution);
+	InsertValueInCombo(L"1080p", L"1", Resolutions[2], m_Resolution);
+	InsertValueInCombo(L"4K", L"4", Resolutions[3], m_Resolution);
 	m_Resolution.SetCurSel(1);
 
 }
@@ -788,6 +788,7 @@ void CMDFourierGUIDlg::OnBnClickedPlotTd()
 {
 	CheckPlotSelection(m_TimeDomain);
 }
+
 
 void CMDFourierGUIDlg::OnBnClickedMdwave()
 {
