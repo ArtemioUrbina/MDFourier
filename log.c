@@ -82,7 +82,22 @@ void logmsgFileOnly(char *fmt, ... )
 
 	va_start(arguments, fmt);
 	OutputFileOnlyStart();
-	logmsg(fmt, arguments);
+
+	if(do_log != CONSOLE_DISABLED)
+	{
+		vprintf(fmt, arguments);
+#if defined (WIN32)
+		fflush(stdout);  // output to Front end ASAP
+#endif
+	}
+
+	if(do_log && logfile)
+	{
+		vfprintf(logfile, fmt, arguments);
+		// uncomment to output to log file ASAP when debugging
+		//fflush(logfile);
+	}
+
 	OutputFileOnlyEnd();
 	va_end(arguments);
 }

@@ -330,7 +330,7 @@ int commandline(int argc , char *argv[], parameters *config)
 		config->origSignificantAmplitude = config->significantAmplitude;
 		break;
 	  case 'Q':
-		config->plotTimeDomain = 1;
+		config->plotTimeDomain = 0;
 		break;
 	  case 'R':
 		config->reverseCompare = 1;

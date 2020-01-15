@@ -402,8 +402,7 @@ void EndProfileLoad(parameters *config)
 	if(config->compressToBlocks)
 		FlattenProfile(config);
 
-	if(config->verbose)
-		PrintAudioBlocks(config);
+	PrintAudioBlocks(config);
 }
 
 int LoadAudioBlockStructure(FILE *file, parameters *config)
@@ -821,7 +820,7 @@ void PrintAudioBlocks(parameters *config)
 	for(int i = 0; i < config->types.typeCount; i++)
 	{
 		char	type[5], t;
-		double 	seconds = 0, StartSeconds = 0;
+		double	seconds =	 0, StartSeconds = 0;
 
 		t = GetTypeProfileName(config->types.typeArray[i].type);
 		if(t == TYPE_NULLTYPE_C)
@@ -849,7 +848,7 @@ void PrintAudioBlocks(parameters *config)
 			TotalSeconds);
 		frames += config->types.typeArray[i].elementCount*config->types.typeArray[i].frames;
 	}
-	logmsgFileOnly("Total frames: %ld\n", frames);
+	logmsgFileOnly("Total frames: %ld\n================\n", frames);
 }
 
 double GetMSPerFrame(AudioSignal *Signal, parameters *config)

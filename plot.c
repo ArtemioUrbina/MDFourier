@@ -2863,7 +2863,7 @@ void DrawFrequencyHorizontalGrid(PlotFile *plot, double hz, double hzIncrement, 
 void PlotTimeSpectrogram(AudioSignal *Signal, parameters *config)
 {
 	PlotFile	plot;
-	double		significant = 0, x = 0, width = 0, blockcount = 0;
+	double		significant = 0, x = 0, framewidth = 0, framecount = 0;
 	long int	block = 0, i = 0;
 	char		filename[BUFFER_SIZE], name[BUFFER_SIZE/2];
 
@@ -2873,16 +2873,13 @@ void PlotTimeSpectrogram(AudioSignal *Signal, parameters *config)
 	ShortenFileName(basename(Signal->SourceFile), name);
 	sprintf(filename, "T_SP_%c_%s", Signal->role == ROLE_REF ? 'A' : 'B', name);
 
-	for(block = 0; block < config->types.totalChunks; block++)
+	for(int i = 0; i < config->types.typeCount; i++)
 	{
-		int 	type = 0;
-
-		type = GetBlockType(config, block);
-		if(type > TYPE_SILENCE)
-			blockcount++;
+		if(config->types.typeArray[i].type > TYPE_SILENCE)
+			framecount += config->types.typeArray[i].elementCount*config->types.typeArray[i].frames;
 	}
 
-	if(!blockcount)
+	if(!framecount)
 		return;
 
 	if(config->FullTimeSpectroScale)
@@ -2898,16 +2895,19 @@ void PlotTimeSpectrogram(AudioSignal *Signal, parameters *config)
 
 	DrawFrequencyHorizontalGrid(&plot, config->endHzPlot, 1000, config);
 
-	width = config->plotResX / blockcount;
+	framewidth = config->plotResX / framecount;
 	for(block = 0; block < config->types.totalChunks; block++)
 	{
-		int 	type = 0, color = 0;
-
-		type = GetBlockType(config, block);
-		color = MatchColor(GetBlockColor(config, block));
-
-		if(type > TYPE_SILENCE && config->MaxFreq > 0)
+		if(GetBlockType(config, block) > TYPE_SILENCE && config->MaxFreq > 0)
 		{
+			int		color = 0;
+			double	frames = 0, noteWidth = 0, xpos = 0;
+
+			frames = GetBlockFrames(config, block);
+			noteWidth = framewidth*frames;
+			xpos = x+noteWidth;
+			color = MatchColor(GetBlockColor(config, block));
+
 			for(i = config->MaxFreq; i >= 0; i--)
 			{
 				if(Signal->Blocks[block].freq[i].hertz && Signal->Blocks[block].freq[i].amplitude > significant)
@@ -2921,11 +2921,11 @@ void PlotTimeSpectrogram(AudioSignal *Signal, parameters *config)
 					
 					intensity = CalculateWeightedError(fabs(fabs(significant) - fabs(amplitude))/fabs(significant), config)*0xffff;
 					SetPenColor(color, intensity, &plot);
-					pl_fline_r(plot.plotter, x,	y, x+width, y);
+					pl_fline_r(plot.plotter, x,	y, xpos, y);
 					pl_endpath_r(plot.plotter);
 				}
 			}
-			x += width;
+			x += noteWidth;
 		}
 	}
 
@@ -2938,7 +2938,7 @@ void PlotTimeSpectrogram(AudioSignal *Signal, parameters *config)
 void PlotTimeSpectrogramUnMatchedContent(AudioSignal *Signal, parameters *config)
 {
 	PlotFile	plot;
-	double		significant = 0, x = 0, width = 0, blockcount = 0;
+	double		significant = 0, x = 0, framewidth = 0, framecount = 0;
 	long int	block = 0, i = 0;
 	char		filename[BUFFER_SIZE], name[BUFFER_SIZE/2];
 
@@ -2951,16 +2951,13 @@ void PlotTimeSpectrogramUnMatchedContent(AudioSignal *Signal, parameters *config
 	else
 		sprintf(filename, "MISSING-EXTRA_T_SP_%s", name);
 
-	for(block = 0; block < config->types.totalChunks; block++)
+	for(int i = 0; i < config->types.typeCount; i++)
 	{
-		int 	type = 0;
-
-		type = GetBlockType(config, block);
-		if(type > TYPE_SILENCE)
-			blockcount++;
+		if(config->types.typeArray[i].type > TYPE_SILENCE)
+			framecount += config->types.typeArray[i].elementCount*config->types.typeArray[i].frames;
 	}
 
-	if(!blockcount)
+	if(!framecount)
 		return;
 
 	if(config->FullTimeSpectroScale)
@@ -2976,16 +2973,19 @@ void PlotTimeSpectrogramUnMatchedContent(AudioSignal *Signal, parameters *config
 
 	DrawFrequencyHorizontalGrid(&plot, config->endHzPlot, 1000, config);
 
-	width = config->plotResX / blockcount;
+	framewidth = config->plotResX / framecount;
 	for(block = 0; block < config->types.totalChunks; block++)
 	{
-		int 	type = 0, color = 0;
-
-		type = GetBlockType(config, block);
-		color = MatchColor(GetBlockColor(config, block));
-
-		if(type > TYPE_SILENCE && config->MaxFreq > 0)
+		if(GetBlockType(config, block) > TYPE_SILENCE && config->MaxFreq > 0)
 		{
+			int		color = 0;
+			double	frames = 0, noteWidth = 0, xpos = 0;
+
+			frames = GetBlockFrames(config, block);
+			noteWidth = framewidth*frames;
+			xpos = x+noteWidth;
+			color = MatchColor(GetBlockColor(config, block));
+
 			for(i = config->MaxFreq; i >= 0; i--)
 			{
 				if(Signal->Blocks[block].freq[i].hertz && !Signal->Blocks[block].freq[i].matched
@@ -3000,11 +3000,11 @@ void PlotTimeSpectrogramUnMatchedContent(AudioSignal *Signal, parameters *config
 					
 					intensity = CalculateWeightedError(fabs(fabs(significant) - fabs(amplitude))/fabs(significant), config)*0xffff;
 					SetPenColor(color, intensity, &plot);
-					pl_fline_r(plot.plotter, x,	y, x+width, y);
+					pl_fline_r(plot.plotter, x,	y, xpos, y);
 					pl_endpath_r(plot.plotter);
 				}
 			}
-			x += width;
+			x += noteWidth;
 		}
 	}
 
