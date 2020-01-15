@@ -1,0 +1,18 @@
+MDFourierAudioBlockFile 1.7
+Nintendo: Super Famicom/Super Nintendo Segments
+NTSC 16.6392 262 8012 14 10
+PAL 19.997 313 8012 14 10
+APU y 54 8000 20 1.5 4
+12
+Sync s 1 20 red s
+Silence n 1 20 gray s
+250hz 1 15 20 red m
+1khz 2 15 20 green m
+4khz 3 15 20 yellow m
+8khz 4 15 20 magenta m
+9khz 5 15 20 aqua m
+11khz 6 15 20 blue m
+13khz 7 15 20 orange m
+15khz 8 15 20 purple m
+Silence n 1 20 gray s
+Sync s 1 20 red s
