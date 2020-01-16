@@ -3067,7 +3067,7 @@ void PlotTimeDomainGraphs(AudioSignal *Signal, parameters *config)
 	{
 		if(config->plotAllNotes || Signal->Blocks[i].type == TYPE_TIMEDOMAIN)
 		{
-			sprintf(name, "TDPlots\\TD_%05ld_%s_%s_%05d%s_", 
+			sprintf(name, "TDPlots\\TD_%05ld_%s_%s_%05d_%s_", 
 				i, Signal->role == ROLE_REF ? "1" : "2",
 				GetBlockName(config, i), GetBlockSubIndex(config, i), config->compareName);
 		
@@ -3080,7 +3080,7 @@ void PlotTimeDomainGraphs(AudioSignal *Signal, parameters *config)
 
 			if(config->plotAllNotesWindowed && Signal->Blocks[i].audio.window_samples)
 			{
-				sprintf(name, "TDPlots\\TD_%05ld_%s_%s_%05d%s_", 
+				sprintf(name, "TDPlots\\TD_%05ld_%s_%s_%05d_%s_", 
 					i, Signal->role == ROLE_REF ? "3" : "4",
 					GetBlockName(config, i), GetBlockSubIndex(config, i), config->compareName);
 
@@ -3128,7 +3128,7 @@ void PlotBlockTimeDomainGraph(AudioSignal *Signal, int block, char *name, int wi
 
 	//DrawFrequencyHorizontalGrid(&plot, config->endHzPlot, 1000, config);
 	color = MatchColor(GetBlockColor(config, block));
-	SetPenColor(color, 0x6666, &plot);
+	SetPenColor(COLOR_GREEN, 0x6666, &plot);
 	pl_fline_r(plot.plotter, 0, 0, numSamples, 0);
 	pl_endpath_r(plot.plotter);
 

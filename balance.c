@@ -99,9 +99,11 @@ int CheckBalance(AudioSignal *Signal, int block, parameters *config)
 		{
 			Channels[0].index = GetBlockSubIndex(config, i);
 			Channels[0].type = GetBlockType(config, i);
+			Channels[0].frames = GetBlockFrames(config, i);
 
 			Channels[1].index = Channels[0].index;
 			Channels[1].type = Channels[0].type;
+			Channels[1].frames = GetBlockFrames(config, i);
 
 			memset(buffer, 0, buffersize);
 			if(pos + loadedBlockSize > Signal->header.data.DataSize)
@@ -124,15 +126,31 @@ int CheckBalance(AudioSignal *Signal, int block, parameters *config)
 				logmsg("ERROR: Not enough memory for Data Structures\n");
 				return 0;
 			}
+			memset(Channels[0].freq, 0, sizeof(Frequency)*config->MaxFreq);
 			Channels[1].freq = (Frequency*)malloc(sizeof(Frequency)*config->MaxFreq);
 			if(!Channels[1].freq)
 			{
-				CleanBlock(&Channels[0]);
+				ReleaseBlock(&Channels[0]);
 				logmsg("ERROR: Not enough memory for Data Structures\n");
 				return 0;
 			}
-			FillFrequencyStructures(Signal, &Channels[0], config);
-			FillFrequencyStructures(Signal, &Channels[1], config);
+			memset(Channels[1].freq, 0, sizeof(Frequency)*config->MaxFreq);
+			if(!FillFrequencyStructures(Signal, &Channels[0], config))
+			{
+				ReleaseBlock(&Channels[0]);
+				ReleaseBlock(&Channels[1]);
+		
+				logmsg("- Could not detect Stereo channel balance.\n");
+				return 0;
+			}
+			if(!FillFrequencyStructures(Signal, &Channels[1], config))
+			{
+				ReleaseBlock(&Channels[0]);
+				ReleaseBlock(&Channels[1]);
+		
+				logmsg("- Could not detect Stereo channel balance.\n");
+				return 0;
+			}
 		}
 
 		pos += loadedBlockSize;
@@ -142,8 +160,8 @@ int CheckBalance(AudioSignal *Signal, int block, parameters *config)
 
 	if(!Channels[0].freq || !Channels[1].freq)
 	{
-		CleanBlock(&Channels[0]);
-		CleanBlock(&Channels[1]);
+		ReleaseBlock(&Channels[0]);
+		ReleaseBlock(&Channels[1]);
 
 		logmsg("- Could not detect Stereo channel balance.\n");
 		return 0;
@@ -167,8 +185,8 @@ int CheckBalance(AudioSignal *Signal, int block, parameters *config)
 			logmsgFileOnly("Right Channel:\n");
 			PrintFrequenciesBlockMagnitude(NULL, Channels[1].freq, GetBlockType(config, block), config);
 		}
-		CleanBlock(&Channels[0]);
-		CleanBlock(&Channels[1]);
+		ReleaseBlock(&Channels[0]);
+		ReleaseBlock(&Channels[1]);
 
 		return 0;
 	}
@@ -237,8 +255,8 @@ int CheckBalance(AudioSignal *Signal, int block, parameters *config)
 		logmsg(" - clk: Audio Channel Balancing took %0.2fs\n", elapsedSeconds);
 	}
 
-	CleanBlock(&Channels[0]);
-	CleanBlock(&Channels[1]);
+	ReleaseBlock(&Channels[0]);
+	ReleaseBlock(&Channels[1]);
 
 	free(buffer);
 	freeWindows(&windows);
@@ -325,7 +343,6 @@ int ExecuteBalanceDFFT(AudioBlocks *AudioArray, int16_t *samples, size_t size, l
 
 	AudioArray->fftwValues.spectrum = spectrum;
 	AudioArray->fftwValues.size = monoSignalSize;
-	AudioArray->fftwValues.seconds = seconds;
 
 	return(1);
 }

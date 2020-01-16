@@ -168,6 +168,7 @@ AudioSignal *CreateAudioSignal(parameters *config)
 			config->types.totalBlocks);	
 		return NULL;
 	}
+	memset(Signal->Blocks, 0, sizeof(AudioBlocks)*config->types.totalBlocks);
 
 	for(int n = 0; n < config->types.totalBlocks; n++)
 	{
@@ -177,41 +178,44 @@ AudioSignal *CreateAudioSignal(parameters *config)
 			logmsg("Not enough memory for Data Structures (Chunk %d)\n", n);
 			return NULL;
 		}
+		memset(Signal->Blocks[n].freq, 0, sizeof(Frequency)*config->MaxFreq);
 	}
 
-	CleanAudio(Signal, config);
+	InitAudio(Signal, config);
 	return Signal;
 }
 
-void CleanAudio(AudioSignal *Signal, parameters *config)
+void InitAudio(AudioSignal *Signal, parameters *config)
 {
 	if(!Signal)
 		return;
 
-	if(!Signal->Blocks)
-		return;
-
-	for(int n = 0; n < config->types.totalBlocks; n++)
+	if(Signal->Blocks)
 	{
-		if(Signal->Blocks[n].freq)
+		for(int n = 0; n < config->types.totalBlocks; n++)
 		{
-			for(int i = 0; i < config->MaxFreq; i++)
+			if(Signal->Blocks[n].freq)
 			{
-				Signal->Blocks[n].freq[i].hertz = 0;
-				Signal->Blocks[n].freq[i].magnitude = 0;
-				Signal->Blocks[n].freq[i].amplitude = NO_AMPLITUDE;
-				Signal->Blocks[n].freq[i].phase = 0;
-				Signal->Blocks[n].freq[i].matched = 0;
+				for(int i = 0; i < config->MaxFreq; i++)
+				{
+					Signal->Blocks[n].freq[i].hertz = 0;
+					Signal->Blocks[n].freq[i].magnitude = 0;
+					Signal->Blocks[n].freq[i].amplitude = NO_AMPLITUDE;
+					Signal->Blocks[n].freq[i].phase = 0;
+					Signal->Blocks[n].freq[i].matched = 0;
+				}
 			}
+			Signal->Blocks[n].fftwValues.spectrum = NULL;
+			Signal->Blocks[n].fftwValues.size = 0;
+	
+			Signal->Blocks[n].audio.samples = NULL;
+			Signal->Blocks[n].audio.window_samples = NULL;
+			Signal->Blocks[n].audio.size = 0;
+	
+			Signal->Blocks[n].index = GetBlockSubIndex(config, n);
+			Signal->Blocks[n].type = GetBlockType(config, n);
+			Signal->Blocks[n].frames = GetBlockFrames(config, n);
 		}
-		Signal->Blocks[n].fftwValues.spectrum = NULL;
-		Signal->Blocks[n].fftwValues.size = 0;
-		Signal->Blocks[n].fftwValues.seconds = 0;
-
-		Signal->Blocks[n].audio.samples = NULL;
-		Signal->Blocks[n].audio.window_samples = NULL;
-		Signal->Blocks[n].audio.size = 0;
-		Signal->Blocks[n].audio.seconds = 0;
 	}
 	Signal->SourceFile[0] = '\0';
 	Signal->AudioChannels = INVALID_CHANNELS;
@@ -241,7 +245,7 @@ void CleanAudio(AudioSignal *Signal, parameters *config)
 	memset(&Signal->header, 0, sizeof(wav_hdr));
 }
 
-void CleanFFTW(AudioBlocks * AudioArray)
+void ReleaseFFTW(AudioBlocks * AudioArray)
 {
 	if(!AudioArray)
 		return;
@@ -252,10 +256,9 @@ void CleanFFTW(AudioBlocks * AudioArray)
 		AudioArray->fftwValues.spectrum = NULL;
 	}
 	AudioArray->fftwValues.size = 0;
-	AudioArray->fftwValues.seconds = 0;
 }
 
-void CleanSamples(AudioBlocks * AudioArray)
+void ReleaseSamples(AudioBlocks * AudioArray)
 {
 	if(!AudioArray)
 		return;
@@ -271,10 +274,9 @@ void CleanSamples(AudioBlocks * AudioArray)
 		AudioArray->audio.window_samples = NULL;
 	}
 	AudioArray->audio.size = 0;
-	AudioArray->audio.seconds = 0;
 }
 
-void CleanFrequencies(AudioBlocks * AudioArray)
+void ReleaseFrequencies(AudioBlocks * AudioArray)
 {
 	if(!AudioArray)
 		return;
@@ -286,11 +288,15 @@ void CleanFrequencies(AudioBlocks * AudioArray)
 	}
 }
 
-void CleanBlock(AudioBlocks * AudioArray)
+void ReleaseBlock(AudioBlocks * AudioArray)
 {
-	CleanFrequencies(AudioArray);
-	CleanFFTW(AudioArray);
-	CleanSamples(AudioArray);
+	ReleaseFrequencies(AudioArray);
+	ReleaseFFTW(AudioArray);
+	ReleaseSamples(AudioArray);
+
+	AudioArray->index = 0;
+	AudioArray->type = 0;
+	AudioArray->frames = 0;
 }
 
 void ReleaseAudio(AudioSignal *Signal, parameters *config)
@@ -298,33 +304,22 @@ void ReleaseAudio(AudioSignal *Signal, parameters *config)
 	if(!Signal)
 		return;
 
-	if(!Signal->Blocks)
-		return;
-
-	for(int n = 0; n < config->types.totalBlocks; n++)
-		CleanBlock(&Signal->Blocks[n]);
-
-	free(Signal->Blocks);
-	Signal->Blocks = NULL;
-
-	Signal->SourceFile[0] = '\0';
-
-	Signal->hasFloor = 0;
-	Signal->floorFreq = 0.0;
-	Signal->floorAmplitude = 0.0;	
+	if(Signal->Blocks)
+	{
+		for(int n = 0; n < config->types.totalBlocks; n++)
+			ReleaseBlock(&Signal->Blocks[n]);
+	
+		free(Signal->Blocks);
+		Signal->Blocks = NULL;
+	}
 
 	if(Signal->Samples)
 	{
 		free(Signal->Samples);
 		Signal->Samples = NULL;
 	}
-	Signal->framerate = 0.0;
 
-	Signal->startOffset = 0;
-	Signal->endOffset = 0;
-
-	memset(&Signal->MaxMagnitude, 0, sizeof(MaxMagn));
-	Signal->MinAmplitude = 0;
+	InitAudio(Signal, config);
 }
 
 void ReleaseAudioBlockStructure(parameters *config)
@@ -848,6 +843,7 @@ void PrintAudioBlocks(parameters *config)
 	if(!config)
 		return;
 
+	logmsgFileOnly("\n======== PROFILE ========\n");
 	for(int i = 0; i < config->types.typeCount; i++)
 	{
 		char	type[5], t;
@@ -2073,8 +2069,11 @@ int FillFrequencyStructures(AudioSignal *Signal, AudioBlocks *AudioArray, parame
 	if(!size)
 		return 0;
 
+	if(!AudioArray->frames)
+		return 0;
+
 	// Round to 3 decimal places so that 48kHz and 44 kHz line up
-	boxsize = RoundFloat(AudioArray->fftwValues.seconds, 3);
+	boxsize = RoundFloat(AudioArray->frames*Signal->framerate/1000.0, 3);
 
 	startBin = ceil(config->startHz*boxsize);
 	endBin = floor(config->endHz*boxsize);
@@ -2116,8 +2115,6 @@ int FillFrequencyStructures(AudioSignal *Signal, AudioBlocks *AudioArray, parame
 			f_array[count++] = element;
 		}
 	}
-
-	CleanFFTW(AudioArray);
 
 	FFT_Frequency_tim_sort(f_array, count);
 

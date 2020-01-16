@@ -249,22 +249,21 @@ typedef struct FrequencySt {
 typedef struct fftw_spectrum_st {
 	fftw_complex  	*spectrum;
 	size_t			size;
-	double			seconds;
 } FFTWSpectrum;
 
 typedef struct samples_st {
 	int16_t			*samples;
 	int16_t			*window_samples;
 	long int		size;
-	double			seconds;
 } BlockSamples;
 
 typedef struct AudioBlock_st {
 	Frequency		*freq;
 	FFTWSpectrum	fftwValues;
+	BlockSamples	audio;
 	int				index;
 	int				type;
-	BlockSamples	audio;
+	long int		frames;
 } AudioBlocks;
 
 typedef struct AudioSt {

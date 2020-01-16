@@ -773,9 +773,6 @@ int ProcessFile(AudioSignal *Signal, parameters *config)
 		double duration = 0, framerate = 0;
 		long int frames = 0, difference = 0;
 
-		Signal->Blocks[i].index = GetBlockSubIndex(config, i);
-		Signal->Blocks[i].type = GetBlockType(config, i);
-
 		if(!syncinternal)
 			framerate = Signal->framerate;
 		else
@@ -1115,7 +1112,6 @@ int ProcessSamples(AudioBlocks *AudioArray, int16_t *samples, size_t size, long 
 	{
 		AudioArray->fftwValues.spectrum = spectrum;
 		AudioArray->fftwValues.size = monoSignalSize;
-		AudioArray->fftwValues.seconds = seconds;
 
 		if(!FillFrequencyStructures(NULL, AudioArray, config))
 			return 0;
