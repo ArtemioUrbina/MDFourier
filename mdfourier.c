@@ -1225,7 +1225,7 @@ int ProcessFile(AudioSignal *Signal, parameters *config)
 	if(config->clock)
 		clock_gettime(CLOCK_MONOTONIC, &start);
 
-	while(i < config->types.totalChunks)
+	while(i < config->types.totalBlocks)
 	{
 		double duration = 0, framerate = 0;
 		long int frames = 0, difference = 0;
@@ -1467,7 +1467,7 @@ int CompareAudioBlocks(AudioSignal *ReferenceSignal, AudioSignal *ComparisonSign
 	if(!CreateDifferenceArray(config))
 		return 0;
 
-	for(block = 0; block < config->types.totalChunks; block++)
+	for(block = 0; block < config->types.totalBlocks; block++)
 	{
 		int refSize = 0, testSize = 0, type = 0;
 
@@ -1674,7 +1674,7 @@ void NormalizeTimeDomainByFrequencyRatio(AudioSignal *Signal, parameters *config
 	if(config->normType != max_frequency)
 		return;
 
-	for(i = 0; i < config->types.totalChunks; i++)
+	for(i = 0; i < config->types.totalBlocks; i++)
 	{
 		if(Signal->Blocks[i].audio.samples)
 			NormalizeBlockByRatio(&Signal->Blocks[i], config->normalizationRatio);
@@ -1803,7 +1803,7 @@ void NormalizeMagnitudesByRatio(AudioSignal *Signal, double ratio, parameters *c
 	if(!ratio)
 		return;
 
-	for(int block = 0; block < config->types.totalChunks; block++)
+	for(int block = 0; block < config->types.totalBlocks; block++)
 	{
 		int type = TYPE_NOTYPE;
 
@@ -1834,7 +1834,7 @@ MaxMagn FindMaxMagnitudeBlock(AudioSignal *Signal, parameters *config)
 		return MaxMag;
 
 	// Find global peak
-	for(int block = 0; block < config->types.totalChunks; block++)
+	for(int block = 0; block < config->types.totalBlocks; block++)
 	{
 		int type = TYPE_NOTYPE;
 
@@ -1929,7 +1929,7 @@ double FindFundamentalMagnitudeAverage(AudioSignal *Signal, parameters *config)
 		return 0;
 
 	// Find global peak
-	for(int block = 0; block < config->types.totalChunks; block++)
+	for(int block = 0; block < config->types.totalBlocks; block++)
 	{
 		int type = TYPE_NOTYPE;
 

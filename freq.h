@@ -79,6 +79,10 @@ void CleanName(char *name, char *display);
 int MatchesPreviousType(int type, parameters *config);
 
 AudioSignal *CreateAudioSignal(parameters *config);
+void CleanFFTW(AudioBlocks * AudioArray);
+void CleanSamples(AudioBlocks * AudioArray);
+void CleanFrequencies(AudioBlocks * AudioArray);
+void CleanBlock(AudioBlocks *AudioArray);
 void CleanAudio(AudioSignal *Signal, parameters *config);
 void ReleaseAudio(AudioSignal *Signal, parameters *config);
 void CleanMatched(AudioSignal *ReferenceSignal, AudioSignal *TestSignal, parameters *config);

@@ -1413,7 +1413,7 @@ void PlotAllMissingFrequencies(FlatFreqDifference *freqDiff, long int size, char
 {
 	PlotFile	plot;
 	char		name[BUFFER_SIZE];
-	double		significant = 0;
+	double		significant = 0, abs_significant = 0;
 
 	if(!config)
 		return;
@@ -1422,6 +1422,8 @@ void PlotAllMissingFrequencies(FlatFreqDifference *freqDiff, long int size, char
 		return;
 
 	significant = config->significantAmplitude;
+	abs_significant = fabs(significant);
+
 	sprintf(name, "MIS__ALL_%s", filename);
 	FillPlot(&plot, name, config->plotResX, config->plotResY, config->startHzPlot, significant, config->endHzPlot, 0.0, 1, config);
 
@@ -1443,7 +1445,7 @@ void PlotAllMissingFrequencies(FlatFreqDifference *freqDiff, long int size, char
 				x = transformtoLog(freqDiff[f].hertz, config);
 				y = freqDiff[f].amplitude;
 	
-				intensity = CalculateWeightedError((fabs(significant) - fabs(freqDiff[f].amplitude))/fabs(significant), config)*0xffff;
+				intensity = CalculateWeightedError((abs_significant - fabs(freqDiff[f].amplitude))/abs_significant, config)*0xffff;
 				
 				SetPenColor(freqDiff[f].color, intensity, &plot);
 				pl_fline_r(plot.plotter, x,	y, x, significant);
@@ -1480,7 +1482,7 @@ int PlotEachTypeMissingFrequencies(FlatFreqDifference *freqDiff, long int size, 
 void PlotSingleTypeMissingFrequencies(FlatFreqDifference *freqDiff, long int size, int type, char *filename, parameters *config)
 {
 	PlotFile	plot;
-	double		significant = 0;
+	double		significant = 0, abs_significant = 0;
 
 	if(!config)
 		return;
@@ -1489,6 +1491,7 @@ void PlotSingleTypeMissingFrequencies(FlatFreqDifference *freqDiff, long int siz
 		return;
 
 	significant = config->significantAmplitude;
+	abs_significant = fabs(significant);
 
 	FillPlot(&plot, filename, config->plotResX, config->plotResY, config->startHzPlot, significant, config->endHzPlot, 0.0, 1, config);
 
@@ -1507,7 +1510,7 @@ void PlotSingleTypeMissingFrequencies(FlatFreqDifference *freqDiff, long int siz
 
 			x = transformtoLog(freqDiff[f].hertz, config);;
 			y = freqDiff[f].amplitude;
-			intensity = CalculateWeightedError((fabs(significant) - fabs(freqDiff[f].amplitude))/fabs(significant), config)*0xffff;
+			intensity = CalculateWeightedError((abs_significant - fabs(y))/abs_significant, config)*0xffff;
 
 			SetPenColor(freqDiff[f].color, intensity, &plot);
 			pl_fline_r(plot.plotter, x,	y, x, significant);
@@ -1524,12 +1527,13 @@ void PlotAllSpectrogram(FlatFrequency *freqs, long int size, char *filename, int
 {
 	PlotFile plot;
 	char	 name[BUFFER_SIZE];
-	double	 significant = 0;
+	double	 significant = 0, abs_significant = 0;
 
 	if(!config)
 		return;
 
 	significant = config->significantAmplitude;
+	abs_significant = fabs(significant);
 
 	sprintf(name, "SP__ALL_%s", filename);
 	FillPlot(&plot, name, config->plotResX, config->plotResY, config->startHzPlot, significant, config->endHzPlot, 0.0, 1, config);
@@ -1551,7 +1555,7 @@ void PlotAllSpectrogram(FlatFrequency *freqs, long int size, char *filename, int
 	
 				x = transformtoLog(freqs[f].hertz, config);
 				y = freqs[f].amplitude;
-				intensity = CalculateWeightedError((fabs(significant) - fabs(freqs[f].amplitude))/fabs(significant), config)*0xffff;
+				intensity = CalculateWeightedError((abs_significant - fabs(y))/abs_significant, config)*0xffff;
 		
 				SetPenColor(freqs[f].color, intensity, &plot);
 				pl_fline_r(plot.plotter, x,	y, x, significant);
@@ -1597,12 +1601,13 @@ int PlotEachTypeSpectrogram(FlatFrequency *freqs, long int size, char *filename,
 void PlotSingleTypeSpectrogram(FlatFrequency *freqs, long int size, int type, char *filename, int signal, parameters *config)
 {
 	PlotFile	plot;
-	double		significant = 0;
+	double		significant = 0, abs_significant = 0;
 
 	if(!config)
 		return;
 
 	significant = config->significantAmplitude;
+	abs_significant = fabs(significant);
 
 	FillPlot(&plot, filename, config->plotResX, config->plotResY, config->startHzPlot, significant, config->endHzPlot, 0.0, 1, config);
 
@@ -1621,7 +1626,7 @@ void PlotSingleTypeSpectrogram(FlatFrequency *freqs, long int size, int type, ch
 
 			x = transformtoLog(freqs[f].hertz, config);
 			y = freqs[f].amplitude;
-			intensity = CalculateWeightedError((fabs(significant) - fabs(freqs[f].amplitude))/fabs(significant), config)*0xffff;
+			intensity = CalculateWeightedError((abs_significant - fabs(y))/abs_significant, config)*0xffff;
 	
 			//pl_flinewidth_r(plot.plotter, 100*range_0_1);
 			SetPenColor(freqs[f].color, intensity, &plot);
@@ -1952,7 +1957,7 @@ FlatAmplDifference *CreateFlatDifferences(parameters *config, long int *size, di
 
 	memset(ADiff, 0, sizeof(FlatAmplDifference)*config->Differences.cntAmplAudioDiff+1000);
 
-	for(int b = 0; b < config->types.totalChunks; b++)
+	for(int b = 0; b < config->types.totalBlocks; b++)
 	{
 		int type = 0, doplot = 0;
 		
@@ -2002,7 +2007,7 @@ FlatFreqDifference *CreateFlatMissing(parameters *config, long int *size)
 		return NULL;
 	memset(FDiff, 0, sizeof(FlatFreqDifference)*config->Differences.cntFreqAudioDiff);
 
-	for(int b = 0; b < config->types.totalChunks; b++)
+	for(int b = 0; b < config->types.totalBlocks; b++)
 	{
 		int type = 0, color = 0;
 		
@@ -2074,19 +2079,20 @@ FlatFrequency *CreateFlatFrequencies(AudioSignal *Signal, long int *size, parame
 	long int		block = 0, i = 0;
 	long int		count = 0, counter = 0;
 	FlatFrequency	*Freqs = NULL;
+	double			significant = 0;
 
 	if(!size || !Signal || !config)
 		return NULL;
 
 	*size = 0;
 
-	for(block = 0; block < config->types.totalChunks; block++)
+	significant = config->significantAmplitude;
+
+	for(block = 0; block < config->types.totalBlocks; block++)
 	{
 		int 	type = TYPE_NOTYPE;
-		double	significant = 0;
 
 		type = GetBlockType(config, block);
-		significant = config->significantAmplitude;
 
 		if(type >= TYPE_SILENCE)
 		{
@@ -2113,13 +2119,11 @@ FlatFrequency *CreateFlatFrequencies(AudioSignal *Signal, long int *size, parame
 		return NULL;
 	memset(Freqs, 0, sizeof(FlatFrequency)*count);
 
-	for(block = 0; block < config->types.totalChunks; block++)
+	for(block = 0; block < config->types.totalBlocks; block++)
 	{
 		int type = 0, color = 0;
-		double	significant = 0;
 
 		type = GetBlockType(config, block);
-		significant = config->significantAmplitude;
 		if(type >= TYPE_SILENCE)
 		{
 			color = MatchColor(GetBlockColor(config, block));
@@ -2209,11 +2213,10 @@ void PlotTestZL(char *filename, parameters *config)
 	ClosePlot(&plot);
 }
 
-
 inline double transformtoLog(double coord, parameters *config)
 {
 	if(config->logScale)
-		return(config->endHzPlot*log10(coord)/log10(config->endHzPlot));
+		return(config->plotRatio*log10(coord));
 	else
 		return(coord);
 }
@@ -2264,7 +2267,7 @@ AveragedFrequencies *CreateFlatDifferencesAveraged(int matchType, long int *avgS
 	long int			count = 0, interval = 0, realResults = 0;
 	FlatAmplDifference	*ADiff = NULL;
 	AveragedFrequencies	*averaged = NULL, *averagedSMA = NULL;
-	double				significant = 0;
+	double				significant = 0, 	abs_significant = 0;
 
 	if(!config)
 		return NULL;
@@ -2275,8 +2278,10 @@ AveragedFrequencies *CreateFlatDifferencesAveraged(int matchType, long int *avgS
 	*avgSize = 0;
 
 	significant = config->significantAmplitude;
+	abs_significant = fabs(significant);
+
 	// Count how many we have
-	for(int b = 0; b < config->types.totalChunks; b++)
+	for(int b = 0; b < config->types.totalBlocks; b++)
 	{
 		if(GetBlockType(config, b) == matchType)
 			count += config->Differences.BlockDiffArray[b].cntAmplBlkDiff;
@@ -2293,7 +2298,7 @@ AveragedFrequencies *CreateFlatDifferencesAveraged(int matchType, long int *avgS
 	memset(ADiff, 0, sizeof(FlatAmplDifference)*count);
 
 	count = 0;
-	for(int b = 0; b < config->types.totalChunks; b++)
+	for(int b = 0; b < config->types.totalBlocks; b++)
 	{
 		int type = 0;
 		
@@ -2330,8 +2335,8 @@ AveragedFrequencies *CreateFlatDifferencesAveraged(int matchType, long int *avgS
 						double intensity = 0, value = 0;
 	
 						if(plotType == normalPlot)
-							value = (fabs(significant) - fabs(config->Differences.BlockDiffArray[b].amplDiffArray[a].refAmplitude))/
-										fabs(significant);
+							value = (abs_significant - fabs(config->Differences.BlockDiffArray[b].amplDiffArray[a].refAmplitude))/
+										abs_significant;
 						else
 							value = 1.0  -(fabs(config->Differences.BlockDiffArray[b].amplDiffArray[a].refAmplitude)-fabs(startAmplitude))/
 										(fabs(endAmplitude)-fabs(startAmplitude));
@@ -2858,7 +2863,7 @@ void DrawFrequencyHorizontalGrid(PlotFile *plot, double hz, double hzIncrement, 
 void PlotTimeSpectrogram(AudioSignal *Signal, parameters *config)
 {
 	PlotFile	plot;
-	double		significant = 0, x = 0, framewidth = 0, framecount = 0;
+	double		significant = 0, x = 0, framewidth = 0, framecount = 0, abs_significant = 0;
 	long int	block = 0, i = 0;
 	char		filename[BUFFER_SIZE], name[BUFFER_SIZE/2];
 
@@ -2882,6 +2887,8 @@ void PlotTimeSpectrogram(AudioSignal *Signal, parameters *config)
 	else
 		significant = config->significantAmplitude;
 
+	abs_significant = fabs(significant);
+
 	FillPlot(&plot, filename, config->plotResX, config->plotResY, 
 			0, 0, config->plotResX, config->endHzPlot, 1, config);
 
@@ -2891,7 +2898,7 @@ void PlotTimeSpectrogram(AudioSignal *Signal, parameters *config)
 	DrawFrequencyHorizontalGrid(&plot, config->endHzPlot, 1000, config);
 
 	framewidth = config->plotResX / framecount;
-	for(block = 0; block < config->types.totalChunks; block++)
+	for(block = 0; block < config->types.totalBlocks; block++)
 	{
 		if(GetBlockType(config, block) > TYPE_SILENCE && config->MaxFreq > 0)
 		{
@@ -2914,7 +2921,7 @@ void PlotTimeSpectrogram(AudioSignal *Signal, parameters *config)
 					y = Signal->Blocks[block].freq[i].hertz;
 					amplitude = Signal->Blocks[block].freq[i].amplitude;
 					
-					intensity = CalculateWeightedError(fabs(fabs(significant) - fabs(amplitude))/fabs(significant), config)*0xffff;
+					intensity = CalculateWeightedError(fabs(abs_significant - fabs(amplitude))/abs_significant, config)*0xffff;
 					SetPenColor(color, intensity, &plot);
 					pl_fline_r(plot.plotter, x,	y, xpos, y);
 					pl_endpath_r(plot.plotter);
@@ -2933,7 +2940,7 @@ void PlotTimeSpectrogram(AudioSignal *Signal, parameters *config)
 void PlotTimeSpectrogramUnMatchedContent(AudioSignal *Signal, parameters *config)
 {
 	PlotFile	plot;
-	double		significant = 0, x = 0, framewidth = 0, framecount = 0;
+	double		significant = 0, x = 0, framewidth = 0, framecount = 0, abs_significant = 0;
 	long int	block = 0, i = 0;
 	char		filename[BUFFER_SIZE], name[BUFFER_SIZE/2];
 
@@ -2959,6 +2966,7 @@ void PlotTimeSpectrogramUnMatchedContent(AudioSignal *Signal, parameters *config
 		significant = PCM_16BIT_MIN_AMPLITUDE;
 	else
 		significant = config->significantAmplitude;
+	abs_significant = fabs(significant);
 
 	FillPlot(&plot, filename, config->plotResX, config->plotResY, 
 			0, 0, config->plotResX, config->endHzPlot, 1, config);
@@ -2969,7 +2977,7 @@ void PlotTimeSpectrogramUnMatchedContent(AudioSignal *Signal, parameters *config
 	DrawFrequencyHorizontalGrid(&plot, config->endHzPlot, 1000, config);
 
 	framewidth = config->plotResX / framecount;
-	for(block = 0; block < config->types.totalChunks; block++)
+	for(block = 0; block < config->types.totalBlocks; block++)
 	{
 		if(GetBlockType(config, block) > TYPE_SILENCE && config->MaxFreq > 0)
 		{
@@ -2993,7 +3001,7 @@ void PlotTimeSpectrogramUnMatchedContent(AudioSignal *Signal, parameters *config
 					y = Signal->Blocks[block].freq[i].hertz;
 					amplitude = Signal->Blocks[block].freq[i].amplitude;
 					
-					intensity = CalculateWeightedError(fabs(fabs(significant) - fabs(amplitude))/fabs(significant), config)*0xffff;
+					intensity = CalculateWeightedError(fabs(abs_significant - fabs(amplitude))/abs_significant, config)*0xffff;
 					SetPenColor(color, intensity, &plot);
 					pl_fline_r(plot.plotter, x,	y, xpos, y);
 					pl_endpath_r(plot.plotter);
@@ -3043,7 +3051,7 @@ void PlotTimeDomainGraphs(AudioSignal *Signal, parameters *config)
 
 	if(config->plotAllNotes)
 	{
-		for(i = 0; i < config->types.totalChunks; i++)
+		for(i = 0; i < config->types.totalBlocks; i++)
 		{
 			if(config->plotAllNotes || Signal->Blocks[i].type == TYPE_TIMEDOMAIN)
 			{
@@ -3055,7 +3063,7 @@ void PlotTimeDomainGraphs(AudioSignal *Signal, parameters *config)
 		logmsg("\n  Creating %ld plots for %s:\n  ", plots, Signal->role == ROLE_REF ? "Reference" : "Comparison");
 	}
 	plots = 0;
-	for(i = 0; i < config->types.totalChunks; i++)
+	for(i = 0; i < config->types.totalBlocks; i++)
 	{
 		if(config->plotAllNotes || Signal->Blocks[i].type == TYPE_TIMEDOMAIN)
 		{
@@ -3097,7 +3105,7 @@ void PlotBlockTimeDomainGraph(AudioSignal *Signal, int block, char *name, int wi
 	if(!Signal || !config)
 		return;
 
-	if(block > config->types.totalChunks)
+	if(block > config->types.totalBlocks)
 		return;
 
 	if(!window)

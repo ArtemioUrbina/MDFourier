@@ -151,7 +151,7 @@ AudioSignal *CreateAudioSignal(parameters *config)
 	if(!config)
 		return NULL;
 
-	if(!config->types.totalChunks)
+	if(!config->types.totalBlocks)
 		return NULL;
 
 	Signal = (AudioSignal*)malloc(sizeof(AudioSignal));
@@ -161,15 +161,15 @@ AudioSignal *CreateAudioSignal(parameters *config)
 		return NULL;
 	}
 
-	Signal->Blocks = (AudioBlocks*)malloc(sizeof(AudioBlocks)*config->types.totalChunks);
+	Signal->Blocks = (AudioBlocks*)malloc(sizeof(AudioBlocks)*config->types.totalBlocks);
 	if(!Signal->Blocks)
 	{
 		logmsg("Not enough memory for Data Structures (Blocks %d)\n", 
-			config->types.totalChunks);	
+			config->types.totalBlocks);	
 		return NULL;
 	}
 
-	for(int n = 0; n < config->types.totalChunks; n++)
+	for(int n = 0; n < config->types.totalBlocks; n++)
 	{
 		Signal->Blocks[n].freq = (Frequency*)malloc(sizeof(Frequency)*config->MaxFreq);
 		if(!Signal->Blocks[n].freq)
@@ -191,7 +191,7 @@ void CleanAudio(AudioSignal *Signal, parameters *config)
 	if(!Signal->Blocks)
 		return;
 
-	for(int n = 0; n < config->types.totalChunks; n++)
+	for(int n = 0; n < config->types.totalBlocks; n++)
 	{
 		if(Signal->Blocks[n].freq)
 		{
@@ -241,6 +241,58 @@ void CleanAudio(AudioSignal *Signal, parameters *config)
 	memset(&Signal->header, 0, sizeof(wav_hdr));
 }
 
+void CleanFFTW(AudioBlocks * AudioArray)
+{
+	if(!AudioArray)
+		return;
+
+	if(AudioArray->fftwValues.spectrum)
+	{
+		free(AudioArray->fftwValues.spectrum);
+		AudioArray->fftwValues.spectrum = NULL;
+	}
+	AudioArray->fftwValues.size = 0;
+	AudioArray->fftwValues.seconds = 0;
+}
+
+void CleanSamples(AudioBlocks * AudioArray)
+{
+	if(!AudioArray)
+		return;
+
+	if(AudioArray->audio.samples)
+	{
+		free(AudioArray->audio.samples);
+		AudioArray->audio.samples = NULL;
+	}
+	if(AudioArray->audio.window_samples)
+	{
+		free(AudioArray->audio.window_samples);
+		AudioArray->audio.window_samples = NULL;
+	}
+	AudioArray->audio.size = 0;
+	AudioArray->audio.seconds = 0;
+}
+
+void CleanFrequencies(AudioBlocks * AudioArray)
+{
+	if(!AudioArray)
+		return;
+
+	if(AudioArray->freq)
+	{
+		free(AudioArray->freq);
+		AudioArray->freq = NULL;
+	}
+}
+
+void CleanBlock(AudioBlocks * AudioArray)
+{
+	CleanFrequencies(AudioArray);
+	CleanFFTW(AudioArray);
+	CleanSamples(AudioArray);
+}
+
 void ReleaseAudio(AudioSignal *Signal, parameters *config)
 {
 	if(!Signal)
@@ -249,35 +301,8 @@ void ReleaseAudio(AudioSignal *Signal, parameters *config)
 	if(!Signal->Blocks)
 		return;
 
-	for(int n = 0; n < config->types.totalChunks; n++)
-	{
-		if(Signal->Blocks[n].freq)
-		{
-			free(Signal->Blocks[n].freq);
-			Signal->Blocks[n].freq = NULL;
-		}
-
-		if(Signal->Blocks[n].fftwValues.spectrum)
-		{
-			fftw_free(Signal->Blocks[n].fftwValues.spectrum);
-			Signal->Blocks[n].fftwValues.spectrum = NULL;
-		}
-		Signal->Blocks[n].fftwValues.size = 0;
-		Signal->Blocks[n].fftwValues.seconds = 0;
-
-		if(Signal->Blocks[n].audio.samples)
-		{
-			free(Signal->Blocks[n].audio.samples);
-			Signal->Blocks[n].audio.samples = NULL;
-		}
-		if(Signal->Blocks[n].audio.window_samples)
-		{
-			free(Signal->Blocks[n].audio.window_samples);
-			Signal->Blocks[n].audio.window_samples = NULL;
-		}
-		Signal->Blocks[n].audio.size = 0;
-		Signal->Blocks[n].audio.seconds = 0;
-	}
+	for(int n = 0; n < config->types.totalBlocks; n++)
+		CleanBlock(&Signal->Blocks[n]);
 
 	free(Signal->Blocks);
 	Signal->Blocks = NULL;
@@ -397,8 +422,8 @@ void FlattenProfile(parameters *config)
 		config->types.typeArray[i].elementCount = 1;
 		config->types.typeArray[i].frames = total;
 	}
-	config->types.regularChunks = GetActiveAudioBlocks(config);
-	config->types.totalChunks = GetTotalAudioBlocks(config);
+	config->types.regularBlocks = GetActiveAudioBlocks(config);
+	config->types.totalBlocks = GetTotalAudioBlocks(config);
 	logmsg("Audio Blocks flattened\n");
 }
 
@@ -645,9 +670,9 @@ int LoadAudioBlockStructure(FILE *file, parameters *config)
 		return 0;
 	}
 
-	config->types.regularChunks = GetActiveAudioBlocks(config);
-	config->types.totalChunks = GetTotalAudioBlocks(config);
-	if(!config->types.totalChunks)
+	config->types.regularBlocks = GetActiveAudioBlocks(config);
+	config->types.totalBlocks = GetTotalAudioBlocks(config);
+	if(!config->types.totalBlocks)
 	{
 		logmsg("ERROR: Total Audio Blocks should be at least 1\n");
 		return 0;
@@ -800,9 +825,9 @@ int LoadAudioNoSyncProfile(FILE *file, parameters *config)
 		}
 	}
 
-	config->types.regularChunks = GetActiveAudioBlocks(config);
-	config->types.totalChunks = GetTotalAudioBlocks(config);
-	if(!config->types.totalChunks)
+	config->types.regularBlocks = GetActiveAudioBlocks(config);
+	config->types.totalBlocks = GetTotalAudioBlocks(config);
+	if(!config->types.totalBlocks)
 	{
 		logmsg("Total Audio Blocks should be at least 1\n");
 		return 0;
@@ -1512,7 +1537,7 @@ Frequency FindNoiseBlockAverage(AudioSignal *Signal, parameters *config)
 	cutOff.hertz = 0;
 	cutOff.amplitude = 0;
 
-	for(int block = 0; block < config->types.totalChunks; block++)
+	for(int block = 0; block < config->types.totalBlocks; block++)
 	{
 		int type = GetBlockType(config, block);
 		if(GetTypeChannel(config, type) == CHANNEL_NOISE)
@@ -1571,7 +1596,7 @@ void FindStandAloneFloor(AudioSignal *Signal, parameters *config)
 	loudest.amplitude = NO_AMPLITUDE;
 
 	// Find global peak
-	for(int block = 0; block < config->types.totalChunks; block++)
+	for(int block = 0; block < config->types.totalBlocks; block++)
 	{
 		int type = TYPE_NOTYPE;
 
@@ -1745,7 +1770,7 @@ void GlobalNormalize(AudioSignal *Signal, parameters *config)
 		return;
 
 	// Find global peak 
-	for(int block = 0; block < config->types.totalChunks; block++)
+	for(int block = 0; block < config->types.totalBlocks; block++)
 	{
 		int type = TYPE_NOTYPE;
 
@@ -1777,7 +1802,7 @@ void GlobalNormalize(AudioSignal *Signal, parameters *config)
 	Signal->MaxMagnitude.block = MaxBlock;
 
 	// Normalize and calculate Amplitude in dBFSs 
-	for(int block = 0; block < config->types.totalChunks; block++)
+	for(int block = 0; block < config->types.totalBlocks; block++)
 	{
 		int type = TYPE_NOTYPE;
 
@@ -1810,7 +1835,7 @@ void FindMaxMagnitude(AudioSignal *Signal, parameters *config)
 		return;
 
 	// Find global peak
-	for(int block = 0; block < config->types.totalChunks; block++)
+	for(int block = 0; block < config->types.totalBlocks; block++)
 	{
 		int type = TYPE_NOTYPE;
 
@@ -1854,7 +1879,7 @@ void CalculateAmplitudes(AudioSignal *Signal, double ZeroDbMagReference, paramet
 		return;
 
 	//Calculate Amplitude in dBFS 
-	for(int block = 0; block < config->types.totalChunks; block++)
+	for(int block = 0; block < config->types.totalBlocks; block++)
 	{
 		int type = TYPE_NOTYPE;
 
@@ -1881,7 +1906,7 @@ void CalculateAmplitudes(AudioSignal *Signal, double ZeroDbMagReference, paramet
 
 void CleanMatched(AudioSignal *ReferenceSignal, AudioSignal *TestSignal, parameters *config)
 {
-	for(int block = 0; block < config->types.totalChunks; block++)
+	for(int block = 0; block < config->types.totalBlocks; block++)
 	{
 		for(int i = 0; i < config->MaxFreq; i++)
 		{
@@ -1891,7 +1916,7 @@ void CleanMatched(AudioSignal *ReferenceSignal, AudioSignal *TestSignal, paramet
 		}
 	}
 
-	for(int block = 0; block < config->types.totalChunks; block++)
+	for(int block = 0; block < config->types.totalBlocks; block++)
 	{
 		for(int i = 0; i < config->MaxFreq; i++)
 		{
@@ -1964,7 +1989,7 @@ void PrintFrequenciesBlock(AudioSignal *Signal, Frequency *freq, int type, param
 
 void PrintFrequenciesWMagnitudes(AudioSignal *Signal, parameters *config)
 {
-	for(int block = 0; block < config->types.totalChunks; block++)
+	for(int block = 0; block < config->types.totalBlocks; block++)
 	{
 		int type = TYPE_NOTYPE;
 
@@ -1978,7 +2003,7 @@ void PrintFrequenciesWMagnitudes(AudioSignal *Signal, parameters *config)
 
 void PrintFrequencies(AudioSignal *Signal, parameters *config)
 {
-	for(int block = 0; block < config->types.totalChunks; block++)
+	for(int block = 0; block < config->types.totalBlocks; block++)
 	{
 		int type = TYPE_NOTYPE;
 
@@ -2045,6 +2070,9 @@ int FillFrequencyStructures(AudioSignal *Signal, AudioBlocks *AudioArray, parame
 	Frequency	*f_array;
 
 	size = AudioArray->fftwValues.size;
+	if(!size)
+		return 0;
+
 	// Round to 3 decimal places so that 48kHz and 44 kHz line up
 	boxsize = RoundFloat(AudioArray->fftwValues.seconds, 3);
 
@@ -2088,6 +2116,8 @@ int FillFrequencyStructures(AudioSignal *Signal, AudioBlocks *AudioArray, parame
 			f_array[count++] = element;
 		}
 	}
+
+	CleanFFTW(AudioArray);
 
 	FFT_Frequency_tim_sort(f_array, count);
 
@@ -2393,7 +2423,7 @@ double FindDifferenceAverage(parameters *config)
 	if(!config->Differences.BlockDiffArray)
 		return 0;
 
-	for(int b = 0; b < config->types.totalChunks; b++)
+	for(int b = 0; b < config->types.totalBlocks; b++)
 	{
 		if(config->Differences.BlockDiffArray[b].type <= TYPE_CONTROL)
 			continue;
@@ -2419,7 +2449,7 @@ void SubstractDifferenceAverage(parameters *config, double average)
 	if(!config->Differences.BlockDiffArray)
 		return;
 
-	for(int b = 0; b < config->types.totalChunks; b++)
+	for(int b = 0; b < config->types.totalBlocks; b++)
 	{
 		if(config->Differences.BlockDiffArray[b].type <= TYPE_CONTROL)
 			continue;
@@ -2446,7 +2476,7 @@ int FindDifferenceTypeTotals(int type, long int *cntAmplBlkDiff, long int *cmpAm
 	*cntAmplBlkDiff = 0;
 	*cmpAmplBlkDiff = 0;
 
-	for(int b = 0; b < config->types.totalChunks; b++)
+	for(int b = 0; b < config->types.totalBlocks; b++)
 	{
 		if(config->Differences.BlockDiffArray[b].type < TYPE_SILENCE)
 			continue;
@@ -2475,7 +2505,7 @@ int FindMissingTypeTotals(int type, long int *cntFreqBlkDiff, long int *cmpFreqB
 	*cntFreqBlkDiff = 0;
 	*cmpFreqBlkDiff = 0;
 
-	for(int b = 0; b < config->types.totalChunks; b++)
+	for(int b = 0; b < config->types.totalBlocks; b++)
 	{
 		if(config->Differences.BlockDiffArray[b].type <= TYPE_CONTROL)
 			continue;
@@ -2504,7 +2534,7 @@ int FindDifferenceWithinInterval(int type, long int *inside, long int *count, do
 	*inside = 0;
 	*count = 0;
 
-	for(int b = 0; b < config->types.totalChunks; b++)
+	for(int b = 0; b < config->types.totalBlocks; b++)
 	{
 		if(config->Differences.BlockDiffArray[b].type < TYPE_SILENCE)
 			continue;
@@ -2584,7 +2614,7 @@ double CalculateClk(AudioSignal *Signal, parameters *config)
 	if(!Signal->Blocks)
 		return 0;
 
-	if(config->clkBlock > config->types.totalChunks)
+	if(config->clkBlock > config->types.totalBlocks)
 		return 0;
 
 	if(config->clkFreqCount > config->MaxFreq)
@@ -2695,7 +2725,7 @@ void DetectOvertoneStart(AudioSignal *Signal, parameters *config)
 		logmsg("Not enough memory\n");
 		return;
 	}
-	for(int n = 0; n < config->types.totalChunks; n++)
+	for(int n = 0; n < config->types.totalBlocks; n++)
 	{
 		int		fcount = 0;
 

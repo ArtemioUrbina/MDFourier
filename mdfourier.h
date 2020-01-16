@@ -177,8 +177,8 @@ typedef struct sync_st {
 
 typedef struct abd_st {
 	char			Name[256];
-	int				totalChunks;
-	int				regularChunks;
+	int				totalBlocks;
+	int				regularBlocks;
 	VideoBlockDef	SyncFormat[2];
 
 	AudioBlockType	*typeArray;
@@ -408,6 +408,7 @@ typedef struct parameters_st {
 	int				plotTimeDomain;
 	int				plotAllNotes;
 	int				plotAllNotesWindowed;
+	double			plotRatio;
 	int				averagePlot;
 	int				weightedAveragePlot;
 	int				drawWindows;

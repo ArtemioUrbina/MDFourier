@@ -768,7 +768,7 @@ int ProcessFile(AudioSignal *Signal, parameters *config)
 
 	CompareFrameRates(Signal->framerate, GetMSPerFrame(Signal, config), config);
 
-	while(i < config->types.totalChunks)
+	while(i < config->types.totalBlocks)
 	{
 		double duration = 0, framerate = 0;
 		long int frames = 0, difference = 0;
@@ -885,7 +885,7 @@ int ProcessFile(AudioSignal *Signal, parameters *config)
 		i = 0;
 	
 		// redo after processing
-		while(i < config->types.totalChunks)
+		while(i < config->types.totalBlocks)
 		{
 			double duration = 0;
 			long int frames = 0, difference = 0;

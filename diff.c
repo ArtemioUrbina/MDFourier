@@ -66,16 +66,16 @@ int CreateDifferenceArray(parameters *config)
 	if(!config)
 		return 0;
 
-	BlockDiffArray = (BlockDifference*)malloc(sizeof(BlockDifference)*config->types.totalChunks);
+	BlockDiffArray = (BlockDifference*)malloc(sizeof(BlockDifference)*config->types.totalBlocks);
 	if(!BlockDiffArray)
 	{
 		logmsg("Insufficient memory for AudioDiffArray\n");
 		return 0;
 	}
 
-	memset(BlockDiffArray, 0, sizeof(BlockDifference)*config->types.totalChunks);
+	memset(BlockDiffArray, 0, sizeof(BlockDifference)*config->types.totalBlocks);
 
-	for(int i = 0; i < config->types.totalChunks; i++)
+	for(int i = 0; i < config->types.totalBlocks; i++)
 	{
 		int type = TYPE_NOTYPE;
 
@@ -130,7 +130,7 @@ void ReleaseDifferenceArray(parameters *config)
 	if(!config->Differences.BlockDiffArray)
 		return;
 
-	for(int i = 0; i < config->types.totalChunks; i++)
+	for(int i = 0; i < config->types.totalBlocks; i++)
 	{
 		if(config->Differences.BlockDiffArray[i].amplDiffArray)
 		{
@@ -164,7 +164,7 @@ int IncrementCmpAmplDifference(int block, parameters *config)
 	if(!config->Differences.BlockDiffArray)
 		return 0;
 
-	if(block > config->types.totalChunks)
+	if(block > config->types.totalBlocks)
 		return 0;
 
 	config->Differences.BlockDiffArray[block].cmpAmplBlkDiff ++;
@@ -185,7 +185,7 @@ int InsertAmplDifference(int block, double freq, double refAmplitude, double com
 	if(!config->Differences.BlockDiffArray[block].amplDiffArray)
 		return 0;
 
-	if(block > config->types.totalChunks)
+	if(block > config->types.totalBlocks)
 		return 0;
 	
 	diff = fabs(refAmplitude) - fabs(compAmplitude);
@@ -227,7 +227,7 @@ int IncrementPerfectMatch(int block, parameters *config)
 	if(!config->Differences.BlockDiffArray)
 		return 0;
 
-	if(block > config->types.totalChunks)
+	if(block > config->types.totalBlocks)
 		return 0;
 
 	config->Differences.BlockDiffArray[block].perfectAmplMatch ++;
@@ -244,7 +244,7 @@ int IncrementCmpFreqNotFound(int block, parameters *config)
 	if(!config->Differences.BlockDiffArray)
 		return 0;
 
-	if(block > config->types.totalChunks)
+	if(block > config->types.totalBlocks)
 		return 0;
 	
 	config->Differences.BlockDiffArray[block].cmpFreqBlkDiff ++;
@@ -264,7 +264,7 @@ int InsertFreqNotFound(int block, double freq, double amplitude, double weighted
 	if(!config->Differences.BlockDiffArray[block].freqMissArray)
 		return 0;
 
-	if(block > config->types.totalChunks)
+	if(block > config->types.totalBlocks)
 		return 0;
 
 	position = config->Differences.BlockDiffArray[block].cntFreqBlkDiff;
@@ -350,7 +350,7 @@ void PrintDifferenceArray(parameters *config)
 				config->Differences.weightedFreqAudio,
 				config->Differences.weightedAmplAudio);
 
-	for(int b = 0; b < config->types.totalChunks; b++)
+	for(int b = 0; b < config->types.totalBlocks; b++)
 	{
 		if(GetBlockType(config, b) < TYPE_CONTROL)
 			continue;

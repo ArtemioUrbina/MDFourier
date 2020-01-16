@@ -145,6 +145,7 @@ void CleanParameters(parameters *config)
 
 	config->plotResX = PLOT_RES_X;
 	config->plotResY = PLOT_RES_Y;
+	config->plotRatio = 0;
 
 	config->plotDifferences = 1;
 	config->plotMissing = 1;
@@ -166,8 +167,8 @@ void CleanParameters(parameters *config)
 	config->Differences.cntTotalAudioDiff = 0;
 	config->Differences.weightedAudioDiff = 0;
 	
-	config->types.totalChunks = 0;
-	config->types.regularChunks = 0;
+	config->types.totalBlocks = 0;
+	config->types.regularBlocks = 0;
 
 	memset(config->types.SyncFormat, 0, sizeof(VideoBlockDef)*2);
 	config->types.typeArray = NULL;
@@ -594,6 +595,10 @@ int commandline(int argc , char *argv[], parameters *config)
 		logmsg("\tPlots will not be adjusted to log scale\n");
 	if(config->averagePlot && !config->weightedAveragePlot)
 		logmsg("\tAveraged Plots will not be weighted\n");
+
+	if(config->logScale && config->plotRatio == 0)
+		config->plotRatio = config->endHzPlot/log10(config->endHzPlot);
+
 	return 1;
 }
 
