@@ -29,6 +29,7 @@
 
 #include "cline.h"
 #include "log.h"
+#include "plot.h"
 
 void PrintUsage()
 {
@@ -199,8 +200,8 @@ int commandline(int argc , char *argv[], parameters *config)
 	
 	CleanParameters(config);
 
-	// Available: GHJKLOq2356789
-	while ((c = getopt (argc, argv, "Aa:Bb:Cc:Dd:Ee:Ff:ghIijkLlMmNn:o:P:p:QRr:Ss:TtUuVvWw:XxY:yZ:z014")) != -1)
+	// Available: GHJKOq0123456789
+	while ((c = getopt (argc, argv, "Aa:Bb:Cc:Dd:Ee:Ff:ghIijkL:lMmNn:o:P:p:QRr:Ss:TtUuVvWw:XxY:yZ:z")) != -1)
 	switch (c)
 	  {
 	  case 'A':
@@ -279,6 +280,39 @@ int commandline(int argc , char *argv[], parameters *config)
 		break;
 	  case 'k':
 		config->clock = 1;
+		break;
+	  case 'L':
+		switch(atoi(optarg))
+		{
+			case 1:
+				config->plotResX = PLOT_RES_X_LOW;
+				config->plotResY = PLOT_RES_Y_LOW;
+				config->showPercent = 0;
+				break;
+			case 2:
+				config->plotResX = PLOT_RES_X;
+				config->plotResY = PLOT_RES_Y;
+				break;
+			case 3:
+				config->plotResX = PLOT_RES_X_1K;
+				config->plotResY = PLOT_RES_Y_1K;
+				break;
+			case 4:
+				config->plotResX = PLOT_RES_X_HI;
+				config->plotResY = PLOT_RES_Y_HI;
+				break;
+			case 5:
+				config->plotResX = PLOT_RES_X_4K;
+				config->plotResY = PLOT_RES_Y_4K;
+				break;
+			case 6:
+				config->plotResX = PLOT_RES_X_FP;
+				config->plotResY = PLOT_RES_Y_FP;
+				break;
+			default:
+				logmsg("Ibvalid resilution (-%c) parameter %s, using default\n", optopt, optarg);
+				break;
+		}
 		break;
 	  case 'l':
 		EnableLog();
@@ -409,19 +443,6 @@ int commandline(int argc , char *argv[], parameters *config)
 	  case 'z':
 		config->ZeroPad = 1;
 		break;
-	  case '0':
-		config->plotResX = PLOT_RES_X_LOW;
-		config->plotResY = PLOT_RES_Y_LOW;
-		config->showPercent = 0;
-		break;
-	  case '1':
-		config->plotResX = PLOT_RES_X_1K;
-		config->plotResY = PLOT_RES_Y_1K;
-		break;
-	  case '4':
-		config->plotResX = PLOT_RES_X_4K;
-		config->plotResY = PLOT_RES_Y_4K;
-		break;
 	  case '?':
 		if (optopt == 'a')
 		  logmsg("Audio channel option -%c requires an argument: l,r or s\n", optopt);
@@ -435,6 +456,8 @@ int commandline(int argc , char *argv[], parameters *config)
 		  logmsg("Max frequency range for FFTW -%c requires an argument: %d-%d\n", START_HZ*2, END_HZ, optopt);
 		else if (optopt == 'f')
 		  logmsg("Max # of frequencies to use from FFTW -%c requires an argument: 1-%d\n", optopt, MAX_FREQ_COUNT);
+		else if (optopt == 'L')
+		  logmsg("Plot Resolution -%c requires an argument: 1-6\n", optopt);
 		else if (optopt == 'n')
 		  logmsg("Normalizatiuon type -%c requires an argument:\n\tUse 't' Time Domain Max, 'f' Frequency Domain Max or 'a' Average\n");
 		else if (optopt == 'o')

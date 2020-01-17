@@ -99,11 +99,11 @@ int CheckBalance(AudioSignal *Signal, int block, parameters *config)
 		{
 			Channels[0].index = GetBlockSubIndex(config, i);
 			Channels[0].type = GetBlockType(config, i);
-			Channels[0].frames = GetBlockFrames(config, i);
+			Channels[0].seconds = 0;
 
 			Channels[1].index = Channels[0].index;
 			Channels[1].type = Channels[0].type;
-			Channels[1].frames = GetBlockFrames(config, i);
+			Channels[1].seconds = 0;
 
 			memset(buffer, 0, buffersize);
 			if(pos + loadedBlockSize > Signal->header.data.DataSize)
@@ -343,6 +343,7 @@ int ExecuteBalanceDFFT(AudioBlocks *AudioArray, int16_t *samples, size_t size, l
 
 	AudioArray->fftwValues.spectrum = spectrum;
 	AudioArray->fftwValues.size = monoSignalSize;
+	AudioArray->seconds = seconds;
 
 	return(1);
 }

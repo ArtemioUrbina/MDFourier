@@ -3095,11 +3095,32 @@ void PlotTimeDomainGraphs(AudioSignal *Signal, parameters *config)
 	}
 }
 
+void DrawVerticalFrameGrid(PlotFile *plot, AudioSignal *Signal, double frames, double frameIncrement, parameters *config)
+{
+	double x = 0;
+
+	SetPenColor(COLOR_GRAY, 0x3333, plot);
+	for(int i = frameIncrement; i <= frames; i += frameIncrement)
+	{
+		x = FramesToSamples(i, Signal->header.fmt.SamplesPerSec, Signal->framerate);
+		pl_fline_r(plot->plotter, x, MININT16, x, MAXINT16);
+		pl_endpath_r(plot->plotter);
+	}
+
+	SetPenColor(COLOR_GRAY, 0x5555, plot);
+	for(int i = 0; i <= frames; i += frameIncrement*10)
+	{
+		x = FramesToSamples(i, Signal->header.fmt.SamplesPerSec, Signal->framerate);
+		pl_fline_r(plot->plotter, x, MININT16, x, MAXINT16);
+		pl_endpath_r(plot->plotter);
+	}
+}
+
 void PlotBlockTimeDomainGraph(AudioSignal *Signal, int block, char *name, int window, parameters *config)
 {
 	char		title[1024];
 	PlotFile	plot;
-	long int	color = 0, sample = 0, numSamples = 0;
+	long int	color = 0, sample = 0, numSamples = 0, difference = 0, plotSize = 0;
 	int16_t		*samples = NULL;
 
 	if(!Signal || !config)
@@ -3120,18 +3141,41 @@ void PlotBlockTimeDomainGraph(AudioSignal *Signal, int block, char *name, int wi
 		return;
 
 	numSamples = Signal->Blocks[block].audio.size;
+	difference = Signal->Blocks[block].audio.difference;
+	if(difference < 0)
+		plotSize += numSamples - difference;
+	else
+		plotSize = numSamples;
+
 	FillPlot(&plot, name, config->plotResX, config->plotResY, 
-				0, -32768, numSamples, 32767, 1, config);
+				0, MININT16, plotSize, MAXINT16, 1, config);
 
 	if(!CreatePlotFile(&plot, config))
 		return;
 
+	//logmsg("Plotsize %ld Difference %ld\n", plotSize, difference);
 	//DrawFrequencyHorizontalGrid(&plot, config->endHzPlot, 1000, config);
+
+	// discarded samples box (difference)
+	if(difference > 0 && Signal->Blocks[block].type != TYPE_SYNC)
+	{
+		pl_filltype_r(plot.plotter, 1);
+		pl_pencolor_r(plot.plotter, 0x6666, 0, 0);
+		pl_fillcolor_r(plot.plotter, 0x6666, 0, 0);
+		pl_fbox_r(plot.plotter, numSamples-difference, MININT16, numSamples, MAXINT16);
+		pl_filltype_r(plot.plotter, 0);
+	}
+
+	// 0dbfs line
 	color = MatchColor(GetBlockColor(config, block));
-	SetPenColor(COLOR_GREEN, 0x6666, &plot);
+	SetPenColor(COLOR_GRAY, 0x7777, &plot);
 	pl_fline_r(plot.plotter, 0, 0, numSamples, 0);
 	pl_endpath_r(plot.plotter);
 
+	DrawVerticalFrameGrid(&plot, Signal, Signal->Blocks[block].frames, 1, config);
+
+
+	// Draw samples
 	SetPenColor(color, 0xffff, &plot);
 	for(sample = 1; sample < numSamples; sample ++)
 		pl_fline_r(plot.plotter, sample-1, samples[sample-1], sample, samples[sample]);

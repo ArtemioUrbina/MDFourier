@@ -95,18 +95,6 @@
 #define DB_HEIGHT	18.0
 #define DB_DIFF		12.0
 
-#define PLOT_RES_X 1600.0
-#define PLOT_RES_Y 800.0
-
-#define PLOT_RES_X_1K 1920.0
-#define PLOT_RES_Y_1K 1080.0
-
-#define PLOT_RES_X_4K 3840.0
-#define PLOT_RES_Y_4K 2160.0
-
-#define PLOT_RES_X_LOW 800.0
-#define PLOT_RES_Y_LOW 400.0
-
 #define BUFFER_SIZE		4096
 #define T_BUFFER_SIZE	BUFFER_SIZE*2+256
 
@@ -255,6 +243,7 @@ typedef struct samples_st {
 	int16_t			*samples;
 	int16_t			*window_samples;
 	long int		size;
+	long int		difference;
 } BlockSamples;
 
 typedef struct AudioBlock_st {
@@ -263,7 +252,8 @@ typedef struct AudioBlock_st {
 	BlockSamples	audio;
 	int				index;
 	int				type;
-	long int		frames;
+	int				frames;
+	double 			seconds;
 } AudioBlocks;
 
 typedef struct AudioSt {

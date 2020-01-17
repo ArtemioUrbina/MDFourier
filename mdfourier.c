@@ -43,7 +43,7 @@ int LoadFile(FILE *file, AudioSignal *Signal, parameters *config, char *fileName
 int ProcessFile(AudioSignal *Signal, parameters *config);
 int ExecuteDFFT(AudioBlocks *AudioArray, int16_t *samples, size_t size, long samplerate, double *window, int AudioChannels, parameters *config);
 int CompareAudioBlocks(AudioSignal *ReferenceSignal, AudioSignal *ComparisonSignal, parameters *config);
-int CopySamplesForTimeDomainPlot(AudioBlocks *AudioArray, int16_t *samples, size_t size, long samplerate, double *window, int AudioChannels, parameters *config);
+int CopySamplesForTimeDomainPlot(AudioBlocks *AudioArray, int16_t *samples, size_t size, size_t diff, long samplerate, double *window, int AudioChannels, parameters *config);
 void CleanUp(AudioSignal **ReferenceSignal, AudioSignal **ComparisonSignal, parameters *config);
 void CloseFiles(FILE **ref, FILE **comp);
 void NormalizeAudio(AudioSignal *Signal);
@@ -904,6 +904,7 @@ int LoadFile(FILE *file, AudioSignal *Signal, parameters *config, char *fileName
 		Signal->hasFloor = 1;
 
 	sprintf(Signal->SourceFile, "%s", fileName);
+	CalculateTimeDurations(Signal, config);
 
 	return 1;
 }
@@ -1130,11 +1131,11 @@ int ProcessInternal(AudioSignal *Signal, long int element, long int pos, int *sy
 	return 1;
 }
 
-int CopySamplesForTimeDomainPlot(AudioBlocks *AudioArray, int16_t *samples, size_t size, long samplerate, double *window, int AudioChannels, parameters *config)
+int CopySamplesForTimeDomainPlot(AudioBlocks *AudioArray, int16_t *samples, size_t size, size_t diff, long samplerate, double *window, int AudioChannels, parameters *config)
 {
 	char			channel = 0;
 	long			stereoSignalSize = 0;	
-	long			i = 0, monoSignalSize = 0;
+	long			i = 0, monoSignalSize = 0, diffSize = 0, difference = 0;
 	int16_t			*signal = NULL, *window_samples = NULL;
 	
 	if(!AudioArray)
@@ -1145,6 +1146,8 @@ int CopySamplesForTimeDomainPlot(AudioBlocks *AudioArray, int16_t *samples, size
 
 	stereoSignalSize = (long)size;
 	monoSignalSize = stereoSignalSize/AudioChannels;	 /* 4 is 2 16 bit values */
+	diffSize = (long)diff;
+	difference = diffSize/AudioChannels;	 /* 4 is 2 16 bit values */
 
 	signal = (int16_t*)malloc(sizeof(int16_t)*(monoSignalSize+1));
 	if(!signal)
@@ -1178,16 +1181,18 @@ int CopySamplesForTimeDomainPlot(AudioBlocks *AudioArray, int16_t *samples, size
 			signal[i] = (double)samples[i*2+1];
 		if(channel == 's')
 			signal[i] = (double)((double)samples[i*2]+(double)samples[i*2+1])/2.0;
-
-		if(config->plotAllNotesWindowed && window)
-			window_samples[i] = (double)((double)signal[i]*window[i]);
 	}
 
 	AudioArray->audio.samples = signal;
 	AudioArray->audio.size = monoSignalSize;
+	AudioArray->audio.difference = difference;
 
 	if(config->plotAllNotesWindowed && window)
+	{
+		for(i = 0; i < monoSignalSize - difference; i++)
+			window_samples[i] = (double)((double)signal[i]*window[i]);
 		AudioArray->audio.window_samples = window_samples;
+	}
 
 	return(1);
 }
@@ -1270,7 +1275,7 @@ int ProcessFile(AudioSignal *Signal, parameters *config)
 
 		if(config->plotAllNotes || Signal->Blocks[i].type == TYPE_TIMEDOMAIN)
 		{
-			if(!CopySamplesForTimeDomainPlot(&Signal->Blocks[i], (int16_t*)buffer, (loadedBlockSize-difference)/2, Signal->header.fmt.SamplesPerSec, windowUsed, Signal->AudioChannels, config))
+			if(!CopySamplesForTimeDomainPlot(&Signal->Blocks[i], (int16_t*)(Signal->Samples + pos), loadedBlockSize/2, difference/2, Signal->header.fmt.SamplesPerSec, windowUsed, Signal->AudioChannels, config))
 				return 0;
 		}
 
@@ -1279,6 +1284,8 @@ int ProcessFile(AudioSignal *Signal, parameters *config)
 			if(!ExecuteDFFT(&Signal->Blocks[i], (int16_t*)buffer, (loadedBlockSize-difference)/2, Signal->header.fmt.SamplesPerSec, windowUsed, Signal->AudioChannels, config))
 				return 0;
 
+			//logmsg("estimated %g (difference %ld)\n", Signal->Blocks[i].frames*Signal->framerate/1000.0, difference);
+			// uncomment in ExecuteDFFT as well
 			if(!FillFrequencyStructures(Signal, &Signal->Blocks[i], config))
 				return 0;
 		}
@@ -1425,6 +1432,8 @@ int ExecuteDFFT(AudioBlocks *AudioArray, int16_t *samples, size_t size, long sam
 
 	AudioArray->fftwValues.spectrum = spectrum;
 	AudioArray->fftwValues.size = monoSignalSize;
+	//logmsg("Seconds %g was %g ", seconds, AudioArray->seconds); // uncomment estimated above as well
+	AudioArray->seconds = seconds;
 
 	free(signal);
 	signal = NULL;
@@ -1472,6 +1481,12 @@ int CompareAudioBlocks(AudioSignal *ReferenceSignal, AudioSignal *ComparisonSign
 
 		/* Ignore Control blocks */
 		type = GetBlockType(config, block);
+
+		if(ReferenceSignal->Blocks[block].audio.difference != 0)
+			ComparisonSignal->Blocks[block].audio.difference = -1*ReferenceSignal->Blocks[block].audio.difference;
+		if(ComparisonSignal->Blocks[block].audio.difference != 0)
+			ReferenceSignal->Blocks[block].audio.difference = -1*ComparisonSignal->Blocks[block].audio.difference;
+
 		if(type < TYPE_CONTROL)
 			continue;
 

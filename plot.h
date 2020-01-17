@@ -72,6 +72,28 @@ typedef struct averaged_freq{
 #define	MODE_MISS		2
 #define	MODE_SPEC		3
 
+#define	MAXINT16		32767
+#define	MININT16		-32768
+
+// 1
+#define PLOT_RES_X_LOW 800.0
+#define PLOT_RES_Y_LOW 400.0
+// 2
+#define PLOT_RES_X 1600.0
+#define PLOT_RES_Y 800.0
+// 3
+#define PLOT_RES_X_1K 1920.0
+#define PLOT_RES_Y_1K 1080.0
+// 4
+#define PLOT_RES_X_HI 3200.0
+#define PLOT_RES_Y_HI 1600.0
+// 5
+#define PLOT_RES_X_4K 3840.0
+#define PLOT_RES_Y_4K 2160.0
+// 6
+#define PLOT_RES_X_FP 8000.0
+#define PLOT_RES_Y_FP 4000.0
+
 typedef enum differencePlotType
 {
 	normalPlot,

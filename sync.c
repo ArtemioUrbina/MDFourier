@@ -35,6 +35,8 @@
 #define	FACTOR_EXPLORE	4
 #define	FACTOR_DETECT	9
 
+//#define DOUBLE_SYNC
+
 long int DetectPulse(char *AllSamples, wav_hdr header, int role, parameters *config)
 {
 	int			maxdetected = 0, errcount = 0, AudioChannels = 0;
@@ -56,18 +58,18 @@ long int DetectPulse(char *AllSamples, wav_hdr header, int role, parameters *con
 	if(errcount && position != -1)
 		logmsgFileOnly(" - Sync pulse had %d imperfections\n", errcount);
 
-	/*
+#ifdef DOUBLE_SYNC
 	if(config->debugSync)
 		logmsgFileOnly("First round start pulse detected at %ld, refinement\n", position);
 
 	offset = position;
-	if(offset >= 8*10*AudioChannels)  // return 8 "ms segments" as dictated by ratio "9" below
-		offset -= 8*10*AudioChannels;
+	if(offset >= 8*9*AudioChannels)  // return 8 "ms segments" as dictated by ratio "9" below
+		offset -= 8*9*AudioChannels;
 
 	maxdetected = 0;
 	errcount = 0;
 	position = DetectPulseInternal(AllSamples, header, FACTOR_DETECT, offset, &maxdetected, role, AudioChannels, config);
-	*/
+#endif
 
 	if(config->debugSync)
 		logmsgFileOnly("Start pulse return value %ld\n", position);
@@ -142,7 +144,7 @@ long int DetectEndPulse(char *AllSamples, long int startpulse, wav_hdr header, i
 		return -1;
 	}
 
-	/*
+#ifdef DOUBLE_SYNC
 	if(config->debugSync)
 		logmsgFileOnly("First round end pulse detected at %ld, refinement\n", position);
 
@@ -153,7 +155,7 @@ long int DetectEndPulse(char *AllSamples, long int startpulse, wav_hdr header, i
 	maxdetected = 0;
 	errcount = 0;
 	position = DetectPulseInternal(AllSamples, header, FACTOR_DETECT, offset, &maxdetected, role, AudioChannels, config);
-	*/
+#endif
 
 	if(config->debugSync)
 		logmsgFileOnly("End pulse return value %ld\n", position);

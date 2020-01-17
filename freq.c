@@ -211,6 +211,7 @@ void InitAudio(AudioSignal *Signal, parameters *config)
 			Signal->Blocks[n].audio.samples = NULL;
 			Signal->Blocks[n].audio.window_samples = NULL;
 			Signal->Blocks[n].audio.size = 0;
+			Signal->Blocks[n].audio.difference = 0;
 	
 			Signal->Blocks[n].index = GetBlockSubIndex(config, n);
 			Signal->Blocks[n].type = GetBlockType(config, n);
@@ -274,6 +275,7 @@ void ReleaseSamples(AudioBlocks * AudioArray)
 		AudioArray->audio.window_samples = NULL;
 	}
 	AudioArray->audio.size = 0;
+	AudioArray->audio.difference = 0;
 }
 
 void ReleaseFrequencies(AudioBlocks * AudioArray)
@@ -296,7 +298,7 @@ void ReleaseBlock(AudioBlocks * AudioArray)
 
 	AudioArray->index = 0;
 	AudioArray->type = 0;
-	AudioArray->frames = 0;
+	AudioArray->seconds = 0;
 }
 
 void ReleaseAudio(AudioSignal *Signal, parameters *config)
@@ -876,6 +878,20 @@ void PrintAudioBlocks(parameters *config)
 		frames += config->types.typeArray[i].elementCount*config->types.typeArray[i].frames;
 	}
 	logmsgFileOnly("Total frames: %ld\n================\n", frames);
+}
+
+int CalculateTimeDurations(AudioSignal *Signal, parameters *config)
+{
+	if(!Signal)
+		return 0;
+
+	if(!Signal->Blocks)
+		return 0;
+
+	for(int n = 0; n < config->types.totalBlocks; n++)
+		Signal->Blocks[n].seconds = Signal->Blocks[n].frames*GetMSPerFrame(Signal, config)/1000.0;
+
+	return 1;
 }
 
 double GetMSPerFrame(AudioSignal *Signal, parameters *config)
@@ -2067,13 +2083,19 @@ int FillFrequencyStructures(AudioSignal *Signal, AudioBlocks *AudioArray, parame
 
 	size = AudioArray->fftwValues.size;
 	if(!size)
+	{
+		logmsg("FillFrequencyStructures size == 0\n");
 		return 0;
+	}
 
-	if(!AudioArray->frames)
+	if(AudioArray->seconds == 0.0)
+	{
+		logmsg("FillFrequencyStructures seconds == 0\n");
 		return 0;
+	}
 
 	// Round to 3 decimal places so that 48kHz and 44 kHz line up
-	boxsize = RoundFloat(AudioArray->frames*Signal->framerate/1000.0, 3);
+	boxsize = RoundFloat(AudioArray->seconds, 3);
 
 	startBin = ceil(config->startHz*boxsize);
 	endBin = floor(config->endHz*boxsize);
@@ -2238,6 +2260,11 @@ inline double FramesToSeconds(double frames, double framerate)
 	return(frames*framerate/1000.0);
 }
 
+inline double SecondsToFrames(double seconds, double framerate)
+{
+	return((seconds*1000.0)/framerate);
+}
+
 inline long int SecondsToBytes(long int samplerate, double seconds, int AudioChannels, int *leftover, int *discard, double *leftDecimals)
 {
 	return(RoundToNbytes((double)samplerate*2.0*(double)AudioChannels*seconds*sizeof(char), AudioChannels, leftover, discard, leftDecimals));
@@ -2251,6 +2278,11 @@ inline double BytesToSeconds(long int samplerate, long int bytes, int AudioChann
 inline double BytesToFrames(long int samplerate, long int bytes, double framerate, int AudioChannels)
 {
 	return(roundFloat((double)bytes/((double)samplerate*2.0*(double)AudioChannels)/framerate*1000.0));
+}
+
+inline double FramesToSamples(double frames, long int samplerate, double framerate)
+{
+	return(((double)samplerate*frames*framerate)/1000.0);
 }
 
 long int RoundToNbytes(double src, int AudioChannels, int *leftover, int *discard, double *leftDecimals)

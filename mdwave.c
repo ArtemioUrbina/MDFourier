@@ -1112,6 +1112,7 @@ int ProcessSamples(AudioBlocks *AudioArray, int16_t *samples, size_t size, long 
 	{
 		AudioArray->fftwValues.spectrum = spectrum;
 		AudioArray->fftwValues.size = monoSignalSize;
+		AudioArray->seconds = seconds;
 
 		if(!FillFrequencyStructures(NULL, AudioArray, config))
 			return 0;

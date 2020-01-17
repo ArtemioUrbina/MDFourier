@@ -104,14 +104,17 @@ int IsGridFrequencyNoise(AudioSignal *Signal, double freq);
 
 void PrintComparedBlocks(AudioBlocks *ReferenceArray, AudioBlocks *ComparedArray, parameters *config, AudioSignal *Signal);
 
+int CalculateTimeDurations(AudioSignal *Signal, parameters *config);
 double CalculateWeightedError(double pError, parameters *config);
 double RoundFloat(double x, int p);
 long int RoundToNbytes(double src, int AudioChannels, int *leftover, int *discard, double *leftDecimals);
 double GetDecimalValues(double value);
 double BytesToSeconds(long int samplerate, long int bytes, int AudioChannels);
 double FramesToSeconds(double frames, double framerate);
+double SecondsToFrames(double seconds, double framerate);
 long int SecondsToBytes(long int samplerate, double seconds, int AudioChannels, int *leftover, int *discard, double *leftDecimals);
 double BytesToFrames(long int samplerate, long int bytes, double framerate, int AudioChannels);
+double FramesToSamples(double frames, long int samplerate, double framerate);
 
 double CalculateMagnitude(fftw_complex value, long int size);
 double CalculateAmplitude(double magnitude, double MaxMagnitude);
