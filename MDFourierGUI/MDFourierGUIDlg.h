@@ -12,7 +12,7 @@
 #define COUNT_WINDOWS		5
 #define	COUNT_PROFILES		255
 #define COUNT_SYNCTYPE		2
-#define COUNT_RESOLUTION	4
+#define COUNT_RESOLUTION	5
 
 typedef struct commandline_st {
 	CString	Name;

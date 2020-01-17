@@ -341,7 +341,7 @@ void CMDFourierGUIDlg::ExecuteCommand(CString Compare)
 	}
 
 	if(m_Resolution.GetCurSel() != 1)
-		command += L" -"+res;
+		command += L" -L "+res;
 
 	mdwave = false;
 	ManageWindows(FALSE);
@@ -562,10 +562,11 @@ void CMDFourierGUIDlg::FillComboBoxes()
 	InsertValueInCombo(L"PAL", L"1", SyncType[1], m_ComSync);
 	m_ComSync.SetCurSel(0);
 
-	InsertValueInCombo(L"Low", L"0", Resolutions[0], m_Resolution);
-	InsertValueInCombo(L"Default", L"", Resolutions[1], m_Resolution);
-	InsertValueInCombo(L"1080p", L"1", Resolutions[2], m_Resolution);
-	InsertValueInCombo(L"4K", L"4", Resolutions[3], m_Resolution);
+	InsertValueInCombo(L"Low", L"1", Resolutions[0], m_Resolution);
+	InsertValueInCombo(L"Default", L"2", Resolutions[1], m_Resolution);
+	InsertValueInCombo(L"1080p", L"3", Resolutions[2], m_Resolution);
+	InsertValueInCombo(L"Hi", L"4", Resolutions[3], m_Resolution);
+	InsertValueInCombo(L"4K", L"5", Resolutions[4], m_Resolution);
 	m_Resolution.SetCurSel(1);
 
 }
@@ -903,6 +904,9 @@ LRESULT CMDFourierGUIDlg::OnDropFiles(WPARAM wParam, LPARAM lParam)
 	hDrop = (HDROP)wParam;
 	UpdateData();
 	
+	if(!cDos.m_fDone)
+		return 0;
+
 	nFiles = DragQueryFile(hDrop, -1, szDroppedFile, MAX_PATH);
 	if(nFiles > 1)
 	{
