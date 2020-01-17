@@ -787,9 +787,9 @@ int LoadFile(FILE *file, AudioSignal *Signal, parameters *config, char *fileName
 			return 0;
 		}
 		if(config->verbose)
-			logmsg(" %gs [%ld samples %ld bytes w/header]", 
+			logmsg(" %gs [%ld samples %ld/%ld[head] bytes]", 
 				BytesToSeconds(Signal->header.fmt.SamplesPerSec, Signal->startOffset, Signal->AudioChannels),
-				Signal->startOffset/2/Signal->AudioChannels, Signal->startOffset + Signal->SamplesStart);
+				Signal->startOffset/2/Signal->AudioChannels, Signal->startOffset, Signal->startOffset + Signal->SamplesStart);
 
 		if(GetLastSyncIndex(config) != NO_INDEX)
 		{
@@ -805,9 +805,9 @@ int LoadFile(FILE *file, AudioSignal *Signal, parameters *config, char *fileName
 				return 0;
 			}
 			if(config->verbose)
-				logmsg(" %gs [%ld samples %ld bytes w/header]\n", 
+				logmsg(" %gs [%ld samples %ld/%ld[head] bytes]\n", 
 					BytesToSeconds(Signal->header.fmt.SamplesPerSec, Signal->endOffset, Signal->AudioChannels),
-					Signal->endOffset/2/Signal->AudioChannels, Signal->endOffset + Signal->SamplesStart);
+					Signal->endOffset/2/Signal->AudioChannels, Signal->endOffset, Signal->endOffset + Signal->SamplesStart);
 			Signal->framerate = CalculateFrameRate(Signal, config);
 			logmsg(" - Detected %g Hz video signal (%gms per frame) from Audio file\n", 
 						roundFloat(CalculateScanRate(Signal)), Signal->framerate);

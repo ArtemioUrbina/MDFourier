@@ -2282,7 +2282,7 @@ inline double BytesToFrames(long int samplerate, long int bytes, double framerat
 
 inline double FramesToSamples(double frames, long int samplerate, double framerate)
 {
-	return(((double)samplerate*frames*framerate)/1000.0);
+	return(floor((double)samplerate/1000.0*frames*framerate));
 }
 
 long int RoundToNbytes(double src, int AudioChannels, int *leftover, int *discard, double *leftDecimals)
@@ -2379,9 +2379,9 @@ double CalculateFrameRate(AudioSignal *Signal, parameters *config)
 	LastSyncFrameOffset = GetLastSyncFrameOffset(Signal->header, config);
 	expectedFR = GetMSPerFrame(Signal, config);
 
-	framerate = (endOffset-startOffset)/(samplerate*LastSyncFrameOffset);
+	framerate = (endOffset-startOffset)/(samplerate*LastSyncFrameOffset); // 1000 ms 
 	framerate = framerate*1000.0/(2.0*Signal->AudioChannels);  // 1000 ms and 2/4 bytes per stereo sample
-	framerate = roundFloat(framerate);
+	//framerate = roundFloat(framerate);
 
 	diff = roundFloat(fabs(expectedFR - framerate));
 	//The range to report this on will probably vary by console...
