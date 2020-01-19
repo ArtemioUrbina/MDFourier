@@ -64,8 +64,8 @@ long int DetectPulse(char *AllSamples, wav_hdr header, int role, parameters *con
 		logmsgFileOnly("First round start pulse detected at %ld, refinement\n", position);
 
 	offset = position;
-	if(offset >= 8*FACTOR_DETECT*AudioChannels)  // return 8 "ms segments" as dictated by ratio "9" below
-		offset -= 8*FACTOR_DETECT*AudioChannels;
+	if(offset >= 8*22*AudioChannels)  // return 8 "ms segments" as dictated by ratio "9" below
+		offset -= 8*22*AudioChannels;
 
 	maxdetected = 0;
 	errcount = 0;
@@ -150,8 +150,8 @@ long int DetectEndPulse(char *AllSamples, long int startpulse, wav_hdr header, i
 		logmsgFileOnly("First round end pulse detected at %ld, refinement\n", position);
 
 	offset = position;
-	if(offset >= 8*FACTOR_DETECT*AudioChannels)  // return 8 "ms segments" as dictated by ratio "9" below
-		offset -= 8*FACTOR_DETECT*AudioChannels;
+	if(offset >= 8*22*AudioChannels)  // return 8 "ms segments" as dictated by ratio "9" below
+		offset -= 8*22*AudioChannels;
 
 	maxdetected = 0;
 	errcount = 0;
@@ -304,7 +304,7 @@ long int DetectPulseTrainSequence(Pulses *pulseArray, double targetFrequency, lo
 					frame_silence_count = 0;
 				}
 	
-				if(frame_silence_count >= getPulseFrameLen(role, config)*factor)
+				if(frame_silence_count >= getPulseFrameLen(role, config)*factor*4/5)  // allow silence to have some stray noise
 				{
 					silence_count++;
 	

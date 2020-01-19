@@ -1,7 +1,7 @@
 MDFourierAudioBlockFile 1.7
 Nintendo: Famicom/NES (Alpha 5)
 NTSC 16.6393 262 7990 12 10
-PAL 20.02 314 7990 12 9
+PAL 19.9972 314 7990 12 9
 NULL n
 44
 Sync s 1 20 red m
@@ -14,8 +14,8 @@ Pulse_50 3 87 10 purple m
       PADDING k 1 10 gray m
 Triangle 4 87 10 green m
       PADDING k 1 10 gray m
-Noise_pitch_32767 k 16 20 blue n
-Noise_pitch_93 k 16 20 red n
+Noise_pitch_32767 t 16 20 blue n
+Noise_pitch_93 t 16 20 red n
       PADDING k 1 20 gray m
 Noise 5 1 88 magenta n
       PADDING k 1 12 gray m

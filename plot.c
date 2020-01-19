@@ -3093,6 +3093,8 @@ void PlotTimeDomainGraphs(AudioSignal *Signal, parameters *config)
 			}
 		}
 	}
+	if(!config->plotAllNotes && plots > 40)
+		logmsg("\n  ");
 }
 
 void DrawVerticalFrameGrid(PlotFile *plot, AudioSignal *Signal, double frames, double frameIncrement, parameters *config)
