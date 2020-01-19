@@ -787,7 +787,7 @@ int LoadFile(FILE *file, AudioSignal *Signal, parameters *config, char *fileName
 			return 0;
 		}
 		if(config->verbose)
-			logmsg(" %gs [%ld samples %ld/%ld[head] bytes]", 
+			logmsg(" %gs [%ld samples %ld [header %ld] bytes]", 
 				BytesToSeconds(Signal->header.fmt.SamplesPerSec, Signal->startOffset, Signal->AudioChannels),
 				Signal->startOffset/2/Signal->AudioChannels, Signal->startOffset, Signal->startOffset + Signal->SamplesStart);
 
@@ -805,7 +805,7 @@ int LoadFile(FILE *file, AudioSignal *Signal, parameters *config, char *fileName
 				return 0;
 			}
 			if(config->verbose)
-				logmsg(" %gs [%ld samples %ld/%ld[head] bytes]\n", 
+				logmsg(" %gs [%ld samples %ld [header %ld] bytes]\n", 
 					BytesToSeconds(Signal->header.fmt.SamplesPerSec, Signal->endOffset, Signal->AudioChannels),
 					Signal->endOffset/2/Signal->AudioChannels, Signal->endOffset, Signal->endOffset + Signal->SamplesStart);
 			Signal->framerate = CalculateFrameRate(Signal, config);
@@ -1250,7 +1250,6 @@ int ProcessFile(AudioSignal *Signal, parameters *config)
 
 		difference = GetByteSizeDifferenceByFrameRate(framerate, frames, Signal->header.fmt.SamplesPerSec, Signal->AudioChannels, config);
 
-		// config->smallerFramerate
 		windowUsed = NULL;
 		if(Signal->Blocks[i].type >= TYPE_SILENCE) // We get the smaller window, since we'll truncate
 		{
@@ -1284,8 +1283,6 @@ int ProcessFile(AudioSignal *Signal, parameters *config)
 			if(!ExecuteDFFT(&Signal->Blocks[i], (int16_t*)buffer, (loadedBlockSize-difference)/2, Signal->header.fmt.SamplesPerSec, windowUsed, Signal->AudioChannels, config))
 				return 0;
 
-			//logmsg("estimated %g (difference %ld)\n", Signal->Blocks[i].frames*Signal->framerate/1000.0, difference);
-			// uncomment in ExecuteDFFT as well
 			if(!FillFrequencyStructures(Signal, &Signal->Blocks[i], config))
 				return 0;
 		}
@@ -1328,7 +1325,7 @@ int ProcessFile(AudioSignal *Signal, parameters *config)
 		logmsg(" - clk: Processing took %0.2fs\n", elapsedSeconds);
 	}
 
-	if(0 && config->drawWindows)
+	if(config->drawWindows)
 	{
 		VisualizeWindows(&windows, config);
 		PlotBetaFunctions(config);
@@ -1432,7 +1429,6 @@ int ExecuteDFFT(AudioBlocks *AudioArray, int16_t *samples, size_t size, long sam
 
 	AudioArray->fftwValues.spectrum = spectrum;
 	AudioArray->fftwValues.size = monoSignalSize;
-	//logmsg("Seconds %g was %g ", seconds, AudioArray->seconds); // uncomment estimated above as well
 	AudioArray->seconds = seconds;
 
 	free(signal);
@@ -1441,7 +1437,7 @@ int ExecuteDFFT(AudioBlocks *AudioArray, int16_t *samples, size_t size, long sam
 	return(1);
 }
 
-int CalculateMaxCompare(int block, AudioSignal *Signal, parameters *config, int limitRef)
+int CalculateMaxCompare(int block, AudioSignal *Signal, parameters *config)
 {
 	double limit = 0;
 
@@ -1457,7 +1453,7 @@ int CalculateMaxCompare(int block, AudioSignal *Signal, parameters *config, int 
 			return freq - 1;
 
 		/* Amplitude is too low */
-		if(limitRef && Signal->Blocks[block].freq[freq].amplitude < limit)
+		if(Signal->Blocks[block].freq[freq].amplitude < limit)
 			return freq;
 	}
 
@@ -1482,6 +1478,7 @@ int CompareAudioBlocks(AudioSignal *ReferenceSignal, AudioSignal *ComparisonSign
 		/* Ignore Control blocks */
 		type = GetBlockType(config, block);
 
+		/* Fpor Time Domain Plots with big framerate difference */
 		if(ReferenceSignal->Blocks[block].audio.difference != 0)
 			ComparisonSignal->Blocks[block].audio.difference = -1*ReferenceSignal->Blocks[block].audio.difference;
 		if(ComparisonSignal->Blocks[block].audio.difference != 0)
@@ -1492,8 +1489,8 @@ int CompareAudioBlocks(AudioSignal *ReferenceSignal, AudioSignal *ComparisonSign
 
 		if(type != TYPE_SILENCE)
 		{
-			refSize = CalculateMaxCompare(block, ReferenceSignal, config, 1);
-			testSize = CalculateMaxCompare(block, ComparisonSignal, config, 0);
+			refSize = CalculateMaxCompare(block, ReferenceSignal, config);
+			testSize = CalculateMaxCompare(block, ComparisonSignal, config);
 		}
 		else
 		{

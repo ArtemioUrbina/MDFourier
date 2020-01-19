@@ -278,7 +278,7 @@ void PlotResults(AudioSignal *ReferenceSignal, AudioSignal *ComparisonSignal, pa
 		if(config->clock)
 			clock_gettime(CLOCK_MONOTONIC, &lstart);
 
-		logmsg(" - Time Domain Graphs");
+		logmsg(" - Time Domain Graphs\n  ");
 		PlotTimeDomainGraphs(ReferenceSignal, config);
 		
 		PlotTimeDomainGraphs(ComparisonSignal, config);
@@ -1329,13 +1329,13 @@ int PlotNoiseDifferentAmplitudes(FlatAmplDifference *amplDiff, long int size, ch
 	for(i = 0; i < config->types.typeCount; i++)
 	{
 		type = config->types.typeArray[i].type;
-		if(type == TYPE_SILENCE && !config->types.typeArray[i].IsaddOnData)
+		if(type == TYPE_SILENCE)
 		{
 			sprintf(name, "NF_%s_%d_%02d%s_", filename, i,
 				type, config->types.typeArray[i].typeName);
 			PlotSilenceBlockDifferentAmplitudes(amplDiff, size, type, name, config, Signal);
 			logmsg(PLOT_ADVANCE_CHAR);
-			return 1;
+			return 1;  // we only plot once
 		}
 	}
 	return 0;
@@ -2505,7 +2505,7 @@ int PlotNoiseDifferentAmplitudesAveraged(FlatAmplDifference *amplDiff, long int 
 	for(i = 0; i < config->types.typeCount; i++)
 	{
 		int type = config->types.typeArray[i].type;
-		if(type == TYPE_SILENCE && !config->types.typeArray[i].IsaddOnData)
+		if(type == TYPE_SILENCE)
 		{
 			long int chunks = AVERAGE_CHUNKS;
 
@@ -3181,8 +3181,8 @@ void PlotBlockTimeDomainGraph(AudioSignal *Signal, int block, char *name, int wi
 		pl_fline_r(plot.plotter, sample-1, samples[sample-1], sample, samples[sample]);
 	pl_endpath_r(plot.plotter);
 
-	sprintf(title, "%s# %d%s", GetBlockName(config, block), GetBlockSubIndex(config, block),
-			window ? " Windowed" : "");
+	sprintf(title, "%s# %d%s at %g", GetBlockName(config, block), GetBlockSubIndex(config, block),
+			window ? " Windowed" : "", Signal->framerate);
 	DrawLabelsMDF(&plot, Signal->role == ROLE_REF ? WAVEFORM_TITLE_REF : WAVEFORM_TITLE_COM, title, Signal->role == ROLE_REF ? PLOT_SINGLE_REF : PLOT_SINGLE_COM, config);
 
 	ClosePlot(&plot);
