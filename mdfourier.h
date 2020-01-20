@@ -49,7 +49,7 @@
 
 #include "incbeta.h"
 
-#define MDVERSION "0.978"
+#define MDVERSION "0.979"
 
 #define MAX_FREQ_COUNT		40000 	/* Number of frequencies to compare(MAX) */
 #define FREQ_COUNT			2000	/* Number of frequencies to compare(default) */
@@ -91,6 +91,7 @@
 
 #define START_HZ	20.0
 #define END_HZ		20000.0
+#define MAX_HZ		96000.0
 
 #define DB_HEIGHT	18.0
 #define DB_DIFF		12.0

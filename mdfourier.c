@@ -783,7 +783,7 @@ int LoadFile(FILE *file, AudioSignal *Signal, parameters *config, char *fileName
 		Signal->startOffset = DetectPulse(Signal->Samples, Signal->header, Signal->role, config);
 		if(Signal->startOffset == -1)
 		{
-			logmsg("\nERROR: Starting pulse train was not detected.\nYou can try using -T for a frequency tolerant pulse detection algorithm\n");
+			logmsg("\nERROR: Starting pulse train was not detected.\nProfile used: [%s]\nYou can try using -T for a frequency tolerant pulse detection algorithm\n", config->types.Name);
 			return 0;
 		}
 		if(config->verbose)
@@ -801,7 +801,7 @@ int LoadFile(FILE *file, AudioSignal *Signal, parameters *config, char *fileName
 			if(Signal->endOffset == -1)
 			{
 				logmsg("\nERROR: Trailing sync pulse train was not detected, aborting.\n");
-				logmsg("\tPlease record the whole audio sequence.\n");
+				logmsg("\tPlease record the whole audio sequence.\nProfile used: [%s]\nYou can try using -T for a frequency tolerant pulse detection algorithm\n", config->types.Name);
 				return 0;
 			}
 			if(config->verbose)
@@ -1250,6 +1250,7 @@ int ProcessFile(AudioSignal *Signal, parameters *config)
 
 		difference = GetByteSizeDifferenceByFrameRate(framerate, frames, Signal->header.fmt.SamplesPerSec, Signal->AudioChannels, config);
 
+		// config->smallerFramerate
 		windowUsed = NULL;
 		if(Signal->Blocks[i].type >= TYPE_SILENCE) // We get the smaller window, since we'll truncate
 		{
@@ -1283,6 +1284,8 @@ int ProcessFile(AudioSignal *Signal, parameters *config)
 			if(!ExecuteDFFT(&Signal->Blocks[i], (int16_t*)buffer, (loadedBlockSize-difference)/2, Signal->header.fmt.SamplesPerSec, windowUsed, Signal->AudioChannels, config))
 				return 0;
 
+			//logmsg("estimated %g (difference %ld)\n", Signal->Blocks[i].frames*Signal->framerate/1000.0, difference);
+			// uncomment in ExecuteDFFT as well
 			if(!FillFrequencyStructures(Signal, &Signal->Blocks[i], config))
 				return 0;
 		}
@@ -1427,6 +1430,7 @@ int ExecuteDFFT(AudioBlocks *AudioArray, int16_t *samples, size_t size, long sam
 	fftw_destroy_plan(p);
 	p = NULL;
 
+	//logmsg("Seconds %g was %g ", seconds, AudioArray->seconds); // uncomment estimated above as well
 	AudioArray->fftwValues.spectrum = spectrum;
 	AudioArray->fftwValues.size = monoSignalSize;
 	AudioArray->seconds = seconds;
@@ -1517,7 +1521,7 @@ int CompareAudioBlocks(AudioSignal *ReferenceSignal, AudioSignal *ComparisonSign
 
 			for(int comp = 0; comp < testSize; comp++)
 			{
-				if(!ReferenceSignal->Blocks[block].freq[freq].matched &&
+				if(!ReferenceSignal->Blocks[block].freq[freq].matched && 
 					!ComparisonSignal->Blocks[block].freq[comp].matched && 
 					ReferenceSignal->Blocks[block].freq[freq].hertz ==
 					ComparisonSignal->Blocks[block].freq[comp].hertz)

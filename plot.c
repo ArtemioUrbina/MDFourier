@@ -546,9 +546,11 @@ void DrawGridZeroDBCentered(PlotFile *plot, double dBFS, double dbIncrement, dou
 		pl_fline_r(plot->plotter, transformtoLog(100, config), -1*dBFS, transformtoLog(100, config), dBFS);
 	}
 	pl_fline_r(plot->plotter, transformtoLog(1000, config), -1*dBFS, transformtoLog(1000, config), dBFS);
-	pl_fline_r(plot->plotter, transformtoLog(10000, config), -1*dBFS, transformtoLog(10000, config), dBFS);
-	if(config->endHzPlot > 20000)
-		pl_fline_r(plot->plotter, transformtoLog(20000, config), -1*dBFS, transformtoLog(20000, config), dBFS);
+	if(config->endHzPlot >= 10000)
+	{
+		for(int i = 10000; i < config->endHzPlot; i+= 10000)
+			pl_fline_r(plot->plotter, transformtoLog(i, config), -1*dBFS, transformtoLog(i, config), dBFS);
+	}
 
 	if(config->averageLine != 0.0)
 	{
@@ -579,9 +581,11 @@ void DrawGridZeroToLimit(PlotFile *plot, double dBFS, double dbIncrement, double
 		pl_fline_r(plot->plotter, transformtoLog(100, config), dBFS, transformtoLog(100, config), 0);
 	}
 	pl_fline_r(plot->plotter, transformtoLog(1000, config), dBFS, transformtoLog(1000, config), 0);
-	pl_fline_r(plot->plotter, transformtoLog(10000, config), dBFS, transformtoLog(10000, config), 0);	
-	if(config->endHzPlot > 20000)
-		pl_fline_r(plot->plotter, transformtoLog(20000, config), dBFS, transformtoLog(20000, config), 0);	
+	if(config->endHzPlot >= 10000)
+	{
+		for(int i = 10000; i < config->endHzPlot; i+= 10000)
+			pl_fline_r(plot->plotter, transformtoLog(i, config), dBFS, transformtoLog(i, config), 0);	
+	}
 
 	pl_pencolor_r (plot->plotter, 0, 0xFFFF, 0);
 	pl_flinewidth_r(plot->plotter, 1);
@@ -597,7 +601,7 @@ void DrawLabelsZeroDBCentered(PlotFile *plot, double dBFS, double dbIncrement, d
 	pl_fspace_r(plot->plotter, 0, -1*config->plotResY/2, config->plotResX, config->plotResY/2);
 
 	pl_ffontname_r(plot->plotter, "HersheySans");
-	pl_ffontsize_r(plot->plotter, config->plotResY/60);
+	pl_ffontsize_r(plot->plotter, config->plotResY/80);
 
 	pl_pencolor_r(plot->plotter, 0, 0xffff	, 0);
 	pl_fmove_r(plot->plotter, config->plotResX-config->plotResX/80, config->plotResY/100);
@@ -631,15 +635,14 @@ void DrawLabelsZeroDBCentered(PlotFile *plot, double dBFS, double dbIncrement, d
 	sprintf(label, "  %dHz", 1000);
 	pl_alabel_r(plot->plotter, 'c', 'c', label);
 
-	pl_fmove_r(plot->plotter, config->plotResX/hz*transformtoLog(10000, config), config->plotResY/2-config->plotResY/100);
-	sprintf(label, "%dkHz", 10);
-	pl_alabel_r(plot->plotter, 'c', 'c', label);
-
-	if(config->endHzPlot > 20000)
+	if(config->endHzPlot >= 10000)
 	{
-		pl_fmove_r(plot->plotter, config->plotResX/hz*transformtoLog(20000, config), config->plotResY/2-config->plotResY/100);
-		sprintf(label, "%dkHz", 20);
-		pl_alabel_r(plot->plotter, 'c', 'c', label);
+		for(int i = 10000; i < config->endHzPlot; i+= 10000)
+		{
+			pl_fmove_r(plot->plotter, config->plotResX/hz*transformtoLog(i, config), config->plotResY/2-config->plotResY/100);
+			sprintf(label, "%d%s", i/1000, i > 40000  ? "k" : "khz");
+			pl_alabel_r(plot->plotter, 'c', 'c', label);
+		}
 	}
 
 	pl_restorestate_r(plot->plotter);
@@ -820,7 +823,7 @@ void DrawLabelsZeroToLimit(PlotFile *plot, double dBFS, double dbIncrement, doub
 
 	pl_fspace_r(plot->plotter, 0, -1*config->plotResY, config->plotResX, 0);
 	pl_pencolor_r(plot->plotter, 0, 0xaaaa, 0);
-	pl_ffontsize_r(plot->plotter, config->plotResY/60);
+	pl_ffontsize_r(plot->plotter, config->plotResY/80);
 
 	pl_ffontname_r(plot->plotter, "HersheySans");
 	segments = fabs(dBFS/dbIncrement);
@@ -846,15 +849,14 @@ void DrawLabelsZeroToLimit(PlotFile *plot, double dBFS, double dbIncrement, doub
 	sprintf(label, "  %dHz", 1000);
 	pl_alabel_r(plot->plotter, 'c', 'c', label);
 
-	pl_fmove_r(plot->plotter, config->plotResX/hz*transformtoLog(10000, config), -config->plotResY/100);
-	sprintf(label, "%dkHz", 10);
-	pl_alabel_r(plot->plotter, 'c', 'c', label);
-
-	if(config->endHzPlot > 20000)
+	if(config->endHzPlot >= 10000)
 	{
-		pl_fmove_r(plot->plotter, config->plotResX/hz*transformtoLog(20000, config), config->plotResY/2-config->plotResY/100);
-		sprintf(label, "%dkHz", 20);
-		pl_alabel_r(plot->plotter, 'c', 'c', label);
+		for(int i = 10000; i < config->endHzPlot; i+= 10000)
+		{
+			pl_fmove_r(plot->plotter, config->plotResX/hz*transformtoLog(i, config), -config->plotResY/100);
+			sprintf(label, "%d%s", i/1000, i > 40000 ? "" : "khz");
+			pl_alabel_r(plot->plotter, 'c', 'c', label);
+		}
 	}
 
 	pl_fspace_r(plot->plotter, plot->x0, plot->y0, plot->x1, plot->y1);
@@ -1614,8 +1616,8 @@ void PlotSingleTypeSpectrogram(FlatFrequency *freqs, long int size, int type, ch
 	if(!CreatePlotFile(&plot, config))
 		return;
 
-	DrawLabelsZeroToLimit(&plot, significant, VERT_SCALE_STEP,config->endHzPlot, 1000, config);
 	DrawGridZeroToLimit(&plot, significant, VERT_SCALE_STEP,config->endHzPlot, 1000, config);
+	DrawLabelsZeroToLimit(&plot, significant, VERT_SCALE_STEP,config->endHzPlot, 1000, config);
 
 	for(int f = 0; f < size; f++)
 	{
@@ -2853,9 +2855,11 @@ void DrawFrequencyHorizontalGrid(PlotFile *plot, double hz, double hzIncrement, 
 		pl_fline_r(plot->plotter, 0, i, config->plotResX, i);
 
 	pl_pencolor_r (plot->plotter, 0, 0x7777, 0);
-	pl_fline_r(plot->plotter, 0, 10000, config->plotResX, 10000);
-	if(config->endHzPlot > 20000)
-		pl_fline_r(plot->plotter, 0, 20000, config->plotResX, 20000);
+	if(config->endHzPlot >= 10000)
+	{
+		for(int i = 10000; i < config->endHzPlot; i+= 10000)
+			pl_fline_r(plot->plotter, 0, i, config->plotResX, i);
+	}
 
 	pl_endpath_r(plot->plotter);
 }

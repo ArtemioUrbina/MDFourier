@@ -217,8 +217,8 @@ int commandline(int argc , char *argv[], parameters *config)
 				config->channel = optarg[0];
 				break;
 			default:
-				logmsg("Invalid audio channel option '%c'\n", optarg[0]);
-				logmsg("\tUse l for Left, r for Right or s for Stereo\n");
+				logmsg("\t -Invalid audio channel option '%c'\n", optarg[0]);
+				logmsg("\t  Use l for Left, r for Right or s for Stereo\n");
 				return 0;
 				break;
 		}
@@ -251,8 +251,18 @@ int commandline(int argc , char *argv[], parameters *config)
 		break;
 	  case 'e':
 		config->endHz = atof(optarg);
-		if(config->endHz < START_HZ*2.0 || config->endHz > END_HZ)
+		if(config->endHz < START_HZ*2.0)
+		{
 			config->endHz = END_HZ;
+			logmsg("\t -Requested %g end frequency is lower than possible, set to %g\n", atof(optarg), config->endHz);
+		}
+		if(config->endHz > MAX_HZ)
+		{
+			config->endHz = MAX_HZ;
+			logmsg("\t -Requested %g end frequency is higher than possible, set to %g\n", atof(optarg), config->endHz);
+		}
+		if(config->endHz > END_HZ)
+			config->endHzPlot = config->endHz;
 		break;
 	  case 'F':
 		config->plotNoiseFloor = 0;
@@ -310,7 +320,7 @@ int commandline(int argc , char *argv[], parameters *config)
 				config->plotResY = PLOT_RES_Y_FP;
 				break;
 			default:
-				logmsg("Ibvalid resilution (-%c) parameter %s, using default\n", optopt, optarg);
+				logmsg("\t -Invalid reslution (-%c) parameter %s, using default\n", optopt, optarg);
 				break;
 		}
 		break;
@@ -380,7 +390,10 @@ int commandline(int argc , char *argv[], parameters *config)
 	  case 's':
 		config->startHz = atof(optarg);
 		if(config->startHz < 1.0 || config->startHz > END_HZ-100.0)
+		{
 			config->startHz = START_HZ;
+			logmsg("\t -Requested %g start frequency is higher than possible, set to %g\n", atof(optarg), config->startHz);
+		}
 		break;
 	  case 'T':
 		config->syncTolerance = 1;
@@ -415,8 +428,8 @@ int commandline(int argc , char *argv[], parameters *config)
 				config->window = optarg[0];
 				break;
 			default:
-				logmsg("Invalid Window for FFT option '%c'\n", optarg[0]);
-				logmsg("\tUse n for None, t for Tukey window (default), f for Flattop, h for Hann or m for Hamming window\n");
+				logmsg("\t -Invalid Window for FFT option '%c'\n", optarg[0]);
+				logmsg("\t  Use n for None, t for Tukey window (default), f for Flattop, h for Hann or m for Hamming window\n");
 				return 0;
 				break;
 		}
@@ -445,45 +458,45 @@ int commandline(int argc , char *argv[], parameters *config)
 		break;
 	  case '?':
 		if (optopt == 'a')
-		  logmsg("Audio channel option -%c requires an argument: l,r or s\n", optopt);
+		  logmsg("\t ERROR: Audio channel option -%c requires an argument: l,r or s\n", optopt);
 		else if (optopt == 'b')
-		  logmsg("Bar Difference -%c option requires a real number.\n", optopt);
+		  logmsg("\t ERROR: Bar Difference -%c option requires a real number.\n", optopt);
 		else if (optopt == 'c')
-		  logmsg("Compare File -%c requires an argument.\n", optopt);
+		  logmsg("\t ERROR: Compare File -%c requires an argument.\n", optopt);
 		else if (optopt == 'd')
-		  logmsg("Max DB Height for Plots -%c requires an argument: %g-%g\n", 0.1, 60.0, optopt);
+		  logmsg("\t ERROR: Max DB Height for Plots -%c requires an argument: %g-%g\n", 0.1, 60.0, optopt);
 		else if (optopt == 'e')
-		  logmsg("Max frequency range for FFTW -%c requires an argument: %d-%d\n", START_HZ*2, END_HZ, optopt);
+		  logmsg("\t ERROR: Max frequency range for FFTW -%c requires an argument: %d-%d\n", START_HZ*2, END_HZ, optopt);
 		else if (optopt == 'f')
-		  logmsg("Max # of frequencies to use from FFTW -%c requires an argument: 1-%d\n", optopt, MAX_FREQ_COUNT);
+		  logmsg("\t ERROR: Max # of frequencies to use from FFTW -%c requires an argument: 1-%d\n", optopt, MAX_FREQ_COUNT);
 		else if (optopt == 'L')
-		  logmsg("Plot Resolution -%c requires an argument: 1-6\n", optopt);
+		  logmsg("\t ERROR: Plot Resolution -%c requires an argument: 1-6\n", optopt);
 		else if (optopt == 'n')
-		  logmsg("Normalizatiuon type -%c requires an argument:\n\tUse 't' Time Domain Max, 'f' Frequency Domain Max or 'a' Average\n");
+		  logmsg("\t ERROR: Normalization type -%c requires an argument:\n\tUse 't' Time Domain Max, 'f' Frequency Domain Max or 'a' Average\n");
 		else if (optopt == 'o')
-		  logmsg("Output curve -%c requires an argument 0-4\n", optopt);
+		  logmsg("\t ERROR: Output curve -%c requires an argument 0-4\n", optopt);
 		else if (optopt == 'P')
-		  logmsg("Profile File -%c requires a file argument\n", optopt);
+		  logmsg("\t ERROR: Profile File -%c requires a file argument\n", optopt);
 		else if (optopt == 'p')
-		  logmsg("Significant Amplitude -%c requires an argument: -1.0 to -100.0 dBFS\n", optopt);
+		  logmsg("\t ERROR: Significant Amplitude -%c requires an argument: -1.0 to -100.0 dBFS\n", optopt);
 		else if (optopt == 'r')
-		  logmsg("Reference File -%c requires an argument.\n", optopt);
+		  logmsg("\t ERROR: Reference File -%c requires an argument.\n", optopt);
 		else if (optopt == 's')
-		  logmsg("Min frequency range for FFTW -%c requires an argument: %d-%d\n", 1, END_HZ-100, optopt);
+		  logmsg("\t ERROR: Min frequency range for FFTW -%c requires an argument: %d-%d\n", 1, END_HZ-100, optopt);
 		else if (optopt == 'w')
-		  logmsg("FFT Window option -%c requires an argument: n,t,f or h\n", optopt);
+		  logmsg("\t ERROR: FFT Window option -%c requires an argument: n,t,f or h\n", optopt);
 		else if (optopt == 'Y')
-		  logmsg("Reference format: Use 0 for NTSC and 1 for PAL\n");
+		  logmsg("\t ERROR: Reference format: Use 0 for NTSC and 1 for PAL\n");
 		else if (optopt == 'Z')
-		  logmsg("Comparison format: Use 0 for NTSC and 1 for PAL\n");
+		  logmsg("\t ERROR: Comparison format: Use 0 for NTSC and 1 for PAL\n");
 		else if (isprint (optopt))
-		  logmsg("Unknown option `-%c'.\n", optopt);
+		  logmsg("\t ERROR: Unknown option `-%c'.\n", optopt);
 		else
-		  logmsg("Unknown option character `\\x%x'.\n", optopt);
+		  logmsg("\t ERROR: Unknown option character `\\x%x'.\n", optopt);
 		return 0;
 		break;
 	  default:
-		logmsg("Invalid argument %c\n", optopt);
+		logmsg("\t ERROR: Invalid argument %c\n", optopt);
 		return(0);
 		break;
 	  }
@@ -592,21 +605,21 @@ int commandline(int argc , char *argv[], parameters *config)
 	}
 
 	if(config->ZeroPad)
-		logmsg("\tFFT bins will be aligned to 1Hz, this is slower\n");
+		logmsg("\t -FFT bins will be aligned to 1Hz, this is slower\n");
 	if(config->FullTimeSpectroScale)
-		logmsg("\tFull Time spectrogram selected, this is slower\n");
+		logmsg("\t -Full Time spectrogram selected, this is slower\n");
 	if(config->ZeroPad && config->FullTimeSpectroScale)
-		logmsg("\tGo and play an arcade game credit if you have a slow CPU like mine...\n");
+		logmsg("\t -Go and play an arcade game credit if you have a slow CPU like mine...\n");
 	if(config->ignoreFloor)
-		logmsg("\tIgnoring Silence block noise floor\n");
+		logmsg("\t -Ignoring Silence block noise floor\n");
 	if(config->channel != 's')
-		logmsg("\tAudio Channel is: %s\n", GetChannel(config->channel));
+		logmsg("\t -Audio Channel is: %s\n", GetChannel(config->channel));
 	if(config->MaxFreq != FREQ_COUNT)
-		logmsg("\tMax frequencies to use from FFTW are %d (default %d)\n", config->MaxFreq, FREQ_COUNT);
+		logmsg("\t -Max frequencies to use from FFTW are %d (default %d)\n", config->MaxFreq, FREQ_COUNT);
 	if(config->startHz != START_HZ)
-		logmsg("\tFrequency start range for FFTW is now %g (default %g)\n", config->startHz, START_HZ);
+		logmsg("\t -Frequency start range for FFTW is now %g (default %g)\n", config->startHz, START_HZ);
 	if(config->endHz != END_HZ)
-		logmsg("\tFrequency end range for FFTW is now %g (default %g)\n", config->endHz, END_HZ);
+		logmsg("\t -Frequency end range for FFTW is now %g (default %g)\n", config->endHz, END_HZ);
 	if(config->normType != max_frequency)
 	{
 		if(config->normType == max_time)
