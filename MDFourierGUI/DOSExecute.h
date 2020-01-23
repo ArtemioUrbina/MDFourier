@@ -14,7 +14,7 @@ public:
     CWinThread*		m_pcThread;
 	BOOL			m_fAbortNow;
 	BOOL			m_fDone;
-	CString			m_Output;
+	CString			m_OutputText;
 	HANDLE			Semaphore;
 	BOOL			verbose;
 

@@ -38,34 +38,38 @@ public:
 protected:
 	HICON m_hIcon;
 
+	CString m_ReferenceFile;
 	CString m_ComparisonFile;
-	CString m_Reference;
-	CString m_Output;
-	CString resultsFolder;
+	CString m_OutputText;
+	CString m_ResultsFolderText;
 
-	CStatic m_ReferenceLbl;
+	CStatic m_ReferenceFileLbl;
 	CStatic m_ComparisonLbl;
-	CEdit	m_OutputCtrl;
+	CEdit	m_OutputTextCtrl;
 	CEdit	m_ExtraParamsEditBox;
+
 	CButton m_OpenResultsBttn;
 	CButton m_ExecuteBttn;
-	CButton m_close;
-	CButton m_ExtraData;
-	CButton m_ReferenceFileBttn;
+	CButton m_CloseBttn;
+	CButton m_ReferenceFileFileBttn;
 	CButton m_ComparisonFileBttn;
-	CButton m_AlignFFTW;
-	CButton m_AveragePlot_Bttn;
-	CButton m_VerboseLog_Bttn;
-	CButton m_EnableExtraBttn;
-	CButton m_DiffBttn;
-	CButton m_MissBttn;
-	CButton m_SpectrBttn;
-	CButton m_NoiseFloor;
-	CButton m_MDWave;
-	CButton m_Swap_Bttn;
-	CButton m_TimeSpectr;
-	CButton m_Fullres_Time_Spectrogram;
-	CButton m_TimeDomain;
+	CButton m_MDWaveBttn;
+	CButton m_SwapBttn;
+
+	CButton m_ExtraDataEditBox;
+	CButton m_AlignFFTWCheckBox;
+	CButton m_AveragePlotCheckBox;
+	CButton m_VerboseLogCheckBox;
+	CButton m_EnableExtraCheckBox;
+	CButton m_DifferencesCheckBox;
+	CButton m_MissingExtraCheckBox;
+	CButton m_SpectrogramsCheckBox;
+	CButton m_NoiseFloorCheckBox;
+	CButton m_TimeSpectrogramCheckBox;
+	CButton m_FullResTimeSpectrCheckBox;
+	CButton m_WaveFormCheckBox;
+	CButton m_PhaseCheckBox;
+
 	CComboBox m_RefSync;
 	CComboBox m_ComSync;
 	CComboBox m_Resolution;
@@ -74,13 +78,12 @@ protected:
 	CComboBox m_CurveAdjustSelect;
 	CComboBox m_Profiles;
 
-	int			DosWaitCount;
-	CDOSExecute	cDos;
-	CommandLineArray WindowConvert[COUNT_WINDOWS];
-	CommandLineArray CurveConvert[COUNT_CURVES];
-	CommandLineArray Profiles[COUNT_PROFILES];
-	CommandLineArray SyncType[COUNT_SYNCTYPE];
-	CommandLineArray Resolutions[COUNT_RESOLUTION];
+	CDOSExecute			cDos;
+	CommandLineArray	WindowConvert[COUNT_WINDOWS];
+	CommandLineArray	CurveConvert[COUNT_CURVES];
+	CommandLineArray	Profiles[COUNT_PROFILES];
+	CommandLineArray	SyncType[COUNT_SYNCTYPE];
+	CommandLineArray	Resolutions[COUNT_RESOLUTION];
 
 	CString listName;
 	CString	*elements;
@@ -88,6 +91,7 @@ protected:
 	int		elementPos;
 	bool	mdwave;
 	bool	killingDOS;
+	int		DosWaitCount;
 
 	void FillComboBoxes();
 	int CheckDependencies();
@@ -105,12 +109,13 @@ protected:
 	afx_msg HCURSOR OnQueryDragIcon();
 	DECLARE_MESSAGE_MAP()
 public:
+	afx_msg void OnTimer(UINT_PTR nIDEvent);
+	afx_msg void OnCbnDropdownProfile();
 	afx_msg void OnBnClickedSelectReferenceFile();
 	afx_msg void OnBnClickedSelectReferenceCompare();
 	afx_msg void OnBnClickedOk();
 	afx_msg void OnBnClickedCancel();
 	afx_msg void OnBnClickedOpenresults();
-	afx_msg void OnTimer(UINT_PTR nIDEvent);
 	afx_msg void OnBnClickedAbout();
 	afx_msg void OnBnClickedEnableextra();
 	afx_msg void OnBnClickedDifferences();
@@ -121,6 +126,6 @@ public:
 	afx_msg void OnBnClickedMdwave();
 	afx_msg void OnBnClickedSwap();
 	afx_msg void OnBnClickedTimesp();
-	afx_msg void OnCbnDropdownProfile();
 	afx_msg void OnBnClickedPlotTd();
+	afx_msg void OnBnClickedPhase();
 };

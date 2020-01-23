@@ -51,11 +51,11 @@ int CDOSExecute::ExecuteExternalFile()
 	COMMTIMEOUTS t = { 200, 2, 200, 2, 200 };
 
 	Lock();
-	m_Output = L"";
+	m_OutputText = L"";
 	if(verbose)
 	{
-		m_Output += m_cline;
-		m_Output += L"\r\n\r\n";
+		m_OutputText += m_cline;
+		m_OutputText += L"\r\n\r\n";
 	}
 	Release();
 
@@ -116,7 +116,7 @@ int CDOSExecute::ExecuteExternalFile()
 		{
 			csTemp = buf;
 			Lock();
-			m_Output += csTemp.Left(reDword);
+			m_OutputText += csTemp.Left(reDword);
 			Release();
 
 			if(m_fAbortNow && pInfo.hProcess != NULL)
@@ -125,7 +125,7 @@ int CDOSExecute::ExecuteExternalFile()
 				result = FALSE;
 
 				Lock();
-				m_Output = L"Terminating process. Please wait...";
+				m_OutputText = L"Terminating process. Please wait...";
 				Release();
 			}	
 		}
