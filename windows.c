@@ -365,59 +365,6 @@ double *hammingWindow(long int n)
 	return(w);
 }
 
-double cheby_poly(int n, double x)
-{
-	double res;
-
-	if (fabs(x) <= 1)
-		res = cos(n*acos(x));
-	else
-		res = cosh(n*acosh(x));
-	return res;
-}
-
-/**************************************************************************
- Dolph-Chebyshev Window
- - Taken from http://practicalcryptography.com/miscellaneous/machine-learning/implementing-dolph-chebyshev-window/
--atten is the required sidelobe attenuation (e.g. if you want -60dB atten, use '60')
-***************************************************************************/
-double *cheby_win(long int N, float atten)
-{
-	int nn, i;
-	double M, n, sum = 0, max=0;
-	double tg = pow(10,atten/20);  /* 1/r term [2], 10^gamma [2] */
-	double x0 = cosh((1.0/(N-1))*acosh(tg));
-	double *w = NULL;
-
-	w = (double*) calloc(N, sizeof(double));
-	if(!w)
-	{
-		logmsg("Not enough memory for window\n");
-		return NULL;
-	}
-	memset(w, 0, N*sizeof(double));
-
-	M = (N-1)/2;
-	if(N%2==0)
-		M = M + 0.5; /* handle even length windows */
-	for(nn=0; nn<(N/2+1); nn++)
-	{
-		n = nn-M;
-		sum = 0;
-		for(i=1; i<=M; i++)
-		{
-			sum += cheby_poly(N-1,x0*cos(M_PI*i/N))*cos(2.0*n*M_PI*i/N);
-		}
-		w[nn] = tg + 2*sum;
-		w[N-nn-1] = w[nn];
-		if(w[nn]>max)
-			max = w[nn];
-	}
-	for(nn=0; nn<N; nn++)
-		w[nn] /= max; /* normalise everything */
-	return(w);
-}
-
 double CalculateCorrectionFactor(windowManager *wm, long int frames)
 {
 	double		*window = NULL;

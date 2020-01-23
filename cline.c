@@ -82,7 +82,7 @@ void PrintUsage()
 
 void Header(int log)
 {
-	char title1[] = "MDFourier " MDVERSION " [240p Test Suite Fourier Audio compare tool]\n";
+	char title1[] = "MDFourier " MDVERSION " [240p Test Suite Fourier Audio compare tool] " BITS_MDF "\n";
 	char title2[] = "Artemio Urbina 2019-2020 free software under GPL - http://junkerhq.net/MDFourier\n";
 
 	if(log)
@@ -154,6 +154,7 @@ void CleanParameters(parameters *config)
 	config->plotTimeSpectrogram = 1;
 	config->plotNoiseFloor = 1;
 	config->plotTimeDomain = 1;
+	config->plotPhase = 0;
 	config->plotAllNotes = 0;
 	config->plotAllNotesWindowed = 0;
 	config->averagePlot = 0;
@@ -162,11 +163,9 @@ void CleanParameters(parameters *config)
 	config->Differences.BlockDiffArray = NULL;
 	config->Differences.cntFreqAudioDiff = 0;
 	config->Differences.cntAmplAudioDiff = 0;
-	config->Differences.weightedFreqAudio = 0;
-	config->Differences.weightedAmplAudio = 0;
+	
 	config->Differences.cntTotalCompared = 0;
 	config->Differences.cntTotalAudioDiff = 0;
-	config->Differences.weightedAudioDiff = 0;
 	
 	config->types.totalBlocks = 0;
 	config->types.regularBlocks = 0;
@@ -200,8 +199,8 @@ int commandline(int argc , char *argv[], parameters *config)
 	
 	CleanParameters(config);
 
-	// Available: GHJKOq0123456789
-	while ((c = getopt (argc, argv, "Aa:Bb:Cc:Dd:Ee:Ff:ghIijkL:lMmNn:o:P:p:QRr:Ss:TtUuVvWw:XxY:yZ:z")) != -1)
+	// Available: GHJKq0123456789
+	while ((c = getopt (argc, argv, "Aa:Bb:Cc:Dd:Ee:Ff:ghIijkL:lMmNn:Oo:P:p:QRr:Ss:TtUuVvWw:XxY:yZ:z")) != -1)
 	switch (c)
 	  {
 	  case 'A':
@@ -357,6 +356,9 @@ int commandline(int argc , char *argv[], parameters *config)
 				return 0;
 				break;
 		}
+		break;
+	  case 'O':
+		config->plotPhase = 1;
 		break;
 	  case 'o':
 		config->outputFilterFunction = atoi(optarg);
@@ -538,7 +540,7 @@ int commandline(int argc , char *argv[], parameters *config)
 	if(!config->plotDifferences && !config->plotMissing &&
 		!config->plotSpectrogram && !config->averagePlot &&
 		!config->plotNoiseFloor && !config->plotTimeSpectrogram &&
-		!config->plotTimeDomain)
+		!config->plotTimeDomain && !config->plotPhase)
 	{
 		logmsg("* It makes no sense to process everything and plot nothing\nAborting.\n");
 		return 0;
@@ -660,6 +662,27 @@ void ShortenFileName(char *filename, char *copy)
 	
 }
 
+int CreateFolder(char *name)
+{
+#if defined (WIN32)
+#if INTPTR_MAX == INT64_MAX
+#define	_mkdir mkdir
+#endif
+	if(_mkdir(name) != 0)
+	{
+		if(errno != EEXIST)
+			return 0;
+	}
+#else
+	if(mkdir(name, 0755) != 0)
+	{
+		if(errno != EEXIST)
+			return 0;
+	}
+#endif
+	return 1;
+}
+
 int CreateFolderName(parameters *config)
 {
 	int len;
@@ -687,29 +710,10 @@ int CreateFolderName(parameters *config)
 	sprintf(config->compareName, "%s", tmp);
 	sprintf(config->folderName, "MDFResults\\%s", tmp);
 
-#if defined (WIN32)
-	if(_mkdir("MDFResults") != 0)
-	{
-		if(errno != EEXIST)
-			return 0;
-	}
-	if(_mkdir(config->folderName) != 0)
-	{
-		if(errno != EEXIST)
-			return 0;
-	}
-#else
-	if(mkdir("MDFResults", 0755) != 0)
-	{
-		if(errno != EEXIST)
-			return 0;
-	}
-	if(mkdir(config->folderName, 0755) != 0)
-	{
-		if(errno != EEXIST)
-			return 0;
-	}
-#endif
+	if(!CreateFolder("MDFResults"))
+		return 0;
+	if(!CreateFolder(config->folderName))
+		return 0;
 	return 1;
 }
 
@@ -753,30 +757,10 @@ int CreateFolderName_wave(parameters *config)
 
 	sprintf(config->folderName, "%s", tmp);
 
-#if defined (WIN32)
-	if(_mkdir("MDWave") != 0)
-	{
-		if(errno != EEXIST)
-			return 0;
-	}
-	if(_mkdir(config->folderName) != 0)
-	{
-		if(errno != EEXIST)
-			return 0;
-	}
-#else
-	if(mkdir("MDWave", 0755) != 0)
-	{
-		if(errno != EEXIST)
-			return 0;
-	}
-	if(mkdir(config->folderName, 0755) != 0)
-	{
-		if(errno != EEXIST)
-			return 0;
-	}
-#endif
-
+	if(!CreateFolder("MDWave"))
+		return 0;
+	if(!CreateFolder(config->folderName))
+		return 0;
 	return 1;
 }
 

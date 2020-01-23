@@ -49,7 +49,15 @@
 
 #include "incbeta.h"
 
-#define MDVERSION "0.979"
+#if INTPTR_MAX == INT64_MAX
+#define	BITS_MDF "64-bit"
+#elif INTPTR_MAX == INT32_MAX
+#define	BITS_MDF "32-bit"
+#else
+#error Unknown pointer size or missing size macros!
+#endif
+
+#define MDVERSION "0.979 "
 
 #define MAX_FREQ_COUNT		40000 	/* Number of frequencies to compare(MAX) */
 #define FREQ_COUNT			2000	/* Number of frequencies to compare(default) */
@@ -95,6 +103,10 @@
 
 #define DB_HEIGHT	18.0
 #define DB_DIFF		12.0
+
+#define	MAXINT16		32768
+#define	MININT16		-32767
+#define INT16_3DB		0x5A9D
 
 #define BUFFER_SIZE		4096
 #define T_BUFFER_SIZE	BUFFER_SIZE*2+256
@@ -249,6 +261,8 @@ typedef struct samples_st {
 
 typedef struct AudioBlock_st {
 	Frequency		*freq;
+	Frequency		*linFreq;
+	long int		linFreqSize;
 	FFTWSpectrum	fftwValues;
 	BlockSamples	audio;
 	int				index;
@@ -310,27 +324,33 @@ typedef struct window_st {
 typedef struct freq_diff_st {
 	double	hertz;
 	double	amplitude;
-	double	weight;
 } FreqDifference;
 
 typedef struct ampl_diff_st {
 	double	hertz;
 	double	refAmplitude;
 	double	diffAmplitude;
-	double	weight;
 } AmplDifference;
+
+typedef struct phase_diff_st {
+	double	hertz;
+	double	diffPhase;
+} PhaseDifference;
 
 typedef struct blk_diff_st {
 	FreqDifference *freqMissArray;
 	long int		cntFreqBlkDiff;
 	long int		cmpFreqBlkDiff;
-	long int		perfectAmplMatch;
-	double			weightedFreqBlkDiff;
 
 	AmplDifference *amplDiffArray;
 	long int		cntAmplBlkDiff;
 	long int		cmpAmplBlkDiff;
-	double			weightedAmplBlkDiff;
+
+	long int		perfectAmplMatch;
+
+	PhaseDifference *phaseDiffArray;
+	long int		cntPhaseBlkDiff;
+	long int		cmpPhaseBlkDiff;
 
 	int				type;
 } BlockDifference;
@@ -338,14 +358,14 @@ typedef struct blk_diff_st {
 typedef struct block_diff_st {
 	BlockDifference	*BlockDiffArray;
 
+	long int		cntPerfectAmplMatch;
 	long int 		cntFreqAudioDiff;
 	long int		cntAmplAudioDiff;
-	double			weightedFreqAudio;
-	double			weightedAmplAudio;
+	long int		cntPhaseAudioDiff;
+	long int		cmpPhaseAudioDiff;
 
 	long int		cntTotalCompared;
 	long int		cntTotalAudioDiff;
-	double			weightedAudioDiff;
 } AudioDifference;
 
 /********************************************************/
@@ -398,6 +418,7 @@ typedef struct parameters_st {
 	int				plotTimeDomain;
 	int				plotAllNotes;
 	int				plotAllNotesWindowed;
+	int				plotPhase;
 	double			plotRatio;
 	int				averagePlot;
 	int				weightedAveragePlot;

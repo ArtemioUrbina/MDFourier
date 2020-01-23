@@ -49,8 +49,6 @@ void EnableLog() { do_log = CONSOLE_ENABLED; }
 void DisableConsole() { do_log = CONSOLE_DISABLED; }
 void EnableConsole() { do_log = CONSOLE_ENABLED; }
 int IsLogEnabled() { return do_log; }
-void OutputFileOnlyStart() { if(IsLogEnabled()) DisableConsole();}
-void OutputFileOnlyEnd() { if(IsLogEnabled()) EnableConsole();}
 
 void logmsg(char *fmt, ... )
 {
@@ -81,15 +79,6 @@ void logmsgFileOnly(char *fmt, ... )
 	va_list arguments;
 
 	va_start(arguments, fmt);
-	OutputFileOnlyStart();
-
-	if(do_log != CONSOLE_DISABLED)
-	{
-		vprintf(fmt, arguments);
-#if defined (WIN32)
-		fflush(stdout);  // output to Front end ASAP
-#endif
-	}
 
 	if(do_log && logfile)
 	{
@@ -98,7 +87,6 @@ void logmsgFileOnly(char *fmt, ... )
 		//fflush(logfile);
 	}
 
-	OutputFileOnlyEnd();
 	va_end(arguments);
 }
 

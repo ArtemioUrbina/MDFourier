@@ -32,7 +32,7 @@
 #include "cline.h"
 #include "plot.h"
 
-#define SORT_NAME FFT_Frequency
+#define SORT_NAME FFT_Frequency_Magnitude
 #define SORT_TYPE Frequency
 #define SORT_CMP(x, y)  ((x).magnitude > (y).magnitude ? -1 : ((x).magnitude == (y).magnitude ? 0 : 1))
 #include "sort.h"  // https://github.com/swenson/sort/
@@ -179,6 +179,8 @@ AudioSignal *CreateAudioSignal(parameters *config)
 			return NULL;
 		}
 		memset(Signal->Blocks[n].freq, 0, sizeof(Frequency)*config->MaxFreq);
+		Signal->Blocks[n].linFreq = NULL;
+		Signal->Blocks[n].linFreqSize = 0;
 	}
 
 	InitAudio(Signal, config);
@@ -288,6 +290,13 @@ void ReleaseFrequencies(AudioBlocks * AudioArray)
 		free(AudioArray->freq);
 		AudioArray->freq = NULL;
 	}
+
+	if(AudioArray->linFreq)
+	{
+		free(AudioArray->linFreq);
+		AudioArray->linFreq = NULL;
+	}
+	AudioArray->linFreqSize = 0;
 }
 
 void ReleaseBlock(AudioBlocks * AudioArray)
@@ -2076,10 +2085,10 @@ inline double CalculateFrequency(double boxindex, double boxsize, int HertzAlign
 
 int FillFrequencyStructures(AudioSignal *Signal, AudioBlocks *AudioArray, parameters *config)
 {
-	long int 	i = 0, startBin= 0, endBin = 0, count = 0, size = 0;
+	long int 	i = 0, startBin= 0, endBin = 0, count = 0, size = 0, amount = 0;
 	double 		boxsize = 0;
 	int			nyquistLimit = 0;
-	Frequency	*f_array;
+	Frequency	*f_array = NULL, *f_linarray = NULL;
 
 	size = AudioArray->fftwValues.size;
 	if(!size)
@@ -2117,36 +2126,44 @@ int FillFrequencyStructures(AudioSignal *Signal, AudioBlocks *AudioArray, parame
 	{
 		logmsg("ERROR: Not enough memory (f_array)\n");
 		return 0;
-	}	
+	}
+	memset(f_array, 0, sizeof(Frequency)*(endBin-startBin));
+
+	f_linarray = (Frequency*)malloc(sizeof(Frequency)*(endBin-startBin));
+	if(!f_linarray)
+	{
+		free(f_array);
+		logmsg("ERROR: Not enough memory (f_linarray)\n");
+		return 0;
+	}
+	memset(f_linarray, 0, sizeof(Frequency)*(endBin-startBin));
 
 	for(i = startBin; i < endBin; i++)
 	{
-		double		Hertz;
-
-		Hertz = CalculateFrequency(i, boxsize, config->ZeroPad);
-		if(Hertz)
-		{
-			Frequency	element;
-
-			memset(&element, 0, sizeof(Frequency));
-			element.hertz = Hertz;
-			element.magnitude = CalculateMagnitude(AudioArray->fftwValues.spectrum[i], size);
-			element.amplitude = NO_AMPLITUDE;
-			element.phase = CalculatePhase(AudioArray->fftwValues.spectrum[i]);
-
-			f_array[count++] = element;
-		}
+		f_array[count].hertz = CalculateFrequency(i, boxsize, config->ZeroPad);
+		f_array[count].magnitude = CalculateMagnitude(AudioArray->fftwValues.spectrum[i], size);
+		f_array[count].amplitude = NO_AMPLITUDE;
+		f_array[count].phase = CalculatePhase(AudioArray->fftwValues.spectrum[i]);
+		f_array[count].matched = 0;
+		count++;
 	}
 
-	FFT_Frequency_tim_sort(f_array, count);
+	// Copy all available to Lin Array
+	memcpy(f_linarray, f_array, sizeof(Frequency)*count);
+	AudioArray->linFreq = f_linarray;
+	AudioArray->linFreqSize = count;
 
-	i = 0;
-	while(i < count && i < config->MaxFreq)
-	{
-		AudioArray->freq[i] = f_array[i];
-		i++;
-	}
+	if(config->MaxFreq > count)
+		amount = count;
+	else
+		amount = config->MaxFreq;
 
+	// Sort the array by top magnitudes
+	FFT_Frequency_Magnitude_tim_sort(f_array, count);
+	// Only copy Top amount frequencies
+	memcpy(AudioArray->freq, f_array, sizeof(Frequency)*amount);
+
+	// release temporal storage
 	free(f_array);
 	f_array = NULL;
 	return 1;

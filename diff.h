@@ -34,9 +34,11 @@
 
 AmplDifference *CreateAmplDifferences(parameters *config);
 FreqDifference *CreateFreqDifferences(parameters *config);
+PhaseDifference *CreatePhaseDifferences(parameters *config);
 int CreateDifferenceArray(parameters *config);
-int InsertFreqNotFound(int block, double freq, double amplitude, double weighted, parameters *config);
-int InsertAmplDifference(int block, double freq, double refAmplitude, double compAmplitude, double weighted, parameters *config);
+int InsertFreqNotFound(int block, double freq, double amplitude, parameters *config);
+int InsertAmplDifference(int block, Frequency ref, Frequency comp, parameters *config);
+int InsertPhaseDifference(int block, Frequency ref, Frequency comp, parameters *config);
 int IncrementCmpAmplDifference(int block, parameters *config);
 int IncrementCmpFreqNotFound(int block, parameters *config);
 int IncrementCompared(int block, parameters *config);

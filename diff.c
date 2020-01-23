@@ -1,4 +1,4 @@
-/* 
+	/* 
  * MDFourier
  * A Fourier Transform analysis tool to compare different 
  * Sega Genesis/Mega Drive audio hardware revisions, and
@@ -38,7 +38,7 @@ AmplDifference *CreateAmplDifferences(parameters *config)
 	ad = (AmplDifference*)malloc(sizeof(AmplDifference)*config->MaxFreq);
 	if(!ad)
 	{
-		logmsg("Insufficient memory for AmplDifference\n");
+		logmsg("Insufficient memory for AmplDifference (%ld bytes)\n", sizeof(AmplDifference)*config->MaxFreq);
 		return 0;
 	}
 	memset(ad, 0, sizeof(AmplDifference)*config->MaxFreq);
@@ -52,11 +52,25 @@ FreqDifference *CreateFreqDifferences(parameters *config)
 	fd = (FreqDifference*)malloc(sizeof(FreqDifference)*config->MaxFreq);
 	if(!fd)
 	{
-		logmsg("Insufficient memory for FreqDifference\n");
+		logmsg("Insufficient memory for FreqDifference (%ld bytes)\n", sizeof(sizeof(FreqDifference)*config->MaxFreq));
 		return 0;
 	}
 	memset(fd, 0, sizeof(FreqDifference)*config->MaxFreq);
 	return fd;
+}
+
+PhaseDifference *CreatePhaseDifferences(parameters *config)
+{
+	PhaseDifference *pd = NULL;
+
+	pd = (PhaseDifference*)malloc(sizeof(PhaseDifference)*config->MaxFreq);
+	if(!pd)
+	{
+		logmsg("Insufficient memory for FreqDifference (%ld bytes)\n", sizeof(sizeof(PhaseDifference)*config->MaxFreq));
+		return 0;
+	}
+	memset(pd, 0, sizeof(PhaseDifference)*config->MaxFreq);
+	return pd;
 }
 
 int CreateDifferenceArray(parameters *config)
@@ -69,7 +83,7 @@ int CreateDifferenceArray(parameters *config)
 	BlockDiffArray = (BlockDifference*)malloc(sizeof(BlockDifference)*config->types.totalBlocks);
 	if(!BlockDiffArray)
 	{
-		logmsg("Insufficient memory for AudioDiffArray\n");
+		logmsg("Insufficient memory for AudioDiffArray(%ld bytes)\n", sizeof(sizeof(BlockDifference)*config->MaxFreq));
 		return 0;
 	}
 
@@ -95,30 +109,45 @@ int CreateDifferenceArray(parameters *config)
 				free(BlockDiffArray);
 				return 0;
 			}
+
+			BlockDiffArray[i].phaseDiffArray = CreatePhaseDifferences(config);
+			if(!BlockDiffArray[i].phaseDiffArray)
+			{
+				free(BlockDiffArray);
+				return 0;
+			}
 		}
 		else
 		{
 			BlockDiffArray[i].freqMissArray = NULL;
 			BlockDiffArray[i].amplDiffArray = NULL;
+			BlockDiffArray[i].phaseDiffArray = NULL;
 		}
 
 		BlockDiffArray[i].type = type;
+
 		BlockDiffArray[i].cntFreqBlkDiff = 0;
 		BlockDiffArray[i].cmpFreqBlkDiff = 0;
-		BlockDiffArray[i].weightedFreqBlkDiff = 0;
+
 		BlockDiffArray[i].cntAmplBlkDiff = 0;
 		BlockDiffArray[i].cmpAmplBlkDiff = 0;
-		BlockDiffArray[i].weightedAmplBlkDiff = 0;
+
+		BlockDiffArray[i].perfectAmplMatch = 0;
+
+		BlockDiffArray[i].cntPhaseBlkDiff = 0;
+		BlockDiffArray[i].cmpPhaseBlkDiff = 0;
 	}
 	
 	config->Differences.BlockDiffArray = BlockDiffArray;
+
 	config->Differences.cntFreqAudioDiff = 0;
 	config->Differences.cntAmplAudioDiff = 0;
-	config->Differences.weightedFreqAudio = 0;
-	config->Differences.weightedAmplAudio = 0;
+	config->Differences.cntPhaseAudioDiff = 0;
+	config->Differences.cmpPhaseAudioDiff = 0;
+
+	config->Differences.cntPerfectAmplMatch = 0;
 	config->Differences.cntTotalCompared = 0;
 	config->Differences.cntTotalAudioDiff = 0;
-	config->Differences.weightedAudioDiff = 0;
 	return 1;
 }
 
@@ -143,17 +172,23 @@ void ReleaseDifferenceArray(parameters *config)
 			free(config->Differences.BlockDiffArray[i].freqMissArray);
 			config->Differences.BlockDiffArray[i].freqMissArray = NULL;
 		}
+
+		if(config->Differences.BlockDiffArray[i].phaseDiffArray)
+		{
+			free(config->Differences.BlockDiffArray[i].phaseDiffArray);
+			config->Differences.BlockDiffArray[i].phaseDiffArray = NULL;
+		}
 	}
 
 	free(config->Differences.BlockDiffArray);
 	config->Differences.BlockDiffArray = NULL;
+
 	config->Differences.cntFreqAudioDiff = 0;
 	config->Differences.cntAmplAudioDiff = 0;
-	config->Differences.weightedFreqAudio = 0;
-	config->Differences.weightedAmplAudio = 0;
+	config->Differences.cntPhaseAudioDiff = 0;
+
 	config->Differences.cntTotalCompared = 0;
 	config->Differences.cntTotalAudioDiff = 0;
-	config->Differences.weightedAudioDiff = 0;
 }
 
 int IncrementCmpAmplDifference(int block, parameters *config)
@@ -171,10 +206,27 @@ int IncrementCmpAmplDifference(int block, parameters *config)
 	return 1;
 }
 
-int InsertAmplDifference(int block, double freq, double refAmplitude, double compAmplitude, double weighted, parameters *config)
+int IncrementCmpPhaseDifference(int block, parameters *config)
 {
-	int position = 0;
-	double diff = 0;
+	if(!config)
+		return 0;
+
+	if(!config->Differences.BlockDiffArray)
+		return 0;
+
+	if(block > config->types.totalBlocks)
+		return 0;
+
+	config->Differences.BlockDiffArray[block].cmpPhaseBlkDiff ++;
+	config->Differences.cmpPhaseAudioDiff ++;
+	return 1;
+}
+
+
+int InsertAmplDifference(int block, Frequency ref, Frequency comp, parameters *config)
+{
+	int		position = 0;
+	double	diffAmpl = 0;
 
 	if(!config)
 		return 0;
@@ -188,23 +240,54 @@ int InsertAmplDifference(int block, double freq, double refAmplitude, double com
 	if(block > config->types.totalBlocks)
 		return 0;
 	
-	diff = fabs(refAmplitude) - fabs(compAmplitude);
+	diffAmpl = fabs(ref.amplitude) - fabs(comp.amplitude);
 	position = config->Differences.BlockDiffArray[block].cntAmplBlkDiff;
-	config->Differences.BlockDiffArray[block].amplDiffArray[position].hertz = freq;
-	config->Differences.BlockDiffArray[block].amplDiffArray[position].refAmplitude = refAmplitude;
-	config->Differences.BlockDiffArray[block].amplDiffArray[position].diffAmplitude = diff;
-	config->Differences.BlockDiffArray[block].amplDiffArray[position].weight = weighted;
+	config->Differences.BlockDiffArray[block].amplDiffArray[position].hertz = ref.hertz;
+	config->Differences.BlockDiffArray[block].amplDiffArray[position].refAmplitude = ref.amplitude;
+	config->Differences.BlockDiffArray[block].amplDiffArray[position].diffAmplitude = diffAmpl;
 
 	config->Differences.BlockDiffArray[block].cntAmplBlkDiff ++;
 	config->Differences.cntAmplAudioDiff ++;
 	config->Differences.cntTotalAudioDiff ++;
-
-	config->Differences.BlockDiffArray[block].weightedAmplBlkDiff += weighted;
-	config->Differences.weightedAmplAudio += weighted;
-	config->Differences.weightedAudioDiff += weighted;
+	
 	return 1;
 }
 
+int InsertPhaseDifference(int block, Frequency ref, Frequency comp, parameters *config)
+{
+	int		position = 0;
+	double	diffPhase = 0;
+
+	if(!config)
+		return 0;
+
+	if(!config->Differences.BlockDiffArray)
+		return 0;
+
+	if(!config->Differences.BlockDiffArray[block].phaseDiffArray)
+		return 0;
+
+	if(block > config->types.totalBlocks)
+		return 0;
+	
+	diffPhase =  comp.phase - ref.phase;
+	diffPhase = roundFloat(diffPhase);
+	if(diffPhase > 180.0)
+		diffPhase -= 360;
+	if(diffPhase <= -180.0)  // -180 is the same as 180, hence the =
+		diffPhase += 360;
+	if(diffPhase == 0) diffPhase = 0; // remove -0.0 for plots.
+
+	position = config->Differences.BlockDiffArray[block].cntPhaseBlkDiff;
+	config->Differences.BlockDiffArray[block].phaseDiffArray[position].hertz = ref.hertz;
+	config->Differences.BlockDiffArray[block].phaseDiffArray[position].diffPhase = diffPhase;
+
+	config->Differences.BlockDiffArray[block].cntPhaseBlkDiff ++;
+	config->Differences.cntPhaseAudioDiff ++;
+	//config->Differences.cntTotalAudioDiff ++;
+	
+	return 1;
+}
 
 int IncrementCompared(int block, parameters *config)
 {
@@ -215,6 +298,8 @@ int IncrementCompared(int block, parameters *config)
 	if(!IncrementCmpAmplDifference(block, config))
 		return 0;
 	if(!IncrementCmpFreqNotFound(block, config))
+		return 0;
+	if(!IncrementCmpPhaseDifference(block, config))
 		return 0;
 	return 1;
 }
@@ -231,10 +316,10 @@ int IncrementPerfectMatch(int block, parameters *config)
 		return 0;
 
 	config->Differences.BlockDiffArray[block].perfectAmplMatch ++;
+	config->Differences.cntPerfectAmplMatch ++;
 	
 	return 1;
 }
-
 
 int IncrementCmpFreqNotFound(int block, parameters *config)
 {
@@ -251,7 +336,7 @@ int IncrementCmpFreqNotFound(int block, parameters *config)
 	return 1;
 }
 
-int InsertFreqNotFound(int block, double freq, double amplitude, double weighted, parameters *config)
+int InsertFreqNotFound(int block, double freq, double amplitude, parameters *config)
 {
 	int position = 0;
 
@@ -270,15 +355,11 @@ int InsertFreqNotFound(int block, double freq, double amplitude, double weighted
 	position = config->Differences.BlockDiffArray[block].cntFreqBlkDiff;
 	config->Differences.BlockDiffArray[block].freqMissArray[position].hertz = freq;
 	config->Differences.BlockDiffArray[block].freqMissArray[position].amplitude = amplitude;
-	config->Differences.BlockDiffArray[block].freqMissArray[position].weight = weighted;
 
 	config->Differences.BlockDiffArray[block].cntFreqBlkDiff ++;
 	config->Differences.cntFreqAudioDiff ++;
 	config->Differences.cntTotalAudioDiff ++;
 
-	config->Differences.BlockDiffArray[block].weightedFreqBlkDiff += weighted;
-	config->Differences.weightedFreqAudio += weighted;
-	config->Differences.weightedAudioDiff += weighted;
 	return 1;
 }
 
@@ -295,10 +376,9 @@ void PrintDifferentFrequencies(int block, parameters *config)
 
 	for(int f = 0; f < config->Differences.BlockDiffArray[block].cntFreqBlkDiff; f++)
 	{
-		logmsgFileOnly("Frequency: %7g Hz\tAmplituide: %4.2f (%g)\n", 
+		logmsgFileOnly("Frequency: %7g Hz\tAmplituide: %4.2f\n", 
 			config->Differences.BlockDiffArray[block].freqMissArray[f].hertz,
-			config->Differences.BlockDiffArray[block].freqMissArray[f].amplitude,
-			config->Differences.BlockDiffArray[block].freqMissArray[f].weight);
+			config->Differences.BlockDiffArray[block].freqMissArray[f].amplitude);
 	}
 }
 
@@ -311,15 +391,33 @@ void PrintDifferentAmplitudes(int block, parameters *config)
 		return;
 
 	if(config->Differences.BlockDiffArray[block].cntAmplBlkDiff)
-		logmsg("\nDifferent Amplitudes:\n");
+		logmsgFileOnly("\nDifferent Amplitudes:\n");
 
 	for(int a = 0; a < config->Differences.BlockDiffArray[block].cntAmplBlkDiff; a++)
 	{
-		logmsgFileOnly("Frequency: %7g Hz\tAmplitude: %4.2f dBFS\tAmplitude Difference: %4.2f dBFS (%g)\n",
+		logmsgFileOnly("Frequency: %7g Hz\tAmplitude: %4.2f dBFS\tAmplitude Difference: %4.2f dBFS\n",
 			config->Differences.BlockDiffArray[block].amplDiffArray[a].hertz,
 			config->Differences.BlockDiffArray[block].amplDiffArray[a].refAmplitude,
-			config->Differences.BlockDiffArray[block].amplDiffArray[a].diffAmplitude,
-			config->Differences.BlockDiffArray[block].amplDiffArray[a].weight);
+			config->Differences.BlockDiffArray[block].amplDiffArray[a].diffAmplitude);
+	}
+}
+
+void PrintDifferentPhases(int block, parameters *config)
+{
+	if(!config)
+		return;
+
+	if(!config->Differences.BlockDiffArray)
+		return;
+
+	if(config->Differences.BlockDiffArray[block].cntPhaseBlkDiff)
+		logmsgFileOnly("\nDifferent Phase:\n");
+
+	for(int a = 0; a < config->Differences.BlockDiffArray[block].cntPhaseBlkDiff; a++)
+	{
+		logmsgFileOnly("Frequency: %7g Hz\tPhase Difference: %3.2f\n",
+			config->Differences.BlockDiffArray[block].phaseDiffArray[a].hertz,
+			config->Differences.BlockDiffArray[block].phaseDiffArray[a].diffPhase);
 	}
 }
 
@@ -337,18 +435,19 @@ void PrintDifferenceArray(parameters *config)
 		return;
 	}
 
-	logmsgFileOnly("\nTotal Differences: %ld, Weighted: %g from %ld\nNonWeighted: %g%% Weighted: %g%%\n", 
+	logmsgFileOnly("\nPerfect Frequency/Amplitude Matches: %ld\n",
+				config->Differences.cntPerfectAmplMatch);
+	logmsgFileOnly("Total Differences: %ld from %ld\nTotal: %g%%\n", 
 				config->Differences.cntTotalAudioDiff,
-				config->Differences.weightedAudioDiff,
 				config->Differences.cntTotalCompared,
-				(double)config->Differences.cntTotalAudioDiff*100.0/(double)config->Differences.cntTotalCompared,
-				(double)config->Differences.weightedAudioDiff*100.0/(double)config->Differences.cntTotalCompared);
-	logmsgFileOnly("Total Frequencies not Found %ld Total Amplitudes not matched: %ld\n",
-				config->Differences.cntFreqAudioDiff,
+				(double)config->Differences.cntTotalAudioDiff*100.0/(double)config->Differences.cntTotalCompared);
+	logmsgFileOnly("Total Frequencies not Found: %ld\n",
+				config->Differences.cntFreqAudioDiff);
+	logmsgFileOnly("Total Amplitudes not matched: %ld\n",
 				config->Differences.cntAmplAudioDiff);
-	logmsgFileOnly("Total Weighted Frequencies not Found %g Total Amplitudes not matched: %g\n",
-				config->Differences.weightedFreqAudio,
-				config->Differences.weightedAmplAudio);
+	logmsgFileOnly("Total Phases not matched: %ld from %ld (%g%%)\n",
+				config->Differences.cntPhaseAudioDiff, config->Differences.cmpPhaseAudioDiff, 
+				config->Differences.cmpPhaseAudioDiff > 0 ? (double)config->Differences.cntPhaseAudioDiff*100.0/(double)config->Differences.cmpPhaseAudioDiff : 0);
 
 	for(int b = 0; b < config->types.totalBlocks; b++)
 	{
@@ -356,14 +455,14 @@ void PrintDifferenceArray(parameters *config)
 			continue;
 
 		if(config->Differences.BlockDiffArray[b].cntAmplBlkDiff)
-			logmsgFileOnly("\n\nBlock: %s# %d (%d) Not Found: %d Differences: %d FW: %g AW: %g\n", 
+			logmsgFileOnly("\n\nBlock: %s# %d (%d) Not Found: %ld Differences: %ld Phase Diff: %ld\n", 
 					GetBlockName(config, b), GetBlockSubIndex(config, b), b,
 					config->Differences.BlockDiffArray[b].cntFreqBlkDiff,
 					config->Differences.BlockDiffArray[b].cntAmplBlkDiff,
-					config->Differences.BlockDiffArray[b].weightedFreqBlkDiff,
-					config->Differences.BlockDiffArray[b].weightedAmplBlkDiff);
+					config->Differences.BlockDiffArray[b].cntPhaseBlkDiff);
 
 		PrintDifferentFrequencies(b, config);
 		PrintDifferentAmplitudes(b, config);
+		PrintDifferentPhases(b, config);
 	}
 }

@@ -35,8 +35,6 @@ void EnableLog();
 void DisableConsole();
 void EnableConsole();
 int IsLogEnabled();
-void OutputFileOnlyStart();
-void OutputFileOnlyEnd();
 
 void logmsg(char *fmt, ... );
 void logmsgFileOnly(char *fmt, ... );

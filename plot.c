@@ -44,13 +44,18 @@
 #include "sort.h"  // https://github.com/swenson/sort/
 
 #define SORT_NAME FlatMissingDifferencesByAmplitude
-#define SORT_TYPE FlatFreqDifference
+#define SORT_TYPE FlatFrequency
 #define SORT_CMP(x, y)  ((x).amplitude < (y).amplitude ? -1 : ((x).amplitude == (y).amplitude ? 0 : 1))
 #include "sort.h"  // https://github.com/swenson/sort/
 
 #define SORT_NAME FlatFrequenciesByAmplitude
 #define SORT_TYPE FlatFrequency
 #define SORT_CMP(x, y)  ((x).amplitude < (y).amplitude ? -1 : ((x).amplitude == (y).amplitude ? 0 : 1))
+#include "sort.h"  // https://github.com/swenson/sort/
+
+#define SORT_NAME PhaseDifferencesByFrequency
+#define SORT_TYPE FlatPhase
+#define SORT_CMP(x, y)  ((x).hertz < (y).hertz ? -1 : ((x).hertz == (y).hertz ? 0 : 1))
 #include "sort.h"  // https://github.com/swenson/sort/
 
 #define DIFFERENCE_TITLE			"DIFFERENT AMPLITUDES [%s]"
@@ -68,6 +73,9 @@
 #define SPECTROGRAM_NOISE_COM		"COMPARISON NOISE FLOOR - SPECTROGRAM [%s]"
 #define WAVEFORM_TITLE_REF			"REFERENCE - WAVEFORM[%s]"
 #define WAVEFORM_TITLE_COM			"COMPARISON - WAVEFORM [%s]"
+#define PHASE_DIFF_TITLE			"PHASE DIFFERENCE [%s]"
+#define PHASE_SIG_TITLE_REF			"PHASE REFERENCE [%s]"
+#define PHASE_SIG_TITLE_COM			"PHASE COMPARISON [%s]"
 
 #define BAR_HEADER					"Matched frequencies"
 #define BAR_DIFF					"w/any amplitude difference"
@@ -240,6 +248,30 @@ void PlotResults(AudioSignal *ReferenceSignal, AudioSignal *ComparisonSignal, pa
 		}
 	}
 
+	if(config->plotPhase)
+	{
+		struct	timespec	lstart, lend;
+
+		if(config->clock)
+			clock_gettime(CLOCK_MONOTONIC, &lstart);
+
+		logmsg(" - Phase");
+		PlotPhaseFromSignal(ReferenceSignal, config);
+		PlotPhaseFromSignal(ComparisonSignal, config);
+		PlotPhaseDifferences(config);
+		logmsg(PLOT_ADVANCE_CHAR);
+		logmsg("\n");
+
+
+		if(config->clock)
+		{
+			double	elapsedSeconds;
+			clock_gettime(CLOCK_MONOTONIC, &lend);
+			elapsedSeconds = TimeSpecToSeconds(&lend) - TimeSpecToSeconds(&lstart);
+			logmsg(" - clk: Phase took %0.2fs\n", elapsedSeconds);
+		}
+	}
+
 	if(config->plotNoiseFloor)
 	{
 		if(!config->noSyncProfile && !config->ignoreFloor)
@@ -363,7 +395,7 @@ void PlotDifferentAmplitudesWithBetaFunctions(parameters *config)
 void PlotFreqMissing(parameters *config)
 {
 	long int			size = 0;
-	FlatFreqDifference	*freqDiff = NULL;
+	FlatFrequency	*freqDiff = NULL;
 	
 	freqDiff = CreateFlatMissing(config, &size);
 	if(PlotEachTypeMissingFrequencies(freqDiff, size, config->compareName, config) > 1)
@@ -523,10 +555,40 @@ int ClosePlot(PlotFile *plot)
 	return 1;
 }
 
+void DrawFrequencyHorizontal(PlotFile *plot, double vertical, double hz, double hzIncrement, parameters *config)
+{
+	pl_pencolor_r (plot->plotter, 0, 0x5555, 0);
+	for(int i = hzIncrement; i < hz; i += hzIncrement)
+	{
+		pl_fline_r(plot->plotter, transformtoLog(i, config), -1*vertical, transformtoLog(i, config), vertical);
+		pl_endpath_r(plot->plotter);
+	}
+
+	pl_pencolor_r (plot->plotter, 0, 0x7777, 0);
+	if(config->logScale)
+	{
+		pl_fline_r(plot->plotter, transformtoLog(10, config), -1*vertical, transformtoLog(10, config), vertical);
+		pl_endpath_r(plot->plotter);
+		pl_fline_r(plot->plotter, transformtoLog(100, config), -1*vertical, transformtoLog(100, config), vertical);
+		pl_endpath_r(plot->plotter);
+	}
+	pl_fline_r(plot->plotter, transformtoLog(1000, config), -1*vertical, transformtoLog(1000, config), vertical);
+	pl_endpath_r(plot->plotter);
+	if(config->endHzPlot >= 10000)
+	{
+		for(int i = 10000; i < config->endHzPlot; i+= 10000)
+		{
+			pl_fline_r(plot->plotter, transformtoLog(i, config), -1*vertical, transformtoLog(i, config), vertical);
+			pl_endpath_r(plot->plotter);
+		}
+	}
+}
+
 void DrawGridZeroDBCentered(PlotFile *plot, double dBFS, double dbIncrement, double hz, double hzIncrement, parameters *config)
 {
 	pl_pencolor_r (plot->plotter, 0, 0xaaaa, 0);
 	pl_fline_r(plot->plotter, 0, 0, hz, 0);
+	pl_endpath_r(plot->plotter);
 
 	pl_pencolor_r (plot->plotter, 0, 0x5555, 0);
 	for(int i = dbIncrement; i < dBFS; i += dbIncrement)
@@ -534,23 +596,9 @@ void DrawGridZeroDBCentered(PlotFile *plot, double dBFS, double dbIncrement, dou
 		pl_fline_r(plot->plotter, 0, i, hz, i);
 		pl_fline_r(plot->plotter, 0, -1*i, hz, -1*i);
 	}
+	pl_endpath_r(plot->plotter);
 
-	pl_pencolor_r (plot->plotter, 0, 0x5555, 0);
-	for(int i = hzIncrement; i < hz; i += hzIncrement)
-		pl_fline_r(plot->plotter, transformtoLog(i, config), -1*dBFS, transformtoLog(i, config), dBFS);
-
-	pl_pencolor_r (plot->plotter, 0, 0x7777, 0);
-	if(config->logScale)
-	{
-		pl_fline_r(plot->plotter, transformtoLog(10, config), -1*dBFS, transformtoLog(10, config), dBFS);
-		pl_fline_r(plot->plotter, transformtoLog(100, config), -1*dBFS, transformtoLog(100, config), dBFS);
-	}
-	pl_fline_r(plot->plotter, transformtoLog(1000, config), -1*dBFS, transformtoLog(1000, config), dBFS);
-	if(config->endHzPlot >= 10000)
-	{
-		for(int i = 10000; i < config->endHzPlot; i+= 10000)
-			pl_fline_r(plot->plotter, transformtoLog(i, config), -1*dBFS, transformtoLog(i, config), dBFS);
-	}
+	DrawFrequencyHorizontal(plot, dBFS, hz, hzIncrement, config);
 
 	if(config->averageLine != 0.0)
 	{
@@ -1411,7 +1459,7 @@ void PlotSilenceBlockDifferentAmplitudes(FlatAmplDifference *amplDiff, long int 
 	ClosePlot(&plot);
 }
 
-void PlotAllMissingFrequencies(FlatFreqDifference *freqDiff, long int size, char *filename, parameters *config)
+void PlotAllMissingFrequencies(FlatFrequency *freqDiff, long int size, char *filename, parameters *config)
 {
 	PlotFile	plot;
 	char		name[BUFFER_SIZE];
@@ -1461,7 +1509,7 @@ void PlotAllMissingFrequencies(FlatFreqDifference *freqDiff, long int size, char
 	ClosePlot(&plot);
 }
 
-int PlotEachTypeMissingFrequencies(FlatFreqDifference *freqDiff, long int size, char *filename, parameters *config)
+int PlotEachTypeMissingFrequencies(FlatFrequency *freqDiff, long int size, char *filename, parameters *config)
 {
 	int 		i = 0, type = 0, types = 0;
 	char		name[BUFFER_SIZE];
@@ -1481,7 +1529,7 @@ int PlotEachTypeMissingFrequencies(FlatFreqDifference *freqDiff, long int size, 
 	return types;
 }
 
-void PlotSingleTypeMissingFrequencies(FlatFreqDifference *freqDiff, long int size, int type, char *filename, parameters *config)
+void PlotSingleTypeMissingFrequencies(FlatFrequency *freqDiff, long int size, int type, char *filename, parameters *config)
 {
 	PlotFile	plot;
 	double		significant = 0, abs_significant = 0;
@@ -1953,12 +2001,25 @@ FlatAmplDifference *CreateFlatDifferences(parameters *config, long int *size, di
 		return NULL;
 	*size = 0;
 
-	ADiff = (FlatAmplDifference*)malloc(sizeof(FlatAmplDifference)*config->Differences.cntAmplAudioDiff+1000);
+	for(int b = 0; b < config->types.totalBlocks; b++)
+	{
+		int type = 0, doplot = 0;
+		
+		type = GetBlockType(config, b);
+		if(plotType == normalPlot && type > TYPE_SILENCE)
+			doplot = 1;
+		if(plotType == floorPlot && type == TYPE_SILENCE)
+			doplot = 1;
+		if(doplot)
+			count += config->Differences.BlockDiffArray[b].cntAmplBlkDiff;
+	}
+
+	ADiff = (FlatAmplDifference*)malloc(sizeof(FlatAmplDifference)*count);
 	if(!ADiff)
 		return NULL;
+	memset(ADiff, 0, sizeof(FlatAmplDifference)*count);
 
-	memset(ADiff, 0, sizeof(FlatAmplDifference)*config->Differences.cntAmplAudioDiff+1000);
-
+	count = 0;
 	for(int b = 0; b < config->types.totalBlocks; b++)
 	{
 		int type = 0, doplot = 0;
@@ -1991,10 +2052,10 @@ FlatAmplDifference *CreateFlatDifferences(parameters *config, long int *size, di
 	return(ADiff);
 }
 
-FlatFreqDifference *CreateFlatMissing(parameters *config, long int *size)
+FlatFrequency *CreateFlatMissing(parameters *config, long int *size)
 {
 	long int	count = 0;
-	FlatFreqDifference *FDiff = NULL;
+	FlatFrequency *FDiff = NULL;
 
 	if(!config)
 		return NULL;
@@ -2004,10 +2065,10 @@ FlatFreqDifference *CreateFlatMissing(parameters *config, long int *size)
 
 	*size = 0;
 
-	FDiff = (FlatFreqDifference*)malloc(sizeof(FlatFreqDifference)*config->Differences.cntFreqAudioDiff);
+	FDiff = (FlatFrequency*)malloc(sizeof(FlatFrequency)*config->Differences.cntFreqAudioDiff);
 	if(!FDiff)
 		return NULL;
-	memset(FDiff, 0, sizeof(FlatFreqDifference)*config->Differences.cntFreqAudioDiff);
+	memset(FDiff, 0, sizeof(FlatFrequency)*config->Differences.cntFreqAudioDiff);
 
 	for(int b = 0; b < config->types.totalBlocks; b++)
 	{
@@ -2102,6 +2163,9 @@ FlatFrequency *CreateFlatFrequencies(AudioSignal *Signal, long int *size, parame
 			{
 				int insert = 0;
 
+				if(Signal->Blocks[block].freq[i].hertz == 0)
+					break;
+
 				if(type > TYPE_SILENCE && Signal->Blocks[block].freq[i].hertz && Signal->Blocks[block].freq[i].amplitude > significant)
 					insert = 1;
 				if(type == TYPE_SILENCE && Signal->Blocks[block].freq[i].hertz)
@@ -2109,8 +2173,7 @@ FlatFrequency *CreateFlatFrequencies(AudioSignal *Signal, long int *size, parame
 
 				if(insert)
 					count ++;
-				
-				if(Signal->Blocks[block].freq[i].hertz == 0)
+				else
 					break;
 			}
 		}
@@ -3021,33 +3084,12 @@ void PlotTimeSpectrogramUnMatchedContent(AudioSignal *Signal, parameters *config
 	ClosePlot(&plot);
 }
 
-int CreateTDFolder(parameters *config)
-{
-	char name[BUFFER_SIZE*2];
-
-	sprintf(name, "TDPlots\\");
-#if defined (WIN32)
-	if(_mkdir(name) != 0)
-	{
-		if(errno != EEXIST)
-			return 0;
-	}
-#else
-	if(mkdir(name, 0755) != 0)
-	{
-		if(errno != EEXIST)
-			return 0;
-	}
-#endif
-	return 1;
-}
-
 void PlotTimeDomainGraphs(AudioSignal *Signal, parameters *config)
 {
 	long int	plots = 0, i = 0;
 	char		name[BUFFER_SIZE*2];
 
-	if(!CreateTDFolder(config))
+	if(!CreateFolder("TDPlots\\"))
 	{
 		logmsg("Couldn't create Time Domain sub folder\n");
 		return;
@@ -3060,6 +3102,8 @@ void PlotTimeDomainGraphs(AudioSignal *Signal, parameters *config)
 			if(config->plotAllNotes || Signal->Blocks[i].type == TYPE_TIMEDOMAIN)
 			{
 				plots++;
+				if(config->plotPhase)
+					plots++;
 				if(config->plotAllNotesWindowed && Signal->Blocks[i].audio.window_samples)
 					plots++;
 			}
@@ -3076,11 +3120,23 @@ void PlotTimeDomainGraphs(AudioSignal *Signal, parameters *config)
 				GetBlockName(config, i), GetBlockSubIndex(config, i), config->compareName);
 		
 			PlotBlockTimeDomainGraph(Signal, i, name, 0, config);
-
 			logmsg(PLOT_ADVANCE_CHAR);
 			plots++;
 			if(plots % 80 == 0)
 				logmsg("\n  ");
+
+			if(config->plotPhase)
+			{
+				sprintf(name, "TDPlots\\TD_%05ld_%s_%s_%05d_%s_", 
+					i, Signal->role == ROLE_REF ? "5" : "6",
+					GetBlockName(config, i), GetBlockSubIndex(config, i), config->compareName);
+	
+				PlotBlockPhaseGraph(Signal, i, name, config);
+				logmsg(PLOT_ADVANCE_CHAR);
+				plots++;
+				if(plots % 80 == 0)
+					logmsg("\n  ");
+			}
 
 			if(config->plotAllNotesWindowed && Signal->Blocks[i].audio.window_samples)
 			{
@@ -3141,7 +3197,7 @@ void PlotBlockTimeDomainGraph(AudioSignal *Signal, int block, char *name, int wi
 		samples = Signal->Blocks[block].audio.window_samples;
 
 	if(Signal->Blocks[block].type == TYPE_SKIP)
-		color = 1;
+		color = COLOR_RED;
 
 	if(!samples)
 		return;
@@ -3158,9 +3214,6 @@ void PlotBlockTimeDomainGraph(AudioSignal *Signal, int block, char *name, int wi
 
 	if(!CreatePlotFile(&plot, config))
 		return;
-
-	//logmsg("Plotsize %ld Difference %ld\n", plotSize, difference);
-	//DrawFrequencyHorizontalGrid(&plot, config->endHzPlot, 1000, config);
 
 	// discarded samples box (difference)
 	if(difference > 0 && Signal->Blocks[block].type != TYPE_SYNC)
@@ -3183,8 +3236,8 @@ void PlotBlockTimeDomainGraph(AudioSignal *Signal, int block, char *name, int wi
 
 	// Draw samples
 	SetPenColor(color, 0xffff, &plot);
-	for(sample = 1; sample < numSamples; sample ++)
-		pl_fline_r(plot.plotter, sample-1, samples[sample-1], sample, samples[sample]);
+	for(sample = 0; sample < numSamples - 1; sample ++)
+		pl_fline_r(plot.plotter, sample, samples[sample], sample+1, samples[sample+1]);
 	pl_endpath_r(plot.plotter);
 
 	sprintf(title, "%s# %d%s at %g", GetBlockName(config, block), GetBlockSubIndex(config, block),
@@ -3192,4 +3245,408 @@ void PlotBlockTimeDomainGraph(AudioSignal *Signal, int block, char *name, int wi
 	DrawLabelsMDF(&plot, Signal->role == ROLE_REF ? WAVEFORM_TITLE_REF : WAVEFORM_TITLE_COM, title, Signal->role == ROLE_REF ? PLOT_SINGLE_REF : PLOT_SINGLE_COM, config);
 
 	ClosePlot(&plot);
+}
+
+void PlotBlockPhaseGraph(AudioSignal *Signal, int block, char *name, parameters *config)
+{
+	char		title[1024];
+	PlotFile	plot;
+	long int	color = 0, f = 0, count = 0;
+	Frequency	*freqs = NULL;
+	int			oldLog = 0;
+
+	if(!Signal || !config)
+		return;
+
+	if(block > config->types.totalBlocks)
+		return;
+
+	freqs = Signal->Blocks[block].linFreq;
+	count = Signal->Blocks[block].linFreqSize;
+	if(!count || !freqs)
+	{
+		logmsgFileOnly("==============SKIPPED %s=================\n", name);
+		return;
+	}
+
+	if(Signal->Blocks[block].type == TYPE_SKIP)
+		color = COLOR_RED;
+
+	FillPlot(&plot, name, config->plotResX, config->plotResY, 
+			config->startHzPlot, -200, config->endHzPlot, 200, 1, config);
+
+	if(!CreatePlotFile(&plot, config))
+		return;
+
+	oldLog = config->logScale;
+	config->logScale = 0;
+
+	DrawFrequencyHorizontal(&plot, 200, config->endHzPlot, 1000, config);
+
+	// 0 phase line
+	color = MatchColor(GetBlockColor(config, block));
+	SetPenColor(COLOR_GRAY, 0x7777, &plot);
+	pl_fline_r(plot.plotter, config->startHzPlot, 0, config->endHzPlot, 0);
+	pl_endpath_r(plot.plotter);
+
+	// Draw phase
+	SetPenColor(color, 0xffff, &plot);
+	for(f = 0; f < count - 1; f ++)
+		pl_fline_r(plot.plotter, transformtoLog(freqs[f].hertz, config), freqs[f].phase, transformtoLog(freqs[f+1].hertz, config), freqs[f+1].phase);
+	pl_endpath_r(plot.plotter);
+
+	sprintf(title, "%s# %d at %g", GetBlockName(config, block), GetBlockSubIndex(config, block), Signal->framerate);
+	DrawLabelsMDF(&plot, Signal->role == ROLE_REF ? WAVEFORM_TITLE_REF : WAVEFORM_TITLE_COM, title, Signal->role == ROLE_REF ? PLOT_SINGLE_REF : PLOT_SINGLE_COM, config);
+
+	ClosePlot(&plot);
+
+	config->logScale = oldLog;
+}
+
+FlatPhase	*CreatePhaseFlatDifferences(parameters *config, long int *size)
+{
+	long int 			count = 0;
+	FlatPhase	*PDiff = NULL;
+
+	if(!size)
+		return NULL;
+
+	*size = 0;
+	PDiff = (FlatPhase*)malloc(sizeof(FlatPhase)*config->Differences.cntPhaseAudioDiff);
+	if(!PDiff)
+		return NULL;
+	memset(PDiff, 0, sizeof(FlatPhase)*config->Differences.cntPhaseAudioDiff);
+
+	for(int b = 0; b < config->types.totalBlocks; b++)
+	{
+		int type = 0;
+		int color = 0;
+		
+		type = GetBlockType(config, b);
+		color = MatchColor(GetBlockColor(config, b));
+
+		for(int p = 0; p < config->Differences.BlockDiffArray[b].cntPhaseBlkDiff; p++)
+		{
+			PDiff[count].hertz = config->Differences.BlockDiffArray[b].phaseDiffArray[p].hertz;
+			PDiff[count].phase = config->Differences.BlockDiffArray[b].phaseDiffArray[p].diffPhase;
+			PDiff[count].type = type;
+			PDiff[count].color = color;
+			count ++;
+		}
+	}
+
+	logmsg(PLOT_PROCESS_CHAR);
+	PhaseDifferencesByFrequency_tim_sort(PDiff, count);
+	logmsg(PLOT_PROCESS_CHAR);
+	*size = count;
+	return PDiff;
+}
+
+void PlotPhaseFromSignal(AudioSignal *Signal, parameters *config)
+{
+	long int			size = 0 /*, oldLog = 0 */;
+	FlatPhase	*phaseDiff = NULL;
+	
+	phaseDiff = CreatePhaseFlatFromSignal(Signal, &size, config);
+	if(!phaseDiff)
+	{
+		logmsg("Not enough memory for plotting\n");
+		return;
+	}
+
+	//oldLog = config->logScale;
+	//config->logScale = 0;
+	if(PlotEachTypePhase(phaseDiff, size, config->compareName, Signal->role == ROLE_REF ? PHASE_REF : PHASE_COMP, config) > 1)
+	{
+		PlotAllPhase(phaseDiff, size, config->compareName, Signal->role == ROLE_REF ? PHASE_REF : PHASE_COMP, config);
+		logmsg(PLOT_ADVANCE_CHAR);
+	}
+	//config->logScale = oldLog;
+
+	/*
+	if(config->averagePlot)
+		PlotDifferentAmplitudesAveraged(amplDiff, size, config->compareName, config);
+	*/
+	
+	free(phaseDiff);
+	phaseDiff = NULL;
+}
+
+void PlotPhaseDifferences(parameters *config)
+{
+	long int	size = 0 /*, oldLog = 0 */;
+	FlatPhase	*phaseDiff = NULL;
+	
+	phaseDiff = CreatePhaseFlatDifferences(config, &size);
+	if(!phaseDiff)
+	{
+		logmsg("Not enough memory for plotting\n");
+		return;
+	}
+
+	//oldLog = config->logScale;
+	//config->logScale = 0;
+	if(PlotEachTypePhase(phaseDiff, size, config->compareName, PHASE_DIFF, config) > 1)
+	{
+		PlotAllPhase(phaseDiff, size, config->compareName, PHASE_DIFF, config);
+		logmsg(PLOT_ADVANCE_CHAR);
+	}
+	//config->logScale = oldLog;
+
+	/*
+	if(config->averagePlot)
+		PlotDifferentAmplitudesAveraged(amplDiff, size, config->compareName, config);
+	*/
+	
+	free(phaseDiff);
+	phaseDiff = NULL;
+}
+
+void PlotAllPhase(FlatPhase *phaseDiff, long int size, char *filename, int pType, parameters *config)
+{
+	PlotFile	plot;
+	char		name[BUFFER_SIZE];
+
+	if(!config)
+		return;
+
+	if(!phaseDiff)
+		return;
+
+	if(!config->Differences.BlockDiffArray)
+		return;
+
+	if(pType == PHASE_DIFF)
+		sprintf(name, "PD_ALL_%s", filename);
+	else
+		sprintf(name, "P%c_ALL_%s", pType == PHASE_REF ? 'A' : 'B', filename);
+	FillPlot(&plot, name, config->plotResX, config->plotResY, config->startHzPlot, -1*PHASE_ANGLE, config->endHzPlot, PHASE_ANGLE, 1, config);
+
+	if(!CreatePlotFile(&plot, config))
+		return;
+
+	DrawGridZeroAngleCentered(&plot, PHASE_ANGLE, 90, config->endHzPlot, 1000, config);
+	DrawLabelsZeroAngleCentered(&plot, PHASE_ANGLE, 90, config->endHzPlot, 1000, config);
+
+	for(int p = 0; p < size; p++)
+	{
+		if(phaseDiff[p].hertz && phaseDiff[p].type > TYPE_CONTROL)
+		{ 
+			SetPenColor(phaseDiff[p].color, 0xFFFF, &plot);
+			pl_fpoint_r(plot.plotter, transformtoLog(phaseDiff[p].hertz, config), phaseDiff[p].phase);
+		}
+	}
+
+	if(pType == PHASE_DIFF)
+		DrawLabelsMDF(&plot, PHASE_DIFF_TITLE, ALL_LABEL, PLOT_COMPARE, config);
+	else
+		DrawLabelsMDF(&plot, pType == PHASE_REF ? PHASE_SIG_TITLE_REF : PHASE_SIG_TITLE_COM, ALL_LABEL, pType == PHASE_REF  ? PLOT_SINGLE_REF : PLOT_SINGLE_COM, config);
+
+	ClosePlot(&plot);
+}
+
+int PlotEachTypePhase(FlatPhase *phaseDiff, long int size, char *filename, int pType, parameters *config)
+{
+	int 		i = 0, type = 0, types = 0;
+	char		name[BUFFER_SIZE];
+
+	for(i = 0; i < config->types.typeCount; i++)
+	{
+		type = config->types.typeArray[i].type;
+		if(type > TYPE_CONTROL && !config->types.typeArray[i].IsaddOnData)
+		{
+			if(pType == PHASE_DIFF)
+				sprintf(name, "PD_%s_%02d%s_", filename, 
+					type, config->types.typeArray[i].typeName);
+			else
+				sprintf(name, "P%c_%s_%02d%s_", pType == PHASE_REF ? 'A' : 'B', filename, 
+					type, config->types.typeArray[i].typeName);
+		
+			PlotSingleTypePhase(phaseDiff, size, type, name, pType, config);
+			logmsg(PLOT_ADVANCE_CHAR);
+			types ++;
+		}
+	}
+	return types;
+}
+
+void PlotSingleTypePhase(FlatPhase *phaseDiff, long int size, int type, char *filename, int pType, parameters *config)
+{
+	PlotFile	plot;
+
+	if(!config)
+		return;
+
+	if(!phaseDiff)
+		return;
+
+	if(!config->Differences.BlockDiffArray)
+		return;
+
+	FillPlot(&plot, filename, config->plotResX, config->plotResY, config->startHzPlot, -1*PHASE_ANGLE, config->endHzPlot, PHASE_ANGLE, 1, config);
+
+	if(!CreatePlotFile(&plot, config))
+		return;
+
+	DrawGridZeroAngleCentered(&plot, PHASE_ANGLE, 90, config->endHzPlot, 1000, config);
+	DrawLabelsZeroAngleCentered(&plot, PHASE_ANGLE, 90, config->endHzPlot, 1000, config);
+
+	for(int p = 0; p < size; p++)
+	{
+		if(phaseDiff[p].hertz && phaseDiff[p].type == type)
+		{ 
+			SetPenColor(phaseDiff[p].color, 0xFFFF, &plot);
+			pl_fpoint_r(plot.plotter, transformtoLog(phaseDiff[p].hertz, config), phaseDiff[p].phase);
+		}
+	}
+
+	if(pType == PHASE_DIFF)
+		DrawLabelsMDF(&plot, PHASE_DIFF_TITLE, ALL_LABEL, PLOT_COMPARE, config);
+	else
+		DrawLabelsMDF(&plot, pType == PHASE_REF ? PHASE_SIG_TITLE_REF : PHASE_SIG_TITLE_COM, GetTypeDisplayName(config, type), pType == PHASE_REF ? PLOT_SINGLE_REF : PLOT_SINGLE_COM, config);
+	ClosePlot(&plot);
+}
+
+void DrawGridZeroAngleCentered(PlotFile *plot, double maxAngle, double angleIncrement, double hz, double hzIncrement, parameters *config)
+{
+	pl_pencolor_r (plot->plotter, 0, 0xaaaa, 0);
+	pl_fline_r(plot->plotter, 0, 0, hz, 0);
+	pl_endpath_r(plot->plotter);
+
+	pl_pencolor_r (plot->plotter, 0, 0x5555, 0);
+	for(int i = angleIncrement; i < maxAngle; i += angleIncrement)
+	{
+		pl_fline_r(plot->plotter, 0, i, hz, i);
+		pl_fline_r(plot->plotter, 0, -1*i, hz, -1*i);
+	}
+	pl_endpath_r(plot->plotter);
+
+	DrawFrequencyHorizontal(plot, maxAngle, hz, 1000, config);
+
+	pl_endpath_r(plot->plotter);
+	pl_pencolor_r (plot->plotter, 0, 0xFFFF, 0);
+}
+
+void DrawLabelsZeroAngleCentered(PlotFile *plot, double dBFS, double angleIncrement, double hz, double hzIncrement,  parameters *config)
+{
+	double segments = 0;
+	char label[20];
+
+	pl_savestate_r(plot->plotter);
+	pl_fspace_r(plot->plotter, 0, -1*config->plotResY/2, config->plotResX, config->plotResY/2);
+
+	pl_ffontname_r(plot->plotter, "HersheySans");
+	pl_ffontsize_r(plot->plotter, config->plotResY/80);
+
+	pl_pencolor_r(plot->plotter, 0, 0xffff	, 0);
+	pl_fmove_r(plot->plotter, config->plotResX-config->plotResX/80, config->plotResY/100);
+	pl_alabel_r(plot->plotter, 'c', 'c', "0");
+
+	pl_pencolor_r(plot->plotter, 0, 0xaaaa, 0);
+	segments = fabs(dBFS/angleIncrement);
+	for(int i = 1; i < segments; i ++)
+	{
+		pl_fmove_r(plot->plotter, config->plotResX-config->plotResX/50, i*config->plotResY/segments/2+config->plotResY/100);
+		sprintf(label, " %g", i*angleIncrement);
+		pl_alabel_r(plot->plotter, 'c', 'c', label);
+
+		pl_fmove_r(plot->plotter, config->plotResX-config->plotResX/50, -1*i*config->plotResY/segments/2+config->plotResY/100);
+		sprintf(label, "-%g", i*angleIncrement);
+		pl_alabel_r(plot->plotter, 'c', 'c', label);
+	}
+
+	if(config->logScale)
+	{
+		pl_fmove_r(plot->plotter, config->plotResX/hz*transformtoLog(10, config), config->plotResY/2-config->plotResY/100);
+		sprintf(label, "%dHz", 10);
+		pl_alabel_r(plot->plotter, 'c', 'c', label);
+	
+		pl_fmove_r(plot->plotter, config->plotResX/hz*transformtoLog(100, config), config->plotResY/2-config->plotResY/100);
+		sprintf(label, "%dHz", 100);
+		pl_alabel_r(plot->plotter, 'c', 'c', label);
+	}
+
+	pl_fmove_r(plot->plotter, config->plotResX/hz*transformtoLog(1000, config), config->plotResY/2-config->plotResY/100);
+	sprintf(label, "  %dHz", 1000);
+	pl_alabel_r(plot->plotter, 'c', 'c', label);
+
+	if(config->endHzPlot >= 10000)
+	{
+		for(int i = 10000; i < config->endHzPlot; i+= 10000)
+		{
+			pl_fmove_r(plot->plotter, config->plotResX/hz*transformtoLog(i, config), config->plotResY/2-config->plotResY/100);
+			sprintf(label, "%d%s", i/1000, i > 40000  ? "k" : "khz");
+			pl_alabel_r(plot->plotter, 'c', 'c', label);
+		}
+	}
+
+	pl_restorestate_r(plot->plotter);
+	//pl_fspace_r(plot->plotter, plot->x0, plot->y0, plot->x1, plot->y1);
+}
+
+FlatPhase	*CreatePhaseFlatFromSignal(AudioSignal *Signal, long int *size, parameters *config)
+{
+	long int	block = 0, i = 0;
+	long int 	count = 0;
+	FlatPhase	*PhaseArray = NULL;
+
+	if(!size || !Signal || !config)
+		return NULL;
+
+	*size = 0;
+
+	for(block = 0; block < config->types.totalBlocks; block++)
+	{
+		int 	type = TYPE_NOTYPE;
+
+		type = GetBlockType(config, block);
+		if(type > TYPE_SILENCE)
+		{
+			for(i = 0; i < config->MaxFreq; i++)
+			{
+				if(Signal->Blocks[block].freq[i].hertz)
+					count ++;
+				else
+					break;
+			}
+		}
+	}
+
+	PhaseArray = (FlatPhase*)malloc(sizeof(FlatPhase)*count);
+	if(!PhaseArray)
+		return NULL;
+	memset(PhaseArray, 0, sizeof(FlatPhase)*count);
+
+	count = 0;
+	for(block = 0; block < config->types.totalBlocks; block++)
+	{
+		int type = 0;
+		int color = 0;
+		
+		type = GetBlockType(config, block);
+		color = MatchColor(GetBlockColor(config, block));
+
+		if(type > TYPE_SILENCE)
+		{
+			for(i = 0; i < config->MaxFreq; i++)
+			{
+				if(Signal->Blocks[block].freq[i].hertz)
+				{
+					PhaseArray[count].hertz = Signal->Blocks[block].freq[i].hertz;
+					PhaseArray[count].phase = Signal->Blocks[block].freq[i].phase;
+					PhaseArray[count].type = type;
+					PhaseArray[count].color = color;
+					count ++;
+				}
+				else
+					break;
+			}
+		}
+	}
+
+	logmsg(PLOT_PROCESS_CHAR);
+	PhaseDifferencesByFrequency_tim_sort(PhaseArray, count);
+	logmsg(PLOT_PROCESS_CHAR);
+	*size = count;
+	return PhaseArray;
 }

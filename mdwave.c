@@ -286,7 +286,7 @@ int LoadFile(FILE *file, AudioSignal *Signal, parameters *config, char *fileName
 			fseek(file, schunk.Size*sizeof(uint8_t), SEEK_CUR);
 		else
 		{
-			fseek(file, -1*sizeof(sub_chunk), SEEK_CUR);
+			fseek(file, -1*(long int)sizeof(sub_chunk), SEEK_CUR);
 			found = 1;
 		}
 	}while(!found);
@@ -712,19 +712,8 @@ int CreateChunksFolder(parameters *config)
 	char name[BUFFER_SIZE*2];
 
 	sprintf(name, "%s\\Chunks", config->folderName);
-#if defined (WIN32)
-	if(_mkdir(name) != 0)
-	{
-		if(errno != EEXIST)
-			return 0;
-	}
-#else
-	if(mkdir(name, 0755) != 0)
-	{
-		if(errno != EEXIST)
-			return 0;
-	}
-#endif
+	if(!CreateFolder(name))
+		return 0;
 	return 1;
 }
 

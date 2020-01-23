@@ -140,10 +140,7 @@ long int DetectEndPulse(char *AllSamples, long int startpulse, wav_hdr header, i
 		logmsgFileOnly(" - Sync pulse had %d imperfections\n", errcount);
 
 	if(tries == maxtries)
-	{
-		OutputFileOnlyEnd();
 		return -1;
-	}
 
 #ifdef DOUBLE_SYNC
 	if(config->debugSync)

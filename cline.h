@@ -32,6 +32,7 @@
 
 #include "mdfourier.h"
 
+int CreateFolder(char *name);
 int CreateFolderName(parameters *config);
 int CreateFolderName_wave(parameters *config);
 void CreateBaseName(parameters *config);

@@ -79,7 +79,10 @@ int main(int argc , char *argv[])
 	clock_gettime(CLOCK_MONOTONIC, &start);
 
 	if(!LoadProfile(&config))
+	{
+		logmsg("Aborting\n");
 		return 1;
+	}
 
 	if(strcmp(config.referenceFile, config.targetFile) == 0)
 	{
@@ -90,7 +93,10 @@ int main(int argc , char *argv[])
 	}
 
 	if(!LoadAndProcessAudioFiles(&ReferenceSignal, &ComparisonSignal, &config))
+	{
+		logmsg("Aborting\n");
 		return 1;
+	}
 
 	if(config.clkProcess == 'y')
 	{
@@ -105,7 +111,10 @@ int main(int argc , char *argv[])
 
 	logmsg("\n* Comparing frequencies: ");
 	if(!CompareAudioBlocks(ReferenceSignal, ComparisonSignal, &config))
+	{
+		logmsg("Aborting\n");
 		return 1;
+	}
 	average = FindDifferenceAverage(&config);
 	logmsg("Average difference is %g dBFS\n", average);
 	if(fabs(average) > DB_DIFF)
@@ -155,7 +164,10 @@ int main(int argc , char *argv[])
 		logmsg(" - Using %g dBFS as minimum significant amplitude for analysis\n",
 			config.significantAmplitude);
 		if(!CompareAudioBlocks(ComparisonSignal, ReferenceSignal, &config))
+		{
+			logmsg("Aborting\n");
 			return 1;
+		}
 	
 		PlotResults(ComparisonSignal, ReferenceSignal, &config);
 	}
@@ -380,7 +392,7 @@ int LoadAndProcessAudioFiles(AudioSignal **ReferenceSignal, AudioSignal **Compar
 			return 0;
 		}
 	
-		ratioTar = (double)0x7FFF/MaxTar.magnitude;
+		ratioTar = (double)MAXINT16/MaxTar.magnitude;
 		NormalizeAudioByRatio(*ComparisonSignal, ratioTar);
 		ComparisonLocalMaximum = FindLocalMaximumAroundSample(*ComparisonSignal, MaxRef);
 		if(!ComparisonLocalMaximum)
@@ -465,6 +477,7 @@ int LoadAndProcessAudioFiles(AudioSignal **ReferenceSignal, AudioSignal **Compar
 		if(RefAvg > CompAvg)
 		{
 			ratio = RefAvg/CompAvg;
+			// TODO error use ComparisonLocalMaximum, MaxRef
 			config->normalizationRatio = 1/ratioRef;
 			NormalizeTimeDomainByFrequencyRatio(*ComparisonSignal, config);
 		}
@@ -680,7 +693,7 @@ int LoadFile(FILE *file, AudioSignal *Signal, parameters *config, char *fileName
 			fseek(file, schunk.Size*sizeof(uint8_t), SEEK_CUR);
 		else
 		{
-			fseek(file, -1*sizeof(sub_chunk), SEEK_CUR);
+			fseek(file, -1*(long int)sizeof(sub_chunk), SEEK_CUR);
 			found = 1;
 		}
 	}while(!found);
@@ -1511,7 +1524,6 @@ int CompareAudioBlocks(AudioSignal *ReferenceSignal, AudioSignal *ComparisonSign
 		for(int freq = 0; freq < refSize; freq++)
 		{
 			int found = 0, index = 0;
-			double WeightValue = 1;
 
 			if(!IncrementCompared(block, config))
 			{
@@ -1532,22 +1544,6 @@ int CompareAudioBlocks(AudioSignal *ReferenceSignal, AudioSignal *ComparisonSign
 					found = 1;
 					index = comp;
 
-					if(config->useOutputFilter)
-					{
-						double amplitude;
-
-						amplitude = ReferenceSignal->Blocks[block].freq[freq].amplitude;
-
-						// we get the proportional linear error in range 0-1
-						if(amplitude >= config->significantAmplitude)
-						{
-							WeightValue = (fabs(config->significantAmplitude)-fabs(amplitude))/fabs(config->significantAmplitude);
-							if(WeightValue != 0.0)
-								WeightValue = CalculateWeightedError(WeightValue, config);
-						}
-						else
-							WeightValue = 0;
-					}
 					break;
 				}
 			}
@@ -1555,14 +1551,13 @@ int CompareAudioBlocks(AudioSignal *ReferenceSignal, AudioSignal *ComparisonSign
   			/* Now in either case, compare amplitudes */
 			if(found)
 			{
-				double test;
+				double diffAmpl = 0, diffPhase = 0;
 
-				test = fabs(fabs(ComparisonSignal->Blocks[block].freq[index].amplitude) - fabs(ReferenceSignal->Blocks[block].freq[freq].amplitude));
-				if(test != 0.0)
+				diffAmpl = fabs(fabs(ComparisonSignal->Blocks[block].freq[index].amplitude) - fabs(ReferenceSignal->Blocks[block].freq[freq].amplitude));
+				if(diffAmpl != 0.0)
 				{
-					if(!InsertAmplDifference(block, ReferenceSignal->Blocks[block].freq[freq].hertz, 
-							ReferenceSignal->Blocks[block].freq[freq].amplitude,
-							ComparisonSignal->Blocks[block].freq[index].amplitude, WeightValue, config))
+					if(!InsertAmplDifference(block, ReferenceSignal->Blocks[block].freq[freq], 
+							ComparisonSignal->Blocks[block].freq[index], config))
 					{
 						logmsg("Internal consistency failure, please send error log (AmplDiff)\n");
 						return 0;
@@ -1576,11 +1571,25 @@ int CompareAudioBlocks(AudioSignal *ReferenceSignal, AudioSignal *ComparisonSign
 						return 0;
 					}
 				}
+
+				diffPhase = ReferenceSignal->Blocks[block].freq[freq].phase - ComparisonSignal->Blocks[block].freq[index].phase;
+				if(diffPhase != 0.0)
+				{
+					if(!InsertPhaseDifference(block, ReferenceSignal->Blocks[block].freq[freq], 
+							ComparisonSignal->Blocks[block].freq[index], config))
+					{
+						logmsg("Internal consistency failure, please send error log (PhaseDiff)\n");
+						return 0;
+					}
+				}
+				else
+				{
+				}
 			}
 			else /* Frequency Not Found */
 			{
 				if(!InsertFreqNotFound(block, ReferenceSignal->Blocks[block].freq[freq].hertz, 
-					ReferenceSignal->Blocks[block].freq[freq].amplitude, WeightValue, config))
+					ReferenceSignal->Blocks[block].freq[freq].amplitude, config))
 				{
 					logmsg("Internal consistency failure, please send error log (Not found)\n");
 					return 0;
