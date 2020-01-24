@@ -765,7 +765,7 @@ int CreateFolderName(char *mainfolder, parameters *config)
 	pname[size] = '\0';
 
 	sprintf(config->compareName, "%s", tmp);
-	sprintf(config->folderName, "MDFResults%c%s", FOLDERCHAR, tmp);
+	sprintf(config->folderName, "%s%c%s", mainfolder, FOLDERCHAR, pname);
 
 	if(!CreateFolder(mainfolder))
 	{
