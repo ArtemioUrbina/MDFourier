@@ -56,14 +56,20 @@ char *strtoupper(char *str)
 
 int IsFlac(char *name)
 {
-	const char *ext = NULL;
+	int		len = 0;
+	const char 	*ext = NULL;
 
 	ext = getFilenameExtension(name);
 	if(ext)
 	{
 		char extHC[10];
 
-		strncpy(extHC, ext, 4);
+		len = strlen(ext);
+		if(len != 4)
+			return 0;
+
+		memset(extHC, 0, sizeof(char)*10);
+		strncpy(extHC, ext, len);
 		if(strncmp(strtoupper(extHC), "FLAC", 4) == 0)
 			return 1;
 	}

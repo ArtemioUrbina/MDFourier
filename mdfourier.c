@@ -182,6 +182,7 @@ int main(int argc , char *argv[])
 	ReleaseDifferenceArray(&config);
 
 	CleanUp(&ReferenceSignal, &ComparisonSignal, &config);
+	fftw_cleanup();
 
 	//if(config.clock)
 	{

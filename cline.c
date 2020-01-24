@@ -31,6 +31,12 @@
 #include "log.h"
 #include "plot.h"
 
+#if defined(WIN32) || defined(_WIN32) || defined(__WIN32__) || defined(__NT__)
+	#define FOLDERCHAR	'\\'
+#else 
+	#define FOLDERCHAR	'/'
+#endif
+
 void PrintUsage()
 {
 	logmsg("  usage: mdfourier -P profile.mdf -r reference.wav -c compare.wav\n");
@@ -708,7 +714,7 @@ int CreateFolderName(parameters *config)
 	}
 
 	sprintf(config->compareName, "%s", tmp);
-	sprintf(config->folderName, "MDFResults\\%s", tmp);
+	sprintf(config->folderName, "MDFResults%c%s", FOLDERCHAR, tmp);
 
 	if(!CreateFolder("MDFResults"))
 		return 0;
