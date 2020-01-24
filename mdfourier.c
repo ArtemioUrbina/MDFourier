@@ -47,7 +47,9 @@ int CopySamplesForTimeDomainPlot(AudioBlocks *AudioArray, int16_t *samples, size
 void CleanUp(AudioSignal **ReferenceSignal, AudioSignal **ComparisonSignal, parameters *config);
 void CloseFiles(FILE **ref, FILE **comp);
 void NormalizeAudio(AudioSignal *Signal);
-void NormalizeTimeDomainByFrequencyRatio(AudioSignal *Signal, parameters *config);
+void NormalizeTimeDomainByFrequencyRatio(AudioSignal *Signal, double normalizationRatio, parameters *config);
+double FindClippingAndRatio(AudioSignal *Signal, double normalizationRatio, parameters *config);
+int FindClippingAndRatioForBlock(AudioBlocks *AudioArray, double ratio);
 void NormalizeBlockByRatio(AudioBlocks *AudioArray, double ratio);
 
 // Time domain
@@ -442,7 +444,7 @@ int LoadAndProcessAudioFiles(AudioSignal **ReferenceSignal, AudioSignal **Compar
 		double				ratioRef = 0;
 		double				RefAvg = 0;
 		double				CompAvg = 0;
-		double				ratio = 0;
+		double				ratio = 0, scaleRatio = 0;
 
 		// Find Normalization factors
 		MaxRef = FindMaxMagnitudeBlock(*ReferenceSignal, config);
@@ -477,22 +479,21 @@ int LoadAndProcessAudioFiles(AudioSignal **ReferenceSignal, AudioSignal **Compar
 		ratioRef = ComparisonLocalMaximum/MaxRef.magnitude;
 		NormalizeMagnitudesByRatio(*ReferenceSignal, ratioRef, config);
 
+		scaleRatio = FindClippingAndRatio(*ReferenceSignal, ratioRef, config);
+		if(scaleRatio != 0)
+		{
+			ratioRef *= scaleRatio;
+			NormalizeTimeDomainByFrequencyRatio(*ComparisonSignal, scaleRatio, config);
+		}
+		NormalizeTimeDomainByFrequencyRatio(*ReferenceSignal, ratioRef, config);
+
 		RefAvg = FindFundamentalMagnitudeAverage(*ReferenceSignal, config);
 		CompAvg = FindFundamentalMagnitudeAverage(*ComparisonSignal, config);
 		
 		if(RefAvg > CompAvg)
-		{
 			ratio = RefAvg/CompAvg;
-			// TODO error use ComparisonLocalMaximum, MaxRef
-			config->normalizationRatio = 1/ratioRef;
-			NormalizeTimeDomainByFrequencyRatio(*ComparisonSignal, config);
-		}
 		else
-		{
 			ratio = CompAvg/RefAvg;
-			config->normalizationRatio = ratioRef;
-			NormalizeTimeDomainByFrequencyRatio(*ReferenceSignal, config);
-		}
 		if(ratio > 10)
 		{
 			logmsg("\n=====WARNING=====\n");
@@ -1691,14 +1692,71 @@ void NormalizeAudioByRatio(AudioSignal *Signal, double ratio)
 		samples[i] = (int16_t)((((double)samples[i])*ratio)+0.5);
 }
 
-// This is used to Normalize in the time domain, after findig the
-// frequency domain ratio
+// This is used to Normalize in the time domain, after finding the
+// frequency domain ratio, used by Waveform plots only
 
-void NormalizeTimeDomainByFrequencyRatio(AudioSignal *Signal, parameters *config)
+double FindClippingAndRatio(AudioSignal *Signal, double normalizationRatio, parameters *config)
+{
+	int 	i = 0;
+	double	MaxSample = 0, scaleRatio = 0;
+
+	if(normalizationRatio == 0)
+		return 0;
+	if(config->normType != max_frequency)
+		return 0;
+
+	for(i = 0; i < config->types.totalBlocks; i++)
+	{
+		if(Signal->Blocks[i].audio.samples)
+		{
+			double localMax = 0;
+
+			localMax = FindClippingAndRatioForBlock(&Signal->Blocks[i], normalizationRatio);
+			if(localMax > MaxSample)
+				MaxSample = localMax;
+		}
+	}
+	if(MaxSample)
+		scaleRatio = (double)INT16_3DB/(MaxSample*normalizationRatio);
+	return scaleRatio;
+}
+
+int FindClippingAndRatioForBlock(AudioBlocks *AudioArray, double ratio)
+{
+	long int 	i = 0;
+	int			MaxSample = 0;
+	double		MaxSampleScaled = 0;
+	int16_t		*samples = NULL;
+
+	if(!AudioArray || !ratio)
+		return 0;
+
+	samples = AudioArray->audio.samples;
+	if(!samples)
+		return 0;
+
+	for(i = 0; i < AudioArray->audio.size; i++)
+	{
+		double sample = 0;
+
+		sample = (((double)samples[i])*ratio)+0.5;
+		if(sample > MAXINT16 || sample < MININT16)
+		{
+			if(fabs(sample) > fabs(MaxSampleScaled))
+			{
+				MaxSample = samples[i];
+				MaxSampleScaled = sample;
+			}
+		}
+	}
+	return abs(MaxSample);
+}
+
+void NormalizeTimeDomainByFrequencyRatio(AudioSignal *Signal, double normalizationRatio, parameters *config)
 {
 	int i = 0;
 
-	if(config->normalizationRatio == 0)
+	if(normalizationRatio == 0)
 		return;
 	if(config->normType != max_frequency)
 		return;
@@ -1706,7 +1764,7 @@ void NormalizeTimeDomainByFrequencyRatio(AudioSignal *Signal, parameters *config
 	for(i = 0; i < config->types.totalBlocks; i++)
 	{
 		if(Signal->Blocks[i].audio.samples)
-			NormalizeBlockByRatio(&Signal->Blocks[i], config->normalizationRatio);
+			NormalizeBlockByRatio(&Signal->Blocks[i], normalizationRatio);
 	}
 }
 
@@ -1715,9 +1773,7 @@ void NormalizeBlockByRatio(AudioBlocks *AudioArray, double ratio)
 	long int 	i = 0;
 	int16_t		*samples = NULL;
 
-	if(!AudioArray)
-		return;
-	if(!ratio)
+	if(!AudioArray || !ratio)
 		return;
 
 	samples = AudioArray->audio.samples;
@@ -1726,13 +1782,28 @@ void NormalizeBlockByRatio(AudioBlocks *AudioArray, double ratio)
 
 	// improvement suggested by plgDavid
 	for(i = 0; i < AudioArray->audio.size; i++)
-		samples[i] = (double)((((double)samples[i])*ratio)+0.5);
+	{
+		double sample = 0;
 
+		sample = (((double)samples[i])*ratio)+0.5;
+		if(sample > MAXINT16 || sample < MININT16)
+			logmsgFileOnly("WARNING: Clipping while doing waveform visualization\n");
+		samples[i] = sample;
+	}
+
+	// Do window as well
 	samples = AudioArray->audio.window_samples;
 	if(!samples)
 		return;
 	for(i = 0; i < AudioArray->audio.size; i++)
-		samples[i] = (double)((((double)samples[i])*ratio)+0.5);
+	{
+		double sample = 0;
+
+		sample = (((double)samples[i])*ratio)+0.5;
+		if(sample > MAXINT16 || sample < MININT16)
+			logmsg("WARNING: Clipping while doing windowed waveform visualization\n");
+		samples[i] = sample;
+	}
 }
 
 // Find the Maximum Amplitude in the Audio File

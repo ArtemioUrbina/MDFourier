@@ -106,7 +106,7 @@
 
 #define	MAXINT16		32768
 #define	MININT16		-32767
-#define INT16_3DB		0x5A9D
+#define INT16_3DB		23197
 
 #define BUFFER_SIZE		4096
 #define T_BUFFER_SIZE	BUFFER_SIZE*2+256
@@ -143,6 +143,9 @@
 #error Unknown pointer size or missing size macros!
 #endif
 
+#ifndef M_PI
+#define M_PI 3.1415926535897932384626433832795
+#endif
 
 enum normalize
 {
@@ -445,7 +448,6 @@ typedef struct parameters_st {
 	int				syncTolerance;
 	double			AmpBarRange;
 	int				FullTimeSpectroScale;
-	double			normalizationRatio;
 	int				hasTimeDomain;
 
 	double 			plotResX;
@@ -464,7 +466,7 @@ typedef struct parameters_st {
 	int				useExtraData;
 	int				compressToBlocks;
 
-// Values only used for clock frequency
+/* Values only used for clock frequency */
 	char		clkName[20];
 	char		clkProcess;
 	int			clkBlock;

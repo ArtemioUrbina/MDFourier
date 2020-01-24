@@ -139,7 +139,6 @@ void CleanParameters(parameters *config)
 	config->syncTolerance = 0;
 	config->AmpBarRange = BAR_DIFF_DB_TOLERANCE;
 	config->FullTimeSpectroScale = 0;
-	config->normalizationRatio = 0;
 	config->hasTimeDomain = 0;
 
 	config->logScale = 1;
