@@ -586,7 +586,6 @@ void DrawFrequencyHorizontal(PlotFile *plot, double vertical, double hz, double 
 
 void DrawGridZeroDBCentered(PlotFile *plot, double dBFS, double dbIncrement, double hz, double hzIncrement, parameters *config)
 {
-	return;
 	pl_pencolor_r (plot->plotter, 0, 0xaaaa, 0);
 	pl_fline_r(plot->plotter, 0, 0, hz, 0);
 	pl_endpath_r(plot->plotter);
@@ -646,7 +645,6 @@ void DrawLabelsZeroDBCentered(PlotFile *plot, double dBFS, double dbIncrement, d
 	double segments = 0;
 	char label[20];
 
-	return;
 	pl_savestate_r(plot->plotter);
 	pl_fspace_r(plot->plotter, 0, -1*config->plotResY/2, config->plotResX, config->plotResY/2);
 
