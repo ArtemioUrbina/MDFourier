@@ -104,9 +104,14 @@
 #define DB_HEIGHT	18.0
 #define DB_DIFF		12.0
 
-#define	MAXINT16		32768
-#define	MININT16		-32767
+#define	MAXINT16		32768.0
+#define	MININT16		-32767.0
 #define INT16_3DB		23197
+
+// Use Max Scale
+#define WAVEFORM_SCALE	(MAXINT16-2)
+// Use -3dbfs scale
+//#define WAVEFORM_SCALE	INT16_3DB
 
 #define BUFFER_SIZE		4096
 #define T_BUFFER_SIZE	BUFFER_SIZE*2+256
@@ -158,11 +163,11 @@ enum normalize
 #define PROFILE_FILE	"profiles\\mdfblocksGEN.mfn"
 
 typedef struct max_vol {
-	int16_t		magnitude;
+	int16_t		maxSample;
 	uint32_t	offset;
 	uint32_t	samplerate;
 	double		framerate;
-} MaxVolum;
+} MaxSample;
 
 typedef struct max_mag {
 	double		magnitude;

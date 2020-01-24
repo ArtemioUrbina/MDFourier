@@ -51,11 +51,12 @@ void NormalizeTimeDomainByFrequencyRatio(AudioSignal *Signal, double normalizati
 double FindClippingAndRatio(AudioSignal *Signal, double normalizationRatio, parameters *config);
 int FindClippingAndRatioForBlock(AudioBlocks *AudioArray, double ratio);
 void NormalizeBlockByRatio(AudioBlocks *AudioArray, double ratio);
+void ProcessWaveformsByBlock(AudioSignal *ReferenceSignal, AudioSignal *ComparisonSignal, double ratioRef, parameters *config);
 
 // Time domain
-MaxVolum FindMaxAmplitude(AudioSignal *Signal);
+MaxSample FindMaxSampleAmplitude(AudioSignal *Signal);
 void NormalizeAudioByRatio(AudioSignal *Signal, double ratio);
-int16_t FindLocalMaximumAroundSample(AudioSignal *Signal, MaxVolum refMax);
+int16_t FindLocalMaximumAroundSample(AudioSignal *Signal, MaxSample refMax);
 
 // Frequency domain
 void NormalizeMagnitudesByRatio(AudioSignal *Signal, double ratio, parameters *config);
@@ -378,40 +379,40 @@ int LoadAndProcessAudioFiles(AudioSignal **ReferenceSignal, AudioSignal **Compar
 
 	if(config->normType == max_time)
 	{
-		MaxVolum			MaxRef, MaxTar;
+		MaxSample			MaxRef, MaxTar;
 		double				ComparisonLocalMaximum = 0;
 		double				ratioTar = 0, ratioRef = 0;
 
 		// Find Normalization factors
-		MaxRef = FindMaxAmplitude(*ReferenceSignal);
-		if(!MaxRef.magnitude)
+		MaxRef = FindMaxSampleAmplitude(*ReferenceSignal);
+		if(!MaxRef.maxSample)
 		{
-			logmsg("Could not detect Max amplitude in 'Reference' File for normalization\n");
+			logmsg("ERROR: Could not detect Max amplitude in 'Reference' File for normalization\n");
 			CloseFiles(&reference, &compare);
 			CleanUp(ReferenceSignal, ComparisonSignal, config);
 			return 0;
 		}
-		MaxTar = FindMaxAmplitude(*ComparisonSignal);
-		if(!MaxTar.magnitude)
+		MaxTar = FindMaxSampleAmplitude(*ComparisonSignal);
+		if(!MaxTar.maxSample)
 		{
-			logmsg("Could not detect Max amplitude in 'Comparison' file for normalization\n");
+			logmsg("ERROR: Could not detect Max amplitude in 'Comparison' file for normalization\n");
 			CloseFiles(&reference, &compare);
 			CleanUp(ReferenceSignal, ComparisonSignal, config);
 			return 0;
 		}
 	
-		ratioTar = (double)MAXINT16/MaxTar.magnitude;
+		ratioTar = MAXINT16/MaxTar.maxSample;
 		NormalizeAudioByRatio(*ComparisonSignal, ratioTar);
 		ComparisonLocalMaximum = FindLocalMaximumAroundSample(*ComparisonSignal, MaxRef);
 		if(!ComparisonLocalMaximum)
 		{
-			logmsg("Could not detect Max amplitude in 'Comparison' file for normalization\n");
+			logmsg("ERROR: Could not detect Max amplitude in 'Comparison' file for normalization\n");
 			CloseFiles(&reference, &compare);
 			CleanUp(ReferenceSignal, ComparisonSignal, config);
 			return 0;
 		}
 
-		ratioRef = (ComparisonLocalMaximum/MaxRef.magnitude);
+		ratioRef = (ComparisonLocalMaximum/MaxRef.maxSample);
 		NormalizeAudioByRatio(*ReferenceSignal, ratioRef);
 
 		// Uncomment if you want to check the WAV files as normalized
@@ -444,13 +445,13 @@ int LoadAndProcessAudioFiles(AudioSignal **ReferenceSignal, AudioSignal **Compar
 		double				ratioRef = 0;
 		double				RefAvg = 0;
 		double				CompAvg = 0;
-		double				ratio = 0, scaleRatio = 0;
+		double				ratio = 0;
 
 		// Find Normalization factors
 		MaxRef = FindMaxMagnitudeBlock(*ReferenceSignal, config);
 		if(!MaxRef.magnitude)
 		{
-			logmsg("Could not detect Max amplitude in 'Reference' File for normalization\n");
+			logmsg("ERROR: Could not detect Max amplitude in 'Reference' File for normalization\n");
 			CloseFiles(&reference, &compare);
 			CleanUp(ReferenceSignal, ComparisonSignal, config);
 			return 0;
@@ -458,7 +459,7 @@ int LoadAndProcessAudioFiles(AudioSignal **ReferenceSignal, AudioSignal **Compar
 		MaxTar = FindMaxMagnitudeBlock(*ComparisonSignal, config);
 		if(!MaxTar.magnitude)
 		{
-			logmsg("Could not detect Max amplitude in 'Comparison' file for normalization\n");
+			logmsg("ERROR: Could not detect Max amplitude in 'Comparison' file for normalization\n");
 			CloseFiles(&reference, &compare);
 			CleanUp(ReferenceSignal, ComparisonSignal, config);
 			return 0;
@@ -470,22 +471,19 @@ int LoadAndProcessAudioFiles(AudioSignal **ReferenceSignal, AudioSignal **Compar
 			PrintFrequenciesWMagnitudes(*ReferenceSignal, config);
 			PrintFrequenciesWMagnitudes(*ComparisonSignal, config);
 
-			logmsg("Could not detect Local Maximum in 'Comparison' file for normalization\n");
+			logmsg("ERROR: Could not detect Local Maximum in 'Comparison' file for normalization\n");
 			CloseFiles(&reference, &compare);
 			CleanUp(ReferenceSignal, ComparisonSignal, config);
 			return 0;
 		}
 	
 		ratioRef = ComparisonLocalMaximum/MaxRef.magnitude;
-		NormalizeMagnitudesByRatio(*ReferenceSignal, ratioRef, config);
+		if(ratioRef != 1.0)
+			NormalizeMagnitudesByRatio(*ReferenceSignal, ratioRef, config);
 
-		scaleRatio = FindClippingAndRatio(*ReferenceSignal, ratioRef, config);
-		if(scaleRatio != 0)
-		{
-			ratioRef *= scaleRatio;
-			NormalizeTimeDomainByFrequencyRatio(*ComparisonSignal, scaleRatio, config);
-		}
-		NormalizeTimeDomainByFrequencyRatio(*ReferenceSignal, ratioRef, config);
+		/* This is just for waveform visualization */
+		if((config->hasTimeDomain && config->plotTimeDomain) || config->plotAllNotes)
+			ProcessWaveformsByBlock(*ReferenceSignal, *ComparisonSignal, ratioRef, config);
 
 		RefAvg = FindFundamentalMagnitudeAverage(*ReferenceSignal, config);
 		CompAvg = FindFundamentalMagnitudeAverage(*ComparisonSignal, config);
@@ -512,9 +510,11 @@ int LoadAndProcessAudioFiles(AudioSignal **ReferenceSignal, AudioSignal **Compar
 
 	if(config->normType == average)
 	{
-		double RefAvg = FindFundamentalMagnitudeAverage(*ReferenceSignal, config);
-		double CompAvg = FindFundamentalMagnitudeAverage(*ComparisonSignal, config);
+		double RefAvg = 0;
+		double CompAvg = 0;
 
+		RefAvg = FindFundamentalMagnitudeAverage(*ReferenceSignal, config);
+		CompAvg = FindFundamentalMagnitudeAverage(*ComparisonSignal, config);
 		if(CompAvg > RefAvg)
 		{
 			double ratio = CompAvg/RefAvg;
@@ -1716,8 +1716,9 @@ double FindClippingAndRatio(AudioSignal *Signal, double normalizationRatio, para
 				MaxSample = localMax;
 		}
 	}
+
 	if(MaxSample)
-		scaleRatio = (double)INT16_3DB/(MaxSample*normalizationRatio);
+		scaleRatio = (double)WAVEFORM_SCALE/(MaxSample*normalizationRatio);
 	return scaleRatio;
 }
 
@@ -1750,6 +1751,59 @@ int FindClippingAndRatioForBlock(AudioBlocks *AudioArray, double ratio)
 		}
 	}
 	return abs(MaxSample);
+}
+
+/* This is just for waveform visualization */
+void ProcessWaveformsByBlock(AudioSignal *ReferenceSignal, AudioSignal *ComparisonSignal, double ratioRef, parameters *config)
+{
+	double scaleRatio = 0;
+
+	scaleRatio = FindClippingAndRatio(ReferenceSignal, ratioRef, config);
+	if(scaleRatio != 0)
+	{
+		if(config->verbose)
+			logmsg(" - Found clipping values: %g scaling by %g -> %g \n",
+				ratioRef, scaleRatio, ratioRef*scaleRatio);
+
+		ratioRef *= scaleRatio;
+		NormalizeTimeDomainByFrequencyRatio(ComparisonSignal, scaleRatio, config);
+	}
+	else  // scale max point to -3dbfs
+	{
+		MaxSample	MaxRefSample, MaxTarSample;
+
+		MaxRefSample = FindMaxSampleAmplitude(ReferenceSignal);
+		MaxTarSample = FindMaxSampleAmplitude(ComparisonSignal);
+
+		if(MaxRefSample.maxSample && MaxTarSample.maxSample)
+		{
+			if(config->verbose)
+				logmsg(" - Found Sample values R: %d and C: %d. Ratio is %g\n",
+					MaxRefSample.maxSample, MaxTarSample.maxSample, ratioRef);
+
+			if(MaxRefSample.maxSample > MaxTarSample.maxSample)
+				scaleRatio = (double)WAVEFORM_SCALE/MaxRefSample.maxSample;
+			else
+				scaleRatio = (double)WAVEFORM_SCALE/MaxTarSample.maxSample;
+			if(RoundFloat(scaleRatio, 1) != 1.1)
+			{
+				if(config->verbose)
+					logmsg(" - Changed ratio value to %g from %g by factor %g\n", 
+						ratioRef * scaleRatio, ratioRef, scaleRatio);
+
+				ratioRef *= scaleRatio;
+				NormalizeTimeDomainByFrequencyRatio(ComparisonSignal, scaleRatio, config);
+			}
+			else
+			{
+				if(config->verbose)
+					logmsg(" - Scaling factor was %g, ignored\n", scaleRatio);
+			}
+		}
+		else
+			logmsg(" - WARNING: Could not scale waveforms\n");
+	}
+	NormalizeTimeDomainByFrequencyRatio(ReferenceSignal, ratioRef, config);
 }
 
 void NormalizeTimeDomainByFrequencyRatio(AudioSignal *Signal, double normalizationRatio, parameters *config)
@@ -1787,7 +1841,7 @@ void NormalizeBlockByRatio(AudioBlocks *AudioArray, double ratio)
 
 		sample = (((double)samples[i])*ratio)+0.5;
 		if(sample > MAXINT16 || sample < MININT16)
-			logmsgFileOnly("WARNING: Clipping while doing waveform visualization\n");
+			logmsg("WARNING: Clipping while doing waveform visualization (%g)\n", sample);
 		samples[i] = sample;
 	}
 
@@ -1801,19 +1855,19 @@ void NormalizeBlockByRatio(AudioBlocks *AudioArray, double ratio)
 
 		sample = (((double)samples[i])*ratio)+0.5;
 		if(sample > MAXINT16 || sample < MININT16)
-			logmsg("WARNING: Clipping while doing windowed waveform visualization\n");
+			logmsg("WARNING: Clipping while doing windowed waveform visualization (%g)\n", sample);
 		samples[i] = sample;
 	}
 }
 
 // Find the Maximum Amplitude in the Audio File
-MaxVolum FindMaxAmplitude(AudioSignal *Signal)
+MaxSample FindMaxSampleAmplitude(AudioSignal *Signal)
 {
 	long int 		i = 0, start = 0, end = 0;
 	int16_t			*samples = NULL;
-	MaxVolum		maxSampleValue;
+	MaxSample		maxSampleValue;
 
-	maxSampleValue.magnitude = 0;
+	maxSampleValue.maxSample = 0;
 	maxSampleValue.offset = 0;
 	maxSampleValue.samplerate = Signal->header.fmt.SamplesPerSec;
 	maxSampleValue.framerate = Signal->framerate;
@@ -1829,9 +1883,9 @@ MaxVolum FindMaxAmplitude(AudioSignal *Signal)
 		int16_t sample;
 
 		sample = abs(samples[i]);
-		if(sample > maxSampleValue.magnitude)
+		if(sample > maxSampleValue.maxSample)
 		{
-			maxSampleValue.magnitude = sample;
+			maxSampleValue.maxSample = abs(sample);
 			maxSampleValue.offset = i - start;
 		}
 	}
@@ -1840,7 +1894,7 @@ MaxVolum FindMaxAmplitude(AudioSignal *Signal)
 }
 
 // Find the Maximum Amplitude in the Reference Audio File
-int16_t FindLocalMaximumAroundSample(AudioSignal *Signal, MaxVolum refMax)
+int16_t FindLocalMaximumAroundSample(AudioSignal *Signal, MaxSample refMax)
 {
 	long int 		i, start = 0, end = 0, pos = 0;
 	int16_t			*samples = NULL, MaxLocalSample = 0;
