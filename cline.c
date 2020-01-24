@@ -31,12 +31,6 @@
 #include "log.h"
 #include "plot.h"
 
-#if defined(WIN32) || defined(_WIN32) || defined(__WIN32__) || defined(__NT__)
-	#define FOLDERCHAR	'\\'
-#else 
-	#define FOLDERCHAR	'/'
-#endif
-
 #define CHAR_FOLDER_REMOVE		0
 #define CHAR_FOLDER_OK			1
 #define CHAR_FOLDER_CHANGE_T1	2
@@ -738,10 +732,14 @@ int CreateFolderName(char *mainfolder, parameters *config)
 
 	ShortenFileName(basename(config->referenceFile), tmp);
 	len = strlen(tmp);
-	ShortenFileName(basename(config->targetFile), fn);
-	sprintf(tmp+len, "_vs_%s", fn);
+	if(strlen(config->targetFile))
+	{
+		ShortenFileName(basename(config->targetFile), fn);
+		sprintf(tmp+len, "_vs_%s", fn);
 
-	len = strlen(tmp);
+		len = strlen(tmp);
+	}
+
 	for(int i = 0; i < len; i++)
 	{
 		if(tmp[i] == ' ')

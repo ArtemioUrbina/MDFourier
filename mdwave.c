@@ -723,7 +723,7 @@ int CreateChunksFolder(parameters *config)
 {
 	char name[BUFFER_SIZE*2];
 
-	sprintf(name, "%s\\Chunks", config->folderName);
+	sprintf(name, "%s%cChunks", config->folderName, FOLDERCHAR);
 	if(!CreateFolder(name))
 		return 0;
 	return 1;
@@ -809,8 +809,8 @@ int ProcessFile(AudioSignal *Signal, parameters *config)
 		{
 			if(!CreateChunksFolder(config))
 				return 0;
-			sprintf(Name, "%s\\Chunks\\%03ld_0_Source_%010ld_%s_%03d_chunk.wav", 
-				config->folderName,
+			sprintf(Name, "%s%cChunks%c%03ld_0_Source_%010ld_%s_%03d_chunk.wav", 
+				config->folderName, FOLDERCHAR, FOLDERCHAR,
 				i, pos+syncAdvance+Signal->SamplesStart, 
 				GetBlockName(config, i), GetBlockSubIndex(config, i));
 			SaveWAVEChunk(Name, Signal, buffer, 0, loadedBlockSize, 0, config); 
@@ -928,7 +928,7 @@ int ProcessFile(AudioSignal *Signal, parameters *config)
 			{
 				if(!CreateChunksFolder(config))
 					return 0;
-				sprintf(tempName, "Chunks\\%03ld_%s_Processed_%s_%03d_chunk_", i, 
+				sprintf(tempName, "Chunks%c%03ld_%s_Processed_%s_%03d_chunk", FOLDERCHAR, i, 
 					GenerateFileNamePrefix(config), GetBlockName(config, i), 
 					GetBlockSubIndex(config, i));
 				ComposeFileName(Name, tempName, ".wav", config);

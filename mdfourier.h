@@ -129,6 +129,12 @@
 	#define MAX_FILE_NAME	25
 #endif
 
+#if defined(WIN32) || defined(_WIN32) || defined(__WIN32__) || defined(__NT__)
+	#define FOLDERCHAR	'\\'
+#else 
+	#define FOLDERCHAR	'/'
+#endif
+
 #if INTPTR_MAX == INT64_MAX
 #define	BITS_MDF "64-bit"
 #elif INTPTR_MAX == INT32_MAX
