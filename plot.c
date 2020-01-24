@@ -104,6 +104,10 @@
 
 #define	COLOR_BARS_WIDTH_SCALE	120
 
+#define	SPECTROGRAM_FOLDER	"Spectrograms"
+#define	WAVEFORM_FOLDER		"Waveforms"
+#define	PHASE_FOLDER		"Phase"
+
 char *GetCurrentPathAndChangeToResultsFolder(parameters *config)
 {
 	char 	*CurrentPath = NULL;
@@ -112,7 +116,7 @@ char *GetCurrentPathAndChangeToResultsFolder(parameters *config)
 	if(!CurrentPath)
 		return NULL;
 
-	if (!GetCurrentDir(CurrentPath, sizeof(char)*FILENAME_MAX))
+	if(!GetCurrentDir(CurrentPath, sizeof(char)*FILENAME_MAX))
 	{
 		free(CurrentPath);
 		logmsg("Could not get current path\n");
@@ -140,6 +144,56 @@ void ReturnToMainPath(char **CurrentPath)
 	*CurrentPath = NULL;
 }
 
+void StartPlot(char *name, struct timespec* start, parameters *config)
+{
+	logmsg(name);
+	if(config->clock)
+		clock_gettime(CLOCK_MONOTONIC, start);
+}
+
+void EndPlot(char *name, struct timespec* start, struct timespec* end, parameters *config)
+{
+	logmsg("\n");
+
+	if(config->clock)
+	{
+		double	elapsedSeconds;
+		clock_gettime(CLOCK_MONOTONIC, end);
+		elapsedSeconds = TimeSpecToSeconds(end) - TimeSpecToSeconds(start);
+		logmsg(" - clk: %s took %0.2fs\n", name, elapsedSeconds);
+	}
+}
+
+char *PushFolder(char *name)
+{
+	char 	*CurrentPath = NULL;
+
+	CurrentPath = (char*)malloc(sizeof(char)*FILENAME_MAX);
+	if(!CurrentPath)
+		return NULL;
+
+	if(!GetCurrentDir(CurrentPath, sizeof(char)*FILENAME_MAX))
+	{
+		free(CurrentPath);
+		logmsg("Could not get current path\n");
+		return NULL;
+	}
+
+	if(!CreateFolder(name))
+	{
+		free(CurrentPath);
+		logmsg("Could not create %s subfolder\n", name);
+		return NULL;
+	}
+	if(chdir(name) == -1)
+	{
+		free(CurrentPath);
+		logmsg("Could not open folder %s for results\n", name);
+		return NULL;
+	}
+	return CurrentPath;
+}
+
 void PlotResults(AudioSignal *ReferenceSignal, AudioSignal *ComparisonSignal, parameters *config)
 {
 	struct	timespec	start, end;
@@ -152,22 +206,11 @@ void PlotResults(AudioSignal *ReferenceSignal, AudioSignal *ComparisonSignal, pa
 
 	if(config->plotDifferences || config->averagePlot)
 	{
-		struct	timespec	lstart, lend;
+		struct	timespec lstart, lend;
 
-		if(config->clock)
-			clock_gettime(CLOCK_MONOTONIC, &lstart);
-
-		logmsg(" - Difference");
+		StartPlot(" - Difference", &lstart, config);
 		PlotAmpDifferences(config);
-		logmsg("\n");
-
-		if(config->clock)
-		{
-			double	elapsedSeconds;
-			clock_gettime(CLOCK_MONOTONIC, &lend);
-			elapsedSeconds = TimeSpecToSeconds(&lend) - TimeSpecToSeconds(&lstart);
-			logmsg(" - clk: Differences took %0.2fs\n", elapsedSeconds);
-		}
+		EndPlot("Differences", &lstart, &lend, config);
 	}
 
 	if(config->plotMissing)
@@ -176,27 +219,16 @@ void PlotResults(AudioSignal *ReferenceSignal, AudioSignal *ComparisonSignal, pa
 		{
 			struct	timespec	lstart, lend;
 	
-			if(config->clock)
-				clock_gettime(CLOCK_MONOTONIC, &lstart);
+			StartPlot(" - Missing and Extra Frequencies", &lstart, config);
 	
-			logmsg(" - Missing and Extra Frequencies");
-	
-			// Old Missig plots, rendered obsolete?
+			//Old Missig plots, rendered obsolete?
 			//PlotFreqMissing(config);
 			PlotTimeSpectrogramUnMatchedContent(ReferenceSignal, config);
 			logmsg(PLOT_ADVANCE_CHAR);
 			PlotTimeSpectrogramUnMatchedContent(ComparisonSignal, config);
 			logmsg(PLOT_ADVANCE_CHAR);
 	
-			logmsg("\n");
-	
-			if(config->clock)
-			{
-				double	elapsedSeconds;
-				clock_gettime(CLOCK_MONOTONIC, &lend);
-				elapsedSeconds = TimeSpecToSeconds(&lend) - TimeSpecToSeconds(&lstart);
-				logmsg(" - clk: Missing took %0.2fs\n", elapsedSeconds);
-			}
+			EndPlot("Missing", &lstart, &lend, config);
 		}
 		else
 			logmsg(" X Skipped: Missing and Extra Frequencies, due to range\n");
@@ -206,70 +238,46 @@ void PlotResults(AudioSignal *ReferenceSignal, AudioSignal *ComparisonSignal, pa
 	{
 		struct	timespec	lstart, lend;
 
-		if(config->clock)
-			clock_gettime(CLOCK_MONOTONIC, &lstart);
-
-		logmsg(" - Spectrograms");
+		StartPlot(" - Spectrograms", &lstart, config);
 		PlotSpectrograms(ReferenceSignal, config);
 		PlotSpectrograms(ComparisonSignal, config);
-		logmsg("\n");
 
-
-		if(config->clock)
-		{
-			double	elapsedSeconds;
-			clock_gettime(CLOCK_MONOTONIC, &lend);
-			elapsedSeconds = TimeSpecToSeconds(&lend) - TimeSpecToSeconds(&lstart);
-			logmsg(" - clk: Spectrogram took %0.2fs\n", elapsedSeconds);
-		}
+		EndPlot("Spectrogram", &lstart, &lend, config);
 	}
 
 	if(config->plotTimeSpectrogram)
 	{
 		struct	timespec	lstart, lend;
 
-		if(config->clock)
-			clock_gettime(CLOCK_MONOTONIC, &lstart);
+		StartPlot(" - Time Spectrogram", &lstart, config);
 
-		logmsg(" - Time Spectrogram");
 		PlotTimeSpectrogram(ReferenceSignal, config);
 		logmsg(PLOT_ADVANCE_CHAR);
 		PlotTimeSpectrogram(ComparisonSignal, config);
 		logmsg(PLOT_ADVANCE_CHAR);
-		logmsg("\n");
-
-
-		if(config->clock)
-		{
-			double	elapsedSeconds;
-			clock_gettime(CLOCK_MONOTONIC, &lend);
-			elapsedSeconds = TimeSpecToSeconds(&lend) - TimeSpecToSeconds(&lstart);
-			logmsg(" - clk: Time Spectrogram took %0.2fs\n", elapsedSeconds);
-		}
+		EndPlot("Time Spectrogram", &lstart, &lend, config);
 	}
 
 	if(config->plotPhase)
 	{
 		struct	timespec	lstart, lend;
+		char 				*returnFolder = NULL;
 
-		if(config->clock)
-			clock_gettime(CLOCK_MONOTONIC, &lstart);
-
-		logmsg(" - Phase");
+		StartPlot(" - Phase", &lstart, config);
+		returnFolder = PushFolder(PHASE_FOLDER);
+		if(!returnFolder)
+		{
+			ReturnToMainPath(&CurrentPath);
+			return;
+		}
+		PlotPhaseDifferences(config);
 		PlotPhaseFromSignal(ReferenceSignal, config);
 		PlotPhaseFromSignal(ComparisonSignal, config);
-		PlotPhaseDifferences(config);
+		
 		logmsg(PLOT_ADVANCE_CHAR);
-		logmsg("\n");
+		EndPlot("Phase", &lstart, &lend, config);
 
-
-		if(config->clock)
-		{
-			double	elapsedSeconds;
-			clock_gettime(CLOCK_MONOTONIC, &lend);
-			elapsedSeconds = TimeSpecToSeconds(&lend) - TimeSpecToSeconds(&lstart);
-			logmsg(" - clk: Phase took %0.2fs\n", elapsedSeconds);
-		}
+		ReturnToMainPath(&returnFolder);
 	}
 
 	if(config->plotNoiseFloor)
@@ -280,21 +288,10 @@ void PlotResults(AudioSignal *ReferenceSignal, AudioSignal *ComparisonSignal, pa
 			{
 				struct	timespec	lstart, lend;
 		
-				if(config->clock)
-					clock_gettime(CLOCK_MONOTONIC, &lstart);
-		
-				logmsg(" - Noise Floor");
+				StartPlot(" - Noise Floor", &lstart, config);
+
 				PlotNoiseFloor(ReferenceSignal, config);
-				logmsg("\n");
-		
-		
-				if(config->clock)
-				{
-					double	elapsedSeconds;
-					clock_gettime(CLOCK_MONOTONIC, &lend);
-					elapsedSeconds = TimeSpecToSeconds(&lend) - TimeSpecToSeconds(&lstart);
-					logmsg(" - clk: Noise Floor took %0.2fs\n", elapsedSeconds);
-				}
+				EndPlot("Noise Floor", &lstart, &lend, config);
 			}
 			else
 				logmsg(" X Noise Floor graphs ommited: no noise floor value found.\n");
@@ -306,25 +303,21 @@ void PlotResults(AudioSignal *ReferenceSignal, AudioSignal *ComparisonSignal, pa
 	if((config->hasTimeDomain && config->plotTimeDomain) || config->plotAllNotes)
 	{
 		struct	timespec	lstart, lend;
+		char 				*returnFolder = NULL;
 
-		if(config->clock)
-			clock_gettime(CLOCK_MONOTONIC, &lstart);
-
-		logmsg(" - Time Domain Graphs\n  ");
-		PlotTimeDomainGraphs(ReferenceSignal, config);
-		
-		PlotTimeDomainGraphs(ComparisonSignal, config);
-		
-		logmsg("\n");
-
-
-		if(config->clock)
+		returnFolder = PushFolder(WAVEFORM_FOLDER);
+		if(!returnFolder)
 		{
-			double	elapsedSeconds;
-			clock_gettime(CLOCK_MONOTONIC, &lend);
-			elapsedSeconds = TimeSpecToSeconds(&lend) - TimeSpecToSeconds(&lstart);
-			logmsg(" - clk: Time Domain took %0.2fs\n", elapsedSeconds);
+			ReturnToMainPath(&CurrentPath);
+			return;
 		}
+
+		StartPlot(" - Time Domain Graphs\n  ", &lstart, config);
+		PlotTimeDomainGraphs(ReferenceSignal, config);
+		PlotTimeDomainGraphs(ComparisonSignal, config);
+		EndPlot("Time Domain", &lstart, &lend, config);
+
+		ReturnToMainPath(&returnFolder);
 	}
 
 	ReturnToMainPath(&CurrentPath);
@@ -384,7 +377,6 @@ void PlotDifferentAmplitudesWithBetaFunctions(parameters *config)
 	for(int o = 0; o < 6; o++)
 	{
 		config->outputFilterFunction = o;
-		CreateBaseName(config);
 		PlotAllDifferentAmplitudes(amplDiff, size, config->compareName, config);
 	}
 
@@ -1317,7 +1309,7 @@ int PlotEachTypeDifferentAmplitudes(FlatAmplDifference *amplDiff, long int size,
 		type = config->types.typeArray[i].type;
 		if(type > TYPE_CONTROL && !config->types.typeArray[i].IsaddOnData)
 		{
-			sprintf(name, "DA_%s_%02d%s_", filename, 
+			sprintf(name, "DA_%s_%02d%s", filename, 
 				type, config->types.typeArray[i].typeName);
 		
 			PlotSingleTypeDifferentAmplitudes(amplDiff, size, type, name, config);
@@ -1381,7 +1373,7 @@ int PlotNoiseDifferentAmplitudes(FlatAmplDifference *amplDiff, long int size, ch
 		type = config->types.typeArray[i].type;
 		if(type == TYPE_SILENCE)
 		{
-			sprintf(name, "NF_%s_%d_%02d%s_", filename, i,
+			sprintf(name, "NF_%s_%d_%02d%s", filename, i,
 				type, config->types.typeArray[i].typeName);
 			PlotSilenceBlockDifferentAmplitudes(amplDiff, size, type, name, config, Signal);
 			logmsg(PLOT_ADVANCE_CHAR);
@@ -1623,6 +1615,14 @@ int PlotEachTypeSpectrogram(FlatFrequency *freqs, long int size, char *filename,
 {
 	int 		i = 0, type = 0, types = 0, silence = 0;
 	char		name[BUFFER_SIZE];
+	char 		*returnFolder = NULL;
+
+	if(type != TYPE_SILENCE)
+	{
+		returnFolder = PushFolder(SPECTROGRAM_FOLDER);
+		if(!returnFolder)
+			return 0;
+	}
 
 	for(i = 0; i < config->types.typeCount; i++)
 	{
@@ -1645,6 +1645,10 @@ int PlotEachTypeSpectrogram(FlatFrequency *freqs, long int size, char *filename,
 			silence = 1;
 		}
 	}
+
+	if(type != TYPE_SILENCE)
+		ReturnToMainPath(&returnFolder);
+
 	return types;
 }
 
@@ -3089,12 +3093,6 @@ void PlotTimeDomainGraphs(AudioSignal *Signal, parameters *config)
 	long int	plots = 0, i = 0;
 	char		name[BUFFER_SIZE*2];
 
-	if(!CreateFolder("TDPlots\\"))
-	{
-		logmsg("Couldn't create Time Domain sub folder\n");
-		return;
-	}
-
 	if(config->plotAllNotes)
 	{
 		for(i = 0; i < config->types.totalBlocks; i++)
@@ -3115,7 +3113,7 @@ void PlotTimeDomainGraphs(AudioSignal *Signal, parameters *config)
 	{
 		if(config->plotAllNotes || Signal->Blocks[i].type == TYPE_TIMEDOMAIN)
 		{
-			sprintf(name, "TDPlots\\TD_%05ld_%s_%s_%05d_%s_", 
+			sprintf(name, "TD_%05ld_%s_%s_%05d_%s", 
 				i, Signal->role == ROLE_REF ? "1" : "2",
 				GetBlockName(config, i), GetBlockSubIndex(config, i), config->compareName);
 		
@@ -3125,9 +3123,10 @@ void PlotTimeDomainGraphs(AudioSignal *Signal, parameters *config)
 			if(plots % 80 == 0)
 				logmsg("\n  ");
 
+			/*
 			if(config->plotPhase)
 			{
-				sprintf(name, "TDPlots\\TD_%05ld_%s_%s_%05d_%s_", 
+				sprintf(name, "TD_%05ld_%s_%s_%05d_%s", 
 					i, Signal->role == ROLE_REF ? "5" : "6",
 					GetBlockName(config, i), GetBlockSubIndex(config, i), config->compareName);
 	
@@ -3137,10 +3136,11 @@ void PlotTimeDomainGraphs(AudioSignal *Signal, parameters *config)
 				if(plots % 80 == 0)
 					logmsg("\n  ");
 			}
+			*/
 
 			if(config->plotAllNotesWindowed && Signal->Blocks[i].audio.window_samples)
 			{
-				sprintf(name, "TDPlots\\TD_%05ld_%s_%s_%05d_%s_", 
+				sprintf(name, "TD_%05ld_%s_%s_%05d_%s", 
 					i, Signal->role == ROLE_REF ? "3" : "4",
 					GetBlockName(config, i), GetBlockSubIndex(config, i), config->compareName);
 
@@ -3264,10 +3264,7 @@ void PlotBlockPhaseGraph(AudioSignal *Signal, int block, char *name, parameters 
 	freqs = Signal->Blocks[block].linFreq;
 	count = Signal->Blocks[block].linFreqSize;
 	if(!count || !freqs)
-	{
-		logmsgFileOnly("==============SKIPPED %s=================\n", name);
 		return;
-	}
 
 	if(Signal->Blocks[block].type == TYPE_SKIP)
 		color = COLOR_RED;
@@ -3417,9 +3414,9 @@ void PlotAllPhase(FlatPhase *phaseDiff, long int size, char *filename, int pType
 		return;
 
 	if(pType == PHASE_DIFF)
-		sprintf(name, "PD_ALL_%s", filename);
+		sprintf(name, "DIFF_PHASE_ALL_%s", filename);
 	else
-		sprintf(name, "P%c_ALL_%s", pType == PHASE_REF ? 'A' : 'B', filename);
+		sprintf(name, "PHASE_ALL_%c_%s", pType == PHASE_REF ? 'A' : 'B', filename);
 	FillPlot(&plot, name, config->plotResX, config->plotResY, config->startHzPlot, -1*PHASE_ANGLE, config->endHzPlot, PHASE_ANGLE, 1, config);
 
 	if(!CreatePlotFile(&plot, config))
@@ -3456,10 +3453,10 @@ int PlotEachTypePhase(FlatPhase *phaseDiff, long int size, char *filename, int p
 		if(type > TYPE_CONTROL && !config->types.typeArray[i].IsaddOnData)
 		{
 			if(pType == PHASE_DIFF)
-				sprintf(name, "PD_%s_%02d%s_", filename, 
+				sprintf(name, "DIFF_PHASE_%s_%02d%s", filename, 
 					type, config->types.typeArray[i].typeName);
 			else
-				sprintf(name, "P%c_%s_%02d%s_", pType == PHASE_REF ? 'A' : 'B', filename, 
+				sprintf(name, "PHASE_%c_%s_%02d%s", pType == PHASE_REF ? 'A' : 'B', filename, 
 					type, config->types.typeArray[i].typeName);
 		
 			PlotSingleTypePhase(phaseDiff, size, type, name, pType, config);

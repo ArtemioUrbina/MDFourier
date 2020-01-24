@@ -67,10 +67,22 @@ int main(int argc , char *argv[])
 		clock_gettime(CLOCK_MONOTONIC, &start);
 
 	if(!LoadProfile(&config))
+	{
+		logmsg("Aborting\n");
 		return 1;
+	}
+
+	if(!SetupFolders("MDWave", "WAVE_Log_", &config))
+	{
+		logmsg("Aborting\n");
+		return 1;
+	}
 
 	if(ExecuteMDWave(&config, 0) == 1)
+	{
+		logmsg("Aborting\n");
 		return 1;
+	}
 
 	if(config.executefft)
 	{
@@ -837,7 +849,6 @@ int ProcessFile(AudioSignal *Signal, parameters *config)
 			if(Signal->floorAmplitude != 0.0 && Signal->floorAmplitude > config->significantAmplitude)
 			{
 				config->significantAmplitude = Signal->floorAmplitude;
-				CreateBaseName(config);
 			}
 		}
 	
@@ -860,8 +871,6 @@ int ProcessFile(AudioSignal *Signal, parameters *config)
 	{
 		if(config->clock)
 			clock_gettime(CLOCK_MONOTONIC, &start);
-	
-		CreateBaseName(config);
 	
 		// Clean up everything again
 		pos = Signal->startOffset;
@@ -1381,23 +1390,6 @@ int commandline_wave(int argc , char *argv[], parameters *config)
 		return 0;
 	}
 	fclose(file);
-
-	CreateFolderName_wave(config);
-	CreateBaseName(config);
-
-	if(IsLogEnabled())
-	{
-		char tmp[T_BUFFER_SIZE];
-
-		ComposeFileName(tmp, "WAVE_Log_", ".txt", config);
-
-		if(!setLogName(tmp))
-			return 0;
-
-		DisableConsole();
-		Header(1);
-		EnableConsole();
-	}
 
 	if(config->channel != 's')
 		logmsg("\tAudio Channel is: %s\n", GetChannel(config->channel));

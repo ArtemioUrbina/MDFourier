@@ -84,6 +84,12 @@ int main(int argc , char *argv[])
 		return 1;
 	}
 
+	if(!SetupFolders("MDFResults", "Log", &config))
+	{
+		logmsg("Aborting\n");
+		return 1;
+	}	
+
 	if(strcmp(config.referenceFile, config.targetFile) == 0)
 	{
 		CleanUp(&ReferenceSignal, &ComparisonSignal, &config);
@@ -158,7 +164,6 @@ int main(int argc , char *argv[])
 			ComparisonSignal->floorAmplitude != 0.0 && ComparisonSignal->floorAmplitude > config.significantAmplitude)
 		{
 			config.significantAmplitude = ComparisonSignal->floorAmplitude;
-			CreateBaseName(&config);
 		}
 	
 		logmsg(" - Using %g dBFS as minimum significant amplitude for analysis\n",
@@ -600,7 +605,6 @@ int LoadAndProcessAudioFiles(AudioSignal **ReferenceSignal, AudioSignal **Compar
 		(*ReferenceSignal)->floorAmplitude != 0.0 && (*ReferenceSignal)->floorAmplitude > config->significantAmplitude)
 	{
 		config->significantAmplitude = (*ReferenceSignal)->floorAmplitude;
-		CreateBaseName(config);
 	}
 
 	logmsg(" - Using %gdBFS as minimum significant amplitude for analisys\n",

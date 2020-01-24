@@ -32,10 +32,9 @@
 
 #include "mdfourier.h"
 
+int SetupFolders(char *folder, char *logname, parameters *config);
 int CreateFolder(char *name);
-int CreateFolderName(parameters *config);
-int CreateFolderName_wave(parameters *config);
-void CreateBaseName(parameters *config);
+int CreateFolderName(char *mainfolder, parameters *config);
 void InvertComparedName(parameters *config);
 void ComposeFileName(char *target, char *subname, char *ext, parameters *config);
 void ComposeFileNameoPath(char *target, char *subname, char *ext, parameters *config);

@@ -37,6 +37,11 @@
 	#define FOLDERCHAR	'/'
 #endif
 
+#define CHAR_FOLDER_REMOVE		0
+#define CHAR_FOLDER_OK			1
+#define CHAR_FOLDER_CHANGE_T1	2
+#define CHAR_FOLDER_CHANGE_T2	3
+
 void PrintUsage()
 {
 	logmsg("  usage: mdfourier -P profile.mdf -r reference.wav -c compare.wav\n");
@@ -576,27 +581,6 @@ int commandline(int argc , char *argv[], parameters *config)
 	}
 	fclose(file);
 
-	if(!CreateFolderName(config))
-	{
-		logmsg("* ERROR: Could not create output folders\n");
-		return 0;
-	}
-	CreateBaseName(config);
-
-	if(IsLogEnabled())
-	{
-		char tmp[T_BUFFER_SIZE*2];
-
-		ComposeFileName(tmp, "Log", ".txt", config);
-
-		if(!setLogName(tmp))
-			return 0;
-
-		DisableConsole();
-		Header(1);
-		EnableConsole();
-	}
-
 	if(config->verbose)
 	{
 		if(config->window != 'n')
@@ -646,6 +630,30 @@ int commandline(int argc , char *argv[], parameters *config)
 	return 1;
 }
 
+int SetupFolders(char *folder, char *logname, parameters *config)
+{
+	if(!CreateFolderName(folder, config))
+		return 0;
+
+	if(IsLogEnabled())
+	{
+		char tmp[BUFFER_SIZE*4];
+		char logfname[BUFFER_SIZE*2];
+
+		sprintf(logfname, "%s_%s", logname, config->compareName);
+
+		ComposeFileName(tmp, logfname, ".txt", config);
+
+		if(!setLogName(tmp))
+			return 0;
+
+		DisableConsole();
+		Header(1);
+		EnableConsole();
+	}
+	return 1;
+}
+
 void ShortenFileName(char *filename, char *copy)
 {
 	int len = 0, ext = 0;
@@ -689,10 +697,37 @@ int CreateFolder(char *name)
 	return 1;
 }
 
-int CreateFolderName(parameters *config)
+int IsValidFolderCharacter(char c)
 {
-	int len;
-	char tmp[BUFFER_SIZE], fn[BUFFER_SIZE];
+	switch(c)
+	{
+		case '/':	// the rest are invalid in windows only, but we remove them anyway
+			return CHAR_FOLDER_CHANGE_T1;
+			break;
+		case '\\':
+		case '<':
+		case '>':
+		case '"':
+		case '|':
+		case '?':
+		case '*':
+		case ' ':		// valid, but we remove it
+			return CHAR_FOLDER_REMOVE;
+			break;
+		case ':':
+			return CHAR_FOLDER_CHANGE_T2;
+			break;
+		default:
+			return CHAR_FOLDER_OK;
+			break;
+	}
+	return 1;
+}
+
+int CreateFolderName(char *mainfolder, parameters *config)
+{
+	int len = 0, size = 0;
+	char tmp[BUFFER_SIZE/2], fn[BUFFER_SIZE/2], pname[BUFFER_SIZE/2];
 
 	if(!config)
 		return 0;
@@ -713,13 +748,41 @@ int CreateFolderName(parameters *config)
 			tmp[i] = '_';
 	}
 
+	sprintf(pname, "%s", config->types.Name);
+	len = strlen(config->types.Name);
+	for(int i = 0; i < len; i++)
+	{
+		int act;
+
+		act = IsValidFolderCharacter(config->types.Name[i]);
+		if(act == CHAR_FOLDER_OK)
+			pname[size++] = config->types.Name[i];
+		if(act == CHAR_FOLDER_CHANGE_T1)
+			pname[size++] = '_';
+		if(act == CHAR_FOLDER_CHANGE_T2)
+			pname[size++] = '-';
+	}
+	pname[size] = '\0';
+
 	sprintf(config->compareName, "%s", tmp);
 	sprintf(config->folderName, "MDFResults%c%s", FOLDERCHAR, tmp);
 
-	if(!CreateFolder("MDFResults"))
+	if(!CreateFolder(mainfolder))
+	{
+		logmsg("ERROR: Could not create '%s'\n", mainfolder);
 		return 0;
+	}
 	if(!CreateFolder(config->folderName))
+	{
+		logmsg("ERROR: Could not create '%s'\n", config->folderName);
 		return 0;
+	}
+	sprintf(config->folderName, "%s%c%s%c%s", mainfolder, FOLDERCHAR, pname, FOLDERCHAR, tmp);
+	if(!CreateFolder(config->folderName))
+	{
+		logmsg("ERROR: Could not create '%s'\n", config->folderName);
+		return 0;
+	}
 	return 1;
 }
 
@@ -743,33 +806,6 @@ void InvertComparedName(parameters *config)
 	sprintf(config->compareName, "%s", tmp);
 }
 
-int CreateFolderName_wave(parameters *config)
-{
-	int len;
-	char tmp[BUFFER_SIZE+20], fn[BUFFER_SIZE];
-
-	if(!config)
-		return 0;
-
-	ShortenFileName(basename(config->referenceFile), fn);
-	sprintf(tmp, "MDWave\\%s", fn);
-
-	len = strlen(tmp);
-	for(int i = 0; i < len; i++)
-	{
-		if(tmp[i] == ' ')
-			tmp[i] = '_';
-	}
-
-	sprintf(config->folderName, "%s", tmp);
-
-	if(!CreateFolder("MDWave"))
-		return 0;
-	if(!CreateFolder(config->folderName))
-		return 0;
-	return 1;
-}
-
 char *GetNormalization(enum normalize n)
 {
 	switch(n)
@@ -785,29 +821,13 @@ char *GetNormalization(enum normalize n)
 	}
 }
 
-void CreateBaseName(parameters *config)
-{
-	if(!config)
-		return;
-	
-	sprintf(config->baseName, "_f%d_%s_%s_v_%g_OF%d_%s_%s_%s",
-			config->MaxFreq,
-			GetWindow(config->window),
-			GetChannel(config->channel),
-			fabs(config->significantAmplitude),
-			config->outputFilterFunction,
-			GetNormalization(config->normType),
-			config->ZeroPad ? "ZP" : "NP",
-			config->channelBalance ? "B" : "NB");
-}
-
 void ComposeFileName(char *target, char *subname, char *ext, parameters *config)
 {
 	if(!config)
 		return;
 
-	sprintf(target, "%s\\%s%s%s",
-		config->folderName, subname, config->baseName, ext); 
+	sprintf(target, "%s%c%s%s",
+		config->folderName, FOLDERCHAR, subname, ext); 
 }
 
 void ComposeFileNameoPath(char *target, char *subname, char *ext, parameters *config)
@@ -815,7 +835,7 @@ void ComposeFileNameoPath(char *target, char *subname, char *ext, parameters *co
 	if(!config)
 		return;
 
-	sprintf(target, "%s%s%s", subname, config->baseName, ext); 
+	sprintf(target, "%s%s", subname, ext); 
 }
 
 double TimeSpecToSeconds(struct timespec* ts)

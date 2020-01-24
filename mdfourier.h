@@ -57,7 +57,7 @@
 #error Unknown pointer size or missing size macros!
 #endif
 
-#define MDVERSION "0.979 "
+#define MDVERSION "0.980"
 
 #define MAX_FREQ_COUNT		40000 	/* Number of frequencies to compare(MAX) */
 #define FREQ_COUNT			2000	/* Number of frequencies to compare(default) */
@@ -122,12 +122,21 @@
 
 #define	INVALID_CHANNELS	-1
 
-#define	NO_CLK	-1
+#define	NO_CLK			-1
 
 #if defined (WIN32)
 	#define MAX_FOLDER_NAME	50
 	#define MAX_FILE_NAME	25
 #endif
+
+#if INTPTR_MAX == INT64_MAX
+#define	BITS_MDF "64-bit"
+#elif INTPTR_MAX == INT32_MAX
+#define	BITS_MDF "32-bit"
+#else
+#error Unknown pointer size or missing size macros!
+#endif
+
 
 enum normalize
 {
@@ -374,7 +383,6 @@ typedef struct parameters_st {
 	char			referenceFile[BUFFER_SIZE];
 	char			targetFile[BUFFER_SIZE];
 	char			folderName[BUFFER_SIZE+128];
-	char			baseName[BUFFER_SIZE];
 	char			compareName[BUFFER_SIZE];
 	char			profileFile[BUFFER_SIZE];
 	double			startHz, endHz;
