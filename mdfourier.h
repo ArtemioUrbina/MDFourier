@@ -102,16 +102,17 @@
 #define MAX_HZ		96000.0
 
 #define DB_HEIGHT	18.0
-#define DB_DIFF		12.0
+#define DB_DIFF		DB_HEIGHT/2.0
 
-#define	MAXINT16		32768.0
+#define	MAXINT16		 32768.0
 #define	MININT16		-32767.0
-#define INT16_3DB		23197.0
 
-// Use Max Scale
-#define WAVEFORM_SCALE	(MAXINT16-2.0)
+#define INT16_03DB		23197.0   // 0x5AD9
+
 // Use -3dbfs scale
-//#define WAVEFORM_SCALE	INT16_3DB
+#define WAVEFORM_SCALE	INT16_03DB
+// Use Max Scale
+//#define WAVEFORM_SCALE	(MAXINT16-1)
 
 #define BUFFER_SIZE		4096
 #define T_BUFFER_SIZE	BUFFER_SIZE*2+256
@@ -445,8 +446,6 @@ typedef struct parameters_st {
 	int				averagePlot;
 	int				weightedAveragePlot;
 	int				drawWindows;
-	int				averageIgnore;
-	double			averageLine;
 	int				outputCSV;
 	int				whiteBG;
 	int				smallFile;

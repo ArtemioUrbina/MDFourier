@@ -130,7 +130,6 @@ void CalcuateFrequencyBrackets(AudioSignal *signal, parameters *config);
 double FindFrequencyBracket(double frequency, size_t size, int AudioChannels, long samplerate);
 
 double FindDifferenceAverage(parameters *config);
-void SubstractDifferenceAverage(parameters *config, double average);
 int FindDifferenceTypeTotals(int type, long int *cntAmplBlkDiff, long int *cmpAmplBlkDiff, parameters *config);
 int FindMissingTypeTotals(int type, long int *cntFreqBlkDiff, long int *cmpFreqBlkDiff, parameters *config);
 int FindDifferenceWithinInterval(int type, long int *inside, long int *count, double MaxInterval, parameters *config);

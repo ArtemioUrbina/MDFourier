@@ -50,7 +50,6 @@ void PrintUsage()
 	logmsg("	 -z: Uses <z>ero Padding to equal 1 Hz FFT bins\n");
 	logmsg("	 -n: <N>ormalize: 't' Time Domain Max, 'f' Frequency Domain Max or 'a' Average\n");
 	logmsg("	 -B: Do not do stereo channel audio <B>alancing\n");
-	logmsg("	 -V: Ignore a<V>erage for analysis\n");
 	logmsg("	 -I: <I>gnore frame rate difference for analysis\n");
 	logmsg("	 -p: Define the significant volume value in dBFS\n");
 	logmsg("	 -T: Increase Sync detection <T>olerance\n");
@@ -129,8 +128,6 @@ void CleanParameters(parameters *config)
 	config->showPercent = 1;
 	config->ignoreFrameRateDiff = 0;
 	config->labelNames = 1;
-	config->averageIgnore = 0;
-	config->averageLine = 0.0;
 	config->outputCSV = 0;
 	config->whiteBG = 0;
 	config->smallFile = 0;
@@ -203,8 +200,8 @@ int commandline(int argc , char *argv[], parameters *config)
 	
 	CleanParameters(config);
 
-	// Available: GHJKq0123456789
-	while ((c = getopt (argc, argv, "Aa:Bb:Cc:Dd:Ee:Ff:ghIijkL:lMmNn:Oo:P:p:QRr:Ss:TtUuVvWw:XxY:yZ:z")) != -1)
+	// Available: GHJKqV0123456789
+	while ((c = getopt (argc, argv, "Aa:Bb:Cc:Dd:Ee:Ff:ghIijkL:lMmNn:Oo:P:p:QRr:Ss:TtUuvWw:XxY:yZ:z")) != -1)
 	switch (c)
 	  {
 	  case 'A':
@@ -413,9 +410,6 @@ int commandline(int argc , char *argv[], parameters *config)
 		break;
 	  case 'u':
 		config->plotAllNotes = 1;
-		break;
-	  case 'V':
-		config->averageIgnore = 1;
 		break;
 	  case 'v':
 		config->verbose = 1;

@@ -2487,27 +2487,6 @@ double FindDifferenceAverage(parameters *config)
 	return AvgDifAmp;
 }
 
-void SubstractDifferenceAverage(parameters *config, double average)
-{
-	if(!config)
-		return;
-
-	if(!config->Differences.BlockDiffArray)
-		return;
-
-	for(int b = 0; b < config->types.totalBlocks; b++)
-	{
-		if(config->Differences.BlockDiffArray[b].type <= TYPE_CONTROL)
-			continue;
-
-
-		for(int a = 0; a < config->Differences.BlockDiffArray[b].cntAmplBlkDiff; a++)
-			config->Differences.BlockDiffArray[b].amplDiffArray[a].diffAmplitude -= average;
-	}
-
-	return;
-}
-
 int FindDifferenceTypeTotals(int type, long int *cntAmplBlkDiff, long int *cmpAmplBlkDiff, parameters *config)
 {
 	if(!config)

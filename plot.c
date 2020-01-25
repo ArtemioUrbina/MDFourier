@@ -592,14 +592,6 @@ void DrawGridZeroDBCentered(PlotFile *plot, double dBFS, double dbIncrement, dou
 
 	DrawFrequencyHorizontal(plot, dBFS, hz, hzIncrement, config);
 
-	if(config->averageLine != 0.0)
-	{
-		pl_pencolor_r (plot->plotter, 0xAAAA, 0xAAAA, 0);
-		pl_linemod_r(plot->plotter, "dotdashed");
-		pl_fline_r(plot->plotter, 0, -1.0*config->averageLine, hz, -1.0*config->averageLine);
-		pl_linemod_r(plot->plotter, "solid");
-	}
-
 	pl_endpath_r(plot->plotter);
 	pl_pencolor_r (plot->plotter, 0, 0xFFFF, 0);
 }
@@ -1577,7 +1569,7 @@ void PlotAllSpectrogram(FlatFrequency *freqs, long int size, char *filename, int
 	significant = config->significantAmplitude;
 	abs_significant = fabs(significant);
 
-	sprintf(name, "SP__ALL_%s", filename);
+	sprintf(name, "SP__ALL_%c_%s", signal == ROLE_REF ? 'A' : 'B', filename);
 	FillPlot(&plot, name, config->plotResX, config->plotResY, config->startHzPlot, significant, config->endHzPlot, 0.0, 1, config);
 
 	if(!CreatePlotFile(&plot, config))
@@ -3179,6 +3171,30 @@ void DrawVerticalFrameGrid(PlotFile *plot, AudioSignal *Signal, double frames, d
 	}
 }
 
+void DrawINT16DBFSLines(PlotFile *plot, double resx, parameters *config)
+{
+	// 0dbfs line
+	SetPenColor(COLOR_GRAY, 0x5555, plot);
+	pl_fline_r(plot->plotter, 0, 0, resx, 0);
+
+	// 3dbfs lines
+	SetPenColor(COLOR_GRAY, 0x3333, plot);
+	for(int db = 2; db <= 256; db *= 2)
+	{
+		double height;
+
+		height = INT16_03DB*2/db;
+		pl_fline_r(plot->plotter, 0, height, resx, height);
+		pl_fline_r(plot->plotter, 0, -1*height, resx, -1*height);
+
+		height = MAXINT16/db;
+		pl_fline_r(plot->plotter, 0, height, resx, height);
+		pl_fline_r(plot->plotter, 0, -1*height, resx, -1*height);
+	}
+ 
+	pl_endpath_r(plot->plotter);
+}
+
 void PlotBlockTimeDomainGraph(AudioSignal *Signal, int block, char *name, int window, parameters *config)
 {
 	char		title[1024];
@@ -3226,14 +3242,10 @@ void PlotBlockTimeDomainGraph(AudioSignal *Signal, int block, char *name, int wi
 		pl_filltype_r(plot.plotter, 0);
 	}
 
-	// 0dbfs line
 	color = MatchColor(GetBlockColor(config, block));
-	SetPenColor(COLOR_GRAY, 0x7777, &plot);
-	pl_fline_r(plot.plotter, 0, 0, numSamples, 0);
-	pl_endpath_r(plot.plotter);
 
+	DrawINT16DBFSLines(&plot, numSamples, config);
 	DrawVerticalFrameGrid(&plot, Signal, Signal->Blocks[block].frames, 1, config);
-
 
 	// Draw samples
 	SetPenColor(color, 0xffff, &plot);
@@ -3415,9 +3427,9 @@ void PlotAllPhase(FlatPhase *phaseDiff, long int size, char *filename, int pType
 		return;
 
 	if(pType == PHASE_DIFF)
-		sprintf(name, "DIFF_PHASE_ALL_%s", filename);
+		sprintf(name, "DIFF_PHASE__ALL_%s", filename);
 	else
-		sprintf(name, "PHASE_ALL_%c_%s", pType == PHASE_REF ? 'A' : 'B', filename);
+		sprintf(name, "PHASE__ALL_%c_%s", pType == PHASE_REF ? 'A' : 'B', filename);
 	FillPlot(&plot, name, config->plotResX, config->plotResY, config->startHzPlot, -1*PHASE_ANGLE, config->endHzPlot, PHASE_ANGLE, 1, config);
 
 	if(!CreatePlotFile(&plot, config))
@@ -3499,7 +3511,7 @@ void PlotSingleTypePhase(FlatPhase *phaseDiff, long int size, int type, char *fi
 	}
 
 	if(pType == PHASE_DIFF)
-		DrawLabelsMDF(&plot, PHASE_DIFF_TITLE, ALL_LABEL, PLOT_COMPARE, config);
+		DrawLabelsMDF(&plot, PHASE_DIFF_TITLE, GetTypeDisplayName(config, type), PLOT_COMPARE, config);
 	else
 		DrawLabelsMDF(&plot, pType == PHASE_REF ? PHASE_SIG_TITLE_REF : PHASE_SIG_TITLE_COM, GetTypeDisplayName(config, type), pType == PHASE_REF ? PLOT_SINGLE_REF : PLOT_SINGLE_COM, config);
 	ClosePlot(&plot);
