@@ -102,6 +102,7 @@ protected:
 	void CheckPlotSelection(CButton &clicked);
 	int FindProfiles(CString sPath, CString pattern);
 	bool VerifyFileExtension(CString filename, int type);
+	void ClearResults() { m_OpenResultsBttn.EnableWindow(FALSE); m_OutputTextCtrl.SetWindowText(L""); m_ResultsFolderText = L""; };
 
 	// Generated message map functions
 	virtual BOOL OnInitDialog();

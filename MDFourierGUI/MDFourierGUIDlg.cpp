@@ -172,6 +172,7 @@ void CMDFourierGUIDlg::OnBnClickedSelectReferenceFile()
 
 	m_ReferenceFile = dlgFile.GetPathName();
 	m_ReferenceFileLbl.SetWindowText(m_ReferenceFile); 
+	m_OpenResultsBttn.EnableWindow(FALSE);
 }
 
 
@@ -185,6 +186,7 @@ void CMDFourierGUIDlg::OnBnClickedSelectReferenceCompare()
 
 	m_ComparisonFile = dlgFile.GetPathName();
 	m_ComparisonLbl.SetWindowText(m_ComparisonFile);
+	m_OpenResultsBttn.EnableWindow(FALSE);
 }
 
 
@@ -194,7 +196,7 @@ void CMDFourierGUIDlg::OnBnClickedOk()
 
 	UpdateWindow();
 
-	m_OpenResultsBttn.EnableWindow(FALSE);
+	ClearResults();
 
 	profile = GetSelectedCommandLineValue(m_Profiles, COUNT_PROFILES);
 	if(profile == L"NONE")
@@ -506,12 +508,23 @@ void CMDFourierGUIDlg::OnBnClickedOpenresults()
 {
 	PIDLIST_ABSOLUTE pidl;
 
+	if(!m_ResultsFolderText.GetLength())
+		return;
+
 	if (SUCCEEDED(SHParseDisplayName(CT2W(m_ResultsFolderText), 0, &pidl, 0, 0)))
 	{
 		ITEMIDLIST idNull = { 0 };
 		LPCITEMIDLIST pidlNull[1] = { &idNull };
 		SHOpenFolderAndSelectItems(pidl, 1, pidlNull, 0);
 		ILFree(pidl);
+	}
+	else
+	{
+		CString	msg;
+
+		msg.Format(L"Could not open folder:\n%s", m_ResultsFolderText);
+		MessageBox(msg, L"Invalid Folder");
+		ClearResults();
 	}
 }
 
@@ -756,6 +769,8 @@ void CMDFourierGUIDlg::CheckPlotSelection(CButton &clicked)
 
 	if(!checked)
 		clicked.SetCheck(TRUE);
+
+	m_OpenResultsBttn.EnableWindow(FALSE);
 }
 
 void CMDFourierGUIDlg::OnBnClickedDifferences()
@@ -812,7 +827,7 @@ void CMDFourierGUIDlg::OnBnClickedMdwave()
 
 	UpdateWindow();
 
-	m_OpenResultsBttn.EnableWindow(FALSE);
+	ClearResults();
 
 	profile = GetSelectedCommandLineValue(m_Profiles, COUNT_PROFILES);
 	if(profile == L"NONE")
@@ -894,6 +909,8 @@ void CMDFourierGUIDlg::OnBnClickedSwap()
 	sel = m_RefSync.GetCurSel();
 	m_RefSync.SetCurSel(m_ComSync.GetCurSel());
 	m_ComSync.SetCurSel(sel);
+
+	m_OpenResultsBttn.EnableWindow(FALSE);
 }
 
 bool CMDFourierGUIDlg::VerifyFileExtension(CString filename, int type)
@@ -984,7 +1001,7 @@ LRESULT CMDFourierGUIDlg::OnDropFiles(WPARAM wParam, LPARAM lParam)
 		}
 	}
 	if(erase)
-		m_OutputTextCtrl.SetWindowText(L"");
+		m_OpenResultsBttn.EnableWindow(FALSE);
 	return 0;
 
 }
@@ -1000,5 +1017,6 @@ void CMDFourierGUIDlg::OnCbnDropdownProfile()
 		msg.Format(L"Please place profile files (*.mfn) in folder:\n %s\\profiles", pwd);
 		MessageBox(msg, L"Error mdfblocks.mfn not found");
 	}
+	m_OpenResultsBttn.EnableWindow(FALSE);
 }
 
