@@ -52,7 +52,7 @@ double FindClippingAndRatio(AudioSignal *Signal, double normalizationRatio, para
 int FindClippingAndRatioForBlock(AudioBlocks *AudioArray, double ratio);
 void NormalizeBlockByRatio(AudioBlocks *AudioArray, double ratio);
 void ProcessWaveformsByBlock(AudioSignal *ReferenceSignal, AudioSignal *ComparisonSignal, double ratioRef, parameters *config);
-int FindMaxSampleForWaveform(AudioSignal *Signal, parameters *config);
+int FindMaxSampleForWaveform(AudioSignal *Signal, int *block, parameters *config);
 int FindMaxSampleInBlock(AudioBlocks *AudioArray);
 
 // Time domain
@@ -1741,7 +1741,7 @@ int FindClippingAndRatioForBlock(AudioBlocks *AudioArray, double ratio)
 	return abs(MaxSample);
 }
 
-int FindMaxSampleForWaveform(AudioSignal *Signal, parameters *config)
+int FindMaxSampleForWaveform(AudioSignal *Signal, int *block, parameters *config)
 {
 	int 	i = 0, MaxSample = 0;
 
@@ -1753,7 +1753,11 @@ int FindMaxSampleForWaveform(AudioSignal *Signal, parameters *config)
 
 			localMax = FindMaxSampleInBlock(&Signal->Blocks[i]);
 			if(localMax > MaxSample)
+			{
 				MaxSample = localMax;
+				if(block)
+					*block = i;
+			}
 		}
 	}
 
@@ -1788,7 +1792,7 @@ int FindMaxSampleInBlock(AudioBlocks *AudioArray)
 void ProcessWaveformsByBlock(AudioSignal *SignalToModify, AudioSignal *FixedSignal, double ratio, parameters *config)
 {
 	double scaleRatio = 0;
-	int	MaxSampleToModify = 0, MaxSampleFixed = 0;
+	int	MaxSampleToModify = 0, MaxSampleFixed = 0, blockMod = 0, blockFixed = 0;
 
 	scaleRatio = FindClippingAndRatio(SignalToModify, ratio, config);
 	if(scaleRatio != 0)
@@ -1803,17 +1807,17 @@ void ProcessWaveformsByBlock(AudioSignal *SignalToModify, AudioSignal *FixedSign
 	NormalizeTimeDomainByFrequencyRatio(SignalToModify, ratio, config);
 
 	// scale max point to -3dbfs
-	MaxSampleToModify = FindMaxSampleForWaveform(SignalToModify, config);
-	MaxSampleFixed = FindMaxSampleForWaveform(FixedSignal, config);
+	MaxSampleToModify = FindMaxSampleForWaveform(SignalToModify, &blockMod, config);
+	MaxSampleFixed = FindMaxSampleForWaveform(FixedSignal, &blockFixed, config);
 
 	if(MaxSampleToModify && MaxSampleFixed)
 	{
 		if(config->verbose)
-			logmsg(" - Found Sample values. Modify(%s): %d and Fixed(%s): %d\n",
+			logmsg(" - Found Sample values. Modify(%s): %d at %s# %d (%d) and Fixed(%s): %d at %s# %d (%d)\n",
 				SignalToModify->role == ROLE_REF ? "Reference" : "Comparison",
-				MaxSampleToModify,
+				MaxSampleToModify, GetBlockName(config, blockMod), GetBlockSubIndex(config, blockMod), blockMod,
 				FixedSignal->role == ROLE_REF ? "Reference" : "Comparison",
-				MaxSampleFixed);
+				MaxSampleFixed, GetBlockName(config, blockFixed), GetBlockSubIndex(config, blockFixed), blockFixed);
 
 		if(MaxSampleToModify > MaxSampleFixed)
 			scaleRatio = WAVEFORM_SCALE/(double)MaxSampleToModify;
@@ -2081,9 +2085,9 @@ double FindLocalMaximumInBlock(AudioSignal *Signal, MaxMagn refMax, parameters *
 		{
 			if(config->verbose)
 			{
-				logmsg(" - Comparison Local Max magnitude for [R:%g->C:%g] Hz is %g. Block %d Pos:%d\n",
+				logmsg(" - Comparison Local Max magnitude for [R:%g->C:%g] Hz is %g.at %s# %d (%d)\n",
 					refMax.hertz, Signal->Blocks[refMax.block].freq[i].hertz, 
-					magnitude, refMax.block, i);
+					magnitude, GetBlockName(config, refMax.block), GetBlockSubIndex(config, refMax.block), refMax.block);
 			}
 			return (magnitude);
 		}
