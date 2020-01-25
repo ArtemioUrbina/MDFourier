@@ -1617,16 +1617,17 @@ int PlotEachTypeSpectrogram(FlatFrequency *freqs, long int size, char *filename,
 	char		name[BUFFER_SIZE];
 	char 		*returnFolder = NULL;
 
-	if(type != TYPE_SILENCE)
-	{
-		returnFolder = PushFolder(SPECTROGRAM_FOLDER);
-		if(!returnFolder)
-			return 0;
-	}
-
 	for(i = 0; i < config->types.typeCount; i++)
 	{
 		type = config->types.typeArray[i].type;
+
+		if(type != TYPE_SILENCE)
+		{
+			returnFolder = PushFolder(SPECTROGRAM_FOLDER);
+			if(!returnFolder)
+				return 0;
+		}
+
 		if(type > TYPE_CONTROL && !config->types.typeArray[i].IsaddOnData)
 		{
 			sprintf(name, "SP_%c_%s_%02d%s", signal == ROLE_REF ? 'A' : 'B', filename, 
@@ -1644,10 +1645,10 @@ int PlotEachTypeSpectrogram(FlatFrequency *freqs, long int size, char *filename,
 			logmsg(PLOT_ADVANCE_CHAR);
 			silence = 1;
 		}
-	}
 
-	if(type != TYPE_SILENCE)
-		ReturnToMainPath(&returnFolder);
+		if(type != TYPE_SILENCE)
+			ReturnToMainPath(&returnFolder);
+	}
 
 	return types;
 }
