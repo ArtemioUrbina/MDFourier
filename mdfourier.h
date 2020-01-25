@@ -106,10 +106,10 @@
 
 #define	MAXINT16		32768.0
 #define	MININT16		-32767.0
-#define INT16_3DB		23197
+#define INT16_3DB		23197.0
 
 // Use Max Scale
-#define WAVEFORM_SCALE	(MAXINT16-2)
+#define WAVEFORM_SCALE	(MAXINT16-2.0)
 // Use -3dbfs scale
 //#define WAVEFORM_SCALE	INT16_3DB
 

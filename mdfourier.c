@@ -401,7 +401,7 @@ int LoadAndProcessAudioFiles(AudioSignal **ReferenceSignal, AudioSignal **Compar
 			return 0;
 		}
 	
-		ratioTar = MAXINT16/MaxTar.maxSample;
+		ratioTar = MAXINT16/(double)MaxTar.maxSample;
 		NormalizeAudioByRatio(*ComparisonSignal, ratioTar);
 		ComparisonLocalMaximum = FindLocalMaximumAroundSample(*ComparisonSignal, MaxRef);
 		if(!ComparisonLocalMaximum)
@@ -412,7 +412,7 @@ int LoadAndProcessAudioFiles(AudioSignal **ReferenceSignal, AudioSignal **Compar
 			return 0;
 		}
 
-		ratioRef = (ComparisonLocalMaximum/MaxRef.maxSample);
+		ratioRef = (ComparisonLocalMaximum/(double)MaxRef.maxSample);
 		NormalizeAudioByRatio(*ReferenceSignal, ratioRef);
 
 		// Uncomment if you want to check the WAV files as normalized
@@ -510,20 +510,23 @@ int LoadAndProcessAudioFiles(AudioSignal **ReferenceSignal, AudioSignal **Compar
 
 	if(config->normType == average)
 	{
-		double RefAvg = 0;
-		double CompAvg = 0;
+		double		RefAvg = 0, CompAvg = 0, ratio = 0;
 
 		RefAvg = FindFundamentalMagnitudeAverage(*ReferenceSignal, config);
 		CompAvg = FindFundamentalMagnitudeAverage(*ComparisonSignal, config);
 		if(CompAvg > RefAvg)
 		{
-			double ratio = CompAvg/RefAvg;
+			ratio = CompAvg/RefAvg;
 			NormalizeMagnitudesByRatio(*ReferenceSignal, ratio, config);
+			/* waveforms */
+			ProcessWaveformsByBlock(*ReferenceSignal, *ComparisonSignal, ratio, config);
 		}
 		else
 		{
-			double ratio = RefAvg/CompAvg;
+			ratio = RefAvg/CompAvg;
 			NormalizeMagnitudesByRatio(*ComparisonSignal, ratio, config);
+			/* waveforms */
+			ProcessWaveformsByBlock(*ComparisonSignal, *ReferenceSignal, ratio, config);
 		}
 	}
 
@@ -1702,8 +1705,6 @@ double FindClippingAndRatio(AudioSignal *Signal, double normalizationRatio, para
 
 	if(normalizationRatio == 0)
 		return 0;
-	if(config->normType != max_frequency)
-		return 0;
 
 	for(i = 0; i < config->types.totalBlocks; i++)
 	{
@@ -1754,45 +1755,48 @@ int FindClippingAndRatioForBlock(AudioBlocks *AudioArray, double ratio)
 }
 
 /* This is just for waveform visualization */
-void ProcessWaveformsByBlock(AudioSignal *ReferenceSignal, AudioSignal *ComparisonSignal, double ratioRef, parameters *config)
+void ProcessWaveformsByBlock(AudioSignal *SignalToModify, AudioSignal *FixedSignal, double ratio, parameters *config)
 {
 	double scaleRatio = 0;
 
-	scaleRatio = FindClippingAndRatio(ReferenceSignal, ratioRef, config);
+	scaleRatio = FindClippingAndRatio(SignalToModify, ratio, config);
 	if(scaleRatio != 0)
 	{
 		if(config->verbose)
 			logmsg(" - Found clipping values: %g scaling by %g -> %g \n",
-				ratioRef, scaleRatio, ratioRef*scaleRatio);
+				ratio, scaleRatio, ratio*scaleRatio);
 
-		ratioRef *= scaleRatio;
-		NormalizeTimeDomainByFrequencyRatio(ComparisonSignal, scaleRatio, config);
+		ratio *= scaleRatio;
+		NormalizeTimeDomainByFrequencyRatio(FixedSignal, scaleRatio, config);
 	}
 	else  // scale max point to -3dbfs
 	{
-		MaxSample	MaxRefSample, MaxTarSample;
+		MaxSample	MaxSampleToModify, MaxSampleFixed;
 
-		MaxRefSample = FindMaxSampleAmplitude(ReferenceSignal);
-		MaxTarSample = FindMaxSampleAmplitude(ComparisonSignal);
+		MaxSampleToModify = FindMaxSampleAmplitude(SignalToModify);
+		MaxSampleFixed = FindMaxSampleAmplitude(FixedSignal);
 
-		if(MaxRefSample.maxSample && MaxTarSample.maxSample)
+		if(MaxSampleToModify.maxSample && MaxSampleFixed.maxSample)
 		{
 			if(config->verbose)
-				logmsg(" - Found Sample values R: %d and C: %d. Ratio is %g\n",
-					MaxRefSample.maxSample, MaxTarSample.maxSample, ratioRef);
+				logmsg(" - Found Sample values Modify(%s): %d and Fixed(%s): %d, ratio is %g\n",
+					SignalToModify->role == ROLE_REF ? "Reference" : "Comparison",
+					MaxSampleToModify.maxSample,
+					FixedSignal->role == ROLE_REF ? "Reference" : "Comparison",
+					MaxSampleFixed.maxSample, ratio);
 
-			if(MaxRefSample.maxSample > MaxTarSample.maxSample)
-				scaleRatio = (double)WAVEFORM_SCALE/MaxRefSample.maxSample;
+			if(MaxSampleToModify.maxSample > MaxSampleFixed.maxSample)
+				scaleRatio = WAVEFORM_SCALE/(double)MaxSampleToModify.maxSample;
 			else
-				scaleRatio = (double)WAVEFORM_SCALE/MaxTarSample.maxSample;
+				scaleRatio = WAVEFORM_SCALE/(double)MaxSampleFixed.maxSample;
 			if(RoundFloat(scaleRatio, 1) != 1.1)
 			{
 				if(config->verbose)
 					logmsg(" - Changed ratio value to %g from %g by factor %g\n", 
-						ratioRef * scaleRatio, ratioRef, scaleRatio);
+						ratio * scaleRatio, ratio, scaleRatio);
 
-				ratioRef *= scaleRatio;
-				NormalizeTimeDomainByFrequencyRatio(ComparisonSignal, scaleRatio, config);
+				ratio *= scaleRatio;
+				NormalizeTimeDomainByFrequencyRatio(FixedSignal, scaleRatio, config);
 			}
 			else
 			{
@@ -1803,7 +1807,7 @@ void ProcessWaveformsByBlock(AudioSignal *ReferenceSignal, AudioSignal *Comparis
 		else
 			logmsg(" - WARNING: Could not scale waveforms\n");
 	}
-	NormalizeTimeDomainByFrequencyRatio(ReferenceSignal, ratioRef, config);
+	NormalizeTimeDomainByFrequencyRatio(SignalToModify, ratio, config);
 }
 
 void NormalizeTimeDomainByFrequencyRatio(AudioSignal *Signal, double normalizationRatio, parameters *config)
@@ -1811,8 +1815,6 @@ void NormalizeTimeDomainByFrequencyRatio(AudioSignal *Signal, double normalizati
 	int i = 0;
 
 	if(normalizationRatio == 0)
-		return;
-	if(config->normType != max_frequency)
 		return;
 
 	for(i = 0; i < config->types.totalBlocks; i++)
@@ -1885,7 +1887,7 @@ MaxSample FindMaxSampleAmplitude(AudioSignal *Signal)
 		sample = abs(samples[i]);
 		if(sample > maxSampleValue.maxSample)
 		{
-			maxSampleValue.maxSample = abs(sample);
+			maxSampleValue.maxSample = sample;
 			maxSampleValue.offset = i - start;
 		}
 	}
