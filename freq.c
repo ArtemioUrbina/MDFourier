@@ -310,6 +310,18 @@ void ReleaseBlock(AudioBlocks * AudioArray)
 	AudioArray->seconds = 0;
 }
 
+void ReleasePCM(AudioSignal *Signal)
+{
+	if(!Signal)
+		return;
+
+	if(Signal->Samples)
+	{
+		free(Signal->Samples);
+		Signal->Samples = NULL;
+	}
+}
+
 void ReleaseAudio(AudioSignal *Signal, parameters *config)
 {
 	if(!Signal)
@@ -324,11 +336,7 @@ void ReleaseAudio(AudioSignal *Signal, parameters *config)
 		Signal->Blocks = NULL;
 	}
 
-	if(Signal->Samples)
-	{
-		free(Signal->Samples);
-		Signal->Samples = NULL;
-	}
+	ReleasePCM(Signal);
 
 	InitAudio(Signal, config);
 }
@@ -2091,7 +2099,7 @@ int FillFrequencyStructures(AudioSignal *Signal, AudioBlocks *AudioArray, parame
 	Frequency	*f_array = NULL, *f_linarray = NULL;
 
 	size = AudioArray->fftwValues.size;
-	if(!size)
+	if(!size || !AudioArray->fftwValues.spectrum)
 	{
 		logmsg("FillFrequencyStructures size == 0\n");
 		return 0;
@@ -2166,6 +2174,9 @@ int FillFrequencyStructures(AudioSignal *Signal, AudioBlocks *AudioArray, parame
 	// release temporal storage
 	free(f_array);
 	f_array = NULL;
+
+	ReleaseFFTW(AudioArray);
+
 	return 1;
 }
 

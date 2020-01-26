@@ -416,12 +416,14 @@ int LoadAndProcessAudioFiles(AudioSignal **ReferenceSignal, AudioSignal **Compar
 	}
 
 	logmsg("* Executing Discrete Fast Fourier Transforms on 'Comparison' file\n");
-
 	if(!ProcessFile(*ComparisonSignal, config))
 	{
 		CleanUp(ReferenceSignal, ComparisonSignal, config);
 		return 0;
 	}
+
+	ReleasePCM(*ReferenceSignal);
+	ReleasePCM(*ComparisonSignal);
 
 	CalcuateFrequencyBrackets(*ReferenceSignal, config);
 	CalcuateFrequencyBrackets(*ComparisonSignal, config);

@@ -268,7 +268,7 @@ typedef struct FrequencySt {
 	double	magnitude;
 	double	amplitude;
 	double	phase;
-	int		matched;
+	short	matched;
 } Frequency;
 
 typedef struct fftw_spectrum_st {
