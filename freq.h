@@ -78,9 +78,14 @@ char GetBlockChannel(parameters *config, int pos);
 char GetTypeChannel(parameters *config, int type);
 void CleanName(char *name, char *display);
 int MatchesPreviousType(int type, parameters *config);
+void SelectSilenceProfile(parameters *config);
+void CheckSilenceOverride(parameters *config);
+int ConvertAudioTypeForProcessing(int type, parameters *config);
 
 AudioSignal *CreateAudioSignal(parameters *config);
+void CleanFrequency(Frequency *freq);
 void ReleaseFFTW(AudioBlocks * AudioArray);
+void CleanAndReleaseFFTW(AudioBlocks * AudioArray);
 void ReleaseSamples(AudioBlocks * AudioArray);
 void ReleaseFrequencies(AudioBlocks * AudioArray);
 void ReleaseBlock(AudioBlocks *AudioArray);
@@ -101,6 +106,7 @@ double GetLowerFrameRate(double framerateA, double framerateB);
 void CompareFrameRates(double framerate1, double framerate2, parameters *config);
 
 int IsHRefreshNoise(AudioSignal *Signal, double freq);
+int IsHRefreshNoiseCrossTalk(AudioSignal *Signal, double freq);
 int IsGridFrequencyNoise(AudioSignal *Signal, double freq);
 
 void PrintComparedBlocks(AudioBlocks *ReferenceArray, AudioBlocks *ComparedArray, parameters *config, AudioSignal *Signal);

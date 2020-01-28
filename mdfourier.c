@@ -335,6 +335,8 @@ int LoadAndProcessAudioFiles(AudioSignal **ReferenceSignal, AudioSignal **Compar
 	CloseFiles(&reference, &compare);
 	RemoveFLACTemp(config->referenceFile, config->targetFile);
 
+	SelectSilenceProfile(config);
+
 	config->referenceFramerate = (*ReferenceSignal)->framerate;
 
 	CompareFrameRates((*ReferenceSignal)->framerate, (*ComparisonSignal)->framerate, config);
@@ -600,7 +602,7 @@ int LoadAndProcessAudioFiles(AudioSignal **ReferenceSignal, AudioSignal **Compar
 		config->significantAmplitude = (*ReferenceSignal)->floorAmplitude;
 	}
 
-	logmsg(" - Using %gdBFS as minimum significant amplitude for analisys\n",
+	logmsg(" - Using %g dBFS as minimum significant amplitude for analisys\n",
 		config->significantAmplitude);
 
 	if(config->verbose)
@@ -820,6 +822,12 @@ int LoadFile(FILE *file, AudioSignal *Signal, parameters *config, char *fileName
 					BytesToSeconds(Signal->header.fmt.SamplesPerSec, Signal->endOffset, Signal->AudioChannels),
 					Signal->endOffset/2/Signal->AudioChannels, Signal->endOffset, Signal->endOffset + Signal->SamplesStart);
 			Signal->framerate = CalculateFrameRate(Signal, config);
+			if(!Signal->framerate)
+			{
+				logmsg("\nERROR: Framerate could not be detected.\n");
+				return 0;
+			}
+
 			logmsg(" - Detected %g Hz video signal (%gms per frame) from Audio file\n", 
 						roundFloat(CalculateScanRate(Signal)), Signal->framerate);
 
@@ -830,9 +838,11 @@ int LoadFile(FILE *file, AudioSignal *Signal, parameters *config, char *fileName
 				logmsg("\nERROR: Framerate is %g%% different from the expected %gms.\n",
 						diff, expected);
 				logmsg("\tThis might be due a mismatched profile.\n");
-				logmsg("\tIf you want to ignore this and compare the files, use -I.\n");
 				if(!config->ignoreFrameRateDiff)
+				{
+					logmsg("\tIf you want to ignore this and compare the files, use -I.\n");
 					return 0;
+				}
 			}
 		}
 		else

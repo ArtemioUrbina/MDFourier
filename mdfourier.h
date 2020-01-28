@@ -49,6 +49,8 @@
 
 #include "incbeta.h"
 
+#define MDVERSION "0.983"
+
 #if INTPTR_MAX == INT64_MAX
 #define	BITS_MDF "64-bit"
 #elif INTPTR_MAX == INT32_MAX
@@ -56,8 +58,6 @@
 #else
 #error Unknown pointer size or missing size macros!
 #endif
-
-#define MDVERSION "0.981"
 
 #define MAX_FREQ_COUNT		40000 	/* Number of frequencies to compare(MAX) */
 #define FREQ_COUNT			2000	/* Number of frequencies to compare(default) */
@@ -74,6 +74,7 @@
 #define TYPE_INTERNAL_UNKNOWN	-5
 #define TYPE_SKIP				-6
 #define TYPE_TIMEDOMAIN			-7
+#define	TYPE_SILENCE_OVERRIDE	-8
 #define TYPE_CONTROL			TYPE_SILENCE
 
 
@@ -85,6 +86,7 @@
 #define TYPE_INTERNAL_UNKNOWN_C	'I'
 #define TYPE_SKIP_C				'k'
 #define TYPE_TIMEDOMAIN_C		't'
+#define TYPE_SILENCE_OVER_C		'N'
 
 #define	BAR_DIFF_DB_TOLERANCE	1.0
 
@@ -99,7 +101,7 @@
 
 #define START_HZ	20.0
 #define END_HZ		20000.0
-#define MAX_HZ		96000.0
+#define MAX_HZ		192000.0
 
 #define DB_HEIGHT	18.0
 #define DB_DIFF		DB_HEIGHT/2.0
@@ -453,6 +455,7 @@ typedef struct parameters_st {
 	double			AmpBarRange;
 	int				FullTimeSpectroScale;
 	int				hasTimeDomain;
+	int				hasSilenceOverRide;
 
 	double 			plotResX;
 	double			plotResY;

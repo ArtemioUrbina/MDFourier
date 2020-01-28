@@ -422,32 +422,40 @@ int LoadFile(FILE *file, AudioSignal *Signal, parameters *config, char *fileName
 			if(Signal->endOffset == -1)
 			{
 				logmsg("\nERROR: Trailing sync pulse train was not detected, aborting.\n");
-				logmsg("\tPlease record the whole audio sequence.\n");
+				logmsg("\tPlease record the whole audio sequence.\nProfile used: [%s]\nYou can try using -T for a frequency tolerant pulse detection algorithm\n", config->types.Name);
 				return 0;
 			}
 			if(config->verbose)
-				logmsg(" %gs [%ld samples %ld bytes w/header]\n", 
+				logmsg(" %gs [%ld samples %ld [header %ld] bytes]\n", 
 					BytesToSeconds(Signal->header.fmt.SamplesPerSec, Signal->endOffset, Signal->AudioChannels),
-					Signal->endOffset/2/Signal->AudioChannels, Signal->endOffset + Signal->SamplesStart);
+					Signal->endOffset/2/Signal->AudioChannels, Signal->endOffset, Signal->endOffset + Signal->SamplesStart);
 			Signal->framerate = CalculateFrameRate(Signal, config);
+			if(!Signal->framerate)
+			{
+				logmsg("\nERROR: Framerate could not be detected.\n");
+				return 0;
+			}
+
 			logmsg(" - Detected %g Hz video signal (%gms per frame) from Audio file\n", 
-						CalculateScanRate(Signal), Signal->framerate);
+						roundFloat(CalculateScanRate(Signal)), Signal->framerate);
 
 			expected = GetMSPerFrame(Signal, config);
 			diff = fabs(100.0 - Signal->framerate*100.0/expected);
-			if(diff > 2.0)
+			if(diff > 1.0)
 			{
 				logmsg("\nERROR: Framerate is %g%% different from the expected %gms.\n",
 						diff, expected);
 				logmsg("\tThis might be due a mismatched profile.\n");
-				logmsg("\tIf you want to ignore this and compare the files, use -I.\n");
 				if(!config->ignoreFrameRateDiff)
+				{
+					logmsg("\tIf you want to ignore this and compare the files, use -I.\n");
 					return 0;
+				}
 			}
 		}
 		else
 		{
-			logmsg(" - ERROR: Trailing sync pulse train not defined in config file, aborting\n");
+			logmsg(" - ERROR: Trailing sync pulse train not defined in config file, aborting.\n");
 			PrintAudioBlocks(config);
 			return 0;
 		}

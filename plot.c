@@ -1200,9 +1200,15 @@ void DrawNoiseLines(PlotFile *plot, double start, double end, AudioSignal *Signa
 			pl_fline_r(plot->plotter, transformtoLog(Signal->gridFrequency*harmonic, config), start, transformtoLog(Signal->gridFrequency*harmonic, config), end);
 		}
 	}
-	pl_pencolor_r (plot->plotter, 0xAAAA, 0xAAAA, 0);
 	if(Signal->scanrateFrequency)
+	{
+		// Scanrate
+		pl_pencolor_r (plot->plotter, 0xAAAA, 0xAAAA, 0);
 		pl_fline_r(plot->plotter, transformtoLog(Signal->scanrateFrequency, config), start, transformtoLog(Signal->scanrateFrequency, config), end);
+		// Crosstalk
+		pl_pencolor_r (plot->plotter, 0xAAAA, 0x8888, 0);
+		pl_fline_r(plot->plotter, transformtoLog(Signal->scanrateFrequency/2, config), start, transformtoLog(Signal->scanrateFrequency/2, config), end);
+	}
 	pl_linemod_r(plot->plotter, "solid");
 }
 
