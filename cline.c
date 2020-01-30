@@ -102,7 +102,7 @@ void CleanParameters(parameters *config)
 	sprintf(config->profileFile, PROFILE_FILE);
 	config->startHz = START_HZ;
 	config->endHz = END_HZ;
-	config->startHzPlot = 0;
+	config->startHzPlot = START_HZ_PLOT;
 	config->endHzPlot = END_HZ;
 	config->maxDbPlotZC = DB_HEIGHT;
 	config->extendedResults = 0;
@@ -138,6 +138,8 @@ void CleanParameters(parameters *config)
 	config->FullTimeSpectroScale = 0;
 	config->hasTimeDomain = 0;
 	config->hasSilenceOverRide = 0;
+	config->noSyncProfile = 0;
+	config->noSyncProfileType = NO_SYNC_AUTO;
 
 	config->logScale = 1;
 	config->reverseCompare = 0;
@@ -396,7 +398,7 @@ int commandline(int argc , char *argv[], parameters *config)
 		if(config->startHz < 1.0 || config->startHz > END_HZ-100.0)
 		{
 			config->startHz = START_HZ;
-			logmsg("\t -Requested %g start frequency is higher than possible, set to %g\n", atof(optarg), config->startHz);
+			logmsg("\t -Requested %g start frequency is out of range, set to %g\n", atof(optarg), config->startHz);
 		}
 		break;
 	  case 'T':

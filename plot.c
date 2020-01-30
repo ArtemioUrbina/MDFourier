@@ -83,11 +83,6 @@
 
 #define ALL_LABEL					"ALL"
 
-#define X0BORDER	200
-#define Y0BORDER 	100
-#define X1BORDER	80
-#define Y1BORDER 	50
-
 #if defined (WIN32)
 	#include <direct.h>
 	#define GetCurrentDir _getcwd
@@ -458,22 +453,21 @@ int FillPlot(PlotFile *plot, char *name, int sizex, int sizey, double x0, double
 	plot->Ry1 = y1;
 
 	// Commented for partial release
-	//dX = X0BORDER*fabs(x0 - x1)/sizex;
-	//dY = Y0BORDER*fabs(y0 - y1)/sizey;
+	dX = X0BORDER*fabs(x0 - x1);
+	dY = Y0BORDER*fabs(y0 - y1);
 
 	// Commented for partial release
 	plot->x0 = x0-dX;
 	plot->y0 = y0-dY;
 
-	//dX = X1BORDER*fabs(x0 - x1)/sizex;
-	//dY = Y1BORDER*fabs(y0 - y1)/sizey;
+	dX = X1BORDER*fabs(x0 - x1);
+	dY = Y1BORDER*fabs(y0 - y1);
 
 	plot->x1 = x1+dX;
 	plot->y1 = y1+dY;
 
 	plot->penWidth = penWidth;
 
-	//logmsg("Plot %g %g -> %g %g\n", plot->x0, plot->y0, plot->x1, plot->y1);
 	return 1;
 }
 
@@ -630,62 +624,61 @@ void DrawLabelsZeroDBCentered(PlotFile *plot, double dBFS, double dbIncrement, d
 	char label[20];
 
 	pl_savestate_r(plot->plotter);
-	pl_fspace_r(plot->plotter, 0, -1*config->plotResY/2, config->plotResX, config->plotResY/2);
+	pl_fspace_r(plot->plotter, 0-X0BORDER*config->plotResX, -1*config->plotResY/2-Y0BORDER*config->plotResY, config->plotResX+X1BORDER*config->plotResX, config->plotResY/2+Y1BORDER*config->plotResY);
 
 	pl_ffontname_r(plot->plotter, "HersheySans");
-	pl_ffontsize_r(plot->plotter, config->plotResY/80);
+	pl_ffontsize_r(plot->plotter, FONT_SIZE);
 
 	pl_pencolor_r(plot->plotter, 0, 0xffff	, 0);
-	pl_fmove_r(plot->plotter, config->plotResX-config->plotResX/80, config->plotResY/100);
-	pl_alabel_r(plot->plotter, 'c', 'c', "0dBFS");
+	pl_fmove_r(plot->plotter, config->plotResX, config->plotResY/100);
+	pl_alabel_r(plot->plotter, 'l', 't', "0dBFS");
 
 	pl_pencolor_r(plot->plotter, 0, 0xaaaa, 0);
 	segments = fabs(dBFS/dbIncrement);
 	for(int i = 1; i < segments; i ++)
 	{
-		pl_fmove_r(plot->plotter, config->plotResX-config->plotResX/50, i*config->plotResY/segments/2+config->plotResY/100);
+		pl_fmove_r(plot->plotter, config->plotResX, i*config->plotResY/segments/2+config->plotResY/100);
 		sprintf(label, " %gdBFS", i*dbIncrement);
-		pl_alabel_r(plot->plotter, 'c', 'c', label);
+		pl_alabel_r(plot->plotter, 'l', 't', label);
 
-		pl_fmove_r(plot->plotter, config->plotResX-config->plotResX/50, -1*i*config->plotResY/segments/2+config->plotResY/100);
+		pl_fmove_r(plot->plotter, config->plotResX, -1*i*config->plotResY/segments/2+config->plotResY/100);
 		sprintf(label, "-%gdBFS", i*dbIncrement);
-		pl_alabel_r(plot->plotter, 'c', 'c', label);
+		pl_alabel_r(plot->plotter, 'l', 't', label);
 	}
 
 	if(config->logScale)
 	{
-		pl_fmove_r(plot->plotter, config->plotResX/hz*transformtoLog(10, config), config->plotResY/2-config->plotResY/100);
+		pl_fmove_r(plot->plotter, config->plotResX/hz*transformtoLog(10, config), config->plotResY/2);
 		sprintf(label, "%dHz", 10);
-		pl_alabel_r(plot->plotter, 'c', 'c', label);
+		pl_alabel_r(plot->plotter, 'c', 'b', label);
 	
-		pl_fmove_r(plot->plotter, config->plotResX/hz*transformtoLog(100, config), config->plotResY/2-config->plotResY/100);
+		pl_fmove_r(plot->plotter, config->plotResX/hz*transformtoLog(100, config), config->plotResY/2);
 		sprintf(label, "%dHz", 100);
-		pl_alabel_r(plot->plotter, 'c', 'c', label);
+		pl_alabel_r(plot->plotter, 'c', 'b', label);
 	}
 
-	pl_fmove_r(plot->plotter, config->plotResX/hz*transformtoLog(1000, config), config->plotResY/2-config->plotResY/100);
+	pl_fmove_r(plot->plotter, config->plotResX/hz*transformtoLog(1000, config), config->plotResY/2);
 	sprintf(label, "  %dHz", 1000);
-	pl_alabel_r(plot->plotter, 'c', 'c', label);
+	pl_alabel_r(plot->plotter, 'c', 'b', label);
 
 	if(config->endHzPlot >= 10000)
 	{
 		for(int i = 10000; i < config->endHzPlot; i+= 10000)
 		{
-			pl_fmove_r(plot->plotter, config->plotResX/hz*transformtoLog(i, config), config->plotResY/2-config->plotResY/100);
+			pl_fmove_r(plot->plotter, config->plotResX/hz*transformtoLog(i, config), config->plotResY/2);
 			sprintf(label, "%d%s", i/1000, i > 40000  ? "k" : "khz");
-			pl_alabel_r(plot->plotter, 'c', 'c', label);
+			pl_alabel_r(plot->plotter, 'c', 'b', label);
 		}
 	}
 
 	pl_restorestate_r(plot->plotter);
-	//pl_fspace_r(plot->plotter, plot->x0, plot->y0, plot->x1, plot->y1);
 }
 
 void DrawLabelsMDF(PlotFile *plot, char *Gname, char *GType, int type, parameters *config)
 {
 	char	label[BUFFER_SIZE];
 
-	pl_ffontsize_r(plot->plotter, config->plotResY/60);
+	pl_ffontsize_r(plot->plotter, FONT_SIZE);
 	pl_ffontname_r(plot->plotter, "HersheySans");
 
 	pl_fspace_r(plot->plotter, 0, -1*config->plotResY/2, config->plotResX, config->plotResY/2);
@@ -853,45 +846,46 @@ void DrawLabelsZeroToLimit(PlotFile *plot, double dBFS, double dbIncrement, doub
 	double segments = 0;
 	char label[20];
 
-	pl_fspace_r(plot->plotter, 0, -1*config->plotResY, config->plotResX, 0);
+	pl_savestate_r(plot->plotter);
+	pl_fspace_r(plot->plotter, 0-X0BORDER*config->plotResX, -1*config->plotResY-Y0BORDER*config->plotResY, config->plotResX+X1BORDER*config->plotResX, 0+Y1BORDER*config->plotResY);
 	pl_pencolor_r(plot->plotter, 0, 0xaaaa, 0);
-	pl_ffontsize_r(plot->plotter, config->plotResY/80);
+	pl_ffontsize_r(plot->plotter, FONT_SIZE);
 
 	pl_ffontname_r(plot->plotter, "HersheySans");
 	segments = fabs(dBFS/dbIncrement);
 	for(int i = 0; i < segments; i ++)
 	{
-		pl_fmove_r(plot->plotter, config->plotResX-config->plotResX/50, -1*i*config->plotResY/segments-config->plotResY/100);
+		pl_fmove_r(plot->plotter, config->plotResX, -1*i*config->plotResY/segments);
 		sprintf(label, "%gdBFS", -1*i*dbIncrement);
-		pl_alabel_r(plot->plotter, 'c', 'c', label);
+		pl_alabel_r(plot->plotter, 'l', 'c', label);
 	}
 
 	if(config->logScale)
 	{
-		pl_fmove_r(plot->plotter, config->plotResX/hz*transformtoLog(10, config), -config->plotResY/100);
+		pl_fmove_r(plot->plotter, config->plotResX/hz*transformtoLog(10, config), 0);
 		sprintf(label, "%dHz", 10);
-		pl_alabel_r(plot->plotter, 'c', 'c', label);
+		pl_alabel_r(plot->plotter, 'c', 'b', label);
 	
-		pl_fmove_r(plot->plotter, config->plotResX/hz*transformtoLog(100, config), -config->plotResY/100);
+		pl_fmove_r(plot->plotter, config->plotResX/hz*transformtoLog(100, config), 0);
 		sprintf(label, "%dHz", 100);
-		pl_alabel_r(plot->plotter, 'c', 'c', label);
+		pl_alabel_r(plot->plotter, 'c', 'b', label);
 	}
 
-	pl_fmove_r(plot->plotter, config->plotResX/hz*transformtoLog(1000, config), -config->plotResY/100);
+	pl_fmove_r(plot->plotter, config->plotResX/hz*transformtoLog(1000, config), 0);
 	sprintf(label, "  %dHz", 1000);
-	pl_alabel_r(plot->plotter, 'c', 'c', label);
+	pl_alabel_r(plot->plotter, 'c', 'b', label);
 
 	if(config->endHzPlot >= 10000)
 	{
 		for(int i = 10000; i < config->endHzPlot; i+= 10000)
 		{
-			pl_fmove_r(plot->plotter, config->plotResX/hz*transformtoLog(i, config), -config->plotResY/100);
+			pl_fmove_r(plot->plotter, config->plotResX/hz*transformtoLog(i, config), 0);
 			sprintf(label, "%d%s", i/1000, i > 40000 ? "" : "khz");
-			pl_alabel_r(plot->plotter, 'c', 'c', label);
+			pl_alabel_r(plot->plotter, 'c', 'b', label);
 		}
 	}
 
-	pl_fspace_r(plot->plotter, plot->x0, plot->y0, plot->x1, plot->y1);
+	pl_restorestate_r(plot->plotter);
 }
 
 void DrawColorScale(PlotFile *plot, int type, int mode, double x, double y, double width, double height, double startDbs, double endDbs, double dbIncrement, parameters *config)
@@ -925,7 +919,7 @@ void DrawColorScale(PlotFile *plot, int type, int mode, double x, double y, doub
 	pl_fbox_r(plot->plotter, x, y, x+width, y+height);
 
 	SetPenColor(colorName, 0xaaaa, plot);
-	pl_ffontsize_r(plot->plotter, config->plotResY/60);
+	pl_ffontsize_r(plot->plotter, FONT_SIZE);
 	pl_ffontname_r(plot->plotter, "HersheySans");
 
 	for(double i = 0; i < segments; i++)
@@ -1048,7 +1042,7 @@ void DrawColorAllTypeScale(PlotFile *plot, int mode, double x, double y, double 
 	pl_fbox_r(plot->plotter, x, y, x+width, y+height);
 
 	SetPenColor(COLOR_GRAY, 0xaaaa, plot);
-	pl_ffontsize_r(plot->plotter, config->plotResY/60);
+	pl_ffontsize_r(plot->plotter, FONT_SIZE);
 	pl_ffontname_r(plot->plotter, "HersheySans");
 
 	for(double i = 0; i < segments; i++)
@@ -1171,7 +1165,7 @@ double DrawMatchBar(PlotFile *plot, int colorName, double x, double y, double wi
 	// percent
 	if(config->showPercent && total)
 	{
-		pl_ffontsize_r(plot->plotter, config->plotResY/60);
+		pl_ffontsize_r(plot->plotter, FONT_SIZE);
 		pl_ffontname_r(plot->plotter, "HersheySans");
 
 		sprintf(percent, "%5.2f%% of %ld", notFound*100.0/total, (long int)total);
@@ -2577,7 +2571,7 @@ int PlotNoiseDifferentAmplitudesAveraged(FlatAmplDifference *amplDiff, long int 
 		{
 			long int chunks = AVERAGE_CHUNKS;
 
-			sprintf(name, "NF_%s_%02d%s_AVG_", filename, 
+			sprintf(name, "NF__%s_%02d%s_AVG_", filename, 
 					config->types.typeArray[i].type, config->types.typeArray[i].typeName);
 
 			averagedArray = CreateFlatDifferencesAveraged(type, &avgsize, chunks, floorPlot, config);
@@ -2930,6 +2924,38 @@ void DrawFrequencyHorizontalGrid(PlotFile *plot, double hz, double hzIncrement, 
 	pl_endpath_r(plot->plotter);
 }
 
+void DrawLabelsTimeSpectrogram(PlotFile *plot, int khz, int khzIncrement, int frames, int frameIncrement, parameters *config)
+{
+	double segments = 0;
+	char label[20];
+
+	pl_savestate_r(plot->plotter);
+	pl_fspace_r(plot->plotter, 0-X0BORDER*config->plotResX, -1*config->plotResY-Y0BORDER*config->plotResY, config->plotResX+X1BORDER*config->plotResX, 0+Y1BORDER*config->plotResY);
+	pl_pencolor_r(plot->plotter, 0, 0xaaaa, 0);
+	pl_ffontsize_r(plot->plotter, FONT_SIZE);
+
+	pl_ffontname_r(plot->plotter, "HersheySans");
+	segments = fabs(khz/khzIncrement);
+	for(int i = 0; i < segments; i ++)
+	{
+		pl_fmove_r(plot->plotter, config->plotResX, -1*i*config->plotResY/segments);
+		sprintf(label, "%dkhz", khz - i*khzIncrement);
+		pl_alabel_r(plot->plotter, 'l', 'c', label);
+	}
+
+	/*
+	for(int i = 0; i < frames; i+= frameIncrement)
+	{
+		pl_fmove_r(plot->plotter, i, 0);
+		sprintf(label, "%d fr", i);
+		pl_alabel_r(plot->plotter, 'c', 'b', label);
+	}
+	*/
+
+	pl_restorestate_r(plot->plotter);
+}
+
+
 void PlotTimeSpectrogram(AudioSignal *Signal, parameters *config)
 {
 	PlotFile	plot;
@@ -2966,6 +2992,7 @@ void PlotTimeSpectrogram(AudioSignal *Signal, parameters *config)
 		return;
 
 	DrawFrequencyHorizontalGrid(&plot, config->endHzPlot, 1000, config);
+	DrawLabelsTimeSpectrogram(&plot, config->endHzPlot/1000, 1, framecount, 100, config);
 
 	framewidth = config->plotResX / framecount;
 	for(block = 0; block < config->types.totalBlocks; block++)
@@ -3045,6 +3072,7 @@ void PlotTimeSpectrogramUnMatchedContent(AudioSignal *Signal, parameters *config
 		return;
 
 	DrawFrequencyHorizontalGrid(&plot, config->endHzPlot, 1000, config);
+	DrawLabelsTimeSpectrogram(&plot, config->endHzPlot/1000, 1, framecount, 100, config);
 
 	framewidth = config->plotResX / framecount;
 	for(block = 0; block < config->types.totalBlocks; block++)
@@ -3289,7 +3317,7 @@ void PlotBlockPhaseGraph(AudioSignal *Signal, int block, char *name, parameters 
 		color = COLOR_RED;
 
 	FillPlot(&plot, name, config->plotResX, config->plotResY, 
-			config->startHzPlot, -200, config->endHzPlot, 200, 1, config);
+			config->startHzPlot, -1*PHASE_ANGLE, config->endHzPlot, PHASE_ANGLE, 1, config);
 
 	if(!CreatePlotFile(&plot, config))
 		return;
@@ -3319,7 +3347,7 @@ void PlotBlockPhaseGraph(AudioSignal *Signal, int block, char *name, parameters 
 	config->logScale = oldLog;
 }
 
-FlatPhase	*CreatePhaseFlatDifferences(parameters *config, long int *size)
+FlatPhase *CreatePhaseFlatDifferences(parameters *config, long int *size)
 {
 	long int 			count = 0;
 	FlatPhase	*PDiff = NULL;
@@ -3543,61 +3571,60 @@ void DrawGridZeroAngleCentered(PlotFile *plot, double maxAngle, double angleIncr
 	pl_pencolor_r (plot->plotter, 0, 0xFFFF, 0);
 }
 
-void DrawLabelsZeroAngleCentered(PlotFile *plot, double dBFS, double angleIncrement, double hz, double hzIncrement,  parameters *config)
+void DrawLabelsZeroAngleCentered(PlotFile *plot, double maxAngle, double angleIncrement, double hz, double hzIncrement,  parameters *config)
 {
 	double segments = 0;
 	char label[20];
 
 	pl_savestate_r(plot->plotter);
-	pl_fspace_r(plot->plotter, 0, -1*config->plotResY/2, config->plotResX, config->plotResY/2);
+	pl_fspace_r(plot->plotter, 0-X0BORDER*config->plotResX, -1*config->plotResY/2-Y0BORDER*config->plotResY, config->plotResX+X1BORDER*config->plotResX, config->plotResY/2+Y1BORDER*config->plotResY);
 
 	pl_ffontname_r(plot->plotter, "HersheySans");
-	pl_ffontsize_r(plot->plotter, config->plotResY/80);
+	pl_ffontsize_r(plot->plotter, FONT_SIZE);
 
 	pl_pencolor_r(plot->plotter, 0, 0xffff	, 0);
-	pl_fmove_r(plot->plotter, config->plotResX-config->plotResX/80, config->plotResY/100);
-	pl_alabel_r(plot->plotter, 'c', 'c', "0");
+	pl_fmove_r(plot->plotter, config->plotResX, config->plotResY/100);
+	pl_alabel_r(plot->plotter, 'l', 't', "0\\de");
 
 	pl_pencolor_r(plot->plotter, 0, 0xaaaa, 0);
-	segments = fabs(dBFS/angleIncrement);
+	segments = fabs(maxAngle/angleIncrement);
 	for(int i = 1; i < segments; i ++)
 	{
-		pl_fmove_r(plot->plotter, config->plotResX-config->plotResX/50, i*config->plotResY/segments/2+config->plotResY/100);
-		sprintf(label, " %g", i*angleIncrement);
-		pl_alabel_r(plot->plotter, 'c', 'c', label);
+		pl_fmove_r(plot->plotter, config->plotResX, i*config->plotResY/segments/2+config->plotResY/100);
+		sprintf(label, " %g\\de", i*angleIncrement);
+		pl_alabel_r(plot->plotter, 'l', 't', label);
 
-		pl_fmove_r(plot->plotter, config->plotResX-config->plotResX/50, -1*i*config->plotResY/segments/2+config->plotResY/100);
-		sprintf(label, "-%g", i*angleIncrement);
-		pl_alabel_r(plot->plotter, 'c', 'c', label);
+		pl_fmove_r(plot->plotter, config->plotResX, -1*i*config->plotResY/segments/2+config->plotResY/100);
+		sprintf(label, "-%g\\de", i*angleIncrement);
+		pl_alabel_r(plot->plotter, 'l', 't', label);
 	}
 
 	if(config->logScale)
 	{
-		pl_fmove_r(plot->plotter, config->plotResX/hz*transformtoLog(10, config), config->plotResY/2-config->plotResY/100);
+		pl_fmove_r(plot->plotter, config->plotResX/hz*transformtoLog(10, config), config->plotResY/2);
 		sprintf(label, "%dHz", 10);
-		pl_alabel_r(plot->plotter, 'c', 'c', label);
+		pl_alabel_r(plot->plotter, 'c', 'b', label);
 	
-		pl_fmove_r(plot->plotter, config->plotResX/hz*transformtoLog(100, config), config->plotResY/2-config->plotResY/100);
+		pl_fmove_r(plot->plotter, config->plotResX/hz*transformtoLog(100, config), config->plotResY/2);
 		sprintf(label, "%dHz", 100);
-		pl_alabel_r(plot->plotter, 'c', 'c', label);
+		pl_alabel_r(plot->plotter, 'c', 'b', label);
 	}
 
-	pl_fmove_r(plot->plotter, config->plotResX/hz*transformtoLog(1000, config), config->plotResY/2-config->plotResY/100);
+	pl_fmove_r(plot->plotter, config->plotResX/hz*transformtoLog(1000, config), config->plotResY/2);
 	sprintf(label, "  %dHz", 1000);
-	pl_alabel_r(plot->plotter, 'c', 'c', label);
+	pl_alabel_r(plot->plotter, 'c', 'b', label);
 
 	if(config->endHzPlot >= 10000)
 	{
 		for(int i = 10000; i < config->endHzPlot; i+= 10000)
 		{
-			pl_fmove_r(plot->plotter, config->plotResX/hz*transformtoLog(i, config), config->plotResY/2-config->plotResY/100);
+			pl_fmove_r(plot->plotter, config->plotResX/hz*transformtoLog(i, config), config->plotResY/2);
 			sprintf(label, "%d%s", i/1000, i > 40000  ? "k" : "khz");
-			pl_alabel_r(plot->plotter, 'c', 'c', label);
+			pl_alabel_r(plot->plotter, 'c', 'b', label);
 		}
 	}
 
 	pl_restorestate_r(plot->plotter);
-	//pl_fspace_r(plot->plotter, plot->x0, plot->y0, plot->x1, plot->y1);
 }
 
 FlatPhase	*CreatePhaseFlatFromSignal(AudioSignal *Signal, long int *size, parameters *config)

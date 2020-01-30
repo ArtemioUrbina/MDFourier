@@ -169,10 +169,7 @@ int main(int argc , char *argv[])
 	}
 
 	if(IsLogEnabled())
-	{
 		endLog();
-		//printf("\nCheck logfile for extended results\n");
-	}
 
 	/* Clear up everything */
 	ReleaseDifferenceArray(&config);
@@ -785,7 +782,7 @@ int LoadFile(FILE *file, AudioSignal *Signal, parameters *config, char *fileName
 		logmsg(" - clk: Loading Audio took %0.2fs\n", elapsedSeconds);
 	}
 
-	if(GetFirstSyncIndex(config) != NO_INDEX)
+	if(GetFirstSyncIndex(config) != NO_INDEX && !config->noSyncProfile)
 	{
 		if(config->clock)
 			clock_gettime(CLOCK_MONOTONIC, &start);
@@ -860,61 +857,75 @@ int LoadFile(FILE *file, AudioSignal *Signal, parameters *config, char *fileName
 			logmsg(" - clk: Detecting sync took %0.2fs\n", elapsedSeconds);
 		}
 	}
-	else
+
+	if(config->noSyncProfile)
 	{
-		/* Find the start offset */
+		switch(config->noSyncProfileType)
+		{
+			case NO_SYNC_AUTO:
+			{
+				/* Find the start offset */
+				
+				logmsg(" - Detecting audio signal: ");
+				Signal->startOffset = DetectSignalStart(Signal->Samples, Signal->header, 0, 0, NULL, config);
+				if(Signal->startOffset == -1)
+				{
+					logmsg("\nERROR: Starting position was not detected.\n");
+					return 0;
+				}
+				logmsg(" %gs [%ld bytes]\n", 
+						BytesToSeconds(Signal->header.fmt.SamplesPerSec, Signal->startOffset, Signal->AudioChannels),
+						Signal->startOffset);
+				Signal->endOffset = SecondsToBytes(Signal->header.fmt.SamplesPerSec, 
+										GetSignalTotalDuration(Signal->framerate, config), 
+										Signal->AudioChannels, 
+										NULL, NULL, NULL);
+			}
+			break;
+			case NO_SYNC_MANUAL:
+			{
+				double diff = 0, expected = 0;
 		
-		logmsg(" - Detecting audio signal: ");
-		Signal->startOffset = DetectSignalStart(Signal->Samples, Signal->header, 0, 0, NULL, config);
-		if(Signal->startOffset == -1)
-		{
-			logmsg("\nERROR: Starting position was not detected.\n");
-			return 0;
-		}
-		logmsg(" %gs [%ld bytes]\n", 
-				BytesToSeconds(Signal->header.fmt.SamplesPerSec, Signal->startOffset, Signal->AudioChannels),
-				Signal->startOffset);
-		Signal->endOffset = SecondsToBytes(Signal->header.fmt.SamplesPerSec, 
-								GetSignalTotalDuration(Signal->framerate, config), 
-								Signal->AudioChannels, 
-								NULL, NULL, NULL);
+				logmsg(" - WARNING: Files must be identically trimmed for this to work at some level\n");
+				Signal->startOffset = 0;
+				Signal->endOffset = Signal->header.data.DataSize;
 		
-	/*
-		double diff = 0, expected = 0;
-
-		// Files must be identically trimmed for this to work at some level
-		Signal->startOffset = 0;
-		Signal->endOffset = Signal->header.data.DataSize;
-
-		expected = Signal->framerate;
-
-		if(Signal->role == ROLE_REF)
-		{
-			double seconds = 0;
-			seconds = BytesToSeconds(Signal->header.fmt.SamplesPerSec, Signal->endOffset, Signal->AudioChannels);
-			config->NoSyncTotalFrames = (seconds*1000)/expected;
-			Signal->framerate = expected;
-			logmsg(" - Loaded %g Hz video signal (%gms per frame) from profile file\n", 
-						CalculateScanRate(Signal), Signal->framerate);
-		}
-		else
-		{
-			Signal->framerate = CalculateFrameRateNS(Signal, config->NoSyncTotalFrames, config);
-			logmsg(" - Detected %g Hz video signal (%gms per frame) from Audio file\n", 
-						CalculateScanRate(Signal), Signal->framerate);
-		}
-
-		diff = fabs(100.0 - Signal->framerate*100.0/expected);
-		if(diff > 1.0)
-		{
-			logmsg("\nERROR: Framerate is %g%% different from the expected %gms.\n",
-					diff, expected);
-			logmsg("\tThis might be due a mismatched profile.\n");
-			logmsg("\tIf you want to ignore this and compare the files, use -I.\n");
-			if(!config->ignoreFrameRateDiff)
+				expected = Signal->framerate;
+		
+				if(Signal->role == ROLE_REF)
+				{
+					double seconds = 0;
+					seconds = BytesToSeconds(Signal->header.fmt.SamplesPerSec, Signal->endOffset, Signal->AudioChannels);
+					config->NoSyncTotalFrames = (seconds*1000)/expected;
+					Signal->framerate = expected;
+					logmsg(" - Loaded %g Hz video signal (%gms per frame) from profile file\n", 
+								CalculateScanRate(Signal), Signal->framerate);
+				}
+				else
+				{
+					Signal->framerate = CalculateFrameRateNS(Signal, config->NoSyncTotalFrames, config);
+					logmsg(" - Detected %g Hz video signal (%gms per frame) from Audio file\n", 
+								CalculateScanRate(Signal), Signal->framerate);
+				}
+		
+				diff = fabs(100.0 - Signal->framerate*100.0/expected);
+				if(diff > 1.0)
+				{
+					logmsg("\nERROR: Framerate is %g%% different from the expected %gms.\n",
+							diff, expected);
+					logmsg("\tThis might be due a mismatched profile.\n");
+					logmsg("\tIf you want to ignore this and compare the files, use -I.\n");
+					if(!config->ignoreFrameRateDiff)
+						return 0;
+				}
+			}
+			break;
+			default:
+			{
+				logmsg("\nERROR: Invalid profile\n");
 				return 0;
+			}
 		}
-		*/
 	}
 
 	if(seconds < GetSignalTotalDuration(Signal->framerate, config))

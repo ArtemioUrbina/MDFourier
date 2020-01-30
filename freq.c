@@ -436,9 +436,9 @@ int LoadProfile(parameters *config)
 	if(strcmp(buffer, "MDFourierNoSyncProfile") == 0)
 	{
 		sscanf(lineBuffer, "%*s %s\n", buffer);
-		if(atof(buffer) != 1.1)
+		if(atof(buffer) != 1.2)
 		{
-			logmsg("ERROR: This executable can parse \"MDFourierNoSyncProfile 1.1\" files only\n");
+			logmsg("ERROR: This executable can parse \"MDFourierNoSyncProfile 1.2\" files only\n");
 			fclose(file);
 			return 0;
 		}
@@ -733,6 +733,7 @@ int LoadAudioBlockStructure(FILE *file, parameters *config)
 
 int LoadAudioNoSyncProfile(FILE *file, parameters *config)
 {
+	char	type = '\0';
 	char	lineBuffer[LINE_BUFFER_SIZE];
 	char	buffer[PARAM_BUFFER_SIZE];
 
@@ -744,7 +745,7 @@ int LoadAudioNoSyncProfile(FILE *file, parameters *config)
 	}
 
 	readLine(lineBuffer, file);
-	if(sscanf(lineBuffer, "%s\n", config->types.Name) != 1)
+	if(sscanf(lineBuffer, "%255[^\n]\n", config->types.Name) != 1)
 	{
 		logmsg("Invalid Name '%s'\n", lineBuffer);
 		fclose(file);
@@ -781,6 +782,27 @@ int LoadAudioNoSyncProfile(FILE *file, parameters *config)
 		return 0;
 	}
 
+	/* Read type of Sync */
+
+	readLine(lineBuffer, file);
+	sscanf(lineBuffer, "%c\n", &type);
+
+	switch(type)
+	{
+		case NO_SYNC_AUTO_C:
+			config->noSyncProfileType = NO_SYNC_AUTO;
+			break;
+		case NO_SYNC_MANUAL_C:
+			config->noSyncProfileType = NO_SYNC_MANUAL;
+			break;
+		default:
+			logmsg("Invalid Free profile type '%c'. Use '%c' or '%c'\n", 
+				type, NO_SYNC_AUTO_C, NO_SYNC_MANUAL_C);
+			fclose(file);
+			return 0;
+			break;
+	}
+	/*  Read blocks */
 	readLine(lineBuffer, file);
 	sscanf(lineBuffer, "%s\n", buffer);
 	config->types.typeCount = atoi(buffer);
@@ -2554,7 +2576,6 @@ double CalculateFrameRate(AudioSignal *Signal, parameters *config)
 	return framerate;
 }
 
-/*
 double CalculateFrameRateNS(AudioSignal *Signal, double Frames, parameters *config)
 {
 	double framerate = 0, endOffset = 0, startOffset = 0, samplerate = 0;
@@ -2585,7 +2606,6 @@ double CalculateFrameRateNS(AudioSignal *Signal, double Frames, parameters *conf
 
 	return framerate;
 }
-*/
 
 double CalculateScanRate(AudioSignal *Signal)
 {

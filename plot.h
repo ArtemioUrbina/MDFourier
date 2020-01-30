@@ -72,6 +72,11 @@ typedef struct averaged_freq{
 #define	MODE_MISS		2
 #define	MODE_SPEC		3
 
+#define X0BORDER	0.125	// 200 pixels in 1600 mode
+#define Y0BORDER 	0.0625	// 100 pixels in 800 mode
+#define X1BORDER	0.05	// 80 pixels in 1600 mode
+#define Y1BORDER 	0.0625	// 50 pixels in 800 mode
+
 /* 1 */
 #define PLOT_RES_X_LOW 800.0
 #define PLOT_RES_Y_LOW 400.0
@@ -91,10 +96,12 @@ typedef struct averaged_freq{
 #define PLOT_RES_X_FP 8000.0
 #define PLOT_RES_Y_FP 4000.0
 
-#define PHASE_ANGLE		220
+#define PHASE_ANGLE		200
 #define	PHASE_DIFF		0
 #define	PHASE_REF		1
 #define	PHASE_COMP		2
+
+#define FONT_SIZE		config->plotResY/60
 
 typedef enum differencePlotType
 {
@@ -193,19 +200,21 @@ void DrawFrequencyHorizontalGrid(PlotFile *plot, double hz, double hzIncrement, 
 void PlotTimeSpectrogram(AudioSignal *Signal, parameters *config);
 void PlotTimeSpectrogramUnMatchedContent(AudioSignal *Signal, parameters *config);
 
+void DrawLabelsTimeSpectrogram(PlotFile *plot, int khz, int khzIncrement, int frames, int frameIncrement, parameters *config);
 void PlotTimeDomainGraphs(AudioSignal *Signal, parameters *config);
 void PlotBlockTimeDomainGraph(AudioSignal *Signal, int block, char *name, int window, parameters *config);
 void PlotBlockPhaseGraph(AudioSignal *Signal, int block, char *name, parameters *config);
 
-FlatPhase	*CreatePhaseFlatDifferences(parameters *config, long int *size);
+FlatPhase *CreatePhaseFlatDifferences(parameters *config, long int *size);
 void PlotSingleTypePhase(FlatPhase *phaseDiff, long int size, int type, char *filename, int pType, parameters *config);
 int PlotEachTypePhase(FlatPhase *phaseDiff, long int size, char *filename, int pType, parameters *config);
 void PlotAllPhase(FlatPhase *phaseDiff, long int size, char *filename, int pType, parameters *config);
 void PlotPhaseDifferences(parameters *config);
 
-FlatPhase	*CreatePhaseFlatFromSignal(AudioSignal *Signal, long int *size, parameters *config);
+FlatPhase *CreatePhaseFlatFromSignal(AudioSignal *Signal, long int *size, parameters *config);
 void PlotPhaseFromSignal(AudioSignal *Signal, parameters *config);
 
 void DrawGridZeroAngleCentered(PlotFile *plot, double maxAngle, double angleIncrement, double hz, double hzIncrement, parameters *config);
-void DrawLabelsZeroAngleCentered(PlotFile *plot, double dBFS, double angleIncrement, double hz, double hzIncrement,  parameters *config);
+void DrawLabelsZeroAngleCentered(PlotFile *plot, double maxAngle, double angleIncrement, double hz, double hzIncrement,  parameters *config);
+
 #endif

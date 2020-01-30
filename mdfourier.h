@@ -49,7 +49,7 @@
 
 #include "incbeta.h"
 
-#define MDVERSION "0.983"
+#define MDVERSION "0.984"
 
 #if INTPTR_MAX == INT64_MAX
 #define	BITS_MDF "64-bit"
@@ -103,6 +103,8 @@
 #define END_HZ		20000.0
 #define MAX_HZ		192000.0
 
+#define START_HZ_PLOT	0
+
 #define DB_HEIGHT	18.0
 #define DB_DIFF		DB_HEIGHT/2.0
 
@@ -127,6 +129,12 @@
 #define	CHANNEL_MONO	'm'
 #define	CHANNEL_STEREO	's'
 #define	CHANNEL_NOISE	'n'
+
+#define NO_SYNC_AUTO_C		'A'
+#define NO_SYNC_MANUAL_C	'M'
+
+#define NO_SYNC_AUTO		0
+#define NO_SYNC_MANUAL		1
 
 #define	INVALID_CHANNELS	-1
 
@@ -431,6 +439,7 @@ typedef struct parameters_st {
 	int				channelBalance;
 	int				showPercent;
 	int				noSyncProfile;
+	int				noSyncProfileType;
 	double			NoSyncTotalFrames;
 	int				ignoreFrameRateDiff;
 	int				labelNames;
