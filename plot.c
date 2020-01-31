@@ -97,7 +97,7 @@
 #define	VERT_SCALE_STEP			3
 #define	VERT_SCALE_STEP_BAR		3
 
-#define	COLOR_BARS_WIDTH_SCALE	120
+#define	COLOR_BARS_WIDTH_SCALE	220
 
 #define	SPECTROGRAM_FOLDER	"Spectrograms"
 #define	WAVEFORM_FOLDER		"Waveforms"
@@ -434,9 +434,26 @@ void PlotNoiseFloor(AudioSignal *Signal, parameters *config)
 	amplDiff = NULL;
 }
 
-int FillPlot(PlotFile *plot, char *name, int sizex, int sizey, double x0, double y0, double x1, double y1, double penWidth, parameters *config)
+
+int FillPlotExtra(PlotFile *plot, char *name, int sizex, int sizey, double x0, double y0, double x1, double y1, double penWidth, double leftMarginSize, parameters *config)
+{
+	int rt = 0;
+
+	if(!plot)
+		return 0;
+
+	rt = FillPlot(plot, name, x0, y0, x1, y1, penWidth, leftMarginSize, config);
+	plot->sizex = sizex;
+	plot->sizey = sizey;
+	return(rt);
+}
+
+int FillPlot(PlotFile *plot, char *name, double x0, double y0, double x1, double y1, double penWidth, double leftMarginSize, parameters *config)
 {
 	double dX = 0, dY = 0;
+
+	if(!plot)
+		return 0;
 
 	plot->plotter = NULL;
 	plot->plotter_params = NULL;
@@ -444,8 +461,8 @@ int FillPlot(PlotFile *plot, char *name, int sizex, int sizey, double x0, double
 
 	ComposeFileNameoPath(plot->FileName, name, ".png", config);
 
-	plot->sizex = sizex;
-	plot->sizey = sizey;
+	plot->sizex = config->plotResX;
+	plot->sizey = config->plotResY;
 
 	plot->Rx0 = x0;
 	plot->Rx1 = x1;
@@ -453,7 +470,7 @@ int FillPlot(PlotFile *plot, char *name, int sizex, int sizey, double x0, double
 	plot->Ry1 = y1;
 
 	// Commented for partial release
-	dX = X0BORDER*fabs(x0 - x1);
+	dX = X0BORDER*fabs(x0 - x1)*leftMarginSize;
 	dY = Y0BORDER*fabs(y0 - y1);
 
 	// Commented for partial release
@@ -626,22 +643,25 @@ void DrawLabelsZeroDBCentered(PlotFile *plot, double dBFS, double dbIncrement, d
 	pl_savestate_r(plot->plotter);
 	pl_fspace_r(plot->plotter, 0-X0BORDER*config->plotResX, -1*config->plotResY/2-Y0BORDER*config->plotResY, config->plotResX+X1BORDER*config->plotResX, config->plotResY/2+Y1BORDER*config->plotResY);
 
-	pl_ffontname_r(plot->plotter, "HersheySans");
-	pl_ffontsize_r(plot->plotter, FONT_SIZE);
+	pl_ffontname_r(plot->plotter, PLOT_FONT);
+	pl_ffontsize_r(plot->plotter, FONT_SIZE_1);
 
 	pl_pencolor_r(plot->plotter, 0, 0xffff	, 0);
-	pl_fmove_r(plot->plotter, config->plotResX, config->plotResY/100);
+	pl_fmove_r(plot->plotter, config->plotResX+PLOT_SPACER, config->plotResY/100);
 	pl_alabel_r(plot->plotter, 'l', 't', "0dBFS");
+
+	if(dBFS < PCM_16BIT_MIN_AMPLITUDE)
+		dbIncrement *= 2;
 
 	pl_pencolor_r(plot->plotter, 0, 0xaaaa, 0);
 	segments = fabs(dBFS/dbIncrement);
-	for(int i = 1; i < segments; i ++)
+	for(int i = 1; i <= segments; i ++)
 	{
-		pl_fmove_r(plot->plotter, config->plotResX, i*config->plotResY/segments/2+config->plotResY/100);
+		pl_fmove_r(plot->plotter, config->plotResX+PLOT_SPACER, i*config->plotResY/segments/2+config->plotResY/100);
 		sprintf(label, " %gdBFS", i*dbIncrement);
 		pl_alabel_r(plot->plotter, 'l', 't', label);
 
-		pl_fmove_r(plot->plotter, config->plotResX, -1*i*config->plotResY/segments/2+config->plotResY/100);
+		pl_fmove_r(plot->plotter, config->plotResX+PLOT_SPACER, -1*i*config->plotResY/segments/2+config->plotResY/100);
 		sprintf(label, "-%gdBFS", i*dbIncrement);
 		pl_alabel_r(plot->plotter, 'l', 't', label);
 	}
@@ -666,7 +686,7 @@ void DrawLabelsZeroDBCentered(PlotFile *plot, double dBFS, double dbIncrement, d
 		for(int i = 10000; i < config->endHzPlot; i+= 10000)
 		{
 			pl_fmove_r(plot->plotter, config->plotResX/hz*transformtoLog(i, config), config->plotResY/2);
-			sprintf(label, "%d%s", i/1000, i > 40000  ? "k" : "khz");
+			sprintf(label, "%d%s", i/1000, i >= 40000  ? "" : "khz");
 			pl_alabel_r(plot->plotter, 'c', 'b', label);
 		}
 	}
@@ -678,8 +698,8 @@ void DrawLabelsMDF(PlotFile *plot, char *Gname, char *GType, int type, parameter
 {
 	char	label[BUFFER_SIZE];
 
-	pl_ffontsize_r(plot->plotter, FONT_SIZE);
-	pl_ffontname_r(plot->plotter, "HersheySans");
+	pl_ffontsize_r(plot->plotter, FONT_SIZE_2);
+	pl_ffontname_r(plot->plotter, PLOT_FONT);
 
 	pl_fspace_r(plot->plotter, 0, -1*config->plotResY/2, config->plotResX, config->plotResY/2);
 
@@ -849,13 +869,16 @@ void DrawLabelsZeroToLimit(PlotFile *plot, double dBFS, double dbIncrement, doub
 	pl_savestate_r(plot->plotter);
 	pl_fspace_r(plot->plotter, 0-X0BORDER*config->plotResX, -1*config->plotResY-Y0BORDER*config->plotResY, config->plotResX+X1BORDER*config->plotResX, 0+Y1BORDER*config->plotResY);
 	pl_pencolor_r(plot->plotter, 0, 0xaaaa, 0);
-	pl_ffontsize_r(plot->plotter, FONT_SIZE);
+	pl_ffontsize_r(plot->plotter, FONT_SIZE_1);
 
-	pl_ffontname_r(plot->plotter, "HersheySans");
-	segments = fabs(dBFS/dbIncrement);
-	for(int i = 0; i < segments; i ++)
+	if(dBFS < PCM_16BIT_MIN_AMPLITUDE)
+		dbIncrement *= 2;
+
+	pl_ffontname_r(plot->plotter, PLOT_FONT);
+	segments = ceil(fabs(dBFS/dbIncrement));
+	for(int i = 0; i <= segments; i ++)
 	{
-		pl_fmove_r(plot->plotter, config->plotResX, -1*i*config->plotResY/segments);
+		pl_fmove_r(plot->plotter, config->plotResX+PLOT_SPACER, -1*i*config->plotResY/segments);
 		sprintf(label, "%gdBFS", -1*i*dbIncrement);
 		pl_alabel_r(plot->plotter, 'l', 'c', label);
 	}
@@ -894,7 +917,7 @@ void DrawColorScale(PlotFile *plot, int type, int mode, double x, double y, doub
 	char 		*label = NULL;
 	int 		colorName = 0;
 	long int	cnt = 0, cmp = 0;
-	double		labelwidth = 0;
+	double		labelwidth = 0, maxlabel = 0;
 
 	label = GetTypeDisplayName(config, type);
 	colorName = MatchColor(GetTypeColor(config, type));
@@ -919,20 +942,33 @@ void DrawColorScale(PlotFile *plot, int type, int mode, double x, double y, doub
 	pl_fbox_r(plot->plotter, x, y, x+width, y+height);
 
 	SetPenColor(colorName, 0xaaaa, plot);
-	pl_ffontsize_r(plot->plotter, FONT_SIZE);
-	pl_ffontname_r(plot->plotter, "HersheySans");
+	pl_ffontsize_r(plot->plotter, FONT_SIZE_2);
+	pl_ffontname_r(plot->plotter, PLOT_FONT);
+
+	/* dBFS label */
+
+	pl_fmove_r(plot->plotter, x+width/2, y-FONT_SIZE_2);
+	pl_alabel_r(plot->plotter, 'c', 'c', "dBFS");
 
 	for(double i = 0; i < segments; i++)
 	{
 		char labeldbs[20];
 
-		pl_fmove_r(plot->plotter, x+width+config->plotResX/60, y+height-i*height/segments-height/segments/2);
-		sprintf(labeldbs, " %c%gdBFS", fabs(startDbs) + i*dbIncrement != 0 ? '-' : ' ', fabs(startDbs) + i*dbIncrement);
-		pl_alabel_r(plot->plotter, 'c', 'c', labeldbs);
+		pl_fmove_r(plot->plotter, x+width+PLOT_SPACER, y+height-i*height/segments-height/segments/2);
+		sprintf(labeldbs, "%c%g", fabs(startDbs) + i*dbIncrement != 0 ? '-' : ' ', fabs(startDbs) + i*dbIncrement);
+		pl_alabel_r(plot->plotter, 'l', 'c', labeldbs);
+
+		labelwidth = pl_flabelwidth_r(plot->plotter, label);
+		if(maxlabel < labelwidth)
+			maxlabel = labelwidth;	
 	}
 
+	x = x+width+maxlabel+FONT_SIZE_1/2;
+	labelwidth = 0;
+	maxlabel = 0;
+
 	SetPenColor(colorName, 0xaaaa, plot);
-	pl_fmove_r(plot->plotter, x+4*width+config->plotResX/60, y);
+	pl_fmove_r(plot->plotter, x, y);
 	pl_alabel_r(plot->plotter, 'l', 'l', label);
 	labelwidth = pl_flabelwidth_r(plot->plotter, label);
 
@@ -945,7 +981,7 @@ void DrawColorScale(PlotFile *plot, int type, int mode, double x, double y, doub
 			FindDifferenceTypeTotals(type, &cnt, &cmp, config);
 
 			SetPenColor(COLOR_GRAY, 0xaaaa, plot);
-			pl_fmove_r(plot->plotter, x+4*width+config->plotResX/60, y+1.5*BAR_HEIGHT);
+			pl_fmove_r(plot->plotter, x, y+1.5*BAR_HEIGHT);
 			pl_alabel_r(plot->plotter, 'l', 'l', BAR_DIFF);
 		}
 		if(mode == MODE_MISS)
@@ -953,7 +989,7 @@ void DrawColorScale(PlotFile *plot, int type, int mode, double x, double y, doub
 			FindMissingTypeTotals(type, &cnt, &cmp, config);
 		}
 		bar_text_width = DrawMatchBar(plot, colorName,
-			x+4*width+config->plotResX/60+labelwidth+BAR_WIDTH*0.2, y,
+			x+labelwidth+BAR_WIDTH*0.2, y,
 			BAR_WIDTH, BAR_HEIGHT, 
 			(double)cnt, (double)cmp, config);
 		if(mode == MODE_DIFF)
@@ -961,7 +997,7 @@ void DrawColorScale(PlotFile *plot, int type, int mode, double x, double y, doub
 			int 	x_offset = 0;
 			char	header[100];
 
-			x_offset = x+4*width+config->plotResX/60+labelwidth+BAR_WIDTH + bar_text_width;
+			x_offset = x+labelwidth+BAR_WIDTH + bar_text_width;
 
 			FindDifferenceWithinInterval(type, &cnt, &cmp, config->AmpBarRange, config);
 
@@ -1042,17 +1078,30 @@ void DrawColorAllTypeScale(PlotFile *plot, int mode, double x, double y, double 
 	pl_fbox_r(plot->plotter, x, y, x+width, y+height);
 
 	SetPenColor(COLOR_GRAY, 0xaaaa, plot);
-	pl_ffontsize_r(plot->plotter, FONT_SIZE);
-	pl_ffontname_r(plot->plotter, "HersheySans");
+	pl_ffontsize_r(plot->plotter, FONT_SIZE_2);
+	pl_ffontname_r(plot->plotter, PLOT_FONT);
+
+	/* dBFS label */
+
+	pl_fmove_r(plot->plotter, x+width/2, y-FONT_SIZE_2);
+	pl_alabel_r(plot->plotter, 'c', 'c', "dBFS");
 
 	for(double i = 0; i < segments; i++)
 	{
 		char label[20];
+		double	labelwidth = 0;
 
-		pl_fmove_r(plot->plotter, x+width+config->plotResX/60, y+height-i*height/segments-height/segments/2);
-		sprintf(label, " %c%gdBFS", i*dbIncrement > 0 ? '-' : ' ', i*dbIncrement);
-		pl_alabel_r(plot->plotter, 'c', 'c', label);
+		pl_fmove_r(plot->plotter, x+width+PLOT_SPACER, y+height-i*height/segments-height/segments/2);
+		sprintf(label, "%c%g", i*dbIncrement > 0 ? '-' : ' ', i*dbIncrement);
+		pl_alabel_r(plot->plotter, 'l', 'c', label);
+
+		labelwidth = pl_flabelwidth_r(plot->plotter, label);
+		if(maxlabel < labelwidth)
+			maxlabel = labelwidth;	
 	}
+
+	x = x+width+maxlabel+FONT_SIZE_1/2;
+	maxlabel = 0;
 
 	for(int t = 0; t < numTypes; t++)
 	{
@@ -1061,7 +1110,7 @@ void DrawColorAllTypeScale(PlotFile *plot, int mode, double x, double y, double 
 
 		label = GetTypeDisplayName(config, typeID[t]);
 		SetPenColor(colorName[t], 0xaaaa, plot);
-		pl_fmove_r(plot->plotter, x+2*width+config->plotResX/60, y+(numTypes-1)*config->plotResY/50-t*config->plotResY/50);
+		pl_fmove_r(plot->plotter, x, y+(numTypes-1)*config->plotResY/50-t*config->plotResY/50);
 		pl_alabel_r(plot->plotter, 'l', 'l', label);
 
 		labelwidth = pl_flabelwidth_r(plot->plotter, label);
@@ -1075,7 +1124,7 @@ void DrawColorAllTypeScale(PlotFile *plot, int mode, double x, double y, double 
 		if(mode == MODE_DIFF)
 		{
 			SetPenColor(COLOR_GRAY, 0xaaaa, plot);
-			pl_fmove_r(plot->plotter, x+2*width+config->plotResX/60, y+(numTypes-1)*config->plotResY/50+1.5*BAR_HEIGHT);
+			pl_fmove_r(plot->plotter, x, y+(numTypes-1)*config->plotResY/50+1.5*BAR_HEIGHT);
 			pl_alabel_r(plot->plotter, 'l', 'l', BAR_DIFF);
 		}
 
@@ -1089,7 +1138,7 @@ void DrawColorAllTypeScale(PlotFile *plot, int mode, double x, double y, double 
 			if(mode == MODE_MISS)
 				FindMissingTypeTotals(typeID[t], &cnt, &cmp, config);
 			barwidth = DrawMatchBar(plot, colorName[t],
-					x+2*width+config->plotResX/60+maxlabel+BAR_WIDTH*0.2, y+(numTypes-1)*config->plotResY/50-t*config->plotResY/50,
+					x+maxlabel+BAR_WIDTH*0.2, y+(numTypes-1)*config->plotResY/50-t*config->plotResY/50,
 					BAR_WIDTH, BAR_HEIGHT, 
 					(double)cnt, (double)cmp, config);
 			if(barwidth > maxbarwidth)
@@ -1104,7 +1153,7 @@ void DrawColorAllTypeScale(PlotFile *plot, int mode, double x, double y, double 
 		int 		x_offset = 0;
 		char		header[100];
 
-		x_offset = x+2*width+config->plotResX/60+BAR_WIDTH+maxbarwidth + maxlabel;
+		x_offset = x+BAR_WIDTH+maxbarwidth + maxlabel;
 
 		if(config->AmpBarRange > BAR_DIFF_DB_TOLERANCE)
 			SetPenColor(COLOR_YELLOW, 0xaaaa, plot);
@@ -1165,8 +1214,8 @@ double DrawMatchBar(PlotFile *plot, int colorName, double x, double y, double wi
 	// percent
 	if(config->showPercent && total)
 	{
-		pl_ffontsize_r(plot->plotter, FONT_SIZE);
-		pl_ffontname_r(plot->plotter, "HersheySans");
+		pl_ffontsize_r(plot->plotter, FONT_SIZE_2);
+		pl_ffontname_r(plot->plotter, PLOT_FONT);
 
 		sprintf(percent, "%5.2f%% of %ld", notFound*100.0/total, (long int)total);
 
@@ -1260,7 +1309,7 @@ void PlotAllDifferentAmplitudes(FlatAmplDifference *amplDiff, long int size, cha
 		return;
 
 	sprintf(name, "DA__ALL_%s", filename);
-	FillPlot(&plot, name, config->plotResX, config->plotResY, config->startHzPlot, -1*dBFS, config->endHzPlot, dBFS, 1, config);
+	FillPlot(&plot, name, config->startHzPlot, -1*dBFS, config->endHzPlot, dBFS, 1, 1, config);
 
 	if(!CreatePlotFile(&plot, config))
 		return;
@@ -1270,7 +1319,7 @@ void PlotAllDifferentAmplitudes(FlatAmplDifference *amplDiff, long int size, cha
 
 	for(int a = 0; a < size; a++)
 	{
-		if(amplDiff[a].type > TYPE_CONTROL)
+		if(amplDiff[a].type > TYPE_CONTROL && fabs(amplDiff[a].diffAmplitude) <= fabs(dBFS))
 		{ 
 			long int intensity;
 
@@ -1285,7 +1334,7 @@ void PlotAllDifferentAmplitudes(FlatAmplDifference *amplDiff, long int size, cha
 		}
 	}
 
-	DrawColorAllTypeScale(&plot, MODE_DIFF, config->plotResX/100, config->plotResY/15, config->plotResX/COLOR_BARS_WIDTH_SCALE, config->plotResY/1.15, config->significantAmplitude, VERT_SCALE_STEP_BAR, config);
+	DrawColorAllTypeScale(&plot, MODE_DIFF, LEFT_MARGIN, HEIGHT_MARGIN, config->plotResX/COLOR_BARS_WIDTH_SCALE, config->plotResY/1.15, config->significantAmplitude, VERT_SCALE_STEP_BAR, config);
 	DrawLabelsMDF(&plot, DIFFERENCE_TITLE, ALL_LABEL, PLOT_COMPARE, config);
 
 	ClosePlot(&plot);
@@ -1326,7 +1375,7 @@ void PlotSingleTypeDifferentAmplitudes(FlatAmplDifference *amplDiff, long int si
 	if(!config->Differences.BlockDiffArray)
 		return;
 
-	FillPlot(&plot, filename, config->plotResX, config->plotResY, config->startHzPlot, -1*dBFS, config->endHzPlot, dBFS, 1, config);
+	FillPlot(&plot, filename, config->startHzPlot, -1*dBFS, config->endHzPlot, dBFS, 1, 1, config);
 
 	if(!CreatePlotFile(&plot, config))
 		return;
@@ -1336,7 +1385,7 @@ void PlotSingleTypeDifferentAmplitudes(FlatAmplDifference *amplDiff, long int si
 
 	for(int a = 0; a < size; a++)
 	{
-		if(amplDiff[a].hertz && amplDiff[a].type == type)
+		if(amplDiff[a].hertz && amplDiff[a].type == type && fabs(amplDiff[a].diffAmplitude) <= fabs(dBFS))
 		{ 
 			long int intensity;
 
@@ -1348,7 +1397,7 @@ void PlotSingleTypeDifferentAmplitudes(FlatAmplDifference *amplDiff, long int si
 	}
 
 	DrawColorScale(&plot, type, MODE_DIFF,
-		config->plotResX/100, config->plotResY/15, 
+		LEFT_MARGIN, HEIGHT_MARGIN, 
 		config->plotResX/COLOR_BARS_WIDTH_SCALE, config->plotResY/1.15,
 		0, config->significantAmplitude, VERT_SCALE_STEP_BAR, config);
 	DrawLabelsMDF(&plot, DIFFERENCE_TITLE, GetTypeDisplayName(config, type), PLOT_COMPARE, config);
@@ -1407,7 +1456,7 @@ void PlotSilenceBlockDifferentAmplitudes(FlatAmplDifference *amplDiff, long int 
 	if(endAmplitude < NS_LOWEST_AMPLITUDE)
 		endAmplitude = NS_LOWEST_AMPLITUDE;
 
-	FillPlot(&plot, filename, config->plotResX, config->plotResY, config->startHzPlot, -1*dBFS, config->endHzPlot, dBFS, 1, config);
+	FillPlot(&plot, filename, config->startHzPlot, -1*dBFS, config->endHzPlot, dBFS, 1, 1, config);
 
 	if(!CreatePlotFile(&plot, config))
 		return;
@@ -1419,7 +1468,7 @@ void PlotSilenceBlockDifferentAmplitudes(FlatAmplDifference *amplDiff, long int 
 
 	for(int a = 0; a < size; a++)
 	{
-		if(amplDiff[a].hertz && amplDiff[a].type == type)
+		if(amplDiff[a].hertz && amplDiff[a].type == type && fabs(amplDiff[a].diffAmplitude) <= fabs(dBFS))
 		{
 			if(amplDiff[a].refAmplitude > endAmplitude)
 			{
@@ -1435,7 +1484,7 @@ void PlotSilenceBlockDifferentAmplitudes(FlatAmplDifference *amplDiff, long int 
 	}
 
 	DrawColorScale(&plot, type, MODE_DIFF,
-		config->plotResX/100, config->plotResY/15, 
+		LEFT_MARGIN, HEIGHT_MARGIN, 
 		config->plotResX/COLOR_BARS_WIDTH_SCALE, config->plotResY/1.15,
 		(int)startAmplitude, (int)(endAmplitude-startAmplitude), VERT_SCALE_STEP_BAR, config);
 
@@ -1459,7 +1508,7 @@ void PlotAllMissingFrequencies(FlatFrequency *freqDiff, long int size, char *fil
 	abs_significant = fabs(significant);
 
 	sprintf(name, "MIS__ALL_%s", filename);
-	FillPlot(&plot, name, config->plotResX, config->plotResY, config->startHzPlot, significant, config->endHzPlot, 0.0, 1, config);
+	FillPlot(&plot, name, config->startHzPlot, significant, config->endHzPlot, 0.0, 1, 1, config);
 
 	if(!CreatePlotFile(&plot, config))
 		return;
@@ -1488,7 +1537,7 @@ void PlotAllMissingFrequencies(FlatFrequency *freqDiff, long int size, char *fil
 		}
 	}
 	
-	DrawColorAllTypeScale(&plot, MODE_MISS, config->plotResX/100, config->plotResY/15, config->plotResX/COLOR_BARS_WIDTH_SCALE, config->plotResY/1.15, significant, VERT_SCALE_STEP_BAR, config);
+	DrawColorAllTypeScale(&plot, MODE_MISS, LEFT_MARGIN, HEIGHT_MARGIN, config->plotResX/COLOR_BARS_WIDTH_SCALE, config->plotResY/1.15, significant, VERT_SCALE_STEP_BAR, config);
 	DrawLabelsMDF(&plot, MISSING_TITLE, ALL_LABEL, PLOT_COMPARE, config);
 	ClosePlot(&plot);
 }
@@ -1527,7 +1576,7 @@ void PlotSingleTypeMissingFrequencies(FlatFrequency *freqDiff, long int size, in
 	significant = config->significantAmplitude;
 	abs_significant = fabs(significant);
 
-	FillPlot(&plot, filename, config->plotResX, config->plotResY, config->startHzPlot, significant, config->endHzPlot, 0.0, 1, config);
+	FillPlot(&plot, filename, config->startHzPlot, significant, config->endHzPlot, 0.0, 1, 1, config);
 
 	if(!CreatePlotFile(&plot, config))
 		return;
@@ -1552,7 +1601,7 @@ void PlotSingleTypeMissingFrequencies(FlatFrequency *freqDiff, long int size, in
 		}
 	}
 	
-	DrawColorScale(&plot, type, MODE_MISS, config->plotResX/100, config->plotResY/15, config->plotResX/COLOR_BARS_WIDTH_SCALE, config->plotResY/1.15, 0, significant, VERT_SCALE_STEP_BAR, config);
+	DrawColorScale(&plot, type, MODE_MISS, LEFT_MARGIN, HEIGHT_MARGIN, config->plotResX/COLOR_BARS_WIDTH_SCALE, config->plotResY/1.15, 0, significant, VERT_SCALE_STEP_BAR, config);
 	DrawLabelsMDF(&plot, MISSING_TITLE, GetTypeDisplayName(config, type), PLOT_COMPARE, config);
 	ClosePlot(&plot);
 }
@@ -1570,7 +1619,7 @@ void PlotAllSpectrogram(FlatFrequency *freqs, long int size, char *filename, int
 	abs_significant = fabs(significant);
 
 	sprintf(name, "SP__ALL_%c_%s", signal == ROLE_REF ? 'A' : 'B', filename);
-	FillPlot(&plot, name, config->plotResX, config->plotResY, config->startHzPlot, significant, config->endHzPlot, 0.0, 1, config);
+	FillPlot(&plot, name, config->startHzPlot, significant, config->endHzPlot, 0.0, 1, 1, config);
 
 	if(!CreatePlotFile(&plot, config))
 		return;
@@ -1598,7 +1647,7 @@ void PlotAllSpectrogram(FlatFrequency *freqs, long int size, char *filename, int
 		}
 	}
 
-	DrawColorAllTypeScale(&plot, MODE_SPEC, config->plotResX/100, config->plotResY/15, config->plotResX/COLOR_BARS_WIDTH_SCALE, config->plotResY/1.15, significant, VERT_SCALE_STEP_BAR, config);
+	DrawColorAllTypeScale(&plot, MODE_SPEC, LEFT_MARGIN, HEIGHT_MARGIN, config->plotResX/COLOR_BARS_WIDTH_SCALE, config->plotResY/1.15, significant, VERT_SCALE_STEP_BAR, config);
 	DrawLabelsMDF(&plot, signal == ROLE_REF ? SPECTROGRAM_TITLE_REF : SPECTROGRAM_TITLE_COM, ALL_LABEL, signal == ROLE_REF ? PLOT_SINGLE_REF : PLOT_SINGLE_COM, config);
 	ClosePlot(&plot);
 }
@@ -1656,7 +1705,7 @@ void PlotSingleTypeSpectrogram(FlatFrequency *freqs, long int size, int type, ch
 	significant = config->significantAmplitude;
 	abs_significant = fabs(significant);
 
-	FillPlot(&plot, filename, config->plotResX, config->plotResY, config->startHzPlot, significant, config->endHzPlot, 0.0, 1, config);
+	FillPlot(&plot, filename, config->startHzPlot, significant, config->endHzPlot, 0.0, 1, 1, config);
 
 	if(!CreatePlotFile(&plot, config))
 		return;
@@ -1682,7 +1731,7 @@ void PlotSingleTypeSpectrogram(FlatFrequency *freqs, long int size, int type, ch
 		}
 	}
 	
-	DrawColorScale(&plot, type, MODE_SPEC, config->plotResX/100, config->plotResY/15, config->plotResX/COLOR_BARS_WIDTH_SCALE, config->plotResY/1.15, 0, significant, VERT_SCALE_STEP,config);
+	DrawColorScale(&plot, type, MODE_SPEC, LEFT_MARGIN, HEIGHT_MARGIN, config->plotResX/COLOR_BARS_WIDTH_SCALE, config->plotResY/1.15, 0, significant, VERT_SCALE_STEP,config);
 	DrawLabelsMDF(&plot, signal == ROLE_REF ? SPECTROGRAM_TITLE_REF : SPECTROGRAM_TITLE_COM, GetTypeDisplayName(config, type), signal == ROLE_REF ? PLOT_SINGLE_REF : PLOT_SINGLE_COM, config);
 	ClosePlot(&plot);
 }
@@ -1724,7 +1773,7 @@ void PlotNoiseSpectrogram(FlatFrequency *freqs, long int size, int type, char *f
 		config->refNoiseMax = endAmplitude;
 	}
 
-	FillPlot(&plot, filename, config->plotResX, config->plotResY, config->startHzPlot, endAmplitude, config->endHzPlot, 0.0, 1, config);
+	FillPlot(&plot, filename, config->startHzPlot, endAmplitude, config->endHzPlot, 0.0, 1, 1, config);
 
 	if(!CreatePlotFile(&plot, config))
 		return;
@@ -1752,7 +1801,7 @@ void PlotNoiseSpectrogram(FlatFrequency *freqs, long int size, int type, char *f
 		}
 	}
 	
-	DrawColorScale(&plot, type, MODE_SPEC, config->plotResX/100, config->plotResY/15, config->plotResX/COLOR_BARS_WIDTH_SCALE, config->plotResY/1.15, (int)startAmplitude, (int)(endAmplitude-startAmplitude), VERT_SCALE_STEP,config);
+	DrawColorScale(&plot, type, MODE_SPEC, LEFT_MARGIN, HEIGHT_MARGIN, config->plotResX/COLOR_BARS_WIDTH_SCALE, config->plotResY/1.15, (int)startAmplitude, (int)(endAmplitude-startAmplitude), VERT_SCALE_STEP,config);
 	DrawLabelsMDF(&plot, signal == ROLE_REF ? SPECTROGRAM_NOISE_REF : SPECTROGRAM_NOISE_COM, GetTypeDisplayName(config, type), signal == ROLE_REF ? PLOT_SINGLE_REF : PLOT_SINGLE_COM, config);
 	ClosePlot(&plot);
 }
@@ -1789,7 +1838,7 @@ void PlotWindow(windowUnit *windowUnit, parameters *config)
 	size = windowUnit->size;
 
 	sprintf(name, "WindowPlot_%s", GetWindow(config->window));
-	FillPlot(&plot, name, 320, 384, 0, -0.1, 1, 1.1, 0.001, config);
+	FillPlotExtra(&plot, name, 320, 384, 0, -0.1, 1, 1.1, 0.001, 0, config);
 
 	if(!CreatePlotFile(&plot, config))
 		return;
@@ -1826,7 +1875,7 @@ void PlotBetaFunctions(parameters *config)
 
 		config->outputFilterFunction = type;
 		sprintf(name, "BetaFunctionPlot_%d", type);
-		FillPlot(&plot, name, 320, 384, 0, -0.1, 1, 1.1, 0.001, config);
+		FillPlotExtra(&plot, name, 320, 384, 0, -0.1, 1, 1.1, 0.001, 0, config);
 	
 		if(!CreatePlotFile(&plot, config))
 			return;
@@ -2236,7 +2285,7 @@ void PlotTest(char *filename, parameters *config)
 		return;
 
 	sprintf(name, "Test_%s", filename);
-	FillPlot(&plot, name, config->plotResX, config->plotResY, config->startHzPlot, -1*dBFS, config->endHzPlot, dBFS, 1, config);
+	FillPlot(&plot, name, config->startHzPlot, -1*dBFS, config->endHzPlot, dBFS, 1, 1, config);
 
 	if(!CreatePlotFile(&plot, config))
 		return;
@@ -2247,7 +2296,7 @@ void PlotTest(char *filename, parameters *config)
 	srand(time(NULL));
 
 	DrawLabelsMDF(&plot, "PLOT TEST [%s]", "ZDBC", PLOT_COMPARE, config);
-	DrawColorAllTypeScale(&plot, MODE_DIFF, config->plotResX/100, config->plotResY/15, config->plotResX/COLOR_BARS_WIDTH_SCALE, config->plotResY/1.15, config->significantAmplitude, VERT_SCALE_STEP_BAR, config);
+	DrawColorAllTypeScale(&plot, MODE_DIFF, LEFT_MARGIN, HEIGHT_MARGIN, config->plotResX/COLOR_BARS_WIDTH_SCALE, config->plotResY/1.15, config->significantAmplitude, VERT_SCALE_STEP_BAR, config);
 
 	ClosePlot(&plot);
 }
@@ -2261,7 +2310,7 @@ void PlotTestZL(char *filename, parameters *config)
 		return;
 
 	sprintf(name, "Test_ZL_%s", filename);
-	FillPlot(&plot, name, config->plotResX, config->plotResY, config->startHzPlot, config->significantAmplitude, config->endHzPlot, 0.0, 1, config);
+	FillPlot(&plot, name, config->startHzPlot, config->significantAmplitude, config->endHzPlot, 0.0, 1, 1, config);
 
 	if(!CreatePlotFile(&plot, config))
 		return;
@@ -2269,7 +2318,7 @@ void PlotTestZL(char *filename, parameters *config)
 	DrawGridZeroToLimit(&plot, config->significantAmplitude, VERT_SCALE_STEP, config->endHzPlot, 1000, config);
 	DrawLabelsZeroToLimit(&plot, config->significantAmplitude, VERT_SCALE_STEP, config->endHzPlot, 1000, config);
 
-	DrawColorScale(&plot, 1, MODE_SPEC, config->plotResX/100, config->plotResY/15, config->plotResX/COLOR_BARS_WIDTH_SCALE, config->plotResY/1.15, 0, SIGNIFICANT_VOLUME, VERT_SCALE_STEP_BAR, config);
+	DrawColorScale(&plot, 1, MODE_SPEC, LEFT_MARGIN, HEIGHT_MARGIN, config->plotResX/COLOR_BARS_WIDTH_SCALE, config->plotResY/1.15, 0, SIGNIFICANT_VOLUME, VERT_SCALE_STEP_BAR, config);
 	
 	DrawLabelsMDF(&plot, "PLOT TEST [%s]", "GZL", PLOT_COMPARE, config);
 	ClosePlot(&plot);
@@ -2623,7 +2672,7 @@ void PlotNoiseDifferentAmplitudesAveragedInternal(FlatAmplDifference *amplDiff, 
 	if(endAmplitude < NS_LOWEST_AMPLITUDE)
 		endAmplitude = NS_LOWEST_AMPLITUDE;
 
-	FillPlot(&plot, filename, config->plotResX, config->plotResY, config->startHzPlot, -1*dbs, config->endHzPlot, dbs, 1, config);
+	FillPlot(&plot, filename, config->startHzPlot, -1*dbs, config->endHzPlot, dbs, 1, 1, config);
 
 	if(!CreatePlotFile(&plot, config))
 		return;
@@ -2692,8 +2741,7 @@ void PlotNoiseDifferentAmplitudesAveragedInternal(FlatAmplDifference *amplDiff, 
 		pl_endpath_r(plot.plotter);
 	}
 
-	DrawColorScale(&plot, type, MODE_DIFF,
-		config->plotResX/100, config->plotResY/15, 
+	DrawColorScale(&plot, type, MODE_DIFF, LEFT_MARGIN, HEIGHT_MARGIN, 
 		config->plotResX/COLOR_BARS_WIDTH_SCALE, config->plotResY/1.15,
 		(int)startAmplitude, (int)(endAmplitude-startAmplitude), VERT_SCALE_STEP_BAR, config);
 	DrawLabelsMDF(&plot, NOISE_AVG_TITLE, GetTypeDisplayName(config, type), PLOT_COMPARE, config);
@@ -2715,7 +2763,7 @@ void PlotSingleTypeDifferentAmplitudesAveraged(FlatAmplDifference *amplDiff, lon
 	if(!config->Differences.BlockDiffArray)
 		return;
 
-	FillPlot(&plot, filename, config->plotResX, config->plotResY, config->startHzPlot, -1*dbs, config->endHzPlot, dbs, 1, config);
+	FillPlot(&plot, filename, config->startHzPlot, -1*dbs, config->endHzPlot, dbs, 1, 1, config);
 
 	if(!CreatePlotFile(&plot, config))
 		return;
@@ -2727,7 +2775,7 @@ void PlotSingleTypeDifferentAmplitudesAveraged(FlatAmplDifference *amplDiff, lon
 	{
 		if(amplDiff[a].type == type)
 		{ 
-			if(amplDiff[a].refAmplitude > config->significantAmplitude)
+			if(amplDiff[a].refAmplitude > config->significantAmplitude && fabs(amplDiff[a].diffAmplitude) <= fabs(dbs))
 			{
 				long int intensity;
 	
@@ -2773,7 +2821,12 @@ void PlotSingleTypeDifferentAmplitudesAveraged(FlatAmplDifference *amplDiff, lon
 				first = 0;
 			}
 			else
-				pl_fcont_r(plot.plotter, transformtoLog(averaged[a].avgfreq, config), averaged[a].avgvol);
+			{
+				if(fabs(averaged[a].avgvol) <= fabs(dbs))
+					pl_fcont_r(plot.plotter, transformtoLog(averaged[a].avgfreq, config), averaged[a].avgvol);
+				else
+					break;
+			}
 		}
 		pl_endpath_r(plot.plotter);
 
@@ -2789,12 +2842,17 @@ void PlotSingleTypeDifferentAmplitudesAveraged(FlatAmplDifference *amplDiff, lon
 				first = 0;
 			}
 			else
-				pl_fcont_r(plot.plotter, transformtoLog(averaged[a].avgfreq, config), averaged[a].avgvol);
+			{
+				if(fabs(averaged[a].avgvol) <= fabs(dbs))
+					pl_fcont_r(plot.plotter, transformtoLog(averaged[a].avgfreq, config), averaged[a].avgvol);
+				else
+					break;
+			}
 		}
 		pl_endpath_r(plot.plotter);
 	}
 
-	DrawColorScale(&plot, type, MODE_DIFF, config->plotResX/100, config->plotResY/15, config->plotResX/COLOR_BARS_WIDTH_SCALE, config->plotResY/1.15, 0, config->significantAmplitude, VERT_SCALE_STEP_BAR, config);
+	DrawColorScale(&plot, type, MODE_DIFF, LEFT_MARGIN, HEIGHT_MARGIN, config->plotResX/COLOR_BARS_WIDTH_SCALE, config->plotResY/1.15, 0, config->significantAmplitude, VERT_SCALE_STEP_BAR, config);
 	DrawLabelsMDF(&plot, DIFFERENCE_AVG_TITLE, GetTypeDisplayName(config, type), PLOT_COMPARE, config);
 	ClosePlot(&plot);
 }
@@ -2814,7 +2872,7 @@ void PlotAllDifferentAmplitudesAveraged(FlatAmplDifference *amplDiff, long int s
 	if(!config->Differences.BlockDiffArray)
 		return;
 	
-	FillPlot(&plot, filename, config->plotResX, config->plotResY, config->startHzPlot, -1*dBFS, config->endHzPlot, dBFS, 1, config);
+	FillPlot(&plot, filename, config->startHzPlot, -1*dBFS, config->endHzPlot, dBFS, 1, 1, config);
 
 	if(!CreatePlotFile(&plot, config))
 		return;
@@ -2826,7 +2884,7 @@ void PlotAllDifferentAmplitudesAveraged(FlatAmplDifference *amplDiff, long int s
 	{
 		if(amplDiff[a].type > TYPE_CONTROL)
 		{ 
-			if(amplDiff[a].refAmplitude > config->significantAmplitude)
+			if(amplDiff[a].refAmplitude > config->significantAmplitude && fabs(amplDiff[a].diffAmplitude) <= fabs(dBFS))
 			{
 				long int intensity;
 	
@@ -2879,7 +2937,12 @@ void PlotAllDifferentAmplitudesAveraged(FlatAmplDifference *amplDiff, long int s
 					first = 0;
 				}
 				else
-					pl_fcont_r(plot.plotter, transformtoLog(averaged[currType][a].avgfreq, config), averaged[currType][a].avgvol);
+				{
+					if(fabs(averaged[currType][a].avgvol) <= fabs(dBFS))
+						pl_fcont_r(plot.plotter, transformtoLog(averaged[currType][a].avgfreq, config), averaged[currType][a].avgvol);
+					else
+						break;
+				}
 			}
 			pl_endpath_r(plot.plotter);
 	
@@ -2895,14 +2958,19 @@ void PlotAllDifferentAmplitudesAveraged(FlatAmplDifference *amplDiff, long int s
 					first = 0;
 				}
 				else
-					pl_fcont_r(plot.plotter, transformtoLog(averaged[currType][a].avgfreq, config), averaged[currType][a].avgvol);
+				{
+					if(fabs(averaged[currType][a].avgvol) <= fabs(dBFS))
+						pl_fcont_r(plot.plotter, transformtoLog(averaged[currType][a].avgfreq, config), averaged[currType][a].avgvol);
+					else
+						break;
+				}
 			}
 			pl_endpath_r(plot.plotter);
 		}
 		currType++;
 	}
 
-	DrawColorAllTypeScale(&plot, MODE_DIFF, config->plotResX/100, config->plotResY/15, config->plotResX/COLOR_BARS_WIDTH_SCALE, config->plotResY/1.15, config->significantAmplitude, VERT_SCALE_STEP_BAR, config);
+	DrawColorAllTypeScale(&plot, MODE_DIFF, LEFT_MARGIN, HEIGHT_MARGIN, config->plotResX/COLOR_BARS_WIDTH_SCALE, config->plotResY/1.15, config->significantAmplitude, VERT_SCALE_STEP_BAR, config);
 	DrawLabelsMDF(&plot, DIFFERENCE_AVG_TITLE, ALL_LABEL, PLOT_COMPARE, config);
 
 	ClosePlot(&plot);
@@ -2911,7 +2979,7 @@ void PlotAllDifferentAmplitudesAveraged(FlatAmplDifference *amplDiff, long int s
 void DrawFrequencyHorizontalGrid(PlotFile *plot, double hz, double hzIncrement, parameters *config)
 {
 	pl_pencolor_r (plot->plotter, 0, 0x5555, 0);
-	for(int i = hzIncrement; i < hz; i += hzIncrement)
+	for(int i = 0; i <= hz; i += hzIncrement)
 		pl_fline_r(plot->plotter, 0, i, config->plotResX, i);
 
 	pl_pencolor_r (plot->plotter, 0, 0x7777, 0);
@@ -2924,33 +2992,34 @@ void DrawFrequencyHorizontalGrid(PlotFile *plot, double hz, double hzIncrement, 
 	pl_endpath_r(plot->plotter);
 }
 
-void DrawLabelsTimeSpectrogram(PlotFile *plot, int khz, int khzIncrement, int frames, int frameIncrement, parameters *config)
+void DrawLabelsTimeSpectrogram(PlotFile *plot, int khz, int khzIncrement, parameters *config)
 {
-	double segments = 0;
+	double segments = 0, height = 0;
 	char label[20];
 
 	pl_savestate_r(plot->plotter);
 	pl_fspace_r(plot->plotter, 0-X0BORDER*config->plotResX, -1*config->plotResY-Y0BORDER*config->plotResY, config->plotResX+X1BORDER*config->plotResX, 0+Y1BORDER*config->plotResY);
 	pl_pencolor_r(plot->plotter, 0, 0xaaaa, 0);
-	pl_ffontsize_r(plot->plotter, FONT_SIZE);
+	pl_ffontsize_r(plot->plotter, FONT_SIZE_1);
 
-	pl_ffontname_r(plot->plotter, "HersheySans");
-	segments = fabs(khz/khzIncrement);
-	for(int i = 0; i < segments; i ++)
+	if(khz >= 48 && khzIncrement == 1)
+		khzIncrement = 2;
+
+	pl_ffontname_r(plot->plotter, PLOT_FONT);
+	segments = (double)khz/(double)khzIncrement;
+	height = (double)config->plotResY/segments;
+	for(int i = segments; i >= 0; i --)
 	{
-		pl_fmove_r(plot->plotter, config->plotResX, -1*i*config->plotResY/segments);
-		sprintf(label, "%dkhz", khz - i*khzIncrement);
+		int 	khz = 0;
+		double	y = 0;
+
+		khz = (int)floor(segments - i)*khzIncrement;
+		y = -1*(double)i*height;
+
+		pl_fmove_r(plot->plotter, config->plotResX+PLOT_SPACER, y);
+		sprintf(label, "%d%s", khz, khz ? "khz" : "hz");
 		pl_alabel_r(plot->plotter, 'l', 'c', label);
 	}
-
-	/*
-	for(int i = 0; i < frames; i+= frameIncrement)
-	{
-		pl_fmove_r(plot->plotter, i, 0);
-		sprintf(label, "%d fr", i);
-		pl_alabel_r(plot->plotter, 'c', 'b', label);
-	}
-	*/
 
 	pl_restorestate_r(plot->plotter);
 }
@@ -2985,14 +3054,13 @@ void PlotTimeSpectrogram(AudioSignal *Signal, parameters *config)
 
 	abs_significant = fabs(significant);
 
-	FillPlot(&plot, filename, config->plotResX, config->plotResY, 
-			0, 0, config->plotResX, config->endHzPlot, 1, config);
+	FillPlot(&plot, filename, 0, 0, config->plotResX, config->endHzPlot, 1, 1, config);
 
 	if(!CreatePlotFile(&plot, config))
 		return;
 
 	DrawFrequencyHorizontalGrid(&plot, config->endHzPlot, 1000, config);
-	DrawLabelsTimeSpectrogram(&plot, config->endHzPlot/1000, 1, framecount, 100, config);
+	DrawLabelsTimeSpectrogram(&plot, floor(config->endHzPlot/1000), 1, config);
 
 	framewidth = config->plotResX / framecount;
 	for(block = 0; block < config->types.totalBlocks; block++)
@@ -3028,7 +3096,7 @@ void PlotTimeSpectrogram(AudioSignal *Signal, parameters *config)
 		}
 	}
 
-	DrawColorAllTypeScale(&plot, MODE_SPEC, config->plotResX/100, config->plotResY/15, config->plotResX/COLOR_BARS_WIDTH_SCALE, config->plotResY/1.15, significant, VERT_SCALE_STEP_BAR, config);
+	DrawColorAllTypeScale(&plot, MODE_SPEC, LEFT_MARGIN, HEIGHT_MARGIN, config->plotResX/COLOR_BARS_WIDTH_SCALE, config->plotResY/1.15, significant, VERT_SCALE_STEP_BAR, config);
 	DrawLabelsMDF(&plot, Signal->role == ROLE_REF ? TSPECTROGRAM_TITLE_REF : TSPECTROGRAM_TITLE_COM, ALL_LABEL, Signal->role == ROLE_REF ? PLOT_SINGLE_REF : PLOT_SINGLE_COM, config);
 
 	ClosePlot(&plot);
@@ -3065,14 +3133,13 @@ void PlotTimeSpectrogramUnMatchedContent(AudioSignal *Signal, parameters *config
 		significant = config->significantAmplitude;
 	abs_significant = fabs(significant);
 
-	FillPlot(&plot, filename, config->plotResX, config->plotResY, 
-			0, 0, config->plotResX, config->endHzPlot, 1, config);
+	FillPlot(&plot, filename, 0, 0, config->plotResX, config->endHzPlot, 1, 1, config);
 
 	if(!CreatePlotFile(&plot, config))
 		return;
 
 	DrawFrequencyHorizontalGrid(&plot, config->endHzPlot, 1000, config);
-	DrawLabelsTimeSpectrogram(&plot, config->endHzPlot/1000, 1, framecount, 100, config);
+	DrawLabelsTimeSpectrogram(&plot, floor(config->endHzPlot/1000), 1, config);
 
 	framewidth = config->plotResX / framecount;
 	for(block = 0; block < config->types.totalBlocks; block++)
@@ -3109,7 +3176,7 @@ void PlotTimeSpectrogramUnMatchedContent(AudioSignal *Signal, parameters *config
 		}
 	}
 
-	DrawColorAllTypeScale(&plot, MODE_SPEC, config->plotResX/100, config->plotResY/15, config->plotResX/COLOR_BARS_WIDTH_SCALE, config->plotResY/1.15, significant, VERT_SCALE_STEP_BAR, config);
+	DrawColorAllTypeScale(&plot, MODE_SPEC, LEFT_MARGIN, HEIGHT_MARGIN, config->plotResX/COLOR_BARS_WIDTH_SCALE, config->plotResY/1.15, significant, VERT_SCALE_STEP_BAR, config);
 	DrawLabelsMDF(&plot, Signal->role == ROLE_REF ? EXTRA_TITLE_TS_REF : EXTRA_TITLE_TS_COM, ALL_LABEL, PLOT_COMPARE, config);
 
 	ClosePlot(&plot);
@@ -3150,6 +3217,7 @@ void PlotTimeDomainGraphs(AudioSignal *Signal, parameters *config)
 			if(plots % 80 == 0)
 				logmsg("\n  ");
 
+			/* These are phase graphs for each block */
 			/*
 			if(config->plotPhase)
 			{
@@ -3207,6 +3275,10 @@ void DrawVerticalFrameGrid(PlotFile *plot, AudioSignal *Signal, double frames, d
 
 void DrawINT16DBFSLines(PlotFile *plot, double resx, parameters *config)
 {
+	char label[20];
+	double factor = 0;
+	int		dbfs = -3;
+
 	// 0dbfs line
 	SetPenColor(COLOR_GRAY, 0x5555, plot);
 	pl_fline_r(plot->plotter, 0, 0, resx, 0);
@@ -3227,6 +3299,39 @@ void DrawINT16DBFSLines(PlotFile *plot, double resx, parameters *config)
 	}
  
 	pl_endpath_r(plot->plotter);
+
+	/* Draw the labels ¨*/
+
+	pl_savestate_r(plot->plotter);
+
+	pl_fspace_r(plot->plotter, 0-X0BORDER*config->plotResX, -1*config->plotResY/2-Y0BORDER*config->plotResY, config->plotResX+X1BORDER*config->plotResX, config->plotResY/2+Y1BORDER*config->plotResY);
+	pl_ffontsize_r(plot->plotter, FONT_SIZE_1);
+	pl_ffontname_r(plot->plotter, PLOT_FONT);
+	SetPenColor(COLOR_GRAY, 0x7777, plot);
+
+	factor = config->plotResY/(2*MAXINT16);
+	for(int db = 2; db <= 8; db *= 2)
+	{
+		double height;
+
+		height = INT16_03DB*2/db;
+		sprintf(label, "%ddBFS", dbfs);
+		pl_fmove_r(plot->plotter, config->plotResX+PLOT_SPACER, height*factor);
+		pl_alabel_r(plot->plotter, 'l', 'c', label);
+		pl_fmove_r(plot->plotter, config->plotResX+PLOT_SPACER, -1*height*factor);
+		pl_alabel_r(plot->plotter, 'l', 'c', label);
+		dbfs -= 3;
+
+		height = MAXINT16/db;
+		sprintf(label, "%ddBFS", dbfs);
+		pl_fmove_r(plot->plotter, config->plotResX+PLOT_SPACER, height*factor);
+		pl_alabel_r(plot->plotter, 'l', 'c', label);
+		pl_fmove_r(plot->plotter, config->plotResX+PLOT_SPACER, -1*height*factor);
+		pl_alabel_r(plot->plotter, 'l', 'c', label);
+		dbfs -= 3;
+	}
+
+	pl_restorestate_r(plot->plotter);
 }
 
 void PlotBlockTimeDomainGraph(AudioSignal *Signal, int block, char *name, int window, parameters *config)
@@ -3260,11 +3365,12 @@ void PlotBlockTimeDomainGraph(AudioSignal *Signal, int block, char *name, int wi
 	else
 		plotSize = numSamples;
 
-	FillPlot(&plot, name, config->plotResX, config->plotResY, 
-				0, MININT16, plotSize, MAXINT16, 1, config);
+	FillPlot(&plot, name, 0, MININT16, plotSize, MAXINT16, 1, 0.2, config);
 
 	if(!CreatePlotFile(&plot, config))
 		return;
+
+	DrawVerticalFrameGrid(&plot, Signal, Signal->Blocks[block].frames, 1, config);
 
 	// discarded samples box (difference)
 	if(difference > 0 && Signal->Blocks[block].type != TYPE_SYNC)
@@ -3272,14 +3378,13 @@ void PlotBlockTimeDomainGraph(AudioSignal *Signal, int block, char *name, int wi
 		pl_filltype_r(plot.plotter, 1);
 		pl_pencolor_r(plot.plotter, 0x6666, 0, 0);
 		pl_fillcolor_r(plot.plotter, 0x6666, 0, 0);
-		pl_fbox_r(plot.plotter, numSamples-difference, MININT16, numSamples, MAXINT16);
+		pl_fbox_r(plot.plotter, numSamples-difference, MININT16, numSamples-1, MAXINT16);
 		pl_filltype_r(plot.plotter, 0);
 	}
 
-	color = MatchColor(GetBlockColor(config, block));
-
 	DrawINT16DBFSLines(&plot, numSamples, config);
-	DrawVerticalFrameGrid(&plot, Signal, Signal->Blocks[block].frames, 1, config);
+
+	color = MatchColor(GetBlockColor(config, block));
 
 	// Draw samples
 	SetPenColor(color, 0xffff, &plot);
@@ -3316,8 +3421,7 @@ void PlotBlockPhaseGraph(AudioSignal *Signal, int block, char *name, parameters 
 	if(Signal->Blocks[block].type == TYPE_SKIP)
 		color = COLOR_RED;
 
-	FillPlot(&plot, name, config->plotResX, config->plotResY, 
-			config->startHzPlot, -1*PHASE_ANGLE, config->endHzPlot, PHASE_ANGLE, 1, config);
+	FillPlot(&plot, name, config->startHzPlot, -1*PHASE_ANGLE, config->endHzPlot, PHASE_ANGLE, 1, 1, config);
 
 	if(!CreatePlotFile(&plot, config))
 		return;
@@ -3464,7 +3568,7 @@ void PlotAllPhase(FlatPhase *phaseDiff, long int size, char *filename, int pType
 		sprintf(name, "DIFF_PHASE__ALL_%s", filename);
 	else
 		sprintf(name, "PHASE__ALL_%c_%s", pType == PHASE_REF ? 'A' : 'B', filename);
-	FillPlot(&plot, name, config->plotResX, config->plotResY, config->startHzPlot, -1*PHASE_ANGLE, config->endHzPlot, PHASE_ANGLE, 1, config);
+	FillPlot(&plot, name, config->startHzPlot, -1*PHASE_ANGLE, config->endHzPlot, PHASE_ANGLE, 1, 1, config);
 
 	if(!CreatePlotFile(&plot, config))
 		return;
@@ -3527,7 +3631,7 @@ void PlotSingleTypePhase(FlatPhase *phaseDiff, long int size, int type, char *fi
 	if(!config->Differences.BlockDiffArray)
 		return;
 
-	FillPlot(&plot, filename, config->plotResX, config->plotResY, config->startHzPlot, -1*PHASE_ANGLE, config->endHzPlot, PHASE_ANGLE, 1, config);
+	FillPlot(&plot, filename, config->startHzPlot, -1*PHASE_ANGLE, config->endHzPlot, PHASE_ANGLE, 1, 1, config);
 
 	if(!CreatePlotFile(&plot, config))
 		return;
@@ -3579,22 +3683,22 @@ void DrawLabelsZeroAngleCentered(PlotFile *plot, double maxAngle, double angleIn
 	pl_savestate_r(plot->plotter);
 	pl_fspace_r(plot->plotter, 0-X0BORDER*config->plotResX, -1*config->plotResY/2-Y0BORDER*config->plotResY, config->plotResX+X1BORDER*config->plotResX, config->plotResY/2+Y1BORDER*config->plotResY);
 
-	pl_ffontname_r(plot->plotter, "HersheySans");
-	pl_ffontsize_r(plot->plotter, FONT_SIZE);
+	pl_ffontname_r(plot->plotter, PLOT_FONT);
+	pl_ffontsize_r(plot->plotter, FONT_SIZE_1);
 
 	pl_pencolor_r(plot->plotter, 0, 0xffff	, 0);
-	pl_fmove_r(plot->plotter, config->plotResX, config->plotResY/100);
+	pl_fmove_r(plot->plotter, config->plotResX+PLOT_SPACER, config->plotResY/100);
 	pl_alabel_r(plot->plotter, 'l', 't', "0\\de");
 
 	pl_pencolor_r(plot->plotter, 0, 0xaaaa, 0);
 	segments = fabs(maxAngle/angleIncrement);
 	for(int i = 1; i < segments; i ++)
 	{
-		pl_fmove_r(plot->plotter, config->plotResX, i*config->plotResY/segments/2+config->plotResY/100);
+		pl_fmove_r(plot->plotter, config->plotResX+PLOT_SPACER, i*config->plotResY/segments/2+config->plotResY/100);
 		sprintf(label, " %g\\de", i*angleIncrement);
 		pl_alabel_r(plot->plotter, 'l', 't', label);
 
-		pl_fmove_r(plot->plotter, config->plotResX, -1*i*config->plotResY/segments/2+config->plotResY/100);
+		pl_fmove_r(plot->plotter, config->plotResX+PLOT_SPACER, -1*i*config->plotResY/segments/2+config->plotResY/100);
 		sprintf(label, "-%g\\de", i*angleIncrement);
 		pl_alabel_r(plot->plotter, 'l', 't', label);
 	}
@@ -3619,7 +3723,7 @@ void DrawLabelsZeroAngleCentered(PlotFile *plot, double maxAngle, double angleIn
 		for(int i = 10000; i < config->endHzPlot; i+= 10000)
 		{
 			pl_fmove_r(plot->plotter, config->plotResX/hz*transformtoLog(i, config), config->plotResY/2);
-			sprintf(label, "%d%s", i/1000, i > 40000  ? "k" : "khz");
+			sprintf(label, "%d%s", i/1000, i >= 40000  ? "" : "khz");
 			pl_alabel_r(plot->plotter, 'c', 'b', label);
 		}
 	}

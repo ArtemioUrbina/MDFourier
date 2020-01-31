@@ -49,6 +49,7 @@ typedef struct plot_st {
 	double			x0, x1, y0, y1;
 	double			Rx0, Rx1, Ry0, Ry1;
 	double			penWidth;
+	short			leftmargin;
 } PlotFile;
 
 typedef struct averaged_freq{
@@ -72,23 +73,23 @@ typedef struct averaged_freq{
 #define	MODE_MISS		2
 #define	MODE_SPEC		3
 
-#define X0BORDER	0.125	// 200 pixels in 1600 mode
-#define Y0BORDER 	0.0625	// 100 pixels in 800 mode
-#define X1BORDER	0.05	// 80 pixels in 1600 mode
-#define Y1BORDER 	0.0625	// 50 pixels in 800 mode
+#define X0BORDER	0.125	// left border
+#define Y0BORDER 	0.06	// bottom border
+#define X1BORDER	0.045	// right border
+#define Y1BORDER 	0.08	// top border
 
 /* 1 */
 #define PLOT_RES_X_LOW 800.0
 #define PLOT_RES_Y_LOW 400.0
 /* 2 */
-#define PLOT_RES_X 1600.0
-#define PLOT_RES_Y 800.0
+#define PLOT_RES_X 1800.0
+#define PLOT_RES_Y 900.0
 /* 3 */
 #define PLOT_RES_X_1K 1920.0
 #define PLOT_RES_Y_1K 1080.0
 /* 4 */
-#define PLOT_RES_X_HI 3200.0
-#define PLOT_RES_Y_HI 1600.0
+#define PLOT_RES_X_HI 3600.0
+#define PLOT_RES_Y_HI 1800.0
 /* 5 */
 #define PLOT_RES_X_4K 3840.0
 #define PLOT_RES_Y_4K 2160.0
@@ -101,7 +102,14 @@ typedef struct averaged_freq{
 #define	PHASE_REF		1
 #define	PHASE_COMP		2
 
-#define FONT_SIZE		config->plotResY/60
+#define FONT_SIZE_1		config->plotResY/60
+#define FONT_SIZE_2		config->plotResY/70
+
+#define	PLOT_FONT		"HersheySans"
+#define	PLOT_SPACER		2
+
+#define LEFT_MARGIN		config->plotResX/150
+#define HEIGHT_MARGIN	config->plotResY/15
 
 typedef enum differencePlotType
 {
@@ -139,7 +147,8 @@ void PlotSpectrograms(AudioSignal *Signal, parameters *config);
 void PlotDifferentAmplitudesWithBetaFunctions(parameters *config);
 void PlotNoiseFloor(AudioSignal *Signal, parameters *config);
 
-int FillPlot(PlotFile *plot, char *name, int sizex, int sizey, double x0, double y0, double x1, double y1, double penWidth, parameters *config);
+int FillPlot(PlotFile *plot, char *name, double x0, double y0, double x1, double y1, double penWidth, double leftMarginSize, parameters *config);
+int FillPlotExtra(PlotFile *plot, char *name, int sizex, int sizey, double x0, double y0, double x1, double y1, double penWidth, double leftMarginSize, parameters *config);
 int CreatePlotFile(PlotFile *plot, parameters *config);
 int ClosePlot(PlotFile *plot);
 void SetPenColorStr(char *colorName, long int color, PlotFile *plot);
@@ -200,7 +209,7 @@ void DrawFrequencyHorizontalGrid(PlotFile *plot, double hz, double hzIncrement, 
 void PlotTimeSpectrogram(AudioSignal *Signal, parameters *config);
 void PlotTimeSpectrogramUnMatchedContent(AudioSignal *Signal, parameters *config);
 
-void DrawLabelsTimeSpectrogram(PlotFile *plot, int khz, int khzIncrement, int frames, int frameIncrement, parameters *config);
+void DrawLabelsTimeSpectrogram(PlotFile *plot, int khz, int khzIncrement, parameters *config);
 void PlotTimeDomainGraphs(AudioSignal *Signal, parameters *config);
 void PlotBlockTimeDomainGraph(AudioSignal *Signal, int block, char *name, int window, parameters *config);
 void PlotBlockPhaseGraph(AudioSignal *Signal, int block, char *name, parameters *config);

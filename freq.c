@@ -48,7 +48,7 @@ double FindFrequencyBinSizeForBlock(AudioSignal *Signal, long int block)
 	return((double)Signal->header.fmt.SamplesPerSec/(double)Signal->Blocks[block].fftwValues.size);
 }
 
-double FindFrequencyBracket(double frequency, size_t size, int AudioChannels, long samplerate)
+double FindFrequencyBracket(double frequency, size_t size, int AudioChannels, long samplerate, parameters *config)
 {
 	long int startBin= 0, endBin = 0;
 	double seconds = 0, boxsize = 0, minDiff = 0, targetFreq = 0;
@@ -61,8 +61,8 @@ double FindFrequencyBracket(double frequency, size_t size, int AudioChannels, lo
 	if(boxsize == 0)
 		boxsize = seconds;
 
-	startBin = ceil(10*boxsize);
-	endBin = floor(20000*boxsize);
+	startBin = ceil(config->startHz*boxsize);
+	endBin = floor(config->endHz*boxsize);
 
 	for(int i = startBin; i < endBin; i++)
 	{
@@ -98,10 +98,10 @@ void CalcuateFrequencyBrackets(AudioSignal *Signal, parameters *config)
 
 		// NTSC or PAL
 		gridNoise = fabs(60.0 - roundFloat(1000.0/Signal->framerate)) < 5 ? 60.0 : 50.0;
-		Signal->gridFrequency = FindFrequencyBracket(gridNoise, Signal->Blocks[index].fftwValues.size, Signal->AudioChannels, Signal->header.fmt.SamplesPerSec);
+		Signal->gridFrequency = FindFrequencyBracket(gridNoise, Signal->Blocks[index].fftwValues.size, Signal->AudioChannels, Signal->header.fmt.SamplesPerSec, config);
 
 		scanNoise = CalculateScanRate(Signal)*(double)GetLineCount(Signal->role, config);
-		Signal->scanrateFrequency = FindFrequencyBracket(scanNoise, Signal->Blocks[index].fftwValues.size, Signal->AudioChannels, Signal->header.fmt.SamplesPerSec);
+		Signal->scanrateFrequency = FindFrequencyBracket(scanNoise, Signal->Blocks[index].fftwValues.size, Signal->AudioChannels, Signal->header.fmt.SamplesPerSec, config);
 
 		if(config->verbose)
 		{
@@ -1916,10 +1916,10 @@ void FindFloor(AudioSignal *Signal, parameters *config)
 		Signal->floorAmplitude = noiseFreq.amplitude;
 		Signal->floorFreq = noiseFreq.hertz;
 
-		logmsg("  - %s Noise Channel relative comparison  signal floor: %g dBFS [%g Hz] %s\n", 
+		logmsg("  - %s Noise Channel relative floor: %g Hz %g dBFS %s\n", 
 			Signal->role == ROLE_REF ? "Reference" : "Comparison",
-			noiseFreq.amplitude,
 			noiseFreq.hertz,
+			noiseFreq.amplitude,
 			noiseFreq.amplitude < PCM_16BIT_MIN_AMPLITUDE ? "(not significant)" : "");
 		return;
 	}
@@ -2641,6 +2641,47 @@ double FindDifferenceAverage(parameters *config)
 		AvgDifAmp /= count;
 
 	return AvgDifAmp;
+}
+
+double FindDifferencePercentOutsideWindow(double *maxAmpl, parameters *config)
+{
+	long int	count = 0, outside = 0;
+	double		threshold = 0, localMax = 0;
+
+	if(!config)
+		return 0;
+
+	if(!config->Differences.BlockDiffArray || !maxAmpl)
+		return 0;
+
+	*maxAmpl = 0;
+	threshold = fabs(config->maxDbPlotZC);
+	for(int b = 0; b < config->types.totalBlocks; b++)
+	{
+		if(config->Differences.BlockDiffArray[b].type <= TYPE_CONTROL)
+			continue;
+
+		for(int a = 0; a < config->Differences.BlockDiffArray[b].cntAmplBlkDiff; a++)
+		{
+			double ampl = 0;
+
+			ampl = fabs(config->Differences.BlockDiffArray[b].amplDiffArray[a].diffAmplitude);
+			if(ampl >= threshold)
+			{
+				if(localMax < ampl)
+					localMax = ampl;
+				outside ++;
+			}
+			count ++;
+		}
+	}
+
+	if(!outside || !count)
+		return 0;
+
+	if(localMax)
+		*maxAmpl = ceil(localMax);
+	return(outside*100/count);
 }
 
 int FindDifferenceTypeTotals(int type, long int *cntAmplBlkDiff, long int *cmpAmplBlkDiff, parameters *config)

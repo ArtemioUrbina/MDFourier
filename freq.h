@@ -134,8 +134,9 @@ double CalculateScanRate(AudioSignal *Signal);
 double FindFrequencyBinSizeForBlock(AudioSignal *Signal, long int block);
 long int GetZeroPadValues(long int *monoSignalSize, double *seconds, long int samplerate);
 void CalcuateFrequencyBrackets(AudioSignal *signal, parameters *config);
-double FindFrequencyBracket(double frequency, size_t size, int AudioChannels, long samplerate);
+double FindFrequencyBracket(double frequency, size_t size, int AudioChannels, long samplerate, parameters *config);
 
+double FindDifferencePercentOutsideWindow(double *maxAmpl, parameters *config);
 double FindDifferenceAverage(parameters *config);
 int FindDifferenceTypeTotals(int type, long int *cntAmplBlkDiff, long int *cmpAmplBlkDiff, parameters *config);
 int FindMissingTypeTotals(int type, long int *cntFreqBlkDiff, long int *cmpFreqBlkDiff, parameters *config);

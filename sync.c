@@ -587,7 +587,7 @@ long int DetectPulseInternal(char *Samples, wav_hdr header, int factor, long int
 	memset(pulseArray, 0, sizeof(Pulses)*TotalMS);
 
 	targetFrequency = FindFrequencyBracket(GetPulseSyncFreq(role, config), 	
-						millisecondSize/2, AudioChannels, header.fmt.SamplesPerSec);
+						millisecondSize/2, AudioChannels, header.fmt.SamplesPerSec, config);
 	if(config->debugSync)
 	{
 		logmsgFileOnly("Defined Sync %d Adjusted to %g\n", 
@@ -910,7 +910,7 @@ long int DetectSignalStartInternal(char *Samples, wav_hdr header, int factor, lo
 	if(syncKnown)
 	{
 		targetFrequency = FindFrequencyBracket(syncKnown, 
-					millisecondSize/2, AudioChannels, header.fmt.SamplesPerSec);
+					millisecondSize/2, AudioChannels, header.fmt.SamplesPerSec, config);
 		averageAmplitude = findAverageAmplitudeForTarget(pulseArray, targetFrequency, TotalMS, start, config);
 	}
 

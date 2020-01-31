@@ -72,7 +72,7 @@ int main(int argc , char *argv[])
 	AudioSignal  		*ComparisonSignal = NULL;
 	parameters			config;
 	struct	timespec	start, end;
-	double 				average = 0;
+	double 				average = 0, outside = 0, maxDiff = 0;
 
 	Header(0);
 	if(!commandline(argc, argv, &config))
@@ -127,7 +127,8 @@ int main(int argc , char *argv[])
 		return 1;
 	}
 	average = FindDifferenceAverage(&config);
-	logmsg("Average difference is %g dBFS\n", average);
+	logmsg("Average difference is %g dBFS. ", average);
+	/*
 	if(fabs(average) > DB_DIFF)
 	{
 		if(fabs(average) > config.maxDbPlotZC/2)
@@ -136,6 +137,20 @@ int main(int argc , char *argv[])
 			logmsg("\tAdjusting viewport to %gdBFS for graphs\n\n", config.maxDbPlotZC);
 		}
 	}
+	*/
+
+	outside = FindDifferencePercentOutsideWindow(&maxDiff, &config);
+	if(outside)
+	{
+		logmsg("Differences above %gdBFS: %g%%\n", config.maxDbPlotZC, outside);
+		if(outside > 10)
+		{
+			config.maxDbPlotZC = maxDiff;
+			logmsg(" - Adjusting viewport to %gdBFS for graphs\n\n", config.maxDbPlotZC);
+		}
+	}
+	else
+		logmsg("\n");
 
 	logmsg("* Plotting results to PNGs:\n");
 	PlotResults(ReferenceSignal, ComparisonSignal, &config);
@@ -793,7 +808,11 @@ int LoadFile(FILE *file, AudioSignal *Signal, parameters *config, char *fileName
 		Signal->startOffset = DetectPulse(Signal->Samples, Signal->header, Signal->role, config);
 		if(Signal->startOffset == -1)
 		{
-			logmsg("\nERROR: Starting pulse train was not detected.\nProfile used: [%s]\nYou can try using -T for a frequency tolerant pulse detection algorithm\n", config->types.Name);
+			logmsg("\nERROR: Starting pulse train was not detected.\nProfile used: [%s]\n", config->types.Name);
+			if(!config->syncTolerance)
+				logmsg("You can try using -T for a frequency tolerant pulse detection algorithm\n", config->types.Name);
+			if(config->videoFormatRef == PAL || config->videoFormatCom == PAL)
+				logmsg("One of the signals is defined as PAL, this might be a mistake.\n");
 			return 0;
 		}
 		if(config->verbose)
