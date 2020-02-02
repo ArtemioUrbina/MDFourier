@@ -56,7 +56,7 @@ void PrintUsage()
 	logmsg("	 -Y: Define the Reference Video Format 0:NTSC 1:PAL\n");
 	logmsg("	 -Z: Define the Comparison Video Format 0:NTSC 1:PAL\n");
 	logmsg("	 -k: cloc<k> FFTW operations\n");
-	logmsg("	 -X: do not include extra Data\n");
+	logmsg("	 -X: Include Extra Data\n");
 	logmsg("   Output options:\n");
 	logmsg("	 -l: <l>og output to file [reference]_vs_[compare].txt\n");
 	logmsg("	 -v: Enable <v>erbose mode, spits all the FFTW results\n");
@@ -178,6 +178,10 @@ void CleanParameters(parameters *config)
 	config->types.typeArray = NULL;
 	config->types.typeCount = 0;
 
+	config->types.useWatermark = 0;
+	config->types.watermarkValidFreq = 0;
+	config->types.watermarkInvalidFreq = 0;
+
 	config->sync_plan = NULL;
 	config->model_plan = NULL;
 	config->reverse_plan = NULL;
@@ -190,7 +194,7 @@ void CleanParameters(parameters *config)
 	config->clkFreq = 0;
 	config->clkFreqCount = 0;
 	config->clkRatio = 0;
-	config->useExtraData = 1;
+	config->useExtraData = 0;
 	config->compressToBlocks = 0;
 }
 
@@ -438,7 +442,7 @@ int commandline(int argc , char *argv[], parameters *config)
 		}
 		break;
 	  case 'X':
-		config->useExtraData = 0;
+		config->useExtraData = 1;
 		break;
 	  case 'x':
 		config->extendedResults = 1;

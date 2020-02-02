@@ -929,7 +929,8 @@ long int DetectSignalStartInternal(char *Samples, wav_hdr header, int factor, lo
 			if(syncKnown)
 			{
 				if(pulseArray[i].amplitude > averageAmplitude &&
-					pulseArray[i].hertz == targetFrequency)
+					(pulseArray[i].hertz == targetFrequency ||
+					pulseArray[i].hertz == targetFrequency*2))  // harmonic
 				{
 					if(offset == -1)
 						offset = pulseArray[i].bytes;
@@ -937,14 +938,17 @@ long int DetectSignalStartInternal(char *Samples, wav_hdr header, int factor, lo
 				}
 				else
 				{
-					if(offset && length > 4)
+					if(offset != -1 && length > 4)
 					{
 						if(endPulse)
 							*endPulse = pulseArray[i].bytes;
 						break;
 					}
-					length = 0;
-					offset = -1;
+					else
+					{
+						length = 0;
+						offset = -1;
+					}
 				}
 			}
 			else

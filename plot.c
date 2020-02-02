@@ -99,9 +99,11 @@
 
 #define	COLOR_BARS_WIDTH_SCALE	220
 
+#define	DIFFERENCE_FOLDER	"Difference"
 #define	SPECTROGRAM_FOLDER	"Spectrograms"
 #define	WAVEFORM_FOLDER		"Waveforms"
 #define	PHASE_FOLDER		"Phase"
+#define	MISSING_FOLDER		"Missing"
 
 char *GetCurrentPathAndChangeToResultsFolder(parameters *config)
 {
@@ -256,23 +258,15 @@ void PlotResults(AudioSignal *ReferenceSignal, AudioSignal *ComparisonSignal, pa
 	if(config->plotPhase)
 	{
 		struct	timespec	lstart, lend;
-		char 				*returnFolder = NULL;
 
 		StartPlot(" - Phase", &lstart, config);
-		returnFolder = PushFolder(PHASE_FOLDER);
-		if(!returnFolder)
-		{
-			ReturnToMainPath(&CurrentPath);
-			return;
-		}
+
 		PlotPhaseDifferences(config);
-		PlotPhaseFromSignal(ReferenceSignal, config);
-		PlotPhaseFromSignal(ComparisonSignal, config);
+		//PlotPhaseFromSignal(ReferenceSignal, config);
+		//PlotPhaseFromSignal(ComparisonSignal, config);
 		
 		logmsg(PLOT_ADVANCE_CHAR);
 		EndPlot("Phase", &lstart, &lend, config);
-
-		ReturnToMainPath(&returnFolder);
 	}
 
 	if(config->plotNoiseFloor)
@@ -469,6 +463,7 @@ int FillPlot(PlotFile *plot, char *name, double x0, double y0, double x1, double
 	plot->Ry0 = y0;
 	plot->Ry1 = y1;
 
+	plot->leftmargin = leftMarginSize;
 	// Commented for partial release
 	dX = X0BORDER*fabs(x0 - x1)*leftMarginSize;
 	dY = Y0BORDER*fabs(y0 - y1);
@@ -641,7 +636,7 @@ void DrawLabelsZeroDBCentered(PlotFile *plot, double dBFS, double dbIncrement, d
 	char label[20];
 
 	pl_savestate_r(plot->plotter);
-	pl_fspace_r(plot->plotter, 0-X0BORDER*config->plotResX, -1*config->plotResY/2-Y0BORDER*config->plotResY, config->plotResX+X1BORDER*config->plotResX, config->plotResY/2+Y1BORDER*config->plotResY);
+	pl_fspace_r(plot->plotter, 0-X0BORDER*config->plotResX*plot->leftmargin, -1*config->plotResY/2-Y0BORDER*config->plotResY, config->plotResX+X1BORDER*config->plotResX, config->plotResY/2+Y1BORDER*config->plotResY);
 
 	pl_ffontname_r(plot->plotter, PLOT_FONT);
 	pl_ffontsize_r(plot->plotter, FONT_SIZE_1);
@@ -696,7 +691,7 @@ void DrawLabelsZeroDBCentered(PlotFile *plot, double dBFS, double dbIncrement, d
 
 void DrawLabelsMDF(PlotFile *plot, char *Gname, char *GType, int type, parameters *config)
 {
-	char	label[BUFFER_SIZE];
+	char	label[BUFFER_SIZE], msg[BUFFER_SIZE];
 
 	pl_ffontsize_r(plot->plotter, FONT_SIZE_2);
 	pl_ffontname_r(plot->plotter, PLOT_FONT);
@@ -809,6 +804,13 @@ void DrawLabelsMDF(PlotFile *plot, char *Gname, char *GType, int type, parameter
 	/* Warnings */
 	// Add from top, change last multiplier for BAR HEIGHT
 
+	if(config->types.useWatermark && DetectWatermarkIssue(msg, config))
+	{
+		pl_fmove_r(plot->plotter, config->plotResX-config->plotResX/4, -1*config->plotResY/2+config->plotResY/100+12*BAR_HEIGHT);
+		pl_pencolor_r(plot->plotter, 0xeeee, 0xeeee, 0);
+		pl_alabel_r(plot->plotter, 'l', 'l', msg);
+	}
+
 	if(config->AmpBarRange > BAR_DIFF_DB_TOLERANCE)
 	{
 		pl_fmove_r(plot->plotter, config->plotResX-config->plotResX/5, -1*config->plotResY/2+config->plotResY/100+10*BAR_HEIGHT);
@@ -867,7 +869,7 @@ void DrawLabelsZeroToLimit(PlotFile *plot, double dBFS, double dbIncrement, doub
 	char label[20];
 
 	pl_savestate_r(plot->plotter);
-	pl_fspace_r(plot->plotter, 0-X0BORDER*config->plotResX, -1*config->plotResY-Y0BORDER*config->plotResY, config->plotResX+X1BORDER*config->plotResX, 0+Y1BORDER*config->plotResY);
+	pl_fspace_r(plot->plotter, 0-X0BORDER*config->plotResX*plot->leftmargin, -1*config->plotResY-Y0BORDER*config->plotResY, config->plotResX+X1BORDER*config->plotResX, 0+Y1BORDER*config->plotResY);
 	pl_pencolor_r(plot->plotter, 0, 0xaaaa, 0);
 	pl_ffontsize_r(plot->plotter, FONT_SIZE_1);
 
@@ -1255,6 +1257,41 @@ void DrawNoiseLines(PlotFile *plot, double start, double end, AudioSignal *Signa
 	pl_linemod_r(plot->plotter, "solid");
 }
 
+void DrawLabelsNoise(PlotFile *plot, double hz, AudioSignal *Signal, parameters *config)
+{
+	char label[20];
+
+	pl_savestate_r(plot->plotter);
+	pl_fspace_r(plot->plotter, 0-X0BORDER*config->plotResX*plot->leftmargin, -1*config->plotResY/2-Y0BORDER*config->plotResY, config->plotResX+X1BORDER*config->plotResX, config->plotResY/2+Y1BORDER*config->plotResY);
+
+	pl_ffontname_r(plot->plotter, PLOT_FONT);
+	pl_ffontsize_r(plot->plotter, FONT_SIZE_1);
+
+	if(Signal->gridFrequency)
+	{
+		pl_fmove_r(plot->plotter, config->plotResX/hz*transformtoLog(Signal->gridFrequency, config), config->plotResY/2+FONT_SIZE_1);
+		sprintf(label, "  %0.2fHz", Signal->gridFrequency);
+		pl_alabel_r(plot->plotter, 'c', 'b', label);
+
+		pl_fmove_r(plot->plotter, config->plotResX/hz*transformtoLog(Signal->gridFrequency*2, config), config->plotResY/2+FONT_SIZE_1);
+		sprintf(label, "  %0.2fHz", Signal->gridFrequency*2);
+		pl_alabel_r(plot->plotter, 'c', 'b', label);
+	}
+
+	if(Signal->scanrateFrequency)
+	{
+		pl_fmove_r(plot->plotter, config->plotResX/hz*transformtoLog(Signal->scanrateFrequency, config), config->plotResY/2+FONT_SIZE_1);
+		sprintf(label, "  %0.2fkHz", Signal->scanrateFrequency/1000);
+		pl_alabel_r(plot->plotter, 'c', 'b', label);
+
+		pl_fmove_r(plot->plotter, config->plotResX/hz*transformtoLog(Signal->scanrateFrequency/2, config), config->plotResY/2+FONT_SIZE_1);
+		sprintf(label, "  %0.2fkHz", Signal->scanrateFrequency/2000);
+		pl_alabel_r(plot->plotter, 'c', 'b', label);
+	}
+
+	pl_restorestate_r(plot->plotter);
+}
+
 void SaveCSV(FlatAmplDifference *amplDiff, long int size, char *filename, parameters *config)
 {
 	FILE 		*csv = NULL;
@@ -1342,19 +1379,33 @@ void PlotAllDifferentAmplitudes(FlatAmplDifference *amplDiff, long int size, cha
 
 int PlotEachTypeDifferentAmplitudes(FlatAmplDifference *amplDiff, long int size, char *filename, parameters *config)
 {
-	int 		i = 0, type = 0, types = 0;
+	int 		i = 0, type = 0, types = 0, typeCount = 0;
 	char		name[BUFFER_SIZE];
 
+	typeCount = GetActiveBlockTypesNoRepeat(config);
 	for(i = 0; i < config->types.typeCount; i++)
 	{
 		type = config->types.typeArray[i].type;
+
 		if(type > TYPE_CONTROL && !config->types.typeArray[i].IsaddOnData)
 		{
+			char	*returnFolder = NULL;
+
 			sprintf(name, "DA_%s_%02d%s", filename, 
 				type, config->types.typeArray[i].typeName);
 		
+			if(typeCount > 1)
+			{
+				returnFolder = PushFolder(DIFFERENCE_FOLDER);
+				if(!returnFolder)
+					return 0;
+			}
 			PlotSingleTypeDifferentAmplitudes(amplDiff, size, type, name, config);
 			logmsg(PLOT_ADVANCE_CHAR);
+
+			if(typeCount > 1)
+				ReturnToMainPath(&returnFolder);
+
 			types ++;
 		}
 	}
@@ -1465,6 +1516,7 @@ void PlotSilenceBlockDifferentAmplitudes(FlatAmplDifference *amplDiff, long int 
 	DrawLabelsZeroDBCentered(&plot, dBFS, VERT_SCALE_STEP, config->endHzPlot, 1000, config);
 
 	DrawNoiseLines(&plot, 0, endAmplitude, Signal, config);
+	DrawLabelsNoise(&plot, config->endHzPlot, Signal, config);
 
 	for(int a = 0; a < size; a++)
 	{
@@ -1544,18 +1596,31 @@ void PlotAllMissingFrequencies(FlatFrequency *freqDiff, long int size, char *fil
 
 int PlotEachTypeMissingFrequencies(FlatFrequency *freqDiff, long int size, char *filename, parameters *config)
 {
-	int 		i = 0, type = 0, types = 0;
+	int 		i = 0, type = 0, types = 0, typeCount= 0;
 	char		name[BUFFER_SIZE];
 
+	typeCount = GetActiveBlockTypesNoRepeat(config);
 	for(i = 0; i < config->types.typeCount; i++)
 	{
 		type = config->types.typeArray[i].type;
 		if(type > TYPE_CONTROL && !config->types.typeArray[i].IsaddOnData)
 		{
+			char	*returnFolder = NULL;
+
+			if(typeCount > 1)
+			{
+				returnFolder = PushFolder(MISSING_FOLDER);
+				if(!returnFolder)
+					return 0;
+			}
+
 			sprintf(name, "MISS_%s_%02d%s", filename, 
 							config->types.typeArray[i].type, config->types.typeArray[i].typeName);
 			PlotSingleTypeMissingFrequencies(freqDiff, size, type, name, config);
 			logmsg(PLOT_ADVANCE_CHAR);
+
+			if(typeCount > 1)
+				ReturnToMainPath(&returnFolder);
 			types ++;
 		}
 	}
@@ -1654,27 +1719,30 @@ void PlotAllSpectrogram(FlatFrequency *freqs, long int size, char *filename, int
 
 int PlotEachTypeSpectrogram(FlatFrequency *freqs, long int size, char *filename, int signal, parameters *config, AudioSignal *Signal)
 {
-	int 		i = 0, type = 0, types = 0, silence = 0;
+	int 		i = 0, type = 0, types = 0, silence = 0, typeCount = 0;
 	char		name[BUFFER_SIZE];
-	char 		*returnFolder = NULL;
 
+	typeCount = GetActiveBlockTypesNoRepeat(config);
 	for(i = 0; i < config->types.typeCount; i++)
 	{
 		type = config->types.typeArray[i].type;
-
-		if(type != TYPE_SILENCE)
-		{
-			returnFolder = PushFolder(SPECTROGRAM_FOLDER);
-			if(!returnFolder)
-				return 0;
-		}
-
 		if(type > TYPE_CONTROL && !config->types.typeArray[i].IsaddOnData)
 		{
+			char	*returnFolder = NULL;
+
+			if(typeCount > 1)
+			{
+				returnFolder = PushFolder(SPECTROGRAM_FOLDER);
+				if(!returnFolder)
+					return 0;
+			}
 			sprintf(name, "SP_%c_%s_%02d%s", signal == ROLE_REF ? 'A' : 'B', filename, 
 					config->types.typeArray[i].type, config->types.typeArray[i].typeName);
 			PlotSingleTypeSpectrogram(freqs, size, type, name, signal, config);
 			logmsg(PLOT_ADVANCE_CHAR);
+
+			if(typeCount > 1)
+				ReturnToMainPath(&returnFolder);
 			types ++;
 		}
 
@@ -1686,9 +1754,6 @@ int PlotEachTypeSpectrogram(FlatFrequency *freqs, long int size, char *filename,
 			logmsg(PLOT_ADVANCE_CHAR);
 			silence = 1;
 		}
-
-		if(type != TYPE_SILENCE)
-			ReturnToMainPath(&returnFolder);
 	}
 
 	return types;
@@ -1782,6 +1847,7 @@ void PlotNoiseSpectrogram(FlatFrequency *freqs, long int size, int type, char *f
 	DrawGridZeroToLimit(&plot, endAmplitude, VERT_SCALE_STEP,config->endHzPlot, 1000, config);
 
 	DrawNoiseLines(&plot, 0, endAmplitude, Signal, config);
+	DrawLabelsNoise(&plot, config->endHzPlot, Signal, config);
 
 	for(int f = 0; f < size; f++)
 	{
@@ -2563,12 +2629,16 @@ int PlotDifferentAmplitudesAveraged(FlatAmplDifference *amplDiff, long int size,
 	if(!averagedSizes)
 		return 0;
 
+	memset(averagedArray, 0, sizeof(AveragedFrequencies*)*typeCount);
+	memset(averagedSizes, 0, sizeof(long int)*typeCount);
+
 	for(i = 0; i < config->types.typeCount; i++)
 	{
 		type = config->types.typeArray[i].type;
+
 		if(type > TYPE_CONTROL && !config->types.typeArray[i].IsaddOnData)
 		{
-			long int chunks = AVERAGE_CHUNKS;
+			long int	chunks = AVERAGE_CHUNKS;
 
 			sprintf(name, "DA_%s_%02d%s_AVG_", filename, 
 					config->types.typeArray[i].type, config->types.typeArray[i].typeName);
@@ -2577,8 +2647,20 @@ int PlotDifferentAmplitudesAveraged(FlatAmplDifference *amplDiff, long int size,
 
 			if(averagedArray[types])
 			{
+				char	*returnFolder = NULL;
+
+				if(typeCount > 1)
+				{
+					returnFolder = PushFolder(DIFFERENCE_FOLDER);
+					if(!returnFolder)
+						return 0;
+				}
+
 				PlotSingleTypeDifferentAmplitudesAveraged(amplDiff, size, type, name, averagedArray[types], averagedSizes[types], config);
 				logmsg(PLOT_ADVANCE_CHAR);
+
+				if(typeCount > 1)
+					ReturnToMainPath(&returnFolder);
 			}
 
 			types ++;
@@ -2685,6 +2767,7 @@ void PlotNoiseDifferentAmplitudesAveragedInternal(FlatAmplDifference *amplDiff, 
 	DrawLabelsZeroDBCentered(&plot, dbs, vertscale, config->endHzPlot, 1000, config);
 
 	DrawNoiseLines(&plot, dbs, -1*dbs, Signal, config);
+	DrawLabelsNoise(&plot, config->endHzPlot, Signal, config);
 
 	for(long int a = 0; a < size; a++)
 	{
@@ -2998,7 +3081,7 @@ void DrawLabelsTimeSpectrogram(PlotFile *plot, int khz, int khzIncrement, parame
 	char label[20];
 
 	pl_savestate_r(plot->plotter);
-	pl_fspace_r(plot->plotter, 0-X0BORDER*config->plotResX, -1*config->plotResY-Y0BORDER*config->plotResY, config->plotResX+X1BORDER*config->plotResX, 0+Y1BORDER*config->plotResY);
+	pl_fspace_r(plot->plotter, 0-X0BORDER*config->plotResX*plot->leftmargin, -1*config->plotResY-Y0BORDER*config->plotResY, config->plotResX+X1BORDER*config->plotResX, 0+Y1BORDER*config->plotResY);
 	pl_pencolor_r(plot->plotter, 0, 0xaaaa, 0);
 	pl_ffontsize_r(plot->plotter, FONT_SIZE_1);
 
@@ -3194,10 +3277,14 @@ void PlotTimeDomainGraphs(AudioSignal *Signal, parameters *config)
 			if(config->plotAllNotes || Signal->Blocks[i].type == TYPE_TIMEDOMAIN)
 			{
 				plots++;
+				/*
 				if(config->plotPhase)
 					plots++;
+				*/
 				if(config->plotAllNotesWindowed && Signal->Blocks[i].audio.window_samples)
 					plots++;
+				if(Signal->Blocks[i].internalSyncCount)
+					plots += Signal->Blocks[i].internalSyncCount;
 			}
 		}
 		logmsg("\n  Creating %ld plots for %s:\n  ", plots, Signal->role == ROLE_REF ? "Reference" : "Comparison");
@@ -3210,12 +3297,24 @@ void PlotTimeDomainGraphs(AudioSignal *Signal, parameters *config)
 			sprintf(name, "TD_%05ld_%s_%s_%05d_%s", 
 				i, Signal->role == ROLE_REF ? "1" : "2",
 				GetBlockName(config, i), GetBlockSubIndex(config, i), config->compareName);
-		
+
 			PlotBlockTimeDomainGraph(Signal, i, name, 0, config);
 			logmsg(PLOT_ADVANCE_CHAR);
 			plots++;
 			if(plots % 80 == 0)
 				logmsg("\n  ");
+
+			if(Signal->Blocks[i].internalSyncCount)
+			{
+				for(int slot = 0; slot < Signal->Blocks[i].internalSyncCount; slot++)
+				{
+					sprintf(name, "TD_%05ld_%s_%s_%05d_%s_%02d", 
+									i, Signal->role == ROLE_REF ? "1" : "2",
+									GetBlockName(config, i), GetBlockSubIndex(config, i), 
+									config->compareName, slot);
+					PlotBlockTimeDomainInternalSyncGraph(Signal, i, name, slot, config);
+				}
+			}
 
 			/* These are phase graphs for each block */
 			/*
@@ -3252,9 +3351,9 @@ void PlotTimeDomainGraphs(AudioSignal *Signal, parameters *config)
 		logmsg("\n  ");
 }
 
-void DrawVerticalFrameGrid(PlotFile *plot, AudioSignal *Signal, double frames, double frameIncrement, parameters *config)
+void DrawVerticalFrameGrid(PlotFile *plot, AudioSignal *Signal, double frames, double frameIncrement, double MaxSamples, parameters *config)
 {
-	double x = 0;
+	double x = 0, xfactor = 0, segment = 0;
 
 	SetPenColor(COLOR_GRAY, 0x3333, plot);
 	for(int i = frameIncrement; i <= frames; i += frameIncrement)
@@ -3264,13 +3363,54 @@ void DrawVerticalFrameGrid(PlotFile *plot, AudioSignal *Signal, double frames, d
 		pl_endpath_r(plot->plotter);
 	}
 
+	if(frames > 1)
+	{
+		if(frames < 10)
+			segment = frames/2;
+		else
+		{
+			if(frames < 100)
+				segment = 10;
+			else
+			{
+				if(frames < 500)
+					segment = 50;
+				else
+					segment = 200;
+			}
+		}
+	}
+	else
+		segment = 1;
+
 	SetPenColor(COLOR_GRAY, 0x5555, plot);
-	for(int i = 0; i <= frames; i += frameIncrement*10)
+	for(int i = 0; i <= frames; i += segment)
 	{
 		x = FramesToSamples(i, Signal->header.fmt.SamplesPerSec, Signal->framerate);
 		pl_fline_r(plot->plotter, x, MININT16, x, MAXINT16);
 		pl_endpath_r(plot->plotter);
 	}
+
+
+	/* Draw the labels ¨*/
+	pl_savestate_r(plot->plotter);
+
+	pl_fspace_r(plot->plotter, 0-X0BORDER*config->plotResX*plot->leftmargin, -1*config->plotResY/2-Y0BORDER*config->plotResY, config->plotResX+X1BORDER*config->plotResX, config->plotResY/2+Y1BORDER*config->plotResY);
+	pl_ffontsize_r(plot->plotter, FONT_SIZE_1);
+	pl_ffontname_r(plot->plotter, PLOT_FONT);
+	SetPenColor(COLOR_GRAY, 0x7777, plot);
+
+	xfactor = config->plotResX/MaxSamples;
+	for(int i = 0; i <= frames; i += segment)
+	{
+		char label[40];
+
+		x = FramesToSamples(i, Signal->header.fmt.SamplesPerSec, Signal->framerate);
+		sprintf(label, "Frame %d", i);
+		pl_fmove_r(plot->plotter, x*xfactor, config->plotResY/2);
+		pl_alabel_r(plot->plotter, 'c', 'b', label);
+	}
+	pl_restorestate_r(plot->plotter);
 }
 
 void DrawINT16DBFSLines(PlotFile *plot, double resx, parameters *config)
@@ -3304,7 +3444,7 @@ void DrawINT16DBFSLines(PlotFile *plot, double resx, parameters *config)
 
 	pl_savestate_r(plot->plotter);
 
-	pl_fspace_r(plot->plotter, 0-X0BORDER*config->plotResX, -1*config->plotResY/2-Y0BORDER*config->plotResY, config->plotResX+X1BORDER*config->plotResX, config->plotResY/2+Y1BORDER*config->plotResY);
+	pl_fspace_r(plot->plotter, 0-X0BORDER*config->plotResX*plot->leftmargin, -1*config->plotResY/2-Y0BORDER*config->plotResY, config->plotResX+X1BORDER*config->plotResX, config->plotResY/2+Y1BORDER*config->plotResY);
 	pl_ffontsize_r(plot->plotter, FONT_SIZE_1);
 	pl_ffontname_r(plot->plotter, PLOT_FONT);
 	SetPenColor(COLOR_GRAY, 0x7777, plot);
@@ -3352,9 +3492,6 @@ void PlotBlockTimeDomainGraph(AudioSignal *Signal, int block, char *name, int wi
 	else
 		samples = Signal->Blocks[block].audio.window_samples;
 
-	if(Signal->Blocks[block].type == TYPE_SKIP)
-		color = COLOR_RED;
-
 	if(!samples)
 		return;
 
@@ -3370,7 +3507,7 @@ void PlotBlockTimeDomainGraph(AudioSignal *Signal, int block, char *name, int wi
 	if(!CreatePlotFile(&plot, config))
 		return;
 
-	DrawVerticalFrameGrid(&plot, Signal, Signal->Blocks[block].frames, 1, config);
+	DrawVerticalFrameGrid(&plot, Signal, Signal->Blocks[block].frames, 1, numSamples, config);
 
 	// discarded samples box (difference)
 	if(difference > 0 && Signal->Blocks[block].type != TYPE_SYNC)
@@ -3394,6 +3531,74 @@ void PlotBlockTimeDomainGraph(AudioSignal *Signal, int block, char *name, int wi
 
 	sprintf(title, "%s# %d%s at %g", GetBlockName(config, block), GetBlockSubIndex(config, block),
 			window ? " Windowed" : "", Signal->framerate);
+	DrawLabelsMDF(&plot, Signal->role == ROLE_REF ? WAVEFORM_TITLE_REF : WAVEFORM_TITLE_COM, title, Signal->role == ROLE_REF ? PLOT_SINGLE_REF : PLOT_SINGLE_COM, config);
+
+	ClosePlot(&plot);
+}
+
+void PlotBlockTimeDomainInternalSyncGraph(AudioSignal *Signal, int block, char *name, int slot, parameters *config)
+{
+	char		title[1024];
+	PlotFile	plot;
+	long int	color = 0, sample = 0, numSamples = 0, difference = 0, plotSize = 0;
+	int16_t		*samples = NULL;
+	double		frames = 0;
+
+	if(!Signal || !config)
+		return;
+
+	if(block > config->types.totalBlocks)
+		return;
+
+	if(!Signal->Blocks[block].internalSync)
+		return;
+
+	if(slot > Signal->Blocks[block].internalSyncCount - 1)
+		return;
+
+	samples = Signal->Blocks[block].internalSync[slot].samples;
+
+	if(!samples)
+		return;
+
+	numSamples = Signal->Blocks[block].internalSync[slot].size;
+	frames = SamplesToFrames(numSamples, Signal->header.fmt.SamplesPerSec, Signal->framerate);
+
+	difference = Signal->Blocks[block].internalSync[slot].difference;
+	if(difference < 0)
+		plotSize += numSamples - difference;
+	else
+		plotSize = numSamples;
+
+	FillPlot(&plot, name, 0, MININT16, plotSize, MAXINT16, 1, 0.2, config);
+
+	if(!CreatePlotFile(&plot, config))
+		return;
+
+	DrawVerticalFrameGrid(&plot, Signal, frames, 1, numSamples, config);
+
+	// discarded samples box (difference)
+	if(difference > 0 && Signal->Blocks[block].type != TYPE_SYNC)
+	{
+		pl_filltype_r(plot.plotter, 1);
+		pl_pencolor_r(plot.plotter, 0x6666, 0, 0);
+		pl_fillcolor_r(plot.plotter, 0x6666, 0, 0);
+		pl_fbox_r(plot.plotter, numSamples-difference, MININT16, numSamples-1, MAXINT16);
+		pl_filltype_r(plot.plotter, 0);
+	}
+
+	DrawINT16DBFSLines(&plot, numSamples, config);
+
+	color = MatchColor(GetBlockColor(config, block));
+
+	// Draw samples
+	SetPenColor(color, 0xffff, &plot);
+	for(sample = 0; sample < numSamples - 1; sample ++)
+		pl_fline_r(plot.plotter, sample, samples[sample], sample+1, samples[sample+1]);
+	pl_endpath_r(plot.plotter);
+
+	sprintf(title, "%s# %d-%d at %g", GetBlockName(config, block), GetBlockSubIndex(config, block),
+			slot+1, Signal->framerate);
 	DrawLabelsMDF(&plot, Signal->role == ROLE_REF ? WAVEFORM_TITLE_REF : WAVEFORM_TITLE_COM, title, Signal->role == ROLE_REF ? PLOT_SINGLE_REF : PLOT_SINGLE_COM, config);
 
 	ClosePlot(&plot);
@@ -3540,11 +3745,6 @@ void PlotPhaseDifferences(parameters *config)
 		logmsg(PLOT_ADVANCE_CHAR);
 	}
 	//config->logScale = oldLog;
-
-	/*
-	if(config->averagePlot)
-		PlotDifferentAmplitudesAveraged(amplDiff, size, config->compareName, config);
-	*/
 	
 	free(phaseDiff);
 	phaseDiff = NULL;
@@ -3565,10 +3765,10 @@ void PlotAllPhase(FlatPhase *phaseDiff, long int size, char *filename, int pType
 		return;
 
 	if(pType == PHASE_DIFF)
-		sprintf(name, "DIFF_PHASE__ALL_%s", filename);
+		sprintf(name, "PHASE_DIFF__ALL_%s", filename);
 	else
 		sprintf(name, "PHASE__ALL_%c_%s", pType == PHASE_REF ? 'A' : 'B', filename);
-	FillPlot(&plot, name, config->startHzPlot, -1*PHASE_ANGLE, config->endHzPlot, PHASE_ANGLE, 1, 1, config);
+	FillPlot(&plot, name, config->startHzPlot, -1*PHASE_ANGLE, config->endHzPlot, PHASE_ANGLE, 1, 0.5, config);
 
 	if(!CreatePlotFile(&plot, config))
 		return;
@@ -3595,16 +3795,27 @@ void PlotAllPhase(FlatPhase *phaseDiff, long int size, char *filename, int pType
 
 int PlotEachTypePhase(FlatPhase *phaseDiff, long int size, char *filename, int pType, parameters *config)
 {
-	int 		i = 0, type = 0, types = 0;
+	int 		i = 0, type = 0, types = 0, typeCount = 0;
 	char		name[BUFFER_SIZE];
 
+	typeCount = GetActiveBlockTypesNoRepeat(config);
 	for(i = 0; i < config->types.typeCount; i++)
 	{
 		type = config->types.typeArray[i].type;
+
 		if(type > TYPE_CONTROL && !config->types.typeArray[i].IsaddOnData)
 		{
+			char	*returnFolder = NULL;
+
+			if(typeCount > 1)
+			{
+				returnFolder = PushFolder(PHASE_FOLDER);
+				if(!returnFolder)
+					return 0;
+			}
+
 			if(pType == PHASE_DIFF)
-				sprintf(name, "DIFF_PHASE_%s_%02d%s", filename, 
+				sprintf(name, "PHASE_DIFF_%s_%02d%s", filename, 
 					type, config->types.typeArray[i].typeName);
 			else
 				sprintf(name, "PHASE_%c_%s_%02d%s", pType == PHASE_REF ? 'A' : 'B', filename, 
@@ -3612,6 +3823,10 @@ int PlotEachTypePhase(FlatPhase *phaseDiff, long int size, char *filename, int p
 		
 			PlotSingleTypePhase(phaseDiff, size, type, name, pType, config);
 			logmsg(PLOT_ADVANCE_CHAR);
+
+			if(typeCount > 1)
+				ReturnToMainPath(&returnFolder);
+
 			types ++;
 		}
 	}
@@ -3631,7 +3846,7 @@ void PlotSingleTypePhase(FlatPhase *phaseDiff, long int size, int type, char *fi
 	if(!config->Differences.BlockDiffArray)
 		return;
 
-	FillPlot(&plot, filename, config->startHzPlot, -1*PHASE_ANGLE, config->endHzPlot, PHASE_ANGLE, 1, 1, config);
+	FillPlot(&plot, filename, config->startHzPlot, -1*PHASE_ANGLE, config->endHzPlot, PHASE_ANGLE, 1, 0.5, config);
 
 	if(!CreatePlotFile(&plot, config))
 		return;
@@ -3681,7 +3896,7 @@ void DrawLabelsZeroAngleCentered(PlotFile *plot, double maxAngle, double angleIn
 	char label[20];
 
 	pl_savestate_r(plot->plotter);
-	pl_fspace_r(plot->plotter, 0-X0BORDER*config->plotResX, -1*config->plotResY/2-Y0BORDER*config->plotResY, config->plotResX+X1BORDER*config->plotResX, config->plotResY/2+Y1BORDER*config->plotResY);
+	pl_fspace_r(plot->plotter, 0-X0BORDER*config->plotResX*plot->leftmargin, -1*config->plotResY/2-Y0BORDER*config->plotResY, config->plotResX+X1BORDER*config->plotResX, config->plotResY/2+Y1BORDER*config->plotResY);
 
 	pl_ffontname_r(plot->plotter, PLOT_FONT);
 	pl_ffontsize_r(plot->plotter, FONT_SIZE_1);

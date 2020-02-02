@@ -393,7 +393,7 @@ int LoadFile(FILE *file, AudioSignal *Signal, parameters *config, char *fileName
 		logmsg(" - clk: Loading Audio took %0.2fs\n", elapsedSeconds);
 	}
 
-	if(GetFirstSyncIndex(config) != NO_INDEX)
+	if(GetFirstSyncIndex(config) != NO_INDEX && !config->noSyncProfile)
 	{
 		if(config->clock)
 			clock_gettime(CLOCK_MONOTONIC, &start);
@@ -404,13 +404,17 @@ int LoadFile(FILE *file, AudioSignal *Signal, parameters *config, char *fileName
 		Signal->startOffset = DetectPulse(Signal->Samples, Signal->header, Signal->role, config);
 		if(Signal->startOffset == -1)
 		{
-			logmsg("\nStarting pulse train was not detected\n");
+			logmsg("\nERROR: Starting pulse train was not detected.\nProfile used: [%s]\n", config->types.Name);
+			if(!config->syncTolerance)
+				logmsg("You can try using -T for a frequency tolerant pulse detection algorithm\n", config->types.Name);
+			if(config->videoFormatRef == PAL || config->videoFormatCom == PAL)
+				logmsg("One of the signals is defined as PAL, this might be a mistake.\n");
 			return 0;
 		}
 		if(config->verbose)
-			logmsg(" %gs [%ld samples %ld bytes w/header]", 
+			logmsg(" %gs [%ld samples %ld [header %ld] bytes]", 
 				BytesToSeconds(Signal->header.fmt.SamplesPerSec, Signal->startOffset, Signal->AudioChannels),
-				Signal->startOffset/2/Signal->AudioChannels, Signal->startOffset + Signal->SamplesStart);
+				Signal->startOffset/2/Signal->AudioChannels, Signal->startOffset, Signal->startOffset + Signal->SamplesStart);
 
 		if(GetLastSyncIndex(config) != NO_INDEX)
 		{
@@ -468,24 +472,75 @@ int LoadFile(FILE *file, AudioSignal *Signal, parameters *config, char *fileName
 			logmsg(" - clk: Detecting sync took %0.2fs\n", elapsedSeconds);
 		}
 	}
-	else
-	{
-		Signal->framerate = GetMSPerFrame(Signal, config);
 
-		/* Find the start offset */
-		logmsg(" - Detecting audio signal: ");
-		Signal->startOffset = DetectSignalStart(Signal->Samples, Signal->header, 0, 0, NULL, config);
-		if(Signal->startOffset == -1)
+	if(config->noSyncProfile)
+	{
+		switch(config->noSyncProfileType)
 		{
-			logmsg("\nStarting position was not detected\n");
-			return 0;
+			case NO_SYNC_AUTO:
+			{
+				/* Find the start offset */
+				
+				logmsg(" - Detecting audio signal: ");
+				Signal->startOffset = DetectSignalStart(Signal->Samples, Signal->header, 0, 0, NULL, config);
+				if(Signal->startOffset == -1)
+				{
+					logmsg("\nERROR: Starting position was not detected.\n");
+					return 0;
+				}
+				logmsg(" %gs [%ld bytes]\n", 
+						BytesToSeconds(Signal->header.fmt.SamplesPerSec, Signal->startOffset, Signal->AudioChannels),
+						Signal->startOffset);
+				Signal->endOffset = SecondsToBytes(Signal->header.fmt.SamplesPerSec, 
+										GetSignalTotalDuration(Signal->framerate, config), 
+										Signal->AudioChannels, 
+										NULL, NULL, NULL);
+			}
+			break;
+			case NO_SYNC_MANUAL:
+			{
+				double diff = 0, expected = 0;
+		
+				logmsg(" - WARNING: Files must be identically trimmed for this to work at some level\n");
+				Signal->startOffset = 0;
+				Signal->endOffset = Signal->header.data.DataSize;
+		
+				expected = Signal->framerate;
+		
+				if(Signal->role == ROLE_REF)
+				{
+					double seconds = 0;
+					seconds = BytesToSeconds(Signal->header.fmt.SamplesPerSec, Signal->endOffset, Signal->AudioChannels);
+					config->NoSyncTotalFrames = (seconds*1000)/expected;
+					Signal->framerate = expected;
+					logmsg(" - Loaded %g Hz video signal (%gms per frame) from profile file\n", 
+								CalculateScanRate(Signal), Signal->framerate);
+				}
+				else
+				{
+					Signal->framerate = CalculateFrameRateNS(Signal, config->NoSyncTotalFrames, config);
+					logmsg(" - Detected %g Hz video signal (%gms per frame) from Audio file\n", 
+								CalculateScanRate(Signal), Signal->framerate);
+				}
+		
+				diff = fabs(100.0 - Signal->framerate*100.0/expected);
+				if(diff > 1.0)
+				{
+					logmsg("\nERROR: Framerate is %g%% different from the expected %gms.\n",
+							diff, expected);
+					logmsg("\tThis might be due a mismatched profile.\n");
+					logmsg("\tIf you want to ignore this and compare the files, use -I.\n");
+					if(!config->ignoreFrameRateDiff)
+						return 0;
+				}
+			}
+			break;
+			default:
+			{
+				logmsg("\nERROR: Invalid profile\n");
+				return 0;
+			}
 		}
-		logmsg(" %gs [%ld bytes]\n", 
-				BytesToSeconds(Signal->header.fmt.SamplesPerSec, Signal->startOffset, Signal->AudioChannels),
-				Signal->startOffset);
-		Signal->endOffset = SecondsToBytes(Signal->header.fmt.SamplesPerSec, 
-				GetSignalTotalDuration(Signal->framerate, config), 
-				Signal->AudioChannels, NULL, NULL, NULL);
 	}
 
 	if(seconds < GetSignalTotalDuration(Signal->framerate, config))
@@ -500,40 +555,34 @@ int LoadFile(FILE *file, AudioSignal *Signal, parameters *config, char *fileName
 	return 1;
 }
 
-int MoveSampleBlockInternal(AudioSignal *Signal, long int element, long int pos, long int internalSyncOffset, parameters *config)
+int MoveSampleBlockInternal(AudioSignal *Signal, long int element, long int pos, long int signalStartOffset, parameters *config)
 {
 	char		*sampleBuffer = NULL;
-	double		seconds = 0;
-	long int	buffsize = 0, frames = 0, bytes = 0;
+	double		signalLengthSeconds = 0;
+	long int	signalLengthFrames = 0, signalLengthBytes = 0;
 
-	frames = GetInternalSyncTotalLength(element, config);
-	if(!frames)
+	signalLengthFrames = GetInternalSyncTotalLength(element, config);
+	if(!signalLengthFrames)
 	{
 		logmsg("\tERROR: Internal Sync block has no frame duration. Aborting.\n");
 		return 0;
 	}
 
-	seconds = FramesToSeconds(frames, config->referenceFramerate);
-	bytes = SecondsToBytes(Signal->header.fmt.SamplesPerSec, seconds, Signal->AudioChannels, NULL, NULL, NULL);
+	signalLengthSeconds = FramesToSeconds(signalLengthFrames, config->referenceFramerate);
+	signalLengthBytes = SecondsToBytes(Signal->header.fmt.SamplesPerSec, signalLengthSeconds, Signal->AudioChannels, NULL, NULL, NULL);
 
-	if(pos + bytes > Signal->header.data.DataSize)
+	if(pos + signalStartOffset + signalLengthBytes > Signal->header.data.DataSize)
 	{
-		bytes = Signal->header.data.DataSize - pos;
+		signalLengthBytes = Signal->header.data.DataSize - (pos+signalStartOffset);
 		if(config->verbose)
 			logmsg(" - Inernal sync adjust: Signal is smaller than expected\n");
 	}
 
 	if(config->verbose)
 		logmsg(" - Internal Segment Info:\n\tFinal Offset: %ld Frames: %d Seconds: %g Bytes: %ld\n",
-				pos+internalSyncOffset, frames, seconds, bytes);
-	if(bytes <= internalSyncOffset)
-	{
-		logmsg("\tERROR: Internal Sync could not be aligned, signal out of bounds.\n");
-		return 0;
-	}
-	buffsize = bytes - internalSyncOffset;
+				pos+signalStartOffset, signalLengthFrames, signalLengthSeconds, signalLengthBytes);
 
-	sampleBuffer = (char*)malloc(sizeof(char)*buffsize);
+	sampleBuffer = (char*)malloc(sizeof(char)*signalLengthBytes);
 	if(!sampleBuffer)
 	{
 		logmsg("\tERROR: Out of memory.\n");
@@ -545,62 +594,51 @@ int MoveSampleBlockInternal(AudioSignal *Signal, long int element, long int pos,
 	{
 		logmsg(" - MOVEMENTS:\n");
 		logmsg("\tCopy: From %ld Bytes: %ld\n",
-				pos + internalSyncOffset, buffsize);
+				pos + signalStartOffset, signalLengthBytes);
 		logmsg("\tZero Out: Pos: %ld Bytes: %ld\n",
-				pos, bytes);
+				pos+signalStartOffset, signalLengthBytes);
 		logmsg("\tStore: Pos: %ld Bytes: %ld\n",
-				pos, buffsize);
+				pos, signalLengthBytes);
 	}
 	*/
-
-	memcpy(sampleBuffer, Signal->Samples + pos + internalSyncOffset, buffsize);
-	memset(Signal->Samples + pos, 0, bytes);
-	memcpy(Signal->Samples + pos, sampleBuffer, buffsize);
+	memcpy(sampleBuffer, Signal->Samples + pos + signalStartOffset, signalLengthBytes);
+	memset(Signal->Samples + pos + signalStartOffset, 0, signalLengthBytes);
+	memcpy(Signal->Samples + pos, sampleBuffer, signalLengthBytes);
 
 	free(sampleBuffer);
 	return 1;
 }
 
-int MoveSampleBlockExternal(AudioSignal *Signal, long int element, long int pos, long int internalSyncOffset, long int paddingSize, parameters *config)
+int MoveSampleBlockExternal(AudioSignal *Signal, long int element, long int pos, long int signalStartOffset, long int internalSyncToneSize, parameters *config)
 {
 	char		*sampleBuffer = NULL;
-	double		seconds = 0;
-	long int	buffsize = 0, frames = 0, bytes = 0;
+	double		signalLengthSeconds = 0;
+	long int	signalLengthFrames = 0, signalLengthBytes = 0;
 
-	frames = GetInternalSyncTotalLength(element, config);
-	if(!frames)
+	signalLengthFrames = GetInternalSyncTotalLength(element, config);
+	if(!signalLengthFrames)
 	{
 		logmsg("\tERROR: Internal Sync block has no frame duration. Aborting.\n");
 		return 0;
 	}
 
-	seconds = FramesToSeconds(frames, config->referenceFramerate);
-	bytes = SecondsToBytes(Signal->header.fmt.SamplesPerSec, seconds, Signal->AudioChannels, NULL, NULL, NULL);
+	signalLengthSeconds = FramesToSeconds(signalLengthFrames, config->referenceFramerate);
+	signalLengthBytes = SecondsToBytes(Signal->header.fmt.SamplesPerSec, signalLengthSeconds, Signal->AudioChannels, NULL, NULL, NULL);
 
-	if(pos + bytes > Signal->header.data.DataSize)
+	if(pos + signalStartOffset + signalLengthBytes > Signal->header.data.DataSize)
 	{
-		bytes = Signal->header.data.DataSize - pos;
+		signalLengthBytes = Signal->header.data.DataSize - (pos+signalStartOffset);
 		if(config->verbose)
 			logmsg(" - Inernal sync adjust: Signal is smaller than expected\n");
 	}
 	if(config->verbose)
 		logmsg(" - Internal Segment Info:\n\tFinal Offset: %ld Frames: %d Seconds: %g Bytes: %ld\n",
-				pos+internalSyncOffset, frames, seconds, bytes);
-	if(bytes <= internalSyncOffset)
-	{
-		logmsg("\tERROR: Internal Sync could not be aligned, signal out of bounds.\n");
-		return 0;
-	}
+				pos+signalStartOffset, signalLengthFrames, signalLengthSeconds, signalLengthBytes);
 
-	if(pos + internalSyncOffset + bytes - paddingSize > Signal->header.data.DataSize)
-		bytes = Signal->header.data.DataSize - (pos + internalSyncOffset)+paddingSize;
-
-	buffsize = bytes - paddingSize;
-
-	sampleBuffer = (char*)malloc(sizeof(char)*buffsize);
+	sampleBuffer = (char*)malloc(sizeof(char)*signalLengthBytes);
 	if(!sampleBuffer)
 	{
-		logmsg("\tERROR: Out of memory.\n");
+		logmsg("\tERROR: Out of memory while performing internal Sync adjustments.\n");
 		return 0;
 	}
 
@@ -609,123 +647,176 @@ int MoveSampleBlockExternal(AudioSignal *Signal, long int element, long int pos,
 	{
 		logmsg(" - MOVEMENTS:\n");
 		logmsg("\tCopy: From %ld Bytes: %ld\n",
-				pos + internalSyncOffset, buffsize);
+				pos + signalStartOffset, signalLengthBytes);
 		logmsg("\tZero Out: Pos: %ld Bytes: %ld\n",
-				pos + internalSyncOffset, buffsize);
+				pos + pos, Signal->header.data.DataSize-pos);
 		logmsg("\tStore: Pos: %ld Bytes: %ld\n",
-				pos, buffsize);
+				pos, signalLengthBytes);
 	}
 	*/
 
-	memcpy(sampleBuffer, Signal->Samples + pos + internalSyncOffset, buffsize);
-	memset(Signal->Samples + pos + internalSyncOffset, 0, buffsize);
-	memcpy(Signal->Samples + pos, sampleBuffer, buffsize);
+	memcpy(sampleBuffer, Signal->Samples + pos + signalStartOffset, signalLengthBytes);
+	memset(Signal->Samples + pos, 0, Signal->header.data.DataSize-pos);
+	memcpy(Signal->Samples + pos, sampleBuffer, signalLengthBytes);
 
 	free(sampleBuffer);
 	return 1;
 }
 
-int ProcessInternal(AudioSignal *Signal, long int element, long int pos, int *syncinternal, long int *advanceFrames, int knownLength, parameters *config)
+int ProcessInternal(AudioSignal *Signal, long int element, long int pos, int *syncinternal, long int *advanceBytes, int knownLength, parameters *config)
 {
 	if(*syncinternal)
 		*syncinternal = 0;
 	else
 	{
-		int			syncTone = 0, lastsync = 0;
-		double		syncLen = 0;
-		long int	internalSyncOffset = 0,
-					endPulse = 0, pulseLength = 0, syncLength = 0;
+		int			syncToneFreq = 0;
+		double		syncLenSeconds = 0;
+		long int	internalSyncOffset = 0, syncLengthBytes = 0,
+					endPulseBytes = 0, pulseLengthBytes = 0, signalStart = 0;
 
 		*syncinternal = 1;
-		syncTone = GetInternalSyncTone(element, config);
-		syncLen = GetInternalSyncLen(element, config);
-		internalSyncOffset = DetectSignalStart(Signal->Samples, Signal->header, pos, syncTone, &endPulse, config);
+
+		syncToneFreq = GetInternalSyncTone(element, config);
+		syncLenSeconds = GetInternalSyncLen(element, config);
+		internalSyncOffset = DetectSignalStart(Signal->Samples, Signal->header, pos, syncToneFreq, &endPulseBytes, config);
 		if(internalSyncOffset == -1)
 		{
 			logmsg("\tERROR: No signal found while in internal sync detection. Aborting\n");
 			return 0;
-		}
+		} 
 
-		pulseLength = endPulse - internalSyncOffset;
-		syncLength = SecondsToBytes(Signal->header.fmt.SamplesPerSec, syncLen, Signal->AudioChannels, NULL, NULL, NULL);
+		pulseLengthBytes = endPulseBytes - internalSyncOffset;
+		syncLengthBytes = SecondsToBytes(Signal->header.fmt.SamplesPerSec, syncLenSeconds, Signal->AudioChannels, NULL, NULL, NULL);
 		internalSyncOffset -= pos;
+		signalStart = internalSyncOffset;
 
-		lastsync = GetLastSyncElementIndex(config);
-		if(lastsync == NO_INDEX)
-		{
-			logmsg("\tERROR: Profile has no Sync Index. Aborting.\n");
-			return 0;
-		}
-		if(knownLength)
+		if(knownLength == TYPE_INTERNAL_KNOWN)
 		{
 			logmsg(" - %s command delay: %g ms [%g frames]\n",
 				GetBlockName(config, element),
 				BytesToSeconds(Signal->header.fmt.SamplesPerSec, internalSyncOffset, Signal->AudioChannels)*1000.0,
 				BytesToFrames(Signal->header.fmt.SamplesPerSec, internalSyncOffset, config->referenceFramerate, Signal->AudioChannels));
-			/*
-			if(config->verbose)
-					logmsg("  > Found at: %ld Previous: %ld Offset: %ld\n\tPulse Length: %ld Half Sync Length: %ld\n", 
-						pos + internalSyncOffset, pos, internalSyncOffset, pulseLength, syncLength/2);
-			*/
 
+			if(config->verbose)
+					logmsg("  > Found at: %ld Previous: %ld Offset: %ld\n\tPulse Length: %ld Silence Length: %ld\n", 
+						pos + internalSyncOffset, pos, internalSyncOffset, pulseLengthBytes, syncLengthBytes/2);
+
+#ifndef MDWAVE
+			/* Copy waveforms for visual inspection, create 3 slots: silence, sync pulse, silence */
+			if(config->plotAllNotes)
+			{
+				if(!initInternalSync(&Signal->Blocks[element], 3))
+					return 0;
+			
+				if(!CopySamplesForTimeDomainPlotInternalSync(&Signal->Blocks[element], 
+						(int16_t*)(Signal->Samples + pos), 
+						internalSyncOffset/2, 0, 
+						Signal->header.fmt.SamplesPerSec, NULL, Signal->AudioChannels, config))
+					return 0;
+	
+				if(!CopySamplesForTimeDomainPlotInternalSync(&Signal->Blocks[element], 
+						(int16_t*)(Signal->Samples + pos + internalSyncOffset), 
+						pulseLengthBytes/2, 1, 
+						Signal->header.fmt.SamplesPerSec, NULL, Signal->AudioChannels, config))
+					return 0;
+	
+				if(!CopySamplesForTimeDomainPlotInternalSync(&Signal->Blocks[element], 
+						(int16_t*)(Signal->Samples + pos + internalSyncOffset + pulseLengthBytes), 
+						syncLengthBytes/4, 2, 
+						Signal->header.fmt.SamplesPerSec, NULL, Signal->AudioChannels, config))
+					return 0;
+			}
+#endif
 			// skip sync tone-which is silence-taken from config file
-			internalSyncOffset += syncLength;
+			internalSyncOffset += syncLengthBytes;
 
 			if(!MoveSampleBlockInternal(Signal, element, pos, internalSyncOffset, config))
 				return 0;
 		}
-		else  // Our sync is outside the frame detection zone
+		if(knownLength == TYPE_INTERNAL_UNKNOWN)  // Our sync is outside the frame detection zone
 		{
-			long int 	halfSyncLength = 0; //, diffOffset = 0;
+			long int 	silenceLengthBytes = 0, oneframe = 0; //, diffOffset = 0;
 
-			halfSyncLength = syncLength/2;
+			silenceLengthBytes = syncLengthBytes/2;
 
-			if(pulseLength > halfSyncLength)
-				pulseLength = halfSyncLength; 
-
-			//diffOffset = halfSyncLength - pulseLength;
-			/*
-			if(internalSyncOffset == 0 && diffOffset) // we are in negative offset territory (emulator)
+			if(pulseLengthBytes != silenceLengthBytes)
 			{
-				logmsg(" - %s command delay: %g ms [%g frames] (Emulator)\n",
-					GetBlockName(config, element),
-					-1.0*BytesToSeconds(Signal->header.fmt.SamplesPerSec, diffOffset, Signal->AudioChannels)*1000.0,
-					-1.0*BytesToFrames(Signal->header.fmt.SamplesPerSec, diffOffset, config->referenceFramerate, Signal->AudioChannels));
+				if(pulseLengthBytes > silenceLengthBytes)
+				{
+					long int compensate = 0;
 
-				if(config->verbose)
-					logmsg("  > Found at: %ld Previous: %ld Offset: %ld\n\tPulse Length: %ld Half Sync Length: %ld\n", 
-						pos + internalSyncOffset - diffOffset, pos, diffOffset, pulseLength, halfSyncLength);
+					// Length must be fixed, so we detected start sooner
+					compensate = pulseLengthBytes - silenceLengthBytes;
 
+					signalStart += compensate;
+					internalSyncOffset += compensate;
+
+					pulseLengthBytes = silenceLengthBytes;
+				}
+				else
+				{
+					logmsg(" - WARNING: Internal Sync too short. Got %ld] expewcted %ld\n", 
+						pulseLengthBytes, silenceLengthBytes);
+				}
+				//silenceLengthBytes = syncLengthBytes - pulseLengthBytes;
 			}
-			else
-			*/
-			{
-//				pulseLength = halfSyncLength; 
 
-				logmsg(" - %s command delay: %g ms [%g frames]\n",
-					GetBlockName(config, element),
-					BytesToSeconds(Signal->header.fmt.SamplesPerSec, internalSyncOffset, Signal->AudioChannels)*1000.0,
-					BytesToFrames(Signal->header.fmt.SamplesPerSec, internalSyncOffset, config->referenceFramerate, Signal->AudioChannels));
+			logmsg(" - %s command delay: %g ms [%g frames]\n",
+				GetBlockName(config, element),
+				BytesToSeconds(Signal->header.fmt.SamplesPerSec, internalSyncOffset, Signal->AudioChannels)*1000.0,
+				BytesToFrames(Signal->header.fmt.SamplesPerSec, internalSyncOffset, config->referenceFramerate, Signal->AudioChannels));
 
-				/*
-				if(config->verbose)
-					logmsg("  > Found at: %ld Previous: %ld Offset: %ld\n\tPulse Length: %ld Half Sync Length: %ld\n", 
-						pos + internalSyncOffset - diffOffset, pos, diffOffset, pulseLength, halfSyncLength);
-				*/
-			}
+			if(config->verbose)
+				logmsg("  > Found at: %ld Previous: %ld\n\tPulse Length: %ld Silence Length: %ld\n", 
+					pos + internalSyncOffset, pos, pulseLengthBytes, silenceLengthBytes);
 			
 			// skip the pulse real duration to sync perfectly
-			internalSyncOffset += pulseLength;
+			signalStart += pulseLengthBytes;
 			// skip half the sync tone-which is silence-taken from config file
-			internalSyncOffset += halfSyncLength;
+			signalStart += silenceLengthBytes;
+#ifndef MDWAVE
+			/* Copy waveforms for visual inspection, create 3 slots: silence, sync pulse, silence */
+			if(config->plotAllNotes)
+			{
+				if(!initInternalSync(&Signal->Blocks[element], 4))
+					return 0;
+			
+				if(!CopySamplesForTimeDomainPlotInternalSync(&Signal->Blocks[element], 
+						(int16_t*)(Signal->Samples + pos), 
+						internalSyncOffset/2, 0, 
+						Signal->header.fmt.SamplesPerSec, NULL, Signal->AudioChannels, config))
+					return 0;
+	
+				if(!CopySamplesForTimeDomainPlotInternalSync(&Signal->Blocks[element], 
+						(int16_t*)(Signal->Samples + pos + internalSyncOffset), 
+						pulseLengthBytes/2, 1, 
+						Signal->header.fmt.SamplesPerSec, NULL, Signal->AudioChannels, config))
+					return 0;
+	
+				if(!CopySamplesForTimeDomainPlotInternalSync(&Signal->Blocks[element], 
+						(int16_t*)(Signal->Samples + pos + internalSyncOffset + pulseLengthBytes), 
+						silenceLengthBytes	/2, 2, 
+						Signal->header.fmt.SamplesPerSec, NULL, Signal->AudioChannels, config))
+					return 0;
 
-			if(!MoveSampleBlockExternal(Signal, element, pos, internalSyncOffset, halfSyncLength + pulseLength, config))
+				oneframe = SecondsToBytes(Signal->header.fmt.SamplesPerSec, FramesToSeconds(1, config->referenceFramerate), Signal->AudioChannels, NULL, NULL, NULL);
+				if(!CopySamplesForTimeDomainPlotInternalSync(&Signal->Blocks[element], 
+						(int16_t*)(Signal->Samples + pos + signalStart), 
+						(oneframe*2)/2, 3, 
+						Signal->header.fmt.SamplesPerSec, NULL, Signal->AudioChannels, config))
+					return 0;
+			}
+#endif
+			/* Do the real processing */
+			if(!MoveSampleBlockExternal(Signal, element, pos, signalStart, pulseLengthBytes + silenceLengthBytes, config))
 				return 0;
 		}
-		*advanceFrames += internalSyncOffset;
+		if(advanceBytes)
+			*advanceBytes += internalSyncOffset;
 	}
 	return 1;
 }
+
 
 int CreateChunksFolder(parameters *config)
 {
@@ -831,13 +922,13 @@ int ProcessFile(AudioSignal *Signal, parameters *config)
 		{
 			if(Signal->Blocks[i].type == TYPE_INTERNAL_KNOWN)
 			{
-				if(!ProcessInternal(Signal, i, pos, &syncinternal, &syncAdvance, 1, config))
+				if(!ProcessInternal(Signal, i, pos, &syncinternal, &syncAdvance, TYPE_INTERNAL_KNOWN, config))
 					return 0;
 			}
 	
 			if(Signal->Blocks[i].type == TYPE_INTERNAL_UNKNOWN)
 			{
-				if(!ProcessInternal(Signal, i, pos, &syncinternal, &syncAdvance, 0, config))
+				if(!ProcessInternal(Signal, i, pos, &syncinternal, &syncAdvance, TYPE_INTERNAL_UNKNOWN, config))
 					return 0;
 			}
 		}

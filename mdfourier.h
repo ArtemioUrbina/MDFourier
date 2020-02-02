@@ -75,6 +75,7 @@
 #define TYPE_SKIP				-6
 #define TYPE_TIMEDOMAIN			-7
 #define	TYPE_SILENCE_OVERRIDE	-8
+#define	TYPE_WATERMARK			-9
 #define TYPE_CONTROL			TYPE_SILENCE
 
 
@@ -87,6 +88,7 @@
 #define TYPE_SKIP_C				'k'
 #define TYPE_TIMEDOMAIN_C		't'
 #define TYPE_SILENCE_OVER_C		'N'
+#define TYPE_WATERMARK_C		'W'
 
 #define	BAR_DIFF_DB_TOLERANCE	1.0
 
@@ -138,6 +140,11 @@
 
 #define	INVALID_CHANNELS	-1
 
+#define	WATERMARK_NONE				0
+#define	WATERMARK_VALID				1
+#define	WATERMARK_INVALID			2
+#define	WATERMARK_INDETERMINATE		3
+
 #define	NO_CLK			-1
 
 #if defined (WIN32)
@@ -163,6 +170,10 @@
 #define M_PI 3.1415926535897932384626433832795
 #endif
 
+
+#define NTSC	0
+#define PAL		1
+
 enum normalize
 {
 	max_time,
@@ -185,9 +196,6 @@ typedef struct max_mag {
 	double		hertz;
 	long int	block;
 } MaxMagn;
-
-#define NTSC	0
-#define PAL		1
 
 typedef struct abt_st {
 	char		typeName[128];
@@ -218,6 +226,11 @@ typedef struct abd_st {
 
 	AudioBlockType	*typeArray;
 	int				typeCount;
+
+	int				useWatermark;
+	int				watermarkValidFreq;
+	int				watermarkInvalidFreq;
+	char			watermarkDisplayName[128];
 } AudioBlockDef;
 
 /********************************************************/
@@ -299,6 +312,8 @@ typedef struct AudioBlock_st {
 	long int		linFreqSize;
 	FFTWSpectrum	fftwValues;
 	BlockSamples	audio;
+	BlockSamples	*internalSync;
+	int				internalSyncCount;
 	int				index;
 	int				type;
 	int				frames;
@@ -330,6 +345,7 @@ typedef struct AudioSt {
 	double		SilenceBinSize;
 
 	int			nyquistLimit;
+	int			watermarkStatus;
 	double		startHz;
 	double		endHz;
 

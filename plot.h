@@ -49,7 +49,7 @@ typedef struct plot_st {
 	double			x0, x1, y0, y1;
 	double			Rx0, Rx1, Ry0, Ry1;
 	double			penWidth;
-	short			leftmargin;
+	double			leftmargin;
 } PlotFile;
 
 typedef struct averaged_freq{
@@ -213,6 +213,7 @@ void DrawLabelsTimeSpectrogram(PlotFile *plot, int khz, int khzIncrement, parame
 void PlotTimeDomainGraphs(AudioSignal *Signal, parameters *config);
 void PlotBlockTimeDomainGraph(AudioSignal *Signal, int block, char *name, int window, parameters *config);
 void PlotBlockPhaseGraph(AudioSignal *Signal, int block, char *name, parameters *config);
+void PlotBlockTimeDomainInternalSyncGraph(AudioSignal *Signal, int block, char *name, int slot, parameters *config);
 
 FlatPhase *CreatePhaseFlatDifferences(parameters *config, long int *size);
 void PlotSingleTypePhase(FlatPhase *phaseDiff, long int size, int type, char *filename, int pType, parameters *config);

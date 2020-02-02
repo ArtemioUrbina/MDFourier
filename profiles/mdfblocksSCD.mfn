@@ -1,4 +1,4 @@
-MDFourierAudioBlockFile 1.8
+MDFourierAudioBlockFile 1.9
 SEGA: Mega Drive/Sega Genesis + CD-ROM
 NTSC 16.688 262 8820 14 10
 PAL 20 313 8820 17 10
@@ -17,7 +17,7 @@ PCMSTART k 1 2 red m
 PCM 4 14 10 magenta m
 PCMEND k 1 2 red m
 CD-Paused i 1 2 red s 8000 0.300
-CD-DA 5 68 10 orange s
+CD-DA 5 64 10 orange s
 CD-Paused i 1 2 red s 0 0
 CD-Play i 1 2 red s 8000 0.300
 Filler k 1 400 red s

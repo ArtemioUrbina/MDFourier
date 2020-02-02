@@ -1,4 +1,4 @@
-MDFourierAudioBlockFile 1.8
+MDFourierAudioBlockFile 1.9
 NEC: PC Engine/Turbo Grafx-16 + CD-ROM2
 NTSC 16.7148 262 8606 14 10
 PAL 20 313 8606 17 10
@@ -15,5 +15,5 @@ ADSTART k 1 1 red m
 ADPCM 4 28 10 magenta m
 ADEND k 1 2 red m
 CD-ROM I 1 1 red s 8000 0.300
-CD-DA 3 64 10 orange s
+CD-DA 3 60 10 orange s
 CD-ROM I 1 1 red s 0 0

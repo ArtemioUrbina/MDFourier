@@ -74,6 +74,8 @@ double FindFrequencyBracket(double frequency, size_t size, int AudioChannels, lo
 		{
 			targetFreq = Hertz;
 			minDiff = difference;
+			if(minDiff == 0)
+				break;
 		}
 	}
 	return targetFreq;
@@ -122,11 +124,12 @@ int IsHRefreshNoise(AudioSignal *Signal, double freq)
 	if(!Signal)
 		return 0;
 
+	freq = roundFloat(freq);
 	if(Signal->scanrateFrequency == 0 || !Signal->SilenceBinSize)
 		return 0;
 
-	if(freq >= Signal->scanrateFrequency - Signal->SilenceBinSize*5 && 
-		freq <= Signal->scanrateFrequency)
+	if(freq >= Signal->scanrateFrequency - Signal->SilenceBinSize*8 && 
+		freq <= Signal->scanrateFrequency + Signal->SilenceBinSize*8)
 		return 1;
 	return 0;
 }
@@ -136,11 +139,12 @@ int IsHRefreshNoiseCrossTalk(AudioSignal *Signal, double freq)
 	if(!Signal)
 		return 0;
 
+	freq = roundFloat(freq);
 	if(Signal->scanrateFrequency == 0 || !Signal->SilenceBinSize)
 		return 0;
 
-	if(freq >= Signal->scanrateFrequency/2 - Signal->SilenceBinSize*5 && 
-		freq <= Signal->scanrateFrequency/2)
+	if(freq >= Signal->scanrateFrequency/2 - Signal->SilenceBinSize*8 && 
+		freq <= Signal->scanrateFrequency/2 + Signal->SilenceBinSize*8)
 		return 1;
 	return 0;
 }
@@ -150,7 +154,7 @@ int IsGridFrequencyNoise(AudioSignal *Signal, double freq)
 	if(!Signal)
 		return 0;
 
-	if(Signal->gridFrequency == 0)
+	if(Signal->gridFrequency == 0 || !Signal->SilenceBinSize)
 		return 0;
 
 	if(freq == Signal->gridFrequency)
@@ -174,6 +178,7 @@ AudioSignal *CreateAudioSignal(parameters *config)
 		logmsg("Not enough memory for Data Structures (AS)\n");
 		return NULL;
 	}
+	memset(Signal, 0, sizeof(AudioSignal));
 
 	Signal->Blocks = (AudioBlocks*)malloc(sizeof(AudioBlocks)*config->types.totalBlocks);
 	if(!Signal->Blocks)
@@ -234,6 +239,9 @@ void InitAudio(AudioSignal *Signal, parameters *config)
 			Signal->Blocks[n].audio.window_samples = NULL;
 			Signal->Blocks[n].audio.size = 0;
 			Signal->Blocks[n].audio.difference = 0;
+
+			Signal->Blocks[n].internalSync = NULL;
+			Signal->Blocks[n].internalSyncCount = 0;
 	
 			Signal->Blocks[n].index = GetBlockSubIndex(config, n);
 			Signal->Blocks[n].type = ConvertAudioTypeForProcessing(GetBlockType(config, n), config);
@@ -262,10 +270,35 @@ void InitAudio(AudioSignal *Signal, parameters *config)
 	Signal->SilenceBinSize = 0;
 
 	Signal->nyquistLimit = 0;
+	Signal->watermarkStatus = WATERMARK_NONE;
 	Signal->startHz = config->startHz;
 	Signal->endHz = config->endHz;
 
 	memset(&Signal->header, 0, sizeof(wav_hdr));
+}
+
+int initInternalSync(AudioBlocks * AudioArray, int size)
+{
+	if(!AudioArray)
+		return 0 ;
+
+	if(AudioArray->internalSync)
+		return 0;
+
+	AudioArray->internalSync = (BlockSamples*)malloc(sizeof(BlockSamples)*size);
+	if(!AudioArray->internalSync)
+		return 0;
+
+	for(int i = 0; i < size; i++)
+	{
+		AudioArray->internalSync[i].samples = NULL;
+		AudioArray->internalSync[i].window_samples = NULL;
+		AudioArray->internalSync[i].size = 0;
+		AudioArray->internalSync[i].difference = 0;
+	}
+
+	AudioArray->internalSyncCount = size;
+	return 1;
 }
 
 void CleanAndReleaseFFTW(AudioBlocks * AudioArray)
@@ -306,6 +339,28 @@ void ReleaseSamples(AudioBlocks * AudioArray)
 	}
 	AudioArray->audio.size = 0;
 	AudioArray->audio.difference = 0;
+
+	if(AudioArray->internalSync)
+	{
+		for(int i = 0; i < AudioArray->internalSyncCount; i++)
+		{
+			if(AudioArray->internalSync[i].samples)
+			{
+				free(AudioArray->internalSync[i].samples);
+				AudioArray->internalSync[i].samples = NULL;
+			}
+			if(AudioArray->internalSync[i].window_samples)
+			{
+				free(AudioArray->internalSync[i].window_samples);
+				AudioArray->internalSync[i].window_samples = NULL;
+			}
+			AudioArray->internalSync[i].size = 0;
+			AudioArray->internalSync[i].difference = 0;
+		}
+		free(AudioArray->internalSync);
+		AudioArray->internalSync = NULL;
+	}
+	AudioArray->internalSyncCount = 0;
 }
 
 void ReleaseFrequencies(AudioBlocks * AudioArray)
@@ -418,15 +473,15 @@ int LoadProfile(parameters *config)
 	if(strcmp(buffer, "MDFourierAudioBlockFile") == 0)
 	{
 		sscanf(lineBuffer, "%*s %s\n", buffer);
-		if(atof(buffer) < 1.8)
+		if(atof(buffer) < 1.9)
 		{
-			logmsg("ERROR: Please update your profile files to version 1.8\n");
+			logmsg("ERROR: Please update your profile files to version 1.9\n");
 			fclose(file);
 			return 0;
 		}
-		if(atof(buffer) > 1.8)
+		if(atof(buffer) > 1.9)
 		{
-			logmsg("ERROR: This executable can parse \"MDFourierAudioBlockFile 1.8\" files only\n");
+			logmsg("ERROR: This executable can parse \"MDFourierAudioBlockFile 1.9\" files only\n");
 			fclose(file);
 			return 0;
 		}
@@ -634,6 +689,10 @@ int LoadAudioBlockStructure(FILE *file, parameters *config)
 			case TYPE_SILENCE_OVER_C:
 				config->types.typeArray[i].type = TYPE_SILENCE_OVERRIDE;
 				break;
+			case TYPE_WATERMARK_C:
+				config->types.typeArray[i].type = TYPE_WATERMARK;
+				config->types.useWatermark = 1;
+				break;
 			default:
 				if(sscanf(lineBuffer, "%*s %d ", &config->types.typeArray[i].type) != 1)
 				{
@@ -662,6 +721,28 @@ int LoadAudioBlockStructure(FILE *file, parameters *config)
 			{
 				logmsg("ERROR: Invalid MD Fourier Audio Blocks File (Element Count, frames, color, channel): %s\n", lineBuffer);
 				fclose(file);
+				return 0;
+			}
+		}
+		else if(config->types.typeArray[i].type == TYPE_WATERMARK)
+		{
+			if(sscanf(lineBuffer, "%*s %*s %d %d %20s %c %d %d %128s\n", 
+				&config->types.typeArray[i].elementCount,
+				&config->types.typeArray[i].frames,
+				&config->types.typeArray[i].color[0],
+				&config->types.typeArray[i].channel,
+				&config->types.watermarkValidFreq,
+				&config->types.watermarkInvalidFreq,
+				config->types.watermarkDisplayName) != 7)
+			{
+				logmsg("ERROR: Invalid MD Fourier Audio Blocks File (Element Count, frames, color, channel, WMValid, WMFail, Name): %s\n", lineBuffer);
+				fclose(file);
+				return 0;
+			}
+
+			if(!config->types.watermarkValidFreq || !config->types.watermarkInvalidFreq)
+			{
+				logmsg("ERROR: Invalid Watermark values: %s\n", lineBuffer);
 				return 0;
 			}
 		}
@@ -706,7 +787,7 @@ int LoadAudioBlockStructure(FILE *file, parameters *config)
 		if(!config->useExtraData && config->types.typeArray[i].IsaddOnData)
 		{
 			if(config->types.typeArray[i].type != TYPE_SILENCE)
-				config->types.typeArray[i].type = TYPE_SKIP;
+				config->types.typeArray[i].type = TYPE_TIMEDOMAIN;  // TYPE_SKIP
 		}
 	}
 
@@ -1138,6 +1219,116 @@ void SelectSilenceProfile(parameters *config)
 		if(config->types.typeArray[i].type == TYPE_SILENCE_OVERRIDE)
 			config->types.typeArray[i].type = TYPE_SILENCE;
 	}
+}
+
+int DetectWatermark(AudioSignal *Signal, parameters *config)
+{
+	int watermark = -1, found = 0;
+	double	WaterMarkValid = 0, WaterMarkInvalid = 0;
+
+	if(!config || !Signal)
+		return 0;
+
+	if(!config->types.useWatermark)
+	{
+		logmsg("ERROR: Watermark expected but not defined\n");
+		return 0;
+	}
+
+	for(int block = 0; block < config->types.totalBlocks; block++)
+	{
+		if(GetBlockType(config, block) == TYPE_WATERMARK)
+		{
+			watermark = block;
+			break;
+		}
+	}
+
+	if(watermark == -1)
+	{
+		Signal->watermarkStatus = WATERMARK_NONE;
+		logmsg("ERROR: Watermark expected but not found\n");
+		return 0;
+	}
+
+	if(!Signal->Blocks[watermark].fftwValues.size)
+	{
+		logmsg("ERROR: Invalid FFTW size for Watermark detection\n");
+		return 0;
+	}
+
+	if(!config->types.watermarkValidFreq || !config->types.watermarkInvalidFreq)
+	{
+		logmsg("ERROR: Invalid Watermark values\n");
+		return 0;
+	}
+
+	WaterMarkValid = FindFrequencyBracket(config->types.watermarkValidFreq, Signal->Blocks[watermark].fftwValues.size, 
+					Signal->header.fmt.NumOfChan, Signal->header.fmt.SamplesPerSec, config);
+	WaterMarkInvalid = FindFrequencyBracket(config->types.watermarkInvalidFreq, Signal->Blocks[watermark].fftwValues.size, 
+					Signal->header.fmt.NumOfChan, Signal->header.fmt.SamplesPerSec, config);
+
+	for(int i = 0; i < 5; i++)
+	{
+		if(Signal->Blocks[watermark].freq[i].hertz &&
+			Signal->Blocks[watermark].freq[i].amplitude > config->significantAmplitude/2)
+		{
+			if(fabs(Signal->Blocks[watermark].freq[i].hertz - WaterMarkValid) < 10)
+			{
+				Signal->watermarkStatus = WATERMARK_VALID;
+				found = 1;
+				break;
+			}
+			if(fabs(Signal->Blocks[watermark].freq[i].hertz - WaterMarkInvalid) < 10)
+			{
+				Signal->watermarkStatus = WATERMARK_INVALID;
+				logmsg(" - WARNING: %s signal was recorded with %s difference. Results are probably incorrect..\n",
+						Signal->role == ROLE_REF ? "Reference" : "Comparison", config->types.watermarkDisplayName);
+				found = 1;
+				break;
+			}
+		}
+	}
+	if(!found)
+	{
+		Signal->watermarkStatus = WATERMARK_INDETERMINATE;
+		logmsg(" - WARNING: %s file has an unknown %s status. Results might be incorrect.\n",
+				Signal->role == ROLE_REF ? "Reference" : "Comparison", config->types.watermarkDisplayName);
+	}
+
+	return 1;
+}
+
+int DetectWatermarkIssue(char *msg, parameters *config)
+{
+	int wmRef = WATERMARK_NONE, wmComp = WATERMARK_NONE;
+
+	if(!config || !config->referenceSignal || !config->comparisonSignal)
+	{
+		sprintf(msg, "Invalid watermark parameters!");
+		return 1;
+	}
+
+	wmRef = config->referenceSignal->watermarkStatus;
+	wmComp = config->comparisonSignal->watermarkStatus;
+	if(wmRef == WATERMARK_NONE && wmComp == WATERMARK_NONE)
+		return 0;
+	if(wmRef == WATERMARK_VALID && wmComp == WATERMARK_VALID)
+		return 0;
+
+	if(wmRef == WATERMARK_INVALID || wmComp == WATERMARK_INVALID)
+	{
+		sprintf(msg, "WARNING: Invalid %s. Results are probably incorrect", config->types.watermarkDisplayName);
+		return 1;
+	}
+
+	if(wmRef == WATERMARK_INDETERMINATE || wmComp == WATERMARK_INDETERMINATE)
+	{
+		sprintf(msg, "WARNING: %s state unknown. Results might be incorrect", config->types.watermarkDisplayName);
+		return 1;
+	}
+		
+	return 0;
 }
 
 int GetLastSyncIndex(parameters *config)
@@ -1625,8 +1816,9 @@ double GetInternalSyncLen(int pos, parameters *config)
 	for(int i = 0; i < config->types.typeCount; i++)
 	{
 		elementsCounted += config->types.typeArray[i].elementCount;
-		if(config->types.typeArray[i].type == TYPE_INTERNAL_KNOWN ||
-			config->types.typeArray[i].type == TYPE_INTERNAL_UNKNOWN)
+		if(elementsCounted > pos && 
+			(config->types.typeArray[i].type == TYPE_INTERNAL_KNOWN ||
+			config->types.typeArray[i].type == TYPE_INTERNAL_UNKNOWN))
 				return(config->types.typeArray[i].syncLen);
 	}
 	
@@ -1816,16 +2008,17 @@ void FindFloor(AudioSignal *Signal, parameters *config)
 
 	if(loudestFreq.hertz && loudestFreq.amplitude != NO_AMPLITUDE)
 	{
-		logmsg(" - %s signal relative noise floor: %g Hz %g dBFS  %s\n", 
+		logmsg(" - %s signal relative noise floor: %g Hz %g dBFS\n", 
 			Signal->role == ROLE_REF ? "Reference" : "Comparison",
 			loudestFreq.hertz,
-			loudestFreq.amplitude,
-			loudestFreq.amplitude < PCM_16BIT_MIN_AMPLITUDE ? "(not significant)" : "");
+			loudestFreq.amplitude);
 
 		if(Signal->role == ROLE_REF)
 			config->referenceNoiseFloor = loudestFreq.amplitude;
 	}
 
+	// This only works if a low fundamental frequency is defined in profile, otherwise
+	// returns amplitude at 0
 	noiseFreq = FindNoiseBlockAverage(Signal, config);
 
 	for(int i = 0; i < config->MaxFreq; i++)
@@ -1834,9 +2027,9 @@ void FindFloor(AudioSignal *Signal, parameters *config)
 		{
 			if(!foundGrid && IsGridFrequencyNoise(Signal, Signal->Blocks[index].freq[i].hertz))
 			{
-				foundGrid = 1;
 				if(noiseFreq.amplitude > Signal->Blocks[index].freq[i].amplitude)
 				{
+					foundGrid = 1;
 					gridFreq = Signal->Blocks[index].freq[i];
 
 					if(Signal->floorAmplitude == 0)
@@ -1849,9 +2042,9 @@ void FindFloor(AudioSignal *Signal, parameters *config)
 
 			if(!foundScan && IsHRefreshNoise(Signal, Signal->Blocks[index].freq[i].hertz))
 			{
-				foundScan = 1;
 				if(noiseFreq.amplitude > Signal->Blocks[index].freq[i].amplitude)
 				{
+					foundScan = 1;
 					horizontalFreq = Signal->Blocks[index].freq[i];
 
 					if(Signal->floorAmplitude == 0)
@@ -1864,9 +2057,9 @@ void FindFloor(AudioSignal *Signal, parameters *config)
 
 			if(!foundCross && IsHRefreshNoiseCrossTalk(Signal, Signal->Blocks[index].freq[i].hertz))
 			{
-				foundCross = 1;
 				if(noiseFreq.amplitude > Signal->Blocks[index].freq[i].amplitude)
 				{
+					foundCross = 1;
 					crossFreq = Signal->Blocks[index].freq[i];
 
 					if(Signal->floorAmplitude == 0)
@@ -1916,11 +2109,10 @@ void FindFloor(AudioSignal *Signal, parameters *config)
 		Signal->floorAmplitude = noiseFreq.amplitude;
 		Signal->floorFreq = noiseFreq.hertz;
 
-		logmsg("  - %s Noise Channel relative floor: %g Hz %g dBFS %s\n", 
+		logmsg("  - %s Noise Channel relative floor: %g Hz %g dBFS\n", 
 			Signal->role == ROLE_REF ? "Reference" : "Comparison",
 			noiseFreq.hertz,
-			noiseFreq.amplitude,
-			noiseFreq.amplitude < PCM_16BIT_MIN_AMPLITUDE ? "(not significant)" : "");
+			noiseFreq.amplitude);
 		return;
 	}
 
@@ -2054,7 +2246,7 @@ void CalculateAmplitudes(AudioSignal *Signal, double ZeroDbMagReference, paramet
 		int type = TYPE_NOTYPE;
 
 		type = GetBlockType(config, block);
-		if(type >= TYPE_SILENCE)
+		if(type >= TYPE_SILENCE || type == TYPE_WATERMARK)
 		{
 			for(int i = 0; i < config->MaxFreq; i++)
 			{
@@ -2452,6 +2644,11 @@ inline double BytesToFrames(long int samplerate, long int bytes, double framerat
 inline double FramesToSamples(double frames, long int samplerate, double framerate)
 {
 	return(floor((double)samplerate/1000.0*frames*framerate));
+}
+
+inline double SamplesToFrames(double samples, long int samplerate, double framerate)
+{
+	return((samples/(double)samplerate*1000)/framerate);
 }
 
 long int RoundToNbytes(double src, int AudioChannels, int *leftover, int *discard, double *leftDecimals)

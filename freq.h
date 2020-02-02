@@ -90,6 +90,7 @@ void ReleaseSamples(AudioBlocks * AudioArray);
 void ReleaseFrequencies(AudioBlocks * AudioArray);
 void ReleaseBlock(AudioBlocks *AudioArray);
 void InitAudio(AudioSignal *Signal, parameters *config);
+int initInternalSync(AudioBlocks * AudioArray, int size);
 void ReleaseAudio(AudioSignal *Signal, parameters *config);
 void CleanMatched(AudioSignal *ReferenceSignal, AudioSignal *TestSignal, parameters *config);
 int FillFrequencyStructures(AudioSignal *Signal, AudioBlocks *AudioArray, parameters *config);
@@ -122,6 +123,9 @@ double SecondsToFrames(double seconds, double framerate);
 long int SecondsToBytes(long int samplerate, double seconds, int AudioChannels, int *leftover, int *discard, double *leftDecimals);
 double BytesToFrames(long int samplerate, long int bytes, double framerate, int AudioChannels);
 double FramesToSamples(double frames, long int samplerate, double framerate);
+double SamplesToFrames(double samples, long int samplerate, double framerate);
+int DetectWatermark(AudioSignal *Signal, parameters *config);
+int DetectWatermarkIssue(char *msg, parameters *config);
 
 double CalculateMagnitude(fftw_complex value, long int size);
 double CalculateAmplitude(double magnitude, double MaxMagnitude);
