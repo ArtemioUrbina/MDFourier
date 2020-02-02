@@ -40,7 +40,7 @@ void CMDFourierGUIDlg::DoDataExchange(CDataExchange* pDX)
 	DDX_Control(pDX, IDC_AVERAGE, m_AveragePlotCheckBox);
 	DDX_Control(pDX, IDC_VERBOSE, m_VerboseLogCheckBox);
 	DDX_Control(pDX, IDC_EXTRACLPARAMS, m_ExtraParamsEditBox);
-	DDX_Control(pDX, IDC_ENABLEEXTRA, m_EnableExtraCheckBox);
+	DDX_Control(pDX, IDC_ENABLEEXTRA, m_EnableExtraCommandCheckBox);
 	DDX_Control(pDX, IDC_DIFFERENCES, m_DifferencesCheckBox);
 	DDX_Control(pDX, IDC_MISSING, m_MissingExtraCheckBox);
 	DDX_Control(pDX, IDC_SPECTROGRAM, m_SpectrogramsCheckBox);
@@ -53,7 +53,7 @@ void CMDFourierGUIDlg::DoDataExchange(CDataExchange* pDX)
 	DDX_Control(pDX, IDC_TIMESP, m_TimeSpectrogramCheckBox);
 	DDX_Control(pDX, IDC_FULLRESTS, m_FullResTimeSpectrCheckBox);
 	DDX_Control(pDX, IDCANCEL, m_CloseBttn);
-	DDX_Control(pDX, IDC_USEALLDATA, m_ExtraDataEditBox);
+	DDX_Control(pDX, IDC_USEALLDATA, m_ExtraDataCheckBox);
 	DDX_Control(pDX, IDC_RESOLUTION, m_Resolution);
 	DDX_Control(pDX, IDC_PLOT_TD, m_WaveFormCheckBox);
 	DDX_Control(pDX, IDC_PHASE, m_PhaseCheckBox);
@@ -110,9 +110,9 @@ BOOL CMDFourierGUIDlg::OnInitDialog()
 	m_NoiseFloorCheckBox.SetCheck(TRUE);
 	m_AveragePlotCheckBox.SetCheck(TRUE);
 	m_TimeSpectrogramCheckBox.SetCheck(TRUE);
-	m_ExtraDataEditBox.SetCheck(TRUE);
+	m_ExtraDataCheckBox.SetCheck(FALSE);
 	m_WaveFormCheckBox.SetCheck(TRUE);
-	m_PhaseCheckBox.SetCheck(FALSE);
+	m_PhaseCheckBox.SetCheck(TRUE);
 
 	FillComboBoxes();
 
@@ -336,10 +336,10 @@ void CMDFourierGUIDlg::ExecuteCommand(CString Compare)
 	if(m_PhaseCheckBox.GetCheck() == BST_CHECKED)
 		command += " -O";
 
-	if(m_ExtraDataEditBox.GetCheck() != BST_CHECKED)
+	if(m_ExtraDataCheckBox.GetCheck() == BST_CHECKED)
 		command += " -X";
 
-	if(m_EnableExtraCheckBox.GetCheck() == BST_CHECKED)
+	if(m_EnableExtraCommandCheckBox.GetCheck() == BST_CHECKED)
 		m_ExtraParamsEditBox.GetWindowText(extraCmd);
 	if(extraCmd.GetLength())
 	{
@@ -693,12 +693,12 @@ void CMDFourierGUIDlg::ManageWindows(BOOL Enable)
 	m_WindowTypeSelect.EnableWindow(Enable);
 	m_CurveAdjustSelect.EnableWindow(Enable);
 	m_AlignFFTWCheckBox.EnableWindow(Enable);
-	m_ExtraDataEditBox.EnableWindow(Enable);
+	m_ExtraDataCheckBox.EnableWindow(Enable);
 	
 	m_VerboseLogCheckBox.EnableWindow(Enable);
-	if(m_EnableExtraCheckBox.GetCheck() == BST_CHECKED)
+	if(m_EnableExtraCommandCheckBox.GetCheck() == BST_CHECKED)
 		m_ExtraParamsEditBox.EnableWindow(Enable);
-	m_EnableExtraCheckBox.EnableWindow(Enable);
+	m_EnableExtraCommandCheckBox.EnableWindow(Enable);
 
 	m_DifferencesCheckBox.EnableWindow(Enable);
 	m_MissingExtraCheckBox.EnableWindow(Enable);
@@ -740,7 +740,7 @@ void CMDFourierGUIDlg::OnBnClickedAbout()
 
 void CMDFourierGUIDlg::OnBnClickedEnableextra()
 {
-	if(m_EnableExtraCheckBox.GetCheck() == BST_CHECKED)
+	if(m_EnableExtraCommandCheckBox.GetCheck() == BST_CHECKED)
 		m_ExtraParamsEditBox.EnableWindow(TRUE);
 	else
 		m_ExtraParamsEditBox.EnableWindow(FALSE);
@@ -770,7 +770,7 @@ void CMDFourierGUIDlg::CheckPlotSelection(CButton &clicked)
 	if(!checked)
 		clicked.SetCheck(TRUE);
 
-	m_OpenResultsBttn.EnableWindow(FALSE);
+	//m_OpenResultsBttn.EnableWindow(FALSE);
 }
 
 void CMDFourierGUIDlg::OnBnClickedDifferences()
@@ -866,7 +866,7 @@ void CMDFourierGUIDlg::OnBnClickedMdwave()
 	else
 		cDos.verbose = FALSE;
 
-	if(m_EnableExtraCheckBox.GetCheck() == BST_CHECKED)
+	if(m_EnableExtraCommandCheckBox.GetCheck() == BST_CHECKED)
 		m_ExtraParamsEditBox.GetWindowText(extraCmd);
 	if(extraCmd.GetLength())
 	{

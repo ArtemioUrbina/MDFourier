@@ -56,11 +56,11 @@ protected:
 	CButton m_MDWaveBttn;
 	CButton m_SwapBttn;
 
-	CButton m_ExtraDataEditBox;
+	CButton m_ExtraDataCheckBox;
 	CButton m_AlignFFTWCheckBox;
 	CButton m_AveragePlotCheckBox;
 	CButton m_VerboseLogCheckBox;
-	CButton m_EnableExtraCheckBox;
+	CButton m_EnableExtraCommandCheckBox;
 	CButton m_DifferencesCheckBox;
 	CButton m_MissingExtraCheckBox;
 	CButton m_SpectrogramsCheckBox;
