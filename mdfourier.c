@@ -1162,8 +1162,10 @@ int ProcessInternal(AudioSignal *Signal, long int element, long int pos, int *sy
 		}
 		if(knownLength == TYPE_INTERNAL_UNKNOWN)  // Our sync is outside the frame detection zone
 		{
-			long int 	silenceLengthBytes = 0, oneframe = 0; //, diffOffset = 0;
-
+			long int 	silenceLengthBytes = 0;
+#ifndef MDWAVE
+			/* long int 	oneframe = 0; */
+#endif
 			silenceLengthBytes = syncLengthBytes/2;
 
 			if(pulseLengthBytes != silenceLengthBytes)
@@ -1206,7 +1208,7 @@ int ProcessInternal(AudioSignal *Signal, long int element, long int pos, int *sy
 			/* Copy waveforms for visual inspection, create 3 slots: silence, sync pulse, silence */
 			if(config->plotAllNotes)
 			{
-				if(!initInternalSync(&Signal->Blocks[element], 4))
+				if(!initInternalSync(&Signal->Blocks[element], 3))
 					return 0;
 			
 				if(!CopySamplesForTimeDomainPlotInternalSync(&Signal->Blocks[element], 
@@ -1227,12 +1229,14 @@ int ProcessInternal(AudioSignal *Signal, long int element, long int pos, int *sy
 						Signal->header.fmt.SamplesPerSec, NULL, Signal->AudioChannels, config))
 					return 0;
 
+				/*
 				oneframe = SecondsToBytes(Signal->header.fmt.SamplesPerSec, FramesToSeconds(1, config->referenceFramerate), Signal->AudioChannels, NULL, NULL, NULL);
 				if(!CopySamplesForTimeDomainPlotInternalSync(&Signal->Blocks[element], 
 						(int16_t*)(Signal->Samples + pos + signalStart), 
 						(oneframe*2)/2, 3, 
 						Signal->header.fmt.SamplesPerSec, NULL, Signal->AudioChannels, config))
 					return 0;
+				*/
 			}
 #endif
 			/* Do the real processing */

@@ -3353,9 +3353,33 @@ void PlotTimeDomainGraphs(AudioSignal *Signal, parameters *config)
 
 void DrawVerticalFrameGrid(PlotFile *plot, AudioSignal *Signal, double frames, double frameIncrement, double MaxSamples, parameters *config)
 {
-	double x = 0, xfactor = 0, segment = 0;
+	int		drawMS = 0;
+	double	x = 0, xfactor = 0, segment = 0;
 
-	SetPenColor(COLOR_GRAY, 0x3333, plot);
+	if(frames <= 10)
+		drawMS = 1;
+
+	/* draw ms lines */
+	if(drawMS)
+	{
+		SetPenColor(COLOR_GRAY, 0x4444, plot);
+		for(int f = 0; f < frames; f++)
+		{
+			double offset, factor;
+
+			factor = (double)Signal->header.fmt.SamplesPerSec/1000.0;
+			offset = (double)f*Signal->framerate*factor;
+			for(int i = 0; i <= Signal->framerate; i += 1)
+			{
+				x = offset+(double)i*factor;
+				pl_fline_r(plot->plotter, x, MININT16, x, MAXINT16);
+				pl_endpath_r(plot->plotter);
+			}
+		}
+	}
+
+	/* draw frame lines */
+	SetPenColor(COLOR_GREEN, 0x5555, plot);
 	for(int i = frameIncrement; i <= frames; i += frameIncrement)
 	{
 		x = FramesToSamples(i, Signal->header.fmt.SamplesPerSec, Signal->framerate);
@@ -3363,27 +3387,20 @@ void DrawVerticalFrameGrid(PlotFile *plot, AudioSignal *Signal, double frames, d
 		pl_endpath_r(plot->plotter);
 	}
 
-	if(frames > 1)
-	{
+	if(frames > 1) {
 		if(frames < 10)
 			segment = frames/2;
-		else
-		{
-			if(frames < 100)
-				segment = 10;
-			else
-			{
-				if(frames < 500)
-					segment = 50;
-				else
-					segment = 200;
+		else {
+			if(frames < 100) segment = 10;
+			else {
+				if(frames < 500) segment = 50;
+				else segment = 200;
 			}
 		}
 	}
-	else
-		segment = 1;
+	else segment = 1;
 
-	SetPenColor(COLOR_GRAY, 0x5555, plot);
+	SetPenColor(COLOR_GREEN, 0x7777, plot);
 	for(int i = 0; i <= frames; i += segment)
 	{
 		x = FramesToSamples(i, Signal->header.fmt.SamplesPerSec, Signal->framerate);
@@ -3391,14 +3408,13 @@ void DrawVerticalFrameGrid(PlotFile *plot, AudioSignal *Signal, double frames, d
 		pl_endpath_r(plot->plotter);
 	}
 
-
 	/* Draw the labels ¨*/
 	pl_savestate_r(plot->plotter);
 
 	pl_fspace_r(plot->plotter, 0-X0BORDER*config->plotResX*plot->leftmargin, -1*config->plotResY/2-Y0BORDER*config->plotResY, config->plotResX+X1BORDER*config->plotResX, config->plotResY/2+Y1BORDER*config->plotResY);
 	pl_ffontsize_r(plot->plotter, FONT_SIZE_1);
 	pl_ffontname_r(plot->plotter, PLOT_FONT);
-	SetPenColor(COLOR_GRAY, 0x7777, plot);
+	SetPenColor(COLOR_GREEN, 0x9999, plot);
 
 	xfactor = config->plotResX/MaxSamples;
 	for(int i = 0; i <= frames; i += segment)
@@ -3410,6 +3426,7 @@ void DrawVerticalFrameGrid(PlotFile *plot, AudioSignal *Signal, double frames, d
 		pl_fmove_r(plot->plotter, x*xfactor, config->plotResY/2);
 		pl_alabel_r(plot->plotter, 'c', 'b', label);
 	}
+
 	pl_restorestate_r(plot->plotter);
 }
 
@@ -3502,12 +3519,21 @@ void PlotBlockTimeDomainGraph(AudioSignal *Signal, int block, char *name, int wi
 	else
 		plotSize = numSamples;
 
+/*
+	if(config->plotAllNotes)
+	{
+		int multiplier = 1;
+
+		if(Signal->Blocks[block].type == TYPE_SYNC)
+			multiplier *= 2;
+		FillPlotExtra(&plot, name, multiplier*config->plotResX, config->plotResY, 0, MININT16, plotSize, MAXINT16, 1, 0.2, config);
+	}
+	else
+*/
 	FillPlot(&plot, name, 0, MININT16, plotSize, MAXINT16, 1, 0.2, config);
 
 	if(!CreatePlotFile(&plot, config))
 		return;
-
-	DrawVerticalFrameGrid(&plot, Signal, Signal->Blocks[block].frames, 1, numSamples, config);
 
 	// discarded samples box (difference)
 	if(difference > 0 && Signal->Blocks[block].type != TYPE_SYNC)
@@ -3518,6 +3544,8 @@ void PlotBlockTimeDomainGraph(AudioSignal *Signal, int block, char *name, int wi
 		pl_fbox_r(plot.plotter, numSamples-difference, MININT16, numSamples-1, MAXINT16);
 		pl_filltype_r(plot.plotter, 0);
 	}
+
+	DrawVerticalFrameGrid(&plot, Signal, Signal->Blocks[block].frames, 1, plotSize, config);
 
 	DrawINT16DBFSLines(&plot, numSamples, config);
 
@@ -3570,12 +3598,19 @@ void PlotBlockTimeDomainInternalSyncGraph(AudioSignal *Signal, int block, char *
 	else
 		plotSize = numSamples;
 
+/*
+	if(config->plotAllNotes)
+	{
+		int multiplier = 2;
+
+		FillPlotExtra(&plot, name, multiplier*config->plotResX, config->plotResY, 0, MININT16, plotSize, MAXINT16, 1, 0.2, config);
+	}
+	else
+*/
 	FillPlot(&plot, name, 0, MININT16, plotSize, MAXINT16, 1, 0.2, config);
 
 	if(!CreatePlotFile(&plot, config))
 		return;
-
-	DrawVerticalFrameGrid(&plot, Signal, frames, 1, numSamples, config);
 
 	// discarded samples box (difference)
 	if(difference > 0 && Signal->Blocks[block].type != TYPE_SYNC)
@@ -3586,6 +3621,8 @@ void PlotBlockTimeDomainInternalSyncGraph(AudioSignal *Signal, int block, char *
 		pl_fbox_r(plot.plotter, numSamples-difference, MININT16, numSamples-1, MAXINT16);
 		pl_filltype_r(plot.plotter, 0);
 	}
+
+	DrawVerticalFrameGrid(&plot, Signal, frames, 1, plotSize, config);
 
 	DrawINT16DBFSLines(&plot, numSamples, config);
 

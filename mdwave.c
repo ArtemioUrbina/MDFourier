@@ -735,7 +735,10 @@ int ProcessInternal(AudioSignal *Signal, long int element, long int pos, int *sy
 		}
 		if(knownLength == TYPE_INTERNAL_UNKNOWN)  // Our sync is outside the frame detection zone
 		{
-			long int 	silenceLengthBytes = 0, oneframe = 0; //, diffOffset = 0;
+			long int 	silenceLengthBytes = 0;
+#ifndef MDWAVE
+			long int 	oneframe = 0;
+#endif
 
 			silenceLengthBytes = syncLengthBytes/2;
 
