@@ -110,7 +110,7 @@ BOOL CMDFourierGUIDlg::OnInitDialog()
 	m_NoiseFloorCheckBox.SetCheck(TRUE);
 	m_AveragePlotCheckBox.SetCheck(TRUE);
 	m_TimeSpectrogramCheckBox.SetCheck(TRUE);
-	m_ExtraDataCheckBox.SetCheck(FALSE);
+	m_ExtraDataCheckBox.SetCheck(TRUE);
 	m_WaveFormCheckBox.SetCheck(TRUE);
 	m_PhaseCheckBox.SetCheck(TRUE);
 
@@ -336,7 +336,7 @@ void CMDFourierGUIDlg::ExecuteCommand(CString Compare)
 	if(m_PhaseCheckBox.GetCheck() == BST_CHECKED)
 		command += " -O";
 
-	if(m_ExtraDataCheckBox.GetCheck() == BST_CHECKED)
+	if(m_ExtraDataCheckBox.GetCheck() != BST_CHECKED)
 		command += " -X";
 
 	if(m_EnableExtraCommandCheckBox.GetCheck() == BST_CHECKED)
@@ -661,8 +661,21 @@ int CMDFourierGUIDlg::CheckDependencies()
 {
 	FILE *file;
 	errno_t err;
-	CString	msg, pattern;
+	CString	msg, pattern, bits, versionText, wintext, version, readText;
 	TCHAR	pwd[MAX_PATH];
+	int counter = 0, error = 0;
+	BOOL finished = 0;
+
+	/* Check profiles */
+	if(!FindProfiles(L"profiles", L"*.mfn"))
+	{
+		GetCurrentDirectory(MAX_PATH, pwd);
+		msg.Format(L"Please place profile files (*.mfn) in folder:\n %s\\profiles", pwd);
+		MessageBox(msg, L"Error mdfblocks.mfn not found");
+		return FALSE;
+	}
+
+	/* Check MDF version and test binary*/
 
 	err = _wfopen_s(&file, L"mdfourier.exe", L"r");
 	if(err != 0)
@@ -674,14 +687,60 @@ int CMDFourierGUIDlg::CheckDependencies()
 	}
 	fclose(file);
 
-	if(!FindProfiles(L"profiles", L"*.mfn"))
+	cDos.Start(L"mdfourier.exe -V");
+	do
 	{
-		GetCurrentDirectory(MAX_PATH, pwd);
-		msg.Format(L"Please place profile files (*.mfn) in folder:\n %s\\profiles", pwd);
-		MessageBox(msg, L"Error mdfblocks.mfn not found");
+		finished = cDos.m_fDone;
+		if(!finished)
+		{
+			counter ++;
+			if(counter < 20)
+				Sleep(100);
+			else
+			{
+				cDos.Lock();
+				cDos.KillNow();
+				cDos.Release();
+
+				msg.Format(L"MDFourier command could not be executed");
+				MessageBox(msg, L"Error mdfourier.exe not working");
+				return FALSE;
+			}
+		}
+	}while(!finished);
+
+	cDos.Lock();
+	readText = cDos.m_OutputText;
+	cDos.Release();
+
+	versionText = L"version ";
+	if(readText.Find(versionText) == 0)
+	{
+		int pos = 0;
+
+		pos = readText.Right(readText.GetLength()-versionText.GetLength()).Find(' ');
+		if(pos != -1)
+		{
+			version = readText.Right(readText.GetLength()-versionText.GetLength()).Left(pos);
+			bits = readText.Right(readText.GetLength()-versionText.GetLength()).Mid(pos+1);
+			if(version != MDFVERSION)
+				error = 3;
+		}
+		else
+			error = 2;
+	}
+	else
+		error = 1;
+	if(error)
+	{
+		msg.Format(L"Invalid mdfourier.exe version.\nError Code %d\nNeed %s [Got:\n\"%s\"]\n(\"%s\"\" %s\")\n", 
+			error, MDFVERSION, readText, version, bits);
+		MessageBox(msg, L"Error improper mdfourier.exe");
 		return FALSE;
 	}
-
+	MDFVersion = readText;
+	wintext.Format(L"MDFourier Front End [using %s/%s]", version, bits);
+	SetWindowText(wintext);
 	return TRUE;
 }
 
@@ -731,7 +790,10 @@ void CMDFourierGUIDlg::ManageWindows(BOOL Enable)
 
 void CMDFourierGUIDlg::OnBnClickedAbout()
 {
-	if(MessageBox(L"MDFourier Front End\n\nArtemio Urbina 2019-2020\nCode available under GPL\n\nhttp://junkerhq.net/MDFourier/\n\nOpen website and manual?", L"About MDFourier", MB_OKCANCEL | MB_ICONQUESTION) == IDOK)
+	CString msg;
+
+	msg.Format(L"MDFourier Front End\n\nArtemio Urbina 2019-2020\nUsing %s\nCode available under GPL\n\nhttp://junkerhq.net/MDFourier/\n\nOpen website and manual?", MDFVersion);
+	if(MessageBox(msg, L"About MDFourier", MB_OKCANCEL | MB_ICONQUESTION) == IDOK)
 	{
 		ShellExecute(0, 0, L"http://junkerhq.net/MDFourier/", 0, 0 , SW_SHOW );
 	}

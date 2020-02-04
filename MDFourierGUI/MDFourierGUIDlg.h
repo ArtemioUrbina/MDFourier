@@ -6,7 +6,8 @@
 #include "afxwin.h"
 #include "DOSExecute.h"
 
-#define	IDT_DOS	1000
+#define MDFVERSION			L"0.987"
+#define	IDT_DOS				1000
 
 #define	COUNT_CURVES		6
 #define COUNT_WINDOWS		5
@@ -85,6 +86,7 @@ protected:
 	CommandLineArray	SyncType[COUNT_SYNCTYPE];
 	CommandLineArray	Resolutions[COUNT_RESOLUTION];
 
+	CString MDFVersion;
 	CString listName;
 	CString	*elements;
 	int		elementCount;

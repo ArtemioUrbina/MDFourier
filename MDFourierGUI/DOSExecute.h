@@ -46,6 +46,7 @@ public:
 		{ // did not finish yet
 			TerminateProcess(pInfo.hProcess, -1); // <<== Kill it
 			pInfo.hProcess = NULL;
+			m_fDone = TRUE;
 		}
 	}
 

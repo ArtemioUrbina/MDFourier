@@ -9,9 +9,9 @@ CDOSExecute::CDOSExecute(void)
 
 	m_fAbortNow = FALSE;
 	m_fDone = TRUE;
+	verbose = FALSE;
 	m_pcThread = NULL;
 
-	
 	memset(&Security, 0, sizeof(SECURITY_ATTRIBUTES));
 	memset(&Descriptor, 0, sizeof(SECURITY_DESCRIPTOR));
 
@@ -51,6 +51,7 @@ int CDOSExecute::ExecuteExternalFile()
 	COMMTIMEOUTS t = { 200, 2, 200, 2, 200 };
 
 	Lock();
+	m_fDone = FALSE;
 	m_OutputText = L"";
 	if(verbose)
 	{
@@ -69,8 +70,6 @@ int CDOSExecute::ExecuteExternalFile()
 
 	if(!SetHandleInformation(rPipe, HANDLE_FLAG_INHERIT, 0) )
 		return 0;
-
-	m_fDone = FALSE;
 
 	ZeroMemory(&sInfo, sizeof(sInfo));
 	ZeroMemory(&pInfo, sizeof(pInfo));
