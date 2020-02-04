@@ -78,6 +78,8 @@ int main(int argc , char *argv[])
 		return 1;
 	}
 
+	EndProfileLoad(&config);
+
 	if(ExecuteMDWave(&config, 0) == 1)
 	{
 		logmsg("Aborting\n");
@@ -365,7 +367,7 @@ int LoadFile(FILE *file, AudioSignal *Signal, parameters *config, char *fileName
 
 	if(seconds < GetSignalTotalDuration(Signal->framerate, config))
 	{
-		logmsg(" - WARNING: Estimated file length is smaller than the expected %g seconds\n",
+		logmsg(" - WARNING: Estimated file length is shorter than the expected %g seconds\n",
 				GetSignalTotalDuration(Signal->framerate, config));
 		config->smallFile = 1;
 	}
@@ -406,9 +408,11 @@ int LoadFile(FILE *file, AudioSignal *Signal, parameters *config, char *fileName
 		{
 			logmsg("\nERROR: Starting pulse train was not detected.\nProfile used: [%s]\n", config->types.Name);
 			if(!config->syncTolerance)
-				logmsg("You can try using -T for a frequency tolerant pulse detection algorithm\n", config->types.Name);
-			if(config->videoFormatRef == PAL || config->videoFormatCom == PAL)
-				logmsg("One of the signals is defined as PAL, this might be a mistake.\n");
+				logmsg(" - You can try using -T for a frequency tolerant pulse detection algorithm\n");
+			if(config->smallFile && 
+				((Signal->role == ROLE_REF && config->videoFormatRef == PAL) ||
+				 (Signal->role == ROLE_COMP && config->videoFormatCom == PAL)))
+				logmsg(" - This signal is defined as PAL and the file is shorter... This might be the issue.\n");
 			return 0;
 		}
 		if(config->verbose)
@@ -425,8 +429,13 @@ int LoadFile(FILE *file, AudioSignal *Signal, parameters *config, char *fileName
 			Signal->endOffset = DetectEndPulse(Signal->Samples, Signal->startOffset, Signal->header, Signal->role, config);
 			if(Signal->endOffset == -1)
 			{
-				logmsg("\nERROR: Trailing sync pulse train was not detected, aborting.\n");
-				logmsg("\tPlease record the whole audio sequence.\nProfile used: [%s]\nYou can try using -T for a frequency tolerant pulse detection algorithm\n", config->types.Name);
+				logmsg("\nERROR: Starting pulse train was not detected.\nProfile used: [%s]\n", config->types.Name);
+				if(!config->syncTolerance)
+					logmsg(" - You can try using -T for a frequency tolerant pulse detection algorithm\n");
+				if(config->smallFile && 
+					((Signal->role == ROLE_REF && config->videoFormatRef == PAL) ||
+					 (Signal->role == ROLE_COMP && config->videoFormatCom == PAL)))
+					logmsg(" - This signal is defined as PAL and the file is shorter... This might be the issue.\n");
 				return 0;
 			}
 			if(config->verbose)

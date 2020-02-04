@@ -807,8 +807,6 @@ int LoadAudioBlockStructure(FILE *file, parameters *config)
 
 	fclose(file);
 
-	EndProfileLoad(config);
-
 	return 1;
 }
 
@@ -985,7 +983,6 @@ int LoadAudioNoSyncProfile(FILE *file, parameters *config)
 	config->significantAmplitude = NS_SIGNIFICANT_VOLUME;
 	fclose(file);
 	
-	EndProfileLoad(config);
 	return 1;
 }
 
@@ -1282,7 +1279,7 @@ int DetectWatermark(AudioSignal *Signal, parameters *config)
 			if(fabs(Signal->Blocks[watermark].freq[i].hertz - WaterMarkInvalid) < 10)
 			{
 				Signal->watermarkStatus = WATERMARK_INVALID;
-				logmsg(" - WARNING: %s signal was recorded with %s difference. Results are probably incorrect..\n",
+				logmsg(" - WARNING: %s signal was recorded with %s difference. Results are probably incorrect.\n",
 						Signal->role == ROLE_REF ? "Reference" : "Comparison", config->types.watermarkDisplayName);
 				found = 1;
 				break;
@@ -3110,6 +3107,9 @@ char GetTypeProfileName(int type)
 			break;
 		case TYPE_TIMEDOMAIN:
 			c = TYPE_TIMEDOMAIN_C;
+			break;
+		case TYPE_WATERMARK:
+			c = TYPE_WATERMARK_C;
 			break;
 		default:
 			c = TYPE_NULLTYPE_C;

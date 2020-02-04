@@ -49,7 +49,7 @@
 
 #include "incbeta.h"
 
-#define MDVERSION "0.986"
+#define MDVERSION "0.987"
 
 #if INTPTR_MAX == INT64_MAX
 #define	BITS_MDF "64-bit"
@@ -422,7 +422,7 @@ typedef struct block_diff_st {
 
 typedef struct parameters_st {
 	char			referenceFile[BUFFER_SIZE];
-	char			targetFile[BUFFER_SIZE];
+	char			comparisonFile[BUFFER_SIZE];
 	char			folderName[BUFFER_SIZE+128];
 	char			compareName[BUFFER_SIZE];
 	char			profileFile[BUFFER_SIZE];

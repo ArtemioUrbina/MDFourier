@@ -75,7 +75,9 @@ int main(int argc , char *argv[])
 	struct	timespec	start, end;
 	double 				average = 0, outside = 0, maxDiff = 0;
 
-	Header(0);
+	if(!Header(0, argc, argv))
+		return 1;
+
 	if(!commandline(argc, argv, &config))
 	{
 		printf("	 -h: Shows command line help\n");
@@ -94,9 +96,11 @@ int main(int argc , char *argv[])
 	{
 		logmsg("Aborting\n");
 		return 1;
-	}	
+	}
 
-	if(strcmp(config.referenceFile, config.targetFile) == 0)
+	EndProfileLoad(&config);
+
+	if(strcmp(config.referenceFile, config.comparisonFile) == 0)
 	{
 		CleanUp(&ReferenceSignal, &ComparisonSignal, &config);
 		logmsg("Both inputs are the same file %s, skipping to save time\n",
@@ -217,7 +221,7 @@ int main(int argc , char *argv[])
 	return(0);
 }
 
-void RemoveFLACTemp(char *referenceFile, char *targetFile)
+void RemoveFLACTemp(char *referenceFile, char *comparisonFile)
 {
 	char tmpFile[BUFFER_SIZE];
 
@@ -226,9 +230,9 @@ void RemoveFLACTemp(char *referenceFile, char *targetFile)
 		renameFLAC(referenceFile, tmpFile);
 		remove(tmpFile);
 	}
-	if(IsFlac(targetFile))
+	if(IsFlac(comparisonFile))
 	{
-		renameFLAC(targetFile, tmpFile);
+		renameFLAC(comparisonFile, tmpFile);
 		remove(tmpFile);
 	}
 }
@@ -270,13 +274,13 @@ int LoadAndProcessAudioFiles(AudioSignal **ReferenceSignal, AudioSignal **Compar
 
 	if(!reference)
 	{
-		RemoveFLACTemp(config->referenceFile, config->targetFile);
+		RemoveFLACTemp(config->referenceFile, config->comparisonFile);
 		CleanUp(ReferenceSignal, ComparisonSignal, config);
 		logmsg("\tERROR: Could not open 'Reference' file:\n\t\"%s\"\n", config->referenceFile);
 		return 0;
 	}
 
-	if(IsFlac(config->targetFile))
+	if(IsFlac(config->comparisonFile))
 	{
 		char tmpFile[BUFFER_SIZE];
 		struct	timespec	start, end;
@@ -286,11 +290,11 @@ int LoadAndProcessAudioFiles(AudioSignal **ReferenceSignal, AudioSignal **Compar
 
 		if(config->verbose)
 			logmsg(" - Decoding FLAC\n");
-		renameFLAC(config->targetFile, tmpFile);
-		if(!FLACtoWAV(config->targetFile, tmpFile))
+		renameFLAC(config->comparisonFile, tmpFile);
+		if(!FLACtoWAV(config->comparisonFile, tmpFile))
 		{
-			logmsg("\nERROR: Invalid FLAC file %s\n", config->targetFile);
-			RemoveFLACTemp(config->referenceFile, config->targetFile);
+			logmsg("\nERROR: Invalid FLAC file %s\n", config->comparisonFile);
+			RemoveFLACTemp(config->referenceFile, config->comparisonFile);
 			return 0;
 		}
 		if(config->clock)
@@ -303,13 +307,13 @@ int LoadAndProcessAudioFiles(AudioSignal **ReferenceSignal, AudioSignal **Compar
 		compare = fopen(tmpFile, "rb");
 	}
 	else
-		compare = fopen(config->targetFile, "rb");
+		compare = fopen(config->comparisonFile, "rb");
 	if(!compare)
 	{
 		CloseFiles(&reference, &compare);
-		RemoveFLACTemp(config->referenceFile, config->targetFile);
+		RemoveFLACTemp(config->referenceFile, config->comparisonFile);
 		CleanUp(ReferenceSignal, ComparisonSignal, config);
-		logmsg("\tERROR: Could not open 'Comparison' file:\n\t\"%s\"\n", config->targetFile);
+		logmsg("\tERROR: Could not open 'Comparison' file:\n\t\"%s\"\n", config->comparisonFile);
 		return 0;
 	}
 
@@ -317,7 +321,7 @@ int LoadAndProcessAudioFiles(AudioSignal **ReferenceSignal, AudioSignal **Compar
 	if(!*ReferenceSignal)
 	{
 		CloseFiles(&reference, &compare);
-		RemoveFLACTemp(config->referenceFile, config->targetFile);
+		RemoveFLACTemp(config->referenceFile, config->comparisonFile);
 		CleanUp(ReferenceSignal, ComparisonSignal, config);
 		return 0;
 	}
@@ -327,7 +331,7 @@ int LoadAndProcessAudioFiles(AudioSignal **ReferenceSignal, AudioSignal **Compar
 	if(!*ComparisonSignal)
 	{
 		CloseFiles(&reference, &compare);
-		RemoveFLACTemp(config->referenceFile, config->targetFile);
+		RemoveFLACTemp(config->referenceFile, config->comparisonFile);
 		CleanUp(ReferenceSignal, ComparisonSignal, config);
 		return 0;
 	}
@@ -337,22 +341,22 @@ int LoadAndProcessAudioFiles(AudioSignal **ReferenceSignal, AudioSignal **Compar
 	if(!LoadFile(reference, *ReferenceSignal, config, config->referenceFile))
 	{
 		CloseFiles(&reference, &compare);
-		RemoveFLACTemp(config->referenceFile, config->targetFile);
+		RemoveFLACTemp(config->referenceFile, config->comparisonFile);
 		CleanUp(ReferenceSignal, ComparisonSignal, config);
 		return 0;
 	}
 
-	logmsg("\n* Loading 'Comparison' audio file %s\n", config->targetFile);
-	if(!LoadFile(compare, *ComparisonSignal, config, config->targetFile))
+	logmsg("\n* Loading 'Comparison' audio file %s\n", config->comparisonFile);
+	if(!LoadFile(compare, *ComparisonSignal, config, config->comparisonFile))
 	{
 		CloseFiles(&reference, &compare);
-		RemoveFLACTemp(config->referenceFile, config->targetFile);
+		RemoveFLACTemp(config->referenceFile, config->comparisonFile);
 		CleanUp(ReferenceSignal, ComparisonSignal, config);
 		return 0;
 	}
 
 	CloseFiles(&reference, &compare);
-	RemoveFLACTemp(config->referenceFile, config->targetFile);
+	RemoveFLACTemp(config->referenceFile, config->comparisonFile);
 
 	SelectSilenceProfile(config);
 
@@ -621,7 +625,7 @@ int LoadAndProcessAudioFiles(AudioSignal **ReferenceSignal, AudioSignal **Compar
 		config->significantAmplitude = (*ReferenceSignal)->floorAmplitude;
 	}
 
-	logmsg(" - Using %g dBFS as minimum significant amplitude for analisys\n",
+	logmsg(" - Using %g dBFS as minimum significant amplitude for analysis\n",
 		config->significantAmplitude);
 
 	if(config->verbose)
@@ -791,7 +795,7 @@ int LoadFile(FILE *file, AudioSignal *Signal, parameters *config, char *fileName
 
 	if(seconds < GetSignalTotalDuration(Signal->framerate, config))
 	{
-		logmsg(" - WARNING: Estimated file length is smaller than the expected %g seconds\n",
+		logmsg(" - WARNING: Estimated file length is shorter than the expected %g seconds\n",
 				GetSignalTotalDuration(Signal->framerate, config));
 		config->smallFile = 1;
 	}
@@ -832,9 +836,11 @@ int LoadFile(FILE *file, AudioSignal *Signal, parameters *config, char *fileName
 		{
 			logmsg("\nERROR: Starting pulse train was not detected.\nProfile used: [%s]\n", config->types.Name);
 			if(!config->syncTolerance)
-				logmsg("You can try using -T for a frequency tolerant pulse detection algorithm\n", config->types.Name);
-			if(config->videoFormatRef == PAL || config->videoFormatCom == PAL)
-				logmsg("One of the signals is defined as PAL, this might be a mistake.\n");
+				logmsg(" - You can try using -T for a frequency tolerant pulse detection algorithm\n");
+			if(config->smallFile && 
+				((Signal->role == ROLE_REF && config->videoFormatRef == PAL) ||
+				 (Signal->role == ROLE_COMP && config->videoFormatCom == PAL)))
+				logmsg(" - This signal is defined as PAL and the file is shorter. This might be the issue.\n");
 			return 0;
 		}
 		if(config->verbose)
@@ -851,8 +857,13 @@ int LoadFile(FILE *file, AudioSignal *Signal, parameters *config, char *fileName
 			Signal->endOffset = DetectEndPulse(Signal->Samples, Signal->startOffset, Signal->header, Signal->role, config);
 			if(Signal->endOffset == -1)
 			{
-				logmsg("\nERROR: Trailing sync pulse train was not detected, aborting.\n");
-				logmsg("\tPlease record the whole audio sequence.\nProfile used: [%s]\nYou can try using -T for a frequency tolerant pulse detection algorithm\n", config->types.Name);
+				logmsg("\nERROR: Starting pulse train was not detected.\nProfile used: [%s]\n", config->types.Name);
+				if(!config->syncTolerance)
+					logmsg(" - You can try using -T for a frequency tolerant pulse detection algorithm\n");
+				if(config->smallFile && 
+					((Signal->role == ROLE_REF && config->videoFormatRef == PAL) ||
+				 	(Signal->role == ROLE_COMP && config->videoFormatCom == PAL)))
+					logmsg(" - This signal is defined as PAL and the file is shorter. This might be the issue.\n");
 				return 0;
 			}
 			if(config->verbose)

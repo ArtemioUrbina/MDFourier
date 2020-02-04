@@ -39,6 +39,7 @@
 #define readLine(buffer, file) if(fgets(buffer, LINE_BUFFER_SIZE, file) == NULL) { logmsg("Invalid Profile file (File ended prematurely)\n");	return 0;	}
 
 int LoadProfile(parameters *config);
+void EndProfileLoad(parameters *config);
 int LoadAudioBlockStructure(FILE *file, parameters *config);
 int LoadAudioNoSyncProfile(FILE *file, parameters *config);
 int GetFirstSilenceIndex(parameters *config);

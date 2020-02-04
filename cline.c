@@ -56,7 +56,7 @@ void PrintUsage()
 	logmsg("	 -Y: Define the Reference Video Format 0:NTSC 1:PAL\n");
 	logmsg("	 -Z: Define the Comparison Video Format 0:NTSC 1:PAL\n");
 	logmsg("	 -k: cloc<k> FFTW operations\n");
-	logmsg("	 -X: Include Extra Data\n");
+	logmsg("	 -X: Do not E<x>tra Data from Profiles\n");
 	logmsg("   Output options:\n");
 	logmsg("	 -l: <l>og output to file [reference]_vs_[compare].txt\n");
 	logmsg("	 -v: Enable <v>erbose mode, spits all the FFTW results\n");
@@ -84,15 +84,22 @@ void PrintUsage()
 	logmsg("	 -y: Output debug Sync pulse detection algorithm information\n");
 }
 
-void Header(int log)
+int Header(int log, int argc, char *argv[])
 {
 	char title1[] = "MDFourier " MDVERSION " [240p Test Suite Fourier Audio compare tool] " BITS_MDF "\n";
 	char title2[] = "Artemio Urbina 2019-2020 free software under GPL - http://junkerhq.net/MDFourier\n";
+
+	if(argc == 2 && !strncmp(argv[1], "-V", 2))
+	{
+		printf("version %s %s", MDVERSION, BITS_MDF);
+		return 0;
+	}
 
 	if(log)
 		logmsg("%s%s", title1, title2);
 	else
 		printf("%s%s", title1, title2);
+	return 1;
 }
 
 void CleanParameters(parameters *config)
@@ -194,7 +201,7 @@ void CleanParameters(parameters *config)
 	config->clkFreq = 0;
 	config->clkFreqCount = 0;
 	config->clkRatio = 0;
-	config->useExtraData = 0;
+	config->useExtraData = 1;
 	config->compressToBlocks = 0;
 }
 
@@ -207,8 +214,8 @@ int commandline(int argc , char *argv[], parameters *config)
 	
 	CleanParameters(config);
 
-	// Available: GHJKqV0123456789
-	while ((c = getopt (argc, argv, "Aa:Bb:Cc:Dd:Ee:Ff:ghIijkL:lMmNn:Oo:P:p:QRr:Ss:TtUuvWw:XxY:yZ:z")) != -1)
+	// Available: GHJKq0123456789
+	while ((c = getopt (argc, argv, "Aa:Bb:Cc:Dd:Ee:Ff:ghIijkL:lMmNn:Oo:P:p:QRr:Ss:TtUuVvWw:XxY:yZ:z")) != -1)
 	switch (c)
 	  {
 	  case 'A':
@@ -242,7 +249,7 @@ int commandline(int argc , char *argv[], parameters *config)
 		config->outputCSV = 1;
 		break;
 	  case 'c':
-		sprintf(config->targetFile, "%s", optarg);
+		sprintf(config->comparisonFile, "%s", optarg);
 		tar = 1;
 		break;
 	  case 'D':
@@ -418,6 +425,8 @@ int commandline(int argc , char *argv[], parameters *config)
 	  case 'u':
 		config->plotAllNotes = 1;
 		break;
+	  case 'V':  // reserved
+		break;
 	  case 'v':
 		config->verbose = 1;
 		break;
@@ -442,7 +451,7 @@ int commandline(int argc , char *argv[], parameters *config)
 		}
 		break;
 	  case 'X':
-		config->useExtraData = 1;
+		config->useExtraData = 0;
 		break;
 	  case 'x':
 		config->extendedResults = 1;
@@ -567,10 +576,10 @@ int commandline(int argc , char *argv[], parameters *config)
 	}
 	fclose(file);
 
-	file = fopen(config->targetFile, "rb");
+	file = fopen(config->comparisonFile, "rb");
 	if(!file)
 	{
-		logmsg("* ERROR: Could not open COMPARE file: \"%s\"\n", config->targetFile);
+		logmsg("* ERROR: Could not open COMPARE file: \"%s\"\n", config->comparisonFile);
 		return 0;
 	}
 	fclose(file);
@@ -642,7 +651,7 @@ int SetupFolders(char *folder, char *logname, parameters *config)
 			return 0;
 
 		DisableConsole();
-		Header(1);
+		Header(1, 0, NULL);
 		EnableConsole();
 	}
 	return 1;
@@ -732,9 +741,9 @@ int CreateFolderName(char *mainfolder, parameters *config)
 
 	ShortenFileName(basename(config->referenceFile), tmp);
 	len = strlen(tmp);
-	if(strlen(config->targetFile))
+	if(strlen(config->comparisonFile))
 	{
-		ShortenFileName(basename(config->targetFile), fn);
+		ShortenFileName(basename(config->comparisonFile), fn);
 		sprintf(tmp+len, "_vs_%s", fn);
 
 		len = strlen(tmp);
@@ -791,7 +800,7 @@ void InvertComparedName(parameters *config)
 
 	ShortenFileName(basename(config->referenceFile), tmp);
 	len = strlen(tmp);
-	ShortenFileName(basename(config->targetFile), fn);
+	ShortenFileName(basename(config->comparisonFile), fn);
 	sprintf(tmp+len, "_vs_%s", fn);
 
 	len = strlen(tmp);

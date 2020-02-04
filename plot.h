@@ -104,12 +104,16 @@ typedef struct averaged_freq{
 
 #define FONT_SIZE_1		config->plotResY/60
 #define FONT_SIZE_2		config->plotResY/70
+#define FONT_SIZE_3		config->plotResY/80
 
 #define	PLOT_FONT		"HersheySans"
 #define	PLOT_SPACER		2
 
 #define LEFT_MARGIN		config->plotResX/150
 #define HEIGHT_MARGIN	config->plotResY/15
+
+#define NO_DRAW_BARS	0
+#define DRAW_BARS		1
 
 typedef enum differencePlotType
 {
@@ -184,7 +188,7 @@ void DrawLabelsZeroDBCentered(PlotFile *plot, double dbs, double dbIncrement, do
 void DrawGridZeroToLimit(PlotFile *plot, double dbs, double dbIncrement, double hz, double hzIncrement, parameters *config);
 void DrawLabelsZeroToLimit(PlotFile *plot, double dbs, double dbIncrement, double hz, double hzIncrement,  parameters *config);
 void DrawColorScale(PlotFile *plot, int type, int mode, double x, double y, double width, double height, double startDbs, double endDbs, double dbIncrement, parameters *config);
-void DrawColorAllTypeScale(PlotFile *plot, int mode, double x, double y, double width, double height, double endDbs, double dbIncrement, parameters *config);
+void DrawColorAllTypeScale(PlotFile *plot, int mode, double x, double y, double width, double height, double endDbs, double dbIncrement, int drawBars, parameters *config);
 
 int PlotDifferentAmplitudesAveraged(FlatAmplDifference *amplDiff, long int size, char *filename, parameters *config);
 AveragedFrequencies *CreateFlatDifferencesAveraged(int matchType, long int *avgSize, int chunks, diffPlotType plotType, parameters *config);

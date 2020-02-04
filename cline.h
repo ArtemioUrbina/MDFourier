@@ -42,7 +42,7 @@ void CleanParameters(parameters *config);
 int commandline(int argc , char *argv[], parameters *config);
 char *GetChannel(char c);
 char *GetWindow(char c);
-void Header(int log);
+int Header(int log, int argc, char *argv[]);
 void PrintUsage();
 double TimeSpecToSeconds(struct timespec* ts);
 char *getFilenameExtension(char *filename);
