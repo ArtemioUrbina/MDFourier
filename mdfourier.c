@@ -144,7 +144,7 @@ int main(int argc , char *argv[])
 	}
 	*/
 
-	outside = FindDifferencePercentOutsideWindow(&maxDiff, &config);
+	outside = FindDifferencePercentOutsideViewPort(&maxDiff, &config);
 	if(outside)
 	{
 		logmsg("Differences above %gdBFS: %g%%\n", config.maxDbPlotZC, outside);
@@ -1490,7 +1490,7 @@ int ProcessFile(AudioSignal *Signal, parameters *config)
 		}
 		memcpy(buffer, Signal->Samples + pos, loadedBlockSize-difference);
 
-		if(config->plotAllNotes || Signal->Blocks[i].type == TYPE_TIMEDOMAIN)
+		if(config->plotTimeDomainHiDiff || config->plotAllNotes || Signal->Blocks[i].type == TYPE_TIMEDOMAIN)
 		{
 			if(!CopySamplesForTimeDomainPlot(&Signal->Blocks[i], (int16_t*)(Signal->Samples + pos), loadedBlockSize/2, difference/2, Signal->header.fmt.SamplesPerSec, windowUsed, Signal->AudioChannels, config))
 				return 0;

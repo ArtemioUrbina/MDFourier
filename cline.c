@@ -168,6 +168,7 @@ void CleanParameters(parameters *config)
 	config->plotPhase = 0;
 	config->plotAllNotes = 0;
 	config->plotAllNotesWindowed = 0;
+	config->plotTimeDomainHiDiff = 0;
 	config->averagePlot = 0;
 	config->weightedAveragePlot = 1;
 
@@ -188,6 +189,10 @@ void CleanParameters(parameters *config)
 	config->types.useWatermark = 0;
 	config->types.watermarkValidFreq = 0;
 	config->types.watermarkInvalidFreq = 0;
+
+	config->thresholdAmplitudeHiDif = AMPL_HIDIFF;
+	config->thresholdMissingHiDif = MISS_HIDIFF;
+	config->thresholdExtraHiDif = EXTRA_HIDIFF;
 
 	config->sync_plan = NULL;
 	config->model_plan = NULL;
@@ -214,8 +219,8 @@ int commandline(int argc , char *argv[], parameters *config)
 	
 	CleanParameters(config);
 
-	// Available: GHJKq0123456789
-	while ((c = getopt (argc, argv, "Aa:Bb:Cc:Dd:Ee:Ff:ghIijkL:lMmNn:Oo:P:p:QRr:Ss:TtUuVvWw:XxY:yZ:z")) != -1)
+	// Available: GJKq0123456789
+	while ((c = getopt (argc, argv, "Aa:Bb:Cc:Dd:Ee:Ff:gHhIijkL:lMmNn:Oo:P:p:QRr:Ss:TtUuVvWw:XxY:yZ:z")) != -1)
 	switch (c)
 	  {
 	  case 'A':
@@ -288,6 +293,9 @@ int commandline(int argc , char *argv[], parameters *config)
 		break;
 	  case 'g':
 		config->averagePlot = 1;
+		break;
+	  case 'H':
+		config->plotTimeDomainHiDiff = 1;
 		break;
 	  case 'h':
 		PrintUsage();

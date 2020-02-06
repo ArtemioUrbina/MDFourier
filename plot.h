@@ -115,6 +115,12 @@ typedef struct averaged_freq{
 #define NO_DRAW_BARS	0
 #define DRAW_BARS		1
 
+#define	WAVEFORM_GENERAL	0
+#define	WAVEFORM_WINDOW		1
+#define	WAVEFORM_AMPDIFF	2
+#define	WAVEFORM_MISSING	3
+#define	WAVEFORM_EXTRA		4
+
 typedef enum differencePlotType
 {
 	normalPlot,
@@ -215,9 +221,10 @@ void PlotTimeSpectrogramUnMatchedContent(AudioSignal *Signal, parameters *config
 
 void DrawLabelsTimeSpectrogram(PlotFile *plot, int khz, int khzIncrement, parameters *config);
 void PlotTimeDomainGraphs(AudioSignal *Signal, parameters *config);
-void PlotBlockTimeDomainGraph(AudioSignal *Signal, int block, char *name, int window, parameters *config);
+void PlotBlockTimeDomainGraph(AudioSignal *Signal, int block, char *name, int window, double data, parameters *config);
 void PlotBlockPhaseGraph(AudioSignal *Signal, int block, char *name, parameters *config);
 void PlotBlockTimeDomainInternalSyncGraph(AudioSignal *Signal, int block, char *name, int slot, parameters *config);
+void PlotTimeDomainHighDifferenceGraphs(AudioSignal *Signal, parameters *config);
 
 FlatPhase *CreatePhaseFlatDifferences(parameters *config, long int *size);
 void PlotSingleTypePhase(FlatPhase *phaseDiff, long int size, int type, char *filename, int pType, parameters *config);

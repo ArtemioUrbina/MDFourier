@@ -48,4 +48,11 @@ void PrintDifferentAmplitudes(int block, parameters *config);
 void PrintDifferenceArray(parameters *config);
 void ReleaseDifferenceArray(parameters *config);
 
+long int FindDifferenceAveragesperBlock(double thresholdAmplitude, double thresholdMissing, double thresholdExtra, parameters *config);
+double FindDifferenceAverage(parameters *config);
+double FindDifferencePercentOutsideViewPort(double *maxAmpl, parameters *config);
+int FindDifferenceTypeTotals(int type, long int *cntAmplBlkDiff, long int *cmpAmplBlkDiff, parameters *config);
+int FindMissingTypeTotals(int type, long int *cntFreqBlkDiff, long int *cmpFreqBlkDiff, parameters *config);
+int FindDifferenceWithinInterval(int type, long int *inside, long int *count, double MaxInterval, parameters *config);
+
 #endif

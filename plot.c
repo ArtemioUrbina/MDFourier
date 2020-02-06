@@ -30,6 +30,7 @@
 #include "plot.h"
 #include "log.h"
 #include "freq.h"
+#include "diff.h"
 #include "cline.h"
 #include "windows.h"
 
@@ -104,6 +105,10 @@
 #define	WAVEFORM_FOLDER		"Waveforms"
 #define	PHASE_FOLDER		"Phase"
 #define	MISSING_FOLDER		"Missing"
+#define	WAVEFORMDIFF_FOLDER	"Waveform-Diff"
+#define	WAVEFORMDIR_AMPL	"Amplitudes"
+#define	WAVEFORMDIR_MISS	"Missing"
+#define	WAVEFORMDIR_EXTRA	"Extra"
 
 char *GetCurrentPathAndChangeToResultsFolder(parameters *config)
 {
@@ -307,6 +312,19 @@ void PlotResults(AudioSignal *ReferenceSignal, AudioSignal *ComparisonSignal, pa
 		EndPlot("Time Domain", &lstart, &lend, config);
 
 		ReturnToMainPath(&returnFolder);
+	}
+
+	if(config->plotTimeDomainHiDiff)
+	{
+		if(FindDifferenceAveragesperBlock(config->thresholdAmplitudeHiDif, config->thresholdMissingHiDif, config->thresholdExtraHiDif, config))
+		{
+			struct	timespec	lstart, lend;
+
+			StartPlot(" - Time Domain Graphs from highly different notes\n  ", &lstart, config);
+			PlotTimeDomainHighDifferenceGraphs(ReferenceSignal, config);
+			PlotTimeDomainHighDifferenceGraphs(ComparisonSignal, config);
+			EndPlot("Time Domain Graphs", &lstart, &lend, config);
+		}
 	}
 
 	ReturnToMainPath(&CurrentPath);
@@ -819,7 +837,10 @@ void DrawLabelsMDF(PlotFile *plot, char *Gname, char *GType, int type, parameter
 			pl_fmove_r(plot->plotter, x, y);
 			pl_alabel_r(plot->plotter, 'l', 'l', label);
 
-			sprintf(label, "[%0.4fms %0.4fHz]", config->comparisonSignal->framerate, roundFloat(CalculateScanRate(config->comparisonSignal)));
+			if(type == PLOT_SINGLE_REF)
+				sprintf(label, "[%0.4fms %0.4fHz]", config->referenceSignal->framerate, roundFloat(CalculateScanRate(config->referenceSignal)));
+			else
+				sprintf(label, "[%0.4fms %0.4fHz]", config->comparisonSignal->framerate, roundFloat(CalculateScanRate(config->comparisonSignal)));
 			pl_fmove_r(plot->plotter, config->plotResX/20*17, y);
 			pl_alabel_r(plot->plotter, 'l', 'l', label);
 		}
@@ -3326,11 +3347,14 @@ void PlotTimeDomainGraphs(AudioSignal *Signal, parameters *config)
 				i, Signal->role == ROLE_REF ? "1" : "2",
 				GetBlockName(config, i), GetBlockSubIndex(config, i), config->compareName);
 
-			PlotBlockTimeDomainGraph(Signal, i, name, 0, config);
+			PlotBlockTimeDomainGraph(Signal, i, name, WAVEFORM_GENERAL, 0, config);
 			logmsg(PLOT_ADVANCE_CHAR);
 			plots++;
-			if(plots % 80 == 0)
+			if(plots == 80)
+			{
+				plots = 0;
 				logmsg("\n  ");
+			}
 
 			if(Signal->Blocks[i].internalSyncCount)
 			{
@@ -3344,8 +3368,8 @@ void PlotTimeDomainGraphs(AudioSignal *Signal, parameters *config)
 				}
 			}
 
+#ifdef INDIVPHASE
 			/* These are phase graphs for each block */
-			/*
 			if(config->plotPhase)
 			{
 				sprintf(name, "TD_%05ld_%s_%s_%05d_%s", 
@@ -3355,10 +3379,13 @@ void PlotTimeDomainGraphs(AudioSignal *Signal, parameters *config)
 				PlotBlockPhaseGraph(Signal, i, name, config);
 				logmsg(PLOT_ADVANCE_CHAR);
 				plots++;
-				if(plots % 80 == 0)
+				if(plots == 80)
+				{
+					plots = 0;
 					logmsg("\n  ");
+				}
 			}
-			*/
+#endif
 
 			if(config->plotAllNotesWindowed && Signal->Blocks[i].audio.window_samples)
 			{
@@ -3366,17 +3393,116 @@ void PlotTimeDomainGraphs(AudioSignal *Signal, parameters *config)
 					i, Signal->role == ROLE_REF ? "3" : "4",
 					GetBlockName(config, i), GetBlockSubIndex(config, i), config->compareName);
 
-				PlotBlockTimeDomainGraph(Signal, i, name, 1, config);
+				PlotBlockTimeDomainGraph(Signal, i, name, WAVEFORM_WINDOW, 0, config);
 
 				logmsg(PLOT_ADVANCE_CHAR);
 				plots++;
-				if(plots % 80 == 0)
+				if(plots == 80)
+				{
+					plots = 0;
 					logmsg("\n  ");
+				}
 			}
 		}
 	}
 	if(!config->plotAllNotes && plots > 40)
 		logmsg("\n  ");
+}
+
+int ExecutePlotBlockTimeDomainGraph(int waveType, AudioSignal *Signal, long int block, double data, char *folder, parameters *config)
+{
+	char *returnFolder = NULL;
+	char name[BUFFER_SIZE*2];
+
+	returnFolder = PushFolder(folder);
+	if(!returnFolder)
+		return 0;
+	
+	sprintf(name, "TD_%05ld_%s_%s_%05d_%s", 
+		block, Signal->role == ROLE_REF ? "1" : "2",
+		GetBlockName(config, block), GetBlockSubIndex(config, block), config->compareName);
+
+	PlotBlockTimeDomainGraph(Signal, block, name, waveType, data, config);
+
+	ReturnToMainPath(&returnFolder);
+	return 1;
+}
+
+void PlotTimeDomainHighDifferenceGraphs(AudioSignal *Signal, parameters *config)
+{
+	int		plots = 0;
+	char	*returnFolder = NULL;
+
+	if(!config)
+		return;
+
+	if(!config->Differences.BlockDiffArray)
+		return;
+
+	returnFolder = PushFolder(WAVEFORMDIFF_FOLDER);
+	if(!returnFolder)
+		return;
+
+	for(long int b = 0; b < config->types.totalBlocks; b++)
+	{
+		if(Signal->Blocks[b].type > TYPE_CONTROL)
+		{
+			double diff = 0;
+	
+			diff = Signal->Blocks[b].AverageDifference;
+			if(diff > 0)
+			{
+				if(!ExecutePlotBlockTimeDomainGraph(WAVEFORM_AMPDIFF, Signal, b, diff, WAVEFORMDIR_AMPL, config))
+				{
+					ReturnToMainPath(&returnFolder);
+					return;
+				}
+				logmsg(PLOT_ADVANCE_CHAR);
+				plots++;
+				if(plots == 80)
+				{
+					plots = 0;
+					logmsg("\n  ");
+				}
+			}
+			
+			diff = Signal->Blocks[b].missingPercent;
+			if(diff > 0)
+			{
+				if(!ExecutePlotBlockTimeDomainGraph(WAVEFORM_MISSING, Signal, b, diff, WAVEFORMDIR_MISS, config))
+				{
+					ReturnToMainPath(&returnFolder);
+					return;
+				}
+				logmsg(PLOT_ADVANCE_CHAR);
+				plots++;
+				if(plots == 80)
+				{
+					plots = 0;
+					logmsg("\n  ");
+				}
+			}
+	
+			diff = Signal->Blocks[b].extraPercent;
+			if(diff > 0)
+			{
+				if(!ExecutePlotBlockTimeDomainGraph(WAVEFORM_EXTRA, Signal, b, diff, WAVEFORMDIR_EXTRA, config))
+				{
+					ReturnToMainPath(&returnFolder);
+					return;
+				}
+				logmsg(PLOT_ADVANCE_CHAR);
+				plots++;
+				if(plots == 80)
+				{
+					plots = 0;
+					logmsg("\n  ");
+				}
+			}
+		}
+	}
+	logmsg("\n  ");
+	ReturnToMainPath(&returnFolder);
 }
 
 void DrawVerticalFrameGrid(PlotFile *plot, AudioSignal *Signal, double frames, double frameIncrement, double MaxSamples, parameters *config)
@@ -3428,7 +3554,7 @@ void DrawVerticalFrameGrid(PlotFile *plot, AudioSignal *Signal, double frames, d
 	}
 	else segment = 1;
 
-	SetPenColor(COLOR_GREEN, 0x7777, plot);
+	SetPenColor(COLOR_GREEN, 0x9999, plot);
 	for(int i = 0; i <= frames; i += segment)
 	{
 		x = FramesToSamples(i, Signal->header.fmt.SamplesPerSec, Signal->framerate);
@@ -3519,9 +3645,39 @@ void DrawINT16DBFSLines(PlotFile *plot, double resx, parameters *config)
 	pl_restorestate_r(plot->plotter);
 }
 
-void PlotBlockTimeDomainGraph(AudioSignal *Signal, int block, char *name, int window, parameters *config)
+char *GetWFMTypeText(int wftype, char *buffer, double data, int role)
 {
-	char		title[1024];
+	buffer[0] = '\0';
+
+	if(wftype ==  WAVEFORM_WINDOW)
+		sprintf(buffer, " -- Windowed");
+	if(wftype ==  WAVEFORM_AMPDIFF)
+	{
+		if(role == ROLE_REF)
+			sprintf(buffer, " -- Average Differences in matching comparision: %g dBFS", data);
+		else
+			sprintf(buffer, " -- Average Differences here: %g dBFS", data);
+	}
+	if(wftype ==  WAVEFORM_MISSING)
+	{
+		if(role == ROLE_REF)
+			sprintf(buffer, " -- Missing Frequencies in matching comparision: %g%%", data);
+		else
+			sprintf(buffer, " -- Missing Frequencies from here: %g%%", data);
+	}
+	if(wftype ==  WAVEFORM_EXTRA)
+	{
+		if(role == ROLE_REF)
+			sprintf(buffer, " -- Extra Frequencies found in matching comparision: %g%%", data);
+		else
+			sprintf(buffer, " -- Extra Frequencies found here: %g%%", data);
+	}
+	return buffer;
+}
+
+void PlotBlockTimeDomainGraph(AudioSignal *Signal, int block, char *name, int wavetype, double data, parameters *config)
+{
+	char		title[BUFFER_SIZE/2], buffer[BUFFER_SIZE];
 	PlotFile	plot;
 	long int	color = 0, sample = 0, numSamples = 0, difference = 0, plotSize = 0;
 	int16_t		*samples = NULL;
@@ -3532,10 +3688,10 @@ void PlotBlockTimeDomainGraph(AudioSignal *Signal, int block, char *name, int wi
 	if(block > config->types.totalBlocks)
 		return;
 
-	if(!window)
-		samples = Signal->Blocks[block].audio.samples;
-	else
+	if(wavetype == WAVEFORM_WINDOW)
 		samples = Signal->Blocks[block].audio.window_samples;
+	else
+		samples = Signal->Blocks[block].audio.samples;
 
 	if(!samples)
 		return;
@@ -3574,7 +3730,6 @@ void PlotBlockTimeDomainGraph(AudioSignal *Signal, int block, char *name, int wi
 	}
 
 	DrawVerticalFrameGrid(&plot, Signal, Signal->Blocks[block].frames, 1, plotSize, config);
-
 	DrawINT16DBFSLines(&plot, numSamples, config);
 
 	color = MatchColor(GetBlockColor(config, block));
@@ -3586,7 +3741,7 @@ void PlotBlockTimeDomainGraph(AudioSignal *Signal, int block, char *name, int wi
 	pl_endpath_r(plot.plotter);
 
 	sprintf(title, "%s# %d%s", GetBlockName(config, block), GetBlockSubIndex(config, block),
-			window ? " Windowed" : "");
+			GetWFMTypeText(wavetype, buffer, data, Signal->role));
 	DrawLabelsMDF(&plot, Signal->role == ROLE_REF ? WAVEFORM_TITLE_REF : WAVEFORM_TITLE_COM, title, Signal->role == ROLE_REF ? PLOT_SINGLE_REF : PLOT_SINGLE_COM, config);
 
 	ClosePlot(&plot);
@@ -3669,6 +3824,7 @@ void PlotBlockTimeDomainInternalSyncGraph(AudioSignal *Signal, int block, char *
 	ClosePlot(&plot);
 }
 
+#ifdef INDIVPHASE
 void PlotBlockPhaseGraph(AudioSignal *Signal, int block, char *name, parameters *config)
 {
 	char		title[1024];
@@ -3699,7 +3855,7 @@ void PlotBlockPhaseGraph(AudioSignal *Signal, int block, char *name, parameters 
 	oldLog = config->logScale;
 	config->logScale = 0;
 
-	DrawFrequencyHorizontal(&plot, 200, config->endHzPlot, 1000, config);
+	DrawFrequencyHorizontal(&plot, PHASE_ANGLE, config->endHzPlot, 1000, config);
 
 	// 0 phase line
 	color = MatchColor(GetBlockColor(config, block));
@@ -3720,6 +3876,7 @@ void PlotBlockPhaseGraph(AudioSignal *Signal, int block, char *name, parameters 
 
 	config->logScale = oldLog;
 }
+#endif
 
 FlatPhase *CreatePhaseFlatDifferences(parameters *config, long int *size)
 {
@@ -3762,7 +3919,7 @@ FlatPhase *CreatePhaseFlatDifferences(parameters *config, long int *size)
 
 void PlotPhaseFromSignal(AudioSignal *Signal, parameters *config)
 {
-	long int			size = 0 /*, oldLog = 0 */;
+	long int			size = 0;
 	FlatPhase	*phaseDiff = NULL;
 	
 	phaseDiff = CreatePhaseFlatFromSignal(Signal, &size, config);
@@ -3772,14 +3929,11 @@ void PlotPhaseFromSignal(AudioSignal *Signal, parameters *config)
 		return;
 	}
 
-	//oldLog = config->logScale;
-	//config->logScale = 0;
 	if(PlotEachTypePhase(phaseDiff, size, config->compareName, Signal->role == ROLE_REF ? PHASE_REF : PHASE_COMP, config) > 1)
 	{
 		PlotAllPhase(phaseDiff, size, config->compareName, Signal->role == ROLE_REF ? PHASE_REF : PHASE_COMP, config);
 		logmsg(PLOT_ADVANCE_CHAR);
 	}
-	//config->logScale = oldLog;
 
 	/*
 	if(config->averagePlot)
@@ -3792,7 +3946,7 @@ void PlotPhaseFromSignal(AudioSignal *Signal, parameters *config)
 
 void PlotPhaseDifferences(parameters *config)
 {
-	long int	size = 0 /*, oldLog = 0 */;
+	long int	size = 0;
 	FlatPhase	*phaseDiff = NULL;
 	
 	phaseDiff = CreatePhaseFlatDifferences(config, &size);
@@ -3802,14 +3956,11 @@ void PlotPhaseDifferences(parameters *config)
 		return;
 	}
 
-	//oldLog = config->logScale;
-	//config->logScale = 0;
 	if(PlotEachTypePhase(phaseDiff, size, config->compareName, PHASE_DIFF, config) > 1)
 	{
 		PlotAllPhase(phaseDiff, size, config->compareName, PHASE_DIFF, config);
 		logmsg(PLOT_ADVANCE_CHAR);
 	}
-	//config->logScale = oldLog;
 	
 	free(phaseDiff);
 	phaseDiff = NULL;

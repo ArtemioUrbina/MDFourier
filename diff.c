@@ -466,3 +466,261 @@ void PrintDifferenceArray(parameters *config)
 		PrintDifferentPhases(b, config);
 	}
 }
+
+double FindDifferenceAverage(parameters *config)
+{
+	double		AvgDifAmp = 0;
+	long int	count = 0;
+
+	if(!config)
+		return 0;
+
+	if(!config->Differences.BlockDiffArray)
+		return 0;
+
+	for(int b = 0; b < config->types.totalBlocks; b++)
+	{
+		if(config->Differences.BlockDiffArray[b].type <= TYPE_CONTROL)
+			continue;
+
+		for(int a = 0; a < config->Differences.BlockDiffArray[b].cntAmplBlkDiff; a++)
+		{
+			AvgDifAmp += config->Differences.BlockDiffArray[b].amplDiffArray[a].diffAmplitude;
+			count ++;
+		}
+	}
+
+	if(count)
+		AvgDifAmp /= count;
+
+	return AvgDifAmp;
+}
+
+double FindDifferencePercentOutsideViewPort(double *maxAmpl, parameters *config)
+{
+	long int	count = 0, outside = 0;
+	double		threshold = 0, localMax = 0;
+
+	if(!config)
+		return 0;
+
+	if(!config->Differences.BlockDiffArray || !maxAmpl)
+		return 0;
+
+	*maxAmpl = 0;
+	threshold = fabs(config->maxDbPlotZC);
+	for(int b = 0; b < config->types.totalBlocks; b++)
+	{
+		if(config->Differences.BlockDiffArray[b].type <= TYPE_CONTROL)
+			continue;
+
+		for(int a = 0; a < config->Differences.BlockDiffArray[b].cntAmplBlkDiff; a++)
+		{
+			double ampl = 0;
+
+			ampl = fabs(config->Differences.BlockDiffArray[b].amplDiffArray[a].diffAmplitude);
+			if(ampl >= threshold)
+			{
+				if(localMax < ampl)
+					localMax = ampl;
+				outside ++;
+			}
+			count ++;
+		}
+	}
+
+	if(!outside || !count)
+		return 0;
+
+	if(localMax)
+		*maxAmpl = ceil(localMax);
+	return(outside*100/count);
+}
+
+long int FindDifferenceAveragesperBlock(double thresholdAmplitude, double thresholdMissing, double thresholdExtra, parameters *config)
+{
+	long int total = 0;
+
+	if(!config)
+		return 0;
+
+	if(!config->Differences.BlockDiffArray)
+		return 0;
+
+	for(int b = 0; b < config->types.totalBlocks; b++)
+	{
+		double		average = 0, missing = 0, extra = 0;
+		long int	missingCount = 0, missingTotal = 0;
+		long int	extraCount = 0, extraTotal = 0;
+		long int	count = 0;
+
+		if(config->Differences.BlockDiffArray[b].type <= TYPE_CONTROL)
+			continue;
+
+		/* Amplitude Difference */
+		for(int a = 0; a < config->Differences.BlockDiffArray[b].cntAmplBlkDiff; a++)
+		{
+			average += fabs(config->Differences.BlockDiffArray[b].amplDiffArray[a].diffAmplitude);
+			count ++;
+		}
+
+		if(count)
+		{
+			average = average/(double)count;
+			if(average >= thresholdAmplitude)
+			{
+				if(config->referenceSignal)
+					config->referenceSignal->Blocks[b].AverageDifference = average;
+				if(config->comparisonSignal)
+					config->comparisonSignal->Blocks[b].AverageDifference = average;
+				total ++;
+			}
+		}
+
+		/* Missing & Extra */
+		for(int i = config->MaxFreq-1; i >= 0; i--)
+		{
+			AudioSignal *Signal	= NULL;
+
+			Signal = config->referenceSignal;
+			if(Signal && Signal->Blocks[b].freq[i].hertz)
+			{
+				missingTotal++;
+				if(!Signal->Blocks[b].freq[i].matched
+					&& Signal->Blocks[b].freq[i].amplitude > config->significantAmplitude)
+					missingCount++;
+			}
+
+			Signal = config->comparisonSignal;
+			if(Signal && Signal->Blocks[b].freq[i].hertz)
+			{
+				extraTotal++;
+				if(!Signal->Blocks[b].freq[i].matched
+					&& Signal->Blocks[b].freq[i].amplitude > config->significantAmplitude)
+					extraCount++;
+			}
+		}
+		
+		if(missingTotal)
+		{
+			missing = (double)missingCount/(double)missingTotal*100.0;
+			if(missing > thresholdMissing)
+			{
+				if(config->referenceSignal)
+					config->referenceSignal->Blocks[b].missingPercent = missing;
+				if(config->comparisonSignal)
+					config->comparisonSignal->Blocks[b].missingPercent = missing;
+				total ++;
+			}
+		}
+
+		if(extraTotal)
+		{
+			extra = (double)extraCount/(double)extraTotal*100.0;
+			if(extra > thresholdExtra)
+			{
+				if(config->referenceSignal)
+					config->referenceSignal->Blocks[b].extraPercent = extra;
+				if(config->comparisonSignal)
+					config->comparisonSignal->Blocks[b].extraPercent = extra;
+				total ++;
+			}
+		}
+	}
+
+	return total;
+}
+
+
+int FindDifferenceTypeTotals(int type, long int *cntAmplBlkDiff, long int *cmpAmplBlkDiff, parameters *config)
+{
+	if(!config)
+		return 0;
+
+	if(!config->Differences.BlockDiffArray)
+		return 0;
+
+	if(!cntAmplBlkDiff || !cmpAmplBlkDiff)
+		return 0;
+
+	*cntAmplBlkDiff = 0;
+	*cmpAmplBlkDiff = 0;
+
+	for(int b = 0; b < config->types.totalBlocks; b++)
+	{
+		if(config->Differences.BlockDiffArray[b].type < TYPE_SILENCE)
+			continue;
+
+		if(type == config->Differences.BlockDiffArray[b].type)
+		{
+			*cntAmplBlkDiff += config->Differences.BlockDiffArray[b].cntAmplBlkDiff;
+			*cmpAmplBlkDiff += config->Differences.BlockDiffArray[b].cmpAmplBlkDiff;
+		}
+	}
+
+	return 1;
+}
+
+int FindMissingTypeTotals(int type, long int *cntFreqBlkDiff, long int *cmpFreqBlkDiff, parameters *config)
+{
+	if(!config)
+		return 0;
+
+	if(!config->Differences.BlockDiffArray)
+		return 0;
+
+	if(!cntFreqBlkDiff || !cmpFreqBlkDiff)
+		return 0;
+
+	*cntFreqBlkDiff = 0;
+	*cmpFreqBlkDiff = 0;
+
+	for(int b = 0; b < config->types.totalBlocks; b++)
+	{
+		if(config->Differences.BlockDiffArray[b].type <= TYPE_CONTROL)
+			continue;
+
+		if(type == config->Differences.BlockDiffArray[b].type)
+		{
+			*cntFreqBlkDiff += config->Differences.BlockDiffArray[b].cntFreqBlkDiff;
+			*cmpFreqBlkDiff += config->Differences.BlockDiffArray[b].cmpFreqBlkDiff;
+		}
+	}
+
+	return 1;
+}
+
+int FindDifferenceWithinInterval(int type, long int *inside, long int *count, double MaxInterval, parameters *config)
+{
+	if(!config)
+		return 0;
+
+	if(!config->Differences.BlockDiffArray)
+		return 0;
+
+	if(!inside || !count)
+		return 0;
+
+	*inside = 0;
+	*count = 0;
+
+	for(int b = 0; b < config->types.totalBlocks; b++)
+	{
+		if(config->Differences.BlockDiffArray[b].type < TYPE_SILENCE)
+			continue;
+
+		if(type == config->Differences.BlockDiffArray[b].type)
+		{
+			for(int a = 0; a < config->Differences.BlockDiffArray[b].cntAmplBlkDiff; a++)
+			{
+				if(fabs(config->Differences.BlockDiffArray[b].amplDiffArray[a].diffAmplitude) <= MaxInterval)
+					(*inside)++;
+				
+			}
+			(*inside) += config->Differences.BlockDiffArray[b].perfectAmplMatch;
+			(*count) += config->Differences.BlockDiffArray[b].cmpAmplBlkDiff;
+		}
+	}
+
+	return 1;
+}

@@ -198,8 +198,11 @@ AudioSignal *CreateAudioSignal(parameters *config)
 			return NULL;
 		}
 		memset(Signal->Blocks[n].freq, 0, sizeof(Frequency)*config->MaxFreq);
+
+#ifdef INDIVPHASE
 		Signal->Blocks[n].linFreq = NULL;
 		Signal->Blocks[n].linFreqSize = 0;
+#endif
 	}
 
 	InitAudio(Signal, config);
@@ -246,6 +249,10 @@ void InitAudio(AudioSignal *Signal, parameters *config)
 			Signal->Blocks[n].index = GetBlockSubIndex(config, n);
 			Signal->Blocks[n].type = ConvertAudioTypeForProcessing(GetBlockType(config, n), config);
 			Signal->Blocks[n].frames = GetBlockFrames(config, n);
+
+			Signal->Blocks[n].AverageDifference = 0;
+			Signal->Blocks[n].missingPercent = 0;
+			Signal->Blocks[n].extraPercent = 0;
 		}
 	}
 	Signal->SourceFile[0] = '\0';
@@ -374,12 +381,14 @@ void ReleaseFrequencies(AudioBlocks * AudioArray)
 		AudioArray->freq = NULL;
 	}
 
+#ifdef INDIVPHASE
 	if(AudioArray->linFreq)
 	{
 		free(AudioArray->linFreq);
 		AudioArray->linFreq = NULL;
 	}
 	AudioArray->linFreqSize = 0;
+#endif
 }
 
 void ReleaseBlock(AudioBlocks * AudioArray)
@@ -2426,7 +2435,10 @@ int FillFrequencyStructures(AudioSignal *Signal, AudioBlocks *AudioArray, parame
 	long int 	i = 0, startBin= 0, endBin = 0, count = 0, size = 0, amount = 0;
 	double 		boxsize = 0;
 	int			nyquistLimit = 0;
-	Frequency	*f_array = NULL, *f_linarray = NULL;
+	Frequency	*f_array = NULL;
+#ifdef INDIVPHASE
+	Frequency	*f_linarray = NULL;
+#endif
 
 	size = AudioArray->fftwValues.size;
 	if(!size || !AudioArray->fftwValues.spectrum)
@@ -2467,6 +2479,7 @@ int FillFrequencyStructures(AudioSignal *Signal, AudioBlocks *AudioArray, parame
 	}
 	memset(f_array, 0, sizeof(Frequency)*(endBin-startBin));
 
+#ifdef INDIVPHASE
 	f_linarray = (Frequency*)malloc(sizeof(Frequency)*(endBin-startBin));
 	if(!f_linarray)
 	{
@@ -2475,6 +2488,7 @@ int FillFrequencyStructures(AudioSignal *Signal, AudioBlocks *AudioArray, parame
 		return 0;
 	}
 	memset(f_linarray, 0, sizeof(Frequency)*(endBin-startBin));
+#endif
 
 	for(i = startBin; i < endBin; i++)
 	{
@@ -2486,10 +2500,13 @@ int FillFrequencyStructures(AudioSignal *Signal, AudioBlocks *AudioArray, parame
 		count++;
 	}
 
+#ifdef INDIVPHASE
 	// Copy all available to Lin Array
 	memcpy(f_linarray, f_array, sizeof(Frequency)*count);
+	
 	AudioArray->linFreq = f_linarray;
 	AudioArray->linFreqSize = count;
+#endif
 
 	if(config->MaxFreq > count)
 		amount = count;
@@ -2807,170 +2824,6 @@ double CalculateScanRate(AudioSignal *Signal)
 		return 0;
 	return(1000.0/Signal->framerate);
 }
-
-double FindDifferenceAverage(parameters *config)
-{
-	double		AvgDifAmp = 0;
-	long int	count = 0;
-
-	if(!config)
-		return 0;
-
-	if(!config->Differences.BlockDiffArray)
-		return 0;
-
-	for(int b = 0; b < config->types.totalBlocks; b++)
-	{
-		if(config->Differences.BlockDiffArray[b].type <= TYPE_CONTROL)
-			continue;
-
-		for(int a = 0; a < config->Differences.BlockDiffArray[b].cntAmplBlkDiff; a++)
-		{
-			AvgDifAmp += config->Differences.BlockDiffArray[b].amplDiffArray[a].diffAmplitude;
-			count ++;
-		}
-	}
-
-	if(count)
-		AvgDifAmp /= count;
-
-	return AvgDifAmp;
-}
-
-double FindDifferencePercentOutsideWindow(double *maxAmpl, parameters *config)
-{
-	long int	count = 0, outside = 0;
-	double		threshold = 0, localMax = 0;
-
-	if(!config)
-		return 0;
-
-	if(!config->Differences.BlockDiffArray || !maxAmpl)
-		return 0;
-
-	*maxAmpl = 0;
-	threshold = fabs(config->maxDbPlotZC);
-	for(int b = 0; b < config->types.totalBlocks; b++)
-	{
-		if(config->Differences.BlockDiffArray[b].type <= TYPE_CONTROL)
-			continue;
-
-		for(int a = 0; a < config->Differences.BlockDiffArray[b].cntAmplBlkDiff; a++)
-		{
-			double ampl = 0;
-
-			ampl = fabs(config->Differences.BlockDiffArray[b].amplDiffArray[a].diffAmplitude);
-			if(ampl >= threshold)
-			{
-				if(localMax < ampl)
-					localMax = ampl;
-				outside ++;
-			}
-			count ++;
-		}
-	}
-
-	if(!outside || !count)
-		return 0;
-
-	if(localMax)
-		*maxAmpl = ceil(localMax);
-	return(outside*100/count);
-}
-
-int FindDifferenceTypeTotals(int type, long int *cntAmplBlkDiff, long int *cmpAmplBlkDiff, parameters *config)
-{
-	if(!config)
-		return 0;
-
-	if(!config->Differences.BlockDiffArray)
-		return 0;
-
-	if(!cntAmplBlkDiff || !cmpAmplBlkDiff)
-		return 0;
-
-	*cntAmplBlkDiff = 0;
-	*cmpAmplBlkDiff = 0;
-
-	for(int b = 0; b < config->types.totalBlocks; b++)
-	{
-		if(config->Differences.BlockDiffArray[b].type < TYPE_SILENCE)
-			continue;
-
-		if(type == config->Differences.BlockDiffArray[b].type)
-		{
-			*cntAmplBlkDiff += config->Differences.BlockDiffArray[b].cntAmplBlkDiff;
-			*cmpAmplBlkDiff += config->Differences.BlockDiffArray[b].cmpAmplBlkDiff;
-		}
-	}
-
-	return 1;
-}
-
-int FindMissingTypeTotals(int type, long int *cntFreqBlkDiff, long int *cmpFreqBlkDiff, parameters *config)
-{
-	if(!config)
-		return 0;
-
-	if(!config->Differences.BlockDiffArray)
-		return 0;
-
-	if(!cntFreqBlkDiff || !cmpFreqBlkDiff)
-		return 0;
-
-	*cntFreqBlkDiff = 0;
-	*cmpFreqBlkDiff = 0;
-
-	for(int b = 0; b < config->types.totalBlocks; b++)
-	{
-		if(config->Differences.BlockDiffArray[b].type <= TYPE_CONTROL)
-			continue;
-
-		if(type == config->Differences.BlockDiffArray[b].type)
-		{
-			*cntFreqBlkDiff += config->Differences.BlockDiffArray[b].cntFreqBlkDiff;
-			*cmpFreqBlkDiff += config->Differences.BlockDiffArray[b].cmpFreqBlkDiff;
-		}
-	}
-
-	return 1;
-}
-
-int FindDifferenceWithinInterval(int type, long int *inside, long int *count, double MaxInterval, parameters *config)
-{
-	if(!config)
-		return 0;
-
-	if(!config->Differences.BlockDiffArray)
-		return 0;
-
-	if(!inside || !count)
-		return 0;
-
-	*inside = 0;
-	*count = 0;
-
-	for(int b = 0; b < config->types.totalBlocks; b++)
-	{
-		if(config->Differences.BlockDiffArray[b].type < TYPE_SILENCE)
-			continue;
-
-		if(type == config->Differences.BlockDiffArray[b].type)
-		{
-			for(int a = 0; a < config->Differences.BlockDiffArray[b].cntAmplBlkDiff; a++)
-			{
-				if(fabs(config->Differences.BlockDiffArray[b].amplDiffArray[a].diffAmplitude) <= MaxInterval)
-					(*inside)++;
-				
-			}
-			(*inside) += config->Differences.BlockDiffArray[b].perfectAmplMatch;
-			(*count) += config->Differences.BlockDiffArray[b].cmpAmplBlkDiff;
-		}
-	}
-
-	return 1;
-}
-
 
 int getPulseCount(int role, parameters *config)
 {

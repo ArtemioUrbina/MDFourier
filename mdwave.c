@@ -34,6 +34,7 @@
 #include "log.h"
 #include "windows.h"
 #include "freq.h"
+#include "diff.h"
 #include "cline.h"
 #include "sync.h"
 #include "balance.h"

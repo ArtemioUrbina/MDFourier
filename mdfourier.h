@@ -145,6 +145,10 @@
 #define	WATERMARK_INVALID			2
 #define	WATERMARK_INDETERMINATE		3
 
+#define	AMPL_HIDIFF		6.0
+#define	MISS_HIDIFF		10.0
+#define	EXTRA_HIDIFF	10.0
+
 #define	NO_CLK			-1
 
 #if defined (WIN32)
@@ -308,8 +312,6 @@ typedef struct samples_st {
 
 typedef struct AudioBlock_st {
 	Frequency		*freq;
-	Frequency		*linFreq;
-	long int		linFreqSize;
 	FFTWSpectrum	fftwValues;
 	BlockSamples	audio;
 	BlockSamples	*internalSync;
@@ -318,6 +320,15 @@ typedef struct AudioBlock_st {
 	int				type;
 	int				frames;
 	double 			seconds;
+
+#ifdef INDIVPHASE
+	Frequency		*linFreq;
+	long int		linFreqSize;
+#endif
+
+	double			AverageDifference;
+	double			missingPercent;
+	double			extraPercent;
 } AudioBlocks;
 
 typedef struct AudioSt {
@@ -460,6 +471,10 @@ typedef struct parameters_st {
 	int				ignoreFrameRateDiff;
 	int				labelNames;
 
+	double			thresholdAmplitudeHiDif;
+	double			thresholdMissingHiDif;
+	double			thresholdExtraHiDif;
+
 	int				plotDifferences;
 	int				plotMissing;
 	int				plotSpectrogram;
@@ -468,6 +483,7 @@ typedef struct parameters_st {
 	int				plotTimeDomain;
 	int				plotAllNotes;
 	int				plotAllNotesWindowed;
+	int				plotTimeDomainHiDiff;
 	int				plotPhase;
 	double			plotRatio;
 	int				averagePlot;
