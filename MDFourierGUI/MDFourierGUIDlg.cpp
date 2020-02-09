@@ -253,7 +253,7 @@ void CMDFourierGUIDlg::OnBnClickedOk()
 	{
 		FILE *file = NULL;
 		errno_t err;
-		wchar_t item[2056];
+		wchar_t item[BUFFER_SIZE];
 
 		err = _wfopen_s(&file, m_ComparisonFile, L"r");
 		if(err != 0)
@@ -262,7 +262,7 @@ void CMDFourierGUIDlg::OnBnClickedOk()
 			return;
 		}
 		
-		while(fwscanf_s(file, L"%[^\n]\n", item, 2056) == 1)
+		while(fwscanf_s(file, L"%[^\n]\n", item, BUFFER_SIZE) == 1)
 			elementCount++;
 
 		elements = new CString[elementCount];
@@ -274,7 +274,7 @@ void CMDFourierGUIDlg::OnBnClickedOk()
 
 		fseek(file, 0, SEEK_SET);
 
-		while(fwscanf_s(file, L"%[^\n]\n", item, 2056) == 1)
+		while(fwscanf_s(file, L"%[^\n]\n", item, BUFFER_SIZE) == 1)
 			elements[elementPos++] = item;
 		
 		fclose(file);
@@ -395,13 +395,17 @@ void CMDFourierGUIDlg::OnBnClickedCancel()
 
 void CMDFourierGUIDlg::OnTimer(UINT_PTR nIDEvent)
 {
+	CString		ntext;
+	int			lineCount;
+
 	cDos.Lock();
-	m_OutputTextCtrl.SetWindowText(cDos.m_OutputText);
+	ntext = cDos.m_OutputText;
 	cDos.Release();
 
-	m_OutputTextCtrl.SendMessage(EM_SETSEL, 0, -1); //Select all. 
-	m_OutputTextCtrl.SendMessage(EM_SETSEL, -1, -1);//Unselect and stay at the end pos
-	m_OutputTextCtrl.SendMessage(EM_SCROLLCARET, 0, 0); //Set scrollcaret to the current Pos
+	m_OutputTextCtrl.SetWindowText(ntext);
+	
+	lineCount = ntext.Replace(_T("\n"), _T("\n"));
+    m_OutputTextCtrl.SendMessage(EM_LINESCROLL, 0, lineCount);
 
     if(!cDos.m_fAbortNow && cDos.m_fDone)
 	{
@@ -611,7 +615,7 @@ int CMDFourierGUIDlg::FindProfiles(CString sPath, CString pattern)
 		{
 			FILE *file;
 			errno_t err;
-			wchar_t text[2056];
+			wchar_t text[BUFFER_SIZE];
 			CString FullFileName, ProfileName;
 
 			FullFileName.Format(L"%s\\%s", sPath, FileName);
@@ -624,7 +628,8 @@ int CMDFourierGUIDlg::FindProfiles(CString sPath, CString pattern)
 				MessageBox(msg, L"Invalid Profile File");
 				return FALSE;
 			}
-			if(fwscanf_s(file, L"%s %*f\n", text, 2056) != 1)
+			/* Header */
+			if(fwscanf_s(file, L"%s %*f\n", text, BUFFER_SIZE) != 1)
 			{
 				CString	msg;
 
@@ -632,7 +637,8 @@ int CMDFourierGUIDlg::FindProfiles(CString sPath, CString pattern)
 				MessageBox(msg, L"Invalid Profile File Header");
 				return FALSE;
 			}
-			if(fwscanf_s(file, L"%255[^\n]\n", text, 2056) != 1)
+			/* Name */
+			if(fwscanf_s(file, L"%255[^\n]\n", text, BUFFER_SIZE) != 1)
 			{
 				CString	msg;
 
@@ -1081,4 +1087,3 @@ void CMDFourierGUIDlg::OnCbnDropdownProfile()
 	}
 	m_OpenResultsBttn.EnableWindow(FALSE);
 }
-

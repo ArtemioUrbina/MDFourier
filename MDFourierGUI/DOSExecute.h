@@ -1,6 +1,6 @@
 #pragma once
 
-#define BUFSIZE 4096
+#define BUFFER_SIZE 4096
 
 class CDOSExecute
 {

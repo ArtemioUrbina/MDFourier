@@ -43,7 +43,7 @@ int CDOSExecute::ExecuteExternalFile()
 	int nStrBuffer;
 	BOOL result;
 	HANDLE rPipe, wPipe;
-	char buf[BUFSIZE];
+	char buf[BUFFER_SIZE];
 	DWORD reDword; 
 	CString csTemp;
 	STARTUPINFO sInfo; 
@@ -110,7 +110,7 @@ int CDOSExecute::ExecuteExternalFile()
 	//now read the output pipe here.
 	do
 	{
-		result = ::ReadFile(rPipe, buf, BUFSIZE, &reDword, NULL);
+		result = ::ReadFile(rPipe, buf, BUFFER_SIZE, &reDword, NULL);
 		if(result)
 		{
 			csTemp = buf;
