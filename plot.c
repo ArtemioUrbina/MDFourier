@@ -602,12 +602,20 @@ void DrawFrequencyHorizontal(PlotFile *plot, double vertical, double hz, double 
 
 void DrawGridZeroDBCentered(PlotFile *plot, double dBFS, double dbIncrement, double hz, double hzIncrement, parameters *config)
 {
+	if(fabs(dBFS) <= 1.0)
+		dbIncrement = fabs(dBFS)/10.0;
+	else
+	{
+		if(fabs(dBFS) <= 3.0)
+			dbIncrement = 1.0;
+	}
+
 	pl_pencolor_r (plot->plotter, 0, 0xaaaa, 0);
 	pl_fline_r(plot->plotter, 0, 0, hz, 0);
 	pl_endpath_r(plot->plotter);
 
 	pl_pencolor_r (plot->plotter, 0, 0x5555, 0);
-	for(int i = dbIncrement; i < dBFS; i += dbIncrement)
+	for(double i = dbIncrement; i < dBFS; i += dbIncrement)
 	{
 		pl_fline_r(plot->plotter, 0, i, hz, i);
 		pl_fline_r(plot->plotter, 0, -1*i, hz, -1*i);
@@ -652,6 +660,14 @@ void DrawLabelsZeroDBCentered(PlotFile *plot, double dBFS, double dbIncrement, d
 {
 	double segments = 0;
 	char label[20];
+
+	if(fabs(dBFS) <= 1.0)
+		dbIncrement = fabs(dBFS)/10.0;
+	else
+	{
+		if(fabs(dBFS) <= 3.0)
+			dbIncrement = 1.0;
+	}
 
 	pl_savestate_r(plot->plotter);
 	pl_fspace_r(plot->plotter, 0-X0BORDER*config->plotResX*plot->leftmargin, -1*config->plotResY/2-Y0BORDER*config->plotResY, config->plotResX+X1BORDER*config->plotResX, config->plotResY/2+Y1BORDER*config->plotResY);

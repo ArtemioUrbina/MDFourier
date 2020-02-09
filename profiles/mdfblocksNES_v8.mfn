@@ -1,5 +1,5 @@
 MDFourierAudioBlockFile 1.9
-Nintendo: Famicom/NES (v7 All Noise)
+Nintendo: Famicom/NES (v8)
 NTSC 16.63926734 262 7990 12 10
 PAL 19.99720039 314 7990 12 9
 NULL n
@@ -14,12 +14,12 @@ Pulse_50 3 87 10 purple m
       PADDING k 1 10 gray m
 Triangle_notes 4 87 10 green m
       PADDING k 1 10 gray m
-v00_noise 5 16 20 blue n
-v01_noise 6 16 20 red n
+v00_noise t 16 20 blue n
+v01_noise t 16 20 red n
       PADDING k 1 8 gray m
       TRIANGID W 1 2 red m 1000 120 Phase
       PADDING k 1 10 gray m
-v00_E-#_noise 7 1 88 magenta n
+v00_E-#_noise 5 4 22 magenta n
       PADDING k 1 12 gray m
 DMC_pops t 2 20 aqua m
 DMC_pitches 8 16 20 aqua m

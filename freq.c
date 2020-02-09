@@ -2961,6 +2961,9 @@ char GetTypeProfileName(int type)
 		case TYPE_TIMEDOMAIN:
 			c = TYPE_TIMEDOMAIN_C;
 			break;
+		case TYPE_SILENCE_OVERRIDE:
+			c = TYPE_SILENCE_OVER_C;
+			break;
 		case TYPE_WATERMARK:
 			c = TYPE_WATERMARK_C;
 			break;
