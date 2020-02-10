@@ -6,13 +6,14 @@
 #include "afxwin.h"
 #include "DOSExecute.h"
 
-#define MDFVERSION			L"0.988"
+#define MDFVERSION			L"0.9881"
+#define	PROFILE_VERSION		L"2.0"
 #define	IDT_DOS				1000
 
 #define	COUNT_CURVES		6
 #define COUNT_WINDOWS		5
 #define	COUNT_PROFILES		255
-#define COUNT_SYNCTYPE		2
+#define COUNT_SYNCTYPE		10
 #define COUNT_RESOLUTION	5
 
 typedef struct commandline_st {
@@ -94,11 +95,13 @@ protected:
 	bool	mdwave;
 	bool	killingDOS;
 	int		DosWaitCount;
+	int		syncTypes;
 
 	void FillComboBoxes();
 	int CheckDependencies();
 	void ManageWindows(BOOL Enable);
 	void InsertValueInCombo(CString Name, CString value, CommandLineArray &Data, CComboBox &Combo);
+	int LoadProfile(CString FullFileName, CString &Name, CString &Version, CString &Error, CommandLineArray	ProfileSyncTypes[], int ArraySize, int &syncCount);
 	CString GetSelectedCommandLineValue(CComboBox &Combo, int size);
 	void ExecuteCommand(CString Compare);
 	void CheckPlotSelection(CButton &clicked);
@@ -131,4 +134,6 @@ public:
 	afx_msg void OnBnClickedTimesp();
 	afx_msg void OnBnClickedPlotTd();
 	afx_msg void OnBnClickedPhase();
+	afx_msg void OnCbnSelendokProfile();
+	afx_msg void OnCbnSelendcancelProfile();
 };

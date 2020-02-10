@@ -82,6 +82,8 @@ BEGIN_MESSAGE_MAP(CMDFourierGUIDlg, CDialogEx)
 	ON_CBN_DROPDOWN(IDC_PROFILE, &CMDFourierGUIDlg::OnCbnDropdownProfile)
 	ON_BN_CLICKED(IDC_PLOT_TD, &CMDFourierGUIDlg::OnBnClickedPlotTd)
 	ON_BN_CLICKED(IDC_PHASE, &CMDFourierGUIDlg::OnBnClickedPhase)
+	ON_CBN_SELENDOK(IDC_PROFILE, &CMDFourierGUIDlg::OnCbnSelendokProfile)
+	ON_CBN_SELENDCANCEL(IDC_PROFILE, &CMDFourierGUIDlg::OnCbnSelendcancelProfile)
 END_MESSAGE_MAP()
 
 
@@ -296,8 +298,8 @@ void CMDFourierGUIDlg::ExecuteCommand(CString Compare)
 	window = GetSelectedCommandLineValue(m_WindowTypeSelect, COUNT_WINDOWS);
 	adjust = GetSelectedCommandLineValue(m_CurveAdjustSelect, COUNT_CURVES);
 	res = GetSelectedCommandLineValue(m_Resolution, COUNT_RESOLUTION);
-	syncFormatRef = GetSelectedCommandLineValue(m_RefSync, COUNT_SYNCTYPE);
-	syncFormatComp = GetSelectedCommandLineValue(m_ComSync, COUNT_SYNCTYPE);
+	syncFormatRef = GetSelectedCommandLineValue(m_RefSync, syncTypes);
+	syncFormatComp = GetSelectedCommandLineValue(m_ComSync, syncTypes);
 
 	command.Format(L"mdfourier.exe -P \"%s\" -r \"%s\" -c \"%s\" -w %s -o %s -Y %s -Z %s -l", 
 			profile, m_ReferenceFile, Compare, window, adjust, syncFormatRef, syncFormatComp);
@@ -576,26 +578,130 @@ void CMDFourierGUIDlg::FillComboBoxes()
 	InsertValueInCombo(L"Dimm", L"5", CurveConvert[5], m_CurveAdjustSelect);
 	m_CurveAdjustSelect.SetCurSel(3);
 
-	InsertValueInCombo(L"NTSC", L"0", SyncType[0], m_RefSync);
-	InsertValueInCombo(L"PAL", L"1", SyncType[1], m_RefSync);
-	m_RefSync.SetCurSel(0);
-
-	InsertValueInCombo(L"NTSC", L"0", SyncType[0], m_ComSync);
-	InsertValueInCombo(L"PAL", L"1", SyncType[1], m_ComSync);
-	m_ComSync.SetCurSel(0);
-
 	InsertValueInCombo(L"Low", L"1", Resolutions[0], m_Resolution);
 	InsertValueInCombo(L"Default", L"2", Resolutions[1], m_Resolution);
 	InsertValueInCombo(L"1080p", L"3", Resolutions[2], m_Resolution);
 	InsertValueInCombo(L"Hi", L"4", Resolutions[3], m_Resolution);
 	InsertValueInCombo(L"4K", L"5", Resolutions[4], m_Resolution);
 	m_Resolution.SetCurSel(1);
+}
 
+int CMDFourierGUIDlg::LoadProfile(CString FullFileName, CString &Name, CString &Version, CString &Error, CommandLineArray ProfileSyncTypes[], int ArraySize, int &syncCount)
+{
+	FILE *file;
+	errno_t err;
+	wchar_t text[BUFFER_SIZE], version[BUFFER_SIZE];
+	CString ProfileName;
+	int		count = 0, i = 0, regularProfile = 0;
+
+	syncCount = 0;
+	err = _wfopen_s(&file, FullFileName, L"r");
+	if(err != 0)
+	{
+		CString	msg;
+
+		msg.Format(L"Could not open Profile file: %s\n", FullFileName);
+		Error = msg;
+		return 0;
+	}
+	/* Header */
+	if(fwscanf_s(file, L"%s %s\n", text, BUFFER_SIZE, version, BUFFER_SIZE) != 2)
+	{
+		CString	msg;
+
+		msg.Format(L"Could not load Profile file, invalid version: %s\n", FullFileName);
+		Error = msg;
+		return 0;
+	}
+
+	if(wcscmp(text, L"MDFourierAudioBlockFile") == 0)
+		regularProfile = 1;
+
+	Version = version;
+	/*¨Only process matching versions */
+	if(_wtof(version) != _wtof(PROFILE_VERSION))
+	{
+		fclose(file);
+		return -1;
+	}
+	
+	/* Name */
+	if(fwscanf_s(file, L"%255[^\n]\n", text, BUFFER_SIZE) != 1)
+	{
+		CString	msg;
+
+		msg.Format(L"Could not load Profile file, invalid name line: %s\n", FullFileName);
+		Error = msg;
+		return 0;
+	}
+	ProfileName = text;
+				
+	while(ProfileName.GetLength() && ProfileName.GetAt(0) == ' ')
+		ProfileName = ProfileName.Right(ProfileName.GetLength() - 1);
+	if(!ProfileName.GetLength())
+		ProfileName = L"Unnamed profile!";
+	Name = ProfileName;
+
+	if(!regularProfile)
+	{
+		fclose(file);
+		return 1;
+	}
+
+	if(fwscanf_s(file, L"%s\n", text, BUFFER_SIZE) != 1)
+	{
+		CString	msg;
+
+		msg.Format(L"Could not load Profile file, invalid sync count: %s\n", text);
+		Error = msg;
+		fclose(file);
+		return 0;
+	}
+	count = _wtoi(text);
+	if(!count)
+	{
+		CString	msg;
+
+		msg.Format(L"Could not load Profile file, invalid sync count: %s\n", text);
+		Error = msg;
+		fclose(file);
+		return 0;
+	}
+	if(ArraySize < count)
+	{
+		CString	msg;
+
+		msg.Format(L"Could not load Profile file, sync count too big: %s\n", text);
+		Error = msg;
+		fclose(file);
+		return 0;
+	}
+
+	for(i = 0; i < count; i++)
+	{
+		if(fwscanf_s(file, L"%s %*f %*d %*d %*d %*d\n", text, BUFFER_SIZE) == 1)
+		{
+			ProfileSyncTypes[i].Name = text;
+			ProfileSyncTypes[i].valueMDF.Format(L"%d", i);
+		}
+		else
+		{
+			CString	msg;
+
+			msg.Format(L"Could not load Profile file, invalid sync lineg: %s\n", text);
+			Error = msg;
+			fclose(file);
+			return 0;
+		}
+	}
+	fclose(file);
+	syncCount = count;
+	return 1;
 }
 
 int CMDFourierGUIDlg::FindProfiles(CString sPath, CString pattern)
 {
-	int count = 0;
+	int count = 0, nonmatching = 0;
 	CFileFind finder;
 	BOOL bFind = FALSE;
 	CString	search;
@@ -613,46 +719,21 @@ int CMDFourierGUIDlg::FindProfiles(CString sPath, CString pattern)
 			continue;
 		else
 		{
-			FILE *file;
-			errno_t err;
-			wchar_t text[BUFFER_SIZE];
-			CString FullFileName, ProfileName;
+			int					match = 0, syncCount;
+			CString				Name, Version, Error, FullFileName;
+			CommandLineArray	ProfileSyncTypes[COUNT_SYNCTYPE];
 
 			FullFileName.Format(L"%s\\%s", sPath, FileName);
-			err = _wfopen_s(&file, FullFileName, L"r");
-			if(err != 0)
+			match = LoadProfile(FullFileName, Name, Version, Error, ProfileSyncTypes, COUNT_SYNCTYPE, syncCount);
+			if(match == 0)
 			{
-				CString	msg;
-
-				msg.Format(L"Could not load Profile file: %s\n", FullFileName);
-				MessageBox(msg, L"Invalid Profile File");
+				MessageBox(Error, L"Invalid Profile File");
 				return FALSE;
 			}
-			/* Header */
-			if(fwscanf_s(file, L"%s %*f\n", text, BUFFER_SIZE) != 1)
-			{
-				CString	msg;
-
-				msg.Format(L"Could not load Profile file: %s\n", FullFileName);
-				MessageBox(msg, L"Invalid Profile File Header");
-				return FALSE;
-			}
-			/* Name */
-			if(fwscanf_s(file, L"%255[^\n]\n", text, BUFFER_SIZE) != 1)
-			{
-				CString	msg;
-
-				msg.Format(L"Could not load Profile file: %s\n", FullFileName);
-				MessageBox(msg, L"Invalid Profile Name");
-				return FALSE;
-			}
-			ProfileName = text;
-			fclose(file);
-			while(ProfileName.GetLength() && ProfileName.GetAt(0) == ' ')
-				ProfileName = ProfileName.Right(ProfileName.GetLength() - 1);
-			if(!ProfileName.GetLength())
-				ProfileName = L"Unnamed profile!";
-			InsertValueInCombo(ProfileName, FullFileName, Profiles[count++], m_Profiles);
+			if(match < 0)
+				nonmatching ++;
+			else
+				InsertValueInCombo(Name, FullFileName, Profiles[count++], m_Profiles);
 		}
 	}
 
@@ -660,6 +741,9 @@ int CMDFourierGUIDlg::FindProfiles(CString sPath, CString pattern)
 	InsertValueInCombo(L" Select a profile", L"NONE", Profiles[count], m_Profiles);
 
 	m_Profiles.SetCurSel(0);
+	if(!count && nonmatching)
+		return -1*nonmatching;
+	
 	return count;
 }
 
@@ -669,16 +753,29 @@ int CMDFourierGUIDlg::CheckDependencies()
 	errno_t err;
 	CString	msg, pattern, bits, versionText, wintext, version, readText;
 	TCHAR	pwd[MAX_PATH];
-	int counter = 0, error = 0;
+	int counter = 0, error = 0, matched = 0;
 	BOOL finished = 0;
 
 	/* Check profiles */
-	if(!FindProfiles(L"profiles", L"*.mfn"))
+	matched = FindProfiles(L"profiles", L"*.mfn");
+	if(matched <= 0)
 	{
+		CString msg;
+		TCHAR	pwd[MAX_PATH];
+
 		GetCurrentDirectory(MAX_PATH, pwd);
-		msg.Format(L"Please place profile files (*.mfn) in folder:\n %s\\profiles", pwd);
-		MessageBox(msg, L"Error mdfblocks.mfn not found");
-		return FALSE;
+
+		if(matched == 0)
+		{
+			msg.Format(L"Please place profile files (*.mfn) in folder:\n %s\\profiles", pwd);
+			MessageBox(msg, L"Error mdfblocks.mfn not found");
+		}
+		else
+		{
+			msg.Format(L"Please update your profiles (*.mfn) to version %s in folder:\n %s\\profiles", PROFILE_VERSION, pwd);
+			MessageBox(msg, L"Invalid Profiles");
+		}
+		return 0;
 	}
 
 	/* Check MDF version and test binary*/
@@ -739,8 +836,8 @@ int CMDFourierGUIDlg::CheckDependencies()
 		error = 1;
 	if(error)
 	{
-		msg.Format(L"Invalid mdfourier.exe version.\nError Code %d\nNeed %s [Got:\n\"%s\"]\n(\"%s\"\" %s\")\n", 
-			error, MDFVERSION, readText, version, bits);
+		msg.Format(L"Invalid mdfourier.exe version.\nNeed %s [Got:\n\"%s\"]", 
+			MDFVERSION, readText);
 		MessageBox(msg, L"Error improper mdfourier.exe");
 		return FALSE;
 	}
@@ -918,7 +1015,7 @@ void CMDFourierGUIDlg::OnBnClickedMdwave()
 
 	profile = GetSelectedCommandLineValue(m_Profiles, COUNT_PROFILES);
 	window = GetSelectedCommandLineValue(m_WindowTypeSelect, COUNT_WINDOWS);
-	syncFormat = GetSelectedCommandLineValue(m_RefSync, COUNT_SYNCTYPE);
+	syncFormat = GetSelectedCommandLineValue(m_RefSync, syncTypes);
 
 	command.Format(L"mdwave.exe -P \"%s\" -r \"%s\" -w %s -Y %s -l -c", 
 			profile, m_ReferenceFile, window, syncFormat);
@@ -1076,14 +1173,73 @@ LRESULT CMDFourierGUIDlg::OnDropFiles(WPARAM wParam, LPARAM lParam)
 
 void CMDFourierGUIDlg::OnCbnDropdownProfile()
 {
-	if(!FindProfiles(L"profiles", L"*.mfn"))
+	int matched = 0;
+
+	matched = FindProfiles(L"profiles", L"*.mfn");
+	if(matched <= 0)
 	{
 		CString msg;
 		TCHAR	pwd[MAX_PATH];
 
 		GetCurrentDirectory(MAX_PATH, pwd);
-		msg.Format(L"Please place profile files (*.mfn) in folder:\n %s\\profiles", pwd);
-		MessageBox(msg, L"Error mdfblocks.mfn not found");
+
+		if(matched == 0)
+		{
+			msg.Format(L"Please place profile files (*.mfn) in folder:\n %s\\profiles", pwd);
+			MessageBox(msg, L"Error mdfblocks.mfn not found");
+		}
+		else
+		{
+			msg.Format(L"Please update your profiles (*.mfn) to version %s in folder:\n %s\\profiles", PROFILE_VERSION, pwd);
+			MessageBox(msg, L"Invalid Profiles");
+		}
 	}
+}
+
+
+void CMDFourierGUIDlg::OnCbnSelendokProfile()
+{
+	int					match = 0, syncCount = 0;
+	CString				Name, Version, Error, FullFileName;
+	CommandLineArray	ProfileSyncTypes[COUNT_SYNCTYPE];
+
+	syncTypes = 0;
+	m_RefSync.ResetContent();
+	m_ComSync.ResetContent();
 	m_OpenResultsBttn.EnableWindow(FALSE);
+
+	FullFileName = GetSelectedCommandLineValue(m_Profiles, COUNT_PROFILES);
+	match = LoadProfile(FullFileName, Name, Version, Error, ProfileSyncTypes, COUNT_SYNCTYPE, syncCount);
+	if(match <= 0)
+	{
+		MessageBox(Error, L"Invalid Profile");
+		return;
+	}
+
+	if(syncCount)
+	{
+		for(int i = 0; i < syncCount; i++)
+		{
+			InsertValueInCombo(ProfileSyncTypes[i].Name, ProfileSyncTypes[i].valueMDF, SyncType[i], m_RefSync);
+			InsertValueInCombo(ProfileSyncTypes[i].Name, ProfileSyncTypes[i].valueMDF, SyncType[i], m_ComSync);
+		}
+		m_RefSync.SetCurSel(0);
+		m_ComSync.SetCurSel(0);
+		syncTypes = syncCount;
+	}
+}
+
+
+void CMDFourierGUIDlg::OnCbnSelendcancelProfile()
+{
+	CString FullFileName;
+
+	FullFileName = GetSelectedCommandLineValue(m_Profiles, COUNT_PROFILES);
+	if(FullFileName == L"NONE")
+	{
+		syncTypes = 0;
+		m_RefSync.ResetContent();
+		m_ComSync.ResetContent();
+		m_OpenResultsBttn.EnableWindow(FALSE);
+	}
 }
