@@ -2361,8 +2361,8 @@ void PrintFrequenciesWMagnitudes(AudioSignal *Signal, parameters *config)
 	{
 		int type = TYPE_NOTYPE;
 
-		logmsgFileOnly("==================== %s# %d (%d) ===================\n", 
-				GetBlockName(config, block), GetBlockSubIndex(config, block), block);
+		logmsgFileOnly("==================== %s %s# %d (%d) ===================\n", 
+				Signal->role == ROLE_REF ? "Reference" : "Comparision", GetBlockName(config, block), GetBlockSubIndex(config, block), block);
 
 		type = GetBlockType(config, block);
 		PrintFrequenciesBlockMagnitude(Signal, Signal->Blocks[block].freq, type, config);
@@ -2375,8 +2375,8 @@ void PrintFrequencies(AudioSignal *Signal, parameters *config)
 	{
 		int type = TYPE_NOTYPE;
 
-		logmsgFileOnly("==================== %s# %d (%d) ===================\n", 
-				GetBlockName(config, block), GetBlockSubIndex(config, block), block);
+		logmsgFileOnly("==================== %s %s# %d (%d) ===================\n", 
+				Signal->role == ROLE_REF ? "Reference" : "Comparision", GetBlockName(config, block), GetBlockSubIndex(config, block), block);
 
 		type = GetBlockType(config, block);
 		PrintFrequenciesBlock(Signal, Signal->Blocks[block].freq, type, config);

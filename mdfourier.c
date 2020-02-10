@@ -493,6 +493,12 @@ int LoadAndProcessAudioFiles(AudioSignal **ReferenceSignal, AudioSignal **Compar
 		}
 	
 		ratioRef = ComparisonLocalMaximum/MaxRef.magnitude;
+		if(config->verbose && 1.0/ratioRef > 10.0)
+		{
+			PrintFrequenciesWMagnitudes(*ReferenceSignal, config);
+			PrintFrequenciesWMagnitudes(*ComparisonSignal, config);
+		}
+
 		NormalizeMagnitudesByRatio(*ReferenceSignal, ratioRef, config);
 
 		/* This is just for waveform visualization */
@@ -506,19 +512,28 @@ int LoadAndProcessAudioFiles(AudioSignal **ReferenceSignal, AudioSignal **Compar
 			ratio = RefAvg/CompAvg;
 		else
 			ratio = CompAvg/RefAvg;
-		if(ratio > 10)
+		if(ratio > 10.0)
 		{
+			double RefAmpl = 0, CompAmpl = 0;
+
 			logmsg("\n=====WARNING=====\n");
 			logmsg("\tAverage frequency difference after normalization between the signals is too high.\n");
 			logmsg("\t(Ratio:%g to 1)\n", ratio);
 			logmsg("\tIf results make no sense (emply graphs), please try the following in the Extra Commands box:\n");
+			logmsg("\t* Use Time Domain normalization: -n t\n");
 			logmsg("\t* Compare just the left channel: -a l\n");
 			logmsg("\t* Compare just the right channel: -a r\n");
-			logmsg("\t* Use Time Domain normalization: -n t\n");
-			logmsg("\tThis can be caused by comparing different signals, a capacitor problem in one channel\n");
-			logmsg("\twhen comparing stereo recorings, etc. Details stored in log file.\n\n");
-			PrintFrequenciesWMagnitudes(*ReferenceSignal, config);
-			PrintFrequenciesWMagnitudes(*ComparisonSignal, config);
+			logmsg("\tThis can be caused by comparing very different signals, a capacitor problem in one channel\n");
+			logmsg("\twhen comparing stereo recorings, framerate causing pitch drifting, etc. Details stored in log file.\n\n");
+
+			RefAmpl = CalculateAmplitude(RefAvg, MaxTar.magnitude, config);
+			CompAmpl = CalculateAmplitude(MaxTar.magnitude, MaxTar.magnitude, config);  // 0
+			
+			config->significantAmplitude = -1.5*fabs(CompAmpl - RefAmpl);
+			config->maxDbPlotZC = 1.2*fabs(CompAmpl - RefAmpl);
+			//config->ignoreFloor = 1;
+
+			logmsg("\tValues will be auto adjusted to show the whole differences\n\n");
 		}
 	}
 
@@ -600,7 +615,7 @@ int LoadAndProcessAudioFiles(AudioSignal **ReferenceSignal, AudioSignal **Compar
 	CalculateAmplitudes(*ReferenceSignal, ZeroDbMagnitudeRef, config);
 	CalculateAmplitudes(*ComparisonSignal, ZeroDbMagnitudeRef, config);
 
-	// Display Aboslute and independent Noise Floor
+	// Display Absolute and independent Noise Floor
 	/*
 	if(!config->ignoreFloor)
 	{
@@ -2294,28 +2309,24 @@ double FindLocalMaximumInBlock(AudioSignal *Signal, MaxMagn refMax, parameters *
 	if(!Signal)
 		return highest;
 
+
+	// we first try a perfect match
 	for(int i = 0; i < config->MaxFreq; i++)
 	{
-		double diff = 0, binSize = 0;
+		double diff = 0;
 		double magnitude = 0;
 
 		if(!Signal->Blocks[refMax.block].freq[i].hertz)
 			break;
 
-		// we regularly end in a case where the 
-		// peak is a few bins lower or higher
-		// and we don't want to normalize against
-		// the magnitude of a harmonic sine wave
-		// we allow a difference of +/- 5 frequency bins
 		magnitude = Signal->Blocks[refMax.block].freq[i].magnitude;
 		diff = fabs(refMax.hertz - Signal->Blocks[refMax.block].freq[i].hertz);
 
-		binSize = FindFrequencyBinSizeForBlock(Signal, refMax.block);
-		if(diff < 5*binSize)
+		if(diff == 0)
 		{
 			if(config->verbose)
 			{
-				logmsg(" - Comparison Local Max magnitude for [R:%g->C:%g] Hz is %g.at %s# %d (%d)\n",
+				logmsg(" - Comparison Local Max magnitude for [R:%g->C:%g] Hz is %g at %s# %d (%d)\n",
 					refMax.hertz, Signal->Blocks[refMax.block].freq[i].hertz, 
 					magnitude, GetBlockName(config, refMax.block), GetBlockSubIndex(config, refMax.block), refMax.block);
 			}
@@ -2324,6 +2335,40 @@ double FindLocalMaximumInBlock(AudioSignal *Signal, MaxMagn refMax, parameters *
 		if(magnitude > highest)
 			highest = magnitude;
 	}
+
+/*
+	// Now with the tolerance
+	// we regularly end in a case where the 
+	// peak is a few bins lower or higher
+	// and we don't want to normalize against
+	// the magnitude of a harmonic sine wave
+	// we allow a difference of +/- 3 frequency bins
+	for(int i = 0; i < config->MaxFreq; i++)
+	{
+		double diff = 0, binSize = 0;
+		double magnitude = 0;
+
+		if(!Signal->Blocks[refMax.block].freq[i].hertz)
+			break;
+
+		magnitude = Signal->Blocks[refMax.block].freq[i].magnitude;
+		diff = fabs(refMax.hertz - Signal->Blocks[refMax.block].freq[i].hertz);
+
+		binSize = FindFrequencyBinSizeForBlock(Signal, refMax.block);
+		if(diff < 3*binSize)
+		{
+			if(config->verbose)
+			{
+				logmsg(" - Comparison Local Max magnitude with tolerance for [R:%g->C:%g] Hz is %g at %s# %d (%d)\n",
+					refMax.hertz, Signal->Blocks[refMax.block].freq[i].hertz, 
+					magnitude, GetBlockName(config, refMax.block), GetBlockSubIndex(config, refMax.block), refMax.block);
+			}
+			return (magnitude);
+		}
+		if(magnitude > highest)
+			highest = magnitude;
+	}
+	*/
 
 	if(config->verbose)
 	{
