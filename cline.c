@@ -208,6 +208,8 @@ void CleanParameters(parameters *config)
 	config->clkRatio = 0;
 	config->useExtraData = 1;
 	config->compressToBlocks = 0;
+	config->quantizeRound = 1;
+	config->drawPerfect = 0;
 }
 
 int commandline(int argc , char *argv[], parameters *config)
@@ -219,8 +221,8 @@ int commandline(int argc , char *argv[], parameters *config)
 	
 	CleanParameters(config);
 
-	// Available: GJKq0123456789
-	while ((c = getopt (argc, argv, "Aa:Bb:Cc:Dd:Ee:Ff:gHhIijkL:lMmNn:Oo:P:p:QRr:Ss:TtUuVvWw:XxY:yZ:z")) != -1)
+	// Available: GJ0123456789
+	while ((c = getopt (argc, argv, "Aa:Bb:Cc:Dd:Ee:Ff:gHhIijKkL:lMmNn:Oo:P:p:QqRr:Ss:TtUuVvWw:XxY:yZ:z")) != -1)
 	switch (c)
 	  {
 	  case 'A':
@@ -248,7 +250,10 @@ int commandline(int argc , char *argv[], parameters *config)
 	  case 'b':
 		config->AmpBarRange = atof(optarg);
 		if(config->AmpBarRange < 0 || config->AmpBarRange > 16)
+		{
+			logmsg("\t - Range must be between %d and %d, changed to %d\n", 0, 16, BAR_DIFF_DB_TOLERANCE);
 			config->AmpBarRange = BAR_DIFF_DB_TOLERANCE;
+		}
 		break;
 	  case 'C':
 		config->outputCSV = 1;
@@ -263,7 +268,10 @@ int commandline(int argc , char *argv[], parameters *config)
 	  case 'd':
 		config->maxDbPlotZC = atof(optarg);
 		if(config->maxDbPlotZC < 0 || config->maxDbPlotZC > 96.0)
+		{
+			logmsg("\t - Range must be between %d and %d, changed to %g\n", 0, 96, DB_HEIGHT);
 			config->maxDbPlotZC = DB_HEIGHT;
+		}
 		break;
 	  case 'E':
 		config->FullTimeSpectroScale = 1;
@@ -289,7 +297,10 @@ int commandline(int argc , char *argv[], parameters *config)
 	  case 'f':
 		config->MaxFreq = atoi(optarg);
 		if(config->MaxFreq < 1 || config->MaxFreq > MAX_FREQ_COUNT)
+				{
+			logmsg("\t - Number fo frequencies must be between %d and %d, changed to %g\n", 1, MAX_FREQ_COUNT, MAX_FREQ_COUNT);
 			config->MaxFreq = MAX_FREQ_COUNT;
+		}
 		break;
 	  case 'g':
 		config->averagePlot = 1;
@@ -309,6 +320,9 @@ int commandline(int argc , char *argv[], parameters *config)
 		break;
 	  case 'j':
 		config->justResults = 1;
+		break;
+	  case 'K':
+		config->drawPerfect = 1;
 		break;
 	  case 'k':
 		config->clock = 1;
@@ -401,6 +415,9 @@ int commandline(int argc , char *argv[], parameters *config)
 		break;
 	  case 'Q':
 		config->plotTimeDomain = 0;
+		break;
+	  case 'q':
+		config->quantizeRound = 0;
 		break;
 	  case 'R':
 		config->reverseCompare = 1;
@@ -634,6 +651,8 @@ int commandline(int argc , char *argv[], parameters *config)
 		logmsg("\tPlots will not be adjusted to log scale\n");
 	if(config->averagePlot && !config->weightedAveragePlot)
 		logmsg("\tAveraged Plots will not be weighted\n");
+	if(!config->quantizeRound)
+		logmsg("\tDecimal values will not be rounded/quantized\n");
 
 	if(config->logScale && config->plotRatio == 0)
 		config->plotRatio = config->endHzPlot/log10(config->endHzPlot);

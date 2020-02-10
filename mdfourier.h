@@ -513,6 +513,8 @@ typedef struct parameters_st {
 	int				nyquistLimit;
 	int				useExtraData;
 	int				compressToBlocks;
+	int				quantizeRound;
+	int				drawPerfect;
 
 /* Values only used for clock frequency */
 	char		clkName[20];

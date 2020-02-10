@@ -1963,7 +1963,7 @@ void FindStandAloneFloor(AudioSignal *Signal, parameters *config)
 
 	if(loudest.hertz && loudest.magnitude != 0)
 	{
-		loudest.amplitude = CalculateAmplitude(loudest.magnitude, maxMagnitude);
+		loudest.amplitude = CalculateAmplitude(loudest.magnitude, maxMagnitude, config);
 
 		logmsg(" - %s signal noise floor: %g dBFS [%g Hz]\n", 
 			Signal->role == ROLE_REF ? "Reference" : "Comparison",
@@ -2183,7 +2183,7 @@ void GlobalNormalize(AudioSignal *Signal, parameters *config)
 					break;
 	
 				Signal->Blocks[block].freq[i].amplitude = 
-					CalculateAmplitude(Signal->Blocks[block].freq[i].magnitude, MaxMagnitude);
+					CalculateAmplitude(Signal->Blocks[block].freq[i].magnitude, MaxMagnitude, config);
 				
 				if(Signal->Blocks[block].freq[i].amplitude < MinAmplitude)
 					MinAmplitude = Signal->Blocks[block].freq[i].amplitude;
@@ -2260,7 +2260,7 @@ void CalculateAmplitudes(AudioSignal *Signal, double ZeroDbMagReference, paramet
 					break;
 	
 				Signal->Blocks[block].freq[i].amplitude = 
-					CalculateAmplitude(Signal->Blocks[block].freq[i].magnitude, ZeroDbMagReference);
+					CalculateAmplitude(Signal->Blocks[block].freq[i].magnitude, ZeroDbMagReference, config);
 	
 				if(Signal->Blocks[block].freq[i].amplitude < MinAmplitude)
 					MinAmplitude = Signal->Blocks[block].freq[i].amplitude;
@@ -2396,7 +2396,7 @@ inline double CalculateMagnitude(fftw_complex value, long int size)
 	return magnitude;
 }
 
-inline double CalculatePhase(fftw_complex value)
+inline double CalculatePhase(fftw_complex value, parameters *config)
 {
 	double r1 = 0;
 	double i1 = 0;
@@ -2405,10 +2405,12 @@ inline double CalculatePhase(fftw_complex value)
 	r1 = creal(value);
 	i1 = cimag(value);
 	phase = atan2(i1, r1)*180/M_PI;
+	if(config && config->quantizeRound)
+		phase = roundFloat(phase);
 	return phase;
 }
 
-inline double CalculateAmplitude(double magnitude, double MaxMagnitude)
+inline double CalculateAmplitude(double magnitude, double MaxMagnitude, parameters *config)
 {
 	double amplitude = 0;
 
@@ -2416,16 +2418,17 @@ inline double CalculateAmplitude(double magnitude, double MaxMagnitude)
 		return NO_AMPLITUDE;
 
 	amplitude = 20*log10(magnitude/MaxMagnitude);
-	amplitude = roundFloat(amplitude);
+	if(config && config->quantizeRound)
+		amplitude = roundFloat(amplitude);
 	return amplitude;
 }
 
-inline double CalculateFrequency(double boxindex, double boxsize, int HertzAligned)
+inline double CalculateFrequency(double boxindex, double boxsize, parameters *config)
 {
 	double Hertz = 0;
 
 	Hertz = boxindex/boxsize;
-	if(!HertzAligned) // if zero padded (Hertz Aligned), we are using 1Hz integer bins
+	if(config && !config->ZeroPad && config->quantizeRound) // if zero padded (Hertz Aligned), we are using 1Hz integer bins
 		Hertz = roundFloat(Hertz);  // default, overkill yes
 	return Hertz;
 }
@@ -2492,10 +2495,10 @@ int FillFrequencyStructures(AudioSignal *Signal, AudioBlocks *AudioArray, parame
 
 	for(i = startBin; i < endBin; i++)
 	{
-		f_array[count].hertz = CalculateFrequency(i, boxsize, config->ZeroPad);
+		f_array[count].hertz = CalculateFrequency(i, boxsize, config);
 		f_array[count].magnitude = CalculateMagnitude(AudioArray->fftwValues.spectrum[i], size);
 		f_array[count].amplitude = NO_AMPLITUDE;
-		f_array[count].phase = CalculatePhase(AudioArray->fftwValues.spectrum[i]);
+		f_array[count].phase = CalculatePhase(AudioArray->fftwValues.spectrum[i], config);
 		f_array[count].matched = 0;
 		count++;
 	}

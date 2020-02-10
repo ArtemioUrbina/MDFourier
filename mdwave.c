@@ -1256,7 +1256,7 @@ int ProcessSamples(AudioBlocks *AudioArray, int16_t *samples, size_t size, long 
 			int blank = 0;
 	
 			magnitude = CalculateMagnitude(spectrum[i], monoSignalSize);
-			amplitude = CalculateAmplitude(magnitude, Signal->MaxMagnitude.magnitude);
+			amplitude = CalculateAmplitude(magnitude, Signal->MaxMagnitude.magnitude, config);
 
 			if(amplitude <= CutOff)
 				blank = 1;

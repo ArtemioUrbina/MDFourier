@@ -641,7 +641,7 @@ long int DetectPulseInternal(char *Samples, wav_hdr header, int factor, long int
 	for(i = startPos; i < TotalMS; i++)
 	{
 		if(pulseArray[i].hertz)  /* this can be zero if samples were zeroed */
-			pulseArray[i].amplitude = CalculateAmplitude(pulseArray[i].magnitude, MaxMagnitude);
+			pulseArray[i].amplitude = CalculateAmplitude(pulseArray[i].magnitude, MaxMagnitude, config);
 		else
 			pulseArray[i].amplitude = NO_AMPLITUDE;
 	}
@@ -884,7 +884,7 @@ long int DetectSignalStartInternal(char *Samples, wav_hdr header, int factor, lo
 	for(i = start; i < TotalMS; i++)
 	{
 		if(pulseArray[i].hertz)  /* we can get this empty due to zeroes in samples */
-			pulseArray[i].amplitude = CalculateAmplitude(pulseArray[i].magnitude, MaxMagnitude);
+			pulseArray[i].amplitude = CalculateAmplitude(pulseArray[i].magnitude, MaxMagnitude, config);
 		else
 			pulseArray[i].amplitude = NO_AMPLITUDE;
 	}

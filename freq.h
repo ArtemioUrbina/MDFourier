@@ -129,9 +129,9 @@ int DetectWatermark(AudioSignal *Signal, parameters *config);
 int DetectWatermarkIssue(char *msg, parameters *config);
 
 double CalculateMagnitude(fftw_complex value, long int size);
-double CalculateAmplitude(double magnitude, double MaxMagnitude);
-double CalculatePhase(fftw_complex value);
-double CalculateFrequency(double boxindex, double boxsize, int HertzAligned);
+double CalculateAmplitude(double magnitude, double MaxMagnitude, parameters *config);
+double CalculatePhase(fftw_complex value, parameters *config);
+double CalculateFrequency(double boxindex, double boxsize, parameters *config);
 double CalculateFrameRate(AudioSignal *Signal, parameters *config);
 double CalculateFrameRateNS(AudioSignal *Signal, double Frames, parameters *config);
 double CalculateScanRate(AudioSignal *Signal);

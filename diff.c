@@ -717,6 +717,36 @@ int FindDifferenceWithinInterval(int type, long int *inside, long int *count, do
 					(*inside)++;
 				
 			}
+			if(!config->drawPerfect)
+				(*inside) += config->Differences.BlockDiffArray[b].perfectAmplMatch;
+			(*count) += config->Differences.BlockDiffArray[b].cmpAmplBlkDiff;
+		}
+	}
+
+	return 1;
+}
+
+int FindPerfectMatches(int type, long int *inside, long int *count, parameters *config)
+{
+	if(!config)
+		return 0;
+
+	if(!config->Differences.BlockDiffArray)
+		return 0;
+
+	if(!inside || !count)
+		return 0;
+
+	*inside = 0;
+	*count = 0;
+
+	for(int b = 0; b < config->types.totalBlocks; b++)
+	{
+		if(config->Differences.BlockDiffArray[b].type < TYPE_SILENCE)
+			continue;
+
+		if(type == config->Differences.BlockDiffArray[b].type)
+		{
 			(*inside) += config->Differences.BlockDiffArray[b].perfectAmplMatch;
 			(*count) += config->Differences.BlockDiffArray[b].cmpAmplBlkDiff;
 		}

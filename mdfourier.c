@@ -148,7 +148,7 @@ int main(int argc , char *argv[])
 	if(outside)
 	{
 		logmsg("Differences above %gdBFS: %g%%\n", config.maxDbPlotZC, outside);
-		if(outside > 40)
+		if(outside > 40 && config.maxDbPlotZC == DB_HEIGHT)  // if the user has not changed it
 		{
 			config.maxDbPlotZC = maxDiff;
 			logmsg(" - Adjusting viewport to %gdBFS for graphs\n\n", config.maxDbPlotZC);

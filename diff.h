@@ -54,5 +54,6 @@ double FindDifferencePercentOutsideViewPort(double *maxAmpl, parameters *config)
 int FindDifferenceTypeTotals(int type, long int *cntAmplBlkDiff, long int *cmpAmplBlkDiff, parameters *config);
 int FindMissingTypeTotals(int type, long int *cntFreqBlkDiff, long int *cmpFreqBlkDiff, parameters *config);
 int FindDifferenceWithinInterval(int type, long int *inside, long int *count, double MaxInterval, parameters *config);
+int FindPerfectMatches(int type, long int *inside, long int *count, parameters *config);
 
 #endif

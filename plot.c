@@ -80,7 +80,9 @@
 
 #define BAR_HEADER					"Matched frequencies"
 #define BAR_DIFF					"w/any amplitude difference"
-#define BAR_WITHIN					"within %gdBFS"
+#define BAR_WITHIN					"within [0 to \\+-%gdBFS]"
+#define BAR_WITHIN_PERFECT			"within (0 to \\+-%gdBFS]"
+#define BAR_PERFECT					"Perfect Matches"
 
 #define ALL_LABEL					"ALL"
 
@@ -730,6 +732,7 @@ void DrawLabelsMDF(PlotFile *plot, char *Gname, char *GType, int type, parameter
 	pl_ffontsize_r(plot->plotter, FONT_SIZE_2);
 	pl_ffontname_r(plot->plotter, PLOT_FONT);
 
+	pl_savestate_r(plot->plotter);
 	pl_fspace_r(plot->plotter, 0, -1*config->plotResY/2, config->plotResX, config->plotResY/2);
 
 	/* Profile */
@@ -912,7 +915,8 @@ void DrawLabelsMDF(PlotFile *plot, char *Gname, char *GType, int type, parameter
 		pl_alabel_r(plot->plotter, 'l', 'l', "WARNING: Sync tolerance enabled");
 	}
 
-	if(config->channel != 's')
+	/* Top warnigs */
+	if(config->channel != 's' && (config->referenceSignal->AudioChannels == 2 || config->comparisonSignal->AudioChannels == 2))
 	{
 		pl_fmove_r(plot->plotter, config->plotResX-config->plotResX/10, config->plotResY/2-config->plotResY/30-BAR_HEIGHT);
 		pl_pencolor_r(plot->plotter, 0xcccc, 0xcccc, 0xcccc);
@@ -922,6 +926,16 @@ void DrawLabelsMDF(PlotFile *plot, char *Gname, char *GType, int type, parameter
 		if(config->channel == 'r')
 			pl_alabel_r(plot->plotter, 'l', 'l', "Right Channel");
 	}
+
+	if(!config->quantizeRound)
+	{
+		pl_fmove_r(plot->plotter, config->plotResX-2*config->plotResX/10, config->plotResY/2-config->plotResY/30-BAR_HEIGHT);
+		pl_pencolor_r(plot->plotter, 0xcccc, 0xcccc, 0xcccc);
+
+		pl_alabel_r(plot->plotter, 'l', 'l', "Quantization: OFF");
+	}
+
+	pl_restorestate_r(plot->plotter);
 }
 
 void DrawLabelsZeroToLimit(PlotFile *plot, double dBFS, double dbIncrement, double hz, double hzIncrement,  parameters *config)
@@ -984,6 +998,8 @@ void DrawColorScale(PlotFile *plot, int type, int mode, double x, double y, doub
 
 	label = GetTypeDisplayName(config, type);
 	colorName = MatchColor(GetTypeColor(config, type));
+
+	pl_savestate_r(plot->plotter);
 	pl_fspace_r(plot->plotter, 0, 0, config->plotResX, config->plotResY);
 	pl_filltype_r(plot->plotter, 1);
 
@@ -1069,29 +1085,52 @@ void DrawColorScale(PlotFile *plot, int type, int mode, double x, double y, doub
 			else
 				SetPenColor(COLOR_GRAY, 0xaaaa, plot);
 			pl_fmove_r(plot->plotter, 1.1*x_offset, y+1.5*BAR_HEIGHT);
-			sprintf(header, BAR_WITHIN, config->AmpBarRange);
+			if(!config->drawPerfect)
+				sprintf(header, BAR_WITHIN, config->AmpBarRange);
+			else
+				sprintf(header, BAR_WITHIN_PERFECT, config->AmpBarRange);
 			pl_alabel_r(plot->plotter, 'l', 'l', header);
 
 			SetPenColor(COLOR_GRAY, 0xaaaa, plot);
 			pl_fmove_r(plot->plotter, x_offset, y+3*BAR_HEIGHT);
-			pl_alabel_r(plot->plotter, 'c', 'c', BAR_HEADER);
+			if(!config->drawPerfect)
+				pl_alabel_r(plot->plotter, 'c', 'c', BAR_HEADER);
+			else
+				pl_alabel_r(plot->plotter, 'l', 'c', BAR_HEADER);
 
-			DrawMatchBar(plot, colorName,
+
+			bar_text_width = DrawMatchBar(plot, colorName,
 				1.1*x_offset, y,
 				BAR_WIDTH, BAR_HEIGHT, 
 				(double)cnt, (double)cmp, config);
+
+			/* Perfect */
+			if(config->drawPerfect)
+			{
+				x_offset = x_offset + BAR_WIDTH + bar_text_width;
+	
+				FindPerfectMatches(type, &cnt, &cmp, config);
+	
+				SetPenColor(COLOR_GRAY, 0xaaaa, plot);
+				pl_fmove_r(plot->plotter, 1.1*x_offset, y+1.5*BAR_HEIGHT);
+				sprintf(header, BAR_PERFECT);
+				pl_alabel_r(plot->plotter, 'l', 'l', header);
+	
+				DrawMatchBar(plot, colorName,
+					1.1*x_offset, y,
+					BAR_WIDTH, BAR_HEIGHT, 
+					(double)cnt, (double)cmp, config);
+			}
 		}
 	}
+	pl_restorestate_r(plot->plotter);
 }
 
 void DrawColorAllTypeScale(PlotFile *plot, int mode, double x, double y, double width, double height, double endDbs, double dbIncrement, int drawBars, parameters *config)
 {
 	double 	segments = 0, maxlabel = 0, maxbarwidth = 0;
 	int		*colorName = NULL, *typeID = NULL;
-	int		numTypes = 0, t = 0;
-
-	pl_fspace_r(plot->plotter, 0, 0, config->plotResX, config->plotResY);
-	pl_filltype_r(plot->plotter, 1);
+	int		numTypes = 0, t = 0, maxMatch = 0;
 
 	numTypes = GetActiveBlockTypesNoRepeat(config);
 	segments = floor(fabs(endDbs/dbIncrement));
@@ -1106,6 +1145,10 @@ void DrawColorAllTypeScale(PlotFile *plot, int mode, double x, double y, double 
 		free(colorName);
 		return;
 	}
+
+	pl_savestate_r(plot->plotter);
+	pl_fspace_r(plot->plotter, 0, 0, config->plotResX, config->plotResY);
+	pl_filltype_r(plot->plotter, 1);
 
 	for(int i = 0; i < config->types.typeCount; i++)
 	{
@@ -1227,21 +1270,51 @@ void DrawColorAllTypeScale(PlotFile *plot, int mode, double x, double y, double 
 		else
 			SetPenColor(COLOR_GRAY, 0xaaaa, plot);
 		pl_fmove_r(plot->plotter, 1.1*x_offset, y+(numTypes-1)*config->plotResY/50+1.5*BAR_HEIGHT);
-		sprintf(header, BAR_WITHIN, config->AmpBarRange);
+		if(!config->drawPerfect)
+			sprintf(header, BAR_WITHIN, config->AmpBarRange);
+		else
+			sprintf(header, BAR_WITHIN_PERFECT, config->AmpBarRange);
 		pl_alabel_r(plot->plotter, 'l', 'l', header);
 
+		
 		SetPenColor(COLOR_GRAY, 0xaaaa, plot);
 		pl_fmove_r(plot->plotter, x_offset, y+(numTypes-1)*config->plotResY/50+3*BAR_HEIGHT);
-		pl_alabel_r(plot->plotter, 'c', 'c', BAR_HEADER);
+		if(!config->drawPerfect)
+			pl_alabel_r(plot->plotter, 'c', 'c', BAR_HEADER);
+		else
+			pl_alabel_r(plot->plotter, 'l', 'c', BAR_HEADER);
 
 		for(int t = 0; t < numTypes; t++)
 		{
+			int localMax = 0;
+
 			FindDifferenceWithinInterval(typeID[t], &cnt, &cmp, config->AmpBarRange, config);
 
-			DrawMatchBar(plot, colorName[t],
+			localMax = DrawMatchBar(plot, colorName[t],
 				1.1*x_offset, y+(numTypes-1)*config->plotResY/50-t*config->plotResY/50,
 				BAR_WIDTH, BAR_HEIGHT, 
 				(double)cnt, (double)cmp, config);
+			if(localMax > maxMatch)
+				maxMatch = localMax;
+		}
+
+		if(config->drawPerfect)
+		{
+			x_offset = x_offset + BAR_WIDTH + maxMatch;
+
+			SetPenColor(COLOR_GRAY, 0xaaaa, plot);
+			pl_fmove_r(plot->plotter, 1.1*x_offset, y+(numTypes-1)*config->plotResY/50+1.5*BAR_HEIGHT);
+			sprintf(header, BAR_PERFECT);
+			pl_alabel_r(plot->plotter, 'l', 'l', header);
+
+			for(int t = 0; t < numTypes; t++)
+			{
+				FindPerfectMatches(typeID[t], &cnt, &cmp, config);
+				DrawMatchBar(plot, colorName[t],
+					1.1*x_offset, y+(numTypes-1)*config->plotResY/50-t*config->plotResY/50,
+					BAR_WIDTH, BAR_HEIGHT, 
+					(double)cnt, (double)cmp, config);
+			}
 		}
 	}
 
@@ -1249,6 +1322,8 @@ void DrawColorAllTypeScale(PlotFile *plot, int mode, double x, double y, double 
 	colorName = NULL;
 	free(typeID);
 	typeID = NULL;
+
+	pl_restorestate_r(plot->plotter);
 }
 
 double DrawMatchBar(PlotFile *plot, int colorName, double x, double y, double width, double height, double notFound, double total, parameters *config)
@@ -1256,6 +1331,7 @@ double DrawMatchBar(PlotFile *plot, int colorName, double x, double y, double wi
 	char percent[40];
 	double labelwidth = 0, maxlabel = 0;
 
+	pl_savestate_r(plot->plotter);
 	pl_fspace_r(plot->plotter, 0, 0, config->plotResX, config->plotResY);
 
 	// Back
@@ -1293,6 +1369,8 @@ double DrawMatchBar(PlotFile *plot, int colorName, double x, double y, double wi
 		if(labelwidth > maxlabel)
 			maxlabel = labelwidth;
 	}
+	pl_restorestate_r(plot->plotter);
+
 	return maxlabel;
 }
 
@@ -3172,12 +3250,30 @@ void DrawLabelsTimeSpectrogram(PlotFile *plot, int khz, int khzIncrement, parame
 	pl_restorestate_r(plot->plotter);
 }
 
+void DrawTimeCode(PlotFile *plot, double timecode, double x, double framerate, int color, parameters *config)
+{
+	double	seconds = 0;
+	char	time[40];
+
+	seconds = FramesToSeconds(timecode, framerate);
+
+	pl_savestate_r(plot->plotter);
+	pl_fspace_r(plot->plotter, 0-X0BORDER*config->plotResX*plot->leftmargin, -1*config->plotResY/2-Y0BORDER*config->plotResY, config->plotResX+X1BORDER*config->plotResX, config->plotResY/2+Y1BORDER*config->plotResY);
+	pl_ffontname_r(plot->plotter, PLOT_FONT);
+	pl_ffontsize_r(plot->plotter, FONT_SIZE_1);
+	SetPenColor(color, 0xFFFF, plot);
+	pl_fmove_r(plot->plotter, x, config->plotResY/2);
+	sprintf(time, "%0.1fs", seconds);
+	pl_alabel_r(plot->plotter, 'l', 'b', time);
+	pl_restorestate_r(plot->plotter);
+}
 
 void PlotTimeSpectrogram(AudioSignal *Signal, parameters *config)
 {
 	PlotFile	plot;
-	double		significant = 0, x = 0, framewidth = 0, framecount = 0, abs_significant = 0;
+	double		significant = 0, x = 0, framewidth = 0, framecount = 0, tc = 0, abs_significant = 0;
 	long int	block = 0, i = 0;
+	int			lastType = TYPE_NOTYPE;
 	char		filename[BUFFER_SIZE], name[BUFFER_SIZE/2];
 
 	if(!Signal || !config)
@@ -3213,12 +3309,16 @@ void PlotTimeSpectrogram(AudioSignal *Signal, parameters *config)
 	framewidth = config->plotResX / framecount;
 	for(block = 0; block < config->types.totalBlocks; block++)
 	{
-		if(GetBlockType(config, block) > TYPE_SILENCE && config->MaxFreq > 0)
+		int		type = 0;
+		double	frames = 0;
+
+		type = GetBlockType(config, block);
+		frames = GetBlockFrames(config, block);
+		if(type > TYPE_SILENCE && config->MaxFreq > 0)
 		{
 			int		color = 0;
-			double	frames = 0, noteWidth = 0, xpos = 0;
+			double	noteWidth = 0, xpos = 0;
 
-			frames = GetBlockFrames(config, block);
 			noteWidth = framewidth*frames;
 			xpos = x+noteWidth;
 			color = MatchColor(GetBlockColor(config, block));
@@ -3240,7 +3340,14 @@ void PlotTimeSpectrogram(AudioSignal *Signal, parameters *config)
 					pl_endpath_r(plot.plotter);
 				}
 			}
+
+			if(lastType != type)
+			{
+				DrawTimeCode(&plot, tc, x, Signal->framerate, color, config);
+				lastType = type;
+			}
 			x += noteWidth;
+			tc += frames;
 		}
 	}
 
@@ -3253,8 +3360,9 @@ void PlotTimeSpectrogram(AudioSignal *Signal, parameters *config)
 void PlotTimeSpectrogramUnMatchedContent(AudioSignal *Signal, parameters *config)
 {
 	PlotFile	plot;
-	double		significant = 0, x = 0, framewidth = 0, framecount = 0, abs_significant = 0;
+	double		significant = 0, x = 0, framewidth = 0, framecount = 0, tc = 0, abs_significant = 0;
 	long int	block = 0, i = 0;
+	int			lastType = TYPE_NOTYPE;
 	char		filename[BUFFER_SIZE], name[BUFFER_SIZE/2];
 
 	if(!Signal || !config)
@@ -3292,12 +3400,16 @@ void PlotTimeSpectrogramUnMatchedContent(AudioSignal *Signal, parameters *config
 	framewidth = config->plotResX / framecount;
 	for(block = 0; block < config->types.totalBlocks; block++)
 	{
-		if(GetBlockType(config, block) > TYPE_SILENCE && config->MaxFreq > 0)
+		int		type = 0;
+		double	frames = 0;
+
+		type = GetBlockType(config, block);
+		frames = GetBlockFrames(config, block);
+		if(type > TYPE_SILENCE && config->MaxFreq > 0)
 		{
 			int		color = 0;
-			double	frames = 0, noteWidth = 0, xpos = 0;
+			double	noteWidth = 0, xpos = 0;
 
-			frames = GetBlockFrames(config, block);
 			noteWidth = framewidth*frames;
 			xpos = x+noteWidth;
 			color = MatchColor(GetBlockColor(config, block));
@@ -3320,7 +3432,14 @@ void PlotTimeSpectrogramUnMatchedContent(AudioSignal *Signal, parameters *config
 					pl_endpath_r(plot.plotter);
 				}
 			}
+
+			if(lastType != type)
+			{
+				DrawTimeCode(&plot, tc, x, Signal->framerate, color, config);
+				lastType = type;
+			}
 			x += noteWidth;
+			tc += frames;
 		}
 	}
 
@@ -3580,7 +3699,6 @@ void DrawVerticalFrameGrid(PlotFile *plot, AudioSignal *Signal, double frames, d
 
 	/* Draw the labels ¨*/
 	pl_savestate_r(plot->plotter);
-
 	pl_fspace_r(plot->plotter, 0-X0BORDER*config->plotResX*plot->leftmargin, -1*config->plotResY/2-Y0BORDER*config->plotResY, config->plotResX+X1BORDER*config->plotResX, config->plotResY/2+Y1BORDER*config->plotResY);
 	pl_ffontsize_r(plot->plotter, FONT_SIZE_1);
 	pl_ffontname_r(plot->plotter, PLOT_FONT);
@@ -3630,7 +3748,6 @@ void DrawINT16DBFSLines(PlotFile *plot, double resx, parameters *config)
 	/* Draw the labels ¨*/
 
 	pl_savestate_r(plot->plotter);
-
 	pl_fspace_r(plot->plotter, 0-X0BORDER*config->plotResX*plot->leftmargin, -1*config->plotResY/2-Y0BORDER*config->plotResY, config->plotResX+X1BORDER*config->plotResX, config->plotResY/2+Y1BORDER*config->plotResY);
 	pl_ffontsize_r(plot->plotter, FONT_SIZE_1);
 	pl_ffontname_r(plot->plotter, PLOT_FONT);
