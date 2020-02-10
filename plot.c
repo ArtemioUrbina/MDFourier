@@ -798,15 +798,17 @@ void DrawLabelsMDF(PlotFile *plot, char *Gname, char *GType, int type, parameter
 		{
 			if(config->referenceSignal)
 			{
-				sprintf(label, "Reference:   %4dkHz %s %.120s%s",
+				sprintf(label, "Reference:   %5.5s %4dkHz %s %.110s%s",
+					config->types.SyncFormat[config->videoFormatRef].syncName,
 					config->referenceSignal->header.fmt.SamplesPerSec/1000,
 					config->referenceSignal->AudioChannels == 2 ? "Stereo" : "Mono  ",
 					basename(config->referenceFile),
-					strlen(basename(config->referenceFile)) > 120 ? "\\.." : " ");
+					strlen(basename(config->referenceFile)) > 110 ? "\\.." : " ");
 				pl_fmove_r(plot->plotter, x, y+config->plotResY/40);
 				pl_alabel_r(plot->plotter, 'l', 'l', label);
 
-				sprintf(label, "[%0.4fms %0.4fHz]", config->referenceSignal->framerate, roundFloat(CalculateScanRate(config->referenceSignal)));
+				sprintf(label, "[%0.4fms %0.4fHz]", 
+						config->referenceSignal->framerate, roundFloat(CalculateScanRate(config->referenceSignal)));
 				pl_fmove_r(plot->plotter, config->plotResX/20*17, y+config->plotResY/40);
 				pl_alabel_r(plot->plotter, 'l', 'l', label);
 			}
@@ -818,15 +820,17 @@ void DrawLabelsMDF(PlotFile *plot, char *Gname, char *GType, int type, parameter
 			}
 			if(config->comparisonSignal)
 			{
-				sprintf(label, "Comparison: %4dkHz %s %.120s%s",
+				sprintf(label, "Comparison: %5.5s %4dkHz %s %.110s%s",
+					config->types.SyncFormat[config->videoFormatCom].syncName,
 					config->comparisonSignal->header.fmt.SamplesPerSec/1000,
 					config->comparisonSignal->AudioChannels == 2 ? "Stereo" : "Mono  ",
 					basename(config->comparisonFile),
-					strlen(basename(config->comparisonFile)) > 120 ? "\\.." : " ");
+					strlen(basename(config->comparisonFile)) > 110 ? "\\.." : " ");
 				pl_fmove_r(plot->plotter, x, -1*config->plotResY/2+config->plotResY/80);
 				pl_alabel_r(plot->plotter, 'l', 'l', label);
 
-				sprintf(label, "[%0.4fms %0.4fHz]", config->comparisonSignal->framerate, roundFloat(CalculateScanRate(config->comparisonSignal)));
+				sprintf(label, "[%0.4fms %0.4fHz]", 
+						config->comparisonSignal->framerate, roundFloat(CalculateScanRate(config->comparisonSignal)));
 				pl_fmove_r(plot->plotter, config->plotResX/20*17, y);
 				pl_alabel_r(plot->plotter, 'l', 'l', label);
 			}
@@ -839,19 +843,29 @@ void DrawLabelsMDF(PlotFile *plot, char *Gname, char *GType, int type, parameter
 		}
 		else
 		{
+			int format = 0;
+
 			y += config->plotResY/60;
 			if(type == PLOT_SINGLE_REF)
-				sprintf(label, "File: %4dkHz %s %.120s%s",
+			{
+				format = config->videoFormatRef;
+				sprintf(label, "File: %5.5s %4dkHz %s %.110s%s",
+					config->types.SyncFormat[format].syncName,
 					config->referenceSignal->header.fmt.SamplesPerSec/1000,
 					config->referenceSignal->AudioChannels == 2 ? "Stereo" : "Mono  ",
 					basename(config->referenceFile),
-					strlen(basename(config->referenceFile)) > 120 ? "\\.." : " ");
+					strlen(basename(config->referenceFile)) > 110 ? "\\.." : " ");
+			}
 			else
-				sprintf(label, "File: %4dkHz %s %.120s%s",
+			{
+				format = config->videoFormatCom;
+				sprintf(label, "File: %5.5s %4dkHz %s %.110s%s",
+					config->types.SyncFormat[format].syncName,
 					config->comparisonSignal->header.fmt.SamplesPerSec/1000,
 					config->comparisonSignal->AudioChannels == 2 ? "Stereo" : "Mono  ",
 					basename(config->comparisonFile),
-					strlen(basename(config->comparisonFile)) > 120 ? "\\.." : " ");
+					strlen(basename(config->comparisonFile)) > 110 ? "\\.." : " ");
+			}
 	
 			pl_fmove_r(plot->plotter, x, y);
 			pl_alabel_r(plot->plotter, 'l', 'l', label);

@@ -53,8 +53,8 @@ void PrintUsage()
 	logmsg("	 -I: <I>gnore frame rate difference for analysis\n");
 	logmsg("	 -p: Define the significant volume value in dBFS\n");
 	logmsg("	 -T: Increase Sync detection <T>olerance\n");
-	logmsg("	 -Y: Define the Reference Video Format 0:NTSC 1:PAL\n");
-	logmsg("	 -Z: Define the Comparison Video Format 0:NTSC 1:PAL\n");
+	logmsg("	 -Y: Define the Reference Video Format from the profile\n");
+	logmsg("	 -Z: Define the Comparison Video Format from the profile\n");
 	logmsg("	 -k: cloc<k> FFTW operations\n");
 	logmsg("	 -X: Do not E<x>tra Data from Profiles\n");
 	logmsg("   Output options:\n");
@@ -138,8 +138,8 @@ void CleanParameters(parameters *config)
 	config->outputCSV = 0;
 	config->whiteBG = 0;
 	config->smallFile = 0;
-	config->videoFormatRef = NTSC;
-	config->videoFormatCom = NTSC;
+	config->videoFormatRef = 0;
+	config->videoFormatCom = 0;
 	config->syncTolerance = 0;
 	config->AmpBarRange = BAR_DIFF_DB_TOLERANCE;
 	config->FullTimeSpectroScale = 0;
@@ -267,9 +267,9 @@ int commandline(int argc , char *argv[], parameters *config)
 		break;
 	  case 'd':
 		config->maxDbPlotZC = atof(optarg);
-		if(config->maxDbPlotZC < 0 || config->maxDbPlotZC > 96.0)
+		if(config->maxDbPlotZC < 0 || config->maxDbPlotZC > 120.0)
 		{
-			logmsg("\t - Range must be between %d and %d, changed to %g\n", 0, 96, DB_HEIGHT);
+			logmsg("\t - Range must be between %d and %d, changed to %g\n", 0, 120.0, DB_HEIGHT);
 			config->maxDbPlotZC = DB_HEIGHT;
 		}
 		break;
@@ -486,16 +486,22 @@ int commandline(int argc , char *argv[], parameters *config)
 		break;
 	  case 'Y':
 		config->videoFormatRef = atoi(optarg);
-		if(config->videoFormatRef < NTSC|| config->videoFormatRef > PAL)
-			config->videoFormatRef = NTSC;
+		if(config->videoFormatRef < 0 || config->videoFormatRef > MAX_SYNC)  // We'll confirm this later
+		{
+			logmsg("\tProfile can have up to %d types\n", MAX_SYNC);
+			return 0;
+		}
 		break;
 	  case 'y':
 		config->debugSync = 1;
 		break;
 	  case 'Z':
 		config->videoFormatCom = atoi(optarg);
-		if(config->videoFormatCom < NTSC|| config->videoFormatCom > PAL)
-			config->videoFormatCom = NTSC;
+		if(config->videoFormatRef < 0 || config->videoFormatRef > MAX_SYNC)
+		{
+			logmsg("\tProfile can have up to %d types\n", MAX_SYNC);
+			return 0;
+		}
 		break;
 	  case 'z':
 		config->ZeroPad = 1;
@@ -530,9 +536,9 @@ int commandline(int argc , char *argv[], parameters *config)
 		else if (optopt == 'w')
 		  logmsg("\t ERROR: FFT Window option -%c requires an argument: n,t,f or h\n", optopt);
 		else if (optopt == 'Y')
-		  logmsg("\t ERROR: Reference format: Use 0 for NTSC and 1 for PAL\n");
+		  logmsg("\t ERROR:  Reference format: needs a number with a selection from the profile\n");
 		else if (optopt == 'Z')
-		  logmsg("\t ERROR: Comparison format: Use 0 for NTSC and 1 for PAL\n");
+		  logmsg("\t ERROR:  Comparison format: needs a number with a selection from the profile\n");
 		else if (isprint (optopt))
 		  logmsg("\t ERROR: Unknown option `-%c'.\n", optopt);
 		else

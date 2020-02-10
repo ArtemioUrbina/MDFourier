@@ -79,7 +79,11 @@ int main(int argc , char *argv[])
 		return 1;
 	}
 
-	EndProfileLoad(&config);
+	if(!EndProfileLoad(&config))
+	{
+		logmsg("Aborting\n");
+		return 1;
+	}
 
 	if(ExecuteMDWave(&config, 0) == 1)
 	{
@@ -407,13 +411,19 @@ int LoadFile(FILE *file, AudioSignal *Signal, parameters *config, char *fileName
 		Signal->startOffset = DetectPulse(Signal->Samples, Signal->header, Signal->role, config);
 		if(Signal->startOffset == -1)
 		{
+			int format = 0;
+
 			logmsg("\nERROR: Starting pulse train was not detected.\nProfile used: [%s]\n", config->types.Name);
+
+			if(Signal->role == ROLE_REF)
+				format = config->videoFormatRef;
+			else
+				format = config->videoFormatCom;
 			if(!config->syncTolerance)
 				logmsg(" - You can try using -T for a frequency tolerant pulse detection algorithm\n");
-			if(config->smallFile && 
-				((Signal->role == ROLE_REF && config->videoFormatRef == PAL) ||
-				 (Signal->role == ROLE_COMP && config->videoFormatCom == PAL)))
-				logmsg(" - This signal is defined as PAL and the file is shorter... This might be the issue.\n");
+			if(format != 0)
+				logmsg(" - This signal is configured as '%s', check if that is not the issue.\n", 
+						config->types.SyncFormat[format].syncName);
 			return 0;
 		}
 		if(config->verbose)
@@ -430,13 +440,18 @@ int LoadFile(FILE *file, AudioSignal *Signal, parameters *config, char *fileName
 			Signal->endOffset = DetectEndPulse(Signal->Samples, Signal->startOffset, Signal->header, Signal->role, config);
 			if(Signal->endOffset == -1)
 			{
-				logmsg("\nERROR: Ending pulse train was not detected.\nProfile used: [%s]\n", config->types.Name);
+				int format = 0;
+
+				logmsg("\nERROR: Ending pulse train was not detected.\nProfile used: [%s]\n", config->types.Name);				
+				if(Signal->role == ROLE_REF)
+					format = config->videoFormatRef;
+				else
+					format = config->videoFormatCom;
 				if(!config->syncTolerance)
 					logmsg(" - You can try using -T for a frequency tolerant pulse detection algorithm\n");
-				if(config->smallFile && 
-					((Signal->role == ROLE_REF && config->videoFormatRef == PAL) ||
-					 (Signal->role == ROLE_COMP && config->videoFormatCom == PAL)))
-					logmsg(" - This signal is defined as PAL and the file is shorter... This might be the issue.\n");
+				if(format != 0)
+					logmsg(" - This signal is configured as '%s', check if that is not the issue.\n", 
+							config->types.SyncFormat[format].syncName);
 				return 0;
 			}
 			if(config->verbose)
@@ -1398,8 +1413,11 @@ int commandline_wave(int argc , char *argv[], parameters *config)
 		break;
 	  case 'Y':
 		config->videoFormatRef = atof(optarg);
-		if(config->videoFormatRef < NTSC|| config->videoFormatRef > PAL)
-			config->videoFormatRef = NTSC;
+		if(config->videoFormatRef < 0 || config->videoFormatRef > MAX_SYNC)  // We'll confirm this later
+		{
+			logmsg("\tProfile can have up to %d types\n", MAX_SYNC);
+			return 0;
+		}
 		break;
 	  case 'a':
 		switch(optarg[0])
@@ -1450,23 +1468,23 @@ int commandline_wave(int argc , char *argv[], parameters *config)
 		break;
 	  case '?':
 		if (optopt == 'r')
-		  logmsg("Reference File -%c requires an argument.\n", optopt);
+		  logmsg("\t ERROR:  Reference File -%c requires an argument.\n", optopt);
 		else if (optopt == 'a')
-		  logmsg("Audio channel option -%c requires an argument: l,r or s\n", optopt);
+		  logmsg("\t ERROR:  Audio channel option -%c requires an argument: l,r or s\n", optopt);
 		else if (optopt == 'w')
-		  logmsg("FFT Window option -%c requires an argument: n,t,f or h\n", optopt);
+		  logmsg("\t ERROR:  FFT Window option -%c requires an argument: n,t,f or h\n", optopt);
 		else if (optopt == 'f')
-		  logmsg("Max # of frequencies to use from FFTW -%c requires an argument: 1-%d\n", optopt, MAX_FREQ_COUNT);
+		  logmsg("\t ERROR:  Max # of frequencies to use from FFTW -%c requires an argument: 1-%d\n", optopt, MAX_FREQ_COUNT);
 		else if (optopt == 's')
-		  logmsg("Min frequency range for FFTW -%c requires an argument: %d-%d\n", 1, END_HZ-100, optopt);
+		  logmsg("\t ERROR:  Min frequency range for FFTW -%c requires an argument: %d-%d\n", 1, END_HZ-100, optopt);
 		else if (optopt == 'e')
-		  logmsg("Max frequency range for FFTW -%c requires an argument: %d-%d\n", START_HZ*2, END_HZ, optopt);
+		  logmsg("\t ERROR:  Max frequency range for FFTW -%c requires an argument: %d-%d\n", START_HZ*2, END_HZ, optopt);
 		else if (optopt == 'P')
-		  logmsg("Profile File -%c requires a file argument\n", optopt);
+		  logmsg("\t ERROR:  Profile File -%c requires a file argument\n", optopt);
 		else if (optopt == 'Y')
-		  logmsg("Reference format: Use 0 for NTSC and 1 for PAL\n");
+		  logmsg("\t ERROR:  Reference format: needs a number with a selection from the profile\n");
 		else if (isprint (optopt))
-		  logmsg("Unknown option `-%c'.\n", optopt);
+		  logmsg("\t ERROR:  Unknown option `-%c'.\n", optopt);
 		else
 		  logmsg("Unknown option character `\\x%x'.\n", optopt);
 		return 0;

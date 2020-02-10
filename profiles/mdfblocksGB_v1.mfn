@@ -1,7 +1,9 @@
-MDFourierAudioBlockFile 1.9
+MDFourierAudioBlockFile 2.0
 Nintendo: GameBoy (v1)
-NTSC 16.7427 308 7990 14 10
-NTSC 16.7427 308 7990 14 10
+3
+GB 16.7427 308 7990 14 10
+SGB 16.3484 308 7990 14 10
+P-SGB 16.4953 308 7990 14 10
 NULL n
 26
 Sync s 1 20 red m

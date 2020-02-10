@@ -482,15 +482,15 @@ int LoadProfile(parameters *config)
 	if(strcmp(buffer, "MDFourierAudioBlockFile") == 0)
 	{
 		sscanf(lineBuffer, "%*s %s\n", buffer);
-		if(atof(buffer) < 1.9)
+		if(atof(buffer) < PROFILE_VER)
 		{
-			logmsg("ERROR: Please update your profile files to version 1.9\n");
+			logmsg("ERROR: Please update your profile files to version %g\n", PROFILE_VER);
 			fclose(file);
 			return 0;
 		}
-		if(atof(buffer) > 1.9)
+		if(atof(buffer) > PROFILE_VER)
 		{
-			logmsg("ERROR: This executable can parse \"MDFourierAudioBlockFile 1.9\" files only\n");
+			logmsg("ERROR: This executable can parse \"MDFourierAudioBlockFile %g\" files only\n", PROFILE_VER);
 			fclose(file);
 			return 0;
 		}
@@ -500,9 +500,9 @@ int LoadProfile(parameters *config)
 	if(strcmp(buffer, "MDFourierNoSyncProfile") == 0)
 	{
 		sscanf(lineBuffer, "%*s %s\n", buffer);
-		if(atof(buffer) != 1.2)
+		if(atof(buffer) != PROFILE_VER)
 		{
-			logmsg("ERROR: This executable can parse \"MDFourierNoSyncProfile 1.2\" files only\n");
+			logmsg("ERROR: This executable can parse \"MDFourierNoSyncProfile %g\" files only\n", PROFILE_VER);
 			fclose(file);
 			return 0;
 		}
@@ -533,7 +533,39 @@ void FlattenProfile(parameters *config)
 	logmsg("Audio Blocks flattened\n");
 }
 
-void EndProfileLoad(parameters *config)
+int CheckSyncFormats(parameters *config)
+{
+	if(config->videoFormatRef < 0|| config->videoFormatRef >= config->types.syncCount)
+	{
+		logmsg("\tInvalid format '%d' for Reference, profile defines %d types [", 
+				config->videoFormatRef, config->types.syncCount);
+		for(int s = 0; s < config->types.syncCount; s++)
+		{
+			logmsg("%d:%s", s, config->types.SyncFormat[s].syncName);
+			if(s != config->types.syncCount - 1)
+				logmsg(", ");
+		}
+		logmsg("]\n");
+		return 0;
+	}
+
+	if(config->videoFormatCom < 0|| config->videoFormatCom >= config->types.syncCount)
+	{
+		logmsg("\tInvalid format '%d' for Comparison, profile defines %d types [", 
+				config->videoFormatCom, config->types.syncCount);
+		for(int s = 0; s < config->types.syncCount; s++)
+		{
+			logmsg("%d:%s", s, config->types.SyncFormat[s].syncName);
+			if(s != config->types.syncCount - 1)
+				logmsg(", ");
+		}
+		logmsg("]\n");
+		return 0;
+	}
+	return 1;
+}
+
+int EndProfileLoad(parameters *config)
 {
 	logmsg("* Using profile [%s]\n", config->types.Name);	
 	if(config->compressToBlocks)
@@ -541,6 +573,9 @@ void EndProfileLoad(parameters *config)
 
 	CheckSilenceOverride(config);
 	PrintAudioBlocks(config);
+	if(!CheckSyncFormats(config))
+		return 0;
+	return 1;
 }
 
 int LoadAudioBlockStructure(FILE *file, parameters *config)
@@ -560,12 +595,28 @@ int LoadAudioBlockStructure(FILE *file, parameters *config)
 		return 0;
 	}
 
-	/* Line 3: NTSC and PAL Frame rates and Sync */
-	for(i = 0; i < 2; i++)
+	/* Line 3: Profile Frame rates numbers */
+	readLine(lineBuffer, file);
+	sscanf(lineBuffer, "%s\n", buffer);
+	config->types.syncCount = atoi(buffer);
+	if(!config->types.syncCount)
+	{
+		logmsg("ERROR: Invalid Sync count '%s'\n", lineBuffer);
+		fclose(file);
+		return 0;
+	}
+	if(config->types.syncCount > 10)
+	{
+		logmsg("ERROR: Invalid Sync count '%s'\n", lineBuffer);
+		fclose(file);
+		return 0;
+	}
+	/* Lines 4 to 4+config->types.syncCount:sync types*/
+	for(i = 0; i < config->types.syncCount; i++)
 	{
 		readLine(lineBuffer, file);
-		if(sscanf(lineBuffer, "%s %s %s %d %d %d\n", 
-								buffer, buffer2, buffer3,
+		if(sscanf(lineBuffer, "%255s %s %s %d %d %d\n", 
+								config->types.SyncFormat[i].syncName, buffer2, buffer3,
 								&config->types.SyncFormat[i].pulseSyncFreq,
 								&config->types.SyncFormat[i].pulseFrameLen,
 								&config->types.SyncFormat[i].pulseCount) != 6)
@@ -611,7 +662,7 @@ int LoadAudioBlockStructure(FILE *file, parameters *config)
 		}
 	}
 
-	/* Line 5: CLK estimation */
+	/* CLK estimation */
 	readLine(lineBuffer, file);
 	if(sscanf(lineBuffer, "%s %c", config->clkName, &config->clkProcess) != 2)
 	{
@@ -634,7 +685,7 @@ int LoadAudioBlockStructure(FILE *file, parameters *config)
 		}
 	}
 
-	/* Line 6: Type count */
+	/* Type count */
 	readLine(lineBuffer, file);
 	sscanf(lineBuffer, "%s\n", buffer);
 	config->types.typeCount = atoi(buffer);
@@ -653,7 +704,7 @@ int LoadAudioBlockStructure(FILE *file, parameters *config)
 	}
 	memset(config->types.typeArray, 0, sizeof(AudioBlockType)*config->types.typeCount);
 
-	/* Line 7 and beyond: types */
+	/* types */
 	for(int i = 0; i < config->types.typeCount; i++)
 	{
 		char type = 0;

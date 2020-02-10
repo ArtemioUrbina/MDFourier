@@ -64,7 +64,7 @@
 
 #define SIGNIFICANT_VOLUME	-60.0
 #define NS_SIGNIFICANT_VOLUME	-66.0
-#define NS_LOWEST_AMPLITUDE		-120
+#define NS_LOWEST_AMPLITUDE		-200
 #define	PCM_16BIT_MIN_AMPLITUDE	-96.0
 
 #define TYPE_NOTYPE				-1000
@@ -174,9 +174,8 @@
 #define M_PI 3.1415926535897932384626433832795
 #endif
 
-
-#define NTSC	0
-#define PAL		1
+#define	PROFILE_VER		2.0
+#define	MAX_SYNC		10
 
 enum normalize
 {
@@ -187,6 +186,7 @@ enum normalize
 };
 
 #define PROFILE_FILE	"profiles\\mdfblocksGEN.mfn"
+
 
 typedef struct max_vol {
 	int16_t		maxSample;
@@ -215,6 +215,7 @@ typedef struct abt_st {
 } AudioBlockType;
 
 typedef struct sync_st {
+	char			syncName[255];
 	double			MSPerFrame;
 	double			LineCount;
 	int				pulseSyncFreq;
@@ -226,7 +227,9 @@ typedef struct abd_st {
 	char			Name[256];
 	int				totalBlocks;
 	int				regularBlocks;
-	VideoBlockDef	SyncFormat[2];
+
+	VideoBlockDef	SyncFormat[MAX_SYNC];
+	int				syncCount;
 
 	AudioBlockType	*typeArray;
 	int				typeCount;

@@ -98,7 +98,11 @@ int main(int argc , char *argv[])
 		return 1;
 	}
 
-	EndProfileLoad(&config);
+	if(!EndProfileLoad(&config))
+	{
+		logmsg("Aborting\n");
+		return 1;
+	}
 
 	if(strcmp(config.referenceFile, config.comparisonFile) == 0)
 	{
@@ -501,10 +505,6 @@ int LoadAndProcessAudioFiles(AudioSignal **ReferenceSignal, AudioSignal **Compar
 
 		NormalizeMagnitudesByRatio(*ReferenceSignal, ratioRef, config);
 
-		/* This is just for waveform visualization */
-		if((config->hasTimeDomain && config->plotTimeDomain) || config->plotAllNotes)
-			ProcessWaveformsByBlock(*ReferenceSignal, *ComparisonSignal, ratioRef, config);
-
 		RefAvg = FindFundamentalMagnitudeAverage(*ReferenceSignal, config);
 		CompAvg = FindFundamentalMagnitudeAverage(*ComparisonSignal, config);
 		
@@ -517,14 +517,13 @@ int LoadAndProcessAudioFiles(AudioSignal **ReferenceSignal, AudioSignal **Compar
 			double RefAmpl = 0, CompAmpl = 0;
 
 			logmsg("\n=====WARNING=====\n");
-			logmsg("\tAverage frequency difference after normalization between the signals is too high.\n");
-			logmsg("\t(Ratio:%g to 1)\n", ratio);
+			logmsg("\tAverage frequency difference after normalization between the signals is too high. (Ratio:%g to 1)\n", ratio);
 			logmsg("\tIf results make no sense (emply graphs), please try the following in the Extra Commands box:\n");
 			logmsg("\t* Use Time Domain normalization: -n t\n");
 			logmsg("\t* Compare just the left channel: -a l\n");
 			logmsg("\t* Compare just the right channel: -a r\n");
-			logmsg("\tThis can be caused by comparing very different signals, a capacitor problem in one channel\n");
-			logmsg("\twhen comparing stereo recorings, framerate causing pitch drifting, etc. Details stored in log file.\n\n");
+			logmsg("\tThis can be caused by: comparing very different signals, a capacitor problem,\n");
+			logmsg("\tframerate difference causing pitch drifting, an unusual frequency scenario, etc.\n\n");
 
 			RefAmpl = CalculateAmplitude(RefAvg, MaxTar.magnitude, config);
 			CompAmpl = CalculateAmplitude(MaxTar.magnitude, MaxTar.magnitude, config);  // 0
@@ -533,8 +532,15 @@ int LoadAndProcessAudioFiles(AudioSignal **ReferenceSignal, AudioSignal **Compar
 			config->maxDbPlotZC = 1.2*fabs(CompAmpl - RefAmpl);
 			//config->ignoreFloor = 1;
 
-			logmsg("\tValues will be auto adjusted to show the whole differences\n\n");
+			logmsg("\tValues will be auto adjusted to show the whole differences:\n");
+			logmsg("\t\tSignificant Amplitude set to %g dBFS\n", config->significantAmplitude);
+			logmsg("\t\tPlot view range set to %g dBFS\n", config->maxDbPlotZC);
 		}
+
+		/* This is just for waveform visualization */
+		if((config->hasTimeDomain && config->plotTimeDomain) || config->plotAllNotes)
+			ProcessWaveformsByBlock(*ReferenceSignal, *ComparisonSignal, ratioRef, config);
+
 	}
 
 	if(config->normType == average)
@@ -849,13 +855,19 @@ int LoadFile(FILE *file, AudioSignal *Signal, parameters *config, char *fileName
 		Signal->startOffset = DetectPulse(Signal->Samples, Signal->header, Signal->role, config);
 		if(Signal->startOffset == -1)
 		{
+			int format = 0;
+
 			logmsg("\nERROR: Starting pulse train was not detected.\nProfile used: [%s]\n", config->types.Name);
+
+			if(Signal->role == ROLE_REF)
+				format = config->videoFormatRef;
+			else
+				format = config->videoFormatCom;
 			if(!config->syncTolerance)
 				logmsg(" - You can try using -T for a frequency tolerant pulse detection algorithm\n");
-			if(config->smallFile && 
-				((Signal->role == ROLE_REF && config->videoFormatRef == PAL) ||
-				 (Signal->role == ROLE_COMP && config->videoFormatCom == PAL)))
-				logmsg(" - This signal is defined as PAL and the file is shorter. This might be the issue.\n");
+			if(format != 0)
+				logmsg(" - This signal is configured as '%s', check if that is not the issue.\n", 
+						config->types.SyncFormat[format].syncName);
 			return 0;
 		}
 		if(config->verbose)
@@ -872,13 +884,18 @@ int LoadFile(FILE *file, AudioSignal *Signal, parameters *config, char *fileName
 			Signal->endOffset = DetectEndPulse(Signal->Samples, Signal->startOffset, Signal->header, Signal->role, config);
 			if(Signal->endOffset == -1)
 			{
-				logmsg("\nERROR: Ending pulse train was not detected.\nProfile used: [%s]\n", config->types.Name);
+				int format = 0;
+
+				logmsg("\nERROR: Ending pulse train was not detected.\nProfile used: [%s]\n", config->types.Name);				
+				if(Signal->role == ROLE_REF)
+					format = config->videoFormatRef;
+				else
+					format = config->videoFormatCom;
 				if(!config->syncTolerance)
 					logmsg(" - You can try using -T for a frequency tolerant pulse detection algorithm\n");
-				if(config->smallFile && 
-					((Signal->role == ROLE_REF && config->videoFormatRef == PAL) ||
-				 	(Signal->role == ROLE_COMP && config->videoFormatCom == PAL)))
-					logmsg(" - This signal is defined as PAL and the file is shorter. This might be the issue.\n");
+				if(format != 0)
+					logmsg(" - This signal is configured as '%s', check if that is not the issue.\n", 
+							config->types.SyncFormat[format].syncName);
 				return 0;
 			}
 			if(config->verbose)
@@ -2293,10 +2310,12 @@ MaxMagn FindMaxMagnitudeBlock(AudioSignal *Signal, parameters *config)
 	if(config->verbose)
 	{
 		if(MaxMag.block != -1)
+		{
 			logmsg(" - %s Max Magnitude found in %s# %d (%d) at %g Hz with %g\n", 
 					Signal->role == ROLE_REF ? "Reference" : "Comparison",
 					GetBlockName(config, MaxMag.block), GetBlockSubIndex(config, MaxMag.block),
 					MaxMag.block, MaxMag.hertz, MaxMag.magnitude);
+		}
 	}
 
 	return MaxMag;
@@ -2331,18 +2350,18 @@ double FindLocalMaximumInBlock(AudioSignal *Signal, MaxMagn refMax, parameters *
 					magnitude, GetBlockName(config, refMax.block), GetBlockSubIndex(config, refMax.block), refMax.block);
 			}
 			return (magnitude);
+			if(magnitude > highest)
+				highest = magnitude;
 		}
-		if(magnitude > highest)
-			highest = magnitude;
 	}
 
-/*
+	/*
 	// Now with the tolerance
 	// we regularly end in a case where the 
 	// peak is a few bins lower or higher
 	// and we don't want to normalize against
 	// the magnitude of a harmonic sine wave
-	// we allow a difference of +/- 3 frequency bins
+	// we allow a difference of +/- 2 frequency bins
 	for(int i = 0; i < config->MaxFreq; i++)
 	{
 		double diff = 0, binSize = 0;
@@ -2355,7 +2374,7 @@ double FindLocalMaximumInBlock(AudioSignal *Signal, MaxMagn refMax, parameters *
 		diff = fabs(refMax.hertz - Signal->Blocks[refMax.block].freq[i].hertz);
 
 		binSize = FindFrequencyBinSizeForBlock(Signal, refMax.block);
-		if(diff < 3*binSize)
+		if(diff < 2*binSize)
 		{
 			if(config->verbose)
 			{
