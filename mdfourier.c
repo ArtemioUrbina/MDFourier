@@ -65,7 +65,7 @@ int16_t FindLocalMaximumAroundSample(AudioSignal *Signal, MaxSample refMax);
 void NormalizeMagnitudesByRatio(AudioSignal *Signal, double ratio, parameters *config);
 MaxMagn FindMaxMagnitudeBlock(AudioSignal *Signal, parameters *config);
 int FindMultiMaxMagnitudeBlock(AudioSignal *Signal, MaxMagn	*MaxMag, int size, parameters *config);
-double FindLocalMaximumInBlock(AudioSignal *Signal, MaxMagn refMax, parameters *config);
+double FindLocalMaximumInBlock(AudioSignal *Signal, MaxMagn refMax, int allowDifference, parameters *config);
 double FindFundamentalMagnitudeAverage(AudioSignal *Signal, parameters *config);
 
 int main(int argc , char *argv[])
@@ -498,8 +498,80 @@ int LoadAndProcessAudioFiles(AudioSignal **ReferenceSignal, AudioSignal **Compar
 			return 0;
 		}
 	
-		ComparisonLocalMaximum = FindLocalMaximumInBlock(*ComparisonSignal, MaxRef, config);
-		if(!ComparisonLocalMaximum)
+		ComparisonLocalMaximum = FindLocalMaximumInBlock(*ComparisonSignal, MaxRef, 0, config);
+		if(ComparisonLocalMaximum)
+			ratioRef = ComparisonLocalMaximum/MaxRef.magnitude;
+
+		/* Detect extreme cases, and try another approach */
+		if(ComparisonLocalMaximum == 0 || (ratioRef && 1.0/ratioRef > FREQDOMRATIO))
+		{
+			int		found = 0, pos = 1, allowDifference = 0, tries = 0;
+			MaxMagn	MaxRefArray[FREQDOMTRIES];
+			double	ComparisonLocalMaximumArray = 0, ratioRefArray = 0;
+
+			memset(MaxRefArray, 0, FREQDOMTRIES*sizeof(MaxMagn));
+			if(FindMultiMaxMagnitudeBlock(*ReferenceSignal, MaxRefArray, FREQDOMTRIES, config))
+			{
+				// We have a do for a second cycle allowing tolerance
+				do
+				{
+					while(MaxRefArray[pos].magnitude != 0 && pos < FREQDOMTRIES)
+					{
+						if(config->verbose)
+						{
+							logmsg(" - Reference Max Magnitude[%d] found in %s# %d (%d) at %g Hz with %g\n", 
+								pos,
+								GetBlockName(config, MaxRefArray[pos].block), GetBlockSubIndex(config, MaxRefArray[pos].block),
+								MaxRefArray[pos].block, MaxRefArray[pos].hertz, MaxRefArray[pos].magnitude);
+						}
+	
+						ratioRefArray = 0;
+						ComparisonLocalMaximumArray = FindLocalMaximumInBlock(*ComparisonSignal, MaxRefArray[pos], allowDifference, config);
+						if(ComparisonLocalMaximumArray)
+						{
+							ratioRefArray = ComparisonLocalMaximumArray/MaxRefArray[pos].magnitude;
+							//if(config->verbose) logmsg(" - Comparision ratio is %g (%g/%g)\n", 1.0/ratioRefArray, ComparisonLocalMaximumArray, MaxRefArray[pos].magnitude);
+							if(1.0/ratioRefArray <= FREQDOMRATIO)
+							{
+								found = 1;
+								break;
+							}
+						}
+						pos++;
+					}
+	
+					if(found){
+						int copy = 0;
+
+						if(ComparisonLocalMaximum)  // we are here because no clean match was found
+							copy = 1;
+						else  /* we are here because of ratio */ {
+							if(ratioRefArray < ratioRef)
+								copy = 1;
+						}
+
+						if(copy){
+							ComparisonLocalMaximum = ComparisonLocalMaximumArray;
+							ratioRef = ratioRefArray;
+							config->frequencyNormalizationTries = pos + 1;
+						}
+						else {
+							if(config->verbose)	logmsg(" - Alternative matches were worse than original, reverting\n");
+						}
+					}
+					else {
+						config->frequencyNormalizationTries = -1;
+						allowDifference = 1;
+						pos = 0;
+					}
+					tries ++;
+				}while(tries == 1 && allowDifference == 1);
+			}
+		}
+		else
+			config->frequencyNormalizationTries = 0;
+
+		if(!ComparisonLocalMaximum || !ratioRef)
 		{
 			PrintFrequenciesWMagnitudes(*ReferenceSignal, config);
 			PrintFrequenciesWMagnitudes(*ComparisonSignal, config);
@@ -509,59 +581,6 @@ int LoadAndProcessAudioFiles(AudioSignal **ReferenceSignal, AudioSignal **Compar
 			CleanUp(ReferenceSignal, ComparisonSignal, config);
 			return 0;
 		}
-	
-		ratioRef = ComparisonLocalMaximum/MaxRef.magnitude;
-		/* Detect extreme cases, and try another approach */
-		// config->verbose && 
-		if(1.0/ratioRef > FREQDOMRATIO)
-		{
-			int		found = 0, pos = 1;
-			MaxMagn	MaxRefArray[FREQDOMTRIES];
-			double	ComparisonLocalMaximumArray = 0, ratioRefArray = 0;
-
-			if(FindMultiMaxMagnitudeBlock(*ReferenceSignal, MaxRefArray, FREQDOMTRIES, config))
-			{
-				while(MaxRefArray[pos].magnitude != 0 && pos < FREQDOMTRIES)
-				{
-					if(config->verbose)
-					{
-						logmsg(" - Reference Max Magnitude[%d] found in %s# %d (%d) at %g Hz with %g\n", 
-							pos,
-							GetBlockName(config, MaxRefArray[pos].block), GetBlockSubIndex(config, MaxRefArray[pos].block),
-							MaxRefArray[pos].block, MaxRefArray[pos].hertz, MaxRefArray[pos].magnitude);
-					}
-
-					ratioRefArray = 0;
-					ComparisonLocalMaximumArray = 0;
-
-					ComparisonLocalMaximum = FindLocalMaximumInBlock(*ComparisonSignal, MaxRefArray[pos], config);
-					if(ComparisonLocalMaximum)
-					{
-						ratioRefArray = ComparisonLocalMaximum/MaxRef.magnitude;
-						if(1.0/ratioRefArray <= FREQDOMRATIO)
-						{
-							found = 1;
-							break;
-						}
-					}
-					pos++;
-				}
-			}
-			if(found)
-			{
-				ComparisonLocalMaximum = ComparisonLocalMaximumArray;
-				ratioRef = ratioRefArray;
-				config->frequencyNormalizationTries = pos + 1;
-			}
-			else
-			{
-				PrintFrequenciesWMagnitudes(*ReferenceSignal, config);
-				PrintFrequenciesWMagnitudes(*ComparisonSignal, config);
-				config->frequencyNormalizationTries = -1;
-			}
-		}
-		else
-			config->frequencyNormalizationTries = 0;
 
 		NormalizeMagnitudesByRatio(*ReferenceSignal, ratioRef, config);
 
@@ -2447,7 +2466,7 @@ int FindMultiMaxMagnitudeBlock(AudioSignal *Signal, MaxMagn	*MaxMag, int size, p
 	return 1;
 }
 
-double FindLocalMaximumInBlock(AudioSignal *Signal, MaxMagn refMax, parameters *config)
+double FindLocalMaximumInBlock(AudioSignal *Signal, MaxMagn refMax, int allowDifference, parameters *config)
 {
 	double		highest = 0;
 
@@ -2481,46 +2500,48 @@ double FindLocalMaximumInBlock(AudioSignal *Signal, MaxMagn refMax, parameters *
 		}
 	}
 
-	/*
-	// Now with the tolerance
-	// we regularly end in a case where the 
-	// peak is a few bins lower or higher
-	// and we don't want to normalize against
-	// the magnitude of a harmonic sine wave
-	// we allow a difference of +/- 2 frequency bins
-	for(int i = 0; i < config->MaxFreq; i++)
+	if(allowDifference)
 	{
-		double diff = 0, binSize = 0;
-		double magnitude = 0;
-
-		if(!Signal->Blocks[refMax.block].freq[i].hertz)
-			break;
-
-		magnitude = Signal->Blocks[refMax.block].freq[i].magnitude;
-		diff = fabs(refMax.hertz - Signal->Blocks[refMax.block].freq[i].hertz);
-
-		binSize = FindFrequencyBinSizeForBlock(Signal, refMax.block);
-		if(diff < 2*binSize)
+		// Now with the tolerance
+		// we regularly end in a case where the 
+		// peak is a few bins lower or higher
+		// and we don't want to normalize against
+		// the magnitude of a harmonic sine wave
+		// we allow a difference of +/- 5 frequency bins
+		for(int i = 0; i < config->MaxFreq; i++)
 		{
-			if(config->verbose)
+			double diff = 0, binSize = 0;
+			double magnitude = 0;
+	
+			if(!Signal->Blocks[refMax.block].freq[i].hertz)
+				break;
+	
+			magnitude = Signal->Blocks[refMax.block].freq[i].magnitude;
+			diff = fabs(refMax.hertz - Signal->Blocks[refMax.block].freq[i].hertz);
+	
+			binSize = FindFrequencyBinSizeForBlock(Signal, refMax.block);
+			if(diff < 5*binSize)
 			{
-				logmsg(" - Comparison Local Max magnitude with tolerance for [R:%g->C:%g] Hz is %g at %s# %d (%d)\n",
-					refMax.hertz, Signal->Blocks[refMax.block].freq[i].hertz, 
-					magnitude, GetBlockName(config, refMax.block), GetBlockSubIndex(config, refMax.block), refMax.block);
+				if(config->verbose)
+				{
+					logmsg(" - Comparison Local Max magnitude with tolerance for [R:%g->C:%g] Hz is %g at %s# %d (%d)\n",
+						refMax.hertz, Signal->Blocks[refMax.block].freq[i].hertz, 
+						magnitude, GetBlockName(config, refMax.block), GetBlockSubIndex(config, refMax.block), refMax.block);
+				}
+				config->frequencyNormalizationTolerant = diff/binSize;
+				return (magnitude);
 			}
-			return (magnitude);
+			if(magnitude > highest)
+				highest = magnitude;
 		}
-		if(magnitude > highest)
-			highest = magnitude;
 	}
-	*/
 
 	if(config->verbose)
 	{
 		logmsg(" - Comparison Local Maximum (No Hz match) with %g magnitude at block %d\n",
 			highest, refMax.block);
 	}
-	return highest;
+	return 0;
 }
 
 double FindFundamentalMagnitudeAverage(AudioSignal *Signal, parameters *config)

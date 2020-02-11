@@ -504,6 +504,7 @@ typedef struct parameters_st {
 	int				hasTimeDomain;
 	int				hasSilenceOverRide;
 	int				frequencyNormalizationTries;
+	double			frequencyNormalizationTolerant;
 
 	double 			plotResX;
 	double			plotResY;

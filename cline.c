@@ -148,6 +148,7 @@ void CleanParameters(parameters *config)
 	config->noSyncProfile = 0;
 	config->noSyncProfileType = NO_SYNC_AUTO;
 	config->frequencyNormalizationTries = 0;
+	config->frequencyNormalizationTolerant = 0;
 
 	config->logScale = 1;
 	config->reverseCompare = 0;
