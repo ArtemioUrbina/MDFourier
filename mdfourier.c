@@ -64,6 +64,7 @@ int16_t FindLocalMaximumAroundSample(AudioSignal *Signal, MaxSample refMax);
 // Frequency domain
 void NormalizeMagnitudesByRatio(AudioSignal *Signal, double ratio, parameters *config);
 MaxMagn FindMaxMagnitudeBlock(AudioSignal *Signal, parameters *config);
+int FindMultiMaxMagnitudeBlock(AudioSignal *Signal, MaxMagn	*MaxMag, int size, parameters *config);
 double FindLocalMaximumInBlock(AudioSignal *Signal, MaxMagn refMax, parameters *config);
 double FindFundamentalMagnitudeAverage(AudioSignal *Signal, parameters *config);
 
@@ -148,19 +149,32 @@ int main(int argc , char *argv[])
 	}
 	*/
 
-	outside = FindDifferencePercentOutsideViewPort(&maxDiff, &config);
+	outside = FindDifferencePercentOutsideViewPort(&maxDiff, fabs(config.maxDbPlotZC), &config);
 	if(outside)
 	{
 		logmsg("Differences above %gdBFS: %g%%\n", config.maxDbPlotZC, outside);
-		if(outside > 40 && config.maxDbPlotZC == DB_HEIGHT)  // if the user has not changed it
+		if(outside > 25 && config.maxDbPlotZC == DB_HEIGHT)  // if the user has not changed it
 		{
-			config.maxDbPlotZC = maxDiff;
-			logmsg(" - Adjusting viewport to %gdBFS for graphs\n\n", config.maxDbPlotZC);
+			double amount = 0;
+
+			if(average*2 < maxDiff*0.75)
+				amount = ceil(average*2);
+			else
+				amount = ceil(maxDiff*0.75);
+			outside = FindDifferencePercentOutsideViewPort(&maxDiff, amount, &config);
+			if(outside < 10)
+				config.maxDbPlotZC = amount;
+			else
+				config.maxDbPlotZC = ceil(maxDiff);
+			logmsg(" - Auto adjusting viewport to %gdBFS for graphs\n", config.maxDbPlotZC);
+			if(outside < 10)
+				logmsg(" - The %g%% of differences will not be visible within the %gdBFS for graphs\n - If needed you can graph them all with \"-d %g\" for this particular case\n\n", 
+					outside, config.maxDbPlotZC, ceil(maxDiff));
 		}
 		else
 		{
 			if(outside >= 5)
-				logmsg(" - The %g%% of differences will not be visible within the %gdBFS for graphs\n - If needed you can view it with \"-d %g\" for this particular case\n\n", 
+				logmsg(" - The %g%% of differences will not be visible within the %gdBFS for graphs\n - If needed you can graph them all with \"-d %g\" for this particular case\n\n", 
 					outside, config.maxDbPlotZC, ceil(maxDiff));
 		}
 	}
@@ -497,11 +511,57 @@ int LoadAndProcessAudioFiles(AudioSignal **ReferenceSignal, AudioSignal **Compar
 		}
 	
 		ratioRef = ComparisonLocalMaximum/MaxRef.magnitude;
-		if(config->verbose && 1.0/ratioRef > 10.0)
+		/* Detect extreme cases, and try another approach */
+		// config->verbose && 
+		if(1.0/ratioRef > FREQDOMRATIO)
 		{
-			PrintFrequenciesWMagnitudes(*ReferenceSignal, config);
-			PrintFrequenciesWMagnitudes(*ComparisonSignal, config);
+			int		found = 0, pos = 1;
+			MaxMagn	MaxRefArray[FREQDOMTRIES];
+			double	ComparisonLocalMaximumArray = 0, ratioRefArray = 0;
+
+			if(FindMultiMaxMagnitudeBlock(*ReferenceSignal, MaxRefArray, FREQDOMTRIES, config))
+			{
+				while(MaxRefArray[pos].magnitude != 0 && pos < FREQDOMTRIES)
+				{
+					if(config->verbose)
+					{
+						logmsg(" - Reference Max Magnitude[%d] found in %s# %d (%d) at %g Hz with %g\n", 
+							pos,
+							GetBlockName(config, MaxRefArray[pos].block), GetBlockSubIndex(config, MaxRefArray[pos].block),
+							MaxRefArray[pos].block, MaxRefArray[pos].hertz, MaxRefArray[pos].magnitude);
+					}
+
+					ratioRefArray = 0;
+					ComparisonLocalMaximumArray = 0;
+
+					ComparisonLocalMaximum = FindLocalMaximumInBlock(*ComparisonSignal, MaxRefArray[pos], config);
+					if(ComparisonLocalMaximum)
+					{
+						ratioRefArray = ComparisonLocalMaximum/MaxRef.magnitude;
+						if(1.0/ratioRefArray <= FREQDOMRATIO)
+						{
+							found = 1;
+							break;
+						}
+					}
+					pos++;
+				}
+			}
+			if(found)
+			{
+				ComparisonLocalMaximum = ComparisonLocalMaximumArray;
+				ratioRef = ratioRefArray;
+				config->frequencyNormalizationTries = pos + 1;
+			}
+			else
+			{
+				PrintFrequenciesWMagnitudes(*ReferenceSignal, config);
+				PrintFrequenciesWMagnitudes(*ComparisonSignal, config);
+				config->frequencyNormalizationTries = -1;
+			}
 		}
+		else
+			config->frequencyNormalizationTries = 0;
 
 		NormalizeMagnitudesByRatio(*ReferenceSignal, ratioRef, config);
 
@@ -512,7 +572,7 @@ int LoadAndProcessAudioFiles(AudioSignal **ReferenceSignal, AudioSignal **Compar
 			ratio = RefAvg/CompAvg;
 		else
 			ratio = CompAvg/RefAvg;
-		if(ratio > 10.0)
+		if(ratio > FREQDOMRATIO)
 		{
 			double RefAmpl = 0, CompAmpl = 0;
 
@@ -2319,6 +2379,72 @@ MaxMagn FindMaxMagnitudeBlock(AudioSignal *Signal, parameters *config)
 	}
 
 	return MaxMag;
+}
+
+int FindMultiMaxMagnitudeBlock(AudioSignal *Signal, MaxMagn	*MaxMag, int size, parameters *config)
+{
+	if(!MaxMag)
+		return 0;
+
+	for(int i = 0; i < size; i++)
+	{
+		MaxMag[i].magnitude = 0;
+		MaxMag[i].hertz = 0;
+		MaxMag[i].block = -1;
+	}
+
+	if(!Signal)
+		return 0;
+
+	// Find global peak
+	for(int block = 0; block < config->types.totalBlocks; block++)
+	{
+		int type = TYPE_NOTYPE;
+
+		type = GetBlockType(config, block);
+		if(type > TYPE_CONTROL)
+		{
+			for(int i = 0; i < config->MaxFreq; i++)
+			{
+				if(!Signal->Blocks[block].freq[i].hertz)
+					break;
+				if(Signal->Blocks[block].freq[i].magnitude > MaxMag[0].magnitude)
+				{
+					for(int j = size - 1; j > 0; j--)
+						MaxMag[j] = MaxMag[j - 1];
+
+					MaxMag[0].magnitude = Signal->Blocks[block].freq[i].magnitude;
+					MaxMag[0].hertz = Signal->Blocks[block].freq[i].hertz;
+					MaxMag[0].block = block;
+				}
+			}
+		}
+	}
+
+	if(MaxMag[0].block != -1)
+	{
+		Signal->MaxMagnitude.magnitude = MaxMag[0].magnitude;
+		Signal->MaxMagnitude.hertz = MaxMag[0].hertz;
+		Signal->MaxMagnitude.block = MaxMag[0].block;
+	}
+
+	/*
+	if(config->verbose)
+	{
+		for(int j = 0; j < size; j++)
+		{
+			if(MaxMag[j].block != -1)
+			{
+				logmsg(" - %s Max Magnitude[%d] found in %s# %d (%d) at %g Hz with %g\n",
+						Signal->role == ROLE_REF ? "Reference" : "Comparison", j, 
+						GetBlockName(config, MaxMag[j].block), GetBlockSubIndex(config, MaxMag[j].block),
+						MaxMag[j].block, MaxMag[j].hertz, MaxMag[j].magnitude);
+			}
+		}
+	}
+	*/
+
+	return 1;
 }
 
 double FindLocalMaximumInBlock(AudioSignal *Signal, MaxMagn refMax, parameters *config)

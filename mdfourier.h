@@ -49,7 +49,7 @@
 
 #include "incbeta.h"
 
-#define MDVERSION "0.9881"
+#define MDVERSION "0.989"
 
 #if INTPTR_MAX == INT64_MAX
 #define	BITS_MDF "64-bit"
@@ -176,6 +176,9 @@
 
 #define	PROFILE_VER		2.0
 #define	MAX_SYNC		10
+
+#define	FREQDOMTRIES	10
+#define	FREQDOMRATIO	10.0
 
 enum normalize
 {
@@ -500,6 +503,7 @@ typedef struct parameters_st {
 	int				FullTimeSpectroScale;
 	int				hasTimeDomain;
 	int				hasSilenceOverRide;
+	int				frequencyNormalizationTries;
 
 	double 			plotResX;
 	double			plotResY;

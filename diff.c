@@ -496,10 +496,10 @@ double FindDifferenceAverage(parameters *config)
 	return AvgDifAmp;
 }
 
-double FindDifferencePercentOutsideViewPort(double *maxAmpl, parameters *config)
+double FindDifferencePercentOutsideViewPort(double *maxAmpl, double threshold, parameters *config)
 {
 	long int	count = 0, outside = 0;
-	double		threshold = 0, localMax = 0;
+	double		localMax = 0;
 
 	if(!config)
 		return 0;
@@ -508,7 +508,6 @@ double FindDifferencePercentOutsideViewPort(double *maxAmpl, parameters *config)
 		return 0;
 
 	*maxAmpl = 0;
-	threshold = fabs(config->maxDbPlotZC);
 	for(int b = 0; b < config->types.totalBlocks; b++)
 	{
 		if(config->Differences.BlockDiffArray[b].type <= TYPE_CONTROL)

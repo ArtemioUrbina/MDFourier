@@ -774,7 +774,7 @@ void DrawLabelsMDF(PlotFile *plot, char *Gname, char *GType, int type, parameter
 			pl_alabel_r(plot->plotter, 'l', 'l', "Hamming");
 			break;
 		default:
-			pl_alabel_r(plot->plotter, 'l', 'l', "UNKOWN");
+			pl_alabel_r(plot->plotter, 'l', 'l', "UNKNOWN");
 			break;
 	}
 	
@@ -784,6 +784,17 @@ void DrawLabelsMDF(PlotFile *plot, char *Gname, char *GType, int type, parameter
 		pl_fmove_r(plot->plotter, config->plotResX/20*19, -1*config->plotResY/2+config->plotResY/80+config->plotResY/40);
 		pl_pencolor_r(plot->plotter, 0xaaaa, 0xaaaa, 0xaaaa);
 		pl_alabel_r(plot->plotter, 'l', 'l', "1Hz Aligned");
+	}
+	/* Subpar Frequency domain nmormalization */
+	if(config->frequencyNormalizationTries)
+	{
+		double width = 0;
+
+		width = pl_flabelwidth_r(plot->plotter, "Rectangle ");
+		pl_fmove_r(plot->plotter, config->plotResX/20*19+width, -1*config->plotResY/2+config->plotResY/80);
+		pl_pencolor_r(plot->plotter, 0xaaaa, 0xaaaa, 0);
+		sprintf(msg, "N%d", config->frequencyNormalizationTries);
+		pl_alabel_r(plot->plotter, 'l', 'l', msg);
 	}
 	/* File information */
 	if(config->labelNames)

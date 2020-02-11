@@ -91,7 +91,7 @@ int Header(int log, int argc, char *argv[])
 
 	if(argc == 2 && !strncmp(argv[1], "-V", 2))
 	{
-		printf("version %s %s", MDVERSION, BITS_MDF);
+		printf("version %s %s %0.1f", MDVERSION, BITS_MDF, PROFILE_VER);
 		return 0;
 	}
 
@@ -147,6 +147,7 @@ void CleanParameters(parameters *config)
 	config->hasSilenceOverRide = 0;
 	config->noSyncProfile = 0;
 	config->noSyncProfileType = NO_SYNC_AUTO;
+	config->frequencyNormalizationTries = 0;
 
 	config->logScale = 1;
 	config->reverseCompare = 0;
