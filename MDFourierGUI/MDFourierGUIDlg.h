@@ -6,8 +6,7 @@
 #include "afxwin.h"
 #include "DOSExecute.h"
 
-#define MDFVERSION			L"0.9881"
-#define	PROFILE_VERSION		L"2.0"
+#define MDFVERSION			L"0.989"
 #define	IDT_DOS				1000
 
 #define	COUNT_CURVES		6
@@ -88,6 +87,7 @@ protected:
 	CommandLineArray	Resolutions[COUNT_RESOLUTION];
 
 	CString MDFVersion;
+	CString	ProfileVersion;
 	CString listName;
 	CString	*elements;
 	int		elementCount;

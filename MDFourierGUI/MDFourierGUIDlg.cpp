@@ -353,6 +353,7 @@ void CMDFourierGUIDlg::ExecuteCommand(CString Compare)
 		command += L" -L "+res;
 
 	mdwave = false;
+	killingDOS = false;
 	ManageWindows(FALSE);
 
 	SetTimer(IDT_DOS, 250, 0);
@@ -619,7 +620,7 @@ int CMDFourierGUIDlg::LoadProfile(CString FullFileName, CString &Name, CString &
 
 	Version = version;
 	/*¨Only process matching versions */
-	if(_wtof(version) != _wtof(PROFILE_VERSION))
+	if(_wtof(version) != _wtof(ProfileVersion))
 	{
 		fclose(file);
 		return -1;
@@ -751,32 +752,10 @@ int CMDFourierGUIDlg::CheckDependencies()
 {
 	FILE *file;
 	errno_t err;
-	CString	msg, pattern, bits, versionText, wintext, version, readText;
+	CString	msg, pattern, bits, versionText, wintext, version, readText, profile;
 	TCHAR	pwd[MAX_PATH];
 	int counter = 0, error = 0, matched = 0;
 	BOOL finished = 0;
-
-	/* Check profiles */
-	matched = FindProfiles(L"profiles", L"*.mfn");
-	if(matched <= 0)
-	{
-		CString msg;
-		TCHAR	pwd[MAX_PATH];
-
-		GetCurrentDirectory(MAX_PATH, pwd);
-
-		if(matched == 0)
-		{
-			msg.Format(L"Please place profile files (*.mfn) in folder:\n %s\\profiles", pwd);
-			MessageBox(msg, L"Error mdfblocks.mfn not found");
-		}
-		else
-		{
-			msg.Format(L"Please update your profiles (*.mfn) to version %s in folder:\n %s\\profiles", PROFILE_VERSION, pwd);
-			MessageBox(msg, L"Invalid Profiles");
-		}
-		return 0;
-	}
 
 	/* Check MDF version and test binary*/
 
@@ -825,7 +804,15 @@ int CMDFourierGUIDlg::CheckDependencies()
 		if(pos != -1)
 		{
 			version = readText.Right(readText.GetLength()-versionText.GetLength()).Left(pos);
-			bits = readText.Right(readText.GetLength()-versionText.GetLength()).Mid(pos+1);
+			readText = readText.Right(readText.GetLength()-versionText.GetLength()).Mid(pos+1);
+			pos = readText.Find(' ');
+			if(pos != -1)
+			{
+				bits = readText.Left(pos);
+				profile = readText.Mid(pos+1);;
+			}
+			else
+				error = 4;
 			if(version != MDFVERSION)
 				error = 3;
 		}
@@ -842,8 +829,31 @@ int CMDFourierGUIDlg::CheckDependencies()
 		return FALSE;
 	}
 	MDFVersion = readText;
+	ProfileVersion = profile;
 	wintext.Format(L"MDFourier Front End [using %s/%s]", version, bits);
 	SetWindowText(wintext);
+
+	/* Check profiles */
+	matched = FindProfiles(L"profiles", L"*.mfn");
+	if(matched <= 0)
+	{
+		CString msg;
+		TCHAR	pwd[MAX_PATH];
+
+		GetCurrentDirectory(MAX_PATH, pwd);
+
+		if(matched == 0)
+		{
+			msg.Format(L"Please place profile files (*.mfn) in folder:\n %s\\profiles", pwd);
+			MessageBox(msg, L"Error mdfblocks.mfn not found");
+		}
+		else
+		{
+			msg.Format(L"Please update your profiles (*.mfn) to version %s in folder:\n %s\\profiles", ProfileVersion, pwd);
+			MessageBox(msg, L"Invalid Profiles");
+		}
+		return 0;
+	}
 	return TRUE;
 }
 
@@ -1190,7 +1200,7 @@ void CMDFourierGUIDlg::OnCbnDropdownProfile()
 		}
 		else
 		{
-			msg.Format(L"Please update your profiles (*.mfn) to version %s in folder:\n %s\\profiles", PROFILE_VERSION, pwd);
+			msg.Format(L"Please update your profiles (*.mfn) to version %s in folder:\n %s\\profiles", ProfileVersion, pwd);
 			MessageBox(msg, L"Invalid Profiles");
 		}
 	}
