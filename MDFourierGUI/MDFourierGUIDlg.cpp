@@ -297,12 +297,19 @@ void CMDFourierGUIDlg::ExecuteCommand(CString Compare)
 	profile = GetSelectedCommandLineValue(m_Profiles, COUNT_PROFILES);
 	window = GetSelectedCommandLineValue(m_WindowTypeSelect, COUNT_WINDOWS);
 	adjust = GetSelectedCommandLineValue(m_CurveAdjustSelect, COUNT_CURVES);
-	res = GetSelectedCommandLineValue(m_Resolution, COUNT_RESOLUTION);
-	syncFormatRef = GetSelectedCommandLineValue(m_RefSync, syncTypes);
-	syncFormatComp = GetSelectedCommandLineValue(m_ComSync, syncTypes);
 
-	command.Format(L"mdfourier.exe -P \"%s\" -r \"%s\" -c \"%s\" -w %s -o %s -Y %s -Z %s -l", 
-			profile, m_ReferenceFile, Compare, window, adjust, syncFormatRef, syncFormatComp);
+	command.Format(L"mdfourier.exe -P \"%s\" -r \"%s\" -c \"%s\" -w %s -o %s -l", 
+			profile, m_ReferenceFile, Compare, window, adjust);
+
+	if(syncTypes)
+	{
+		CString syncData;
+
+		syncFormatRef = GetSelectedCommandLineValue(m_RefSync, syncTypes);
+		syncFormatComp = GetSelectedCommandLineValue(m_ComSync, syncTypes);
+		syncData.Format(L" -Y %s -Z %s", syncFormatRef, syncFormatComp);
+		command += syncData;
+	}
 
 	if(m_AlignFFTWCheckBox.GetCheck() == BST_CHECKED)
 		command += " -z";
@@ -350,7 +357,10 @@ void CMDFourierGUIDlg::ExecuteCommand(CString Compare)
 	}
 
 	if(m_Resolution.GetCurSel() != 1)
+	{
+		res = GetSelectedCommandLineValue(m_Resolution, COUNT_RESOLUTION);
 		command += L" -L "+res;
+	}
 
 	mdwave = false;
 	killingDOS = false;
@@ -419,9 +429,7 @@ void CMDFourierGUIDlg::OnTimer(UINT_PTR nIDEvent)
         ManageWindows(TRUE);
 
 		// Check is we enable the results button
-		cDos.Lock();
-		pos = cDos.m_OutputText.Find(searchFor, 0);
-		cDos.Release();
+		pos = ntext.Find(searchFor, 0);
 
 		if(pos != -1)
 		{
@@ -431,24 +439,18 @@ void CMDFourierGUIDlg::OnTimer(UINT_PTR nIDEvent)
 			m_OpenResultsBttn.EnableWindow(TRUE);
 
 			m_ResultsFolderText.Format(L"%s\\%s", pwd,
-				cDos.m_OutputText.Right(cDos.m_OutputText.GetLength() - pos - searchFor.GetLength()));
+				ntext.Right(ntext.GetLength() - pos - searchFor.GetLength()));
 			m_ResultsFolderText = m_ResultsFolderText.Left(m_ResultsFolderText.GetLength() - 2);
 		}
 
 		searchFor = "ERROR";
-
-		cDos.Lock();
-		pos = cDos.m_OutputText.Find(searchFor, 0);
-		cDos.Release();
+		pos = ntext.Find(searchFor, 0);
 
 		if(pos != -1)
 		{
 			CString	errorMsg;
 
-			cDos.Lock();
-			errorMsg = cDos.m_OutputText.Right(cDos.m_OutputText.GetLength()-pos);
-			cDos.Release();
-
+			errorMsg = ntext.Right(ntext.GetLength()-pos);
 			MessageBox(errorMsg, L"Error from MDFourier");
 			errorFound = 1;
 		}
