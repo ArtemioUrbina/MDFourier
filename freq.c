@@ -535,6 +535,9 @@ void FlattenProfile(parameters *config)
 
 int CheckSyncFormats(parameters *config)
 {
+	if(config->noSyncProfile && !config->types.syncCount)
+		return 1;
+
 	if(config->videoFormatRef < 0|| config->videoFormatRef >= config->types.syncCount)
 	{
 		logmsg("\tInvalid format '%d' for Reference, profile defines %d types [", 
@@ -872,7 +875,7 @@ int LoadAudioBlockStructure(FILE *file, parameters *config)
 
 int LoadAudioNoSyncProfile(FILE *file, parameters *config)
 {
-	char	type = '\0';
+	char	insideInternal = 0, type = '\0';
 	char	lineBuffer[LINE_BUFFER_SIZE];
 	char	buffer[PARAM_BUFFER_SIZE];
 
@@ -985,8 +988,25 @@ int LoadAudioNoSyncProfile(FILE *file, parameters *config)
 			case TYPE_SILENCE_C:
 				config->types.typeArray[i].type = TYPE_SILENCE;
 				break;
-			case TYPE_SYNC_C:
-				config->types.typeArray[i].type = TYPE_SYNC;
+			case TYPE_INTERNAL_KNOWN_C:
+				config->types.typeArray[i].type = TYPE_INTERNAL_KNOWN;
+				break;
+			case TYPE_INTERNAL_UNKNOWN_C:
+				config->types.typeArray[i].type = TYPE_INTERNAL_UNKNOWN;
+				break;
+			case TYPE_SKIP_C:
+				config->types.typeArray[i].type = TYPE_SKIP;
+				break;
+			case TYPE_TIMEDOMAIN_C:
+				config->types.typeArray[i].type = TYPE_TIMEDOMAIN;
+				config->hasTimeDomain++;
+				break;
+			case TYPE_SILENCE_OVER_C:
+				config->types.typeArray[i].type = TYPE_SILENCE_OVERRIDE;
+				break;
+			case TYPE_WATERMARK_C:
+				config->types.typeArray[i].type = TYPE_WATERMARK;
+				config->types.useWatermark = 1;
 				break;
 			default:
 				if(sscanf(lineBuffer, "%*s %d ", &config->types.typeArray[i].type) != 1)
@@ -998,15 +1018,61 @@ int LoadAudioNoSyncProfile(FILE *file, parameters *config)
 				break;
 		}
 		
-		if(sscanf(lineBuffer, "%*s %*s %d %d %s %c\n", 
-			&config->types.typeArray[i].elementCount,
-			&config->types.typeArray[i].frames,
-			&config->types.typeArray[i].color [0],
-			&config->types.typeArray[i].channel) != 4)
+		if(config->types.typeArray[i].type == TYPE_INTERNAL_KNOWN ||
+			config->types.typeArray[i].type == TYPE_INTERNAL_UNKNOWN)
 		{
-			logmsg("Invalid MD Fourier Audio Blocks File (Element Count, frames, color, channel): %s\n", lineBuffer);
-			fclose(file);
-			return 0;
+			if(insideInternal)
+				insideInternal = 0;
+			else
+				insideInternal = 1;
+
+			if(sscanf(lineBuffer, "%*s %*s %d %d %20s %c %d %lf\n", 
+				&config->types.typeArray[i].elementCount,
+				&config->types.typeArray[i].frames,
+				&config->types.typeArray[i].color[0],
+				&config->types.typeArray[i].channel,
+				&config->types.typeArray[i].syncTone,
+				&config->types.typeArray[i].syncLen) != 6)
+			{
+				logmsg("ERROR: Invalid MD Fourier Audio Blocks File (Element Count, frames, color, channel): %s\n", lineBuffer);
+				fclose(file);
+				return 0;
+			}
+		}
+		else if(config->types.typeArray[i].type == TYPE_WATERMARK)
+		{
+			if(sscanf(lineBuffer, "%*s %*s %d %d %20s %c %d %d %128s\n", 
+				&config->types.typeArray[i].elementCount,
+				&config->types.typeArray[i].frames,
+				&config->types.typeArray[i].color[0],
+				&config->types.typeArray[i].channel,
+				&config->types.watermarkValidFreq,
+				&config->types.watermarkInvalidFreq,
+				config->types.watermarkDisplayName) != 7)
+			{
+				logmsg("ERROR: Invalid MD Fourier Audio Blocks File (Element Count, frames, color, channel, WMValid, WMFail, Name): %s\n", lineBuffer);
+				fclose(file);
+				return 0;
+			}
+
+			if(!config->types.watermarkValidFreq || !config->types.watermarkInvalidFreq)
+			{
+				logmsg("ERROR: Invalid Watermark values: %s\n", lineBuffer);
+				return 0;
+			}
+		}
+		else
+		{
+			if(sscanf(lineBuffer, "%*s %*s %d %d %s %c\n", 
+				&config->types.typeArray[i].elementCount,
+				&config->types.typeArray[i].frames,
+				&config->types.typeArray[i].color [0],
+				&config->types.typeArray[i].channel) != 4)
+			{
+				logmsg("Invalid MD Fourier Audio Blocks File (Element Count, frames, color, channel): %s\n", lineBuffer);
+				fclose(file);
+				return 0;
+			}
 		}
 
 		if(!config->types.typeArray[i].elementCount)
@@ -1030,6 +1096,20 @@ int LoadAudioNoSyncProfile(FILE *file, parameters *config)
 			fclose(file);
 			return 0;
 		}
+
+		config->types.typeArray[i].IsaddOnData = MatchesPreviousType(config->types.typeArray[i].type, config);
+		// make silent if duplicate and not silence block
+		if(!config->useExtraData && config->types.typeArray[i].IsaddOnData)
+		{
+			if(config->types.typeArray[i].type != TYPE_SILENCE)
+				config->types.typeArray[i].type = TYPE_TIMEDOMAIN;  // TYPE_SKIP
+		}
+	}
+
+	if(insideInternal)
+	{
+		logmsg("ERROR: Internal sync detection block didn't have a closing section\n");
+		return 0;
 	}
 
 	config->types.regularBlocks = GetActiveAudioBlocks(config);
