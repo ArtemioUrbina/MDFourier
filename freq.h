@@ -140,7 +140,7 @@ double FindFrequencyBinSizeForBlock(AudioSignal *Signal, long int block);
 long int GetZeroPadValues(long int *monoSignalSize, double *seconds, long int samplerate);
 void CalcuateFrequencyBrackets(AudioSignal *signal, parameters *config);
 double FindFrequencyBracket(double frequency, size_t size, int AudioChannels, long samplerate, parameters *config);
-
+double FindFundamentalAmplitudeAverage(AudioSignal *Signal, parameters *config);
 
 char GetTypeProfileName(int type);
 int GetPulseSyncFreq(int role, parameters *config);

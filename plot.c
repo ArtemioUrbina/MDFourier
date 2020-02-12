@@ -280,7 +280,7 @@ void PlotResults(AudioSignal *ReferenceSignal, AudioSignal *ComparisonSignal, pa
 	{
 		if(!config->noSyncProfile && !config->ignoreFloor)
 		{
-			if(ReferenceSignal->hasFloor && ComparisonSignal->hasFloor)
+			if(ReferenceSignal->hasSilenceBlock && ComparisonSignal->hasSilenceBlock)
 			{
 				struct	timespec	lstart, lend;
 		

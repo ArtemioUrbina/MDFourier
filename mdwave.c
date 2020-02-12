@@ -573,7 +573,7 @@ int LoadFile(FILE *file, AudioSignal *Signal, parameters *config, char *fileName
 				GetSignalTotalDuration(Signal->framerate, config));
 
 	if(GetFirstSilenceIndex(config) != NO_INDEX)
-		Signal->hasFloor = 1;
+		Signal->hasSilenceBlock = 1;
 
 	sprintf(Signal->SourceFile, "%s", fileName);
 
@@ -969,7 +969,7 @@ int ProcessFile(AudioSignal *Signal, parameters *config)
 		GlobalNormalize(Signal, config);
 		CalcuateFrequencyBrackets(Signal, config);
 	
-		if(Signal->hasFloor && !config->ignoreFloor) // analyze noise floor if available
+		if(Signal->hasSilenceBlock && !config->ignoreFloor) // analyze noise floor if available
 		{
 			FindFloor(Signal, config);
 	
@@ -1260,7 +1260,7 @@ int ProcessSamples(AudioBlocks *AudioArray, int16_t *samples, size_t size, long 
 		if(CutOff < config->significantAmplitude)
 			CutOff = config->significantAmplitude;
 
-		if(!config->ignoreFloor && Signal->hasFloor &&
+		if(!config->ignoreFloor && Signal->hasSilenceBlock &&
 			CutOff < Signal->floorAmplitude && Signal->floorAmplitude != 0.0)
 			CutOff = Signal->floorAmplitude;
 

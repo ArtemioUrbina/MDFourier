@@ -62,10 +62,11 @@
 #define MAX_FREQ_COUNT		40000 	/* Number of frequencies to compare(MAX) */
 #define FREQ_COUNT			2000	/* Number of frequencies to compare(default) */
 
-#define SIGNIFICANT_VOLUME	-60.0
-#define NS_SIGNIFICANT_VOLUME	-66.0
-#define NS_LOWEST_AMPLITUDE		-200
-#define	PCM_16BIT_MIN_AMPLITUDE	-96.0
+#define SIGNIFICANT_VOLUME			-60.0
+#define NS_SIGNIFICANT_VOLUME		-66.0
+#define NS_LOWEST_AMPLITUDE			-200
+#define	PCM_16BIT_MIN_AMPLITUDE		-96.0
+#define LOWEST_NOISEFLOOR_ALLOWED	-40
 
 #define TYPE_NOTYPE				-1000
 #define TYPE_SILENCE			-1
@@ -342,7 +343,7 @@ typedef struct AudioSt {
 	int			AudioChannels;
 	int			role;
 
-	int 		hasFloor;
+	int 		hasSilenceBlock;
 	double		floorFreq;
 	double		floorAmplitude;
 

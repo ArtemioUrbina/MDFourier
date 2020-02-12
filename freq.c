@@ -53,6 +53,11 @@ double FindFrequencyBracket(double frequency, size_t size, int AudioChannels, lo
 	long int startBin= 0, endBin = 0;
 	double seconds = 0, boxsize = 0, minDiff = 0, targetFreq = 0;
 
+	if(!config)
+	{
+		logmsg("ERROR: Config was NULL for FindFrequencyBracket\n");
+		return 0;
+	}
 	minDiff = (double)samplerate/2.0;
 	targetFreq = frequency;
 
@@ -68,7 +73,7 @@ double FindFrequencyBracket(double frequency, size_t size, int AudioChannels, lo
 	{
 		double Hertz = 0, difference = 0;
 
-		Hertz = CalculateFrequency(i, boxsize, 0);
+		Hertz = CalculateFrequency(i, boxsize, config);
 		difference = fabs(Hertz - frequency);
 		if(difference < minDiff)
 		{
@@ -259,7 +264,7 @@ void InitAudio(AudioSignal *Signal, parameters *config)
 	Signal->AudioChannels = INVALID_CHANNELS;
 	Signal->role = NO_ROLE;
 
-	Signal->hasFloor = 0;
+	Signal->hasSilenceBlock = 0;
 	Signal->floorFreq = 0.0;
 	Signal->floorAmplitude = 0.0;	
 
@@ -2003,6 +2008,7 @@ Frequency FindNoiseBlockAverage(AudioSignal *Signal, parameters *config)
 	int 		noiseBlock = -1;
 	int			count = 0;
 
+	CleanFrequency(&cutOff);
 	cutOff.hertz = 0;
 	cutOff.amplitude = 0;
 
@@ -2116,7 +2122,7 @@ void FindFloor(AudioSignal *Signal, parameters *config)
 	if(!Signal)
 		return;
 	
-	if(!Signal->hasFloor)
+	if(!Signal->hasSilenceBlock)
 		return;
 
 	index = GetFirstSilenceIndex(config);
@@ -2160,56 +2166,56 @@ void FindFloor(AudioSignal *Signal, parameters *config)
 
 	for(int i = 0; i < config->MaxFreq; i++)
 	{
-		if(Signal->Blocks[index].freq[i].hertz && Signal->Blocks[index].freq[i].amplitude != NO_AMPLITUDE)
+		if(!Signal->Blocks[index].freq[i].hertz || Signal->Blocks[index].freq[i].amplitude == NO_AMPLITUDE)
+			break;
+
+		if(!foundGrid && IsGridFrequencyNoise(Signal, Signal->Blocks[index].freq[i].hertz))
 		{
-			if(!foundGrid && IsGridFrequencyNoise(Signal, Signal->Blocks[index].freq[i].hertz))
+			if(noiseFreq.amplitude > Signal->Blocks[index].freq[i].amplitude)
 			{
-				if(noiseFreq.amplitude > Signal->Blocks[index].freq[i].amplitude)
-				{
-					foundGrid = 1;
-					gridFreq = Signal->Blocks[index].freq[i];
+				foundGrid = 1;
+				gridFreq = Signal->Blocks[index].freq[i];
 
-					if(Signal->floorAmplitude == 0)
-					{
-						Signal->floorAmplitude = Signal->Blocks[index].freq[i].amplitude;
-						Signal->floorFreq = Signal->Blocks[index].freq[i].hertz;
-					}
+				if(Signal->floorAmplitude == 0)
+				{
+					Signal->floorAmplitude = Signal->Blocks[index].freq[i].amplitude;
+					Signal->floorFreq = Signal->Blocks[index].freq[i].hertz;
 				}
 			}
-
-			if(!foundScan && IsHRefreshNoise(Signal, Signal->Blocks[index].freq[i].hertz))
-			{
-				if(noiseFreq.amplitude > Signal->Blocks[index].freq[i].amplitude)
-				{
-					foundScan = 1;
-					horizontalFreq = Signal->Blocks[index].freq[i];
-
-					if(Signal->floorAmplitude == 0)
-					{
-						Signal->floorAmplitude = Signal->Blocks[index].freq[i].amplitude;
-						Signal->floorFreq = Signal->Blocks[index].freq[i].hertz;
-					}
-				}
-			}
-
-			if(!foundCross && IsHRefreshNoiseCrossTalk(Signal, Signal->Blocks[index].freq[i].hertz))
-			{
-				if(noiseFreq.amplitude > Signal->Blocks[index].freq[i].amplitude)
-				{
-					foundCross = 1;
-					crossFreq = Signal->Blocks[index].freq[i];
-
-					if(Signal->floorAmplitude == 0)
-					{
-						Signal->floorAmplitude = Signal->Blocks[index].freq[i].amplitude;
-						Signal->floorFreq = Signal->Blocks[index].freq[i].hertz;
-					}
-				}
-			}
-
-			if(foundScan && foundGrid && foundCross)
-				break;
 		}
+
+		if(!foundScan && IsHRefreshNoise(Signal, Signal->Blocks[index].freq[i].hertz))
+		{
+			if(noiseFreq.amplitude > Signal->Blocks[index].freq[i].amplitude)
+			{
+				foundScan = 1;
+				horizontalFreq = Signal->Blocks[index].freq[i];
+
+				if(Signal->floorAmplitude == 0)
+				{
+					Signal->floorAmplitude = Signal->Blocks[index].freq[i].amplitude;
+					Signal->floorFreq = Signal->Blocks[index].freq[i].hertz;
+				}
+			}
+		}
+
+		if(!foundCross && IsHRefreshNoiseCrossTalk(Signal, Signal->Blocks[index].freq[i].hertz))
+		{
+			if(noiseFreq.amplitude > Signal->Blocks[index].freq[i].amplitude)
+			{
+				foundCross = 1;
+				crossFreq = Signal->Blocks[index].freq[i];
+
+				if(Signal->floorAmplitude == 0)
+				{
+					Signal->floorAmplitude = Signal->Blocks[index].freq[i].amplitude;
+					Signal->floorFreq = Signal->Blocks[index].freq[i].hertz;
+				}
+			}
+		}
+
+		if(foundScan && foundGrid && foundCross)
+			break;
 	}
 
 	if(foundScan || foundGrid || foundCross)
@@ -2228,10 +2234,23 @@ void FindFloor(AudioSignal *Signal, parameters *config)
 		logmsg("\n");
 	}
 
-	if(Signal->floorAmplitude != 0 && noiseFreq.amplitude < Signal->floorAmplitude )
+	if(Signal->floorAmplitude != 0 && noiseFreq.amplitude < Signal->floorAmplitude)
 		return;
 
-	if(loudestFreq.hertz && loudestFreq.amplitude != NO_AMPLITUDE)
+	/* This helps ignoring harmonic noise when noise floor is too high */
+	/* Not used here, but in LoadAndProcessed 
+	if(loudestFreq.amplitude > LOWEST_NOISEFLOOR_ALLOWED)
+	{
+		if(Signal->floorAmplitude == 0)
+			logmsg("- %s signal relative noise floor is too loud ( %g Hz %g dBFS)\n", 
+				Signal->role == ROLE_REF ? "Reference" : "Comparison",
+				loudestFreq.hertz,
+				loudestFreq.amplitude);
+		return;
+	}
+	*/
+
+	if(loudestFreq.hertz && loudestFreq.amplitude != NO_AMPLITUDE && loudestFreq.hertz)
 	{
 		if(noiseFreq.amplitude > loudestFreq.amplitude)
 		{
@@ -2254,7 +2273,6 @@ void FindFloor(AudioSignal *Signal, parameters *config)
 	}
 
 	logmsg(" - No meaningful floor found, using the whole range for relative comparison\n");
-	Signal->hasFloor = 0;  /* revoke it if not found */
 }
 
 /// Now only called by MDWave
@@ -3121,6 +3139,40 @@ void CleanName(char *name, char *display)
 			display[i] = name[i];
 	}
 	display[i] = '\0';
+}
+
+double FindFundamentalAmplitudeAverage(AudioSignal *Signal, parameters *config)
+{
+	double		AvgFundAmp = 0;
+	long int	count = 0;
+
+	if(!Signal)
+		return 0;
+
+	// Find global peak
+	for(int block = 0; block < config->types.totalBlocks; block++)
+	{
+		int type = TYPE_NOTYPE;
+
+		type = GetBlockType(config, block);
+		if(type > TYPE_SILENCE && Signal->Blocks[block].freq[0].hertz != 0)
+		{
+			AvgFundAmp += Signal->Blocks[block].freq[0].amplitude;
+			count ++;
+		}
+	}
+
+	if(count)
+		AvgFundAmp /= count;
+
+	if(config->verbose)
+	{
+		logmsg(" - %s signal Average Fundamental Amplitude %g dBFS from %ld elements\n", 
+				Signal->role == ROLE_REF ? "Reference" : "Comparison",
+				AvgFundAmp, count);
+	}
+
+	return AvgFundAmp;
 }
 
 /*
