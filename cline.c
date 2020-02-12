@@ -91,7 +91,7 @@ int Header(int log, int argc, char *argv[])
 
 	if(argc == 2 && !strncmp(argv[1], "-V", 2))
 	{
-		printf("version %s %s %0.1f", MDVERSION, BITS_MDF, PROFILE_VER);
+		printf("version %s %s %0.1f\n", MDVERSION, BITS_MDF, PROFILE_VER);
 		return 0;
 	}
 

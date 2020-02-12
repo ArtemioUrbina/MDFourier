@@ -260,7 +260,6 @@ int LoadAndProcessAudioFiles(AudioSignal **ReferenceSignal, AudioSignal **Compar
 	FILE				*reference = NULL;
 	FILE				*compare = NULL;
 	double				ZeroDbMagnitudeRef = 0;
-	double				avgRef = 0, avgComp = 0;
 
 	if(IsFlac(config->referenceFile))
 	{
@@ -710,44 +709,59 @@ int LoadAndProcessAudioFiles(AudioSignal **ReferenceSignal, AudioSignal **Compar
 	}
 	*/
 
-	/* analyze silence floor if available */
-	if(!config->ignoreFloor && (*ReferenceSignal)->hasSilenceBlock)
-		FindFloor(*ReferenceSignal, config);
-	if(!config->ignoreFloor && (*ComparisonSignal)->hasSilenceBlock)
-		FindFloor(*ComparisonSignal, config);
-
-	avgRef = FindFundamentalAmplitudeAverage(*ReferenceSignal, config);
-	avgComp = FindFundamentalAmplitudeAverage(*ComparisonSignal, config);
-
-	if(avgRef <= (*ReferenceSignal)->floorAmplitude)
+	if(!config->ignoreFloor)
 	{
-		logmsg(" - Reference noise floor %g dBFS is louder than the average %g dBFS of the signal, ignoring\n",
-				(*ReferenceSignal)->floorAmplitude, avgRef);
-		(*ComparisonSignal)->floorAmplitude = SIGNIFICANT_VOLUME;
+		double	avgRef = 0, avgComp = 0;
+
+		/* analyze silence floor if available */
+		if((*ReferenceSignal)->hasSilenceBlock)
+			FindFloor(*ReferenceSignal, config);
+		if((*ComparisonSignal)->hasSilenceBlock)
+			FindFloor(*ComparisonSignal, config);
+	
+		avgRef = FindFundamentalAmplitudeAverage(*ReferenceSignal, config);
+		avgComp = FindFundamentalAmplitudeAverage(*ComparisonSignal, config);
+	
+		if((*ReferenceSignal)->floorAmplitude &&
+			avgRef <= (*ReferenceSignal)->floorAmplitude)
+		{
+			logmsg(" - Reference noise floor %g dBFS is louder than the average %g dBFS of the signal, ignoring\n",
+					(*ReferenceSignal)->floorAmplitude, avgRef);
+			(*ComparisonSignal)->floorAmplitude = SIGNIFICANT_VOLUME;
+		}
+	
+		if((*ComparisonSignal)->floorAmplitude && 
+			avgComp <= (*ComparisonSignal)->floorAmplitude)
+		{
+			logmsg(" - Comparison noise floor %g dBFS is louder than the average %g dBFS of the signal, ignoring\n",
+					(*ComparisonSignal)->floorAmplitude, avgComp);
+			(*ComparisonSignal)->floorAmplitude = SIGNIFICANT_VOLUME;
+		}
+	
+		/* Detect Signal Floor */
+		if((*ReferenceSignal)->hasSilenceBlock  && 
+			(*ReferenceSignal)->floorAmplitude != 0.0 &&
+			(*ReferenceSignal)->floorAmplitude > config->significantAmplitude)
+		{
+			config->significantAmplitude = (*ReferenceSignal)->floorAmplitude;
+		}
+	
+		/*
+		// If ythis is impemented, a config variable is needed and a warning
+		// in the plot as well
+		if(config->significantAmplitude > LOWEST_NOISEFLOOR_ALLOWED)
+		{
+			logmsg("ERROR: changed!\n");
+			config->significantAmplitude = SIGNIFICANT_VOLUME;
+		}
+		*/
 	}
-
-	if(avgComp <= (*ComparisonSignal)->floorAmplitude)
-	{
-		logmsg(" - Comparison noise floor %g dBFS is louder than the average %g dBFS of the signal, ignoring\n",
-				(*ComparisonSignal)->floorAmplitude, avgComp);
-		(*ComparisonSignal)->floorAmplitude = SIGNIFICANT_VOLUME;
-	}
-
-	//DetectOvertoneStart(*ReferenceSignal, config);
-	//DetectOvertoneStart(*ComparisonSignal, config);
-
-	/* Detect Signal Floor */
-	if((*ReferenceSignal)->hasSilenceBlock && !config->ignoreFloor && 
-		(*ReferenceSignal)->floorAmplitude != 0.0 && (*ReferenceSignal)->floorAmplitude > config->significantAmplitude)
-	{
-		config->significantAmplitude = (*ReferenceSignal)->floorAmplitude;
-	}
-
-	if(config->significantAmplitude > LOWEST_NOISEFLOOR_ALLOWED)
-		config->significantAmplitude = SIGNIFICANT_VOLUME;
 
 	logmsg(" - Using %g dBFS as minimum significant amplitude for analysis\n",
 		config->significantAmplitude);
+
+	//DetectOvertoneStart(*ReferenceSignal, config);
+	//DetectOvertoneStart(*ComparisonSignal, config);
 
 	if(config->verbose)
 	{

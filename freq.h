@@ -36,7 +36,7 @@
 #define PARAM_BUFFER_SIZE	512
 
 #define roundFloat(number) RoundFloat(number, 4)
-#define readLine(buffer, file) if(fgets(buffer, LINE_BUFFER_SIZE, file) == NULL) { logmsg("Invalid Profile file (File ended prematurely)\n");	return 0;	}
+#define readLine(buffer, file) if(fgets(buffer, LINE_BUFFER_SIZE, file) == NULL) { 	logmsg("Invalid Profile file (File ended prematurely)\n");	return 0;	} else { 	buffer[strcspn(buffer, "\r\n")] = '\0'; }
 
 int LoadProfile(parameters *config);
 int EndProfileLoad(parameters *config);
