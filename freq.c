@@ -2751,7 +2751,7 @@ double CalculateWeightedError(double pError, parameters *config)
 			break;
 		case 3:
 			/* Linear from input anged 0 - 1*/
-			pError = pError;
+			//pError = pError;
 			break;
 		case 4:
 			/* x^2 */
@@ -2764,7 +2764,7 @@ double CalculateWeightedError(double pError, parameters *config)
 		default:
 			/* This is unexpected behaviour, log it */
 			logmsg("CalculateWeightedError, out of range value %d\n", option);
-			pError = pError;
+			//pError = pError;
 			break;
 	}
 

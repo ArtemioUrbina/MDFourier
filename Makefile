@@ -16,7 +16,7 @@ all: mdfourier mdwave
 mdfourier: sync.o freq.o windows.o log.o diff.o cline.o plot.o balance.o incbeta.o flac.o mdfourier.o 
 	$(CC) $(CCFLAGS) -o $@ $^ $(LFLAGS)
 
-mdwave: sync.o freq.o windows.o log.o cline.o plot.o incbeta.o balance.o flac.o mdwave.o
+mdwave: sync.o freq.o windows.o log.o diff.o cline.o plot.o incbeta.o balance.o flac.o mdwave.o
 	$(CC) $(CCFLAGS) -o $@ $^ $(LFLAGS)
 
 .c.o:

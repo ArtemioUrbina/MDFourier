@@ -278,7 +278,7 @@ void PlotResults(AudioSignal *ReferenceSignal, AudioSignal *ComparisonSignal, pa
 
 	if(config->plotNoiseFloor)
 	{
-		if(!config->noSyncProfile && !config->ignoreFloor)
+		if(!config->noSyncProfile)
 		{
 			if(ReferenceSignal->hasSilenceBlock && ComparisonSignal->hasSilenceBlock)
 			{
