@@ -210,6 +210,7 @@ void PlotResults(AudioSignal *ReferenceSignal, AudioSignal *ComparisonSignal, pa
 
 	CurrentPath = GetCurrentPathAndChangeToResultsFolder(config);
 
+	//PlotDifferenceTimeSpectrogram(config);
 	if(config->plotDifferences || config->averagePlot)
 	{
 		struct	timespec lstart, lend;
@@ -4629,3 +4630,91 @@ FlatPhase	*CreatePhaseFlatFromSignal(AudioSignal *Signal, long int *size, parame
 	*size = count;
 	return PhaseArray;
 }
+
+/*
+void PlotDifferenceTimeSpectrogram(parameters *config)
+{
+	PlotFile	plot;
+	double		x = 0, framewidth = 0, framecount = 0, tc = 0, abs_significant = 0;
+	long int	block = 0, i = 0;
+	int			lastType = TYPE_NOTYPE;
+	char		filename[BUFFER_SIZE], name[BUFFER_SIZE/2];
+
+
+	if(!config || !config->Differences.BlockDiffArray)
+		return;
+
+	for(int i = 0; i < config->types.typeCount; i++)
+	{
+		if(config->types.typeArray[i].type > TYPE_SILENCE)
+			framecount += config->types.typeArray[i].elementCount*config->types.typeArray[i].frames;
+	}
+
+	if(!framecount)
+		return;
+
+	abs_significant = fabs(config->significantAmplitude);
+
+	FillPlot(&plot, "_TESTING", 0, 0, config->plotResX, config->endHzPlot, 1, 1, config);
+
+	if(!CreatePlotFile(&plot, config))
+		return;
+
+	DrawFrequencyHorizontalGrid(&plot, config->endHzPlot, 1000, config);
+	DrawLabelsTimeSpectrogram(&plot, floor(config->endHzPlot/1000), 1, config);
+
+	framewidth = config->plotResX / framecount;
+	for(block = 0; block < config->types.totalBlocks; block++)
+	{
+		int		type = 0;
+		double	frames = 0;
+
+		type = GetBlockType(config, block);
+		frames = GetBlockFrames(config, block);
+		if(type > TYPE_SILENCE && config->MaxFreq > 0)
+		{
+			int		color = 0;
+			double	noteWidth = 0, xpos = 0;
+
+			noteWidth = framewidth*frames;
+			xpos = x+noteWidth;
+			color = MatchColor(GetBlockColor(config, block));
+
+			for(i = 0; i < config->Differences.BlockDiffArray[block].cntAmplBlkDiff; i++)
+			{
+				double refAmplitude = 0;
+
+				refAmplitude = config->Differences.BlockDiffArray[block].amplDiffArray[i].refAmplitude;
+				if(refAmplitude > config->significantAmplitude)
+				{
+					long int intensity;
+					double y, amplitude;
+	
+					// x is fixed by block division
+					y = config->Differences.BlockDiffArray[block].amplDiffArray[i].hertz;
+					amplitude = config->Differences.BlockDiffArray[block].amplDiffArray[i].diffAmplitude;
+					
+					// intensity need sto be changed to a range where amplitude is relevant, needs a max
+					intensity = CalculateWeightedError(fabs(abs_significant - fabs(refAmplitude))/abs_significant, config)*0xffff;
+					SetPenColor(color, intensity, &plot);
+					pl_fline_r(plot.plotter, x,	y, xpos, y);
+					pl_endpath_r(plot.plotter);
+				}
+			}
+
+			if(lastType != type)
+			{
+				DrawTimeCode(&plot, tc, x, config->referenceFramerate, color, config);
+				lastType = type;
+			}
+			x += noteWidth;
+			tc += frames;
+		}
+	}
+
+	DrawColorAllTypeScale(&plot, MODE_SPEC, LEFT_MARGIN, HEIGHT_MARGIN, config->plotResX/COLOR_BARS_WIDTH_SCALE, config->plotResY/1.15, config->significantAmplitude, VERT_SCALE_STEP_BAR, DRAW_BARS, config);
+	DrawLabelsMDF(&plot, TSPECTROGRAM_TITLE_REF, ALL_LABEL, PLOT_COMPARE, config);
+
+	ClosePlot(&plot);
+}
+*/

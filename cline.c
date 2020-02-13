@@ -65,7 +65,6 @@ void PrintUsage()
 	logmsg("	 -v: Enable <v>erbose mode, spits all the FFTW results\n");
 	logmsg("	 -C: Create <C>SV file with plot values.\n");
 	logmsg("	 -b: Change <b>ar value for frequency match, default is 1.0dBFS.\n");
-	logmsg("	 -g: Create avera<g>e points over the plotted graphs\n");
 	logmsg("	 -A: Do not weight values in <A>veraged Plot (implies -g)\n");
 	logmsg("	 -W: Use <W>hite background for plots.\n");
 	logmsg("	 -d: Max <d>BFS for plots vertically\n");
@@ -74,13 +73,14 @@ void PrintUsage()
 	logmsg("		1: %gx%g  2: %gx%g 3: %gx%g\n",
 			PLOT_RES_X_LOW, PLOT_RES_Y_LOW, PLOT_RES_X, PLOT_RES_Y, PLOT_RES_X_1K, PLOT_RES_Y_1K);
 	logmsg("		4: %gx%g 5: %gx%g 6: %gx%g\n",
-					PLOT_RES_X_HI, PLOT_RES_Y_HI, PLOT_RES_X_4K, PLOT_RES_Y_4K, PLOT_RES_X_FP, PLOT_RES_Y_FP);
+			PLOT_RES_X_HI, PLOT_RES_Y_HI, PLOT_RES_X_4K, PLOT_RES_Y_4K, PLOT_RES_X_FP, PLOT_RES_Y_FP);
 	logmsg("	 -D: Don't create <D>ifferences Plots\n");
+	logmsg("	 -g: Don't create avera<g>e points over the plotted graphs\n");
 	logmsg("	 -M: Don't create <M>issing Plots\n");
 	logmsg("	 -S: Don't create <S>pectrogram Plots\n");
 	logmsg("	 -F: Don't create Noise <F>loor Plots\n");
 	logmsg("	 -t: Don't create Time Spectrogram Plots\n");
-	logmsg("	 -O: Create Phase pl<O>ts\n");
+	logmsg("	 -O: Don't create Phase Pl<O>ts\n");
 	logmsg("	 -H: Output waveform plots for <H>ighly different notes\n");
 	logmsg("	 -Q: Don't create Time Domain Plots\n");
 	logmsg("	 -o: Define the output filter function for color weights [0-5]\n");
@@ -180,11 +180,11 @@ void CleanParameters(parameters *config)
 	config->plotTimeSpectrogram = 1;
 	config->plotNoiseFloor = 1;
 	config->plotTimeDomain = 1;
-	config->plotPhase = 0;
+	config->plotPhase = 1;
 	config->plotAllNotes = 0;
 	config->plotAllNotesWindowed = 0;
 	config->plotTimeDomainHiDiff = 0;
-	config->averagePlot = 0;
+	config->averagePlot = 1;
 	config->weightedAveragePlot = 1;
 
 	config->Differences.BlockDiffArray = NULL;
@@ -318,7 +318,7 @@ int commandline(int argc , char *argv[], parameters *config)
 		}
 		break;
 	  case 'g':
-		config->averagePlot = 1;
+		config->averagePlot = 0;
 		break;
 	  case 'H':
 		config->plotTimeDomainHiDiff = 1;
@@ -410,7 +410,7 @@ int commandline(int argc , char *argv[], parameters *config)
 		}
 		break;
 	  case 'O':
-		config->plotPhase = 1;
+		config->plotPhase = 0;
 		break;
 	  case 'o':
 		config->outputFilterFunction = atoi(optarg);
