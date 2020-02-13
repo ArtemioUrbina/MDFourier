@@ -314,7 +314,7 @@ void CMDFourierGUIDlg::ExecuteCommand(CString Compare)
 	if(m_AlignFFTWCheckBox.GetCheck() == BST_CHECKED)
 		command += " -z";
 
-	if(m_AveragePlotCheckBox.GetCheck() == BST_CHECKED)
+	if(m_AveragePlotCheckBox.GetCheck() != BST_CHECKED)
 		command += " -g";
 
 	if(m_VerboseLogCheckBox.GetCheck() == BST_CHECKED)
@@ -342,7 +342,7 @@ void CMDFourierGUIDlg::ExecuteCommand(CString Compare)
 	}
 	if(m_WaveFormCheckBox.GetCheck() != BST_CHECKED)
 		command += " -Q";
-	if(m_PhaseCheckBox.GetCheck() == BST_CHECKED)
+	if(m_PhaseCheckBox.GetCheck() != BST_CHECKED)
 		command += " -O";
 
 	if(m_ExtraDataCheckBox.GetCheck() != BST_CHECKED)
