@@ -48,6 +48,45 @@ double FindFrequencyBinSizeForBlock(AudioSignal *Signal, long int block)
 	return((double)Signal->header.fmt.SamplesPerSec/(double)Signal->Blocks[block].fftwValues.size);
 }
 
+double FindFrequencyBracketForSync(double frequency, size_t size, int AudioChannels, long samplerate, parameters *config)
+{
+	long int startBin= 0, endBin = 0;
+	double seconds = 0, boxsize = 0, minDiff = 0, targetFreq = 0;
+
+	if(!config)
+	{
+		logmsg("ERROR: Config was NULL for FindFrequencyBracket\n");
+		return 0;
+	}
+
+	minDiff = (double)samplerate/2.0;
+	targetFreq = frequency;
+
+	seconds = (double)size/((double)samplerate*(double)AudioChannels);
+	boxsize = RoundFloat(seconds, 3);
+	if(boxsize == 0)
+		boxsize = seconds;
+
+	startBin = ceil(1*boxsize);
+	endBin = floor(24000*boxsize);
+
+	for(int i = startBin; i < endBin; i++)
+	{
+		double Hertz = 0, difference = 0;
+
+		Hertz = CalculateFrequency(i, boxsize, config);
+		difference = fabs(Hertz - frequency);
+		if(difference < minDiff)
+		{
+			targetFreq = Hertz;
+			minDiff = difference;
+			if(minDiff == 0)
+				break;
+		}
+	}
+	return targetFreq;
+}
+
 double FindFrequencyBracket(double frequency, size_t size, int AudioChannels, long samplerate, parameters *config)
 {
 	long int startBin= 0, endBin = 0;
@@ -58,6 +97,13 @@ double FindFrequencyBracket(double frequency, size_t size, int AudioChannels, lo
 		logmsg("ERROR: Config was NULL for FindFrequencyBracket\n");
 		return 0;
 	}
+
+	if(config->startHz > frequency)
+		return 0;
+
+	if(config->endHz < frequency)
+		return 0;
+
 	minDiff = (double)samplerate/2.0;
 	targetFreq = frequency;
 
@@ -99,7 +145,7 @@ void CalcuateFrequencyBrackets(AudioSignal *Signal, parameters *config)
 	index = GetFirstSilenceIndex(config);
 	if(index != NO_INDEX)
 	{
-		double gridNoise = 0, scanNoise = 0;
+		double gridNoise = 0, scanNoise = 0, crossNoise = 0;
 
 		Signal->SilenceBinSize = FindFrequencyBinSizeForBlock(Signal, index);
 
@@ -110,11 +156,14 @@ void CalcuateFrequencyBrackets(AudioSignal *Signal, parameters *config)
 		scanNoise = CalculateScanRate(Signal)*(double)GetLineCount(Signal->role, config);
 		Signal->scanrateFrequency = FindFrequencyBracket(scanNoise, Signal->Blocks[index].fftwValues.size, Signal->AudioChannels, Signal->header.fmt.SamplesPerSec, config);
 
+		crossNoise = scanNoise/2;
+		Signal->crossFrequency = FindFrequencyBracket(crossNoise, Signal->Blocks[index].fftwValues.size, Signal->AudioChannels, Signal->header.fmt.SamplesPerSec, config);
+
 		if(config->verbose)
 		{
-			logmsg(" - Searching for noise frequencies [%s]: Power grid %g Hz Scan Rate: %g Hz\n", 
+			logmsg(" - Searching for noise frequencies [%s]: Power grid %g Hz Scan Rate: %g Hz Crossnoise %g Hz\n", 
 				Signal->role == ROLE_REF ? "Reference" : "Comparison",
-				Signal->gridFrequency, Signal->scanrateFrequency);
+				Signal->gridFrequency, Signal->scanrateFrequency, Signal->crossFrequency);
 		}
 	}
 	else
@@ -145,11 +194,11 @@ int IsHRefreshNoiseCrossTalk(AudioSignal *Signal, double freq)
 		return 0;
 
 	freq = roundFloat(freq);
-	if(Signal->scanrateFrequency == 0 || !Signal->SilenceBinSize)
+	if(Signal->crossFrequency == 0 || !Signal->SilenceBinSize)
 		return 0;
 
-	if(freq >= Signal->scanrateFrequency/2 - Signal->SilenceBinSize*8 && 
-		freq <= Signal->scanrateFrequency/2 + Signal->SilenceBinSize*8)
+	if(freq >= Signal->crossFrequency - Signal->SilenceBinSize*8 && 
+		freq <= Signal->crossFrequency + Signal->SilenceBinSize*8)
 		return 1;
 	return 0;
 }
@@ -278,7 +327,11 @@ void InitAudio(AudioSignal *Signal, parameters *config)
 	Signal->MinAmplitude = 0;
 
 	Signal->gridFrequency = 0;
+	Signal->gridAmplitude = 0;
 	Signal->scanrateFrequency = 0;
+	Signal->scanrateAmplitude = 0;
+	Signal->crossFrequency = 0;
+	Signal->crossAmplitude = 0;
 	Signal->SilenceBinSize = 0;
 
 	Signal->nyquistLimit = 0;
@@ -2116,10 +2169,67 @@ void FindStandAloneFloor(AudioSignal *Signal, parameters *config)
 	}
 }
 
+long int GatherAllSilenceData(AudioSignal *Signal, Frequency **allData, Frequency *loudest, int *silenceBlocks, parameters *config)
+{
+	long int	freqCount = 0, count = 0;
+	Frequency	*data = NULL;
+
+	if(!allData || !loudest || !silenceBlocks)
+		return 0;
+
+	*allData = NULL;
+	*silenceBlocks = 0;
+
+	for(int b = 0; b < config->types.totalBlocks; b++)
+	{
+		if(GetBlockType(config, b) == TYPE_SILENCE)
+		{
+			(*silenceBlocks)++;
+			for(int i = 0; i < config->MaxFreq; i++)
+			{
+				if(Signal->Blocks[b].freq[i].hertz && Signal->Blocks[b].freq[i].amplitude != NO_AMPLITUDE)
+					freqCount++;
+			}
+		}
+	}
+
+	if(!freqCount)
+		return 0;
+
+	data = (Frequency*)malloc(sizeof(Frequency)*freqCount);
+	if(!data)
+	{
+		logmsg("Insuffient memory for Silence data\n");
+		return 0;
+	}
+
+	for(int b = 0; b < config->types.totalBlocks; b++)
+	{
+		if(GetBlockType(config, b) == TYPE_SILENCE)
+		{
+			for(int i = 0; i < config->MaxFreq; i++)
+			{
+				if(Signal->Blocks[b].freq[i].hertz && Signal->Blocks[b].freq[i].amplitude != NO_AMPLITUDE)
+				{
+					data[count] = Signal->Blocks[b].freq[i];
+					if(data[count].amplitude > loudest->amplitude)
+						*loudest = data[count];
+					count++;
+				}
+			}
+		}
+	}
+
+	*allData = data;
+
+	return freqCount;
+}
+
 void FindFloor(AudioSignal *Signal, parameters *config)
 {
-	int 		index, foundScan = 0, foundGrid = 0, foundCross = 0;
-	Frequency	loudestFreq, noiseFreq, gridFreq, horizontalFreq, crossFreq;
+	long int	size = 0;
+	int 		foundScan = 0, foundGrid = 0, foundCross = 0, silenceBlocks = 0;
+	Frequency	loudestFreq, noiseFreq, gridFreq, horizontalFreq, crossFreq, *silenceData = NULL;
 
 	if(!Signal)
 		return;
@@ -2127,29 +2237,15 @@ void FindFloor(AudioSignal *Signal, parameters *config)
 	if(!Signal->hasSilenceBlock)
 		return;
 
-	index = GetFirstSilenceIndex(config);
-	if(index == NO_INDEX)
-	{
-		logmsg("There is no Silence block defined in the current format\n");
-		return;
-	}
-
 	CleanFrequency(&loudestFreq);
 	CleanFrequency(&noiseFreq);
 	CleanFrequency(&gridFreq);
 	CleanFrequency(&horizontalFreq);
 	CleanFrequency(&crossFreq);
-	
-	for(int i = 0; i < config->MaxFreq; i++)
-	{
-		if(Signal->Blocks[index].freq[i].hertz && Signal->Blocks[index].freq[i].amplitude != NO_AMPLITUDE)
-		{
-			if(Signal->Blocks[index].freq[i].amplitude > loudestFreq.amplitude)
-				loudestFreq = Signal->Blocks[index].freq[i];
-		}
-		else
-			break;
-	}
+
+	size = GatherAllSilenceData(Signal, &silenceData, &loudestFreq, &silenceBlocks, config);
+	if(!size)
+		return;
 
 	if(loudestFreq.hertz && loudestFreq.amplitude != NO_AMPLITUDE)
 	{
@@ -2166,57 +2262,66 @@ void FindFloor(AudioSignal *Signal, parameters *config)
 	// returns amplitude at 0
 	noiseFreq = FindNoiseBlockAverage(Signal, config);
 
-	for(int i = 0; i < config->MaxFreq; i++)
+	for(long int i = 0; i < size; i++)
 	{
-		if(!Signal->Blocks[index].freq[i].hertz || Signal->Blocks[index].freq[i].amplitude == NO_AMPLITUDE)
-			break;
-
-		if(!foundGrid && IsGridFrequencyNoise(Signal, Signal->Blocks[index].freq[i].hertz))
+		if(foundGrid != silenceBlocks && IsGridFrequencyNoise(Signal, silenceData[i].hertz))
 		{
-			if(noiseFreq.amplitude > Signal->Blocks[index].freq[i].amplitude)
+			if(noiseFreq.amplitude > silenceData[i].amplitude)
 			{
-				foundGrid = 1;
-				gridFreq = Signal->Blocks[index].freq[i];
+				foundGrid++;
+				if(silenceData[i].amplitude > gridFreq.amplitude)
+				{
+					gridFreq = silenceData[i];
+					Signal->gridAmplitude = silenceData[i].amplitude;
+				}
 
 				if(Signal->floorAmplitude == 0)
 				{
-					Signal->floorAmplitude = Signal->Blocks[index].freq[i].amplitude;
-					Signal->floorFreq = Signal->Blocks[index].freq[i].hertz;
+					Signal->floorAmplitude = silenceData[i].amplitude;
+					Signal->floorFreq = silenceData[i].hertz;
 				}
 			}
 		}
 
-		if(!foundScan && IsHRefreshNoise(Signal, Signal->Blocks[index].freq[i].hertz))
+		if(foundScan != silenceBlocks && IsHRefreshNoise(Signal, silenceData[i].hertz))
 		{
-			if(noiseFreq.amplitude > Signal->Blocks[index].freq[i].amplitude)
+			if(noiseFreq.amplitude > silenceData[i].amplitude)
 			{
-				foundScan = 1;
-				horizontalFreq = Signal->Blocks[index].freq[i];
+				foundScan++;
+				if(silenceData[i].amplitude > horizontalFreq.amplitude)
+				{
+					horizontalFreq = silenceData[i];
+					Signal->scanrateAmplitude = silenceData[i].amplitude;
+				}
 
 				if(Signal->floorAmplitude == 0)
 				{
-					Signal->floorAmplitude = Signal->Blocks[index].freq[i].amplitude;
-					Signal->floorFreq = Signal->Blocks[index].freq[i].hertz;
+					Signal->floorAmplitude = silenceData[i].amplitude;
+					Signal->floorFreq = silenceData[i].hertz;
 				}
 			}
 		}
 
-		if(!foundCross && IsHRefreshNoiseCrossTalk(Signal, Signal->Blocks[index].freq[i].hertz))
+		if(foundCross != silenceBlocks && IsHRefreshNoiseCrossTalk(Signal, silenceData[i].hertz))
 		{
-			if(noiseFreq.amplitude > Signal->Blocks[index].freq[i].amplitude)
+			if(noiseFreq.amplitude > silenceData[i].amplitude)
 			{
-				foundCross = 1;
-				crossFreq = Signal->Blocks[index].freq[i];
+				foundCross++;
+				if(silenceData[i].amplitude > crossFreq.amplitude)
+				{
+					crossFreq = silenceData[i];
+					Signal->crossAmplitude = silenceData[i].amplitude;
+				}
 
 				if(Signal->floorAmplitude == 0)
 				{
-					Signal->floorAmplitude = Signal->Blocks[index].freq[i].amplitude;
-					Signal->floorFreq = Signal->Blocks[index].freq[i].hertz;
+					Signal->floorAmplitude = silenceData[i].amplitude;
+					Signal->floorFreq = silenceData[i].hertz;
 				}
 			}
 		}
 
-		if(foundScan && foundGrid && foundCross)
+		if(foundScan == silenceBlocks && foundGrid == silenceBlocks && foundCross == silenceBlocks)
 			break;
 	}
 
@@ -2236,9 +2341,13 @@ void FindFloor(AudioSignal *Signal, parameters *config)
 		logmsg("\n");
 	}
 
+	free(silenceData);
+	silenceData = NULL;
+
+/*
 	if(Signal->floorAmplitude != 0 && noiseFreq.amplitude < Signal->floorAmplitude)
 		return;
-
+*/
 	/* This helps ignoring harmonic noise when noise floor is too high */
 	/* Not used here, but in LoadAndProcessed 
 	if(loudestFreq.amplitude > LOWEST_NOISEFLOOR_ALLOWED)

@@ -586,9 +586,9 @@ long int DetectPulseInternal(char *Samples, wav_hdr header, int factor, long int
 	}
 	memset(pulseArray, 0, sizeof(Pulses)*TotalMS);
 
-	targetFrequency = FindFrequencyBracket(GetPulseSyncFreq(role, config), 	
+	targetFrequency = FindFrequencyBracketForSync(GetPulseSyncFreq(role, config), 	
 						millisecondSize/2, AudioChannels, header.fmt.SamplesPerSec, config);
-	targetFrequencyHarmonic = FindFrequencyBracket(GetPulseSyncFreq(role, config)*2, 	
+	targetFrequencyHarmonic = FindFrequencyBracketForSync(GetPulseSyncFreq(role, config)*2, 	
 						millisecondSize/2, AudioChannels, header.fmt.SamplesPerSec, config);
 	if(config->debugSync)
 	{
@@ -911,9 +911,9 @@ long int DetectSignalStartInternal(char *Samples, wav_hdr header, int factor, lo
 
 	if(syncKnown)
 	{
-		targetFrequency = FindFrequencyBracket(syncKnown, 
+		targetFrequency = FindFrequencyBracketForSync(syncKnown, 
 					millisecondSize/2, AudioChannels, header.fmt.SamplesPerSec, config);
-		targetFrequencyHarmonic = FindFrequencyBracket(syncKnown*2, 
+		targetFrequencyHarmonic = FindFrequencyBracketForSync(syncKnown*2, 
 					millisecondSize/2, AudioChannels, header.fmt.SamplesPerSec, config);
 		averageAmplitude = findAverageAmplitudeForTarget(pulseArray, targetFrequency, TotalMS, start, config);
 	}

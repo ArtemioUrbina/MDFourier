@@ -36,6 +36,7 @@
 #define CHAR_FOLDER_CHANGE_T1	2
 #define CHAR_FOLDER_CHANGE_T2	3
 
+// -9 and -V not shown
 void PrintUsage()
 {
 	logmsg("  usage: mdfourier -P profile.mdf -r reference.wav -c compare.wav\n");
@@ -48,38 +49,48 @@ void PrintUsage()
 	logmsg("	 -e: Defines <e>nd of the frequency range to compare with FFT\n");
 	logmsg("	 -i: <i>gnores the silence block noise floor if present\n");
 	logmsg("	 -z: Uses <z>ero Padding to equal 1 Hz FFT bins\n");
-	logmsg("	 -n: <N>ormalize: 't' Time Domain Max, 'f' Frequency Domain Max or 'a' Average\n");
+	logmsg("	 -n: <N>ormalize:\n");
+	logmsg("		'f' Frequency Domain Max, 't' Time Domain or 'a' Average\n");
 	logmsg("	 -B: Do not do stereo channel audio <B>alancing\n");
 	logmsg("	 -I: <I>gnore frame rate difference for analysis\n");
 	logmsg("	 -p: Define the significant volume value in dBFS\n");
-	logmsg("	 -T: Increase Sync detection <T>olerance\n");
+	logmsg("	 -T: Increase Sync detection <T>olerance (ignore frequency for pulses)\n");
 	logmsg("	 -Y: Define the Reference Video Format from the profile\n");
 	logmsg("	 -Z: Define the Comparison Video Format from the profile\n");
 	logmsg("	 -k: cloc<k> FFTW operations\n");
 	logmsg("	 -X: Do not E<x>tra Data from Profiles\n");
+	logmsg("	 -q: Do not round (<q>uantize) frequencies and amplitudes\n");
 	logmsg("   Output options:\n");
 	logmsg("	 -l: <l>og output to file [reference]_vs_[compare].txt\n");
 	logmsg("	 -v: Enable <v>erbose mode, spits all the FFTW results\n");
 	logmsg("	 -C: Create <C>SV file with plot values.\n");
-	logmsg("	 -b: Change <b>ar value for frequency match tolerance, default is 1.0dBFS.\n");
+	logmsg("	 -b: Change <b>ar value for frequency match, default is 1.0dBFS.\n");
 	logmsg("	 -g: Create avera<g>e points over the plotted graphs\n");
 	logmsg("	 -A: Do not weight values in <A>veraged Plot (implies -g)\n");
 	logmsg("	 -W: Use <W>hite background for plots.\n");
-	logmsg("	 -L: Create 800x400 plots, as used in the manual\n");
-	logmsg("	 -H: Create 1920x1080 plots\n");
+	logmsg("	 -d: Max <d>BFS for plots vertically\n");
+	logmsg("	 -K: Draw perfect match bards in diofference plots\n");
+	logmsg("	 -L: Plot resolution:\n");
+	logmsg("		1: %gx%g  2: %gx%g 3: %gx%g\n",
+			PLOT_RES_X_LOW, PLOT_RES_Y_LOW, PLOT_RES_X, PLOT_RES_Y, PLOT_RES_X_1K, PLOT_RES_Y_1K);
+	logmsg("		4: %gx%g 5: %gx%g 6: %gx%g\n",
+					PLOT_RES_X_HI, PLOT_RES_Y_HI, PLOT_RES_X_4K, PLOT_RES_Y_4K, PLOT_RES_X_FP, PLOT_RES_Y_FP);
 	logmsg("	 -D: Don't create <D>ifferences Plots\n");
 	logmsg("	 -M: Don't create <M>issing Plots\n");
 	logmsg("	 -S: Don't create <S>pectrogram Plots\n");
 	logmsg("	 -F: Don't create Noise <F>loor Plots\n");
 	logmsg("	 -t: Don't create Time Spectrogram Plots\n");
+	logmsg("	 -O: Create Phase pl<O>ts\n");
+	logmsg("	 -H: Output waveform plots for <H>ighly different notes\n");
 	logmsg("	 -Q: Don't create Time Domain Plots\n");
 	logmsg("	 -o: Define the output filter function for color weights [0-5]\n");
+	logmsg("	 -u: Create waveform plots for all notes\n");
+	logmsg("	 -U: Create waveform plots for all notes, including FFT windows\n");
 	logmsg("	 -E: Defines Full frequency rang<E> for Time Spectrogram plots\n");
 	logmsg("	 -R: Do the reverse compare plots\n");
 	logmsg("	 -N: Use li<N>ear scale instead of logaritmic scale for plots\n");
-	logmsg("	 -d: Max <d>BFS for plots vertically\n");
 	logmsg("	 -j: (text) Cuts per block information and shows <j>ust total results\n");
-	logmsg("	 -x: (text) Enables e<x>tended log results. Shows a table with all matches\n");
+	logmsg("	 -x: (text) Enables e<x>tended log results. Shows a table with matches\n");
 	logmsg("	 -m: (text) Enables Show all blocks compared with <m>atched frequencies\n");
 	logmsg("	 -y: Output debug Sync pulse detection algorithm information\n");
 }
@@ -566,7 +577,8 @@ int commandline(int argc , char *argv[], parameters *config)
 
 	if(!ref || !tar)
 	{
-		logmsg("ERROR: Please define both reference and compare audio files\n");
+		logmsg("  usage: mdfourier -P profile.mdf -r reference.wav -c compare.wav\n");
+		logmsg("  ERROR: Please define both reference and compare audio files\n");
 		return 0;
 	}
 
@@ -730,6 +742,7 @@ void ShortenFileName(char *filename, char *copy)
 
 int CreateFolder(char *name)
 {
+
 #if defined (WIN32)
 #if INTPTR_MAX == INT64_MAX
 #define	_mkdir mkdir

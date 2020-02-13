@@ -638,7 +638,7 @@ void DrawGridZeroDBCentered(PlotFile *plot, double dBFS, double dbIncrement, dou
 	pl_pencolor_r (plot->plotter, 0, 0xFFFF, 0);
 }
 
-void DrawGridZeroToLimit(PlotFile *plot, double dBFS, double dbIncrement, double hz, double hzIncrement, parameters *config)
+void DrawGridZeroToLimit(PlotFile *plot, double dBFS, double dbIncrement, double hz, double hzIncrement, int drawSignificant, parameters *config)
 {
 	pl_pencolor_r (plot->plotter, 0, 0x5555, 0);
 	for(int i = dbIncrement; i < fabs(dBFS); i += dbIncrement)
@@ -647,6 +647,14 @@ void DrawGridZeroToLimit(PlotFile *plot, double dBFS, double dbIncrement, double
 	pl_pencolor_r (plot->plotter, 0, 0x5555, 0);
 	for(int i = hzIncrement; i < hz; i += hzIncrement)
 		pl_fline_r(plot->plotter, transformtoLog(i, config), dBFS, transformtoLog(i, config), 0);
+
+	if(drawSignificant)
+	{
+		pl_pencolor_r (plot->plotter, 0x9999, 0x9999, 0);
+		//pl_linemod_r(plot->plotter, "dotdashed");
+		pl_fline_r(plot->plotter, 0, config->significantAmplitude, hz, config->significantAmplitude);
+		//pl_linemod_r(plot->plotter, "solid");
+	}
 
 	pl_pencolor_r (plot->plotter, 0, 0x7777, 0);
 	if(config->logScale)
@@ -769,8 +777,10 @@ void enableTestWarnings(parameters *config)
 	config->channelBalance = 0;
 	config->referenceSignal->AudioChannels = 2;
 
-	config->startHz = START_HZ*2+1;
-	config->endHz = END_HZ/2+1;
+	/*
+	config->startHz = START_HZ+1;
+	config->endHz = END_HZ-1;
+	*/
 
 	config->MaxFreq = FREQ_COUNT/2;
 
@@ -784,7 +794,7 @@ void enableTestWarnings(parameters *config)
 }
 #endif
 
-#define PLOT_COLUMN(x,y) pl_fmove_r(plot->plotter, config->plotResX-x*config->plotResX/10, config->plotResY/2-y*BAR_HEIGHT)
+#define PLOT_COLUMN(x,y) pl_fmove_r(plot->plotter, config->plotResX-x*config->plotResX/10-config->plotResX/40, config->plotResY/2-y*BAR_HEIGHT)
 
 void DrawLabelsMDF(PlotFile *plot, char *Gname, char *GType, int type, parameters *config)
 {
@@ -1054,40 +1064,84 @@ void DrawLabelsMDF(PlotFile *plot, char *Gname, char *GType, int type, parameter
 		pl_alabel_r(plot->plotter, 'l', 'l', "WARNING: Sync tolerance enabled");
 	}
 
-	/* Top warnigs */
-	if(config->channel != 's' && (config->referenceSignal->AudioChannels == 2 || config->comparisonSignal->AudioChannels == 2))
+	/* Top messages */
+
+	pl_pencolor_r(plot->plotter, 0, 0xcccc, 0);
 	{
 		PLOT_COLUMN(1, 1);
-		pl_pencolor_r(plot->plotter, 0xcccc, 0xcccc, 0xcccc);
-
-		if(config->channel == 'l')
-			pl_alabel_r(plot->plotter, 'l', 'l', "Left Channel");
-		if(config->channel == 'r')
-			pl_alabel_r(plot->plotter, 'l', 'l', "Right Channel");
-	}
-
-	//if(config->startHz != START_HZ || config->endHz != END_HZ)
-	{
-		PLOT_COLUMN(1, 2);
-		pl_pencolor_r(plot->plotter, 0xcccc, 0xcccc, 0xcccc);
-
-		sprintf(msg, "%ghz-%gkhz", config->startHz, config->endHz/1000.0);
+		if(config->significantAmplitude > LOWEST_NOISEFLOOR_ALLOWED || config->ignoreFloor)
+			pl_pencolor_r(plot->plotter, 0xcccc, 0xcccc, 0);
+		sprintf(msg, "Significant: %0.1f dBFS", config->significantAmplitude);
 		pl_alabel_r(plot->plotter, 'l', 'l', msg);
 	}
 
+	pl_pencolor_r(plot->plotter, 0, 0xcccc, 0);
+	//if(config->startHz != START_HZ || config->endHz != END_HZ)
+	{
+		PLOT_COLUMN(1, 2);
+		sprintf(msg, "Range: %g%s-%g%s", 
+				config->startHz >= 1000 ? config->startHz/1000.0 : config->startHz,
+				config->startHz >= 1000 ? "khz" : "hz",
+				config->endHz >= 1000 ? config->endHz/1000.0 : config->endHz,
+				config->endHz >= 1000 ? "khz" : "hz");
+		pl_alabel_r(plot->plotter, 'l', 'l', msg);
+	}
+
+	/* Noise floor */
+	pl_pencolor_r(plot->plotter, 0xcccc, 0xcccc, 0xcccc);
+	if(config->referenceSignal && (type == PLOT_COMPARE || type == PLOT_SINGLE_REF))
+	{
+		if(config->referenceSignal->gridAmplitude)
+		{
+			PLOT_COLUMN(3, 1);
+			sprintf(msg, "Ref %0.1fhz:  %0.1fdBFS", 
+					config->referenceSignal->gridFrequency,
+					config->referenceSignal->gridAmplitude);
+			pl_alabel_r(plot->plotter, 'l', 'l', msg);
+		}
+	
+		if(config->referenceSignal->scanrateAmplitude)
+		{
+			PLOT_COLUMN(3, 2);
+			sprintf(msg, "Ref %0.1fkhz: %0.1fdBFS", 
+					config->referenceSignal->scanrateFrequency/1000.0,
+					config->referenceSignal->scanrateAmplitude);
+			pl_alabel_r(plot->plotter, 'l', 'l', msg);
+		}
+	}
+
+	if(config->comparisonSignal && (type == PLOT_COMPARE || type == PLOT_SINGLE_COM))
+	{
+		if(config->comparisonSignal->gridAmplitude)
+		{
+			PLOT_COLUMN(2, 1);
+			sprintf(msg, "Com %0.1fhz: %0.1fdBFS", 
+					config->comparisonSignal->gridFrequency,
+					config->comparisonSignal->gridAmplitude);
+			pl_alabel_r(plot->plotter, 'l', 'l', msg);
+		}
+	
+		if(config->comparisonSignal->scanrateAmplitude)
+		{
+			PLOT_COLUMN(2, 2);
+			sprintf(msg, "Com %0.1fkhz: %0.1fdBFS", 
+					config->comparisonSignal->scanrateFrequency/1000.0,
+					config->comparisonSignal->scanrateAmplitude);
+			pl_alabel_r(plot->plotter, 'l', 'l', msg);
+		}
+	}
+
 	/* Aligned to 1hz */
+	pl_pencolor_r(plot->plotter, 0, 0xcccc, 0xcccc);
 	if(config->ZeroPad)
 	{
-		PLOT_COLUMN(2, 1);
-		pl_pencolor_r(plot->plotter, 0xcccc, 0xcccc, 0xcccc);
+		PLOT_COLUMN(4, 1);
 		pl_alabel_r(plot->plotter, 'l', 'l', "1Hz Aligned");
 	}
 
 	if(config->hasAddOnData)
 	{
-		PLOT_COLUMN(2, 2);
-		pl_pencolor_r(plot->plotter, 0xcccc, 0xcccc, 0xcccc);
-	
+		PLOT_COLUMN(4, 2);
 		if(config->useExtraData)
 			pl_alabel_r(plot->plotter, 'l', 'l', "Extra Data: ON");
 		else
@@ -1096,28 +1150,31 @@ void DrawLabelsMDF(PlotFile *plot, char *Gname, char *GType, int type, parameter
 
 	if(config->outputFilterFunction != 3)
 	{
-		PLOT_COLUMN(3, 1);
-		pl_pencolor_r(plot->plotter, 0xcccc, 0xcccc, 0xcccc);
-
+		PLOT_COLUMN(5, 1);
 		sprintf(msg, "Color function: %d", config->outputFilterFunction);
 		pl_alabel_r(plot->plotter, 'l', 'l', msg);
 	}
 
 	if(config->MaxFreq != FREQ_COUNT)
 	{
-		PLOT_COLUMN(3, 2);
-		pl_pencolor_r(plot->plotter, 0xcccc, 0xcccc, 0xcccc);
-
+		PLOT_COLUMN(5, 2);
 		sprintf(msg, "Frequencies/note: %d", config->MaxFreq);
 		pl_alabel_r(plot->plotter, 'l', 'l', msg);
 	}
 
 	if(!config->quantizeRound)
 	{
-		PLOT_COLUMN(4, 1);
-		pl_pencolor_r(plot->plotter, 0xcccc, 0xcccc, 0xcccc);
-
+		PLOT_COLUMN(6, 1);
 		pl_alabel_r(plot->plotter, 'l', 'l', "Quantization: OFF");
+	}
+
+	if(config->channel != 's' && (config->referenceSignal->AudioChannels == 2 || config->comparisonSignal->AudioChannels == 2))
+	{
+		PLOT_COLUMN(6, 2);
+		if(config->channel == 'l')
+			pl_alabel_r(plot->plotter, 'l', 'l', "Left Channel");
+		if(config->channel == 'r')
+			pl_alabel_r(plot->plotter, 'l', 'l', "Right Channel");
 	}
 	
 	pl_restorestate_r(plot->plotter);
@@ -1127,17 +1184,17 @@ void DrawLabelsMDF(PlotFile *plot, char *Gname, char *GType, int type, parameter
 #endif
 }
 
-void DrawLabelsZeroToLimit(PlotFile *plot, double dBFS, double dbIncrement, double hz, double hzIncrement,  parameters *config)
+void DrawLabelsZeroToLimit(PlotFile *plot, double dBFS, double dbIncrement, double hz, double hzIncrement, int drawSignificant, parameters *config)
 {
 	double segments = 0;
-	char label[20];
+	char label[100];
 
 	pl_savestate_r(plot->plotter);
 	pl_fspace_r(plot->plotter, 0-X0BORDER*config->plotResX*plot->leftmargin, -1*config->plotResY-Y0BORDER*config->plotResY, config->plotResX+X1BORDER*config->plotResX, 0+Y1BORDER*config->plotResY);
 	pl_pencolor_r(plot->plotter, 0, 0xaaaa, 0);
 	pl_ffontsize_r(plot->plotter, FONT_SIZE_1);
 
-	if(dBFS < PCM_16BIT_MIN_AMPLITUDE)
+	if(fabs(dBFS) < PCM_16BIT_MIN_AMPLITUDE)
 		dbIncrement *= 2;
 
 	pl_ffontname_r(plot->plotter, PLOT_FONT);
@@ -1147,6 +1204,27 @@ void DrawLabelsZeroToLimit(PlotFile *plot, double dBFS, double dbIncrement, doub
 		pl_fmove_r(plot->plotter, config->plotResX+PLOT_SPACER, -1*i*config->plotResY/segments);
 		sprintf(label, "%gdBFS", -1*i*dbIncrement);
 		pl_alabel_r(plot->plotter, 'l', 'c', label);
+	}
+
+	if(drawSignificant)
+	{
+		double labelwidth = 0;
+
+		labelwidth = pl_flabelwidth_r(plot->plotter, "\\ua XXXXXXXXX");
+
+		pl_fmove_r(plot->plotter, -1*labelwidth-PLOT_SPACER, -1*config->plotResY/fabs(dBFS)*fabs(config->significantAmplitude));
+		pl_pencolor_r (plot->plotter, 0x9999, 0x9999, 0);
+		pl_alabel_r(plot->plotter, 'l', 'c', "Significant");
+
+		pl_fmove_r(plot->plotter, -1*labelwidth-PLOT_SPACER, -1*config->plotResY/fabs(dBFS)*fabs(config->significantAmplitude)+1.5*BAR_HEIGHT);
+		pl_pencolor_r(plot->plotter, 0, 0xaaaa, 0);
+		pl_alabel_r(plot->plotter, 'l', 'c', "\\ua Analyzed");
+
+		pl_fmove_r(plot->plotter, -1*labelwidth-PLOT_SPACER, -1*config->plotResY/fabs(dBFS)*fabs(config->significantAmplitude)-1.5*BAR_HEIGHT);
+		pl_pencolor_r(plot->plotter, 0xaaaa, 0, 0);
+		pl_alabel_r(plot->plotter, 'l', 'c', "\\da Discarded");
+
+		pl_pencolor_r(plot->plotter, 0, 0xaaaa, 0);
 	}
 
 	if(config->logScale)
@@ -1897,8 +1975,8 @@ void PlotAllMissingFrequencies(FlatFrequency *freqDiff, long int size, char *fil
 	if(!CreatePlotFile(&plot, config))
 		return;
 
-	DrawGridZeroToLimit(&plot, significant, VERT_SCALE_STEP, config->endHzPlot, 1000, config);
-	DrawLabelsZeroToLimit(&plot, significant, VERT_SCALE_STEP, config->endHzPlot, 1000, config);
+	DrawGridZeroToLimit(&plot, significant, VERT_SCALE_STEP, config->endHzPlot, 1000, 0, config);
+	DrawLabelsZeroToLimit(&plot, significant, VERT_SCALE_STEP, config->endHzPlot, 1000, 0, config);
 
 	if(size)
 	{
@@ -1978,8 +2056,8 @@ void PlotSingleTypeMissingFrequencies(FlatFrequency *freqDiff, long int size, in
 	if(!CreatePlotFile(&plot, config))
 		return;
 
-	DrawGridZeroToLimit(&plot, significant, VERT_SCALE_STEP, config->endHzPlot, 1000, config);
-	DrawLabelsZeroToLimit(&plot, significant, VERT_SCALE_STEP, config->endHzPlot, 1000, config);
+	DrawGridZeroToLimit(&plot, significant, VERT_SCALE_STEP, config->endHzPlot, 1000, 0, config);
+	DrawLabelsZeroToLimit(&plot, significant, VERT_SCALE_STEP, config->endHzPlot, 1000, 0, config);
 
 	for(int f = 0; f < size; f++)
 	{
@@ -2021,8 +2099,8 @@ void PlotAllSpectrogram(FlatFrequency *freqs, long int size, char *filename, int
 	if(!CreatePlotFile(&plot, config))
 		return;
 
-	DrawGridZeroToLimit(&plot, significant, VERT_SCALE_STEP, config->endHzPlot, 1000, config);
-	DrawLabelsZeroToLimit(&plot, significant, VERT_SCALE_STEP, config->endHzPlot, 1000, config);
+	DrawGridZeroToLimit(&plot, significant, VERT_SCALE_STEP, config->endHzPlot, 1000, 0, config);
+	DrawLabelsZeroToLimit(&plot, significant, VERT_SCALE_STEP, config->endHzPlot, 1000, 0, config);
 
 	if(size)
 	{
@@ -2107,8 +2185,8 @@ void PlotSingleTypeSpectrogram(FlatFrequency *freqs, long int size, int type, ch
 	if(!CreatePlotFile(&plot, config))
 		return;
 
-	DrawGridZeroToLimit(&plot, significant, VERT_SCALE_STEP,config->endHzPlot, 1000, config);
-	DrawLabelsZeroToLimit(&plot, significant, VERT_SCALE_STEP,config->endHzPlot, 1000, config);
+	DrawGridZeroToLimit(&plot, significant, VERT_SCALE_STEP,config->endHzPlot, 1000, 0, config);
+	DrawLabelsZeroToLimit(&plot, significant, VERT_SCALE_STEP,config->endHzPlot, 1000, 0, config);
 
 	for(int f = 0; f < size; f++)
 	{
@@ -2175,8 +2253,8 @@ void PlotNoiseSpectrogram(FlatFrequency *freqs, long int size, int type, char *f
 	if(!CreatePlotFile(&plot, config))
 		return;
 
-	DrawLabelsZeroToLimit(&plot, endAmplitude, VERT_SCALE_STEP,config->endHzPlot, 1000, config);
-	DrawGridZeroToLimit(&plot, endAmplitude, VERT_SCALE_STEP,config->endHzPlot, 1000, config);
+	DrawGridZeroToLimit(&plot, endAmplitude, VERT_SCALE_STEP,config->endHzPlot, 1000, 1, config);
+	DrawLabelsZeroToLimit(&plot, endAmplitude, VERT_SCALE_STEP,config->endHzPlot, 1000, 1, config);
 
 	DrawNoiseLines(&plot, 0, endAmplitude, Signal, config);
 	DrawLabelsNoise(&plot, config->endHzPlot, Signal, config);
@@ -2713,8 +2791,8 @@ void PlotTestZL(char *filename, parameters *config)
 	if(!CreatePlotFile(&plot, config))
 		return;
 
-	DrawGridZeroToLimit(&plot, config->significantAmplitude, VERT_SCALE_STEP, config->endHzPlot, 1000, config);
-	DrawLabelsZeroToLimit(&plot, config->significantAmplitude, VERT_SCALE_STEP, config->endHzPlot, 1000, config);
+	DrawGridZeroToLimit(&plot, config->significantAmplitude, VERT_SCALE_STEP, config->endHzPlot, 1000, 0, config);
+	DrawLabelsZeroToLimit(&plot, config->significantAmplitude, VERT_SCALE_STEP, config->endHzPlot, 1000, 0, config);
 
 	DrawColorScale(&plot, 1, MODE_SPEC, LEFT_MARGIN, HEIGHT_MARGIN, config->plotResX/COLOR_BARS_WIDTH_SCALE, config->plotResY/1.15, 0, SIGNIFICANT_VOLUME, VERT_SCALE_STEP_BAR, config);
 	

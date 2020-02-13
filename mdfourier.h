@@ -359,7 +359,11 @@ typedef struct AudioSt {
 	double		MinAmplitude;
 
 	double		gridFrequency;
+	double		gridAmplitude;
 	double		scanrateFrequency;
+	double		scanrateAmplitude;
+	double		crossFrequency;
+	double		crossAmplitude;
 	double		SilenceBinSize;
 
 	int			nyquistLimit;
