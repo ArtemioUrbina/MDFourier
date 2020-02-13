@@ -66,7 +66,7 @@
 #define NS_SIGNIFICANT_VOLUME		-66.0
 #define NS_LOWEST_AMPLITUDE			-200
 #define	PCM_16BIT_MIN_AMPLITUDE		-96.0
-#define LOWEST_NOISEFLOOR_ALLOWED	-40
+#define LOWEST_NOISEFLOOR_ALLOWED	-40.0
 
 #define TYPE_NOTYPE				-1000
 #define TYPE_SILENCE			-1
@@ -504,8 +504,10 @@ typedef struct parameters_st {
 	int				FullTimeSpectroScale;
 	int				hasTimeDomain;
 	int				hasSilenceOverRide;
+	int				hasAddOnData;
 	int				frequencyNormalizationTries;
 	double			frequencyNormalizationTolerant;
+	int				noiseFloorTooHigh;
 
 	double 			plotResX;
 	double			plotResY;

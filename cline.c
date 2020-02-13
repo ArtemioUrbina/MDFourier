@@ -145,10 +145,12 @@ void CleanParameters(parameters *config)
 	config->FullTimeSpectroScale = 0;
 	config->hasTimeDomain = 0;
 	config->hasSilenceOverRide = 0;
+	config->hasAddOnData = 0;
 	config->noSyncProfile = 0;
 	config->noSyncProfileType = NO_SYNC_AUTO;
 	config->frequencyNormalizationTries = 0;
 	config->frequencyNormalizationTolerant = 0;
+	config->noiseFloorTooHigh = 0;
 
 	config->logScale = 1;
 	config->reverseCompare = 0;
@@ -638,6 +640,12 @@ int commandline(int argc , char *argv[], parameters *config)
 			logmsg("\tNo filtering will be applied to the results\n");
 	}
 
+	if(config->FullTimeSpectroScale)
+		logmsg("\t -Uinsg full scale\n");
+	if(config->maxDbPlotZC != DB_HEIGHT)
+		logmsg("\t -Plot range set to %g\n", config->maxDbPlotZC);
+	if(!config->channelBalance)
+		logmsg("\t -Audio channel balance disabled\n");
 	if(config->ZeroPad)
 		logmsg("\t -FFT bins will be aligned to 1Hz, this is slower\n");
 	if(config->FullTimeSpectroScale)

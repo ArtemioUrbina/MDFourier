@@ -725,6 +725,7 @@ int LoadAndProcessAudioFiles(AudioSignal **ReferenceSignal, AudioSignal **Compar
 		if((*ReferenceSignal)->floorAmplitude &&
 			avgRef <= (*ReferenceSignal)->floorAmplitude)
 		{
+			config->noiseFloorTooHigh = 1;
 			logmsg(" - Reference noise floor %g dBFS is louder than the average %g dBFS of the signal, ignoring\n",
 					(*ReferenceSignal)->floorAmplitude, avgRef);
 			(*ComparisonSignal)->floorAmplitude = SIGNIFICANT_VOLUME;
@@ -733,6 +734,7 @@ int LoadAndProcessAudioFiles(AudioSignal **ReferenceSignal, AudioSignal **Compar
 		if((*ComparisonSignal)->floorAmplitude && 
 			avgComp <= (*ComparisonSignal)->floorAmplitude)
 		{
+			config->noiseFloorTooHigh = 1;
 			logmsg(" - Comparison noise floor %g dBFS is louder than the average %g dBFS of the signal, ignoring\n",
 					(*ComparisonSignal)->floorAmplitude, avgComp);
 			(*ComparisonSignal)->floorAmplitude = SIGNIFICANT_VOLUME;
@@ -746,15 +748,14 @@ int LoadAndProcessAudioFiles(AudioSignal **ReferenceSignal, AudioSignal **Compar
 			config->significantAmplitude = (*ReferenceSignal)->floorAmplitude;
 		}
 	
-		/*
-		// If ythis is impemented, a config variable is needed and a warning
-		// in the plot as well
 		if(config->significantAmplitude > LOWEST_NOISEFLOOR_ALLOWED)
 		{
-			logmsg("ERROR: changed!\n");
-			config->significantAmplitude = SIGNIFICANT_VOLUME;
+			logmsg(" - WARNING: Noise floor %g dBFS is louder than the default %g dBFS\n\tIf differences are not visible, use -i\n",
+					config->significantAmplitude, LOWEST_NOISEFLOOR_ALLOWED);
+			config->noiseFloorTooHigh = 1;
+			// we rather not take action
+			//config->significantAmplitude = SIGNIFICANT_VOLUME;
 		}
-		*/
 	}
 
 	logmsg(" - Using %g dBFS as minimum significant amplitude for analysis\n",
@@ -853,6 +854,8 @@ int LoadFile(FILE *file, AudioSignal *Signal, parameters *config, char *fileName
 		return(0);
 	}
 
+	// look for fmt chunk
+	found = 0;
 	do
 	{
 		sub_chunk	schunk;
@@ -879,6 +882,26 @@ int LoadFile(FILE *file, AudioSignal *Signal, parameters *config, char *fileName
 
 	if(Signal->header.fmt.Subchunk1Size + 8 > sizeof(fmt_hdr))  // Add the fmt and chunksize length: 8 bytes
 		fseek(file, Signal->header.fmt.Subchunk1Size + 8 - sizeof(fmt_hdr), SEEK_CUR);
+
+	// look for data chunk
+	found = 0;
+	do
+	{
+		sub_chunk	schunk;
+
+		if(fread(&schunk, 1, sizeof(sub_chunk), file) != sizeof(sub_chunk))
+		{
+			logmsg("\tERROR: Invalid Audio file. File too small.\n");
+			return(0);
+		}
+		if(strncmp((char*)schunk.chunkID, "data", 4) != 0)
+			fseek(file, schunk.Size*sizeof(uint8_t), SEEK_CUR);
+		else
+		{
+			fseek(file, -1*(long int)sizeof(sub_chunk), SEEK_CUR);
+			found = 1;
+		}
+	}while(!found);
 
 	if(fread(&Signal->header.data, 1, sizeof(data_hdr), file) != sizeof(data_hdr))
 	{
@@ -932,7 +955,7 @@ int LoadFile(FILE *file, AudioSignal *Signal, parameters *config, char *fileName
 	{
 		logmsg(" - WARNING: Estimated file length is shorter than the expected %g seconds\n",
 				GetSignalTotalDuration(Signal->framerate, config));
-		config->smallFile = 1;
+		config->smallFile = Signal->role;
 	}
 
 	Signal->Samples = (char*)malloc(sizeof(char)*Signal->header.data.DataSize);
@@ -1630,7 +1653,7 @@ int ProcessFile(AudioSignal *Signal, parameters *config)
 		memset(buffer, 0, buffersize);
 		if(pos + loadedBlockSize > Signal->header.data.DataSize)
 		{
-			config->smallFile = 1;
+			config->smallFile = Signal->role;
 			logmsg("\tunexpected end of File, please record the full Audio Test from the 240p Test Suite.\n");
 			break;
 		}

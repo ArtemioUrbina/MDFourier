@@ -112,6 +112,8 @@
 #define	WAVEFORMDIR_MISS	"Missing"
 #define	WAVEFORMDIR_EXTRA	"Extra"
 
+//#define TESTWARNINGS
+
 char *GetCurrentPathAndChangeToResultsFolder(parameters *config)
 {
 	char 	*CurrentPath = NULL;
@@ -735,9 +737,64 @@ void DrawLabelsZeroDBCentered(PlotFile *plot, double dBFS, double dbIncrement, d
 	pl_restorestate_r(plot->plotter);
 }
 
+#ifdef TESTWARNINGS
+void enableTestWarnings(parameters *config)
+{
+	config->frequencyNormalizationTries = 5;
+	config->frequencyNormalizationTolerant = 1.5;
+
+	config->ignoreFrameRateDiff = 1;
+	config->ignoreFloor = 1;
+	config->noiseFloorTooHigh = 1;
+
+	config->types.useWatermark = 1;
+	config->referenceSignal->watermarkStatus = WATERMARK_VALID;
+	config->comparisonSignal->watermarkStatus = WATERMARK_INVALID;
+	sprintf(config->types.watermarkDisplayName, "Testing");
+
+	config->AmpBarRange = 2;
+	config->smallFile = ROLE_REF;
+
+	config->normType = none;
+	config->noSyncProfile = 1;
+	config->syncTolerance = 1;
+
+	config->channel = 'l';
+
+	config->hasAddOnData = 1;
+	config->quantizeRound = 0;
+
+	config->ZeroPad = 1;
+
+	config->channelBalance = 0;
+	config->referenceSignal->AudioChannels = 2;
+
+	config->startHz = START_HZ*2+1;
+	config->endHz = END_HZ/2+1;
+
+	config->MaxFreq = FREQ_COUNT/2;
+
+	config->logScale = 0;
+
+	config->outputFilterFunction = 1;
+
+	config->compressToBlocks = 1;
+
+	logmsg("ERROR: enableTestWarnings Enabled\n");
+}
+#endif
+
+#define PLOT_COLUMN(x,y) pl_fmove_r(plot->plotter, config->plotResX-x*config->plotResX/10, config->plotResY/2-y*BAR_HEIGHT)
+
 void DrawLabelsMDF(PlotFile *plot, char *Gname, char *GType, int type, parameters *config)
 {
 	char	label[BUFFER_SIZE], msg[BUFFER_SIZE];
+#ifdef TESTWARNINGS
+	parameters backup;
+
+	backup = *config;
+	enableTestWarnings(config);
+#endif
 
 	pl_ffontsize_r(plot->plotter, FONT_SIZE_2);
 	pl_ffontname_r(plot->plotter, PLOT_FONT);
@@ -787,14 +844,7 @@ void DrawLabelsMDF(PlotFile *plot, char *Gname, char *GType, int type, parameter
 			pl_alabel_r(plot->plotter, 'l', 'l', "UNKNOWN");
 			break;
 	}
-	
-	/* Aligned to 1hz */
-	if(config->ZeroPad)
-	{
-		pl_fmove_r(plot->plotter, config->plotResX/20*19, -1*config->plotResY/2+config->plotResY/80+config->plotResY/40);
-		pl_pencolor_r(plot->plotter, 0xaaaa, 0xaaaa, 0xaaaa);
-		pl_alabel_r(plot->plotter, 'l', 'l', "1Hz Aligned");
-	}
+
 	/* Subpar Frequency domain nmormalization */
 	if(config->frequencyNormalizationTries)
 	{
@@ -805,7 +855,14 @@ void DrawLabelsMDF(PlotFile *plot, char *Gname, char *GType, int type, parameter
 		pl_pencolor_r(plot->plotter, 0xaaaa, 0xaaaa, 0);
 		sprintf(msg, "N%d", config->frequencyNormalizationTries);
 		pl_alabel_r(plot->plotter, 'l', 'l', msg);
+		if(config->frequencyNormalizationTolerant != 0)
+		{
+			pl_fmove_r(plot->plotter, config->plotResX/20*19+width, -1*config->plotResY/2+2*config->plotResY/80);
+			sprintf(msg, "b:%g", config->frequencyNormalizationTolerant);
+			pl_alabel_r(plot->plotter, 'c', 'l', msg);
+		}
 	}
+
 	/* File information */
 	if(config->labelNames)
 	{
@@ -903,30 +960,75 @@ void DrawLabelsMDF(PlotFile *plot, char *Gname, char *GType, int type, parameter
 	/* Warnings */
 	// Add from top, change last multiplier for BAR HEIGHT
 
+	if(config->compressToBlocks)
+	{
+		pl_fmove_r(plot->plotter, config->plotResX-config->plotResX/4, -1*config->plotResY/2+config->plotResY/20+12*BAR_HEIGHT);
+		pl_pencolor_r(plot->plotter, 0xeeee, 0xeeee, 0);
+		pl_alabel_r(plot->plotter, 'l', 'l', "WARNING: Debug setting, blocks flattened");
+	}
+
+	if(!config->logScale)
+	{
+		pl_fmove_r(plot->plotter, config->plotResX-config->plotResX/4, -1*config->plotResY/2+config->plotResY/20+11*BAR_HEIGHT);
+		pl_pencolor_r(plot->plotter, 0xeeee, 0xeeee, 0);
+		pl_alabel_r(plot->plotter, 'l', 'l', "WARNING: Log scale disabled");
+	}
+
+	if(config->channelBalance == 0 &&
+		(config->referenceSignal->AudioChannels == 2 ||
+		config->comparisonSignal->AudioChannels == 2))
+	{
+		pl_fmove_r(plot->plotter, config->plotResX-config->plotResX/4, -1*config->plotResY/2+config->plotResY/20+10*BAR_HEIGHT);
+		pl_pencolor_r(plot->plotter, 0xeeee, 0xeeee, 0);
+		pl_alabel_r(plot->plotter, 'l', 'l', "WARNING: Audio channel balancing disabled");
+	}
+
+	if(config->ignoreFrameRateDiff)
+	{
+		pl_fmove_r(plot->plotter, config->plotResX-config->plotResX/4, -1*config->plotResY/2+config->plotResY/20+9*BAR_HEIGHT);
+		pl_pencolor_r(plot->plotter, 0xeeee, 0xeeee, 0);
+		pl_alabel_r(plot->plotter, 'l', 'l', "WARNING: Ignored frame rate difference during analysis");
+	}
+
+	if(config->ignoreFloor)
+	{
+		pl_fmove_r(plot->plotter, config->plotResX-config->plotResX/4, -1*config->plotResY/2+config->plotResY/20+8*BAR_HEIGHT);
+		pl_pencolor_r(plot->plotter, 0xeeee, 0xeeee, 0);
+		pl_alabel_r(plot->plotter, 'l', 'l', "WARNING: Noise floor was ignored during analysis");
+	}
+
+	if(config->noiseFloorTooHigh)
+	{
+		pl_fmove_r(plot->plotter, config->plotResX-config->plotResX/4, -1*config->plotResY/2+config->plotResY/20+7*BAR_HEIGHT);
+		pl_pencolor_r(plot->plotter, 0xeeee, 0xeeee, 0);
+		pl_alabel_r(plot->plotter, 'l', 'l', "WARNING: Noise floor too high");
+	}
+
 	if(config->types.useWatermark && DetectWatermarkIssue(msg, config))
 	{
-		pl_fmove_r(plot->plotter, config->plotResX-config->plotResX/4, -1*config->plotResY/2+config->plotResY/100+12*BAR_HEIGHT);
+		pl_fmove_r(plot->plotter, config->plotResX-config->plotResX/4, -1*config->plotResY/2+config->plotResY/20+6*BAR_HEIGHT);
 		pl_pencolor_r(plot->plotter, 0xeeee, 0xeeee, 0);
 		pl_alabel_r(plot->plotter, 'l', 'l', msg);
 	}
 
 	if(config->AmpBarRange > BAR_DIFF_DB_TOLERANCE)
 	{
-		pl_fmove_r(plot->plotter, config->plotResX-config->plotResX/5, -1*config->plotResY/2+config->plotResY/100+10*BAR_HEIGHT);
+		pl_fmove_r(plot->plotter, config->plotResX-config->plotResX/4, -1*config->plotResY/2+config->plotResY/20+5*BAR_HEIGHT);
 		pl_pencolor_r(plot->plotter, 0xeeee, 0xeeee, 0);
 		pl_alabel_r(plot->plotter, 'l', 'l', "WARNING: Tolerance raised for matches");
 	}
 
 	if(config->smallFile)
 	{
-		pl_fmove_r(plot->plotter, config->plotResX-config->plotResX/5, -1*config->plotResY/2+config->plotResY/100+8*BAR_HEIGHT);
+		pl_fmove_r(plot->plotter, config->plotResX-config->plotResX/4, -1*config->plotResY/2+config->plotResY/20+4*BAR_HEIGHT);
 		pl_pencolor_r(plot->plotter, 0xeeee, 0xeeee, 0);
-		pl_alabel_r(plot->plotter, 'l', 'l', "WARNING: File was shorter than expected");
+		sprintf(msg, "WARNING: %s file was shorter than expected", config->smallFile == ROLE_REF ? "Reference" : "Comparison");
+		pl_alabel_r(plot->plotter, 'l', 'l', msg);
 	}
 
 	if(config->normType != max_frequency)
 	{
-		pl_fmove_r(plot->plotter, config->plotResX-config->plotResX/5, -1*config->plotResY/2+config->plotResY/100+6*BAR_HEIGHT);
+		pl_fmove_r(plot->plotter, config->plotResX-config->plotResX/4, -1*config->plotResY/2+config->plotResY/20+3*BAR_HEIGHT);
 		pl_pencolor_r(plot->plotter, 0xeeee, 0xeeee, 0);
 		if(config->normType == max_time)
 			pl_alabel_r(plot->plotter, 'l', 'l', "Time domain normalization");
@@ -938,14 +1040,16 @@ void DrawLabelsMDF(PlotFile *plot, char *Gname, char *GType, int type, parameter
 
 	if(config->noSyncProfile && type < PLOT_SINGLE_REF)
 	{
-		pl_fmove_r(plot->plotter, config->plotResX-config->plotResX/5, -1*config->plotResY/2+config->plotResY/20+4*BAR_HEIGHT);
+		pl_fmove_r(plot->plotter, config->plotResX-config->plotResX/4, -1*config->plotResY/2+config->plotResY/20+2*BAR_HEIGHT);
 		pl_pencolor_r(plot->plotter, 0xeeee, 0xeeee, 0);
-		pl_alabel_r(plot->plotter, 'l', 'l', "WARNING: NO SYNC profile, PLEASE DISREGARD");
+		sprintf(msg, "WARNING: No sync profile [%s], PLEASE DISREGARD", 
+					config->noSyncProfileType == NO_SYNC_AUTO ? "Auto" : "Manual");
+		pl_alabel_r(plot->plotter, 'l', 'l', msg);
 	}
 
 	if(config->syncTolerance)
 	{
-		pl_fmove_r(plot->plotter, config->plotResX-config->plotResX/5, -1*config->plotResY/2+config->plotResY/20+2*BAR_HEIGHT);
+		pl_fmove_r(plot->plotter, config->plotResX-config->plotResX/4, -1*config->plotResY/2+config->plotResY/20+1*BAR_HEIGHT);
 		pl_pencolor_r(plot->plotter, 0xeeee, 0xeeee, 0);
 		pl_alabel_r(plot->plotter, 'l', 'l', "WARNING: Sync tolerance enabled");
 	}
@@ -953,7 +1057,7 @@ void DrawLabelsMDF(PlotFile *plot, char *Gname, char *GType, int type, parameter
 	/* Top warnigs */
 	if(config->channel != 's' && (config->referenceSignal->AudioChannels == 2 || config->comparisonSignal->AudioChannels == 2))
 	{
-		pl_fmove_r(plot->plotter, config->plotResX-config->plotResX/10, config->plotResY/2-config->plotResY/30-BAR_HEIGHT);
+		PLOT_COLUMN(1, 1);
 		pl_pencolor_r(plot->plotter, 0xcccc, 0xcccc, 0xcccc);
 
 		if(config->channel == 'l')
@@ -962,15 +1066,65 @@ void DrawLabelsMDF(PlotFile *plot, char *Gname, char *GType, int type, parameter
 			pl_alabel_r(plot->plotter, 'l', 'l', "Right Channel");
 	}
 
+	//if(config->startHz != START_HZ || config->endHz != END_HZ)
+	{
+		PLOT_COLUMN(1, 2);
+		pl_pencolor_r(plot->plotter, 0xcccc, 0xcccc, 0xcccc);
+
+		sprintf(msg, "%ghz-%gkhz", config->startHz, config->endHz/1000.0);
+		pl_alabel_r(plot->plotter, 'l', 'l', msg);
+	}
+
+	/* Aligned to 1hz */
+	if(config->ZeroPad)
+	{
+		PLOT_COLUMN(2, 1);
+		pl_pencolor_r(plot->plotter, 0xcccc, 0xcccc, 0xcccc);
+		pl_alabel_r(plot->plotter, 'l', 'l', "1Hz Aligned");
+	}
+
+	if(config->hasAddOnData)
+	{
+		PLOT_COLUMN(2, 2);
+		pl_pencolor_r(plot->plotter, 0xcccc, 0xcccc, 0xcccc);
+	
+		if(config->useExtraData)
+			pl_alabel_r(plot->plotter, 'l', 'l', "Extra Data: ON");
+		else
+			pl_alabel_r(plot->plotter, 'l', 'l', "Extra Data: OFF");
+	}
+
+	if(config->outputFilterFunction != 3)
+	{
+		PLOT_COLUMN(3, 1);
+		pl_pencolor_r(plot->plotter, 0xcccc, 0xcccc, 0xcccc);
+
+		sprintf(msg, "Color function: %d", config->outputFilterFunction);
+		pl_alabel_r(plot->plotter, 'l', 'l', msg);
+	}
+
+	if(config->MaxFreq != FREQ_COUNT)
+	{
+		PLOT_COLUMN(3, 2);
+		pl_pencolor_r(plot->plotter, 0xcccc, 0xcccc, 0xcccc);
+
+		sprintf(msg, "Frequencies/note: %d", config->MaxFreq);
+		pl_alabel_r(plot->plotter, 'l', 'l', msg);
+	}
+
 	if(!config->quantizeRound)
 	{
-		pl_fmove_r(plot->plotter, config->plotResX-2*config->plotResX/10, config->plotResY/2-config->plotResY/30-BAR_HEIGHT);
+		PLOT_COLUMN(4, 1);
 		pl_pencolor_r(plot->plotter, 0xcccc, 0xcccc, 0xcccc);
 
 		pl_alabel_r(plot->plotter, 'l', 'l', "Quantization: OFF");
 	}
-
+	
 	pl_restorestate_r(plot->plotter);
+
+#ifdef TESTWARNINGS
+	*config = backup;
+#endif
 }
 
 void DrawLabelsZeroToLimit(PlotFile *plot, double dBFS, double dbIncrement, double hz, double hzIncrement,  parameters *config)
