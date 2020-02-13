@@ -909,8 +909,9 @@ int LoadAudioBlockStructure(FILE *file, parameters *config)
 		{
 			if(config->types.typeArray[i].type != TYPE_SILENCE)
 				config->types.typeArray[i].type = TYPE_TIMEDOMAIN;  // TYPE_SKIP
-			config->hasAddOnData ++;
 		}
+		if(config->useExtraData && config->types.typeArray[i].IsaddOnData)
+			config->hasAddOnData ++;
 	}
 
 	if(insideInternal)
@@ -1162,8 +1163,9 @@ int LoadAudioNoSyncProfile(FILE *file, parameters *config)
 		{
 			if(config->types.typeArray[i].type != TYPE_SILENCE)
 				config->types.typeArray[i].type = TYPE_TIMEDOMAIN;  // TYPE_SKIP
-			config->hasAddOnData ++;
 		}
+		if(config->useExtraData && config->types.typeArray[i].IsaddOnData)
+			config->hasAddOnData ++;
 	}
 
 	if(insideInternal)
