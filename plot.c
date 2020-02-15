@@ -44,10 +44,12 @@
 #define SORT_CMP(x, y)  ((x).hertz < (y).hertz ? -1 : ((x).hertz == (y).hertz ? 0 : 1))
 #include "sort.h"  // https://github.com/swenson/sort/
 
+/*
 #define SORT_NAME FlatMissingDifferencesByAmplitude
 #define SORT_TYPE FlatFrequency
 #define SORT_CMP(x, y)  ((x).amplitude < (y).amplitude ? -1 : ((x).amplitude == (y).amplitude ? 0 : 1))
 #include "sort.h"  // https://github.com/swenson/sort/
+*/
 
 #define SORT_NAME FlatFrequenciesByAmplitude
 #define SORT_TYPE FlatFrequency
@@ -59,24 +61,30 @@
 #define SORT_CMP(x, y)  ((x).hertz < (y).hertz ? -1 : ((x).hertz == (y).hertz ? 0 : 1))
 #include "sort.h"  // https://github.com/swenson/sort/
 
+#define SORT_NAME AmplitudeDifferencesBlock
+#define SORT_TYPE AmplDifference
+#define SORT_CMP(x, y)  ((x).diffAmplitude < (y).diffAmplitude ? -1 : ((x).diffAmplitude == (y).diffAmplitude ? 0 : 1))
+#include "sort.h"  // https://github.com/swenson/sort/
+
 #define DIFFERENCE_TITLE			"DIFFERENT AMPLITUDES [%s]"
 #define MISSING_TITLE				"MISSING FREQUENCIES [%s]"
-#define EXTRA_TITLE_TS_REF			"COMPARISON - MISSING FREQUENCIES - TIME SPECTROGRAM [%s] (Frequencies expected in Comparison file from the Reference template)"
-#define EXTRA_TITLE_TS_COM			"COMPARISON - EXTRA FREQUENCIES - TIME SPECTROGRAM [%s] (Frequencies found in Comparison File and not in Reference file)"
-#define SPECTROGRAM_TITLE_REF		"REFERENCE - SPECTROGRAM [%s]"
-#define SPECTROGRAM_TITLE_COM		"COMPARISON - SPECTROGRAM [%s]"
-#define TSPECTROGRAM_TITLE_REF		"REFERENCE - TIME SPECTROGRAM [%s]"
-#define TSPECTROGRAM_TITLE_COM		"COMPARISON - TIME SPECTROGRAM [%s]"
+#define EXTRA_TITLE_TS_REF			"Comparison - MISSING FREQUENCIES - Time Spectrogram [%s] (Frequencies expected in Comparison)"
+#define EXTRA_TITLE_TS_COM			"Comparison - EXTRA FREQUENCIES - Time Spectrogram [%s] (Frequencies not in Reference file)"
+#define SPECTROGRAM_TITLE_REF		"Reference - SPECTROGRAM [%s]"
+#define SPECTROGRAM_TITLE_COM		"Comparison - SPECTROGRAM [%s]"
+#define TSPECTROGRAM_TITLE_REF		"Reference - TIME SPECTROGRAM [%s]"
+#define TSPECTROGRAM_TITLE_COM		"Comparison - TIME SPECTROGRAM [%s]"
 #define DIFFERENCE_AVG_TITLE		"DIFFERENT AMPLITUDES AVERAGED [%s]"
 #define NOISE_TITLE					"NOISE FLOOR AVERAGED"
 #define NOISE_AVG_TITLE				"NOISE FLOOR AVERAGED"
-#define SPECTROGRAM_NOISE_REF		"REFERENCE NOISE FLOOR - SPECTROGRAM [%s]"
-#define SPECTROGRAM_NOISE_COM		"COMPARISON NOISE FLOOR - SPECTROGRAM [%s]"
-#define WAVEFORM_TITLE_REF			"REFERENCE - WAVEFORM[%s]"
-#define WAVEFORM_TITLE_COM			"COMPARISON - WAVEFORM [%s]"
+#define SPECTROGRAM_NOISE_REF		"Reference NOISE FLOOR - Spectrogram [%s]"
+#define SPECTROGRAM_NOISE_COM		"Comparison NOISE FLOOR - Spectrogram [%s]"
+#define WAVEFORM_TITLE_REF			"Reference - WAVEFORM[%s]"
+#define WAVEFORM_TITLE_COM			"Comparison - WAVEFORM [%s]"
 #define PHASE_DIFF_TITLE			"PHASE DIFFERENCE [%s]"
-#define PHASE_SIG_TITLE_REF			"PHASE REFERENCE [%s]"
-#define PHASE_SIG_TITLE_COM			"PHASE COMPARISON [%s]"
+#define PHASE_SIG_TITLE_REF			"Reference - PHASE [%s]"
+#define PHASE_SIG_TITLE_COM			"Comparison - PHASE [%s]"
+#define TS_DIFFERENCE_TITLE			"DIFFERENT AMPLITUDES - TIME SPECTROGRAM [%s]"
 
 #define BAR_HEADER					"Matched frequencies"
 #define BAR_DIFF					"w/any amplitude difference"
@@ -210,13 +218,13 @@ void PlotResults(AudioSignal *ReferenceSignal, AudioSignal *ComparisonSignal, pa
 
 	CurrentPath = GetCurrentPathAndChangeToResultsFolder(config);
 
-	//PlotDifferenceTimeSpectrogram(config);
 	if(config->plotDifferences || config->averagePlot)
 	{
 		struct	timespec lstart, lend;
 
 		StartPlot(" - Difference", &lstart, config);
 		PlotAmpDifferences(config);
+		PlotDifferenceTimeSpectrogram(config);
 		EndPlot("Differences", &lstart, &lend, config);
 	}
 
@@ -396,6 +404,7 @@ void PlotDifferentAmplitudesWithBetaFunctions(parameters *config)
 	amplDiff = NULL;
 }
 
+/*
 void PlotFreqMissing(parameters *config)
 {
 	long int			size = 0;
@@ -411,6 +420,7 @@ void PlotFreqMissing(parameters *config)
 	free(freqDiff);
 	freqDiff = NULL;
 }
+*/
 
 void PlotSpectrograms(AudioSignal *Signal, parameters *config)
 {
@@ -1151,8 +1161,10 @@ void DrawLabelsMDF(PlotFile *plot, char *Gname, char *GType, int type, parameter
 
 	if(config->outputFilterFunction != 3)
 	{
+		char * filer[6] = {"None", 	"Bright", "High", "Neutral", "Low", "Dimm" };
+
 		PLOT_COLUMN(5, 1);
-		sprintf(msg, "Color function: %d", config->outputFilterFunction);
+		sprintf(msg, "Color function: %s", filer[config->outputFilterFunction]);
 		pl_alabel_r(plot->plotter, 'l', 'l', msg);
 	}
 
@@ -1302,7 +1314,7 @@ void DrawColorScale(PlotFile *plot, int type, int mode, double x, double y, doub
 		char labeldbs[20];
 
 		pl_fmove_r(plot->plotter, x+width+PLOT_SPACER, y+height-i*height/segments-height/segments/2);
-		sprintf(labeldbs, "%c%g", fabs(startDbs) + i*dbIncrement != 0 ? '-' : ' ', fabs(startDbs) + i*dbIncrement);
+		sprintf(labeldbs, "%c%0.2g", fabs(startDbs) + i*dbIncrement != 0 ? '-' : ' ', fabs(startDbs) + i*dbIncrement);
 		pl_alabel_r(plot->plotter, 'l', 'c', labeldbs);
 
 		labelwidth = pl_flabelwidth_r(plot->plotter, label);
@@ -1437,7 +1449,10 @@ void DrawColorAllTypeScale(PlotFile *plot, int mode, double x, double y, double 
 		{
 			long int intensity;
 	
-			intensity = CalculateWeightedError(i/segments, config)*0xffff;
+			if(mode != MODE_TSDIFF)
+				intensity = CalculateWeightedError(i/segments, config)*0xffff;
+			else
+				intensity = 0xffff*CalculateWeightedError(1.0 - i/segments, config);
 	
 			for(int t = 0; t < numTypes; t++)
 			{
@@ -1469,7 +1484,10 @@ void DrawColorAllTypeScale(PlotFile *plot, int mode, double x, double y, double 
 			double	labelwidth = 0;
 	
 			pl_fmove_r(plot->plotter, x+width+PLOT_SPACER, y+height-i*height/segments-height/segments/2);
-			sprintf(label, "%c%g", i*dbIncrement > 0 ? '-' : ' ', i*dbIncrement);
+			if(mode != MODE_TSDIFF)
+				sprintf(label, "%c%0.2g", i*dbIncrement > 0 ? '-' : ' ', i*dbIncrement);
+			else
+				sprintf(label, "%s%0.2g", i ? "\\+-" : "", fabs(i*dbIncrement));
 			pl_alabel_r(plot->plotter, 'l', 'c', label);
 	
 			labelwidth = pl_flabelwidth_r(plot->plotter, label);
@@ -1496,7 +1514,7 @@ void DrawColorAllTypeScale(PlotFile *plot, int mode, double x, double y, double 
 			maxlabel = labelwidth;
 	}
 
-	if(mode != MODE_SPEC)
+	if(mode != MODE_SPEC && mode != MODE_TSDIFF)
 	{
 		// Draw label if needed
 		if(mode == MODE_DIFF)
@@ -1714,9 +1732,6 @@ void SaveCSV(FlatAmplDifference *amplDiff, long int size, char *filename, parame
 	if(!amplDiff)
 		return;
 
-	if(!config->Differences.BlockDiffArray)
-		return;
-
 	sprintf(name, "%s.csv", filename);
 	
 	csv = fopen(name, "wb");
@@ -1751,9 +1766,6 @@ void PlotAllDifferentAmplitudes(FlatAmplDifference *amplDiff, long int size, cha
 		return;
 
 	if(!amplDiff)
-		return;
-
-	if(!config->Differences.BlockDiffArray)
 		return;
 
 	sprintf(name, "DA__ALL_%s", filename);
@@ -1834,9 +1846,6 @@ void PlotSingleTypeDifferentAmplitudes(FlatAmplDifference *amplDiff, long int si
 	if(!amplDiff)
 		return;
 
-	if(!config->Differences.BlockDiffArray)
-		return;
-
 	FillPlot(&plot, filename, config->startHzPlot, -1*dBFS, config->endHzPlot, dBFS, 1, 1, config);
 
 	if(!CreatePlotFile(&plot, config))
@@ -1898,9 +1907,6 @@ void PlotSilenceBlockDifferentAmplitudes(FlatAmplDifference *amplDiff, long int 
 	if(!amplDiff)
 		return;
 
-	if(!config->Differences.BlockDiffArray)
-		return;
-
 	// Find limits
 	for(int a = 0; a < size; a++)
 	{
@@ -1955,6 +1961,7 @@ void PlotSilenceBlockDifferentAmplitudes(FlatAmplDifference *amplDiff, long int 
 	ClosePlot(&plot);
 }
 
+/*
 void PlotAllMissingFrequencies(FlatFrequency *freqDiff, long int size, char *filename, parameters *config)
 {
 	PlotFile	plot;
@@ -1962,9 +1969,6 @@ void PlotAllMissingFrequencies(FlatFrequency *freqDiff, long int size, char *fil
 	double		significant = 0, abs_significant = 0;
 
 	if(!config)
-		return;
-
-	if(!config->Differences.BlockDiffArray)
 		return;
 
 	significant = config->significantAmplitude;
@@ -2043,10 +2047,7 @@ void PlotSingleTypeMissingFrequencies(FlatFrequency *freqDiff, long int size, in
 	PlotFile	plot;
 	double		significant = 0, abs_significant = 0;
 
-	if(!config)
-		return;
-
-	if(!config->Differences.BlockDiffArray)
+	if(!config || !freqDiff)
 		return;
 
 	significant = config->significantAmplitude;
@@ -2081,6 +2082,7 @@ void PlotSingleTypeMissingFrequencies(FlatFrequency *freqDiff, long int size, in
 	DrawLabelsMDF(&plot, MISSING_TITLE, GetTypeDisplayName(config, type), PLOT_COMPARE, config);
 	ClosePlot(&plot);
 }
+*/
 
 void PlotAllSpectrogram(FlatFrequency *freqs, long int size, char *filename, int signal, parameters *config)
 {
@@ -2575,6 +2577,7 @@ FlatAmplDifference *CreateFlatDifferences(parameters *config, long int *size, di
 	return(ADiff);
 }
 
+/*
 FlatFrequency *CreateFlatMissing(parameters *config, long int *size)
 {
 	long int	count = 0;
@@ -2588,11 +2591,18 @@ FlatFrequency *CreateFlatMissing(parameters *config, long int *size)
 
 	*size = 0;
 
-	FDiff = (FlatFrequency*)malloc(sizeof(FlatFrequency)*config->Differences.cntFreqAudioDiff);
+	for(int b = 0; b < config->types.totalBlocks; b++)
+	{
+		if(GetBlockType(config, b) > TYPE_SILENCE)
+			count += config->Differences.BlockDiffArray[b].cntFreqBlkDiff;
+	}
+
+	FDiff = (FlatFrequency*)malloc(sizeof(FlatFrequency)*count);
 	if(!FDiff)
 		return NULL;
-	memset(FDiff, 0, sizeof(FlatFrequency)*config->Differences.cntFreqAudioDiff);
+	memset(FDiff, 0, sizeof(FlatFrequency)*count);
 
+	count = 0;
 	for(int b = 0; b < config->types.totalBlocks; b++)
 	{
 		int type = 0, color = 0;
@@ -2618,19 +2628,13 @@ FlatFrequency *CreateFlatMissing(parameters *config, long int *size)
 	*size = count;
 	return(FDiff);
 }
+*/
 
 int InsertElementInPlace(FlatFrequency *Freqs, FlatFrequency Element, long int currentsize)
 {
 	if(!currentsize)
 	{
 		Freqs[0] = Element;
-		return 1;
-	}
-
-	// worst case scenario
-	if(Freqs[currentsize-1].hertz >= Element.hertz)
-	{
-		Freqs[currentsize] = Element;
 		return 1;
 	}
 
@@ -2644,20 +2648,10 @@ int InsertElementInPlace(FlatFrequency *Freqs, FlatFrequency Element, long int c
 				Freqs[j].amplitude = Element.amplitude;
 			return 0;
 		}
-
-		if(Element.hertz > Freqs[j].hertz)
-		{
-			/* Move the previous values down the array */
-			for(int k = currentsize; k > j; k--)
-				Freqs[k] = Freqs[k - 1];
-	
-			Freqs[j] = Element;
-			return 1;
-		}
 	}
 
-	logmsg("WARNING InsertElementInPlace No match found!\n");
-	return 0;
+	Freqs[currentsize] = Element;
+	return 1;
 }
 
 FlatFrequency *CreateFlatFrequencies(AudioSignal *Signal, long int *size, parameters *config)
@@ -2803,6 +2797,8 @@ void PlotTestZL(char *filename, parameters *config)
 
 inline double transformtoLog(double coord, parameters *config)
 {
+	if(coord <= 0)
+		return 0;
 	if(config->logScale)
 		return(config->plotRatio*log10(coord));
 	else
@@ -3474,13 +3470,35 @@ void DrawFrequencyHorizontalGrid(PlotFile *plot, double hz, double hzIncrement, 
 {
 	pl_pencolor_r (plot->plotter, 0, 0x5555, 0);
 	for(int i = 0; i <= hz; i += hzIncrement)
-		pl_fline_r(plot->plotter, 0, i, config->plotResX, i);
+	{
+		double y = 0;
+
+		if(config->logScaleTS)
+			y = transformtoLog(i, config);
+		else
+			y = i;
+		pl_fline_r(plot->plotter, 0, y, config->plotResX, y);
+	}
+
+	if(config->logScaleTS)
+	{
+		pl_fline_r(plot->plotter, 0, transformtoLog(10, config), config->plotResX, transformtoLog(10, config));
+		pl_fline_r(plot->plotter, 0, transformtoLog(100, config), config->plotResX, transformtoLog(100, config));
+	}
 
 	pl_pencolor_r (plot->plotter, 0, 0x7777, 0);
 	if(config->endHzPlot >= 10000)
 	{
 		for(int i = 10000; i < config->endHzPlot; i+= 10000)
-			pl_fline_r(plot->plotter, 0, i, config->plotResX, i);
+		{
+			double y = 0;
+	
+			if(config->logScaleTS)
+				y = transformtoLog(i, config);
+			else
+				y = i;
+			pl_fline_r(plot->plotter, 0, y, config->plotResX, y);
+		}
 	}
 
 	pl_endpath_r(plot->plotter);
@@ -3496,7 +3514,7 @@ void DrawLabelsTimeSpectrogram(PlotFile *plot, int khz, int khzIncrement, parame
 	pl_pencolor_r(plot->plotter, 0, 0xaaaa, 0);
 	pl_ffontsize_r(plot->plotter, FONT_SIZE_1);
 
-	if(khz >= 48 && khzIncrement == 1)
+	if(!config->logScaleTS && khz >= 48 && khzIncrement == 1)
 		khzIncrement = 2;
 
 	pl_ffontname_r(plot->plotter, PLOT_FONT);
@@ -3504,15 +3522,43 @@ void DrawLabelsTimeSpectrogram(PlotFile *plot, int khz, int khzIncrement, parame
 	height = (double)config->plotResY/segments;
 	for(int i = segments; i >= 0; i --)
 	{
-		int 	khz = 0;
+		int 	curkhz = 0;
 		double	y = 0;
 
-		khz = (int)floor(segments - i)*khzIncrement;
+		curkhz = (int)floor(segments - i)*khzIncrement;
 		y = -1*(double)i*height;
 
+		if(config->logScaleTS)
+			y = -1*(config->plotResY-config->plotResY/(khz*1000)*transformtoLog(curkhz*1000, config));
+
 		pl_fmove_r(plot->plotter, config->plotResX+PLOT_SPACER, y);
-		sprintf(label, "%d%s", khz, khz ? "khz" : "hz");
+		sprintf(label, "%d%s", curkhz, curkhz ? "khz" : "hz");
 		pl_alabel_r(plot->plotter, 'l', 'c', label);
+
+		if(config->logScaleTS)
+		{
+			if(curkhz > 80)
+				i -= 40;
+			else if(curkhz > 40)
+				i -= 20;
+			else if(curkhz > 20)
+				i -= 10;
+			else if(curkhz > 6)
+				i -= 2;
+		}
+	}
+
+	if(config->logScaleTS)
+	{
+		double y = 0;
+
+		y = -1*(config->plotResY-config->plotResY/(khz*1000)*transformtoLog(100, config));
+		pl_fmove_r(plot->plotter, config->plotResX+PLOT_SPACER, y);
+		pl_alabel_r(plot->plotter, 'l', 'c', "100hz");
+
+		y = -1*(config->plotResY-config->plotResY/(khz*1000)*transformtoLog(10, config));
+		pl_fmove_r(plot->plotter, config->plotResX+PLOT_SPACER, y);
+		pl_alabel_r(plot->plotter, 'l', 'c', "10hz");
 	}
 
 	pl_restorestate_r(plot->plotter);
@@ -3600,6 +3646,8 @@ void PlotTimeSpectrogram(AudioSignal *Signal, parameters *config)
 
 					// x is fixed by block division
 					y = Signal->Blocks[block].freq[i].hertz;
+					if(config->logScaleTS)
+						y = transformtoLog(y, config);
 					amplitude = Signal->Blocks[block].freq[i].amplitude;
 					
 					intensity = CalculateWeightedError(fabs(abs_significant - fabs(amplitude))/abs_significant, config)*0xffff;
@@ -3692,6 +3740,8 @@ void PlotTimeSpectrogramUnMatchedContent(AudioSignal *Signal, parameters *config
 
 					// x is fixed by block division
 					y = Signal->Blocks[block].freq[i].hertz;
+					if(config->logScaleTS)
+						y = transformtoLog(y, config);
 					amplitude = Signal->Blocks[block].freq[i].amplitude;
 					
 					intensity = CalculateWeightedError(fabs(abs_significant - fabs(amplitude))/abs_significant, config)*0xffff;
@@ -4318,6 +4368,7 @@ FlatPhase *CreatePhaseFlatDifferences(parameters *config, long int *size)
 	return PDiff;
 }
 
+/*
 void PlotPhaseFromSignal(AudioSignal *Signal, parameters *config)
 {
 	long int			size = 0;
@@ -4335,15 +4386,11 @@ void PlotPhaseFromSignal(AudioSignal *Signal, parameters *config)
 		PlotAllPhase(phaseDiff, size, config->compareName, Signal->role == ROLE_REF ? PHASE_REF : PHASE_COMP, config);
 		logmsg(PLOT_ADVANCE_CHAR);
 	}
-
-	/*
-	if(config->averagePlot)
-		PlotDifferentAmplitudesAveraged(amplDiff, size, config->compareName, config);
-	*/
 	
 	free(phaseDiff);
 	phaseDiff = NULL;
 }
+*/
 
 void PlotPhaseDifferences(parameters *config)
 {
@@ -4564,6 +4611,7 @@ void DrawLabelsZeroAngleCentered(PlotFile *plot, double maxAngle, double angleIn
 	pl_restorestate_r(plot->plotter);
 }
 
+/*
 FlatPhase	*CreatePhaseFlatFromSignal(AudioSignal *Signal, long int *size, parameters *config)
 {
 	long int	block = 0, i = 0;
@@ -4630,15 +4678,16 @@ FlatPhase	*CreatePhaseFlatFromSignal(AudioSignal *Signal, long int *size, parame
 	*size = count;
 	return PhaseArray;
 }
+*/
 
-/*
 void PlotDifferenceTimeSpectrogram(parameters *config)
 {
 	PlotFile	plot;
-	double		x = 0, framewidth = 0, framecount = 0, tc = 0, abs_significant = 0;
+	double		x = 0, framewidth = 0, framecount = 0, tc = 0, abs_significant = 0, steps = 0;
+	double		outside = 0, maxDiff = 0;
 	long int	block = 0, i = 0;
 	int			lastType = TYPE_NOTYPE;
-	char		filename[BUFFER_SIZE], name[BUFFER_SIZE/2];
+	char		filename[2*BUFFER_SIZE];
 
 
 	if(!config || !config->Differences.BlockDiffArray)
@@ -4653,9 +4702,31 @@ void PlotDifferenceTimeSpectrogram(parameters *config)
 	if(!framecount)
 		return;
 
-	abs_significant = fabs(config->significantAmplitude);
+	steps = 1.0;
+	abs_significant = fabs(config->maxDbPlotZC);
+	outside = FindDifferencePercentOutsideViewPort(&maxDiff, abs_significant, config);
+	if(outside == 0 && fabs(maxDiff) && fabs(maxDiff) > abs_significant*2)
+	{
+		abs_significant = abs_significant/2;
+		do
+		{
+			outside = FindDifferencePercentOutsideViewPort(&maxDiff, abs_significant, config);
+			if(outside == 0)
+				abs_significant = abs_significant/2;
+		}while(!outside && fabs(maxDiff) && fabs(maxDiff) > abs_significant*2);
+	}
 
-	FillPlot(&plot, "_TESTING", 0, 0, config->plotResX, config->endHzPlot, 1, 1, config);
+	if(outside >= 10)
+		abs_significant = abs_significant*1.5;
+
+	outside = FindDifferencePercentOutsideViewPort(&maxDiff, abs_significant, config);
+	if(abs_significant > VERT_SCALE_STEP_BAR*10)
+		steps = VERT_SCALE_STEP_BAR;
+	else
+		steps = abs_significant / 10;
+
+	sprintf(filename, "DA__ALL_TS_%s", config->compareName);
+	FillPlot(&plot, filename, 0, 0, config->plotResX, config->endHzPlot, 1, 1, config);
 
 	if(!CreatePlotFile(&plot, config))
 		return;
@@ -4673,33 +4744,55 @@ void PlotDifferenceTimeSpectrogram(parameters *config)
 		frames = GetBlockFrames(config, block);
 		if(type > TYPE_SILENCE && config->MaxFreq > 0)
 		{
-			int		color = 0;
-			double	noteWidth = 0, xpos = 0;
+			int				color = 0;
+			long int		count = 0;
+			double			noteWidth = 0, xpos = 0;
 
 			noteWidth = framewidth*frames;
 			xpos = x+noteWidth;
 			color = MatchColor(GetBlockColor(config, block));
-
-			for(i = 0; i < config->Differences.BlockDiffArray[block].cntAmplBlkDiff; i++)
+			count = config->Differences.BlockDiffArray[block].cntAmplBlkDiff;
+			if(count)
 			{
-				double refAmplitude = 0;
+				AmplDifference 	*amplDiffArraySorted = NULL;
 
-				refAmplitude = config->Differences.BlockDiffArray[block].amplDiffArray[i].refAmplitude;
-				if(refAmplitude > config->significantAmplitude)
+				amplDiffArraySorted = (AmplDifference*)malloc(sizeof(AmplDifference)*count);
+				if(!amplDiffArraySorted)
 				{
-					long int intensity;
-					double y, amplitude;
-	
-					// x is fixed by block division
-					y = config->Differences.BlockDiffArray[block].amplDiffArray[i].hertz;
-					amplitude = config->Differences.BlockDiffArray[block].amplDiffArray[i].diffAmplitude;
-					
-					// intensity need sto be changed to a range where amplitude is relevant, needs a max
-					intensity = CalculateWeightedError(fabs(abs_significant - fabs(refAmplitude))/abs_significant, config)*0xffff;
-					SetPenColor(color, intensity, &plot);
-					pl_fline_r(plot.plotter, x,	y, xpos, y);
-					pl_endpath_r(plot.plotter);
+					logmsg("ERROR: Not enough memory (amplDiffArraySorted)\n");
+					return;
 				}
+
+				memcpy(amplDiffArraySorted, config->Differences.BlockDiffArray[block].amplDiffArray, sizeof(AmplDifference)*count);
+				AmplitudeDifferencesBlock_tim_sort(amplDiffArraySorted, count);
+
+				for(i = count - 1; i >= 0; i--)
+				{
+					double refAmplitude = 0, amplitude = 0;
+	
+					refAmplitude = amplDiffArraySorted[i].refAmplitude;
+					amplitude = amplDiffArraySorted[i].diffAmplitude;
+					if(refAmplitude > config->significantAmplitude && fabs(amplitude) <= abs_significant)
+					{
+						long int intensity;
+						double y;
+		
+						// x is fixed by block division
+						y = amplDiffArraySorted[i].hertz;
+						if(config->logScaleTS)
+							y = transformtoLog(y, config);
+						
+						intensity = 0xffff*CalculateWeightedError(1.0-(fabs(abs_significant - fabs(amplitude))/abs_significant), config);
+						if(1.0-(fabs(abs_significant - fabs(amplitude))/abs_significant) >= 0.5)
+							logmsgFileOnly("%ghz: %g %g 0x%X [%g=1-(%g-%g)/%g]\n", y,
+								amplitude, abs_significant, intensity, 1.0-(fabs(abs_significant - fabs(amplitude))/abs_significant), abs_significant, fabs(amplitude), abs_significant);
+						SetPenColor(color, intensity, &plot);
+						pl_fline_r(plot.plotter, x, y, xpos, y);
+						pl_endpath_r(plot.plotter);
+					}
+				}
+
+				free(amplDiffArraySorted);
 			}
 
 			if(lastType != type)
@@ -4712,9 +4805,9 @@ void PlotDifferenceTimeSpectrogram(parameters *config)
 		}
 	}
 
-	DrawColorAllTypeScale(&plot, MODE_SPEC, LEFT_MARGIN, HEIGHT_MARGIN, config->plotResX/COLOR_BARS_WIDTH_SCALE, config->plotResY/1.15, config->significantAmplitude, VERT_SCALE_STEP_BAR, DRAW_BARS, config);
-	DrawLabelsMDF(&plot, TSPECTROGRAM_TITLE_REF, ALL_LABEL, PLOT_COMPARE, config);
+	DrawColorAllTypeScale(&plot, MODE_TSDIFF, LEFT_MARGIN, HEIGHT_MARGIN, config->plotResX/COLOR_BARS_WIDTH_SCALE, config->plotResY/1.15, abs_significant, steps, DRAW_BARS, config);
+	DrawLabelsMDF(&plot, TS_DIFFERENCE_TITLE, ALL_LABEL, PLOT_COMPARE, config);
 
 	ClosePlot(&plot);
 }
-*/
+

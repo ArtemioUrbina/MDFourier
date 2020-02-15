@@ -1349,7 +1349,7 @@ int MatchesPreviousType(int type, parameters *config)
 	if(!config)
 		return 0;
 
-	if(type < TYPE_CONTROL)
+	if(type <= TYPE_CONTROL)
 		return 0;
 
 	for(int i = 0; i < config->types.typeCount; i++)

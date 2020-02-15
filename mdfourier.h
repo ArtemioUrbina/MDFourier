@@ -470,6 +470,7 @@ typedef struct parameters_st {
 	double			smallerFramerate;
 	double			referenceFramerate;
 	int				logScale;
+	int				logScaleTS;
 	int				debugSync;
 	int				reverseCompare;
 	int				ZeroPad;

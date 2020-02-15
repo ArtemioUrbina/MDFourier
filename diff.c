@@ -559,8 +559,12 @@ long int FindDifferenceAveragesperBlock(double thresholdAmplitude, double thresh
 		/* Amplitude Difference */
 		for(int a = 0; a < config->Differences.BlockDiffArray[b].cntAmplBlkDiff; a++)
 		{
-			average += fabs(config->Differences.BlockDiffArray[b].amplDiffArray[a].diffAmplitude);
-			count ++;
+			// Check if this compare is needed
+			if(config->Differences.BlockDiffArray[b].amplDiffArray[a].refAmplitude > config->significantAmplitude)
+			{
+				average += fabs(config->Differences.BlockDiffArray[b].amplDiffArray[a].diffAmplitude);
+				count ++;
+			}
 		}
 
 		if(count)

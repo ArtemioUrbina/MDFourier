@@ -164,6 +164,7 @@ void CleanParameters(parameters *config)
 	config->noiseFloorTooHigh = 0;
 
 	config->logScale = 1;
+	config->logScaleTS = 0;
 	config->reverseCompare = 0;
 	config->normType = max_frequency;
 
@@ -236,8 +237,8 @@ int commandline(int argc , char *argv[], parameters *config)
 	
 	CleanParameters(config);
 
-	// Available: GJ012345678
-	while ((c = getopt (argc, argv, "Aa:Bb:Cc:Dd:Ee:Ff:gHhIijKkL:lMmNn:Oo:P:p:QqRr:Ss:TtUuVvWw:XxY:yZ:z9")) != -1)
+	// Available: GJ01234567
+	while ((c = getopt (argc, argv, "Aa:Bb:Cc:Dd:Ee:Ff:gHhIijKkL:lMmNn:Oo:P:p:QqRr:Ss:TtUuVvWw:XxY:yZ:z89")) != -1)
 	switch (c)
 	  {
 	  case 'A':
@@ -520,6 +521,9 @@ int commandline(int argc , char *argv[], parameters *config)
 		break;
 	  case 'z':
 		config->ZeroPad = 1;
+		break;
+	  case '8':
+		config->logScaleTS = 1;
 		break;
 	  case '9':
 		config->compressToBlocks = 1;

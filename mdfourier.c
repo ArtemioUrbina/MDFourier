@@ -167,7 +167,7 @@ int main(int argc , char *argv[])
 			else
 				config.maxDbPlotZC = ceil(maxDiff);
 			logmsg(" - Auto adjusting viewport to %gdBFS for graphs\n", config.maxDbPlotZC);
-			if(outside < 10)
+			if(outside < 10 && outside > 0.05)
 				logmsg(" - The %g%% of differences will not be visible within the %gdBFS for graphs\n - If needed you can graph them all with \"-d %g\" for this particular case\n\n", 
 					outside, config.maxDbPlotZC, ceil(maxDiff));
 		}
