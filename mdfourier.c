@@ -548,6 +548,9 @@ int LoadAndProcessAudioFiles(AudioSignal **ReferenceSignal, AudioSignal **Compar
 						else  /* we are here because of ratio */ {
 							if(ratioRefArray < ratioRef)
 								copy = 1;
+
+							if(!ratioRef)
+								copy = 1;
 						}
 
 						if(copy){
@@ -556,7 +559,8 @@ int LoadAndProcessAudioFiles(AudioSignal **ReferenceSignal, AudioSignal **Compar
 							config->frequencyNormalizationTries = pos + 1;
 						}
 						else {
-							if(config->verbose)	logmsg(" - Alternative matches were worse than original, reverting\n");
+							if(config->verbose)	logmsg(" - Alternative matches were worse than original, (%g<-%g)reverting\n",
+								ratioRefArray, ratioRef);
 						}
 					}
 					else {
@@ -742,8 +746,9 @@ int LoadAndProcessAudioFiles(AudioSignal **ReferenceSignal, AudioSignal **Compar
 	
 		/* Detect Signal Floor */
 		if((*ReferenceSignal)->hasSilenceBlock  && 
-			(*ReferenceSignal)->floorAmplitude != 0.0 &&
-			(*ReferenceSignal)->floorAmplitude > config->significantAmplitude)
+			(*ReferenceSignal)->floorAmplitude != 0.0)
+			/* &&
+			(*ReferenceSignal)->floorAmplitude > config->significantAmplitude)*/
 		{
 			config->significantAmplitude = (*ReferenceSignal)->floorAmplitude;
 		}
@@ -2596,8 +2601,8 @@ double FindLocalMaximumInBlock(AudioSignal *Signal, MaxMagn refMax, int allowDif
 
 	if(config->verbose)
 	{
-		logmsg(" - Comparison Local Maximum (No Hz match) with %g magnitude at block %d\n",
-			highest, refMax.block);
+		logmsg(" - Comparison Local Maximum (No Hz match%s) with %g magnitude at block %d\n",
+			allowDifference ? " with tolerance": "", highest, refMax.block);
 	}
 	return 0;
 }

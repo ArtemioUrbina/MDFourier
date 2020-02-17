@@ -2058,13 +2058,16 @@ int GetInternalSyncTotalLength(int pos, parameters *config)
 
 Frequency FindNoiseBlockAverage(AudioSignal *Signal, parameters *config)
 {
-	Frequency	cutOff;
+	Frequency	cutOff, max, min;
 	int 		noiseBlock = -1;
 	int			count = 0;
 
 	CleanFrequency(&cutOff);
 	cutOff.hertz = 0;
 	cutOff.amplitude = 0;
+	CleanFrequency(&max);
+	CleanFrequency(&min);
+	min.amplitude = 0;
 
 	for(int block = 0; block < config->types.totalBlocks; block++)
 	{
@@ -2083,22 +2086,37 @@ Frequency FindNoiseBlockAverage(AudioSignal *Signal, parameters *config)
 	{
 		if(Signal->Blocks[noiseBlock].freq[i].hertz)
 		{
-			cutOff.hertz += Signal->Blocks[noiseBlock].freq[i].hertz;
-			cutOff.amplitude += fabs(Signal->Blocks[noiseBlock].freq[i].amplitude);
+			double hz, amp;
+
+			hz = Signal->Blocks[noiseBlock].freq[i].hertz;
+			amp = fabs(Signal->Blocks[noiseBlock].freq[i].amplitude);
+
+			cutOff.hertz += hz;
+			cutOff.amplitude += amp;
+
+			if(fabs(max.amplitude) > amp)
+				max = Signal->Blocks[noiseBlock].freq[i];
+
+			if(fabs(min.amplitude) < amp)
+				min = Signal->Blocks[noiseBlock].freq[i];
 			count ++;
 		}
 	}
 	
 	if(count)
 	{
+		double difference = 0;
+
 		cutOff.hertz = cutOff.hertz/count;
 		cutOff.amplitude = -1.0*(fabs(cutOff.amplitude)/count);
-		if(config->verbose)
-			logmsg("  - %s signal profile defined noise channel averages: %g dBFS [%g Hz]\n",
-				Signal->role == ROLE_REF ? "Reference" : "Comparison",
-				cutOff.amplitude, cutOff.hertz);
+		difference = fabs(min.amplitude) - fabs(cutOff.amplitude);
 
-		cutOff.amplitude += -3.0;
+		if(config->verbose)
+			logmsg("  - %s signal profile defined noise channel average: %g dBFS [%g Hz] Minimun %g dBFS [%g Hz]\n",
+				Signal->role == ROLE_REF ? "Reference" : "Comparison",
+				cutOff.amplitude, cutOff.hertz, min.amplitude, min.hertz);
+
+		cutOff.amplitude += -1*(difference/2);
 	}
 
 	return cutOff;
