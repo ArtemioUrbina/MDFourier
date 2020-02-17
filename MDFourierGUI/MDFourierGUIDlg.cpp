@@ -421,6 +421,7 @@ void CMDFourierGUIDlg::ReadAndDisplayResults(CString &newText)
 		m_OutputTextCtrl.SendMessage(EM_LINESCROLL, 0, newLineCount);
 		cmdWindowText = ntext;
 	}
+	newText = ntext;
 }
 
 
