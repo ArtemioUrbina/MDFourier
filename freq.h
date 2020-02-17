@@ -78,7 +78,7 @@ double GetInternalSyncLen(int pos, parameters *config);
 char GetBlockChannel(parameters *config, int pos);
 char GetTypeChannel(parameters *config, int type);
 void CleanName(char *name, char *display);
-int MatchesPreviousType(int type, parameters *config);
+int MatchesPreviousType(int pos, int type, parameters *config);
 void SelectSilenceProfile(parameters *config);
 void CheckSilenceOverride(parameters *config);
 int ConvertAudioTypeForProcessing(int type, parameters *config);

@@ -903,7 +903,7 @@ int LoadAudioBlockStructure(FILE *file, parameters *config)
 			return 0;
 		}
 
-		config->types.typeArray[i].IsaddOnData = MatchesPreviousType(config->types.typeArray[i].type, config);
+		config->types.typeArray[i].IsaddOnData = MatchesPreviousType(i, config->types.typeArray[i].type, config);
 		// make silent if duplicate and not silence block
 		if(!config->useExtraData && config->types.typeArray[i].IsaddOnData)
 		{
@@ -941,10 +941,7 @@ int LoadAudioNoSyncProfile(FILE *file, parameters *config)
 
 	config->noSyncProfile = 1;
 	if(config->plotDifferences)
-	{
 		config->averagePlot = 1;
-		config->plotDifferences = 0;
-	}
 
 	readLine(lineBuffer, file);
 	if(sscanf(lineBuffer, "%255[^\n]\n", config->types.Name) != 1)
@@ -1157,7 +1154,7 @@ int LoadAudioNoSyncProfile(FILE *file, parameters *config)
 			return 0;
 		}
 
-		config->types.typeArray[i].IsaddOnData = MatchesPreviousType(config->types.typeArray[i].type, config);
+		config->types.typeArray[i].IsaddOnData = MatchesPreviousType(i, config->types.typeArray[i].type, config);
 		// make silent if duplicate and not silence block
 		if(!config->useExtraData && config->types.typeArray[i].IsaddOnData)
 		{
@@ -1221,7 +1218,7 @@ void PrintAudioBlocks(parameters *config)
 			config->types.typeArray[i].frames,
 			config->types.typeArray[i].color,
 			config->types.typeArray[i].channel,
-			config->types.typeArray[i].IsaddOnData ? "(r)" : "",
+			config->types.typeArray[i].IsaddOnData ? "(ExtraData)" : "",
 			config->types.typeArray[i].elementCount*config->types.typeArray[i].frames,
 			seconds, 
 			StartSeconds,
@@ -1342,7 +1339,7 @@ int GetFirstSyncIndex(parameters *config)
 	return NO_INDEX;
 }
 
-int MatchesPreviousType(int type, parameters *config)
+int MatchesPreviousType(int pos, int type, parameters *config)
 {
 	int count = 0;
 
@@ -1352,13 +1349,13 @@ int MatchesPreviousType(int type, parameters *config)
 	if(type <= TYPE_CONTROL)
 		return 0;
 
-	for(int i = 0; i < config->types.typeCount; i++)
+	for(int i = 0; i < pos; i++)
 	{
 		if(config->types.typeArray[i].type == type)
 			count++;
 	}
 	
-	if(count > 1)
+	if(count)
 		return 1;
 	return 0;
 }

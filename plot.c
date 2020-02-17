@@ -3998,9 +3998,9 @@ void DrawVerticalFrameGrid(PlotFile *plot, AudioSignal *Signal, double frames, d
 		if(frames <= 10)
 			segment = frames/2;
 		else {
-			if(frames < 100) segment = 10;
+			if(frames <= 100) segment = 10;
 			else {
-				if(frames < 500) segment = 50;
+				if(frames <= 500) segment = 25;
 				else segment = 200;
 			}
 		}
@@ -4702,6 +4702,7 @@ void PlotDifferenceTimeSpectrogram(parameters *config)
 	if(!framecount)
 		return;
 
+	/* This calculates the viewport in dBFS */
 	steps = 1.0;
 	abs_significant = fabs(config->maxDbPlotZC);
 	outside = FindDifferencePercentOutsideViewPort(&maxDiff, abs_significant, config);
@@ -4719,7 +4720,6 @@ void PlotDifferenceTimeSpectrogram(parameters *config)
 	if(outside >= 10)
 		abs_significant = abs_significant*1.5;
 
-	outside = FindDifferencePercentOutsideViewPort(&maxDiff, abs_significant, config);
 	if(abs_significant > VERT_SCALE_STEP_BAR*10)
 		steps = VERT_SCALE_STEP_BAR;
 	else
@@ -4797,7 +4797,7 @@ void PlotDifferenceTimeSpectrogram(parameters *config)
 
 			if(lastType != type)
 			{
-				DrawTimeCode(&plot, tc, x, config->referenceFramerate, color, config);
+				DrawTimeCode(&plot, tc, x, config->smallerFramerate, color, config);
 				lastType = type;
 			}
 			x += noteWidth;

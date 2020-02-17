@@ -238,6 +238,6 @@ void PlotPhaseDifferences(parameters *config);
 
 void DrawGridZeroAngleCentered(PlotFile *plot, double maxAngle, double angleIncrement, double hz, double hzIncrement, parameters *config);
 void DrawLabelsZeroAngleCentered(PlotFile *plot, double maxAngle, double angleIncrement, double hz, double hzIncrement,  parameters *config);
-void PlotDifferenceTimeSpectrogram(parameters *config);
+void PlotDifferenceTimeSpectrogram(int plotType, parameters *config);
 
 #endif
