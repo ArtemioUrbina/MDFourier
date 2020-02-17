@@ -2397,6 +2397,7 @@ void FindFloor(AudioSignal *Signal, parameters *config)
 			Signal->role == ROLE_REF ? "Reference" : "Comparison",
 			noiseFreq.hertz,
 			noiseFreq.amplitude);
+		config->channelWithLowFundamentals = 1;
 		return;
 	}
 

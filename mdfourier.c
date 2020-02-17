@@ -184,34 +184,6 @@ int main(int argc , char *argv[])
 	logmsg("* Plotting results to PNGs:\n");
 	PlotResults(ReferenceSignal, ComparisonSignal, &config);
 
-	if(config.reverseCompare)
-	{
-		/* Clear up everything for inverse compare */
-		CleanMatched(ReferenceSignal, ComparisonSignal, &config);
-		ReleaseDifferenceArray(&config);
-		InvertComparedName(&config);
-	
-		logmsg("* Comparing frequencies 'Comparison' -> 'Reference'\n");
-	
-		/* Detect Signal Floor */
-		config.significantAmplitude = config.origSignificantAmplitude;
-		if(ComparisonSignal->hasSilenceBlock && !config.ignoreFloor && 
-			ComparisonSignal->floorAmplitude != 0.0 && ComparisonSignal->floorAmplitude > config.significantAmplitude)
-		{
-			config.significantAmplitude = ComparisonSignal->floorAmplitude;
-		}
-	
-		logmsg(" - Using %g dBFS as minimum significant amplitude for analysis\n",
-			config.significantAmplitude);
-		if(!CompareAudioBlocks(ComparisonSignal, ReferenceSignal, &config))
-		{
-			logmsg("Aborting\n");
-			return 1;
-		}
-	
-		PlotResults(ComparisonSignal, ReferenceSignal, &config);
-	}
-
 	if(IsLogEnabled())
 		endLog();
 
@@ -1975,7 +1947,7 @@ int CompareAudioBlocks(AudioSignal *ReferenceSignal, AudioSignal *ComparisonSign
 			}
 		}
 
-		if(config->Differences.BlockDiffArray[block].cntFreqBlkDiff && !config->justResults)
+		if(config->Differences.BlockDiffArray[block].cntFreqBlkDiff)
 		{
 			if(config->extendedResults)
 			{
@@ -1986,7 +1958,7 @@ int CompareAudioBlocks(AudioSignal *ReferenceSignal, AudioSignal *ComparisonSign
 		}
 		else
 		{
-			if(!config->justResults && config->showAll)
+			if(config->showAll)
 			{
 				logmsgFileOnly("Matched Block Report for %s# %ld (%ld)\n", GetBlockName(config, block), GetBlockSubIndex(config, block), block);
 				PrintComparedBlocks(&ReferenceSignal->Blocks[block], &ComparisonSignal->Blocks[block], 

@@ -800,6 +800,7 @@ void enableTestWarnings(parameters *config)
 	config->outputFilterFunction = 1;
 
 	config->compressToBlocks = 1;
+	config->channelWithLowFundamentals = 1;
 
 	logmsg("ERROR: enableTestWarnings Enabled\n");
 }
@@ -1188,6 +1189,12 @@ void DrawLabelsMDF(PlotFile *plot, char *Gname, char *GType, int type, parameter
 			pl_alabel_r(plot->plotter, 'l', 'l', "Left Channel");
 		if(config->channel == 'r')
 			pl_alabel_r(plot->plotter, 'l', 'l', "Right Channel");
+	}
+
+	if(config->channelWithLowFundamentals)
+	{
+		PLOT_COLUMN(7, 1);
+		pl_alabel_r(plot->plotter, 'l', 'l', "Low Fundamentals present");
 	}
 	
 	pl_restorestate_r(plot->plotter);

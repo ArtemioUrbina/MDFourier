@@ -81,15 +81,13 @@ void PrintUsage()
 	logmsg("	 -F: Don't create Noise <F>loor Plots\n");
 	logmsg("	 -t: Don't create Time Spectrogram Plots\n");
 	logmsg("	 -O: Don't create Phase Pl<O>ts\n");
-	logmsg("	 -H: Output waveform plots for <H>ighly different notes\n");
 	logmsg("	 -Q: Don't create Time Domain Plots\n");
+	logmsg("	 -H: Output waveform plots for <H>ighly different notes\n");
 	logmsg("	 -o: Define the output filter function for color weights [0-5]\n");
 	logmsg("	 -u: Create waveform plots for all notes\n");
 	logmsg("	 -U: Create waveform plots for all notes, including FFT windows\n");
 	logmsg("	 -E: Defines Full frequency rang<E> for Time Spectrogram plots\n");
-	logmsg("	 -R: Do the reverse compare plots\n");
 	logmsg("	 -N: Use li<N>ear scale instead of logaritmic scale for plots\n");
-	logmsg("	 -j: (text) Cuts per block information and shows <j>ust total results\n");
 	logmsg("	 -x: (text) Enables e<x>tended log results. Shows a table with matches\n");
 	logmsg("	 -m: (text) Enables Show all blocks compared with <m>atched frequencies\n");
 	logmsg("	 -y: Output debug Sync pulse detection algorithm information\n");
@@ -124,7 +122,6 @@ void CleanParameters(parameters *config)
 	config->endHzPlot = END_HZ;
 	config->maxDbPlotZC = DB_HEIGHT;
 	config->extendedResults = 0;
-	config->justResults = 0;
 	config->verbose = 0;
 	config->window = 't';
 	config->channel = 's';
@@ -162,10 +159,10 @@ void CleanParameters(parameters *config)
 	config->frequencyNormalizationTries = 0;
 	config->frequencyNormalizationTolerant = 0;
 	config->noiseFloorTooHigh = 0;
+	config->channelWithLowFundamentals = 0;
 
 	config->logScale = 1;
 	config->logScaleTS = 0;
-	config->reverseCompare = 0;
 	config->normType = max_frequency;
 
 	config->refNoiseMin = 0;
@@ -237,8 +234,8 @@ int commandline(int argc , char *argv[], parameters *config)
 	
 	CleanParameters(config);
 
-	// Available: GJ01234567
-	while ((c = getopt (argc, argv, "Aa:Bb:Cc:Dd:Ee:Ff:gHhIijKkL:lMmNn:Oo:P:p:QqRr:Ss:TtUuVvWw:XxY:yZ:z89")) != -1)
+	// Available: GJjR01234567
+	while ((c = getopt (argc, argv, "Aa:Bb:Cc:Dd:Ee:Ff:gHhIiKkL:lMmNn:Oo:P:p:Qqr:Ss:TtUuVvWw:XxY:yZ:z89")) != -1)
 	switch (c)
 	  {
 	  case 'A':
@@ -333,9 +330,6 @@ int commandline(int argc , char *argv[], parameters *config)
 		break;
 	  case 'i':
 		config->ignoreFloor = 1;
-		break;
-	  case 'j':
-		config->justResults = 1;
 		break;
 	  case 'K':
 		config->drawPerfect = 1;
@@ -437,9 +431,6 @@ int commandline(int argc , char *argv[], parameters *config)
 		break;
 	  case 'q':
 		config->quantizeRound = 0;
-		break;
-	  case 'R':
-		config->reverseCompare = 1;
 		break;
 	  case 'r':
 		sprintf(config->referenceFile, "%s", optarg);
@@ -583,18 +574,6 @@ int commandline(int argc , char *argv[], parameters *config)
 	{
 		logmsg("  usage: mdfourier -P profile.mdf -r reference.wav -c compare.wav\n");
 		logmsg("  ERROR: Please define both reference and compare audio files\n");
-		return 0;
-	}
-
-	if(config->extendedResults && config->justResults)
-	{
-		logmsg("* Just Results cancels Extended results\n");
-		return 0;
-	}
-
-	if(config->showAll && config->justResults)
-	{
-		logmsg("* Just Results cancels Show All\n");
 		return 0;
 	}
 

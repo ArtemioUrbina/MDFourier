@@ -453,7 +453,6 @@ typedef struct parameters_st {
 	double			maxDbPlotZC;
 	int				showAll;
 	int				extendedResults;
-	int				justResults;
 	int				verbose;
 	char			window;
 	char			channel;
@@ -472,7 +471,6 @@ typedef struct parameters_st {
 	int				logScale;
 	int				logScaleTS;
 	int				debugSync;
-	int				reverseCompare;
 	int				ZeroPad;
 	enum normalize	normType;
 	int				channelBalance;
@@ -513,6 +511,7 @@ typedef struct parameters_st {
 	int				frequencyNormalizationTries;
 	double			frequencyNormalizationTolerant;
 	int				noiseFloorTooHigh;
+	int				channelWithLowFundamentals;
 
 	double 			plotResX;
 	double			plotResY;
