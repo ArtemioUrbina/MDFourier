@@ -111,7 +111,7 @@ int CDOSExecute::ExecuteExternalFile()
 	do
 	{
 		result = ::ReadFile(rPipe, buf, BUFFER_SIZE, &reDword, NULL);
-		if(result)
+		if(result == TRUE)
 		{
 			csTemp = buf;
 			Lock();
@@ -128,6 +128,24 @@ int CDOSExecute::ExecuteExternalFile()
 				Release();
 			}	
 		}
+		else
+		{
+			int LastError = 0;
+
+			LastError = GetLastError();
+			switch(LastError)
+			{
+				case ERROR_BROKEN_PIPE:
+					break;
+				case ERROR_MORE_DATA:
+					result = TRUE;
+					break;
+				default:
+					break;
+			}
+		}
+		memset(buf, 0, sizeof(char)*BUFFER_SIZE);
+		csTemp.Empty();
 	}while(result);
 
 	CloseHandle(pInfo.hProcess);

@@ -86,6 +86,7 @@ protected:
 	CommandLineArray	SyncType[COUNT_SYNCTYPE];
 	CommandLineArray	Resolutions[COUNT_RESOLUTION];
 
+	CString cmdWindowText;
 	CString MDFVersion;
 	CString	ProfileVersion;
 	CString listName;
@@ -97,6 +98,7 @@ protected:
 	int		DosWaitCount;
 	int		syncTypes;
 
+	void ReadAndDisplayResults(CString &newText);
 	void FillComboBoxes();
 	int CheckDependencies();
 	void ManageWindows(BOOL Enable);

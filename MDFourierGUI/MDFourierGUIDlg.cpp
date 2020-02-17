@@ -366,7 +366,7 @@ void CMDFourierGUIDlg::ExecuteCommand(CString Compare)
 	killingDOS = false;
 	ManageWindows(FALSE);
 
-	SetTimer(IDT_DOS, 250, 0);
+	SetTimer(IDT_DOS, 100, 0);
 
 	m_OutputTextCtrl.SetWindowText(L"");
 	m_ComparisonLbl.SetWindowText(Compare);
@@ -405,92 +405,43 @@ void CMDFourierGUIDlg::OnBnClickedCancel()
 	}
 }
 
-
-void CMDFourierGUIDlg::OnTimer(UINT_PTR nIDEvent)
+void CMDFourierGUIDlg::ReadAndDisplayResults(CString &newText)
 {
 	CString		ntext;
-	int			lineCount;
+	int			newLineCount;
 
 	cDos.Lock();
 	ntext = cDos.m_OutputText;
 	cDos.Release();
 
-	m_OutputTextCtrl.SetWindowText(ntext);
-	
-	lineCount = ntext.Replace(_T("\n"), _T("\n"));
-    m_OutputTextCtrl.SendMessage(EM_LINESCROLL, 0, lineCount);
-
-    if(!cDos.m_fAbortNow && cDos.m_fDone)
+	if(ntext != cmdWindowText)
 	{
-		int		pos = 0, errorFound = 0, finished = 0;
-		CString	searchFor = L"Results stored in ";
+		m_OutputTextCtrl.SetWindowText(ntext);
+		newLineCount = ntext.Replace(_T("\n"), _T("\n"));		
+		m_OutputTextCtrl.SendMessage(EM_LINESCROLL, 0, newLineCount);
+		cmdWindowText = ntext;
+	}
+}
 
-        KillTimer(IDT_DOS);
-        ManageWindows(TRUE);
 
-		// Check is we enable the results button
-		pos = ntext.Find(searchFor, 0);
-
-		if(pos != -1)
-		{
-			TCHAR	pwd[MAX_PATH];
-
-			GetCurrentDirectory(MAX_PATH, pwd);
-			m_OpenResultsBttn.EnableWindow(TRUE);
-
-			m_ResultsFolderText.Format(L"%s\\%s", pwd,
-				ntext.Right(ntext.GetLength() - pos - searchFor.GetLength()));
-			m_ResultsFolderText = m_ResultsFolderText.Left(m_ResultsFolderText.GetLength() - 2);
-		}
-
-		searchFor = "ERROR";
-		pos = ntext.Find(searchFor, 0);
-
-		if(pos != -1)
-		{
-			CString	errorMsg;
-
-			errorMsg = ntext.Right(ntext.GetLength()-pos);
-			MessageBox(errorMsg, L"Error from MDFourier");
-			errorFound = 1;
-		}
-
-		elementPos++;
-
-		if(elementPos < elementCount)
-		{
-			if(!errorFound)
-				ExecuteCommand(elements[elementPos]);
-			else
-				finished = 1;
-		}
-		else
-			finished = 1;
-
-		if(finished)
-		{
-			elementCount = 0;
-			elementPos = 0;
-			if(elements)
-				delete [] elements;
-			elements = NULL;
-
-			if(listName.GetLength())
-			{
-				m_ComparisonLbl.SetWindowText(listName);
-				listName.Empty();
-			}
-		}
-    }
+void CMDFourierGUIDlg::OnTimer(UINT_PTR nIDEvent)
+{
+	CString		ntext;
+	
+	ReadAndDisplayResults(ntext);
 
 	if(cDos.m_fAbortNow)
 	{
-		DosWaitCount ++;
-		if(DosWaitCount >= 20)
+		if(DosWaitCount >= 20 || cDos.m_fDone)
 		{
-			cDos.KillNow();
-			cDos.m_fDone = TRUE;
-			m_OutputTextCtrl.SetWindowText(L"Process terminated.");
+			if(!cDos.m_fDone)
+			{
+				cDos.KillNow();
+				cDos.m_fDone = TRUE;
+				m_OutputTextCtrl.SetWindowText(L"Process killed.");
+			}
+			else
+				m_OutputTextCtrl.SetWindowText(L"Process terminated.");
 			killingDOS = false;
 
 			elementCount = 0;
@@ -508,7 +459,74 @@ void CMDFourierGUIDlg::OnTimer(UINT_PTR nIDEvent)
 				listName.Empty();
 			}
 		}
+		DosWaitCount ++;
 	}
+	else
+	{
+		int			pos = 0, errorFound = 0, finished = 0;
+		CString		searchFor = L"Results stored in ";
+
+		if(cDos.m_fDone)
+		{
+			// In case cDos.m_fDone flag was raised between updates, has happened a lot
+			ReadAndDisplayResults(ntext);
+
+			KillTimer(IDT_DOS);
+			ManageWindows(TRUE);
+
+			// Check is we enable the results button
+			pos = ntext.Find(searchFor, 0);
+			if(pos != -1)
+			{
+				TCHAR	pwd[MAX_PATH];
+
+				GetCurrentDirectory(MAX_PATH, pwd);
+				m_OpenResultsBttn.EnableWindow(TRUE);
+
+				m_ResultsFolderText.Format(L"%s\\%s", pwd,
+					ntext.Right(ntext.GetLength() - pos - searchFor.GetLength()));
+				m_ResultsFolderText = m_ResultsFolderText.Left(m_ResultsFolderText.GetLength() - 2);
+			}
+
+			searchFor = "ERROR";
+			pos = ntext.Find(searchFor, 0);
+			if(pos != -1)
+			{
+				CString	errorMsg;
+
+				errorMsg = ntext.Right(ntext.GetLength()-pos);
+				MessageBox(errorMsg, L"Error from MDFourier");
+				errorFound = 1;
+			}
+
+			elementPos++;
+
+			if(elementPos < elementCount)
+			{
+				if(!errorFound)
+					ExecuteCommand(elements[elementPos]);
+				else
+					finished = 1;
+			}
+			else
+				finished = 1;
+
+			if(finished)
+			{
+				elementCount = 0;
+				elementPos = 0;
+				if(elements)
+					delete [] elements;
+				elements = NULL;
+
+				if(listName.GetLength())
+				{
+					m_ComparisonLbl.SetWindowText(listName);
+					listName.Empty();
+				}
+			}
+		}
+    }
 	CDialogEx::OnTimer(nIDEvent);
 }
 
@@ -578,7 +596,7 @@ void CMDFourierGUIDlg::FillComboBoxes()
 	InsertValueInCombo(L"High", L"2", CurveConvert[2], m_CurveAdjustSelect);
 	InsertValueInCombo(L"Neutral", L"3", CurveConvert[3], m_CurveAdjustSelect);
 	InsertValueInCombo(L"Low", L"4", CurveConvert[4], m_CurveAdjustSelect);
-	InsertValueInCombo(L"Dimm", L"5", CurveConvert[5], m_CurveAdjustSelect);
+	InsertValueInCombo(L"Dim", L"5", CurveConvert[5], m_CurveAdjustSelect);
 	m_CurveAdjustSelect.SetCurSel(3);
 
 	InsertValueInCombo(L"Low", L"1", Resolutions[0], m_Resolution);
@@ -1054,7 +1072,7 @@ void CMDFourierGUIDlg::OnBnClickedMdwave()
 	mdwave = true;
 	ManageWindows(FALSE);
 
-	SetTimer(IDT_DOS, 250, 0);
+	SetTimer(IDT_DOS, 100, 0);
 
 	m_OutputTextCtrl.SetWindowText(L"");
 	//m_ComparisonLbl.SetWindowText(L"");
