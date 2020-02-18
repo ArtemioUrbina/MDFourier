@@ -531,7 +531,7 @@ int LoadProfile(parameters *config)
 	file = fopen(config->profileFile, "r");
 	if(!file)
 	{
-		logmsg("ERROR: Could not load profile configuration file: \"%s\"\n", config->profileFile);
+		logmsg("ERROR: Could not load profile configuration file: \"%s\" [errno %d]\n", config->profileFile, errno);
 		return 0;
 	}
 	
