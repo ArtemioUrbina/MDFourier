@@ -58,6 +58,7 @@ char *GetBlockName(parameters *config, int pos);
 int GetBlockSubIndex(parameters *config, int pos);
 int GetBlockType(parameters *config, int pos);
 char *GetBlockColor(parameters *config, int pos);
+int GetBlockElements(parameters *config, int pos);
 char *GetTypeColor(parameters *config, int type);
 char *GetTypeName(parameters *config, int type);
 char *GetTypeDisplayName(parameters *config, int type);

@@ -598,7 +598,7 @@ int CheckSyncFormats(parameters *config)
 
 	if(config->videoFormatRef < 0|| config->videoFormatRef >= config->types.syncCount)
 	{
-		logmsg("\tInvalid format '%d' for Reference, profile defines %d types [", 
+		logmsg("\tERROR: Invalid format '%d' for Reference, profile defines %d types\n\t[", 
 				config->videoFormatRef, config->types.syncCount);
 		for(int s = 0; s < config->types.syncCount; s++)
 		{
@@ -612,7 +612,7 @@ int CheckSyncFormats(parameters *config)
 
 	if(config->videoFormatCom < 0|| config->videoFormatCom >= config->types.syncCount)
 	{
-		logmsg("\tInvalid format '%d' for Comparison, profile defines %d types [", 
+		logmsg("\tERROR: Invalid format '%d' for Comparison, profile defines %d types:\n\t[", 
 				config->videoFormatCom, config->types.syncCount);
 		for(int s = 0; s < config->types.syncCount; s++)
 		{
@@ -946,7 +946,7 @@ int LoadAudioNoSyncProfile(FILE *file, parameters *config)
 	readLine(lineBuffer, file);
 	if(sscanf(lineBuffer, "%255[^\n]\n", config->types.Name) != 1)
 	{
-		logmsg("Invalid Name '%s'\n", lineBuffer);
+		logmsg("ERROR: Invalid Name '%s'\n", lineBuffer);
 		fclose(file);
 		return 0;
 	}
@@ -954,14 +954,14 @@ int LoadAudioNoSyncProfile(FILE *file, parameters *config)
 	readLine(lineBuffer, file);
 	if(sscanf(lineBuffer, "%s\n", buffer) != 1)
 	{
-		logmsg("Invalid Reference Frame Rate Adjustment '%s'\n", lineBuffer);
+		logmsg("ERROR: Invalid Reference Frame Rate Adjustment '%s'\n", lineBuffer);
 		fclose(file);
 		return 0;
 	}
 	config->types.SyncFormat[0].MSPerFrame = strtod(buffer, NULL);
 	if(!config->types.SyncFormat[0].MSPerFrame)
 	{
-		logmsg("Invalid Reference Frame Rate Adjustment '%s'\n", lineBuffer);
+		logmsg("ERROR: Invalid Reference Frame Rate Adjustment '%s'\n", lineBuffer);
 		fclose(file);
 		return 0;
 	}
@@ -969,14 +969,14 @@ int LoadAudioNoSyncProfile(FILE *file, parameters *config)
 	readLine(lineBuffer, file);
 	if(sscanf(lineBuffer, "%s\n", buffer) != 1)
 	{
-		logmsg("Invalid Comparison Frame Rate Adjustment '%s'\n", lineBuffer);
+		logmsg("ERROR: Invalid Comparison Frame Rate Adjustment '%s'\n", lineBuffer);
 		fclose(file);
 		return 0;
 	}
 	config->types.SyncFormat[1].MSPerFrame = strtod(buffer, NULL);
 	if(!config->types.SyncFormat[1].MSPerFrame)
 	{
-		logmsg("Invalid Comparison Frame Rate Adjustment '%s'\n", lineBuffer);
+		logmsg("ERROR: Invalid Comparison Frame Rate Adjustment '%s'\n", lineBuffer);
 		fclose(file);
 		return 0;
 	}
@@ -995,7 +995,7 @@ int LoadAudioNoSyncProfile(FILE *file, parameters *config)
 			config->noSyncProfileType = NO_SYNC_MANUAL;
 			break;
 		default:
-			logmsg("Invalid Free profile type '%c'. Use '%c' or '%c'\n", 
+			logmsg("ERROR: Invalid Free profile type '%c'. Use '%c' or '%c'\n", 
 				type, NO_SYNC_AUTO_C, NO_SYNC_MANUAL_C);
 			fclose(file);
 			return 0;
@@ -1007,7 +1007,7 @@ int LoadAudioNoSyncProfile(FILE *file, parameters *config)
 	config->types.typeCount = atoi(buffer);
 	if(!config->types.typeCount)
 	{
-		logmsg("Invalid type count:\n'%s'\n", buffer);
+		logmsg("ERROR: Invalid type count:\n'%s'\n", buffer);
 		fclose(file);
 		return 0;
 	}
@@ -1027,7 +1027,7 @@ int LoadAudioNoSyncProfile(FILE *file, parameters *config)
 		readLine(lineBuffer, file);
 		if(sscanf(lineBuffer, "%128s ", config->types.typeArray[i].typeName) != 1)
 		{
-			logmsg("Invalid Block Name\n%s\n", lineBuffer);
+			logmsg("ERROR: Invalid Block Name\n%s\n", lineBuffer);
 			fclose(file);
 			return 0;
 		}
@@ -1035,7 +1035,7 @@ int LoadAudioNoSyncProfile(FILE *file, parameters *config)
 
 		if(sscanf(lineBuffer, "%*s %c ", &type) != 1)
 		{
-			logmsg("Invalid Block Type %s\n", lineBuffer);
+			logmsg("ERROR: Invalid Block Type %s\n", lineBuffer);
 			fclose(file);
 			return 0;
 		}
@@ -1068,7 +1068,7 @@ int LoadAudioNoSyncProfile(FILE *file, parameters *config)
 			default:
 				if(sscanf(lineBuffer, "%*s %d ", &config->types.typeArray[i].type) != 1)
 				{
-					logmsg("Invalid MD Fourier Block ID\n", config->types.typeArray[i].type);
+					logmsg("ERROR: Invalid MD Fourier Block ID\n", config->types.typeArray[i].type);
 					fclose(file);
 					return 0;
 				}
@@ -1126,7 +1126,7 @@ int LoadAudioNoSyncProfile(FILE *file, parameters *config)
 				&config->types.typeArray[i].color [0],
 				&config->types.typeArray[i].channel) != 4)
 			{
-				logmsg("Invalid MD Fourier Audio Blocks File (Element Count, frames, color, channel): %s\n", lineBuffer);
+				logmsg("ERROR: Invalid MD Fourier Audio Blocks File (Element Count, frames, color, channel): %s\n", lineBuffer);
 				fclose(file);
 				return 0;
 			}
@@ -1501,7 +1501,7 @@ int DetectWatermarkIssue(char *msg, parameters *config)
 
 	if(!config || !config->referenceSignal || !config->comparisonSignal)
 	{
-		sprintf(msg, "Invalid watermark parameters!");
+		sprintf(msg, "ERROR: Invalid watermark parameters!");
 		return 1;
 	}
 
@@ -1840,6 +1840,23 @@ long int GetBlockFrames(parameters *config, int pos)
 	return 0;
 }
 
+int GetBlockElements(parameters *config, int pos)
+{
+	int elementsCounted = 0;
+
+	if(!config)
+		return 0;
+
+	for(int i = 0; i < config->types.typeCount; i++)
+	{
+		elementsCounted += config->types.typeArray[i].elementCount;
+		if(elementsCounted > pos)
+			return(config->types.typeArray[i].elementCount);
+	}
+	
+	return 0;
+}
+
 char *GetBlockName(parameters *config, int pos)
 {
 	int elementsCounted = 0;
@@ -2056,18 +2073,23 @@ int GetInternalSyncTotalLength(int pos, parameters *config)
 	return 0;
 }
 
-Frequency FindNoiseBlockAverage(AudioSignal *Signal, parameters *config)
+Frequency FindNoiseBlockInsideOneStandardDeviation(AudioSignal *Signal, parameters *config)
 {
-	Frequency	cutOff, max, min;
+	Frequency	cutOff, mean, sd;
 	int 		noiseBlock = -1;
-	int			count = 0;
+	double		count = 0, outside = 0;
 
 	CleanFrequency(&cutOff);
 	cutOff.hertz = 0;
 	cutOff.amplitude = 0;
-	CleanFrequency(&max);
-	CleanFrequency(&min);
-	min.amplitude = 0;
+
+	CleanFrequency(&mean);
+	mean.hertz = 0;
+	mean.amplitude = 0;
+
+	CleanFrequency(&sd);
+	sd.hertz = 0;
+	sd.amplitude = 0;
 
 	for(int block = 0; block < config->types.totalBlocks; block++)
 	{
@@ -2082,6 +2104,7 @@ Frequency FindNoiseBlockAverage(AudioSignal *Signal, parameters *config)
 	if(noiseBlock == -1)
 		return cutOff;
 
+	// Calculate Mean
 	for(int i = 0; i < config->MaxFreq; i++)
 	{
 		if(Signal->Blocks[noiseBlock].freq[i].hertz)
@@ -2091,34 +2114,72 @@ Frequency FindNoiseBlockAverage(AudioSignal *Signal, parameters *config)
 			hz = Signal->Blocks[noiseBlock].freq[i].hertz;
 			amp = fabs(Signal->Blocks[noiseBlock].freq[i].amplitude);
 
-			cutOff.hertz += hz;
-			cutOff.amplitude += amp;
+			mean.hertz += hz;
+			mean.amplitude += amp;
 
-			if(fabs(max.amplitude) > amp)
-				max = Signal->Blocks[noiseBlock].freq[i];
+			count ++;
+		}
+	}
 
-			if(fabs(min.amplitude) < amp)
-				min = Signal->Blocks[noiseBlock].freq[i];
+	if(!count)
+		return cutOff;
+
+	mean.hertz = mean.hertz/count;
+	mean.amplitude = mean.amplitude/count;
+
+	count = 0;
+	// Calculate StandardDeviation
+	for(int i = 0; i < config->MaxFreq; i++)
+	{
+		if(Signal->Blocks[noiseBlock].freq[i].hertz)
+		{
+			double hz, amp;
+
+			hz = Signal->Blocks[noiseBlock].freq[i].hertz;
+			amp = fabs(Signal->Blocks[noiseBlock].freq[i].amplitude);
+
+			sd.hertz += pow(hz - mean.hertz, 2);
+			sd.amplitude += pow(amp - mean.amplitude, 2);
+
 			count ++;
 		}
 	}
 	
-	if(count)
+	if(!count)
+		return cutOff;
+
+	sd.hertz = sqrt(sd.hertz/count);
+	sd.amplitude = sqrt(sd.amplitude/count);
+
+	cutOff.hertz = mean.hertz+sd.hertz;
+	cutOff.amplitude = -1.0*(mean.amplitude+sd.amplitude);
+
+	if(config->verbose)
 	{
-		double difference = 0;
-
-		cutOff.hertz = cutOff.hertz/count;
-		cutOff.amplitude = -1.0*(fabs(cutOff.amplitude)/count);
-		difference = fabs(min.amplitude) - fabs(cutOff.amplitude);
-
-		if(config->verbose)
-			logmsg("  - %s signal profile defined noise channel average: %g dBFS [%g Hz] Minimun %g dBFS [%g Hz]\n",
-				Signal->role == ROLE_REF ? "Reference" : "Comparison",
-				cutOff.amplitude, cutOff.hertz, min.amplitude, min.hertz);
-
-		cutOff.amplitude += -1*(difference/2);
+		logmsg("  - %s signal profile defined noise channel data:\n", 
+			Signal->role == ROLE_REF ? "Reference" : "Comparison");
+		logmsg("      Standard deviation: %g dBFS [%g Hz] Mean: %g dBFS [%g Hz] Cutoff: %g dBFS [%g Hz]\n",
+			sd.amplitude, sd.hertz,
+			mean.amplitude, mean.hertz,
+			cutOff.amplitude, cutOff.hertz);
 	}
 
+	for(int i = 0; i < config->MaxFreq; i++)
+	{
+		if(Signal->Blocks[noiseBlock].freq[i].hertz)
+		{
+			double amp;
+
+			amp = Signal->Blocks[noiseBlock].freq[i].amplitude;
+
+			if(amp <= cutOff.amplitude)
+				outside ++;
+		}
+	}
+
+	if(config->verbose)
+		logmsg("  - Using %g would leave %g%% data out\n", 
+				cutOff.amplitude, outside/count*100);
 	return cutOff;
 }
 
@@ -2277,7 +2338,7 @@ void FindFloor(AudioSignal *Signal, parameters *config)
 
 	// This only works if a low fundamental frequency is defined in profile, otherwise
 	// returns amplitude at 0
-	noiseFreq = FindNoiseBlockAverage(Signal, config);
+	noiseFreq = FindNoiseBlockInsideOneStandardDeviation(Signal, config);
 
 	for(long int i = 0; i < size; i++)
 	{

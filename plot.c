@@ -1675,7 +1675,7 @@ void DrawNoiseLines(PlotFile *plot, double start, double end, AudioSignal *Signa
 	pl_linemod_r(plot->plotter, "dotdashed");
 	if(Signal->gridFrequency)
 	{
-		for(harmonic = 0; harmonic < 32; harmonic++)
+		for(harmonic = 1; harmonic < 32; harmonic++)
 		{
 			pl_pencolor_r (plot->plotter, 0xAAAA-0x400*harmonic, 0xAAAA-0x400*harmonic, 0);
 			pl_fline_r(plot->plotter, transformtoLog(Signal->gridFrequency*harmonic, config), start, transformtoLog(Signal->gridFrequency*harmonic, config), end);
@@ -1992,7 +1992,7 @@ void PlotAllMissingFrequencies(FlatFrequency *freqDiff, long int size, char *fil
 
 	if(size)
 	{
-		for(int f = size; f >= 0 ; f--)
+		for(int f = size-1; f >= 0 ; f--)
 		{
 			if(freqDiff[f].type > TYPE_CONTROL)
 			{ 
@@ -2114,7 +2114,7 @@ void PlotAllSpectrogram(FlatFrequency *freqs, long int size, char *filename, int
 
 	if(size)
 	{
-		for(int f = size; f >= 0; f--)
+		for(int f = size-1; f >= 0; f--)
 		{
 			if(freqs[f].type > TYPE_CONTROL)
 			{ 
@@ -2805,7 +2805,10 @@ void PlotTestZL(char *filename, parameters *config)
 inline double transformtoLog(double coord, parameters *config)
 {
 	if(coord <= 0)
+	{
+		logmsg("WARNING: transformtoLog received %g\n", coord);
 		return 0;
+	}
 	if(config->logScale)
 		return(config->plotRatio*log10(coord));
 	else
@@ -3571,9 +3574,9 @@ void DrawLabelsTimeSpectrogram(PlotFile *plot, int khz, int khzIncrement, parame
 	pl_restorestate_r(plot->plotter);
 }
 
-void DrawTimeCode(PlotFile *plot, double timecode, double x, double framerate, int color, parameters *config)
+void DrawTimeCode(PlotFile *plot, double timecode, double x, double framerate, int color, double spaceAvailable, parameters *config)
 {
-	double	seconds = 0;
+	double	seconds = 0, labelwidth = 0;
 	char	time[40];
 
 	seconds = FramesToSeconds(timecode, framerate);
@@ -3581,11 +3584,13 @@ void DrawTimeCode(PlotFile *plot, double timecode, double x, double framerate, i
 	pl_savestate_r(plot->plotter);
 	pl_fspace_r(plot->plotter, 0-X0BORDER*config->plotResX*plot->leftmargin, -1*config->plotResY/2-Y0BORDER*config->plotResY, config->plotResX+X1BORDER*config->plotResX, config->plotResY/2+Y1BORDER*config->plotResY);
 	pl_ffontname_r(plot->plotter, PLOT_FONT);
-	pl_ffontsize_r(plot->plotter, FONT_SIZE_1);
+	pl_ffontsize_r(plot->plotter, FONT_SIZE_2);
 	SetPenColor(color, 0xFFFF, plot);
 	pl_fmove_r(plot->plotter, x, config->plotResY/2);
 	sprintf(time, "%0.1fs", seconds);
-	pl_alabel_r(plot->plotter, 'l', 'b', time);
+	labelwidth = pl_flabelwidth_r(plot->plotter, time);
+	if(spaceAvailable >= labelwidth)
+		pl_alabel_r(plot->plotter, 'l', 'b', time);
 	pl_restorestate_r(plot->plotter);
 }
 
@@ -3666,7 +3671,13 @@ void PlotTimeSpectrogram(AudioSignal *Signal, parameters *config)
 
 			if(lastType != type)
 			{
-				DrawTimeCode(&plot, tc, x, Signal->framerate, color, config);
+				double	spaceAvailable = 0;
+
+				SetPenColor(color, 0x9999, &plot);
+				pl_fline_r(plot.plotter, x, 0, x, config->endHzPlot);
+
+				spaceAvailable = noteWidth*GetBlockElements(config, block);
+				DrawTimeCode(&plot, tc, x, Signal->framerate, color, spaceAvailable, config);
 				lastType = type;
 			}
 			x += noteWidth;
@@ -3760,7 +3771,13 @@ void PlotTimeSpectrogramUnMatchedContent(AudioSignal *Signal, parameters *config
 
 			if(lastType != type)
 			{
-				DrawTimeCode(&plot, tc, x, Signal->framerate, color, config);
+				double	spaceAvailable = 0;
+
+				SetPenColor(color, 0x9999, &plot);
+				pl_fline_r(plot.plotter, x, 0, x, config->endHzPlot);
+
+				spaceAvailable = noteWidth*GetBlockElements(config, block);
+				DrawTimeCode(&plot, tc, x, Signal->framerate, color, spaceAvailable, config);
 				lastType = type;
 			}
 			x += noteWidth;
@@ -4804,7 +4821,13 @@ void PlotDifferenceTimeSpectrogram(parameters *config)
 
 			if(lastType != type)
 			{
-				DrawTimeCode(&plot, tc, x, config->smallerFramerate, color, config);
+				double	spaceAvailable = 0;
+
+				SetPenColor(color, 0x9999, &plot);
+				pl_fline_r(plot.plotter, x, 0, x, config->endHzPlot);
+
+				spaceAvailable = noteWidth*GetBlockElements(config, block);
+				DrawTimeCode(&plot, tc, x, config->smallerFramerate, color, spaceAvailable, config);
 				lastType = type;
 			}
 			x += noteWidth;

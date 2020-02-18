@@ -985,7 +985,7 @@ int LoadFile(FILE *file, AudioSignal *Signal, parameters *config, char *fileName
 			return 0;
 		}
 		if(config->verbose)
-			logmsg(" %gs [%ld samples %ld [header %ld] bytes]", 
+			logmsg(" %gs [%ld samples|%ld bytes|%ld bytes/head]", 
 				BytesToSeconds(Signal->header.fmt.SamplesPerSec, Signal->startOffset, Signal->AudioChannels),
 				Signal->startOffset/2/Signal->AudioChannels, Signal->startOffset, Signal->startOffset + Signal->SamplesStart);
 
@@ -1013,7 +1013,7 @@ int LoadFile(FILE *file, AudioSignal *Signal, parameters *config, char *fileName
 				return 0;
 			}
 			if(config->verbose)
-				logmsg(" %gs [%ld samples %ld [header %ld] bytes]\n", 
+				logmsg(" %gs [%ld samples|%ld bytes|%ld bytes/head]\n", 
 					BytesToSeconds(Signal->header.fmt.SamplesPerSec, Signal->endOffset, Signal->AudioChannels),
 					Signal->endOffset/2/Signal->AudioChannels, Signal->endOffset, Signal->endOffset + Signal->SamplesStart);
 			Signal->framerate = CalculateFrameRate(Signal, config);
@@ -1071,9 +1071,9 @@ int LoadFile(FILE *file, AudioSignal *Signal, parameters *config, char *fileName
 					logmsg("\nERROR: Starting position was not detected.\n");
 					return 0;
 				}
-				logmsg(" %gs [%ld bytes]\n", 
+				logmsg(" %gs [%ld samples|%ld bytes|%ld bytes/head]\n", 
 						BytesToSeconds(Signal->header.fmt.SamplesPerSec, Signal->startOffset, Signal->AudioChannels),
-						Signal->startOffset);
+						Signal->startOffset/2/Signal->AudioChannels, Signal->startOffset, Signal->startOffset + Signal->SamplesStart);
 				Signal->endOffset = SecondsToBytes(Signal->header.fmt.SamplesPerSec, 
 										GetSignalTotalDuration(Signal->framerate, config), 
 										Signal->AudioChannels, 

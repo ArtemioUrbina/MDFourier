@@ -58,9 +58,7 @@ void logmsg(char *fmt, ... )
 	if(do_log != CONSOLE_DISABLED)
 	{
 		vprintf(fmt, arguments);
-#if defined (WIN32)
 		fflush(stdout);  // output to Front end ASAP
-#endif
 	}
 
 	if(do_log && logfile)
