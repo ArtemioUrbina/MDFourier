@@ -90,6 +90,7 @@ void PrintUsage()
 	logmsg("	 -N: Use li<N>ear scale instead of logaritmic scale for plots\n");
 	logmsg("	 -x: (text) Enables e<x>tended log results. Shows a table with matches\n");
 	logmsg("	 -m: (text) Enables Show all blocks compared with <m>atched frequencies\n");
+	logmsg("	 -0: Change output folder\n");
 	logmsg("	 -y: Output debug Sync pulse detection algorithm information\n");
 }
 
@@ -116,6 +117,7 @@ void CleanParameters(parameters *config)
 	memset(config, 0, sizeof(parameters));
 
 	sprintf(config->profileFile, PROFILE_FILE);
+	sprintf(config->outputFolder, OUTPUT_FOLDER);
 	config->startHz = START_HZ;
 	config->endHz = END_HZ;
 	config->startHzPlot = START_HZ_PLOT;
@@ -234,8 +236,8 @@ int commandline(int argc , char *argv[], parameters *config)
 	
 	CleanParameters(config);
 
-	// Available: GJjR01234567
-	while ((c = getopt (argc, argv, "Aa:Bb:Cc:Dd:Ee:Ff:gHhIiKkL:lMmNn:Oo:P:p:Qqr:Ss:TtUuVvWw:XxY:yZ:z89")) != -1)
+	// Available: GJjR1234567
+	while ((c = getopt (argc, argv, "Aa:Bb:Cc:Dd:Ee:Ff:gHhIiKkL:lMmNn:Oo:P:p:Qqr:Ss:TtUuVvWw:XxY:yZ:z0:89")) != -1)
 	switch (c)
 	  {
 	  case 'A':
@@ -513,6 +515,21 @@ int commandline(int argc , char *argv[], parameters *config)
 	  case 'z':
 		config->ZeroPad = 1;
 		break;
+	  case '0':
+		{
+			int retval = 0;
+
+			retval = CleanFolderName(config->outputFolder, optarg);
+			if(retval == -1)
+			{
+				logmsg("\tInvalid Output folder name \"%s\"\n", optarg);
+				return 0;
+			}
+			if(retval > 0)
+				logmsg("\tOutput folder changed from \"%s\" to \"%s\"\n", optarg, config->outputFolder);
+			else
+				logmsg("\tOutput folder set to \"%s\"\n", config->outputFolder);
+		}
 	  case '8':
 		config->logScaleTS = 1;
 		break;
@@ -772,9 +789,43 @@ int IsValidFolderCharacter(char c)
 	return 1;
 }
 
+int CleanFolderName(char *name, char *origName)
+{
+	int len = 0, size = 0, change = 0;
+
+	if(!name || !origName)
+		return -1;
+
+	len = strlen(origName);
+	if(!len)
+		return -1;
+	for(int i = 0; i < len; i++)
+	{
+		int act;
+
+		act = IsValidFolderCharacter(origName[i]);
+		if(act == CHAR_FOLDER_OK)
+			name[size++] = origName[i];
+		if(act == CHAR_FOLDER_CHANGE_T1)
+		{
+			name[size++] = '_';
+			change ++;
+		}
+		if(act == CHAR_FOLDER_CHANGE_T2)
+		{
+			name[size++] = '-';
+			change ++;
+		}
+		if(act == CHAR_FOLDER_REMOVE)
+			change ++;
+	}
+	name[size] = '\0';
+	return change;
+}
+
 int CreateFolderName(char *mainfolder, parameters *config)
 {
-	int len = 0, size = 0;
+	int len = 0;
 	char tmp[BUFFER_SIZE/2], fn[BUFFER_SIZE/2], pname[BUFFER_SIZE/2];
 
 	if(!config)
@@ -801,20 +852,11 @@ int CreateFolderName(char *mainfolder, parameters *config)
 	}
 
 	sprintf(pname, "%s", config->types.Name);
-	len = strlen(config->types.Name);
-	for(int i = 0; i < len; i++)
+	if(CleanFolderName(pname, config->types.Name) == -1)
 	{
-		int act;
-
-		act = IsValidFolderCharacter(config->types.Name[i]);
-		if(act == CHAR_FOLDER_OK)
-			pname[size++] = config->types.Name[i];
-		if(act == CHAR_FOLDER_CHANGE_T1)
-			pname[size++] = '_';
-		if(act == CHAR_FOLDER_CHANGE_T2)
-			pname[size++] = '-';
+		logmsg("ERROR: Invalid Name '%s'\n", config->types.Name);
+		return 0;
 	}
-	pname[size] = '\0';
 
 	sprintf(config->compareName, "%s", tmp);
 	sprintf(config->folderName, "%s%c%s", mainfolder, FOLDERCHAR, pname);

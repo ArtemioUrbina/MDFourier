@@ -190,6 +190,7 @@ enum normalize
 };
 
 #define PROFILE_FILE	"profiles\\mdfblocksGEN.mfn"
+#define OUTPUT_FOLDER	"MDFResults"
 
 
 typedef struct max_vol {
@@ -448,6 +449,7 @@ typedef struct parameters_st {
 	char			folderName[BUFFER_SIZE+128];
 	char			compareName[BUFFER_SIZE];
 	char			profileFile[BUFFER_SIZE];
+	char			outputFolder[BUFFER_SIZE];
 	double			startHz, endHz;
 	double			startHzPlot, endHzPlot;
 	double			maxDbPlotZC;

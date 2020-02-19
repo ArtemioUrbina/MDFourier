@@ -288,7 +288,7 @@ long int DetectPulseTrainSequence(Pulses *pulseArray, double targetFrequency, do
 			if(config->syncTolerance)
 				targetFrequency = pulseArray[i].hertz;
 			if(pulseArray[i].amplitude >= averageAmplitude
-				&& (pulseArray[i].hertz == targetFrequency /*|| pulseArray[i].hertz == targetFrequencyHarmonic*/))
+				&& (pulseArray[i].hertz == targetFrequency || pulseArray[i].hertz == targetFrequencyHarmonic))
 			{
 				frame_pulse_count++;
 				lastcounted = 1;
@@ -451,7 +451,7 @@ long int DetectPulseTrainSequenceFreqOnly(Pulses *pulseArray, double targetFrequ
 
 	for(i = start; i < TotalMS; i++)
 	{
-		if(pulseArray[i].hertz == targetFrequency /* || pulseArray[i].hertz == targetFrequencyHarmonic */)
+		if(pulseArray[i].hertz == targetFrequency || pulseArray[i].hertz == targetFrequencyHarmonic)
 		{
 			frame_pulse_count++;
 
@@ -541,7 +541,7 @@ long int DetectPulseInternal(char *Samples, wav_hdr header, int factor, long int
 	size_t			 	buffersize = 0;
 	long int			pos = 0, millisecondSize = 0, startPos = 0;
 	Pulses				*pulseArray;
-	double				targetFrequency = 0, targetFrequencyHarmonic = 0, MaxMagnitude = 0;
+	double				targetFrequency = 0, targetFrequencyHarmonic = 0, origFrequency = 0, MaxMagnitude = 0;
 
 	/* Not a real ms, just approximate */
 	millisecondSize = RoundToNbytes(floor((((double)header.fmt.SamplesPerSec*2.0*AudioChannels)/1000.0)/(double)factor), AudioChannels, NULL, NULL, NULL);
@@ -586,14 +586,21 @@ long int DetectPulseInternal(char *Samples, wav_hdr header, int factor, long int
 	}
 	memset(pulseArray, 0, sizeof(Pulses)*TotalMS);
 
-	targetFrequency = FindFrequencyBracketForSync(GetPulseSyncFreq(role, config), 	
+	origFrequency = GetPulseSyncFreq(role, config);
+	targetFrequency = FindFrequencyBracketForSync(origFrequency,
 						millisecondSize/2, AudioChannels, header.fmt.SamplesPerSec, config);
-	targetFrequencyHarmonic = FindFrequencyBracketForSync(GetPulseSyncFreq(role, config)*2, 	
+	if(origFrequency >= 6000)  //default behavior for around 8khz, harmonic is identical
+		targetFrequencyHarmonic = targetFrequency;
+	else  //Scenario where we accept first harmonic
+		targetFrequencyHarmonic = FindFrequencyBracketForSync(targetFrequency*2, 	
 						millisecondSize/2, AudioChannels, header.fmt.SamplesPerSec, config);
+		
 	if(config->debugSync)
 	{
-		logmsgFileOnly("Defined Sync %d Adjusted to %g/%g\n", 
-				GetPulseSyncFreq(role, config), targetFrequency, targetFrequencyHarmonic);
+		logmsgFileOnly("Defined Sync %g/%g Adjusted to %g/%g\n", 
+				origFrequency, 
+				origFrequency >= 6000 ? origFrequency : targetFrequency*2, 
+				targetFrequency, targetFrequencyHarmonic);
 		logmsgFileOnly("Start ms %ld Total MS: %ld (%ld)\n",
 			 i, TotalMS, header.data.DataSize / buffersize - 1);
 	}

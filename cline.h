@@ -48,5 +48,6 @@ double TimeSpecToSeconds(struct timespec* ts);
 char *getFilenameExtension(char *filename);
 int getExtensionLength(char *filename);
 void ShortenFileName(char *filename, char *copy);
+int CleanFolderName(char *name, char *origName);
 
 #endif

@@ -1321,7 +1321,7 @@ void DrawColorScale(PlotFile *plot, int type, int mode, double x, double y, doub
 		char labeldbs[20];
 
 		pl_fmove_r(plot->plotter, x+width+PLOT_SPACER, y+height-i*height/segments-height/segments/2);
-		sprintf(labeldbs, "%c%0.2g", fabs(startDbs) + i*dbIncrement != 0 ? '-' : ' ', fabs(startDbs) + i*dbIncrement);
+		sprintf(labeldbs, "%c%g", fabs(startDbs) + i*dbIncrement != 0 ? '-' : ' ', fabs(startDbs) + i*dbIncrement);
 		pl_alabel_r(plot->plotter, 'l', 'c', labeldbs);
 
 		labelwidth = pl_flabelwidth_r(plot->plotter, label);
@@ -1492,9 +1492,9 @@ void DrawColorAllTypeScale(PlotFile *plot, int mode, double x, double y, double 
 	
 			pl_fmove_r(plot->plotter, x+width+PLOT_SPACER, y+height-i*height/segments-height/segments/2);
 			if(mode != MODE_TSDIFF)
-				sprintf(label, "%c%0.2g", i*dbIncrement > 0 ? '-' : ' ', i*dbIncrement);
+				sprintf(label, "%c%g", i*dbIncrement > 0 ? '-' : ' ', i*dbIncrement);
 			else
-				sprintf(label, "%s%0.2g", i ? "\\+-" : "", fabs(i*dbIncrement));
+				sprintf(label, "%s%g", i ? "\\+-" : "", fabs(i*dbIncrement));
 			pl_alabel_r(plot->plotter, 'l', 'c', label);
 	
 			labelwidth = pl_flabelwidth_r(plot->plotter, label);

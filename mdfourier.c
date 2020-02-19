@@ -93,7 +93,7 @@ int main(int argc , char *argv[])
 		return 1;
 	}
 
-	if(!SetupFolders("MDFResults", "Log", &config))
+	if(!SetupFolders(config.outputFolder, "Log", &config))
 	{
 		logmsg("Aborting\n");
 		return 1;

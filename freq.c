@@ -68,7 +68,7 @@ double FindFrequencyBracketForSync(double frequency, size_t size, int AudioChann
 		boxsize = seconds;
 
 	startBin = ceil(1*boxsize);
-	endBin = floor(24000*boxsize);
+	endBin = floor(samplerate*boxsize);
 
 	for(int i = startBin; i < endBin; i++)
 	{
@@ -2676,7 +2676,7 @@ void PrintFrequenciesBlock(AudioSignal *Signal, Frequency *freq, int type, param
 		if(type != TYPE_SILENCE && significant > freq[j].amplitude)
 			break;
 
-		if(type == TYPE_SILENCE && significant > freq[j].amplitude && j > 50)
+		if(type == TYPE_SILENCE && significant > freq[j].amplitude && j > 500)
 			break;
 
 		if(freq[j].hertz && freq[j].amplitude != NO_AMPLITUDE)
