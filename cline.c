@@ -118,6 +118,8 @@ void CleanParameters(parameters *config)
 
 	sprintf(config->profileFile, PROFILE_FILE);
 	sprintf(config->outputFolder, OUTPUT_FOLDER);
+	config->outputPath[0] = '\0';
+
 	config->startHz = START_HZ;
 	config->endHz = END_HZ;
 	config->startHzPlot = START_HZ_PLOT;
@@ -516,20 +518,8 @@ int commandline(int argc , char *argv[], parameters *config)
 		config->ZeroPad = 1;
 		break;
 	  case '0':
-		{
-			int retval = 0;
-
-			retval = CleanFolderName(config->outputFolder, optarg);
-			if(retval == -1)
-			{
-				logmsg("\tInvalid Output folder name \"%s\"\n", optarg);
-				return 0;
-			}
-			if(retval > 0)
-				logmsg("\tOutput folder changed from \"%s\" to \"%s\"\n", optarg, config->outputFolder);
-			else
-				logmsg("\tOutput folder set to \"%s\"\n", config->outputFolder);
-		}
+		sprintf(config->outputPath, "%s", optarg);
+		break;
 	  case '8':
 		config->logScaleTS = 1;
 		break;
@@ -696,6 +686,12 @@ int commandline(int argc , char *argv[], parameters *config)
 
 int SetupFolders(char *folder, char *logname, parameters *config)
 {
+	if(config->outputPath[0] != '\0' && chdir(config->outputPath) == -1)
+	{
+		logmsg("Could not change to path %s for results\n", config->outputPath);
+		return 0;
+	}
+
 	if(!CreateFolderName(folder, config))
 		return 0;
 

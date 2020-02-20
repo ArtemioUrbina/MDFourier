@@ -446,10 +446,11 @@ typedef struct block_diff_st {
 typedef struct parameters_st {
 	char			referenceFile[BUFFER_SIZE];
 	char			comparisonFile[BUFFER_SIZE];
-	char			folderName[BUFFER_SIZE+128];
+	char			folderName[BUFFER_SIZE*2];
 	char			compareName[BUFFER_SIZE];
 	char			profileFile[BUFFER_SIZE];
 	char			outputFolder[BUFFER_SIZE];
+	char			outputPath[BUFFER_SIZE];
 	double			startHz, endHz;
 	double			startHzPlot, endHzPlot;
 	double			maxDbPlotZC;
