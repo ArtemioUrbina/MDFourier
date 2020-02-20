@@ -684,16 +684,87 @@ int commandline(int argc , char *argv[], parameters *config)
 	return 1;
 }
 
-int SetupFolders(char *folder, char *logname, parameters *config)
+int checkAlternatePath(parameters *config)
 {
-	if(config->outputPath[0] != '\0' && chdir(config->outputPath) == -1)
+	char 	*CurrentPath = NULL;
+
+	if(config->outputPath[0] == '\0')
+		return 1;
+
+	CurrentPath = (char*)malloc(sizeof(char)*FILENAME_MAX);
+	if(!CurrentPath)
+		return 0;
+
+	if(!GetCurrentDir(CurrentPath, sizeof(char)*FILENAME_MAX))
 	{
-		logmsg("Could not change to path %s for results\n", config->outputPath);
+		free(CurrentPath);
+		logmsg("Could not get current path\n");
 		return 0;
 	}
 
-	if(!CreateFolderName(folder, config))
+	if(chdir(config->outputPath) == -1)
+	{
+		free(CurrentPath);
+		logmsg("Could not change to selected path '%s'\n", config->outputPath);
 		return 0;
+	}
+
+	PopMainPath(&CurrentPath);
+	return 1;
+}
+
+char *PushMainPath(parameters *config)
+{
+	char 	*CurrentPath = NULL;
+
+	if(config->outputPath[0] == '\0')
+		return NULL;
+
+	CurrentPath = (char*)malloc(sizeof(char)*FILENAME_MAX);
+	if(!CurrentPath)
+		return NULL;
+
+	if(!GetCurrentDir(CurrentPath, sizeof(char)*FILENAME_MAX))
+	{
+		free(CurrentPath);
+		logmsg("Could not get current path\n");
+		return NULL;
+	}
+
+	if(chdir(config->outputPath) == -1)
+	{
+		free(CurrentPath);
+		logmsg("Could not change to selected path '%s'\n", config->outputPath);
+		return NULL;
+	}
+	return CurrentPath;
+}
+
+void PopMainPath(char **CurrentPath)
+{
+	if(!CurrentPath || !*CurrentPath)
+		return;
+
+	if(chdir(*CurrentPath) == -1)
+		logmsg("Could not open working folder %s\n", CurrentPath);
+
+	free(*CurrentPath);
+	*CurrentPath = NULL;
+}
+
+int SetupFolders(char *folder, char *logname, parameters *config)
+{
+	char *mainDir = NULL;
+
+	if(!checkAlternatePath(config))
+		return 0;
+
+	mainDir = PushMainPath(config);
+	if(!CreateFolderName(folder, config))
+	{
+		PopMainPath(&mainDir);
+		return 0;
+	}
 
 	if(IsLogEnabled())
 	{
@@ -705,12 +776,17 @@ int SetupFolders(char *folder, char *logname, parameters *config)
 		ComposeFileName(tmp, logfname, ".txt", config);
 
 		if(!setLogName(tmp))
+		{
+			PopMainPath(&mainDir);
 			return 0;
+		}
 
 		DisableConsole();
 		Header(1, 0, NULL);
 		EnableConsole();
 	}
+
+	PopMainPath(&mainDir);
 	return 1;
 }
 

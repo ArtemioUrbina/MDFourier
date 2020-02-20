@@ -32,6 +32,14 @@
 
 #include "mdfourier.h"
 
+#if defined (WIN32)
+	#include <direct.h>
+	#define GetCurrentDir _getcwd
+#else
+	#include <unistd.h>
+	#define GetCurrentDir getcwd
+#endif
+
 int SetupFolders(char *folder, char *logname, parameters *config);
 int CreateFolder(char *name);
 int CreateFolderName(char *mainfolder, parameters *config);
@@ -49,5 +57,8 @@ char *getFilenameExtension(char *filename);
 int getExtensionLength(char *filename);
 void ShortenFileName(char *filename, char *copy);
 int CleanFolderName(char *name, char *origName);
+
+char *PushMainPath(parameters *config);
+void PopMainPath(char **CurrentPath);
 
 #endif

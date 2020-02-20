@@ -94,14 +94,6 @@
 
 #define ALL_LABEL					"ALL"
 
-#if defined (WIN32)
-	#include <direct.h>
-	#define GetCurrentDir _getcwd
-#else
-	#include <unistd.h>
-	#define GetCurrentDir getcwd
-#endif
-
 #define BAR_WIDTH		config->plotResX/40
 #define	BAR_HEIGHT		config->plotResY/60
 
@@ -211,11 +203,12 @@ char *PushFolder(char *name)
 void PlotResults(AudioSignal *ReferenceSignal, AudioSignal *ComparisonSignal, parameters *config)
 {
 	struct	timespec	start, end;
-	char 	*CurrentPath = NULL;
+	char 	*CurrentPath = NULL, *MainPath = NULL;
 
 	if(config->clock)
 		clock_gettime(CLOCK_MONOTONIC, &start);
 
+	MainPath = PushMainPath(config);
 	CurrentPath = GetCurrentPathAndChangeToResultsFolder(config);
 
 	if(config->plotDifferences || config->averagePlot)
@@ -341,6 +334,7 @@ void PlotResults(AudioSignal *ReferenceSignal, AudioSignal *ComparisonSignal, pa
 	}
 
 	ReturnToMainPath(&CurrentPath);
+	PopMainPath(&MainPath);
 
 	if(config->clock)
 	{
@@ -4807,9 +4801,11 @@ void PlotDifferenceTimeSpectrogram(parameters *config)
 							y = transformtoLog(y, config);
 						
 						intensity = 0xffff*CalculateWeightedError(1.0-(fabs(abs_significant - fabs(amplitude))/abs_significant), config);
+						/*
 						if(1.0-(fabs(abs_significant - fabs(amplitude))/abs_significant) >= 0.5)
 							logmsgFileOnly("%ghz: %g %g 0x%X [%g=1-(%g-%g)/%g]\n", y,
 								amplitude, abs_significant, intensity, 1.0-(fabs(abs_significant - fabs(amplitude))/abs_significant), abs_significant, fabs(amplitude), abs_significant);
+						*/
 						SetPenColor(color, intensity, &plot);
 						pl_fline_r(plot.plotter, x, y, xpos, y);
 						pl_endpath_r(plot.plotter);
