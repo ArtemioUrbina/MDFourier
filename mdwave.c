@@ -101,7 +101,10 @@ int main(int argc , char *argv[])
 	}
 	else
 	{
-		printf("\nResults stored in %s\n", config.folderName);
+		printf("\nResults stored in %s%c%s\n", 
+			config.outputPath, 
+			config.outputPath[0] == '\0' ? ' ' : FOLDERCHAR, 
+			config.folderName);
 	}
 
 	if(config.clock)
@@ -117,6 +120,7 @@ int ExecuteMDWave(parameters *config, int invert)
 {
 	FILE				*reference = NULL;
 	AudioSignal  		*ReferenceSignal = NULL;
+	char 				*MainPath = NULL;
 
 	if(invert)
 	{
@@ -210,17 +214,23 @@ int ExecuteMDWave(parameters *config, int invert)
 	}
 
 	logmsg("* Processing Audio\n");
+	MainPath = PushMainPath(config);
 	if(!ProcessFile(ReferenceSignal, config))
 	{
 		CleanUp(&ReferenceSignal, config);
+		PopMainPath(&MainPath);
 		return 1;
 	}
+	PopMainPath(&MainPath);
 
 	//logmsg("* Max blanked frequencies per block %d\n", config->maxBlanked);
 	CleanUp(&ReferenceSignal, config);
 
 	if(invert)
-		printf("\nResults stored in %s\n", config->folderName);
+		printf("\nResults stored in %s%c%s\n", 
+			config->outputPath, 
+			config->outputPath[0] == '\0' ? ' ' : FOLDERCHAR, 
+			config->folderName);
 	
 	return(0);
 }
@@ -848,7 +858,7 @@ int ProcessInternal(AudioSignal *Signal, long int element, long int pos, int *sy
 
 int CreateChunksFolder(parameters *config)
 {
-	char name[BUFFER_SIZE*2];
+	char name[BUFFER_SIZE*4];
 
 	sprintf(name, "%s%cChunks", config->folderName, FOLDERCHAR);
 	if(!CreateFolder(name))
@@ -867,7 +877,7 @@ int ProcessFile(AudioSignal *Signal, parameters *config)
 	long int		loadedBlockSize = 0, i = 0, syncAdvance = 0;
 	struct timespec	start, end;
 	FILE			*processed = NULL;
-	char			Name[8000], tempName[4096];
+	char			Name[BUFFER_SIZE*2+256], tempName[BUFFER_SIZE];
 	int				leftover = 0, discardBytes = 0, syncinternal = 0;
 	double			leftDecimals = 0;
 
@@ -892,7 +902,10 @@ int ProcessFile(AudioSignal *Signal, parameters *config)
 	}
 
 	if(!initWindows(&windows, Signal->header.fmt.SamplesPerSec, config->window, config))
+	{
+		logmsg("Copuld not create windows\n");
 		return 0;
+	}
 
 	CompareFrameRates(Signal->framerate, GetMSPerFrame(Signal, config), config);
 
@@ -1356,7 +1369,7 @@ int commandline_wave(int argc , char *argv[], parameters *config)
 	config->useCompProfile = 0;
 	config->executefft = 1;
 
-	while ((c = getopt (argc, argv, "qnhvzcklyCBis:e:f:t:p:a:w:r:P:IY:")) != -1)
+	while ((c = getopt (argc, argv, "qnhvzcklyCBis:e:f:t:p:a:w:r:P:IY:0:")) != -1)
 	switch (c)
 	  {
 	  case 'h':
@@ -1465,6 +1478,9 @@ int commandline_wave(int argc , char *argv[], parameters *config)
 		break;
 	  case 'I':
 		config->ignoreFrameRateDiff = 1;
+		break;
+	  case '0':
+		sprintf(config->outputPath, "%s", optarg);
 		break;
 	  case '?':
 		if (optopt == 'r')
