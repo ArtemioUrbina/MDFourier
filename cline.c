@@ -768,7 +768,7 @@ int SetupFolders(char *folder, char *logname, parameters *config)
 
 	if(IsLogEnabled())
 	{
-		char tmp[BUFFER_SIZE*4];
+		char tmp[BUFFER_SIZE*4+256];
 		char logfname[BUFFER_SIZE*2];
 
 		sprintf(logfname, "%s_%s", logname, config->compareName);
