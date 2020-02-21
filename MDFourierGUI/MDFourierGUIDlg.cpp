@@ -479,13 +479,21 @@ void CMDFourierGUIDlg::OnTimer(UINT_PTR nIDEvent)
 			pos = ntext.Find(searchFor, 0);
 			if(pos != -1)
 			{
-				TCHAR	pwd[MAX_PATH];
+				CString extraCmd;
 
-				GetCurrentDirectory(MAX_PATH, pwd);
 				m_OpenResultsBttn.EnableWindow(TRUE);
+				if(m_EnableExtraCommandCheckBox.GetCheck() == BST_CHECKED)
+					m_ExtraParamsEditBox.GetWindowText(extraCmd);
+				if(extraCmd.Find(L"-0") == -1)
+				{
+					TCHAR	pwd[MAX_PATH];
 
-				m_ResultsFolderText.Format(L"%s\\%s", pwd,
-					ntext.Right(ntext.GetLength() - pos - searchFor.GetLength()));
+					GetCurrentDirectory(MAX_PATH, pwd);
+					m_ResultsFolderText.Format(L"%s\\%s", pwd,
+						ntext.Right(ntext.GetLength() - pos - searchFor.GetLength() - 1));
+				}
+				else
+					m_ResultsFolderText.Format(L"%s", ntext.Right(ntext.GetLength() - pos - searchFor.GetLength()));
 				m_ResultsFolderText = m_ResultsFolderText.Left(m_ResultsFolderText.GetLength() - 2);
 			}
 
