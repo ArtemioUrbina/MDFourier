@@ -25,3 +25,5 @@ mdwave: sync.o freq.o windows.o log.o diff.o cline.o plot.o incbeta.o balance.o 
 clean:
 	rm -f *.o
 	rm -f *.exe
+	rm mdfourier
+	rm mdwave
