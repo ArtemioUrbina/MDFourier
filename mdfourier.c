@@ -206,7 +206,10 @@ int main(int argc , char *argv[])
 		logmsg("\n");
 	}
 
-	printf("\nResults stored in %s\n", config.folderName);
+	printf("\nResults stored in %s%c%s\n", 
+			config.outputPath, 
+			config.outputPath[0] == '\0' ? ' ' : FOLDERCHAR, 
+			config.folderName);
 	
 	return(0);
 }
@@ -352,7 +355,7 @@ int LoadAndProcessAudioFiles(AudioSignal **ReferenceSignal, AudioSignal **Compar
 
 	config->referenceFramerate = (*ReferenceSignal)->framerate;
 
-	CompareFrameRates((*ReferenceSignal)->framerate, (*ComparisonSignal)->framerate, config);
+	CompareFrameRates(*ReferenceSignal, *ComparisonSignal, config);
 
 	if(config->channel == 's' && 
 		((*ReferenceSignal)->AudioChannels == 2 || (*ComparisonSignal)->AudioChannels == 2))

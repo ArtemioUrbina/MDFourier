@@ -907,7 +907,7 @@ int ProcessFile(AudioSignal *Signal, parameters *config)
 		return 0;
 	}
 
-	CompareFrameRates(Signal->framerate, GetMSPerFrame(Signal, config), config);
+	CompareFrameRatesMDW(Signal, GetMSPerFrame(Signal, config), config);
 
 	while(i < config->types.totalBlocks)
 	{

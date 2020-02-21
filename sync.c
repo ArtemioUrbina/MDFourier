@@ -38,7 +38,7 @@
 #define	FACTOR_DETECT	9
 
 #define DOUBLE_SYNC
-/* #define FREQ_DETECT */
+//#define FREQ_DETECT
 
 long int DetectPulse(char *AllSamples, wav_hdr header, int role, parameters *config)
 {
@@ -62,16 +62,25 @@ long int DetectPulse(char *AllSamples, wav_hdr header, int role, parameters *con
 		logmsgFileOnly(" - Sync pulse had %d imperfections\n", errcount);
 
 #ifdef DOUBLE_SYNC
-	if(config->debugSync)
-		logmsgFileOnly("First round start pulse detected at %ld, refinement\n", position);
-
-	offset = position;
-	if(offset >= 8*22*AudioChannels)  /* return 8 "ms segments" as dictated by ratio "9" below */
-		offset -= 8*22*AudioChannels;
-
-	maxdetected = 0;
-	errcount = 0;
-	position = DetectPulseInternal(AllSamples, header, FACTOR_DETECT, offset, &maxdetected, role, AudioChannels, config);
+	if(GetPulseSyncFreq(role, config) >= 6000)
+	{
+		if(config->debugSync)
+			logmsgFileOnly("First round start pulse detected at %ld, refinement\n", position);
+	
+		offset = position;
+		if(offset >= 8*22*AudioChannels)  /* return 8 "ms segments" as dictated by ratio "9" below */
+			offset -= 8*22*AudioChannels;
+	
+		maxdetected = 0;
+		errcount = 0;
+		position = DetectPulseInternal(AllSamples, header, FACTOR_DETECT, offset, &maxdetected, role, AudioChannels, config);
+	}
+	else
+	{
+		logmsgFileOnly(" - WARNING: Using only First round start pulse %ld, tone frequency too low\n", position, GetPulseSyncFreq(role, config));
+		config->singleSyncUsed = 1;
+		return(position);
+	}
 #endif
 
 	if(config->debugSync)
@@ -96,16 +105,21 @@ long int DetectPulse(char *AllSamples, wav_hdr header, int role, parameters *con
 
 long int DetectEndPulse(char *AllSamples, long int startpulse, wav_hdr header, int role, parameters *config)
 {
-	int			maxdetected = 0, frameAdjust = 0, tries = 0, maxtries = END_SYNC_MAX_TRIES, errcount = 0, AudioChannels = 0;
+	int			maxdetected = 0, frameAdjust = 0, tries = 0, maxtries = END_SYNC_MAX_TRIES;
+	int			factor = 0, errcount = 0, AudioChannels = 0;
 	long int 	position = 0, offset = 0;
 	double		silenceOffset[END_SYNC_MAX_TRIES] = END_SYNC_VALUES;
 
+	if(GetPulseSyncFreq(role, config) >= 6000)
+		factor = FACTOR_DETECT;
+	else
+		factor = FACTOR_EXPLORE;
 	/* Try a clean detection */
 	offset = GetSecondSyncSilenceByteOffset(GetMSPerFrameRole(role, config), header, 0, 1, config) + startpulse;
 	if(config->debugSync)
 		logmsgFileOnly("\nStarting CLEAN Detect end pulse with offset %ld\n", offset);
 	AudioChannels = header.fmt.NumOfChan;
-	position = DetectPulseInternal(AllSamples, header, FACTOR_DETECT, offset, &maxdetected, role, AudioChannels, config);
+	position = DetectPulseInternal(AllSamples, header, factor, offset, &maxdetected, role, AudioChannels, config);
 	if(position != -1)
 		return position;
 	
@@ -125,7 +139,7 @@ long int DetectEndPulse(char *AllSamples, long int startpulse, wav_hdr header, i
 		frameAdjust = 0;
 		maxdetected = 0;
 		errcount = 0;
-		position = DetectPulseInternal(AllSamples, header, FACTOR_EXPLORE, offset, &maxdetected, role, AudioChannels, config);
+		position = DetectPulseInternal(AllSamples, header, factor, offset, &maxdetected, role, AudioChannels, config);
 		if(position == -1 && !maxdetected)
 		{
 			if(config->debugSync)
@@ -146,18 +160,29 @@ long int DetectEndPulse(char *AllSamples, long int startpulse, wav_hdr header, i
 	if(tries == maxtries)
 		return -1;
 
+/*
 #ifdef DOUBLE_SYNC
-	if(config->debugSync)
-		logmsgFileOnly("First round end pulse detected at %ld, refinement\n", position);
-
-	offset = position;
-	if(offset >= 8*22*AudioChannels)  /* return 8 "ms segments" as dictated by ratio "9" below */
-		offset -= 8*22*AudioChannels;
-
-	maxdetected = 0;
-	errcount = 0;
-	position = DetectPulseInternal(AllSamples, header, FACTOR_DETECT, offset, &maxdetected, role, AudioChannels, config);
+	if(GetPulseSyncFreq(role, config) >= 6000)
+	{
+		if(config->debugSync)
+			logmsgFileOnly("First round end pulse detected at %ld, refinement\n", position);
+	
+		offset = position;
+		if(offset >= 8*22*AudioChannels)  // return 8 "ms segments" as dictated by ratio "9" below 
+			offset -= 8*22*AudioChannels;
+	
+		maxdetected = 0;
+		errcount = 0;
+		position = DetectPulseInternal(AllSamples, header, FACTOR_DETECT, offset, &maxdetected, role, AudioChannels, config);
+	}
+	else
+	{
+		logmsgFileOnly(" - WARNING: Using only First round end pulse %ld, tone frequency too low\n", position, GetPulseSyncFreq(role, config));
+		config->singleSyncUsed = 1;
+		return(position);
+	}
 #endif
+*/
 
 	if(config->debugSync)
 		logmsgFileOnly("End pulse return value %ld\n", position);
@@ -165,6 +190,7 @@ long int DetectEndPulse(char *AllSamples, long int startpulse, wav_hdr header, i
 	return position;
 }
 
+/*
 void smoothAmplitudes(Pulses *pulseArray, double targetFrequency, long int TotalMS, long int start)
 {
 	long	i = 0;
@@ -175,40 +201,30 @@ void smoothAmplitudes(Pulses *pulseArray, double targetFrequency, long int Total
 		{
 			double average = 0;
 
-			/*
-			logmsgFileOnly("Checking %7ld [%5gHz %0.2f dBFS]\n", 
-				pulseArray[i].bytes, pulseArray[i].hertz, pulseArray[i].amplitude);
-			*/
+			//logmsgFileOnly("Checking %7ld [%5gHz %0.2f dBFS]\n", 
+				//pulseArray[i].bytes, pulseArray[i].hertz, pulseArray[i].amplitude);
 			average = (pulseArray[i-1].amplitude + pulseArray[i].amplitude + pulseArray[i+1].amplitude)/3;
 			if(pulseArray[i].amplitude < average - 3 || pulseArray[i].amplitude > average + 3)
 			{
 				pulseArray[i].amplitude = average;
-				/* logmsgFileOnly(" -> Changed to %g\n", average); */
+				// logmsgFileOnly(" -> Changed to %g\n", average); 
 			}
 		}
 	}
 }
+*/
 
-double executeFindAverageAmplitudeForTarget(Pulses *pulseArray, double targetFrequency, long int TotalMS, long int start)
+double findAverageAmplitudeForTarget(Pulses *pulseArray, double targetFrequency, double targetFrequencyHarmonic, long int TotalMS, long int start, int factor, parameters *config)
 {
-	int		freq_pos = 0;
 	long	count = 0, i = 0;
-	double	lastFreqs[4], averageAmplitude = 0;
+	double	averageAmplitude = 0, standardDeviation = 0, useAmplitude = 0, percent = 0;
 
-	memset(lastFreqs, 0, sizeof(double)*4);
 	for(i = start; i < TotalMS; i++)
 	{
-		if(pulseArray[i].hertz)
+		if(pulseArray[i].hertz == targetFrequency || pulseArray[i].hertz == targetFrequencyHarmonic)
 		{
-			lastFreqs[freq_pos++] = pulseArray[i].hertz;
-			if(freq_pos > 3)
-				freq_pos = 0;
-			if(lastFreqs[0] == targetFrequency && lastFreqs[1] == targetFrequency &&
-				lastFreqs[2] == targetFrequency && lastFreqs[3] == targetFrequency)
-			{
-				averageAmplitude += pulseArray[i].amplitude;
-				count ++;
-			}
+			averageAmplitude += fabs(pulseArray[i].amplitude);
+			count ++;
 		}
 	}
 
@@ -224,18 +240,59 @@ double executeFindAverageAmplitudeForTarget(Pulses *pulseArray, double targetFre
 		*/
 		return 0;
 	}
-	/* Get an amplitude below the average value for the pulses */
+
 	averageAmplitude /= count;
-	averageAmplitude += -6;
 
-	return averageAmplitude;
-}
+	// Calculate Standard Deviatioon
+	count = 0;
+	for(i = start; i < TotalMS; i++)
+	{
+		if(pulseArray[i].hertz == targetFrequency || pulseArray[i].hertz == targetFrequencyHarmonic)
+		{
+			standardDeviation += pow(fabs(pulseArray[i].amplitude) - averageAmplitude, 2);
+			count ++;
+		}
+	}
 
-double findAverageAmplitudeForTarget(Pulses *pulseArray, double targetFrequency, long int TotalMS, long int start, parameters *config)
-{
-	double averageAmplitude = 0;
+	if(!count)
+	{
+		logmsgFileOnly("WARNING! Standard Deviation values for sync not found in range (NULL from digital/emu)\n");
+		return 0;
+	}
 
-	averageAmplitude = executeFindAverageAmplitudeForTarget(pulseArray, targetFrequency, TotalMS, start);
+	standardDeviation = sqrt(standardDeviation/count);
+
+	percent = (double)count/(double)(TotalMS-start)*100;
+	
+	if(percent > 55 || factor == FACTOR_EXPLORE)  // Too much noise or first round detection
+	{
+		if(averageAmplitude <= 40)  //this is the regular case for the above
+		{
+			if(standardDeviation < averageAmplitude)
+				useAmplitude = -1*averageAmplitude;
+			else 
+				useAmplitude = -1*(averageAmplitude + standardDeviation/4);
+		}
+		else
+		{
+			// these are special cases, too much difference
+			if(standardDeviation < averageAmplitude)
+				useAmplitude = -1*(averageAmplitude - standardDeviation);
+			else
+				useAmplitude = -1*(averageAmplitude - standardDeviation/2);
+		}
+	}
+	else // lower that 55%, pulses hopefully
+	{
+		if(standardDeviation < averageAmplitude || (fabs(standardDeviation) + fabs(averageAmplitude) <= 20))  // this is the ideal case
+			useAmplitude = -1*(averageAmplitude + standardDeviation);
+		else  // This is trying to adjust it
+			useAmplitude = -1*(averageAmplitude + standardDeviation/4);
+	}
+	if(config->debugSync)
+		logmsgFileOnly("AVG: %g STD: %g Use: %g count %ld total %d %% %g\n",
+			averageAmplitude, standardDeviation, useAmplitude,
+			TotalMS-start, count, (double)count/(double)(TotalMS-start)*100);
 
 	if(config->debugSync)
 		logmsgFileOnly("Searching for Average amplitude in block: F %g Total Start byte: %ld milliseconds to check: %ld\n", 
@@ -243,24 +300,8 @@ double findAverageAmplitudeForTarget(Pulses *pulseArray, double targetFrequency,
 			pulseArray[start].bytes,
 			TotalMS);
 
-	if(averageAmplitude < -20)  /* if we have too much noise at the TargetFrequency, smooth it out */
-	{
-		if(config->debugSync)
-			logmsgFileOnly("Average Amplitude was %g, smoothing range\n", averageAmplitude);
-		smoothAmplitudes(pulseArray, targetFrequency, TotalMS, start);
-		averageAmplitude = executeFindAverageAmplitudeForTarget(pulseArray, targetFrequency, TotalMS, start);
-		if(config->debugSync)
-			logmsgFileOnly("Average Amplitude Smoothing result: %g\n", averageAmplitude);
 
-		if(averageAmplitude < -35)  /* Still too much noise? gamble... */
-		{
-			averageAmplitude = -30;
-			if(config->debugSync)
-				logmsgFileOnly("Average Amplitude Still too high, forcing to: %g\n", averageAmplitude);
-		}
-	}
-
-	return averageAmplitude;
+	return useAmplitude;
 }
 
 long int DetectPulseTrainSequence(Pulses *pulseArray, double targetFrequency, double targetFrequencyHarmonic, long int TotalMS, int factor, int *maxdetected, long int start, int role, parameters *config)
@@ -272,7 +313,8 @@ long int DetectPulseTrainSequence(Pulses *pulseArray, double targetFrequency, do
 
 	*maxdetected = 0;
 
-	averageAmplitude = findAverageAmplitudeForTarget(pulseArray, targetFrequency, TotalMS, start, config);
+	//smoothAmplitudes(pulseArray, targetFrequency, TotalMS, start);
+	averageAmplitude = findAverageAmplitudeForTarget(pulseArray, targetFrequency, targetFrequencyHarmonic, TotalMS, start, factor, config);
 	if(averageAmplitude == 0)
 		return -1;
 
@@ -283,6 +325,8 @@ long int DetectPulseTrainSequence(Pulses *pulseArray, double targetFrequency, do
 
 	for(i = start; i < TotalMS; i++)
 	{
+		int checkSilence = 0;
+
 		if(pulseArray[i].hertz)
 		{
 			if(config->syncTolerance)
@@ -324,90 +368,28 @@ long int DetectPulseTrainSequence(Pulses *pulseArray, double targetFrequency, do
 					frame_silence_count = 0;
 			}
 			else
-			{
-				if(pulseArray[i].amplitude < averageAmplitude)
-				{
-					frame_silence_count ++;
-					lastcounted = 0;
-					if(config->debugSync)
-						logmsgFileOnly("[i:%ld] byte:%7ld [%5gHz %0.2f dBFS] Silence Frame counted %d\n", 
-							i, pulseArray[i].bytes, pulseArray[i].hertz, pulseArray[i].amplitude, 
-							frame_silence_count);
-
-					if(frame_pulse_count >= getPulseFrameLen(role, config)*factor)
-					{
-						pulse_count++;
-		
-						if(config->debugSync)
-							logmsgFileOnly("Closed pulse #%d cycle, silence count %d pulse count %d\n", pulse_count, silence_count, frame_pulse_count);
-						
-						if(config->syncTolerance)
-							silence_count = pulse_count - 1;
-
-						if(pulse_count == getPulseCount(role, config) && silence_count == pulse_count - 1)
-						{
-							if(config->debugSync)
-								logmsgFileOnly("Completed the sequence %ld\n", sequence_start);
-							return sequence_start;
-						}
-					}
-		
-					if(frame_pulse_count > 0)
-					{
-						if(!pulse_count && sequence_start)
-						{
-							if(config->debugSync)
-								logmsgFileOnly("Resets the sequence (no pulse count)\n");
-							sequence_start = 0;
-						}
-		
-						frame_pulse_count = 0;
-					}
-				}
-				else
-				{
-					if(lastcounted == 0)
-					{
-						if(config->debugSync)
-							logmsgFileOnly("NON SKIPPED and counting as silence\n");
-						frame_silence_count++;
-					}
-
-					if(lastcounted == 1 && frame_pulse_count >= getPulseFrameLen(role, config)*factor)
-					{
-						if(config->debugSync)
-							logmsgFileOnly("NON SKIPPED and counting as silence due to pulse count\n");
-						frame_silence_count++;
-					}
-
-					if(config->debugSync)
-						logmsgFileOnly("%7ld [%5gHz %0.2f dBFS] Non Frame skipped %d\n", 
-							pulseArray[i].bytes, pulseArray[i].hertz, pulseArray[i].amplitude, 
-							frame_silence_count);
-				}
-			}
+				checkSilence = 1;
 		}
 		else
-		{
-			/*if(lastcounted == 0)*/
-			{
-				frame_silence_count++;
-				if(config->debugSync)
-				{
-					if(pulseArray[i].hertz)
-						logmsgFileOnly("SKIPPED and counting as silence %gHz %gdBFs\n",
-							pulseArray[i].hertz, pulseArray[i].amplitude);
-					else
-						logmsgFileOnly("SKIPPED and counting as silence [NULL]\n");
-				}
+			checkSilence = 1;
 
-				/* Extra CHECK for emulators */
+		if(checkSilence)
+		{
+			if(pulseArray[i].amplitude < averageAmplitude)
+			{
+				frame_silence_count ++;
+				lastcounted = 0;
+				if(config->debugSync)
+					logmsgFileOnly("[i:%ld] byte:%7ld [%5gHz %0.2f dBFS] Silence Frame counted %d\n", 
+						i, pulseArray[i].bytes, pulseArray[i].hertz, pulseArray[i].amplitude, 
+						frame_silence_count);
+
 				if(frame_pulse_count >= getPulseFrameLen(role, config)*factor)
 				{
 					pulse_count++;
 	
 					if(config->debugSync)
-						logmsgFileOnly("Closed pulse #%d cycle, silence count %d pulse count %d [NULLs]\n", pulse_count, silence_count, frame_pulse_count);
+						logmsgFileOnly("Closed pulse #%d cycle, silence count %d pulse count %d\n", pulse_count, silence_count, frame_pulse_count);
 					
 					if(config->syncTolerance)
 						silence_count = pulse_count - 1;
@@ -415,17 +397,44 @@ long int DetectPulseTrainSequence(Pulses *pulseArray, double targetFrequency, do
 					if(pulse_count == getPulseCount(role, config) && silence_count == pulse_count - 1)
 					{
 						if(config->debugSync)
-							logmsgFileOnly("Completed the sequence %ld [NULLs]\n", sequence_start);
+							logmsgFileOnly("Completed the sequence %ld\n", sequence_start);
 						return sequence_start;
 					}
+				}
+	
+				if(frame_pulse_count > 0)
+				{
+					if(!pulse_count && sequence_start)
+					{
+						if(config->debugSync)
+							logmsgFileOnly("Resets the sequence (no pulse count)\n");
+						sequence_start = 0;
+					}
+	
 					frame_pulse_count = 0;
 				}
 			}
-			/*
 			else
+			{
+				if(lastcounted == 0)
+				{
+					if(config->debugSync)
+						logmsgFileOnly("NON SKIPPED and counting as silence\n");
+					frame_silence_count++;
+				}
+
+				if(lastcounted == 1 && frame_pulse_count >= getPulseFrameLen(role, config)*factor)
+				{
+					if(config->debugSync)
+						logmsgFileOnly("NON SKIPPED and counting as silence due to pulse count\n");
+					frame_silence_count++;
+				}
+
 				if(config->debugSync)
-					logmsgFileOnly("SKIPPED\n");
-			*/
+					logmsgFileOnly("%7ld [%5gHz %0.2f dBFS] Non Frame skipped %d\n", 
+						pulseArray[i].bytes, pulseArray[i].hertz, pulseArray[i].amplitude, 
+						frame_silence_count);
+			}
 		}
 	}
 
@@ -592,12 +601,15 @@ long int DetectPulseInternal(char *Samples, wav_hdr header, int factor, long int
 	if(origFrequency >= 6000)  //default behavior for around 8khz, harmonic is identical
 		targetFrequencyHarmonic = targetFrequency;
 	else  //Scenario where we accept first harmonic
+	{
 		targetFrequencyHarmonic = FindFrequencyBracketForSync(targetFrequency*2, 	
 						millisecondSize/2, AudioChannels, header.fmt.SamplesPerSec, config);
+		logmsgFileOnly("\n - Using %gHz and harmonic %gHz for sync detection\n", targetFrequency, targetFrequencyHarmonic);
+	}
 		
 	if(config->debugSync)
 	{
-		logmsgFileOnly("Defined Sync %g/%g Adjusted to %g/%g\n", 
+		logmsgFileOnly("\nDefined Sync %g/%g Adjusted to %g/%g\n", 
 				origFrequency, 
 				origFrequency >= 6000 ? origFrequency : targetFrequency*2, 
 				targetFrequency, targetFrequencyHarmonic);
@@ -922,7 +934,7 @@ long int DetectSignalStartInternal(char *Samples, wav_hdr header, int factor, lo
 					millisecondSize/2, AudioChannels, header.fmt.SamplesPerSec, config);
 		targetFrequencyHarmonic = FindFrequencyBracketForSync(syncKnown*2, 
 					millisecondSize/2, AudioChannels, header.fmt.SamplesPerSec, config);
-		averageAmplitude = findAverageAmplitudeForTarget(pulseArray, targetFrequency, TotalMS, start, config);
+		averageAmplitude = findAverageAmplitudeForTarget(pulseArray, targetFrequency, targetFrequencyHarmonic, TotalMS, start, factor, config);
 	}
 
 	for(i = start; i < TotalMS; i++)

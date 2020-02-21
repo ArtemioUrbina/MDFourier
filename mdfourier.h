@@ -49,7 +49,7 @@
 
 #include "incbeta.h"
 
-#define MDVERSION "0.990"
+#define MDVERSION "0.991"
 
 #if INTPTR_MAX == INT64_MAX
 #define	BITS_MDF "64-bit"
@@ -515,6 +515,7 @@ typedef struct parameters_st {
 	double			frequencyNormalizationTolerant;
 	int				noiseFloorTooHigh;
 	int				channelWithLowFundamentals;
+	int				singleSyncUsed;
 
 	double 			plotResX;
 	double			plotResY;

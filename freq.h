@@ -106,7 +106,8 @@ void CalculateAmplitudes(AudioSignal *Signal, double ZeroDbMagReference, paramet
 void FindFloor(AudioSignal *Signal, parameters *config);
 void FindStandAloneFloor(AudioSignal *Signal, parameters *config);
 double GetLowerFrameRate(double framerateA, double framerateB);
-void CompareFrameRates(double framerate1, double framerate2, parameters *config);
+void CompareFrameRates(AudioSignal *Signal1, AudioSignal *Signal2, parameters *config);
+void CompareFrameRatesMDW(AudioSignal *Signal, double framerate, parameters *config);
 
 int IsHRefreshNoise(AudioSignal *Signal, double freq);
 int IsHRefreshNoiseCrossTalk(AudioSignal *Signal, double freq);

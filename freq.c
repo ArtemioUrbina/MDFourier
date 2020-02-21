@@ -1270,26 +1270,50 @@ double GetLowerFrameRate(double framerateA, double framerateB)
 	return framerateA;
 }
 
-void CompareFrameRates(double framerate1, double framerate2, parameters *config)
+void CompareFrameRates(AudioSignal *Signal1, AudioSignal *Signal2, parameters *config)
 {
 	double diff = 0;
 
-	diff = fabs(framerate1 - framerate2);
+	diff = fabs(Signal1->framerate - Signal2->framerate);
 	if(diff == 0.0)
-		config->smallerFramerate = framerate1;
+		config->smallerFramerate = Signal1->framerate;
 	else
 	{
-		config->smallerFramerate = 
-				GetLowerFrameRate(framerate1, 
-									framerate2);
-		/*
-		config->biggerFramerate = 
-				GetBiggerFrameRate(framerate1, 
-									framerate2);
-		*/
+		config->smallerFramerate =  GetLowerFrameRate(Signal1->framerate, Signal2->framerate);
+		if((config->verbose && diff > 0.001) || diff > 0.1)
+			logmsg("\n= Different frame rates found (%g), compensating to %g =\n", 
+				diff, config->smallerFramerate);
+		if(diff <= 0.0004) // this is probably a sync detection error
+		{
+			double expected = 0;
+
+			expected = GetMSPerFrame(Signal1, config);
+			diff = fabs(Signal1->framerate - expected);
+			if(diff <= 0.0005)
+				config->smallerFramerate = expected;
+
+			Signal1->framerate = config->smallerFramerate;
+			Signal2->framerate = config->smallerFramerate;
+			logmsg(" - Analysis will be done as %g ms per frame\n", config->smallerFramerate);
+		}
+	}
+}
+
+void CompareFrameRatesMDW(AudioSignal *Signal, double framerate, parameters *config)
+{
+	double diff = 0;
+
+	diff = fabs(Signal->framerate - framerate);
+	if(diff == 0.0)
+		config->smallerFramerate = framerate;
+	else
+	{
+		config->smallerFramerate =  GetLowerFrameRate(Signal->framerate, framerate);
 		if(config->verbose && diff > 0.001)
 			logmsg("\n= Different frame rates found (%g), compensating to %g =\n", 
 				diff, config->smallerFramerate);
+		if(diff <= 0.0005) // this is a sync detection error
+			Signal->framerate = framerate;
 	}
 }
 
