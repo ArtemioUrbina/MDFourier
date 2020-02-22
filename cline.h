@@ -62,3 +62,11 @@ char *PushMainPath(parameters *config);
 void PopMainPath(char **CurrentPath);
 
 #endif
+
+// clock_gettime is not implemented on older versions of OS X (< 10.12).
+// If implemented, CLOCK_MONOTONIC will have already been defined.
+#ifndef CLOCK_MONOTONIC
+#include <sys/time.h>
+#define CLOCK_MONOTONIC 0
+#define USE_GETTIME_INSTEAD
+#endif

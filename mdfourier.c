@@ -55,6 +55,7 @@ void NormalizeBlockByRatio(AudioBlocks *AudioArray, double ratio);
 void ProcessWaveformsByBlock(AudioSignal *ReferenceSignal, AudioSignal *ComparisonSignal, double ratioRef, parameters *config);
 int FindMaxSampleForWaveform(AudioSignal *Signal, int *block, parameters *config);
 int FindMaxSampleInBlock(AudioBlocks *AudioArray);
+void FindViewPort(parameters *config);
 
 // Time domain
 MaxSample FindMaxSampleAmplitude(AudioSignal *Signal);
@@ -74,7 +75,6 @@ int main(int argc , char *argv[])
 	AudioSignal  		*ComparisonSignal = NULL;
 	parameters			config;
 	struct	timespec	start, end;
-	double 				average = 0, outside = 0, maxDiff = 0;
 
 	if(!Header(0, argc, argv))
 		return 1;
@@ -141,51 +141,9 @@ int main(int argc , char *argv[])
 		logmsg("Aborting\n");
 		return 1;
 	}
-	average = FindDifferenceAverage(&config);
-	logmsg("Average difference is %g dBFS. ", average);
-	/*
-	if(fabs(average) > DB_DIFF)
-	{
-		if(fabs(average) > config.maxDbPlotZC/2)
-		{
-			config.maxDbPlotZC = ceil(fabs(average)*2.0);
-			logmsg("\tAdjusting viewport to %gdBFS for graphs\n\n", config.maxDbPlotZC);
-		}
-	}
-	*/
 
-	outside = FindDifferencePercentOutsideViewPort(&maxDiff, fabs(config.maxDbPlotZC), &config);
-	if(outside)
-	{
-		logmsg("Differences above %gdBFS: %g%%\n", config.maxDbPlotZC, outside);
-		if(outside > 25 && config.maxDbPlotZC == DB_HEIGHT)  // if the user has not changed it
-		{
-			double amount = 0;
-
-			if(average*2 < maxDiff*0.75)
-				amount = ceil(average*2);
-			else
-				amount = ceil(maxDiff*0.75);
-			outside = FindDifferencePercentOutsideViewPort(&maxDiff, amount, &config);
-			if(outside < 10)
-				config.maxDbPlotZC = amount;
-			else
-				config.maxDbPlotZC = ceil(maxDiff);
-			logmsg(" - Auto adjusting viewport to %gdBFS for graphs\n", config.maxDbPlotZC);
-			if(outside < 10 && outside > 0.05)
-				logmsg(" - The %g%% of differences will not be visible within the %gdBFS for graphs\n - If needed you can graph them all with \"-d %g\" for this particular case\n\n", 
-					outside, config.maxDbPlotZC, ceil(maxDiff));
-		}
-		else
-		{
-			if(outside >= 5)
-				logmsg(" - The %g%% of differences will not be visible within the %gdBFS for graphs\n - If needed you can graph them all with \"-d %g\" for this particular case\n\n", 
-					outside, config.maxDbPlotZC, ceil(maxDiff));
-		}
-	}
-	else
-		logmsg("\n");
-
+	FindViewPort(&config);
+	
 	logmsg("* Plotting results to PNGs:\n");
 	PlotResults(ReferenceSignal, ComparisonSignal, &config);
 
@@ -217,6 +175,50 @@ int main(int argc , char *argv[])
 			config.folderName);
 	
 	return(0);
+}
+
+void FindViewPort(parameters *config)
+{
+	int		type = 0;
+	char	*name = NULL;
+	double	average = 0, outside = 0, maxDiff = 0;
+
+	average = FindDifferenceAverage(config);
+	logmsg("Average difference is %g dBFS. ", average);
+	/*
+	if(fabs(average) > DB_DIFF)
+	{
+		if(fabs(average) > config->maxDbPlotZC/2)
+		{
+			config->maxDbPlotZC = ceil(fabs(average)*2.0);
+			logmsg("\tAdjusting viewport to %gdBFS for graphs\n\n", config.maxDbPlotZC);
+		}
+	}
+	*/
+
+	outside = FindDifferencePercentOutsideViewPort(&maxDiff, &type, fabs(config->maxDbPlotZC), config);
+	if(type != -1)
+		name  = GetBlockName(config, type);
+	if(outside)
+	{
+		logmsg("Differences above %gdBFS in \"%s\": %g%%\n", config->maxDbPlotZC, name, outside);
+		if(outside > 15 && config->maxDbPlotZC == DB_HEIGHT)  // if the user has not changed it
+		{
+			config->maxDbPlotZC = ceil(FindVisibleInViewPortWithinStandardDeviation(&maxDiff, &outside, type, config));
+			logmsg(" - Auto adjusting viewport to %gdBFS for graphs\n", config->maxDbPlotZC);
+			logmsg(" - The %g%% of differences in \"%s\" will not be visible within the %gdBFS for graphs\n - If needed you can graph them all with \"-d %g\" for this particular case\n\n", 
+					outside, name, config->maxDbPlotZC, ceil(maxDiff));
+		}
+		else
+		{
+			if(outside >= 5)
+				logmsg(" - The %g%% of differences in \"%s\" will not be visible within the %gdBFS for graphs\n - If needed you can graph them all with \"-d %g\" for this particular case\n\n", 
+					outside, name, config->maxDbPlotZC, ceil(maxDiff));
+		}
+	}
+	else
+		logmsg("\n");
+
 }
 
 void RemoveFLACTemp(char *referenceFile, char *comparisonFile)

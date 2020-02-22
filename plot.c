@@ -797,6 +797,8 @@ void enableTestWarnings(parameters *config)
 	config->channelWithLowFundamentals = 1;
 	config->singleSyncUsed = 1;
 
+	config->maxDbPlotZC = DB_HEIGHT+3;
+
 	logmsg("ERROR: enableTestWarnings Enabled\n");
 }
 #endif
@@ -1198,6 +1200,12 @@ void DrawLabelsMDF(PlotFile *plot, char *Gname, char *GType, int type, parameter
 		pl_alabel_r(plot->plotter, 'l', 'l', "Single precision sync used");
 	}
 	
+	if(config->maxDbPlotZC != DB_HEIGHT)
+	{
+		PLOT_COLUMN(8, 1);
+		pl_pencolor_r(plot->plotter, 0x5555, 0x5555, 0);
+		pl_alabel_r(plot->plotter, 'l', 'l', "Vertical scale changed");
+	}
 	pl_restorestate_r(plot->plotter);
 
 #ifdef TESTWARNINGS
@@ -4711,7 +4719,7 @@ void PlotDifferenceTimeSpectrogram(parameters *config)
 	double		x = 0, framewidth = 0, framecount = 0, tc = 0, abs_significant = 0, steps = 0;
 	double		outside = 0, maxDiff = 0;
 	long int	block = 0, i = 0;
-	int			lastType = TYPE_NOTYPE;
+	int			lastType = TYPE_NOTYPE, type = 0;
 	char		filename[2*BUFFER_SIZE];
 
 
@@ -4730,13 +4738,13 @@ void PlotDifferenceTimeSpectrogram(parameters *config)
 	/* This calculates the viewport in dBFS */
 	steps = 1.0;
 	abs_significant = fabs(config->maxDbPlotZC);
-	outside = FindDifferencePercentOutsideViewPort(&maxDiff, abs_significant, config);
+	outside = FindDifferencePercentOutsideViewPort(&maxDiff, &type, abs_significant, config);
 	if(outside == 0 && fabs(maxDiff) && fabs(maxDiff) > abs_significant*2)
 	{
 		abs_significant = abs_significant/2;
 		do
 		{
-			outside = FindDifferencePercentOutsideViewPort(&maxDiff, abs_significant, config);
+			outside = FindDifferencePercentOutsideViewPort(&maxDiff, &type, abs_significant, config);
 			if(outside == 0)
 				abs_significant = abs_significant/2;
 		}while(!outside && fabs(maxDiff) && fabs(maxDiff) > abs_significant*2);
