@@ -312,10 +312,10 @@ void PlotResults(AudioSignal *ReferenceSignal, AudioSignal *ComparisonSignal, pa
 			return;
 		}
 
-		StartPlot(" - Time Domain Graphs\n  ", &lstart, config);
+		StartPlot(" - Waveform Graphs\n  ", &lstart, config);
 		PlotTimeDomainGraphs(ReferenceSignal, config);
 		PlotTimeDomainGraphs(ComparisonSignal, config);
-		EndPlot("Time Domain", &lstart, &lend, config);
+		EndPlot("Waveform", &lstart, &lend, config);
 
 		ReturnToMainPath(&returnFolder);
 	}
@@ -3480,7 +3480,7 @@ void PlotAllDifferentAmplitudesAveraged(FlatAmplDifference *amplDiff, long int s
 void DrawFrequencyHorizontalGrid(PlotFile *plot, double hz, double hzIncrement, parameters *config)
 {
 	pl_pencolor_r (plot->plotter, 0, 0x5555, 0);
-	for(int i = 0; i <= hz; i += hzIncrement)
+	for(int i = hzIncrement; i <= hz; i += hzIncrement)
 	{
 		double y = 0;
 
@@ -3539,7 +3539,7 @@ void DrawLabelsTimeSpectrogram(PlotFile *plot, int khz, int khzIncrement, parame
 		curkhz = (int)floor(segments - i)*khzIncrement;
 		y = -1*(double)i*height;
 
-		if(config->logScaleTS)
+		if(config->logScaleTS && curkhz)
 			y = -1*(config->plotResY-config->plotResY/(khz*1000)*transformtoLog(curkhz*1000, config));
 
 		pl_fmove_r(plot->plotter, config->plotResX+PLOT_SPACER, y);
@@ -3819,7 +3819,7 @@ void PlotTimeDomainGraphs(AudioSignal *Signal, parameters *config)
 	plots = 0;
 	for(i = 0; i < config->types.totalBlocks; i++)
 	{
-		if(config->plotAllNotes || Signal->Blocks[i].type == TYPE_TIMEDOMAIN)
+		if(config->plotAllNotes || Signal->Blocks[i].type == TYPE_TIMEDOMAIN || (config->debugSync && Signal->Blocks[i].type == TYPE_SYNC))
 		{
 			sprintf(name, "TD_%05ld_%s_%s_%05d_%s", 
 				i, Signal->role == ROLE_REF ? "1" : "2",

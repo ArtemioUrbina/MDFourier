@@ -179,7 +179,7 @@
 #define	MAX_SYNC		10
 
 #define	FREQDOMTRIES	10
-#define	FREQDOMRATIO	10.0
+#define	FREQDOMRATIO	20.0
 
 enum normalize
 {

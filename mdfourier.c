@@ -116,6 +116,11 @@ int main(int argc , char *argv[])
 	if(!LoadAndProcessAudioFiles(&ReferenceSignal, &ComparisonSignal, &config))
 	{
 		logmsg("Aborting\n");
+		if(config.debugSync)
+			printf("\nResults stored in %s%c%s\n", 
+				config.outputPath, 
+				config.outputPath[0] == '\0' ? ' ' : FOLDERCHAR, 
+				config.folderName);
 		return 1;
 	}
 
@@ -505,7 +510,7 @@ int LoadAndProcessAudioFiles(AudioSignal **ReferenceSignal, AudioSignal **Compar
 						if(ComparisonLocalMaximumArray)
 						{
 							ratioRefArray = ComparisonLocalMaximumArray/MaxRefArray[pos].magnitude;
-							//if(config->verbose) logmsg(" - Comparision ratio is %g (%g/%g)\n", 1.0/ratioRefArray, ComparisonLocalMaximumArray, MaxRefArray[pos].magnitude);
+							if(config->verbose) logmsg(" - Comparision ratio is %g (%g/%g)\n", 1.0/ratioRefArray, ComparisonLocalMaximumArray, MaxRefArray[pos].magnitude);
 							if(1.0/ratioRefArray <= FREQDOMRATIO)
 							{
 								found = 1;
@@ -982,9 +987,9 @@ int LoadFile(FILE *file, AudioSignal *Signal, parameters *config, char *fileName
 				format = config->videoFormatCom;
 			if(!config->syncTolerance)
 				logmsg(" - You can try using -T for a frequency tolerant pulse detection algorithm\n");
-			if(format != 0)
-				logmsg(" - This signal is configured as '%s', check if that is not the issue.\n", 
-						config->types.SyncFormat[format].syncName);
+			if(format != 0 || config->smallFile)
+				logmsg(" - This signal is configured as '%s'%s, check if that is not the issue.\n", 
+							config->types.SyncFormat[format].syncName, config->smallFile ? " and is smaller than expected" : "");
 			return 0;
 		}
 		if(config->verbose)
@@ -1010,9 +1015,9 @@ int LoadFile(FILE *file, AudioSignal *Signal, parameters *config, char *fileName
 					format = config->videoFormatCom;
 				if(!config->syncTolerance)
 					logmsg(" - You can try using -T for a frequency tolerant pulse detection algorithm\n");
-				if(format != 0)
-					logmsg(" - This signal is configured as '%s', check if that is not the issue.\n", 
-							config->types.SyncFormat[format].syncName);
+				if(format != 0 || config->smallFile)
+					logmsg(" - This signal is configured as '%s'%s, check if that is not the issue.\n", 
+							config->types.SyncFormat[format].syncName, config->smallFile ? " and is smaller than expected" : "");
 				return 0;
 			}
 			if(config->verbose)
@@ -1130,7 +1135,7 @@ int LoadFile(FILE *file, AudioSignal *Signal, parameters *config, char *fileName
 	}
 
 	if(seconds < GetSignalTotalDuration(Signal->framerate, config))
-		logmsg(" - Adjusted File length is smaller than the expected %gs\n",
+		logmsg(" - File length is smaller than the expected %gs\n",
 				GetSignalTotalDuration(Signal->framerate, config));
 
 	if(GetFirstSilenceIndex(config) != NO_INDEX)
@@ -1162,7 +1167,7 @@ int MoveSampleBlockInternal(AudioSignal *Signal, long int element, long int pos,
 	{
 		signalLengthBytes = Signal->header.data.DataSize - (pos+signalStartOffset);
 		if(config->verbose)
-			logmsg(" - Inernal sync adjust: Signal is smaller than expected\n");
+			logmsg(" - Internal sync adjust: Signal is smaller than expected\n");
 	}
 
 	if(config->verbose)
@@ -1216,7 +1221,7 @@ int MoveSampleBlockExternal(AudioSignal *Signal, long int element, long int pos,
 	{
 		signalLengthBytes = Signal->header.data.DataSize - (pos+signalStartOffset);
 		if(config->verbose)
-			logmsg(" - Inernal sync adjust: Signal is smaller than expected\n");
+			logmsg(" - Internal sync adjust: Signal is smaller than expected\n");
 	}
 	if(config->verbose)
 		logmsg(" - Internal Segment Info:\n\tFinal Offset: %ld Frames: %d Seconds: %g Bytes: %ld\n",
@@ -1639,7 +1644,8 @@ int ProcessFile(AudioSignal *Signal, parameters *config)
 		}
 		memcpy(buffer, Signal->Samples + pos, loadedBlockSize-difference);
 
-		if(config->plotTimeDomainHiDiff || config->plotAllNotes || Signal->Blocks[i].type == TYPE_TIMEDOMAIN)
+		if(config->plotTimeDomainHiDiff || config->plotAllNotes || Signal->Blocks[i].type == TYPE_TIMEDOMAIN ||
+			(config->debugSync && Signal->Blocks[i].type == TYPE_SYNC))
 		{
 			if(!CopySamplesForTimeDomainPlot(&Signal->Blocks[i], (int16_t*)(Signal->Samples + pos), loadedBlockSize/2, difference/2, Signal->header.fmt.SamplesPerSec, windowUsed, Signal->AudioChannels, config))
 				return 0;

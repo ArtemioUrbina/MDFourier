@@ -40,6 +40,9 @@
 #define DOUBLE_SYNC
 //#define FREQ_DETECT
 
+// Use 1 to do double in all cases, 6000 for single if below 6k
+#define	FORCE_SINGLE_4K	1
+
 long int DetectPulse(char *AllSamples, wav_hdr header, int role, parameters *config)
 {
 	int			maxdetected = 0, errcount = 0, AudioChannels = 0;
@@ -62,7 +65,7 @@ long int DetectPulse(char *AllSamples, wav_hdr header, int role, parameters *con
 		logmsgFileOnly(" - Sync pulse had %d imperfections\n", errcount);
 
 #ifdef DOUBLE_SYNC
-	if(GetPulseSyncFreq(role, config) >= 6000)
+	if(GetPulseSyncFreq(role, config) >= FORCE_SINGLE_4K)
 	{
 		if(config->debugSync)
 			logmsgFileOnly("First round start pulse detected at %ld, refinement\n", position);
@@ -110,7 +113,7 @@ long int DetectEndPulse(char *AllSamples, long int startpulse, wav_hdr header, i
 	long int 	position = 0, offset = 0;
 	double		silenceOffset[END_SYNC_MAX_TRIES] = END_SYNC_VALUES;
 
-	if(GetPulseSyncFreq(role, config) >= 6000)
+	if(GetPulseSyncFreq(role, config) >= FORCE_SINGLE_4K)
 		factor = FACTOR_DETECT;
 	else
 		factor = FACTOR_EXPLORE;
@@ -162,7 +165,7 @@ long int DetectEndPulse(char *AllSamples, long int startpulse, wav_hdr header, i
 
 /*
 #ifdef DOUBLE_SYNC
-	if(GetPulseSyncFreq(role, config) >= 6000)
+	if(GetPulseSyncFreq(role, config) >= FORCE_SINGLE_4K)
 	{
 		if(config->debugSync)
 			logmsgFileOnly("First round end pulse detected at %ld, refinement\n", position);
@@ -264,17 +267,14 @@ double findAverageAmplitudeForTarget(Pulses *pulseArray, double targetFrequency,
 
 	percent = (double)count/(double)(TotalMS-start)*100;
 	
-	if(percent > 55 || factor == FACTOR_EXPLORE)  // Too much noise or first round detection
-	{
-		if(averageAmplitude <= 40)  //this is the regular case for the above
-		{
+	if(factor == FACTOR_EXPLORE) { // first round detection
+		if(averageAmplitude <= 40) { //this is the regular case for the above
 			if(standardDeviation < averageAmplitude)
 				useAmplitude = -1*averageAmplitude;
 			else 
 				useAmplitude = -1*(averageAmplitude + standardDeviation/4);
 		}
-		else
-		{
+		else {
 			// these are special cases, too much difference
 			if(standardDeviation < averageAmplitude)
 				useAmplitude = -1*(averageAmplitude - standardDeviation);
@@ -282,13 +282,35 @@ double findAverageAmplitudeForTarget(Pulses *pulseArray, double targetFrequency,
 				useAmplitude = -1*(averageAmplitude - standardDeviation/2);
 		}
 	}
-	else // lower that 55%, pulses hopefully
-	{
-		if(standardDeviation < averageAmplitude || (fabs(standardDeviation) + fabs(averageAmplitude) <= 20))  // this is the ideal case
-			useAmplitude = -1*(averageAmplitude + standardDeviation);
-		else  // This is trying to adjust it
-			useAmplitude = -1*(averageAmplitude + standardDeviation/4);
+	else if(factor == FACTOR_DETECT) { // second round
+		if(percent > 55) { // Too much noise 
+			if(percent > 90) {  // ridiculous noise
+				if(percent == 100)
+					useAmplitude = -1*(averageAmplitude + standardDeviation/4);
+				else
+					useAmplitude = -1*averageAmplitude;
+			} else if(averageAmplitude <= 40) {
+				if(standardDeviation < averageAmplitude)
+					useAmplitude = -1*averageAmplitude;
+				else
+					useAmplitude = -1*(averageAmplitude + standardDeviation/4);
+			}
+			else {
+				// these are special cases, too much difference
+				if(standardDeviation < averageAmplitude)
+					useAmplitude = -1*(averageAmplitude - standardDeviation);
+				else
+					useAmplitude = -1*(averageAmplitude - standardDeviation/2);
+			}
+		}
+		else { // lower that 55%, pulses hopefully
+			if(standardDeviation < averageAmplitude || (fabs(standardDeviation) + fabs(averageAmplitude) <= 20))  // this is the ideal case
+				useAmplitude = -1*(averageAmplitude + standardDeviation);
+			else  // This is trying to adjust it
+				useAmplitude = -1*(averageAmplitude + standardDeviation/4);
+		}
 	}
+
 	if(config->debugSync)
 		logmsgFileOnly("AVG: %g STD: %g Use: %g count %ld total %d %% %g\n",
 			averageAmplitude, standardDeviation, useAmplitude,

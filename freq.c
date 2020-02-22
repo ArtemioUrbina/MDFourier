@@ -793,6 +793,8 @@ int LoadAudioBlockStructure(FILE *file, parameters *config)
 				break;
 			case TYPE_SYNC_C:
 				config->types.typeArray[i].type = TYPE_SYNC;
+				if(config->debugSync)
+					config->hasTimeDomain++;
 				break;
 			case TYPE_INTERNAL_KNOWN_C:
 				config->types.typeArray[i].type = TYPE_INTERNAL_KNOWN;
@@ -1283,6 +1285,7 @@ void CompareFrameRates(AudioSignal *Signal1, AudioSignal *Signal2, parameters *c
 		if((config->verbose && diff > 0.001) || diff > 0.1)
 			logmsg("\n= Different frame rates found (%g), compensating to %g =\n", 
 				diff, config->smallerFramerate);
+		/*
 		if(diff <= 0.0004) // this is probably a sync detection error
 		{
 			double expected = 0;
@@ -1296,6 +1299,7 @@ void CompareFrameRates(AudioSignal *Signal1, AudioSignal *Signal2, parameters *c
 			Signal2->framerate = config->smallerFramerate;
 			logmsg(" - Analysis will be done as %g ms per frame\n", config->smallerFramerate);
 		}
+		*/
 	}
 }
 
