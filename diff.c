@@ -498,8 +498,9 @@ double FindDifferenceAverage(parameters *config)
 
 double FindDifferencePercentOutsideViewPort(double *maxAmpl, int *type, double threshold, parameters *config)
 {
-	int		typePos = 0;
-	double	maxPercent = 0, maxFromBlock = 0;
+	int		typeMax = 0, currentType = TYPE_NOTYPE;
+	double	maxPercent = 0, maxFromType = 0;
+	double	count = 0, outside = 0, localMax = 0;
 
 	if(!config)
 		return 0;
@@ -508,14 +509,36 @@ double FindDifferencePercentOutsideViewPort(double *maxAmpl, int *type, double t
 		return 0;
 
 	*maxAmpl = 0;
-	*type = -1;
+	*type = TYPE_NOTYPE;
 	for(int b = 0; b < config->types.totalBlocks; b++)
 	{
-		long int	count = 0, outside = 0;
-		double		localMax = 0;
+		int type = 0;
 
-		if(config->Differences.BlockDiffArray[b].type <= TYPE_CONTROL)
+		type = config->Differences.BlockDiffArray[b].type;
+		if(type <= TYPE_CONTROL)
 			continue;
+
+		if(type != currentType)
+		{
+			if(outside && count)
+			{	
+				double percent = 0;
+	
+				percent = outside/count*100.0;
+				if(percent > maxPercent)
+				{
+					maxPercent = percent;
+					maxFromType = localMax;
+					typeMax = currentType;
+				}
+			}
+
+			count = 0;
+			outside = 0;
+			localMax = 0;
+
+			currentType = type;
+		}
 
 		for(int a = 0; a < config->Differences.BlockDiffArray[b].cntAmplBlkDiff; a++)
 		{
@@ -530,33 +553,19 @@ double FindDifferencePercentOutsideViewPort(double *maxAmpl, int *type, double t
 			}
 			count ++;
 		}
-
-		if(outside && count)
-		{	
-			double percent = 0;
-
-			percent = (double)outside*100.0/(double)count;
-			if(percent > maxPercent)
-			{
-				maxPercent = percent;
-				maxFromBlock = localMax;
-				typePos = b;
-			}
-		}
-		
 	}
 
-	if(maxFromBlock)
+	if(maxFromType)
 	{
-		*maxAmpl = ceil(maxFromBlock);
-		*type = typePos;
+		*maxAmpl = maxFromType;
+		*type = typeMax;
 	}
 	return(maxPercent);
 }
 
 double FindVisibleInViewPortWithinStandardDeviation(double *maxAmpl, double *outside, int type, parameters *config)
 {
-	double	mean = 0, standard = 0, threshold = 0;
+	double	mean = 0, standard = 0, threshold = 0, count = 0;
 
 	if(!config)
 		return 0;
@@ -570,33 +579,85 @@ double FindVisibleInViewPortWithinStandardDeviation(double *maxAmpl, double *out
 	*maxAmpl = 0;
 	*outside = 0;
 
-	for(int a = 0; a < config->Differences.BlockDiffArray[type].cntAmplBlkDiff; a++)
-		mean +=  fabs(config->Differences.BlockDiffArray[type].amplDiffArray[a].diffAmplitude);
-	mean = mean/config->Differences.BlockDiffArray[type].cntAmplBlkDiff;
-
-	// STD DEV
-	for(int a = 0; a < config->Differences.BlockDiffArray[type].cntAmplBlkDiff; a++)
+	for(int b = 0; b < config->types.totalBlocks; b++)
 	{
-		double ampl = 0;
+		int currentType = 0;
 
-		ampl = fabs(config->Differences.BlockDiffArray[type].amplDiffArray[a].diffAmplitude);
-		standard += pow(ampl - mean, 2);
-	}
-	standard = sqrt(standard/config->Differences.BlockDiffArray[type].cntAmplBlkDiff);
+		currentType = config->Differences.BlockDiffArray[b].type;
+		if(currentType <= TYPE_CONTROL)
+			continue;
 
-	threshold = mean + standard;
-	for(int a = 0; a < config->Differences.BlockDiffArray[type].cntAmplBlkDiff; a++)
-	{
-		double ampl = 0;
-
-		ampl = fabs(config->Differences.BlockDiffArray[type].amplDiffArray[a].diffAmplitude);
-		if(ampl >= threshold)
+		if(type == currentType)
 		{
-			if(*maxAmpl < ampl)
-				*maxAmpl = ampl;
-			(*outside) ++;
+			for(int a = 0; a < config->Differences.BlockDiffArray[b].cntAmplBlkDiff; a++)
+			{
+				mean +=  fabs(config->Differences.BlockDiffArray[b].amplDiffArray[a].diffAmplitude);
+				count ++;
+			}
 		}
 	}
+
+	if(!count)
+		return 0;
+
+	mean = mean/count;
+	count = 0;
+	// STD DEV
+	for(int b = 0; b < config->types.totalBlocks; b++)
+	{
+		int currentType = 0;
+
+		currentType = config->Differences.BlockDiffArray[b].type;
+		if(currentType <= TYPE_CONTROL)
+			continue;
+
+		if(type == currentType)
+		{
+			for(int a = 0; a < config->Differences.BlockDiffArray[b].cntAmplBlkDiff; a++)
+			{
+				double ampl = 0;
+		
+				ampl = fabs(config->Differences.BlockDiffArray[b].amplDiffArray[a].diffAmplitude);
+				standard += pow(ampl - mean, 2);
+				count++;
+			}
+		}
+	}
+	if(!count)
+		return 0;
+
+	standard = sqrt(standard/count);
+	count = 0;
+
+	threshold = mean + standard;
+	for(int b = 0; b < config->types.totalBlocks; b++)
+	{
+		int currentType = 0;
+
+		currentType = config->Differences.BlockDiffArray[b].type;
+		if(currentType <= TYPE_CONTROL)
+			continue;
+
+		if(type == currentType)
+		{
+			for(int a = 0; a < config->Differences.BlockDiffArray[b].cntAmplBlkDiff; a++)
+			{
+				double ampl = 0;
+		
+				ampl = fabs(config->Differences.BlockDiffArray[b].amplDiffArray[a].diffAmplitude);
+				if(ampl >= threshold)
+				{
+					if(*maxAmpl < ampl)
+						*maxAmpl = ampl;
+					(*outside) ++;
+				}
+				count ++;
+			}
+		}
+	}	
+	
+	if(count)
+		*outside = *outside/count*100.0;
 	return(threshold);
 }
 
