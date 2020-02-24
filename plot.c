@@ -1140,72 +1140,73 @@ void DrawLabelsMDF(PlotFile *plot, char *Gname, char *GType, int type, parameter
 		}
 	}
 
-	/* Aligned to 1hz */
-	pl_pencolor_r(plot->plotter, 0, 0xcccc, 0xcccc);
-	if(config->ZeroPad)
-	{
-		PLOT_COLUMN(4, 1);
-		pl_alabel_r(plot->plotter, 'l', 'l', "1Hz Aligned");
-	}
-
 	if(config->hasAddOnData)
 	{
-		PLOT_COLUMN(4, 2);
+		PLOT_COLUMN(1, 3);
 		if(config->useExtraData)
 			pl_alabel_r(plot->plotter, 'l', 'l', "Extra Data: ON");
 		else
 			pl_alabel_r(plot->plotter, 'l', 'l', "Extra Data: OFF");
 	}
 
+	/* Aligned to 1hz */
+	pl_pencolor_r(plot->plotter, 0, 0xcccc, 0xcccc);
+	if(config->ZeroPad)
+	{
+		PLOT_COLUMN(2, 3);
+		pl_alabel_r(plot->plotter, 'l', 'l', "1Hz Aligned");
+	}
+
 	if(config->outputFilterFunction != 3)
 	{
 		char * filer[6] = {"None", 	"Bright", "High", "Neutral", "Low", "Dimm" };
 
-		PLOT_COLUMN(5, 1);
+		PLOT_COLUMN(3, 3);
 		sprintf(msg, "Color function: %s", filer[config->outputFilterFunction]);
 		pl_alabel_r(plot->plotter, 'l', 'l', msg);
 	}
 
-	if(config->MaxFreq != FREQ_COUNT)
-	{
-		PLOT_COLUMN(5, 2);
-		sprintf(msg, "Frequencies/note: %d", config->MaxFreq);
-		pl_alabel_r(plot->plotter, 'l', 'l', msg);
-	}
-
-	if(!config->quantizeRound)
-	{
-		PLOT_COLUMN(6, 1);
-		pl_alabel_r(plot->plotter, 'l', 'l', "Quantization: OFF");
-	}
-
 	if(config->channel != 's' && (config->referenceSignal->AudioChannels == 2 || config->comparisonSignal->AudioChannels == 2))
 	{
-		PLOT_COLUMN(6, 2);
+		PLOT_COLUMN(4, 1);
 		if(config->channel == 'l')
 			pl_alabel_r(plot->plotter, 'l', 'l', "Left Channel");
 		if(config->channel == 'r')
 			pl_alabel_r(plot->plotter, 'l', 'l', "Right Channel");
 	}
 
+	if(config->MaxFreq != FREQ_COUNT)
+	{
+		PLOT_COLUMN(4, 2);
+		sprintf(msg, "Frequencies/note: %d", config->MaxFreq);
+		pl_alabel_r(plot->plotter, 'l', 'l', msg);
+	}
+
+	if(!config->quantizeRound)
+	{
+		PLOT_COLUMN(4, 3);
+		pl_alabel_r(plot->plotter, 'l', 'l', "Quantization: OFF");
+	}
+
 	if(config->channelWithLowFundamentals)
 	{
-		PLOT_COLUMN(7, 1);
+		PLOT_COLUMN(5, 1);
 		pl_alabel_r(plot->plotter, 'l', 'l', "Low Fundamentals present");
 	}
 
 	if(config->singleSyncUsed)
 	{
-		PLOT_COLUMN(7, 2);
+		PLOT_COLUMN(5, 2);
 		pl_alabel_r(plot->plotter, 'l', 'l', "Single precision sync used");
 	}
 	
 	if(config->maxDbPlotZC != DB_HEIGHT)
 	{
-		PLOT_COLUMN(8, 1);
-		pl_pencolor_r(plot->plotter, 0x5555, 0x5555, 0);
+		PLOT_COLUMN(5, 3);
+		pl_pencolor_r(plot->plotter, 0xeeee, 0xeeee, 0);
 		pl_alabel_r(plot->plotter, 'l', 'l', "Vertical scale changed");
 	}
+
 	pl_restorestate_r(plot->plotter);
 
 #ifdef TESTWARNINGS
