@@ -38,16 +38,14 @@
 #endif
 #endif
 
+#define	CONSOLE_ENABLED		1
+
 int do_log = 0;
 char log_file[T_BUFFER_SIZE];
 FILE *logfile = NULL;
 
-#define	CONSOLE_ENABLED		1
-#define	CONSOLE_DISABLED	2
-
 void EnableLog() { do_log = CONSOLE_ENABLED; }
-void DisableConsole() { do_log = CONSOLE_DISABLED; }
-void EnableConsole() { do_log = CONSOLE_ENABLED; }
+void DisableLog() { do_log = 0; }
 int IsLogEnabled() { return do_log; }
 
 void logmsg(char *fmt, ... )
@@ -55,11 +53,9 @@ void logmsg(char *fmt, ... )
 	va_list arguments;
 
 	va_start(arguments, fmt);
-	if(do_log != CONSOLE_DISABLED)
-	{
-		vprintf(fmt, arguments);
-		fflush(stdout);  // output to Front end ASAP
-	}
+	
+	vprintf(fmt, arguments);
+	fflush(stdout);  // output to Front end ASAP
 
 	if(do_log && logfile)
 	{

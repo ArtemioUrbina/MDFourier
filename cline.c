@@ -106,7 +106,7 @@ int Header(int log, int argc, char *argv[])
 	}
 
 	if(log)
-		logmsg("%s%s", title1, title2);
+		logmsgFileOnly("%s%s", title1, title2);
 	else
 		printf("%s%s", title1, title2);
 	return 1;
@@ -378,7 +378,7 @@ int commandline(int argc , char *argv[], parameters *config)
 		}
 		break;
 	  case 'l':
-		DisableConsole();
+		DisableLog();
 		break;
 	  case 'M':
 		config->plotMissing = 0;
@@ -784,9 +784,7 @@ int SetupFolders(char *folder, char *logname, parameters *config)
 			return 0;
 		}
 
-		DisableConsole();
 		Header(1, 0, NULL);
-		EnableConsole();
 	}
 
 	PopMainPath(&mainDir);

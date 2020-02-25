@@ -33,8 +33,6 @@
 
 void EnableLog();
 void DisableLog();
-void DisableConsole();
-void EnableConsole();
 int IsLogEnabled();
 
 void logmsg(char *fmt, ... );
