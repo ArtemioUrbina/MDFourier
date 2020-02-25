@@ -203,7 +203,7 @@ void FindViewPort(parameters *config)
 
 		logmsg("Differences outside +/-%gdBFS in \"%s\": %g%%\n", 
 				config->maxDbPlotZC, name, outside);
-		if(outside > 15 && config->maxDbPlotZC == DB_HEIGHT)  // if the user has not changed it
+		if(outside > 8 && config->maxDbPlotZC == DB_HEIGHT)  // if the user has not changed it
 		{
 			config->maxDbPlotZC = ceil(FindVisibleInViewPortWithinStandardDeviation(&maxDiff, &outside, type, config));
 			logmsg(" - Auto adjusting viewport to %gdBFS for graphs\n", config->maxDbPlotZC);
@@ -216,6 +216,7 @@ void FindViewPort(parameters *config)
 	else
 		logmsg("\n");
 
+	config->notVisible = outside;
 }
 
 void RemoveFLACTemp(char *referenceFile, char *comparisonFile)
@@ -939,7 +940,7 @@ int LoadFile(FILE *file, AudioSignal *Signal, parameters *config, char *fileName
 	{
 		logmsg(" - WARNING: Estimated file length is shorter than the expected %g seconds\n",
 				GetSignalTotalDuration(Signal->framerate, config));
-		config->smallFile = Signal->role;
+		config->smallFile |= Signal->role;
 	}
 
 	Signal->Samples = (char*)malloc(sizeof(char)*Signal->header.data.DataSize);
@@ -1348,7 +1349,7 @@ int ProcessInternal(AudioSignal *Signal, long int element, long int pos, int *sy
 				}
 				else
 				{
-					logmsg(" - WARNING: Internal Sync too short. Got %ld] expewcted %ld\n", 
+					logmsg(" - WARNING: Internal Sync too short. Got %ld] expected %ld\n", 
 						pulseLengthBytes, silenceLengthBytes);
 				}
 				//silenceLengthBytes = syncLengthBytes - pulseLengthBytes;
@@ -1637,7 +1638,7 @@ int ProcessFile(AudioSignal *Signal, parameters *config)
 		memset(buffer, 0, buffersize);
 		if(pos + loadedBlockSize > Signal->header.data.DataSize)
 		{
-			config->smallFile = Signal->role;
+			config->smallFile |= Signal->role;
 			logmsg("\tunexpected end of File, please record the full Audio Test from the 240p Test Suite.\n");
 			break;
 		}

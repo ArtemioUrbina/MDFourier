@@ -502,25 +502,25 @@ double FindDifferencePercentOutsideViewPort(double *maxAmpl, int *type, double t
 	double	maxPercent = 0, maxFromType = 0;
 	double	count = 0, outside = 0, localMax = 0;
 
-	if(!config)
+	if(!config || !config->Differences.BlockDiffArray || !maxAmpl || !type)
+	{
+		logmsg("WARNING: Invalid data to find difference percent outside view port\n");
 		return 0;
-
-	if(!config->Differences.BlockDiffArray || !maxAmpl || !type)
-		return 0;
+	}
 
 	*maxAmpl = 0;
 	*type = TYPE_NOTYPE;
 	for(int b = 0; b < config->types.totalBlocks; b++)
 	{
-		int type = 0;
+		int seltype = 0;
 
-		type = config->Differences.BlockDiffArray[b].type;
-		if(type <= TYPE_CONTROL)
+		seltype = config->Differences.BlockDiffArray[b].type;
+		if(seltype <= TYPE_CONTROL)
 			continue;
 
-		if(type != currentType)
+		if(seltype != currentType)
 		{
-			if(outside && count)
+			if(count)
 			{	
 				double percent = 0;
 	
@@ -537,7 +537,7 @@ double FindDifferencePercentOutsideViewPort(double *maxAmpl, int *type, double t
 			outside = 0;
 			localMax = 0;
 
-			currentType = type;
+			currentType = seltype;
 		}
 
 		for(int a = 0; a < config->Differences.BlockDiffArray[b].cntAmplBlkDiff; a++)
@@ -552,6 +552,19 @@ double FindDifferencePercentOutsideViewPort(double *maxAmpl, int *type, double t
 				outside ++;
 			}
 			count ++;
+		}
+	}
+
+	if(count)
+	{	
+		double percent = 0;
+
+		percent = outside/count*100.0;
+		if(percent > maxPercent)
+		{
+			maxPercent = percent;
+			maxFromType = localMax;
+			typeMax = currentType;
 		}
 	}
 

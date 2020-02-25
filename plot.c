@@ -798,6 +798,7 @@ void enableTestWarnings(parameters *config)
 	config->singleSyncUsed = 1;
 
 	config->maxDbPlotZC = DB_HEIGHT+3;
+	config->notVisible = 20.75;
 
 	logmsg("ERROR: enableTestWarnings Enabled\n");
 }
@@ -1041,7 +1042,9 @@ void DrawLabelsMDF(PlotFile *plot, char *Gname, char *GType, int type, parameter
 	{
 		pl_fmove_r(plot->plotter, config->plotResX-config->plotResX/4, -1*config->plotResY/2+config->plotResY/20+4*BAR_HEIGHT);
 		pl_pencolor_r(plot->plotter, 0xeeee, 0xeeee, 0);
-		sprintf(msg, "WARNING: %s file was shorter than expected", config->smallFile == ROLE_REF ? "Reference" : "Comparison");
+		sprintf(msg, "WARNING: %s file%s shorter than expected", 
+			config->smallFile == ROLE_REF ? "Reference" : config->smallFile == ROLE_COMP ? "Comparison" : "Both",
+			config->smallFile == (ROLE_REF | ROLE_COMP) ? "s were" : " was");
 		pl_alabel_r(plot->plotter, 'l', 'l', msg);
 	}
 
@@ -1205,6 +1208,28 @@ void DrawLabelsMDF(PlotFile *plot, char *Gname, char *GType, int type, parameter
 		PLOT_COLUMN(5, 3);
 		pl_pencolor_r(plot->plotter, 0xeeee, 0xeeee, 0);
 		pl_alabel_r(plot->plotter, 'l', 'l', "Vertical scale changed");
+	}
+
+	if(config->notVisible != 0)
+	{
+		PLOT_COLUMN(6, 1);
+		pl_pencolor_r(plot->plotter, 0xeeee, 0xeeee, 0);
+		sprintf(msg, "Data outside %g dBFS range: %0.2f%%", config->maxDbPlotZC, config->notVisible);
+		pl_alabel_r(plot->plotter, 'l', 'l', msg);
+	}
+
+	if(config->clkProcess == 'y')
+	{
+		pl_pencolor_r(plot->plotter, 0, 0xcccc, 0xcccc);
+		if(type == PLOT_COMPARE)
+		{
+			PLOT_COLUMN(6, 2);
+			sprintf(msg, "CLK R: %g Hz", CalculateClk(config->referenceSignal, config));
+			pl_alabel_r(plot->plotter, 'l', 'l', msg);
+			PLOT_COLUMN(6, 3);
+			sprintf(msg, "CLK C: %g Hz", CalculateClk(config->comparisonSignal, config));
+			pl_alabel_r(plot->plotter, 'l', 'l', msg);
+		}
 	}
 
 	pl_restorestate_r(plot->plotter);

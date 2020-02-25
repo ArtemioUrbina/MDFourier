@@ -516,6 +516,7 @@ typedef struct parameters_st {
 	int				noiseFloorTooHigh;
 	int				channelWithLowFundamentals;
 	int				singleSyncUsed;
+	double			notVisible;
 
 	double 			plotResX;
 	double			plotResY;

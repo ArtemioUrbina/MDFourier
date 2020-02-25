@@ -165,6 +165,7 @@ void CleanParameters(parameters *config)
 	config->noiseFloorTooHigh = 0;
 	config->channelWithLowFundamentals = 0;
 	config->singleSyncUsed = 0;
+	config->notVisible = 0;
 
 	config->logScale = 1;
 	config->logScaleTS = 0;
