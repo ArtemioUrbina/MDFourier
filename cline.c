@@ -116,6 +116,8 @@ void CleanParameters(parameters *config)
 {
 	memset(config, 0, sizeof(parameters));
 
+	initLog();
+
 	sprintf(config->outputFolder, OUTPUT_FOLDER);
 	config->outputPath[0] = '\0';
 

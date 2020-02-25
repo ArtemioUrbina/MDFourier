@@ -48,40 +48,45 @@ void EnableLog() { do_log = CONSOLE_ENABLED; }
 void DisableLog() { do_log = 0; }
 int IsLogEnabled() { return do_log; }
 
+void initLog()
+{
+	do_log = 0;
+	logfile = NULL;
+}
+
 void logmsg(char *fmt, ... )
 {
 	va_list arguments;
 
-	va_start(arguments, fmt);
 	
+	va_start(arguments, fmt);
 	vprintf(fmt, arguments);
 	fflush(stdout);  // output to Front end ASAP
+	va_end(arguments);
 
 	if(do_log && logfile)
 	{
+		va_start(arguments, fmt);
 		vfprintf(logfile, fmt, arguments);
+		va_end(arguments);
 		// uncomment to output to log file ASAP when debugging
 		//fflush(logfile);
 	}
 
-	va_end(arguments);
-	return;
 }
 
 void logmsgFileOnly(char *fmt, ... )
 {
-	va_list arguments;
-
-	va_start(arguments, fmt);
-
 	if(do_log && logfile)
 	{
+		va_list arguments;
+
+		va_start(arguments, fmt);
 		vfprintf(logfile, fmt, arguments);
 		// uncomment to output to log file ASAP when debugging
 		//fflush(logfile);
+		va_end(arguments);
 	}
-
-	va_end(arguments);
 }
 
 #if defined (WIN32)

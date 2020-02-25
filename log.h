@@ -31,6 +31,7 @@
 
 #include "mdfourier.h"
 
+void initLog();
 void EnableLog();
 void DisableLog();
 int IsLogEnabled();
