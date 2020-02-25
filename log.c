@@ -108,6 +108,9 @@ int setLogName(char *name)
 {
 	sprintf(log_file, "%s", name);
 
+	if(!do_log)
+		return 0;
+
 	remove(log_file);
 
 #if defined (WIN32)
@@ -127,11 +130,12 @@ int setLogName(char *name)
 
 void endLog()
 {
-	if(do_log && logfile)
+	if(logfile)
 	{
 		fclose(logfile);
 		logfile = NULL;
 	}
+	do_log = 0;
 }
 
 int SaveWAVEChunk(char *filename, AudioSignal *Signal, char *buffer, long int block, long int loadedBlockSize, int diff, parameters *config)
