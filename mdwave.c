@@ -1563,7 +1563,7 @@ int commandline_wave(int argc , char *argv[], parameters *config)
 
 void PrintUsage_wave()
 {
-	logmsg("  usage: mdwave -r reference.wav\n");
+	logmsg("  usage: mdwave -P profile.mdf -r reference.wav\n");
 	logmsg("   FFT and Analysis options:\n");
 	logmsg("	 -a: select <a>udio channel to compare. 's', 'l' or 'r'\n");
 	logmsg("	 -c: Enable Audio <c>hunk creation, an individual WAV for each block\n");
