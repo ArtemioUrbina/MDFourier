@@ -298,7 +298,7 @@ void CMDFourierGUIDlg::ExecuteCommand(CString Compare)
 	window = GetSelectedCommandLineValue(m_WindowTypeSelect, COUNT_WINDOWS);
 	adjust = GetSelectedCommandLineValue(m_CurveAdjustSelect, COUNT_CURVES);
 
-	command.Format(L"mdfourier.exe -P \"%s\" -r \"%s\" -c \"%s\" -w %s -o %s -l", 
+	command.Format(L"mdfourier.exe -P \"%s\" -r \"%s\" -c \"%s\" -w %s -o %s", 
 			profile, m_ReferenceFile, Compare, window, adjust);
 
 	if(syncTypes)
@@ -1056,7 +1056,7 @@ void CMDFourierGUIDlg::OnBnClickedMdwave()
 	window = GetSelectedCommandLineValue(m_WindowTypeSelect, COUNT_WINDOWS);
 	syncFormat = GetSelectedCommandLineValue(m_RefSync, syncTypes);
 
-	command.Format(L"mdwave.exe -P \"%s\" -r \"%s\" -w %s -Y %s -l -c", 
+	command.Format(L"mdwave.exe -P \"%s\" -r \"%s\" -w %s -Y %s -c", 
 			profile, m_ReferenceFile, window, syncFormat);
 
 	if(m_AlignFFTWCheckBox.GetCheck() == BST_CHECKED)
