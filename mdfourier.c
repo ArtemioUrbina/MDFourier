@@ -184,7 +184,7 @@ void FindViewPort(parameters *config)
 	double	average = 0, outside = 0, maxDiff = 0;
 
 	average = FindDifferenceAverage(config);
-	logmsg("Average difference is %g dBFS. ", average);
+	logmsg("Average difference is %g dBFS\n", average);
 	/*
 	if(fabs(average) > DB_DIFF)
 	{
@@ -201,7 +201,7 @@ void FindViewPort(parameters *config)
 	{
 		name = GetTypeName(config, type);
 
-		logmsg("Differences outside +/-%gdBFS in [%s]: %g%%\n", 
+		logmsg(" - Differences outside +/-%gdBFS in [%s]: %g%%\n", 
 				config->maxDbPlotZC, name, outside);
 		if(outside > 8 && config->maxDbPlotZC == DB_HEIGHT)  // if the user has not changed it
 		{

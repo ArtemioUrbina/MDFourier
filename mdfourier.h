@@ -189,7 +189,6 @@ enum normalize
 	none
 };
 
-#define PROFILE_FILE	"profiles\\mdfblocksGEN.mfn"
 #define OUTPUT_FOLDER	"MDFResults"
 
 
