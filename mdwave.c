@@ -1563,7 +1563,7 @@ int commandline_wave(int argc , char *argv[], parameters *config)
 
 void PrintUsage_wave()
 {
-	logmsg("  usage: mdwave -P profile.mdf -r reference.wav\n");
+	logmsg("  usage: mdwave -P profile.mdf -r audio.wav\n");
 	logmsg("   FFT and Analysis options:\n");
 	logmsg("	 -a: select <a>udio channel to compare. 's', 'l' or 'r'\n");
 	logmsg("	 -c: Enable Audio <c>hunk creation, an individual WAV for each block\n");
@@ -1577,6 +1577,7 @@ void PrintUsage_wave()
 	logmsg("	 -z: Uses Zero Padding to equal 1 Hz FFT bins\n");
 	logmsg("	 -B: Do not do stereo channel audio <B>alancing\n");
 	logmsg("	 -C: Use <C>omparison framerate profile in 'No-Sync' compare mode\n");
+	logmsg("	 -Y: Define the Video Format from the profile\n");
 	logmsg("   Output options:\n");
 	logmsg("	 -v: Enable <v>erbose mode, spits all the FFTW results\n");
 	logmsg("	 -l: Do not <l>og output to file [reference]_vs_[compare].txt\n");
