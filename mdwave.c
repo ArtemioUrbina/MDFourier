@@ -73,7 +73,7 @@ int main(int argc , char *argv[])
 		return 1;
 	}
 
-	if(!SetupFolders("MDWave", "WAVE_Log_", &config))
+	if(!SetupFolders(OUTPUT_FOLDER_MDW, "WAVE_Log_", &config))
 	{
 		logmsg("Aborting\n");
 		return 1;

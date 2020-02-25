@@ -189,7 +189,8 @@ enum normalize
 	none
 };
 
-#define OUTPUT_FOLDER	"MDFResults"
+#define OUTPUT_FOLDER		"MDFResults"
+#define OUTPUT_FOLDER_MDW	"MDWResults"
 
 
 typedef struct max_vol {
