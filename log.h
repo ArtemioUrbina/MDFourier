@@ -32,6 +32,7 @@
 #include "mdfourier.h"
 
 void EnableLog();
+void DisableLog();
 void DisableConsole();
 void EnableConsole();
 int IsLogEnabled();

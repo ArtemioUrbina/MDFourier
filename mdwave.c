@@ -1579,8 +1579,9 @@ void PrintUsage_wave()
 	logmsg("	 -C: Use <C>omparison framerate profile in 'No-Sync' compare mode\n");
 	logmsg("   Output options:\n");
 	logmsg("	 -v: Enable <v>erbose mode, spits all the FFTW results\n");
-	logmsg("	 -l: <l>og output to file [reference]_vs_[compare].txt\n");
+	logmsg("	 -l: Do not <l>og output to file [reference]_vs_[compare].txt\n");
 	logmsg("	 -k: cloc<k> FFTW operations\n");
+	logmsg("	 -0: Change output folder\n");
 }
 
 void Header_wave(int log)

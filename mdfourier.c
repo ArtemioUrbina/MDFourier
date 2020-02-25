@@ -208,16 +208,27 @@ void FindViewPort(parameters *config)
 			double value = 0;
 
 			value = ceil(FindVisibleInViewPortWithinStandardDeviation(&maxDiff, &outside, type, 1, config));
-			if(value < 5)
+			if(outside < 5)
 				config->maxDbPlotZC = value;
 			else
+			{
 				config->maxDbPlotZC = ceil(FindVisibleInViewPortWithinStandardDeviation(&maxDiff, &outside, type, 2, config));
+				/*  // swap above for this to expand fully if needed
+				value = ceil(FindVisibleInViewPortWithinStandardDeviation(&maxDiff, &outside, type, 2, config));
+				if(outside < 5)
+					config->maxDbPlotZC = value;
+				else
+				{
+					config->maxDbPlotZC = ceil(maxDiff);
+					outside = FindDifferencePercentOutsideViewPort(&maxDiff, &type, fabs(config->maxDbPlotZC), config);		
+				}
+				*/
+			}
 			logmsg(" - Auto adjusting viewport to %gdBFS for graphs\n", config->maxDbPlotZC);
+			if(outside >= 1)
+				logmsg(" - The %g%% of differences in [%s] will not be visible within the %gdBFS for graphs\n - If needed you can graph them all with \"-d %g\" for this particular case\n\n", 
+					outside, name, config->maxDbPlotZC, ceil(maxDiff));
 		}
-
-		if(outside >= 1)
-			logmsg(" - The %g%% of differences in [%s] will not be visible within the %gdBFS for graphs\n - If needed you can graph them all with \"-d %g\" for this particular case\n\n", 
-				outside, name, config->maxDbPlotZC, ceil(maxDiff));
 	}
 	else
 		logmsg("\n");

@@ -61,7 +61,7 @@ void PrintUsage()
 	logmsg("	 -X: Do not E<x>tra Data from Profiles\n");
 	logmsg("	 -q: Do not round (<q>uantize) frequencies and amplitudes\n");
 	logmsg("   Output options:\n");
-	logmsg("	 -l: <l>og output to file [reference]_vs_[compare].txt\n");
+	logmsg("	 -l: Do not <l>og output to file [reference]_vs_[compare].txt\n");
 	logmsg("	 -v: Enable <v>erbose mode, spits all the FFTW results\n");
 	logmsg("	 -C: Create <C>SV file with plot values.\n");
 	logmsg("	 -b: Change <b>ar value for frequency match, default is 1.0dBFS.\n");
@@ -228,6 +228,8 @@ void CleanParameters(parameters *config)
 	config->compressToBlocks = 0;
 	config->quantizeRound = 1;
 	config->drawPerfect = 0;
+
+	EnableLog();
 }
 
 int commandline(int argc , char *argv[], parameters *config)
@@ -376,7 +378,7 @@ int commandline(int argc , char *argv[], parameters *config)
 		}
 		break;
 	  case 'l':
-		EnableLog();
+		DisableConsole();
 		break;
 	  case 'M':
 		config->plotMissing = 0;

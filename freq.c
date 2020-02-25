@@ -339,6 +339,8 @@ void InitAudio(AudioSignal *Signal, parameters *config)
 	Signal->startHz = config->startHz;
 	Signal->endHz = config->endHz;
 
+	Signal->balance = 0;
+
 	memset(&Signal->header, 0, sizeof(wav_hdr));
 }
 

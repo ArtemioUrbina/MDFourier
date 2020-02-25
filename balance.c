@@ -239,6 +239,10 @@ int CheckBalance(AudioSignal *Signal, int block, parameters *config)
 		logmsg(" - %s signal stereo imbalance: %s channel is higher by %0.5f%%\n",
 				Signal->role == ROLE_REF ? "Reference" : "Comparison",
 				diffNam == 'l' ? "left" : "right", channDiff);
+
+		Signal->balance = channDiff;
+		if(diffNam == 'l')
+			Signal->balance *= -1;
 		
 		if(config->channelBalance)
 			BalanceAudioChannel(Signal, diffNam, ratio);

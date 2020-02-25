@@ -815,6 +815,9 @@ void enableTestWarnings(parameters *config)
 	config->clkFreqCount = 10;
 	config->clkAmpl = 1.2;
 	config->clkRatio = 4;
+		
+	config->referenceSignal->balance = -5.7;
+	config->comparisonSignal->balance = 10.48;
 
 	logmsg("ERROR: enableTestWarnings Enabled\n");
 }
@@ -1249,6 +1252,45 @@ void DrawLabelsMDF(PlotFile *plot, char *Gname, char *GType, int type, parameter
 			pl_pencolor_r(plot->plotter, 0, 0xcccc, 0xcccc);
 		sprintf(msg, "Data \\ua\\da %gdBFS: %0.2f%%", config->maxDbPlotZC, config->notVisible);
 		pl_alabel_r(plot->plotter, 'l', 'l', msg);
+	}
+
+	if(type == PLOT_COMPARE)
+	{
+		if(config->referenceSignal->balance)
+		{
+			PLOT_COLUMN(7, 1);
+			sprintf(msg, "Imbalance R [%s]: %0.2f%%", 
+				config->referenceSignal->balance > 0 ? "R" : "L", 
+				fabs(config->referenceSignal->balance));
+			pl_alabel_r(plot->plotter, 'l', 'l', msg);
+		}
+		if(config->comparisonSignal->balance)
+		{
+			PLOT_COLUMN(7, 2);
+			sprintf(msg, "Imbalance C [%s]: %0.2f%%", 
+				config->comparisonSignal->balance > 0 ? "R" : "L", 
+				fabs(config->comparisonSignal->balance));
+			pl_alabel_r(plot->plotter, 'l', 'l', msg);
+		}
+	}
+	else
+	{
+		if(type == PLOT_SINGLE_REF)
+		{
+			PLOT_COLUMN(7, 1);
+			sprintf(msg, "Imbalance [%s]: %0.2f%%", 
+				config->referenceSignal->balance > 0 ? "R" : "L", 
+				fabs(config->referenceSignal->balance));
+			pl_alabel_r(plot->plotter, 'l', 'l', msg);
+		}
+		else
+		{
+			PLOT_COLUMN(7, 2);
+			sprintf(msg, "Imbalance [%s]: %0.2f%%", 
+				config->comparisonSignal->balance > 0 ? "R" : "L", 
+				fabs(config->comparisonSignal->balance));
+			pl_alabel_r(plot->plotter, 'l', 'l', msg);
+		}
 	}
 
 	pl_restorestate_r(plot->plotter);

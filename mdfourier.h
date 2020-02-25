@@ -372,6 +372,8 @@ typedef struct AudioSt {
 	double		startHz;
 	double		endHz;
 
+	double		balance;
+
 	AudioBlocks *Blocks;
 }  AudioSignal;
 
