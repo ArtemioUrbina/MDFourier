@@ -362,11 +362,19 @@ void PlotAmpDifferences(parameters *config)
 
 	if(config->plotDifferences)
 	{
-		if(PlotEachTypeDifferentAmplitudes(amplDiff, size, config->compareName, config) > 1)
+		int typeCount = 0;
+
+		typeCount = GetActiveBlockTypesNoRepeat(config);
+		if(typeCount > 1)
 		{
-			PlotAllDifferentAmplitudes(amplDiff, size, config->compareName, config);
-			logmsg(PLOT_ADVANCE_CHAR);
+			if(PlotEachTypeDifferentAmplitudes(amplDiff, size, config->compareName, config) > 1)
+			{
+				PlotAllDifferentAmplitudes(amplDiff, size, config->compareName, config);
+				logmsg(PLOT_ADVANCE_CHAR);
+			}
 		}
+		else
+			PlotAllDifferentAmplitudes(amplDiff, size, config->compareName, config);
 	}
 
 	if(config->averagePlot)
@@ -800,6 +808,14 @@ void enableTestWarnings(parameters *config)
 	config->maxDbPlotZC = DB_HEIGHT+3;
 	config->notVisible = 20.75;
 
+	config->clkProcess = 'y';
+
+	config->clkBlock = 2;
+	config->clkFreq = 8000;
+	config->clkFreqCount = 10;
+	config->clkAmpl = 1.2;
+	config->clkRatio = 4;
+
 	logmsg("ERROR: enableTestWarnings Enabled\n");
 }
 #endif
@@ -1210,26 +1226,29 @@ void DrawLabelsMDF(PlotFile *plot, char *Gname, char *GType, int type, parameter
 		pl_alabel_r(plot->plotter, 'l', 'l', "Vertical scale changed");
 	}
 
-	if(config->notVisible != 0)
-	{
-		PLOT_COLUMN(6, 1);
-		pl_pencolor_r(plot->plotter, 0xeeee, 0xeeee, 0);
-		sprintf(msg, "Data outside %g dBFS range: %0.2f%%", config->maxDbPlotZC, config->notVisible);
-		pl_alabel_r(plot->plotter, 'l', 'l', msg);
-	}
-
 	if(config->clkProcess == 'y')
 	{
 		pl_pencolor_r(plot->plotter, 0, 0xcccc, 0xcccc);
 		if(type == PLOT_COMPARE)
 		{
-			PLOT_COLUMN(6, 2);
+			PLOT_COLUMN(6, 1);
 			sprintf(msg, "CLK R: %g Hz", CalculateClk(config->referenceSignal, config));
 			pl_alabel_r(plot->plotter, 'l', 'l', msg);
-			PLOT_COLUMN(6, 3);
+			PLOT_COLUMN(6, 2);
 			sprintf(msg, "CLK C: %g Hz", CalculateClk(config->comparisonSignal, config));
 			pl_alabel_r(plot->plotter, 'l', 'l', msg);
 		}
+	}
+
+	if(config->notVisible > 1)
+	{
+		PLOT_COLUMN(6, 3);
+		if(config->notVisible > 5)
+			pl_pencolor_r(plot->plotter, 0xeeee, 0xeeee, 0);
+		else
+			pl_pencolor_r(plot->plotter, 0, 0xcccc, 0xcccc);
+		sprintf(msg, "Data \\ua\\da %gdBFS: %0.2f%%", config->maxDbPlotZC, config->notVisible);
+		pl_alabel_r(plot->plotter, 'l', 'l', msg);
 	}
 
 	pl_restorestate_r(plot->plotter);
@@ -2298,8 +2317,8 @@ void PlotNoiseSpectrogram(FlatFrequency *freqs, long int size, int type, char *f
 	if(!CreatePlotFile(&plot, config))
 		return;
 
-	DrawGridZeroToLimit(&plot, endAmplitude, VERT_SCALE_STEP,config->endHzPlot, 1000, 1, config);
-	DrawLabelsZeroToLimit(&plot, endAmplitude, VERT_SCALE_STEP,config->endHzPlot, 1000, 1, config);
+	DrawGridZeroToLimit(&plot, endAmplitude, VERT_SCALE_STEP, config->endHzPlot, 1000, 1, config);
+	DrawLabelsZeroToLimit(&plot, endAmplitude, VERT_SCALE_STEP, config->endHzPlot, 1000, 1, config);
 
 	DrawNoiseLines(&plot, 0, endAmplitude, Signal, config);
 	DrawLabelsNoise(&plot, config->endHzPlot, Signal, config);
@@ -3092,7 +3111,10 @@ int PlotDifferentAmplitudesAveraged(FlatAmplDifference *amplDiff, long int size,
 		{
 			long int	chunks = AVERAGE_CHUNKS;
 
-			sprintf(name, "DA_%s_%02d%s_AVG_", filename, 
+			if(typeCount == 1)
+				sprintf(name, "DA__ALL_%s_AVG_", filename);
+			else
+				sprintf(name, "DA_%s_%02d%s_AVG_", filename, 
 					config->types.typeArray[i].type, config->types.typeArray[i].typeName);
 
 			averagedArray[types] = CreateFlatDifferencesAveraged(type, &averagedSizes[types], chunks, normalPlot, config);

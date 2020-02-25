@@ -77,7 +77,7 @@ typedef struct averaged_freq{
 #define X0BORDER	0.125	// left border
 #define Y0BORDER 	0.06	// bottom border
 #define X1BORDER	0.045	// right border
-#define Y1BORDER 	0.08	// top border
+#define Y1BORDER 	0.10	// top border
 
 /* 1 */
 #define PLOT_RES_X_LOW 800.0

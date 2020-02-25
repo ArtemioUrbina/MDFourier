@@ -576,7 +576,7 @@ double FindDifferencePercentOutsideViewPort(double *maxAmpl, int *type, double t
 	return(maxPercent);
 }
 
-double FindVisibleInViewPortWithinStandardDeviation(double *maxAmpl, double *outside, int type, parameters *config)
+double FindVisibleInViewPortWithinStandardDeviation(double *maxAmpl, double *outside, int type, int numstd, parameters *config)
 {
 	double	mean = 0, standard = 0, threshold = 0, count = 0;
 
@@ -588,6 +588,12 @@ double FindVisibleInViewPortWithinStandardDeviation(double *maxAmpl, double *out
 
 	if(!config->Differences.BlockDiffArray[type].cntAmplBlkDiff)
 		return 0;
+
+	if(numstd < 1)
+		numstd = 1;
+
+	if(numstd > 2)
+		numstd = 2;
 
 	*maxAmpl = 0;
 	*outside = 0;
@@ -642,7 +648,7 @@ double FindVisibleInViewPortWithinStandardDeviation(double *maxAmpl, double *out
 	standard = sqrt(standard/count);
 	count = 0;
 
-	threshold = mean + standard;
+	threshold = mean + numstd*standard;
 	for(int b = 0; b < config->types.totalBlocks; b++)
 	{
 		int currentType = 0;
