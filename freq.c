@@ -341,6 +341,9 @@ void InitAudio(AudioSignal *Signal, parameters *config)
 
 	Signal->balance = 0;
 
+	memset(&Signal->delayArray, 0, sizeof(double)*DELAYCOUNT);
+	Signal->delayElemCount = 0;
+
 	memset(&Signal->header, 0, sizeof(wav_hdr));
 }
 
@@ -873,16 +876,25 @@ int LoadAudioBlockStructure(FILE *file, parameters *config)
 		}
 		else
 		{
-			if(sscanf(lineBuffer, "%*s %*s %d %d %20s %c\n", 
+			if(sscanf(lineBuffer, "%*s %*s %d %d %d %20s %c\n", 
 				&config->types.typeArray[i].elementCount,
 				&config->types.typeArray[i].frames,
+				&config->types.typeArray[i].cutFrames,
 				&config->types.typeArray[i].color[0],
-				&config->types.typeArray[i].channel) != 4)
+				&config->types.typeArray[i].channel) != 5)
 			{
-				logmsg("ERROR: Invalid MD Fourier Audio Blocks File (Element Count, frames, color, channel): %s\n", lineBuffer);
+				logmsg("ERROR: Invalid MD Fourier Audio Blocks File (Element Count, frames, skip, color, channel): %s\n", lineBuffer);
 				fclose(file);
 				return 0;
 			}
+
+			if(config->types.typeArray[i].cutFrames != 0 && config->types.typeArray[i].frames - fabs(config->types.typeArray[i].cutFrames) <= 0)
+			{
+				logmsg("ERROR: Invalid MD Fourier Audio Blocks File: %s, Skip bigger than element\n", lineBuffer);
+				fclose(file);
+				return 0;
+			}
+			config->types.typeArray[i].cutFrames = fabs(config->types.typeArray[i].cutFrames);
 		}
 
 		if(!config->types.typeArray[i].elementCount)
@@ -1870,6 +1882,23 @@ long int GetBlockFrames(parameters *config, int pos)
 	return 0;
 }
 
+long int GetBlockCutFrames(parameters *config, int pos)
+{
+	int elementsCounted = 0;
+
+	if(!config)
+		return 0;
+
+	for(int i = 0; i < config->types.typeCount; i++)
+	{
+		elementsCounted += config->types.typeArray[i].elementCount;
+		if(elementsCounted > pos)
+			return(config->types.typeArray[i].cutFrames);
+	}
+	
+	return 0;
+}
+
 int GetBlockElements(parameters *config, int pos)
 {
 	int elementsCounted = 0;
@@ -2027,6 +2056,28 @@ char GetTypeChannel(parameters *config, int type)
 	}
 	
 	return CHANNEL_NONE;
+}
+
+char *GetInternalSyncSequentialName(int sequence, parameters *config)
+{
+	int found = 0;
+
+	if(!config)
+		return 0;
+
+	for(int i = 0; i < config->types.typeCount; i++)
+	{
+		if(config->types.typeArray[i].type == TYPE_INTERNAL_KNOWN ||
+			 config->types.typeArray[i].type == TYPE_INTERNAL_UNKNOWN)
+		{
+			if(found == sequence*2)
+				return(config->types.typeArray[i].typeDisplayName);
+			found++;
+		}
+	}
+	
+	logmsg("WARNING: sync tone request for invalid sequence %d\n", sequence);
+	return "";
 }
 
 int GetInternalSyncTone(int pos, parameters *config)

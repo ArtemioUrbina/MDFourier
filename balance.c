@@ -84,16 +84,17 @@ int CheckBalance(AudioSignal *Signal, int block, parameters *config)
 	while(i <= block)
 	{
 		double duration = 0;
-		long int frames = 0, difference = 0;
+		long int frames = 0, difference = 0, cutFrames = 0;
 
 		frames = GetBlockFrames(config, i);
+		cutFrames = GetBlockCutFrames(config, i);
 		duration = FramesToSeconds(Signal->framerate, frames);
 		
 		loadedBlockSize = SecondsToBytes(Signal->header.fmt.SamplesPerSec, duration, Signal->AudioChannels, &leftover, &discardBytes, &leftDecimals);
 
 		difference = GetByteSizeDifferenceByFrameRate(Signal->framerate, frames, Signal->header.fmt.SamplesPerSec, Signal->AudioChannels, config);
 
-		windowUsed = getWindowByLength(&windows, frames, config->smallerFramerate);
+		windowUsed = getWindowByLength(&windows, frames, cutFrames, config->smallerFramerate);
 
 		if(i == block)
 		{

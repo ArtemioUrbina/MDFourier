@@ -424,7 +424,7 @@ long int DetectPulseTrainSequence(Pulses *pulseArray, double targetFrequency, do
 					if(config->syncTolerance)
 						silence_count = pulse_count - 1;
 
-					if(pulse_count == getPulseCount(role, config) && silence_count == pulse_count - 1)
+					if(pulse_count == getPulseCount(role, config) && silence_count >= pulse_count/2 /* silence_count == pulse_count - 1 */)
 					{
 						if(config->debugSync)
 							logmsgFileOnly("Completed the sequence %ld\n", sequence_start);

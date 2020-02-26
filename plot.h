@@ -213,7 +213,7 @@ void ReturnToMainPath(char **CurrentPath);
 int PlotNoiseDifferentAmplitudesAveraged(FlatAmplDifference *amplDiff, long int size, char *filename, parameters *config, AudioSignal *Signal);
 void PlotNoiseDifferentAmplitudesAveragedInternal(FlatAmplDifference *amplDiff, long int size, int type, char *filename, AveragedFrequencies *averaged, long int avgsize, parameters *config, AudioSignal *Signal);
 void PlotNoiseSpectrogram(FlatFrequency *freqs, long int size, int type, char *filename, int signal, parameters *config, AudioSignal *Signal);
-void SaveCSV(FlatAmplDifference *amplDiff, long int size, char *filename, parameters *config);
+void SaveCSVAmpDiff(FlatAmplDifference *amplDiff, long int size, char *filename, parameters *config);
 
 void DrawFrequencyHorizontal(PlotFile *plot, double vertical, double hz, double hzIncrement, parameters *config);
 void DrawFrequencyHorizontalGrid(PlotFile *plot, double hz, double hzIncrement, parameters *config);

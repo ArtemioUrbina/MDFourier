@@ -175,11 +175,13 @@
 #define M_PI 3.1415926535897932384626433832795
 #endif
 
-#define	PROFILE_VER		2.0
+#define	PROFILE_VER		2.1
 #define	MAX_SYNC		10
 
 #define	FREQDOMTRIES	10
 #define	FREQDOMRATIO	20.0
+
+#define	DELAYCOUNT		10
 
 enum normalize
 {
@@ -212,6 +214,7 @@ typedef struct abt_st {
 	int 		type;
 	int			elementCount;
 	int			frames;
+	int			cutFrames;
 	char		color[20];
 	char		channel;
 	int			syncTone;
@@ -372,6 +375,9 @@ typedef struct AudioSt {
 	double		startHz;
 	double		endHz;
 
+	double		delayArray[DELAYCOUNT];
+	int			delayElemCount;
+
 	double		balance;
 
 	AudioBlocks *Blocks;
@@ -384,6 +390,7 @@ typedef struct window_unit_st {
 	long int	frames;
 	double		seconds;
 	long int	size;
+	long int	sizePadding;
 } windowUnit;
 
 typedef struct window_st {

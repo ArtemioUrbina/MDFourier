@@ -1,4 +1,4 @@
-MDFourierAudioBlockFile 2.0
+MDFourierAudioBlockFile 2.1
 Nintendo: GameBoy (v1)
 3
 GB 16.7427 308 7990 14 10
@@ -6,29 +6,29 @@ SGB 16.3475 308 7990 14 10
 P-SGB 16.4953 308 7990 14 10
 NULL n
 26
-Sync s 1 20 red m
-Silence n 1 20 gray m
-Pulse_12.5 1 73 10 yellow m
-      PADDING k 1 10 gray m
-Pulse_25 2 73 10 orange m
-      PADDING k 1 10 gray m
-Pulse_50 3 73 10 purple m
-      PADDING k 1 10 gray m
-Sine_scale 4 73 10 green m
-      PADDING k 1 10 gray m
-Noise_scale 5 128 10 aqua m
-      PADDING k 1 20 gray m
-Steady_noise 6 8 10 magenta m
-      PADDING k 1 40 gray m
-Noise_profile N 1 60 gray m
-      PADDING k 1 10 gray m
-Envelope_restart 7 2 10 red m
-      PADDING k 1 10 gray m
-Envelope_restart 7 2 10 red m
-      PADDING k 1 10 gray m
-Pulse_bend 8 27 10 yellow m
-      PADDING k 1 10 gray m      
-Sine_bend 9 27 10 green m
-      PADDING k 1 10 gray m      
-Silence n 1 20 gray m
-Sync s 1 20 red m
+Sync s 1 20 0 red m
+Silence n 1 20 0 gray m
+Pulse_12.5 1 73 10 0 yellow m
+      PADDING k 1 10 0 gray m
+Pulse_25 2 73 10 0 orange m
+      PADDING k 1 10 0 gray m
+Pulse_50 3 73 10 0 purple m
+      PADDING k 1 10 0 gray m
+Sine_scale 4 73 10 0 green m
+      PADDING k 1 10 0 gray m
+Noise_scale 5 128 10 0 aqua m
+      PADDING k 1 20 0 gray m
+Steady_noise 6 8 10 0 magenta m
+      PADDING k 1 40 0 gray m
+Noise_profile N 1 60 0 gray m
+      PADDING k 1 10 0 gray m
+Envelope_restart 7 2 10 0 red m
+      PADDING k 1 10 0 gray m
+Envelope_restart 7 2 10 0 red m
+      PADDING k 1 10 0 gray m
+Pulse_bend 8 27 10 0 yellow m
+      PADDING k 1 10 0 gray m      
+Sine_bend 9 27 10 0 green m
+      PADDING k 1 10 0 gray m      
+Silence n 1 20 0 gray m
+Sync s 1 20 0 red m

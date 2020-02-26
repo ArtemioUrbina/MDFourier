@@ -68,8 +68,8 @@
 
 #define DIFFERENCE_TITLE			"DIFFERENT AMPLITUDES [%s]"
 #define MISSING_TITLE				"MISSING FREQUENCIES [%s]"
-#define EXTRA_TITLE_TS_REF			"Comparison - MISSING FREQUENCIES - Time Spectrogram [%s] (Frequencies expected in Comparison)"
-#define EXTRA_TITLE_TS_COM			"Comparison - EXTRA FREQUENCIES - Time Spectrogram [%s] (Frequencies not in Reference file)"
+#define EXTRA_TITLE_TS_REF			"Comparison - MISSING FREQUENCIES - Time Spectrogram [%s] (Expected in Comparison)"
+#define EXTRA_TITLE_TS_COM			"Comparison - EXTRA FREQUENCIES - Time Spectrogram [%s] (Not in Refrerence)"
 #define SPECTROGRAM_TITLE_REF		"Reference - SPECTROGRAM [%s]"
 #define SPECTROGRAM_TITLE_COM		"Comparison - SPECTROGRAM [%s]"
 #define TSPECTROGRAM_TITLE_REF		"Reference - TIME SPECTROGRAM [%s]"
@@ -358,7 +358,7 @@ void PlotAmpDifferences(parameters *config)
 	}
 
 	if(config->outputCSV)
-		SaveCSV(amplDiff, size, config->compareName, config);
+		SaveCSVAmpDiff(amplDiff, size, config->compareName, config);
 
 	if(config->plotDifferences)
 	{
@@ -819,11 +819,24 @@ void enableTestWarnings(parameters *config)
 	config->referenceSignal->balance = -5.7;
 	config->comparisonSignal->balance = 10.48;
 
+	config->referenceSignal->delayArray[0] = 176.25;
+	config->referenceSignal->delayArray[1] = 17.7;
+	config->referenceSignal->delayArray[2] = 4000.15;
+	config->referenceSignal->delayElemCount = 3;
+
+	config->comparisonSignal->delayArray[0] = 5254.25;
+	config->comparisonSignal->delayArray[1] = 45.5;
+	config->comparisonSignal->delayArray[2] = 4012.1;
+	config->comparisonSignal->delayElemCount = 3;
+
 	logmsg("ERROR: enableTestWarnings Enabled\n");
 }
 #endif
 
-#define PLOT_COLUMN(x,y) pl_fmove_r(plot->plotter, config->plotResX-x*config->plotResX/10-config->plotResX/40, config->plotResY/2-y*BAR_HEIGHT)
+#define PLOT_COLUMN(x,y) pl_fmove_r(plot->plotter, config->plotResX-(x)*config->plotResX/10-config->plotResX/40, config->plotResY/2-(y)*BAR_HEIGHT)
+#define PLOT_COLUMN_DISP(x,x1,y) pl_fmove_r(plot->plotter, config->plotResX-(x)*config->plotResX/10-config->plotResX/40+x1, config->plotResY/2-(y)*BAR_HEIGHT)
+
+#define PLOT_WARN(x,y) pl_fmove_r(plot->plotter, x*config->plotResX-config->plotResX/4, -1*config->plotResY/2+config->plotResY/20+(y+2)*BAR_HEIGHT);
 
 void DrawLabelsMDF(PlotFile *plot, char *Gname, char *GType, int type, parameters *config)
 {
@@ -997,18 +1010,17 @@ void DrawLabelsMDF(PlotFile *plot, char *Gname, char *GType, int type, parameter
 	}
 
 	/* Warnings */
-	// Add from top, change last multiplier for BAR HEIGHT
 
 	if(config->compressToBlocks)
 	{
-		pl_fmove_r(plot->plotter, config->plotResX-config->plotResX/4, -1*config->plotResY/2+config->plotResY/20+12*BAR_HEIGHT);
+		PLOT_WARN(1, 12);
 		pl_pencolor_r(plot->plotter, 0xeeee, 0xeeee, 0);
 		pl_alabel_r(plot->plotter, 'l', 'l', "WARNING: Debug setting, blocks flattened");
 	}
 
 	if(!config->logScale)
 	{
-		pl_fmove_r(plot->plotter, config->plotResX-config->plotResX/4, -1*config->plotResY/2+config->plotResY/20+11*BAR_HEIGHT);
+		PLOT_WARN(1, 11);
 		pl_pencolor_r(plot->plotter, 0xeeee, 0xeeee, 0);
 		pl_alabel_r(plot->plotter, 'l', 'l', "WARNING: Log scale disabled");
 	}
@@ -1017,49 +1029,49 @@ void DrawLabelsMDF(PlotFile *plot, char *Gname, char *GType, int type, parameter
 		(config->referenceSignal->AudioChannels == 2 ||
 		config->comparisonSignal->AudioChannels == 2))
 	{
-		pl_fmove_r(plot->plotter, config->plotResX-config->plotResX/4, -1*config->plotResY/2+config->plotResY/20+10*BAR_HEIGHT);
+		PLOT_WARN(1, 10);
 		pl_pencolor_r(plot->plotter, 0xeeee, 0xeeee, 0);
 		pl_alabel_r(plot->plotter, 'l', 'l', "WARNING: Audio channel balancing disabled");
 	}
 
 	if(config->ignoreFrameRateDiff)
 	{
-		pl_fmove_r(plot->plotter, config->plotResX-config->plotResX/4, -1*config->plotResY/2+config->plotResY/20+9*BAR_HEIGHT);
+		PLOT_WARN(1, 9);
 		pl_pencolor_r(plot->plotter, 0xeeee, 0xeeee, 0);
 		pl_alabel_r(plot->plotter, 'l', 'l', "WARNING: Ignored frame rate difference during analysis");
 	}
 
 	if(config->ignoreFloor)
 	{
-		pl_fmove_r(plot->plotter, config->plotResX-config->plotResX/4, -1*config->plotResY/2+config->plotResY/20+8*BAR_HEIGHT);
+		PLOT_WARN(1, 8);
 		pl_pencolor_r(plot->plotter, 0xeeee, 0xeeee, 0);
 		pl_alabel_r(plot->plotter, 'l', 'l', "WARNING: Noise floor was ignored during analysis");
 	}
 
 	if(config->noiseFloorTooHigh)
 	{
-		pl_fmove_r(plot->plotter, config->plotResX-config->plotResX/4, -1*config->plotResY/2+config->plotResY/20+7*BAR_HEIGHT);
+		PLOT_WARN(1, 7);
 		pl_pencolor_r(plot->plotter, 0xeeee, 0xeeee, 0);
 		pl_alabel_r(plot->plotter, 'l', 'l', "WARNING: Noise floor too high");
 	}
 
 	if(config->types.useWatermark && DetectWatermarkIssue(msg, config))
 	{
-		pl_fmove_r(plot->plotter, config->plotResX-config->plotResX/4, -1*config->plotResY/2+config->plotResY/20+6*BAR_HEIGHT);
+		PLOT_WARN(1, 6);
 		pl_pencolor_r(plot->plotter, 0xeeee, 0xeeee, 0);
 		pl_alabel_r(plot->plotter, 'l', 'l', msg);
 	}
 
 	if(config->AmpBarRange > BAR_DIFF_DB_TOLERANCE)
 	{
-		pl_fmove_r(plot->plotter, config->plotResX-config->plotResX/4, -1*config->plotResY/2+config->plotResY/20+5*BAR_HEIGHT);
+		PLOT_WARN(1, 5);
 		pl_pencolor_r(plot->plotter, 0xeeee, 0xeeee, 0);
 		pl_alabel_r(plot->plotter, 'l', 'l', "WARNING: Tolerance raised for matches");
 	}
 
 	if(config->smallFile)
 	{
-		pl_fmove_r(plot->plotter, config->plotResX-config->plotResX/4, -1*config->plotResY/2+config->plotResY/20+4*BAR_HEIGHT);
+		PLOT_WARN(1, 4);
 		pl_pencolor_r(plot->plotter, 0xeeee, 0xeeee, 0);
 		sprintf(msg, "WARNING: %s file%s shorter than expected", 
 			config->smallFile == ROLE_REF ? "Reference" : config->smallFile == ROLE_COMP ? "Comparison" : "Both",
@@ -1069,7 +1081,7 @@ void DrawLabelsMDF(PlotFile *plot, char *Gname, char *GType, int type, parameter
 
 	if(config->normType != max_frequency)
 	{
-		pl_fmove_r(plot->plotter, config->plotResX-config->plotResX/4, -1*config->plotResY/2+config->plotResY/20+3*BAR_HEIGHT);
+		PLOT_WARN(1, 3);
 		pl_pencolor_r(plot->plotter, 0xeeee, 0xeeee, 0);
 		if(config->normType == max_time)
 			pl_alabel_r(plot->plotter, 'l', 'l', "Time domain normalization");
@@ -1081,7 +1093,7 @@ void DrawLabelsMDF(PlotFile *plot, char *Gname, char *GType, int type, parameter
 
 	if(config->noSyncProfile && type < PLOT_SINGLE_REF)
 	{
-		pl_fmove_r(plot->plotter, config->plotResX-config->plotResX/4, -1*config->plotResY/2+config->plotResY/20+2*BAR_HEIGHT);
+		PLOT_WARN(1, 2);
 		pl_pencolor_r(plot->plotter, 0xeeee, 0xeeee, 0);
 		sprintf(msg, "WARNING: No sync profile [%s], PLEASE DISREGARD", 
 					config->noSyncProfileType == NO_SYNC_AUTO ? "Auto" : "Manual");
@@ -1090,7 +1102,7 @@ void DrawLabelsMDF(PlotFile *plot, char *Gname, char *GType, int type, parameter
 
 	if(config->syncTolerance)
 	{
-		pl_fmove_r(plot->plotter, config->plotResX-config->plotResX/4, -1*config->plotResY/2+config->plotResY/20+1*BAR_HEIGHT);
+		PLOT_WARN(1, 1);
 		pl_pencolor_r(plot->plotter, 0xeeee, 0xeeee, 0);
 		pl_alabel_r(plot->plotter, 'l', 'l', "WARNING: Sync tolerance enabled");
 	}
@@ -1254,6 +1266,8 @@ void DrawLabelsMDF(PlotFile *plot, char *Gname, char *GType, int type, parameter
 		pl_alabel_r(plot->plotter, 'l', 'l', msg);
 	}
 
+	pl_pencolor_r(plot->plotter, 0, 0xeeee, 0xeeee);
+
 	if(type == PLOT_COMPARE)
 	{
 		if(config->referenceSignal->balance)
@@ -1290,6 +1304,49 @@ void DrawLabelsMDF(PlotFile *plot, char *Gname, char *GType, int type, parameter
 				config->comparisonSignal->balance > 0 ? "R" : "L", 
 				fabs(config->comparisonSignal->balance));
 			pl_alabel_r(plot->plotter, 'l', 'l', msg);
+		}
+	}
+
+	if(type != PLOT_SINGLE_COM && config->referenceSignal->delayElemCount)
+	{
+		double labelpos = 0, x = 0, y = 0;
+
+		pl_ffontsize_r(plot->plotter, FONT_SIZE_3);
+		x = config->plotResX/20*15;
+		y = -1*config->plotResY/2+config->plotResY/80+config->plotResY/60*3;
+		y += config->plotResY/60;
+
+		sprintf(msg, "R delays  ");
+		pl_fmove_r(plot->plotter, x, y);
+		pl_alabel_r(plot->plotter, 'l', 'l', msg);
+		labelpos += pl_flabelwidth_r(plot->plotter, msg);
+		for(int i = 0; i < config->referenceSignal->delayElemCount; i++)
+		{
+			sprintf(msg, "%s: %0.1fms ", GetInternalSyncSequentialName(i,config), config->referenceSignal->delayArray[i]);
+			pl_fmove_r(plot->plotter, x+labelpos, y);
+			pl_alabel_r(plot->plotter, 'l', 'l', msg);
+			labelpos += pl_flabelwidth_r(plot->plotter, msg);
+		}
+	}
+
+	if(type != PLOT_SINGLE_REF && config->comparisonSignal->delayElemCount)
+	{
+		double labelpos = 0, x = 0, y = 0;
+
+		x = config->plotResX/20*15;
+		y = -1*config->plotResY/2+config->plotResY/80+config->plotResY/60*3;
+
+		pl_ffontsize_r(plot->plotter, FONT_SIZE_3);
+		sprintf(msg, "C delays  ");
+		pl_fmove_r(plot->plotter, x, y);
+		pl_alabel_r(plot->plotter, 'l', 'l', msg);
+		labelpos += pl_flabelwidth_r(plot->plotter, msg);
+		for(int i = 0; i < config->comparisonSignal->delayElemCount; i++)
+		{
+			sprintf(msg, "%s: %0.1fms ", GetInternalSyncSequentialName(i,config), config->comparisonSignal->delayArray[i]);
+			pl_fmove_r(plot->plotter, x+labelpos, y);
+			pl_alabel_r(plot->plotter, 'l', 'l', msg);
+			labelpos += pl_flabelwidth_r(plot->plotter, msg);
 		}
 	}
 
@@ -1824,7 +1881,7 @@ void DrawLabelsNoise(PlotFile *plot, double hz, AudioSignal *Signal, parameters 
 	pl_restorestate_r(plot->plotter);
 }
 
-void SaveCSV(FlatAmplDifference *amplDiff, long int size, char *filename, parameters *config)
+void SaveCSVAmpDiff(FlatAmplDifference *amplDiff, long int size, char *filename, parameters *config)
 {
 	FILE 		*csv = NULL;
 	char		name[BUFFER_SIZE];
@@ -1845,15 +1902,8 @@ void SaveCSV(FlatAmplDifference *amplDiff, long int size, char *filename, parame
 	{
 		if(amplDiff[a].type > TYPE_CONTROL)
 		{ 
-			//long int intensity;
-
-			// If channel is defined as noise, don't draw the lower than visible ones
 			if(amplDiff[a].refAmplitude > config->significantAmplitude)
-			{
-				//intensity = CalculateWeightedError((fabs(config->significantAmplitude) - fabs(amplDiff[a].refAmplitude))/fabs(config->significantAmplitude), config)*0xffff;
-	
 				fprintf(csv, "%s, %g,%g\n", GetTypeName(config, amplDiff[a].type), amplDiff[a].hertz, amplDiff[a].diffAmplitude);
-			}
 		}
 	}
 	fclose(csv);

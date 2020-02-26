@@ -1,4 +1,4 @@
-MDFourierAudioBlockFile 2.0
+MDFourierAudioBlockFile 2.1
 Nintendo: Super Famicom/Super Nintendo
 2
 NTSC 16.6392 262 8012 14 10
@@ -7,6 +7,6 @@ APU y 54 8000 10 1.2 4
 5
 Sync s 1 20 red s
 Silence n 1 20 gray s
-SPC700 1 120 20 magenta m
+SPC700 1 120 6 -2 magenta m
 Silence n 1 20 gray s
 Sync s 1 20 red s

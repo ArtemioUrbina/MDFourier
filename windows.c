@@ -66,11 +66,13 @@ int initWindows(windowManager *wm, int SamplesPerSec, char winType, parameters *
 	return 1;
 }
 
-double *CreateWindow(windowManager *wm, long int frames, double framerate)
+double *CreateWindow(windowManager *wm, long int frames, long int cutFrames, double framerate)
 {
 	double		seconds = 0;
 	double		*window = NULL;
 	long int	size = 0;
+	double		secondsPadding = 0;
+	long int	sizePadding = 0;
 
 	if(!wm)
 		return NULL;
@@ -84,8 +86,12 @@ double *CreateWindow(windowManager *wm, long int frames, double framerate)
 		return NULL;
 	}
 
-	seconds = FramesToSeconds(frames, framerate);
-	size = floor(wm->SamplesPerSec*seconds);
+	seconds = FramesToSeconds(frames-cutFrames, framerate);
+	size = ceil(wm->SamplesPerSec*seconds);
+
+	secondsPadding = FramesToSeconds(cutFrames, framerate);
+	sizePadding = ceil(wm->SamplesPerSec*secondsPadding);
+
 	if(!size)
 	{
 		logmsg("ERROR: Asked for window with null size %ld Frames %g Framerate\n", frames, framerate);
@@ -100,6 +106,18 @@ double *CreateWindow(windowManager *wm, long int frames, double framerate)
 			logmsg ("Tukey window creation failed\n");
 			return NULL;
 		}
+		if(sizePadding)
+		{
+			window = (double*)realloc(window, sizeof(double)*(size+sizePadding));
+			if(!window)
+			{
+				logmsg ("Tukey window creation failed\n");
+				return NULL;
+			}
+			memset(window+size, 0, sizeof(double)*sizePadding);
+		}
+		wm->windowArray[wm->windowCount].sizePadding = sizePadding;
+
 		wm->windowArray[wm->windowCount].window = window;
 		wm->windowArray[wm->windowCount].seconds = seconds;
 		wm->windowArray[wm->windowCount].size = size;
@@ -115,6 +133,18 @@ double *CreateWindow(windowManager *wm, long int frames, double framerate)
 			logmsg ("Flattop window creation failed\n");
 			return NULL;
 		}
+		if(sizePadding)
+		{
+			window = (double*)realloc(window, sizeof(double)*(size+sizePadding));
+			if(!window)
+			{
+				logmsg ("Flattop window creation failed\n");
+				return NULL;
+			}
+			memset(window+size, 0, sizeof(double)*sizePadding);
+		}
+		wm->windowArray[wm->windowCount].sizePadding = sizePadding;
+
 		wm->windowArray[wm->windowCount].window = window;
 		wm->windowArray[wm->windowCount].seconds = seconds;
 		wm->windowArray[wm->windowCount].size = size;
@@ -130,6 +160,19 @@ double *CreateWindow(windowManager *wm, long int frames, double framerate)
 			logmsg ("Hann window creation failed\n");
 			return NULL;
 		}
+
+		if(sizePadding)
+		{
+			window = (double*)realloc(window, sizeof(double)*(size+sizePadding));
+			if(!window)
+			{
+				logmsg ("Hann window creation failed\n");
+				return NULL;
+			}
+			memset(window+size, 0, sizeof(double)*sizePadding);
+		}
+		wm->windowArray[wm->windowCount].sizePadding = sizePadding;
+
 		wm->windowArray[wm->windowCount].window = window;
 		wm->windowArray[wm->windowCount].seconds = seconds;
 		wm->windowArray[wm->windowCount].size = size;
@@ -145,6 +188,19 @@ double *CreateWindow(windowManager *wm, long int frames, double framerate)
 			logmsg ("Hamming window creation failed\n");
 			return NULL;
 		}
+
+		if(sizePadding)
+		{
+			window = (double*)realloc(window, sizeof(double)*(size+sizePadding));
+			if(!window)
+			{
+				logmsg ("Hamming window creation failed\n");
+				return NULL;
+			}
+			memset(window+size, 0, sizeof(double)*sizePadding);
+		}
+		wm->windowArray[wm->windowCount].sizePadding = sizePadding;
+
 		wm->windowArray[wm->windowCount].window = window;
 		wm->windowArray[wm->windowCount].seconds = seconds;
 		wm->windowArray[wm->windowCount].size = size;
@@ -156,27 +212,33 @@ double *CreateWindow(windowManager *wm, long int frames, double framerate)
 	return NULL;
 }
 
-double *getWindowByLength(windowManager *wm, long int frames, double framerate)
+double *getWindowByLength(windowManager *wm, long int frames, long int cutFrames, double framerate)
 {
 	double		seconds = 0;
 	long int	size = 0;
+	double		secondsPadding = 0;
+	long int	sizePadding = 0;
 
 	if(!wm)
 		return 0;
 
-	seconds = FramesToSeconds(frames, framerate);
-	size = floor(wm->SamplesPerSec*seconds);
+	seconds = FramesToSeconds(frames-cutFrames, framerate);
+	size = ceil(wm->SamplesPerSec*seconds);
+
+	secondsPadding = FramesToSeconds(cutFrames, framerate);
+	sizePadding = ceil(wm->SamplesPerSec*secondsPadding);
+
 	for(int i = 0; i < wm->windowCount; i++)
 	{
 		//logmsg("Comparing pos %d: %g to %g from %d\n", i, seconds, wm->windowArray[i].seconds, wm->windowCount);
-		if(size == wm->windowArray[i].size)
+		if(size == wm->windowArray[i].size && sizePadding == wm->windowArray[i].sizePadding)
 		{
 			//logmsg("Served window size %ld (%ld frames %g fr)\n", size, frames, framerate);
 			return wm->windowArray[i].window;
 		}
 	}
 
-	return CreateWindow(wm, frames, framerate);
+	return CreateWindow(wm, frames, cutFrames, framerate);
 }
 
 void freeWindows(windowManager *wm)

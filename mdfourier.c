@@ -1301,6 +1301,7 @@ int ProcessInternal(AudioSignal *Signal, long int element, long int pos, int *sy
 
 		if(knownLength == TYPE_INTERNAL_KNOWN)
 		{
+			Signal->delayArray[Signal->delayElemCount++] = BytesToSeconds(Signal->header.fmt.SamplesPerSec, internalSyncOffset, Signal->AudioChannels)*1000.0;
 			logmsg(" - %s command delay: %g ms [%g frames]\n",
 				GetBlockName(config, element),
 				BytesToSeconds(Signal->header.fmt.SamplesPerSec, internalSyncOffset, Signal->AudioChannels)*1000.0,
@@ -1372,6 +1373,7 @@ int ProcessInternal(AudioSignal *Signal, long int element, long int pos, int *sy
 				//silenceLengthBytes = syncLengthBytes - pulseLengthBytes;
 			}
 
+			Signal->delayArray[Signal->delayElemCount++] = BytesToSeconds(Signal->header.fmt.SamplesPerSec, internalSyncOffset, Signal->AudioChannels)*1000.0;
 			logmsg(" - %s command delay: %g ms [%g frames]\n",
 				GetBlockName(config, element),
 				BytesToSeconds(Signal->header.fmt.SamplesPerSec, internalSyncOffset, Signal->AudioChannels)*1000.0,
@@ -1624,7 +1626,7 @@ int ProcessFile(AudioSignal *Signal, parameters *config)
 	while(i < config->types.totalBlocks)
 	{
 		double duration = 0, framerate = 0;
-		long int frames = 0, difference = 0;
+		long int frames = 0, difference = 0, cutFrames = 0;
 
 		if(!syncinternal)
 			framerate = Signal->framerate;
@@ -1632,6 +1634,7 @@ int ProcessFile(AudioSignal *Signal, parameters *config)
 			framerate = config->referenceFramerate;
 
 		frames = GetBlockFrames(config, i);
+		cutFrames = GetBlockCutFrames(config, i);
 		duration = FramesToSeconds(framerate, frames);
 		
 		loadedBlockSize = SecondsToBytes(Signal->header.fmt.SamplesPerSec, duration, Signal->AudioChannels, &leftover, &discardBytes, &leftDecimals);
@@ -1643,9 +1646,9 @@ int ProcessFile(AudioSignal *Signal, parameters *config)
 		if(Signal->Blocks[i].type >= TYPE_SILENCE || Signal->Blocks[i].type == TYPE_WATERMARK) // We get the smaller window, since we'll truncate
 		{
 			if(!syncinternal)
-				windowUsed = getWindowByLength(&windows, frames, config->smallerFramerate);
+				windowUsed = getWindowByLength(&windows, frames, cutFrames, config->smallerFramerate);
 			else
-				windowUsed = getWindowByLength(&windows, frames, framerate);
+				windowUsed = getWindowByLength(&windows, frames, cutFrames, framerate);
 		}
 
 /*
