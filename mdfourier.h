@@ -49,7 +49,7 @@
 
 #include "incbeta.h"
 
-#define MDVERSION "0.991c"
+#define MDVERSION "0.992rc"
 
 #if INTPTR_MAX == INT64_MAX
 #define	BITS_MDF "64-bit"
@@ -379,6 +379,8 @@ typedef struct AudioSt {
 	int			delayElemCount;
 
 	double		balance;
+	AudioBlocks	clkFrequencies;
+	double		clkEstimatedAC;
 
 	AudioBlocks *Blocks;
 }  AudioSignal;
@@ -526,6 +528,7 @@ typedef struct parameters_st {
 	int				channelWithLowFundamentals;
 	int				singleSyncUsed;
 	double			notVisible;
+	int				clkNoMatch;
 
 	double 			plotResX;
 	double			plotResY;
@@ -547,11 +550,9 @@ typedef struct parameters_st {
 
 /* Values only used for clock frequency */
 	char		clkName[20];
-	char		clkProcess;
+	int			clkProcess;
 	int			clkBlock;
 	int			clkFreq;
-	int			clkFreqCount;
-	double		clkAmpl;
 	int			clkRatio;
 
 	AudioSignal		*referenceSignal;

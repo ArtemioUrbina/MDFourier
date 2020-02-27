@@ -113,6 +113,7 @@
 #define	WAVEFORMDIR_EXTRA	"Extra"
 
 //#define TESTWARNINGS
+#define SYNC_DEBUG_SCALE	2
 
 char *GetCurrentPathAndChangeToResultsFolder(parameters *config)
 {
@@ -808,13 +809,14 @@ void enableTestWarnings(parameters *config)
 	config->maxDbPlotZC = DB_HEIGHT+3;
 	config->notVisible = 20.75;
 
-	config->clkProcess = 'y';
+	config->clkProcess = 1;
 
 	config->clkBlock = 2;
 	config->clkFreq = 8000;
-	config->clkFreqCount = 10;
-	config->clkAmpl = 1.2;
 	config->clkRatio = 4;
+	config->clkNoMatch = 1;
+	config->referenceSignal->clkEstimatedAC = 32780;
+	config->comparisonSignal->clkEstimatedAC = 34812.87;
 		
 	config->referenceSignal->balance = -5.7;
 	config->comparisonSignal->balance = 10.48;
@@ -1010,6 +1012,12 @@ void DrawLabelsMDF(PlotFile *plot, char *Gname, char *GType, int type, parameter
 	}
 
 	/* Warnings */
+	if(config->ignoreFrameRateDiff)
+	{
+		PLOT_WARN(1, 13);
+		pl_pencolor_r(plot->plotter, 0xeeee, 0xeeee, 0);
+		pl_alabel_r(plot->plotter, 'l', 'l', "WARNING: Ignored frame rate difference during analysis");
+	}
 
 	if(config->compressToBlocks)
 	{
@@ -1034,12 +1042,15 @@ void DrawLabelsMDF(PlotFile *plot, char *Gname, char *GType, int type, parameter
 		pl_alabel_r(plot->plotter, 'l', 'l', "WARNING: Audio channel balancing disabled");
 	}
 
-	if(config->ignoreFrameRateDiff)
+	if(config->noSyncProfile && type < PLOT_SINGLE_REF)
 	{
 		PLOT_WARN(1, 9);
 		pl_pencolor_r(plot->plotter, 0xeeee, 0xeeee, 0);
-		pl_alabel_r(plot->plotter, 'l', 'l', "WARNING: Ignored frame rate difference during analysis");
+		sprintf(msg, "WARNING: No sync profile [%s], PLEASE DISREGARD", 
+					config->noSyncProfileType == NO_SYNC_AUTO ? "Auto" : "Manual");
+		pl_alabel_r(plot->plotter, 'l', 'l', msg);
 	}
+
 
 	if(config->ignoreFloor)
 	{
@@ -1091,12 +1102,11 @@ void DrawLabelsMDF(PlotFile *plot, char *Gname, char *GType, int type, parameter
 			pl_alabel_r(plot->plotter, 'l', 'l', "WARNING: No Normalization, PLEASE DISREGARD");
 	}
 
-	if(config->noSyncProfile && type < PLOT_SINGLE_REF)
+	if(config->clkNoMatch)
 	{
 		PLOT_WARN(1, 2);
 		pl_pencolor_r(plot->plotter, 0xeeee, 0xeeee, 0);
-		sprintf(msg, "WARNING: No sync profile [%s], PLEASE DISREGARD", 
-					config->noSyncProfileType == NO_SYNC_AUTO ? "Auto" : "Manual");
+		sprintf(msg, "WARNING: %s Clocks don't match. Values above.", config->clkName);
 		pl_alabel_r(plot->plotter, 'l', 'l', msg);
 	}
 
@@ -1241,16 +1251,76 @@ void DrawLabelsMDF(PlotFile *plot, char *Gname, char *GType, int type, parameter
 		pl_alabel_r(plot->plotter, 'l', 'l', "Vertical scale changed");
 	}
 
-	if(config->clkProcess == 'y')
+	if(config->clkProcess)
 	{
-		pl_pencolor_r(plot->plotter, 0, 0xcccc, 0xcccc);
 		if(type == PLOT_COMPARE)
 		{
 			PLOT_COLUMN(6, 1);
-			sprintf(msg, "CLK R: %g Hz", CalculateClk(config->referenceSignal, config));
+			if(!config->referenceSignal->clkEstimatedAC)
+			{
+				pl_pencolor_r(plot->plotter, 0, 0xcccc, 0xcccc);
+				sprintf(msg, "%s CLK R: %gHz", config->clkName,
+					CalculateClk(config->referenceSignal, config));
+			}
+			else
+			{
+				pl_pencolor_r(plot->plotter, 0xcccc, 0xcccc, 0);
+				sprintf(msg, "CLK R: %g\\->%gHz",
+					CalculateClk(config->referenceSignal, config), 
+					config->referenceSignal->clkEstimatedAC);
+			}
 			pl_alabel_r(plot->plotter, 'l', 'l', msg);
+
 			PLOT_COLUMN(6, 2);
-			sprintf(msg, "CLK C: %g Hz", CalculateClk(config->comparisonSignal, config));
+			if(!config->comparisonSignal->clkEstimatedAC)
+			{
+				pl_pencolor_r(plot->plotter, 0, 0xcccc, 0xcccc);
+				sprintf(msg, "CLK C: %gHz",
+					CalculateClk(config->comparisonSignal, config));
+			}
+			else
+			{
+				pl_pencolor_r(plot->plotter, 0xcccc, 0xcccc, 0);
+				sprintf(msg, "CLK C: %g\\->%gHz",
+					CalculateClk(config->comparisonSignal, config),
+					config->comparisonSignal->clkEstimatedAC);
+			}
+			pl_alabel_r(plot->plotter, 'l', 'l', msg);
+		}
+		else if(type == PLOT_SINGLE_REF)
+		{
+			PLOT_COLUMN(6, 1);
+			if(!config->referenceSignal->clkEstimatedAC)
+			{
+				pl_pencolor_r(plot->plotter, 0, 0xcccc, 0xcccc);
+				sprintf(msg, "CLK R: %gHz",
+					CalculateClk(config->referenceSignal, config));
+			}
+			else
+			{
+				pl_pencolor_r(plot->plotter, 0xcccc, 0xcccc, 0);
+				sprintf(msg, "CLK R: %g\\->%gHz",
+					CalculateClk(config->referenceSignal, config), 
+					config->referenceSignal->clkEstimatedAC);
+			}
+			pl_alabel_r(plot->plotter, 'l', 'l', msg);
+		}
+		else
+		{
+			PLOT_COLUMN(6, 2);
+			if(!config->comparisonSignal->clkEstimatedAC)
+			{
+				pl_pencolor_r(plot->plotter, 0, 0xcccc, 0xcccc);
+				sprintf(msg, "CLK C: %gHz",
+					CalculateClk(config->comparisonSignal, config));
+			}
+			else
+			{
+				pl_pencolor_r(plot->plotter, 0xcccc, 0xcccc, 0);
+				sprintf(msg, "CLK C: %g\\->%gHz",
+					CalculateClk(config->comparisonSignal, config),
+					config->comparisonSignal->clkEstimatedAC);
+			}
 			pl_alabel_r(plot->plotter, 'l', 'l', msg);
 		}
 	}
@@ -4131,12 +4201,12 @@ void PlotTimeDomainHighDifferenceGraphs(AudioSignal *Signal, parameters *config)
 	ReturnToMainPath(&returnFolder);
 }
 
-void DrawVerticalFrameGrid(PlotFile *plot, AudioSignal *Signal, double frames, double frameIncrement, double MaxSamples, parameters *config)
+void DrawVerticalFrameGrid(PlotFile *plot, AudioSignal *Signal, double frames, double frameIncrement, double MaxSamples, int forceDrawMS, parameters *config)
 {
 	int		drawMS = 0;
 	double	x = 0, xfactor = 0, segment = 0;
 
-	if(frames <= 10)
+	if(frames <= 10 || forceDrawMS)
 		drawMS = 1;
 
 	/* draw ms lines */
@@ -4301,6 +4371,7 @@ char *GetWFMTypeText(int wftype, char *buffer, double data, int role)
 
 void PlotBlockTimeDomainGraph(AudioSignal *Signal, int block, char *name, int wavetype, double data, parameters *config)
 {
+	int			forceMS = 0;
 	char		title[BUFFER_SIZE/2], buffer[BUFFER_SIZE];
 	PlotFile	plot;
 	long int	color = 0, sample = 0, numSamples = 0, difference = 0, plotSize = 0;
@@ -4327,18 +4398,13 @@ void PlotBlockTimeDomainGraph(AudioSignal *Signal, int block, char *name, int wa
 	else
 		plotSize = numSamples;
 
-/*
-	if(config->plotAllNotes)
+	if(config->debugSync && Signal->Blocks[block].type == TYPE_SYNC)
 	{
-		int multiplier = 1;
-
-		if(Signal->Blocks[block].type == TYPE_SYNC)
-			multiplier *= 2;
-		FillPlotExtra(&plot, name, multiplier*config->plotResX, config->plotResY, 0, MININT16, plotSize, MAXINT16, 1, 0.2, config);
+		FillPlotExtra(&plot, name, SYNC_DEBUG_SCALE*config->plotResX, config->plotResY, 0, MININT16, plotSize, MAXINT16, 1, 0.2, config);
+		forceMS = 1;
 	}
 	else
-*/
-	FillPlot(&plot, name, 0, MININT16, plotSize, MAXINT16, 1, 0.2, config);
+		FillPlot(&plot, name, 0, MININT16, plotSize, MAXINT16, 1, 0.2, config);
 
 	if(!CreatePlotFile(&plot, config))
 		return;
@@ -4353,7 +4419,7 @@ void PlotBlockTimeDomainGraph(AudioSignal *Signal, int block, char *name, int wa
 		pl_filltype_r(plot.plotter, 0);
 	}
 
-	DrawVerticalFrameGrid(&plot, Signal, Signal->Blocks[block].frames, 1, plotSize, config);
+	DrawVerticalFrameGrid(&plot, Signal, Signal->Blocks[block].frames, 1, plotSize, forceMS, config);
 	DrawINT16DBFSLines(&plot, numSamples, config);
 
 	color = MatchColor(GetBlockColor(config, block));
@@ -4376,7 +4442,7 @@ void PlotBlockTimeDomainInternalSyncGraph(AudioSignal *Signal, int block, char *
 	char		title[1024];
 	PlotFile	plot;
 	long int	color = 0, sample = 0, numSamples = 0, difference = 0, plotSize = 0;
-	int16_t		*samples = NULL;
+	int16_t		*samples = NULL, forceMS = 0;
 	double		frames = 0;
 
 	if(!Signal || !config)
@@ -4405,16 +4471,13 @@ void PlotBlockTimeDomainInternalSyncGraph(AudioSignal *Signal, int block, char *
 	else
 		plotSize = numSamples;
 
-/*
-	if(config->plotAllNotes)
+	if(config->debugSync && Signal->Blocks[block].type == TYPE_SYNC)
 	{
-		int multiplier = 2;
-
-		FillPlotExtra(&plot, name, multiplier*config->plotResX, config->plotResY, 0, MININT16, plotSize, MAXINT16, 1, 0.2, config);
+		FillPlotExtra(&plot, name, SYNC_DEBUG_SCALE*config->plotResX, config->plotResY, 0, MININT16, plotSize, MAXINT16, 1, 0.2, config);
+		forceMS = 1;
 	}
 	else
-*/
-	FillPlot(&plot, name, 0, MININT16, plotSize, MAXINT16, 1, 0.2, config);
+		FillPlot(&plot, name, 0, MININT16, plotSize, MAXINT16, 1, 0.2, config);
 
 	if(!CreatePlotFile(&plot, config))
 		return;
@@ -4429,7 +4492,7 @@ void PlotBlockTimeDomainInternalSyncGraph(AudioSignal *Signal, int block, char *
 		pl_filltype_r(plot.plotter, 0);
 	}
 
-	DrawVerticalFrameGrid(&plot, Signal, frames, 1, plotSize, config);
+	DrawVerticalFrameGrid(&plot, Signal, frames, 1, plotSize, forceMS, config);
 
 	DrawINT16DBFSLines(&plot, numSamples, config);
 

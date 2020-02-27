@@ -41,7 +41,7 @@
 int LoadAndProcessAudioFiles(AudioSignal **ReferenceSignal, AudioSignal **ComparisonSignal, parameters *config);
 int LoadFile(FILE *file, AudioSignal *Signal, parameters *config, char *fileName);
 int ProcessFile(AudioSignal *Signal, parameters *config);
-int ExecuteDFFT(AudioBlocks *AudioArray, int16_t *samples, size_t size, long samplerate, double *window, int AudioChannels, parameters *config);
+int ExecuteDFFT(AudioBlocks *AudioArray, int16_t *samples, size_t size, long samplerate, double *window, int AudioChannels, int ZeroPad, parameters *config);
 int CompareAudioBlocks(AudioSignal *ReferenceSignal, AudioSignal *ComparisonSignal, parameters *config);
 int CopySamplesForTimeDomainPlot(AudioBlocks *AudioArray, int16_t *samples, size_t size, size_t diff, long samplerate, double *window, int AudioChannels, parameters *config);
 int CopySamplesForTimeDomainPlotInternalSync(AudioBlocks *AudioArray, int16_t *samples, size_t size, int slotForSamples, long samplerate, double *window, int AudioChannels, parameters *config);
@@ -56,6 +56,7 @@ void ProcessWaveformsByBlock(AudioSignal *ReferenceSignal, AudioSignal *Comparis
 int FindMaxSampleForWaveform(AudioSignal *Signal, int *block, parameters *config);
 int FindMaxSampleInBlock(AudioBlocks *AudioArray);
 void FindViewPort(parameters *config);
+void ReportClockResults(AudioSignal *ReferenceSignal, AudioSignal *ComparisonSignal, parameters *config);
 
 // Time domain
 MaxSample FindMaxSampleAmplitude(AudioSignal *Signal);
@@ -124,16 +125,7 @@ int main(int argc , char *argv[])
 		return 1;
 	}
 
-	if(config.clkProcess == 'y')
-	{
-		logmsg("\n* Estimated %s Clocks based on expected Frequency at %d Hz:\n", config.clkName, config.clkFreq);
-		if(!config.ZeroPad)
-			logmsg(" - [To improve clock heuristic accurancy, use the 'Align Transform to 1hz' option]\n");
-		logmsg(" - Reference %s: %g Hz\n", basename(ReferenceSignal->SourceFile), 
-			CalculateClk(ReferenceSignal, &config));
-		logmsg(" - Comparison %s: %g Hz\n", basename(ComparisonSignal->SourceFile), 
-			CalculateClk(ComparisonSignal, &config));
-	}
+	ReportClockResults(ReferenceSignal, ComparisonSignal, &config);
 
 	logmsg("\n* Comparing frequencies: ");
 	if(!CompareAudioBlocks(ReferenceSignal, ComparisonSignal, &config))
@@ -234,6 +226,39 @@ void FindViewPort(parameters *config)
 		logmsg("\n");
 
 	config->notVisible = outside;
+}
+
+void ReportClockResults(AudioSignal *ReferenceSignal, AudioSignal *ComparisonSignal, parameters *config)
+{
+	double refClk = 0, compClk = 0;
+
+	if(!config->clkProcess)
+		return;
+
+	refClk = CalculateClk(ReferenceSignal, config);
+	compClk = CalculateClk(ComparisonSignal, config);
+
+	logmsg("\n* Estimated %s Clocks based on expected %d Hz on note %s# %d:\n", 
+		config->clkName, config->clkFreq, GetBlockName(config, config->clkBlock), 
+		GetBlockSubIndex(config, config->clkBlock));
+	logmsg(" - Reference: %gHz", refClk);
+	if(ReferenceSignal->clkEstimatedAC)
+		logmsg(" estimated at %gHz from signal length and samplerate", ReferenceSignal->clkEstimatedAC);
+	logmsg("\n");
+
+	logmsg(" - Comparison: %gHz", compClk);
+	if(ComparisonSignal->clkEstimatedAC)
+		logmsg(" estimated at %gHz from signal length and samplerate", ComparisonSignal->clkEstimatedAC);
+	logmsg("\n");
+
+	if(fabs(refClk - compClk) > 10)
+	{
+		logmsg(" - WARNING: Clocks don't match, results will vary considerably.\n");
+		if(fabs(refClk - ComparisonSignal->clkEstimatedAC) <= 5)
+			logmsg(" - It is recommended you edit the header of the Comparison file to %gHz to match\n", ComparisonSignal->clkEstimatedAC);
+		if(fabs(compClk - ReferenceSignal->clkEstimatedAC) <= 5)
+			logmsg(" - It is recommended you edit the header of the Reference file to %gHz to match\n", ReferenceSignal->clkEstimatedAC);
+	}
 }
 
 void RemoveFLACTemp(char *referenceFile, char *comparisonFile)
@@ -1283,21 +1308,26 @@ int ProcessInternal(AudioSignal *Signal, long int element, long int pos, int *sy
 		long int	internalSyncOffset = 0, syncLengthBytes = 0,
 					endPulseBytes = 0, pulseLengthBytes = 0, signalStart = 0;
 
-		*syncinternal = 1;
-
 		syncToneFreq = GetInternalSyncTone(element, config);
 		syncLenSeconds = GetInternalSyncLen(element, config);
 		internalSyncOffset = DetectSignalStart(Signal->Samples, Signal->header, pos, syncToneFreq, &endPulseBytes, config);
 		if(internalSyncOffset == -1)
 		{
-			logmsg("\tERROR: No signal found while in internal sync detection. Aborting\n");
-			return 0;
-		} 
+			logmsg("\tWARNING: No signal found while in internal sync detection.\n");
+			return -1;
+		}
+		*syncinternal = 1;
 
 		pulseLengthBytes = endPulseBytes - internalSyncOffset;
 		syncLengthBytes = SecondsToBytes(Signal->header.fmt.SamplesPerSec, syncLenSeconds, Signal->AudioChannels, NULL, NULL, NULL);
 		internalSyncOffset -= pos;
 		signalStart = internalSyncOffset;
+
+		if(pulseLengthBytes < syncLengthBytes/20)
+		{
+			logmsg("\tWARNING: No real signal found while in internal sync detection.\n");
+			return -1;
+		}
 
 		if(knownLength == TYPE_INTERNAL_KNOWN)
 		{
@@ -1664,21 +1694,44 @@ int ProcessFile(AudioSignal *Signal, parameters *config)
 		}
 		memcpy(buffer, Signal->Samples + pos, loadedBlockSize-difference);
 
-		if(config->plotTimeDomainHiDiff || config->plotAllNotes || Signal->Blocks[i].type == TYPE_TIMEDOMAIN ||
-			(config->debugSync && Signal->Blocks[i].type == TYPE_SYNC))
+		if(config->plotTimeDomainHiDiff || config->plotAllNotes || Signal->Blocks[i].type == TYPE_TIMEDOMAIN)
 		{
 			if(!CopySamplesForTimeDomainPlot(&Signal->Blocks[i], (int16_t*)(Signal->Samples + pos), loadedBlockSize/2, difference/2, Signal->header.fmt.SamplesPerSec, windowUsed, Signal->AudioChannels, config))
 				return 0;
 		}
 
+		if(config->debugSync && Signal->Blocks[i].type == TYPE_SYNC)
+		{
+			long int oneFrameBytes = 0;
+			
+			oneFrameBytes = SecondsToBytes(Signal->header.fmt.SamplesPerSec, FramesToSeconds(framerate, 1), Signal->AudioChannels, NULL, NULL, NULL);
+			if(pos > oneFrameBytes) {
+				if(!CopySamplesForTimeDomainPlot(&Signal->Blocks[i], (int16_t*)(Signal->Samples + pos - oneFrameBytes), loadedBlockSize/2+oneFrameBytes/2, difference/2, Signal->header.fmt.SamplesPerSec, NULL, Signal->AudioChannels, config))
+					return 0;
+			}
+			else {
+				if(!CopySamplesForTimeDomainPlot(&Signal->Blocks[i], (int16_t*)(Signal->Samples + pos), loadedBlockSize/2, difference/2, Signal->header.fmt.SamplesPerSec, NULL, Signal->AudioChannels, config))
+					return 0;
+			}
+		}
+
 		if(Signal->Blocks[i].type >= TYPE_SILENCE || Signal->Blocks[i].type == TYPE_WATERMARK)
 		{
-			if(!ExecuteDFFT(&Signal->Blocks[i], (int16_t*)buffer, (loadedBlockSize-difference)/2, Signal->header.fmt.SamplesPerSec, windowUsed, Signal->AudioChannels, config))
+			if(!ExecuteDFFT(&Signal->Blocks[i], (int16_t*)buffer, (loadedBlockSize-difference)/2, Signal->header.fmt.SamplesPerSec, windowUsed, Signal->AudioChannels, config->ZeroPad, config))
 				return 0;
 
 			//logmsg("estimated %g (difference %ld)\n", Signal->Blocks[i].frames*Signal->framerate/1000.0, difference);
 			// uncomment in ExecuteDFFT as well
 			if(!FillFrequencyStructures(Signal, &Signal->Blocks[i], config))
+				return 0;
+		}
+
+		if(config->clkProcess && config->clkBlock == i)
+		{
+			if(!ExecuteDFFT(&Signal->clkFrequencies, (int16_t*)buffer, (loadedBlockSize-difference)/2, Signal->header.fmt.SamplesPerSec, windowUsed, Signal->AudioChannels, 1, config))
+				return 0;
+
+			if(!FillFrequencyStructures(Signal, &Signal->clkFrequencies, config))
 				return 0;
 		}
 
@@ -1733,7 +1786,7 @@ int ProcessFile(AudioSignal *Signal, parameters *config)
 }
 
 
-int ExecuteDFFT(AudioBlocks *AudioArray, int16_t *samples, size_t size, long samplerate, double *window, int AudioChannels, parameters *config)
+int ExecuteDFFT(AudioBlocks *AudioArray, int16_t *samples, size_t size, long samplerate, double *window, int AudioChannels, int ZeroPad, parameters *config)
 {
 	fftw_plan		p = NULL;
 	char			channel = 0;
@@ -1753,7 +1806,7 @@ int ExecuteDFFT(AudioBlocks *AudioArray, int16_t *samples, size_t size, long sam
 	monoSignalSize = stereoSignalSize/AudioChannels;	 /* 4 is 2 16 bit values */
 	seconds = (double)size/((double)samplerate*AudioChannels);
 
-	if(config->ZeroPad)  /* disabled by default */
+	if(ZeroPad)  /* disabled by default */
 		zeropadding = GetZeroPadValues(&monoSignalSize, &seconds, samplerate);
 
 	signal = (double*)malloc(sizeof(double)*(monoSignalSize+1));

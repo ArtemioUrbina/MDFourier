@@ -224,12 +224,12 @@ void CleanParameters(parameters *config)
 
 	config->clkBlock = NO_CLK;
 	config->clkFreq = 0;
-	config->clkFreqCount = 0;
 	config->clkRatio = 0;
 	config->useExtraData = 1;
 	config->compressToBlocks = 0;
 	config->quantizeRound = 1;
 	config->drawPerfect = 0;
+	config->clkNoMatch = 0;
 
 	EnableLog();
 }
