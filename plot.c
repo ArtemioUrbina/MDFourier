@@ -814,7 +814,7 @@ void enableTestWarnings(parameters *config)
 	config->clkBlock = 2;
 	config->clkFreq = 8000;
 	config->clkRatio = 4;
-	config->clkNoMatch = 1;
+	config->intClkNoMatch = 1;
 	config->doClkAdjust = 1;
 	config->referenceSignal->clkEstimatedAC = 32780;
 	config->comparisonSignal->clkEstimatedAC = 34812.87;
@@ -835,6 +835,12 @@ void enableTestWarnings(parameters *config)
 	logmsg("ERROR: enableTestWarnings Enabled\n");
 }
 #endif
+
+#define PLOT_COLUMN(x,y) pl_fmove_r(plot->plotter, config->plotResX-(x)*config->plotResX/10-config->plotResX/40, config->plotResY/2-(y)*BAR_HEIGHT)
+#define PLOT_COLUMN_DISP(x,x1,y) pl_fmove_r(plot->plotter, config->plotResX-(x)*config->plotResX/10-config->plotResX/40+x1, config->plotResY/2-(y)*BAR_HEIGHT)
+
+#define PLOT_WARN(x,y) pl_fmove_r(plot->plotter, x*config->plotResX-config->plotResX/4, -1*config->plotResY/2+config->plotResY/20+(y+2)*BAR_HEIGHT);
+
 
 void DrawClockData(PlotFile *plot, AudioSignal *Signal, char *msg, parameters *config)
 {
@@ -862,13 +868,34 @@ void DrawClockData(PlotFile *plot, AudioSignal *Signal, char *msg, parameters *c
 	}
 }
 
-#define PLOT_COLUMN(x,y) pl_fmove_r(plot->plotter, config->plotResX-(x)*config->plotResX/10-config->plotResX/40, config->plotResY/2-(y)*BAR_HEIGHT)
-#define PLOT_COLUMN_DISP(x,x1,y) pl_fmove_r(plot->plotter, config->plotResX-(x)*config->plotResX/10-config->plotResX/40+x1, config->plotResY/2-(y)*BAR_HEIGHT)
+void DrawImbalance(PlotFile *plot, AudioSignal *Signal, char *msg, parameters *config)
+{
+	if(Signal->AudioChannels == 1)
+		return;
 
-#define PLOT_WARN(x,y) pl_fmove_r(plot->plotter, x*config->plotResX-config->plotResX/4, -1*config->plotResY/2+config->plotResY/20+(y+2)*BAR_HEIGHT);
+	if(Signal->role == ROLE_REF)
+		PLOT_COLUMN(7, 1);
+	else
+		PLOT_COLUMN(7, 2);
+
+	if(fabs(Signal->balance) >= 10)
+		pl_pencolor_r(plot->plotter, 0xcccc, 0xcccc, 0);
+	else
+		pl_pencolor_r(plot->plotter, 0, 0xcccc, 0xcccc);
+	if(Signal->balance)
+		sprintf(msg, "Imbalance %s [%s]: %0.2f%%", 
+				Signal->role == ROLE_REF ? "R" : "C",
+				Signal->balance > 0 ? "R" : "L", 
+				fabs(Signal->balance));
+	else
+		sprintf(msg, "%s Stereo balanced", 
+				Signal->role == ROLE_REF ? "R" : "C");
+	pl_alabel_r(plot->plotter, 'l', 'l', msg);
+}
 
 void DrawLabelsMDF(PlotFile *plot, char *Gname, char *GType, int type, parameters *config)
 {
+	int		warning = 1;
 	char	label[BUFFER_SIZE], msg[BUFFER_SIZE];
 #ifdef TESTWARNINGS
 	parameters backup;
@@ -1056,21 +1083,21 @@ void DrawLabelsMDF(PlotFile *plot, char *Gname, char *GType, int type, parameter
 
 	if(config->ignoreFrameRateDiff)
 	{
-		PLOT_WARN(1, 13);
+		PLOT_WARN(1, warning++);
 		pl_pencolor_r(plot->plotter, 0xeeee, 0xeeee, 0);
 		pl_alabel_r(plot->plotter, 'l', 'l', "WARNING: Ignored frame rate difference during analysis");
 	}
 
 	if(config->compressToBlocks)
 	{
-		PLOT_WARN(1, 12);
+		PLOT_WARN(1, warning++);
 		pl_pencolor_r(plot->plotter, 0xeeee, 0xeeee, 0);
 		pl_alabel_r(plot->plotter, 'l', 'l', "WARNING: Debug setting, blocks flattened");
 	}
 
 	if(!config->logScale)
 	{
-		PLOT_WARN(1, 11);
+		PLOT_WARN(1, warning++);
 		pl_pencolor_r(plot->plotter, 0xeeee, 0xeeee, 0);
 		pl_alabel_r(plot->plotter, 'l', 'l', "WARNING: Log scale disabled");
 	}
@@ -1079,14 +1106,14 @@ void DrawLabelsMDF(PlotFile *plot, char *Gname, char *GType, int type, parameter
 		(config->referenceSignal->AudioChannels == 2 ||
 		config->comparisonSignal->AudioChannels == 2))
 	{
-		PLOT_WARN(1, 10);
+		PLOT_WARN(1, warning++);
 		pl_pencolor_r(plot->plotter, 0xeeee, 0xeeee, 0);
 		pl_alabel_r(plot->plotter, 'l', 'l', "WARNING: Audio channel balancing disabled");
 	}
 
 	if(config->noSyncProfile && type < PLOT_SINGLE_REF)
 	{
-		PLOT_WARN(1, 9);
+		PLOT_WARN(1, warning++);
 		pl_pencolor_r(plot->plotter, 0xeeee, 0xeeee, 0);
 		sprintf(msg, "WARNING: No sync profile [%s], PLEASE DISREGARD", 
 					config->noSyncProfileType == NO_SYNC_AUTO ? "Auto" : "Manual");
@@ -1096,35 +1123,35 @@ void DrawLabelsMDF(PlotFile *plot, char *Gname, char *GType, int type, parameter
 
 	if(config->ignoreFloor)
 	{
-		PLOT_WARN(1, 8);
+		PLOT_WARN(1, warning++);
 		pl_pencolor_r(plot->plotter, 0xeeee, 0xeeee, 0);
 		pl_alabel_r(plot->plotter, 'l', 'l', "WARNING: Noise floor was ignored during analysis");
 	}
 
 	if(config->noiseFloorTooHigh)
 	{
-		PLOT_WARN(1, 7);
+		PLOT_WARN(1, warning++);
 		pl_pencolor_r(plot->plotter, 0xeeee, 0xeeee, 0);
 		pl_alabel_r(plot->plotter, 'l', 'l', "WARNING: Noise floor too high");
 	}
 
 	if(config->types.useWatermark && DetectWatermarkIssue(msg, config))
 	{
-		PLOT_WARN(1, 6);
+		PLOT_WARN(1, warning++);
 		pl_pencolor_r(plot->plotter, 0xeeee, 0xeeee, 0);
 		pl_alabel_r(plot->plotter, 'l', 'l', msg);
 	}
 
 	if(config->AmpBarRange > BAR_DIFF_DB_TOLERANCE)
 	{
-		PLOT_WARN(1, 5);
+		PLOT_WARN(1, warning++);
 		pl_pencolor_r(plot->plotter, 0xeeee, 0xeeee, 0);
 		pl_alabel_r(plot->plotter, 'l', 'l', "WARNING: Tolerance raised for matches");
 	}
 
 	if(config->smallFile)
 	{
-		PLOT_WARN(1, 4);
+		PLOT_WARN(1, warning++);
 		pl_pencolor_r(plot->plotter, 0xeeee, 0xeeee, 0);
 		sprintf(msg, "WARNING: %s file%s shorter than expected", 
 			config->smallFile == ROLE_REF ? "Reference" : config->smallFile == ROLE_COMP ? "Comparison" : "Both",
@@ -1134,7 +1161,7 @@ void DrawLabelsMDF(PlotFile *plot, char *Gname, char *GType, int type, parameter
 
 	if(config->normType != max_frequency)
 	{
-		PLOT_WARN(1, 3);
+		PLOT_WARN(1, warning++);
 		pl_pencolor_r(plot->plotter, 0xeeee, 0xeeee, 0);
 		if(config->normType == max_time)
 			pl_alabel_r(plot->plotter, 'l', 'l', "Time domain normalization");
@@ -1146,7 +1173,7 @@ void DrawLabelsMDF(PlotFile *plot, char *Gname, char *GType, int type, parameter
 
 	if(config->intClkNoMatch && !config->doClkAdjust)
 	{
-		PLOT_WARN(1, 2);
+		PLOT_WARN(1, warning++);
 		pl_pencolor_r(plot->plotter, 0xeeee, 0xeeee, 0);
 		sprintf(msg, "WARNING: %s %s clock%s match length (can use -j).",
 			config->intClkNoMatch == ROLE_REF ? "R" : config->intClkNoMatch == ROLE_COMP ? "C" : "",
@@ -1157,7 +1184,7 @@ void DrawLabelsMDF(PlotFile *plot, char *Gname, char *GType, int type, parameter
 
 	if(config->diffClkNoMatch)
 	{
-		PLOT_WARN(1, 1);
+		PLOT_WARN(1, warning++);
 		pl_pencolor_r(plot->plotter, 0xeeee, 0xeeee, 0);
 		sprintf(msg, "WARNING: %s Signal clocks don't match.", config->clkName);
 		pl_alabel_r(plot->plotter, 'l', 'l', msg);
@@ -1165,7 +1192,7 @@ void DrawLabelsMDF(PlotFile *plot, char *Gname, char *GType, int type, parameter
 
 	if(config->doClkAdjust)
 	{
-		PLOT_WARN(1, 0);
+		PLOT_WARN(1, warning++);
 		pl_pencolor_r(plot->plotter, 0xeeee, 0xeeee, 0);
 		sprintf(msg, "WARNING: %s clock auto adjusted, values above.", config->clkName);
 		pl_alabel_r(plot->plotter, 'l', 'l', msg);
@@ -1173,7 +1200,7 @@ void DrawLabelsMDF(PlotFile *plot, char *Gname, char *GType, int type, parameter
 
 	if(config->syncTolerance)
 	{
-		PLOT_WARN(1, -1);
+		PLOT_WARN(1, warning++);
 		pl_pencolor_r(plot->plotter, 0xeeee, 0xeeee, 0);
 		pl_alabel_r(plot->plotter, 'l', 'l', "WARNING: Sync tolerance enabled");
 	}
@@ -1183,7 +1210,8 @@ void DrawLabelsMDF(PlotFile *plot, char *Gname, char *GType, int type, parameter
 	pl_pencolor_r(plot->plotter, 0, 0xcccc, 0);
 	{
 		PLOT_COLUMN(1, 1);
-		if(config->significantAmplitude > LOWEST_NOISEFLOOR_ALLOWED || config->ignoreFloor)
+		if(config->significantAmplitude > LOWEST_NOISEFLOOR_ALLOWED || config->ignoreFloor
+		 || config->significantAmplitude < NS_SIGNIFICANT_VOLUME)
 			pl_pencolor_r(plot->plotter, 0xcccc, 0xcccc, 0);
 		sprintf(msg, "Significant: %0.1f dBFS", config->significantAmplitude);
 		pl_alabel_r(plot->plotter, 'l', 'l', msg);
@@ -1349,47 +1377,20 @@ void DrawLabelsMDF(PlotFile *plot, char *Gname, char *GType, int type, parameter
 		pl_alabel_r(plot->plotter, 'l', 'l', msg);
 	}
 
-	pl_pencolor_r(plot->plotter, 0, 0xeeee, 0xeeee);
-
 	if(type == PLOT_COMPARE)
 	{
-		if(config->referenceSignal->balance)
-		{
-			PLOT_COLUMN(7, 1);
-			sprintf(msg, "Imbalance R [%s]: %0.2f%%", 
-				config->referenceSignal->balance > 0 ? "R" : "L", 
-				fabs(config->referenceSignal->balance));
-			pl_alabel_r(plot->plotter, 'l', 'l', msg);
-		}
-		if(config->comparisonSignal->balance)
-		{
-			PLOT_COLUMN(7, 2);
-			sprintf(msg, "Imbalance C [%s]: %0.2f%%", 
-				config->comparisonSignal->balance > 0 ? "R" : "L", 
-				fabs(config->comparisonSignal->balance));
-			pl_alabel_r(plot->plotter, 'l', 'l', msg);
-		}
+		DrawImbalance(plot, config->referenceSignal, msg, config);
+		DrawImbalance(plot, config->comparisonSignal, msg, config);
 	}
 	else
 	{
 		if(type == PLOT_SINGLE_REF)
-		{
-			PLOT_COLUMN(7, 1);
-			sprintf(msg, "Imbalance [%s]: %0.2f%%", 
-				config->referenceSignal->balance > 0 ? "R" : "L", 
-				fabs(config->referenceSignal->balance));
-			pl_alabel_r(plot->plotter, 'l', 'l', msg);
-		}
+			DrawImbalance(plot, config->referenceSignal, msg, config);
 		else
-		{
-			PLOT_COLUMN(7, 2);
-			sprintf(msg, "Imbalance [%s]: %0.2f%%", 
-				config->comparisonSignal->balance > 0 ? "R" : "L", 
-				fabs(config->comparisonSignal->balance));
-			pl_alabel_r(plot->plotter, 'l', 'l', msg);
-		}
+			DrawImbalance(plot, config->comparisonSignal, msg, config);
 	}
 
+	pl_pencolor_r(plot->plotter, 0, 0xeeee, 0xeeee);
 	if(type != PLOT_SINGLE_COM && config->referenceSignal->delayElemCount)
 	{
 		double labelpos = 0, x = 0, y = 0;

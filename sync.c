@@ -667,9 +667,9 @@ long int DetectPulseInternal(char *Samples, wav_hdr header, int factor, long int
 		/* check for the duration of the sync pulses */
 		msLen = GetLastSyncDuration(GetMSPerFrameRole(role, config), config)*1000;
 		if(factor == FACTOR_EXPLORE)  /* are we exploring? */
-			msLen *= 1.5;  /* widen so that the silence offset is compensated for */
+			msLen *= 2.5;  /* widen so that the silence offset is compensated for */
 		else
-			msLen *= 1.1;  /* widen so that the silence offset is compensated for */
+			msLen *= 1.5;  /* widen so that the silence offset is compensated for */
 		TotalMS = i + floor(msLen*factor);
 
 		if(config->debugSync)

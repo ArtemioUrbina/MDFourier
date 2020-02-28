@@ -581,13 +581,13 @@ double FindVisibleInViewPortWithinStandardDeviation(double *maxAmpl, double *out
 	double	mean = 0, standard = 0, threshold = 0, count = 0;
 
 	if(!config)
-		return 0;
+		return -1;
 
 	if(!config->Differences.BlockDiffArray || !maxAmpl || !outside)
-		return 0;
+		return -1;
 
 	if(!config->Differences.BlockDiffArray[type].cntAmplBlkDiff)
-		return 0;
+		return -1;
 
 	if(numstd < 1)
 		numstd = 1;
@@ -617,7 +617,7 @@ double FindVisibleInViewPortWithinStandardDeviation(double *maxAmpl, double *out
 	}
 
 	if(!count)
-		return 0;
+		return -1;
 
 	mean = mean/count;
 	count = 0;
@@ -643,7 +643,7 @@ double FindVisibleInViewPortWithinStandardDeviation(double *maxAmpl, double *out
 		}
 	}
 	if(!count)
-		return 0;
+		return -1;
 
 	standard = sqrt(standard/count);
 	count = 0;

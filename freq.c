@@ -3241,7 +3241,7 @@ double CalculateFrameRate(AudioSignal *Signal, parameters *config)
 
 				Signal->originalCLK = Signal->header.fmt.SamplesPerSec;
 
-				Signal->header.fmt.SamplesPerSec = ceil(ACsamplerate);
+				Signal->header.fmt.SamplesPerSec = RoundFloat(ACsamplerate, 0);
 				samplerate = Signal->header.fmt.SamplesPerSec;
 				framerate = (endOffset-startOffset)/(samplerate*LastSyncFrameOffset); // 1000 ms 
 				framerate = framerate*1000.0/(2.0*Signal->AudioChannels);  // 1000 ms and 2/4 bytes per stereo sample

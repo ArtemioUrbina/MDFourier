@@ -56,7 +56,7 @@ void ProcessWaveformsByBlock(AudioSignal *ReferenceSignal, AudioSignal *Comparis
 int FindMaxSampleForWaveform(AudioSignal *Signal, int *block, parameters *config);
 int FindMaxSampleInBlock(AudioBlocks *AudioArray);
 void FindViewPort(parameters *config);
-void ReportClockResults(AudioSignal *ReferenceSignal, AudioSignal *ComparisonSignal, parameters *config);
+int ReportClockResults(AudioSignal *ReferenceSignal, AudioSignal *ComparisonSignal, parameters *config);
 
 // Time domain
 MaxSample FindMaxSampleAmplitude(AudioSignal *Signal);
@@ -122,6 +122,7 @@ int main(int argc , char *argv[])
 				config.outputPath, 
 				config.outputPath[0] == '\0' ? ' ' : FOLDERCHAR, 
 				config.folderName);
+		CleanUp(&ReferenceSignal, &ComparisonSignal, &config);
 		return 1;
 	}
 
@@ -200,14 +201,16 @@ void FindViewPort(parameters *config)
 			double value = 0;
 
 			value = ceil(FindVisibleInViewPortWithinStandardDeviation(&maxDiff, &outside, type, 1, config));
-			if(outside < 5)
+			if(value != -1 && outside < 5)
 				config->maxDbPlotZC = value;
 			else
 			{
-				config->maxDbPlotZC = ceil(FindVisibleInViewPortWithinStandardDeviation(&maxDiff, &outside, type, 2, config));
+				value = ceil(FindVisibleInViewPortWithinStandardDeviation(&maxDiff, &outside, type, 2, config));
+				if(value != -1)
+					config->maxDbPlotZC = value;
 				/*  // swap above for this to expand fully if needed
 				value = ceil(FindVisibleInViewPortWithinStandardDeviation(&maxDiff, &outside, type, 2, config));
-				if(outside < 5)
+				if(value != -1 && outside < 5)
 					config->maxDbPlotZC = value;
 				else
 				{
@@ -228,12 +231,12 @@ void FindViewPort(parameters *config)
 	config->notVisible = outside;
 }
 
-void ReportClockResults(AudioSignal *ReferenceSignal, AudioSignal *ComparisonSignal, parameters *config)
+int ReportClockResults(AudioSignal *ReferenceSignal, AudioSignal *ComparisonSignal, parameters *config)
 {
 	double refClk = 0, compClk = 0;
 
 	if(!config->clkProcess)
-		return;
+		return 1;
 
 	refClk = CalculateClk(ReferenceSignal, config);
 	compClk = CalculateClk(ComparisonSignal, config);
@@ -263,6 +266,7 @@ void ReportClockResults(AudioSignal *ReferenceSignal, AudioSignal *ComparisonSig
 		if(fabs(compClk - ReferenceSignal->clkEstimatedAC) <= 5)
 			logmsg(" - It is recommended you edit the header of the Reference file to %gHz to match\n", ReferenceSignal->clkEstimatedAC);
 	}
+	return 1;
 }
 
 void RemoveFLACTemp(char *referenceFile, char *comparisonFile)
@@ -281,11 +285,10 @@ void RemoveFLACTemp(char *referenceFile, char *comparisonFile)
 	}
 }
 
-int LoadAndProcessAudioFiles(AudioSignal **ReferenceSignal, AudioSignal **ComparisonSignal, parameters *config)
+int LoadAudioFiles(AudioSignal **ReferenceSignal, AudioSignal **ComparisonSignal, parameters *config)
 {
 	FILE				*reference = NULL;
 	FILE				*compare = NULL;
-	double				ZeroDbMagnitudeRef = 0;
 
 	if(IsFlac(config->referenceFile))
 	{
@@ -319,7 +322,6 @@ int LoadAndProcessAudioFiles(AudioSignal **ReferenceSignal, AudioSignal **Compar
 	if(!reference)
 	{
 		RemoveFLACTemp(config->referenceFile, config->comparisonFile);
-		CleanUp(ReferenceSignal, ComparisonSignal, config);
 		logmsg("\tERROR: Could not open 'Reference' file:\n\t\"%s\"\n", config->referenceFile);
 		return 0;
 	}
@@ -337,6 +339,7 @@ int LoadAndProcessAudioFiles(AudioSignal **ReferenceSignal, AudioSignal **Compar
 		renameFLAC(config->comparisonFile, tmpFile);
 		if(!FLACtoWAV(config->comparisonFile, tmpFile))
 		{
+			CloseFiles(&reference, &compare);
 			logmsg("\nERROR: Invalid FLAC file %s\n", config->comparisonFile);
 			RemoveFLACTemp(config->referenceFile, config->comparisonFile);
 			return 0;
@@ -356,7 +359,6 @@ int LoadAndProcessAudioFiles(AudioSignal **ReferenceSignal, AudioSignal **Compar
 	{
 		CloseFiles(&reference, &compare);
 		RemoveFLACTemp(config->referenceFile, config->comparisonFile);
-		CleanUp(ReferenceSignal, ComparisonSignal, config);
 		logmsg("\tERROR: Could not open 'Comparison' file:\n\t\"%s\"\n", config->comparisonFile);
 		return 0;
 	}
@@ -366,7 +368,6 @@ int LoadAndProcessAudioFiles(AudioSignal **ReferenceSignal, AudioSignal **Compar
 	{
 		CloseFiles(&reference, &compare);
 		RemoveFLACTemp(config->referenceFile, config->comparisonFile);
-		CleanUp(ReferenceSignal, ComparisonSignal, config);
 		return 0;
 	}
 	(*ReferenceSignal)->role = ROLE_REF;
@@ -376,7 +377,6 @@ int LoadAndProcessAudioFiles(AudioSignal **ReferenceSignal, AudioSignal **Compar
 	{
 		CloseFiles(&reference, &compare);
 		RemoveFLACTemp(config->referenceFile, config->comparisonFile);
-		CleanUp(ReferenceSignal, ComparisonSignal, config);
 		return 0;
 	}
 	(*ComparisonSignal)->role = ROLE_COMP;
@@ -386,7 +386,6 @@ int LoadAndProcessAudioFiles(AudioSignal **ReferenceSignal, AudioSignal **Compar
 	{
 		CloseFiles(&reference, &compare);
 		RemoveFLACTemp(config->referenceFile, config->comparisonFile);
-		CleanUp(ReferenceSignal, ComparisonSignal, config);
 		return 0;
 	}
 
@@ -395,19 +394,336 @@ int LoadAndProcessAudioFiles(AudioSignal **ReferenceSignal, AudioSignal **Compar
 	{
 		CloseFiles(&reference, &compare);
 		RemoveFLACTemp(config->referenceFile, config->comparisonFile);
-		CleanUp(ReferenceSignal, ComparisonSignal, config);
 		return 0;
 	}
 
 	CloseFiles(&reference, &compare);
 	RemoveFLACTemp(config->referenceFile, config->comparisonFile);
+	return 1;
+}
+
+/* Although dithering would be better, there has been no need */
+/* Tested a file scaled with ths method against itself using  */
+/* the frequency domain solution, and differences are negligible */
+/* (less than 0.2dBFS) */
+
+int TimeDomainNormalize(AudioSignal **ReferenceSignal, AudioSignal **ComparisonSignal, parameters *config)
+{
+	MaxSample			MaxRef, MaxTar;
+	double				ComparisonLocalMaximum = 0;
+	double				ratioTar = 0, ratioRef = 0;
+
+	// Find Normalization factors
+	MaxRef = FindMaxSampleAmplitude(*ReferenceSignal);
+	if(!MaxRef.maxSample)
+	{
+		logmsg("ERROR: Could not detect Max amplitude in 'Reference' File for normalization\n");
+		return 0;
+	}
+	MaxTar = FindMaxSampleAmplitude(*ComparisonSignal);
+	if(!MaxTar.maxSample)
+	{
+		logmsg("ERROR: Could not detect Max amplitude in 'Comparison' file for normalization\n");
+		return 0;
+	}
+
+	ratioTar = MAXINT16/(double)MaxTar.maxSample;
+	NormalizeAudioByRatio(*ComparisonSignal, ratioTar);
+	ComparisonLocalMaximum = FindLocalMaximumAroundSample(*ComparisonSignal, MaxRef);
+	if(!ComparisonLocalMaximum)
+	{
+		logmsg("ERROR: Could not detect Max amplitude in 'Comparison' file for normalization\n");
+		return 0;
+	}
+
+	ratioRef = (ComparisonLocalMaximum/(double)MaxRef.maxSample);
+	NormalizeAudioByRatio(*ReferenceSignal, ratioRef);
+
+	// Uncomment if you want to check the WAV files as normalized
+	//SaveWAVEChunk(NULL, *ReferenceSignal, (*ReferenceSignal)->Samples, 0, (*ReferenceSignal)->header.data.DataSize, config); 
+	//SaveWAVEChunk(NULL, *ComparisonSignal, (*ComparisonSignal)->Samples, 0, (*ComparisonSignal)->header.data.DataSize, config); 
+	return 1;
+}
+
+/* The default */
+int FrequencyDomainNormalize(AudioSignal **ReferenceSignal, AudioSignal **ComparisonSignal, parameters *config)
+{
+	MaxMagn				MaxRef, MaxTar;
+	double				ComparisonLocalMaximum = 0;
+	double				ratioRef = 0;
+	double				RefAvg = 0;
+	double				CompAvg = 0;
+	double				ratio = 0;
+
+	// Find Normalization factors
+	MaxRef = FindMaxMagnitudeBlock(*ReferenceSignal, config);
+	if(!MaxRef.magnitude)
+	{
+		logmsg("ERROR: Could not detect Max amplitude in 'Reference' File for normalization\n");
+		return 0;
+	}
+	MaxTar = FindMaxMagnitudeBlock(*ComparisonSignal, config);
+	if(!MaxTar.magnitude)
+	{
+		logmsg("ERROR: Could not detect Max amplitude in 'Comparison' file for normalization\n");
+		return 0;
+	}
+
+	ComparisonLocalMaximum = FindLocalMaximumInBlock(*ComparisonSignal, MaxRef, 0, config);
+	if(ComparisonLocalMaximum)
+		ratioRef = ComparisonLocalMaximum/MaxRef.magnitude;
+
+	/* Detect extreme cases, and try another approach */
+	if(ComparisonLocalMaximum == 0 || (ratioRef && 1.0/ratioRef > FREQDOMRATIO))
+	{
+		int		found = 0, pos = 1, allowDifference = 0, tries = 0;
+		MaxMagn	MaxRefArray[FREQDOMTRIES];
+		double	ComparisonLocalMaximumArray = 0, ratioRefArray = 0;
+
+		memset(MaxRefArray, 0, FREQDOMTRIES*sizeof(MaxMagn));
+		if(FindMultiMaxMagnitudeBlock(*ReferenceSignal, MaxRefArray, FREQDOMTRIES, config))
+		{
+			// We have a do for a second cycle allowing tolerance
+			do
+			{
+				while(MaxRefArray[pos].magnitude != 0 && pos < FREQDOMTRIES)
+				{
+					if(config->verbose)
+					{
+						logmsg(" - Reference Max Magnitude[%d] found in %s# %d (%d) at %g Hz with %g\n", 
+							pos,
+							GetBlockName(config, MaxRefArray[pos].block), GetBlockSubIndex(config, MaxRefArray[pos].block),
+							MaxRefArray[pos].block, MaxRefArray[pos].hertz, MaxRefArray[pos].magnitude);
+					}
+
+					ratioRefArray = 0;
+					ComparisonLocalMaximumArray = FindLocalMaximumInBlock(*ComparisonSignal, MaxRefArray[pos], allowDifference, config);
+					if(ComparisonLocalMaximumArray)
+					{
+						ratioRefArray = ComparisonLocalMaximumArray/MaxRefArray[pos].magnitude;
+						if(config->verbose) logmsg(" - Comparision ratio is %g (%g/%g)\n", 1.0/ratioRefArray, ComparisonLocalMaximumArray, MaxRefArray[pos].magnitude);
+						if(1.0/ratioRefArray <= FREQDOMRATIO)
+						{
+							found = 1;
+							break;
+						}
+					}
+					pos++;
+				}
+
+				if(found){
+					int copy = 0;
+
+					if(ComparisonLocalMaximum)  // we are here because no clean match was found
+						copy = 1;
+					else  /* we are here because of ratio */ {
+						if(ratioRefArray < ratioRef)
+							copy = 1;
+
+						if(!ratioRef)
+							copy = 1;
+					}
+
+					if(copy){
+						ComparisonLocalMaximum = ComparisonLocalMaximumArray;
+						ratioRef = ratioRefArray;
+						config->frequencyNormalizationTries = pos + 1;
+					}
+					else {
+						if(config->verbose)	logmsg(" - Alternative matches were worse than original, (%g<-%g)reverting\n",
+							ratioRefArray, ratioRef);
+					}
+				}
+				else {
+					config->frequencyNormalizationTries = -1;
+					allowDifference = 1;
+					pos = 0;
+				}
+				tries ++;
+			}while(tries == 1 && allowDifference == 1);
+		}
+	}
+	else
+		config->frequencyNormalizationTries = 0;
+
+	if(!ComparisonLocalMaximum || !ratioRef)
+	{
+		PrintFrequenciesWMagnitudes(*ReferenceSignal, config);
+		PrintFrequenciesWMagnitudes(*ComparisonSignal, config);
+
+		logmsg("ERROR: Could not detect Local Maximum in 'Comparison' file for normalization\n");
+		return 0;
+	}
+
+	NormalizeMagnitudesByRatio(*ReferenceSignal, ratioRef, config);
+
+	RefAvg = FindFundamentalMagnitudeAverage(*ReferenceSignal, config);
+	CompAvg = FindFundamentalMagnitudeAverage(*ComparisonSignal, config);
+	
+	if(RefAvg > CompAvg)
+		ratio = RefAvg/CompAvg;
+	else
+		ratio = CompAvg/RefAvg;
+	if(ratio > FREQDOMRATIO)
+	{
+		double RefAmpl = 0, CompAmpl = 0;
+
+		logmsg("\n=====WARNING=====\n");
+		logmsg("\tAverage frequency difference after normalization between the signals is too high. (Ratio:%g to 1)\n", ratio);
+		logmsg("\tIf results make no sense (emply graphs), please try the following in the Extra Commands box:\n");
+		logmsg("\t* Use Time Domain normalization: -n t\n");
+		logmsg("\t* Compare just the left channel: -a l\n");
+		logmsg("\t* Compare just the right channel: -a r\n");
+		logmsg("\tThis can be caused by: comparing very different signals, a capacitor problem,\n");
+		logmsg("\tframerate difference causing pitch drifting, an unusual frequency scenario, etc.\n\n");
+
+		RefAmpl = CalculateAmplitude(RefAvg, MaxTar.magnitude, config);
+		CompAmpl = CalculateAmplitude(MaxTar.magnitude, MaxTar.magnitude, config);  // 0
+		
+		config->significantAmplitude = -1.5*fabs(CompAmpl - RefAmpl);
+		config->maxDbPlotZC = 1.2*fabs(CompAmpl - RefAmpl);
+		//config->ignoreFloor = 1;
+
+		logmsg("\tValues will be auto adjusted to show the whole differences:\n");
+		logmsg("\t\tSignificant Amplitude set to %g dBFS\n", config->significantAmplitude);
+		logmsg("\t\tPlot view range set to %g dBFS\n", config->maxDbPlotZC);
+	}
+
+	/* This is just for waveform visualization */
+	if((config->hasTimeDomain && config->plotTimeDomain) || config->plotAllNotes)
+		ProcessWaveformsByBlock(*ReferenceSignal, *ComparisonSignal, ratioRef, config);
+
+	return 1;
+}
+
+int AverageNormalize(AudioSignal **ReferenceSignal, AudioSignal **ComparisonSignal, parameters *config)
+{
+	double		RefAvg = 0, CompAvg = 0, ratio = 0;
+
+	RefAvg = FindFundamentalMagnitudeAverage(*ReferenceSignal, config);
+	CompAvg = FindFundamentalMagnitudeAverage(*ComparisonSignal, config);
+	if(CompAvg > RefAvg)
+	{
+		ratio = CompAvg/RefAvg;
+		NormalizeMagnitudesByRatio(*ReferenceSignal, ratio, config);
+		/* waveforms */
+		ProcessWaveformsByBlock(*ReferenceSignal, *ComparisonSignal, ratio, config);
+	}
+	else
+	{
+		ratio = RefAvg/CompAvg;
+		NormalizeMagnitudesByRatio(*ComparisonSignal, ratio, config);
+		/* waveforms */
+		ProcessWaveformsByBlock(*ComparisonSignal, *ReferenceSignal, ratio, config);
+	}
+	return 1;
+}
+
+// Compensate time normalization to match frequency normalization
+/*
+int TimeDomainNormalizeCompensate(AudioSignal **ReferenceSignal, AudioSignal **ComparisonSignal, parameters *config)
+{
+	// Check if we have the same peaks
+	// This is in order to compensate TimeDomain Differences
+	// But we probably default to Frequency domain and leave this commented out
+	if((*ReferenceSignal)->MaxMagnitude.hertz == (*ComparisonSignal)->MaxMagnitude.hertz &&
+		(*ReferenceSignal)->MaxMagnitude.block == (*ComparisonSignal)->MaxMagnitude.block)
+	{
+		double diff = 0;
+
+		diff = fabs((*ReferenceSignal)->MaxMagnitude.magnitude - (*ComparisonSignal)->MaxMagnitude.magnitude);
+		if(diff > 0.5)
+		{
+			double ratio = 0;
+
+			if((*ReferenceSignal)->MaxMagnitude.magnitude > (*ComparisonSignal)->MaxMagnitude.magnitude)
+			{
+				//if(config->verbose)
+					logmsg(" - Both Peaks match in frequency and Block, readjusting magnitudes");
+				ratio = (*ComparisonSignal)->MaxMagnitude.magnitude/(*ReferenceSignal)->MaxMagnitude.magnitude;
+				NormalizeMagnitudesByRatio(*ReferenceSignal, ratio, config);
+			}
+			else
+			{
+				if(config->verbose)
+					logmsg(" - Both Peaks match in frequency and Block, readjusting magnitudes");
+				ratio = (*ReferenceSignal)->MaxMagnitude.magnitude/(*ComparisonSignal)->MaxMagnitude.magnitude;
+				NormalizeMagnitudesByRatio(*ComparisonSignal, ratio, config);
+			}
+		}
+		//ZeroDbMagnitudeRef = (*ReferenceSignal)->MaxMagnitude.magnitude;
+	}
+	return 1;
+}
+*/
+
+int ProcessNoiseFloor(AudioSignal **ReferenceSignal, AudioSignal **ComparisonSignal, parameters *config)
+{
+	double	avgRef = 0, avgComp = 0;
+
+	/* analyze silence floor if available */
+	if((*ReferenceSignal)->hasSilenceBlock)
+		FindFloor(*ReferenceSignal, config);
+	if((*ComparisonSignal)->hasSilenceBlock)
+		FindFloor(*ComparisonSignal, config);
+
+	avgRef = FindFundamentalAmplitudeAverage(*ReferenceSignal, config);
+	avgComp = FindFundamentalAmplitudeAverage(*ComparisonSignal, config);
+
+	if((*ReferenceSignal)->floorAmplitude &&
+		avgRef <= (*ReferenceSignal)->floorAmplitude)
+	{
+		config->noiseFloorTooHigh = 1;
+		logmsg(" - Reference noise floor %g dBFS is louder than the average %g dBFS of the signal, ignoring\n",
+				(*ReferenceSignal)->floorAmplitude, avgRef);
+		(*ComparisonSignal)->floorAmplitude = SIGNIFICANT_VOLUME;
+	}
+
+	if((*ComparisonSignal)->floorAmplitude && 
+		avgComp <= (*ComparisonSignal)->floorAmplitude)
+	{
+		config->noiseFloorTooHigh = 1;
+		logmsg(" - Comparison noise floor %g dBFS is louder than the average %g dBFS of the signal, ignoring\n",
+				(*ComparisonSignal)->floorAmplitude, avgComp);
+		(*ComparisonSignal)->floorAmplitude = SIGNIFICANT_VOLUME;
+	}
+
+	/* Detect Signal Floor */
+	if((*ReferenceSignal)->hasSilenceBlock  && 
+		(*ReferenceSignal)->floorAmplitude != 0.0)
+		/* &&
+		(*ReferenceSignal)->floorAmplitude > config->significantAmplitude)*/
+	{
+		config->significantAmplitude = (*ReferenceSignal)->floorAmplitude;
+	}
+
+	if(config->significantAmplitude > LOWEST_NOISEFLOOR_ALLOWED)
+	{
+		logmsg(" - WARNING: Noise floor %g dBFS is louder than the default %g dBFS\n\tIf differences are not visible, use -i\n",
+				config->significantAmplitude, LOWEST_NOISEFLOOR_ALLOWED);
+		config->noiseFloorTooHigh = 1;
+		// we rather not take action
+		//config->significantAmplitude = SIGNIFICANT_VOLUME;
+	}
+
+	logmsg(" - Using %g dBFS as minimum significant amplitude for analysis\n",
+		config->significantAmplitude);
+	return 1;
+}
+
+int LoadAndProcessAudioFiles(AudioSignal **ReferenceSignal, AudioSignal **ComparisonSignal, parameters *config)
+{
+	double	ZeroDbMagnitudeRef = 0;
+
+	if(!LoadAudioFiles(ReferenceSignal, ComparisonSignal, config))
+		return 0;
 
 	SelectSilenceProfile(config);
 
 	config->referenceFramerate = (*ReferenceSignal)->framerate;
-
 	CompareFrameRates(*ReferenceSignal, *ComparisonSignal, config);
 
+	/* Balance check */
 	if(config->channel == 's' && 
 		((*ReferenceSignal)->AudioChannels == 2 || (*ComparisonSignal)->AudioChannels == 2))
 	{
@@ -424,72 +740,22 @@ int LoadAndProcessAudioFiles(AudioSignal **ReferenceSignal, AudioSignal **Compar
 			CheckBalance(*ComparisonSignal, block, config);
 		}
 		else
-		{
 			logmsg(" - No mono block for stereo balance check\n");
-		}
 	}
-
-	/* Although dithering would be better, there has been no need */
-	/* Tested a file scaled with ths method against itself using  */
-	/* the frequency domain solution, and differences are negligible */
-	/* (less than 0.2dBFS) */
 
 	if(config->normType == max_time)
 	{
-		MaxSample			MaxRef, MaxTar;
-		double				ComparisonLocalMaximum = 0;
-		double				ratioTar = 0, ratioRef = 0;
-
-		// Find Normalization factors
-		MaxRef = FindMaxSampleAmplitude(*ReferenceSignal);
-		if(!MaxRef.maxSample)
-		{
-			logmsg("ERROR: Could not detect Max amplitude in 'Reference' File for normalization\n");
-			CloseFiles(&reference, &compare);
-			CleanUp(ReferenceSignal, ComparisonSignal, config);
+		if(!TimeDomainNormalize(ReferenceSignal, ComparisonSignal, config))
 			return 0;
-		}
-		MaxTar = FindMaxSampleAmplitude(*ComparisonSignal);
-		if(!MaxTar.maxSample)
-		{
-			logmsg("ERROR: Could not detect Max amplitude in 'Comparison' file for normalization\n");
-			CloseFiles(&reference, &compare);
-			CleanUp(ReferenceSignal, ComparisonSignal, config);
-			return 0;
-		}
-	
-		ratioTar = MAXINT16/(double)MaxTar.maxSample;
-		NormalizeAudioByRatio(*ComparisonSignal, ratioTar);
-		ComparisonLocalMaximum = FindLocalMaximumAroundSample(*ComparisonSignal, MaxRef);
-		if(!ComparisonLocalMaximum)
-		{
-			logmsg("ERROR: Could not detect Max amplitude in 'Comparison' file for normalization\n");
-			CloseFiles(&reference, &compare);
-			CleanUp(ReferenceSignal, ComparisonSignal, config);
-			return 0;
-		}
-
-		ratioRef = (ComparisonLocalMaximum/(double)MaxRef.maxSample);
-		NormalizeAudioByRatio(*ReferenceSignal, ratioRef);
-
-		// Uncomment if you want to check the WAV files as normalized
-		//SaveWAVEChunk(NULL, *ReferenceSignal, (*ReferenceSignal)->Samples, 0, (*ReferenceSignal)->header.data.DataSize, config); 
-		//SaveWAVEChunk(NULL, *ComparisonSignal, (*ComparisonSignal)->Samples, 0, (*ComparisonSignal)->header.data.DataSize, config); 
 	}
 	
 	logmsg("\n* Executing Discrete Fast Fourier Transforms on 'Reference' file\n");
 	if(!ProcessFile(*ReferenceSignal, config))
-	{
-		CleanUp(ReferenceSignal, ComparisonSignal, config);
 		return 0;
-	}
 
 	logmsg("* Executing Discrete Fast Fourier Transforms on 'Comparison' file\n");
 	if(!ProcessFile(*ComparisonSignal, config))
-	{
-		CleanUp(ReferenceSignal, ComparisonSignal, config);
 		return 0;
-	}
 
 	ReleasePCM(*ReferenceSignal);
 	ReleasePCM(*ComparisonSignal);
@@ -499,219 +765,26 @@ int LoadAndProcessAudioFiles(AudioSignal **ReferenceSignal, AudioSignal **Compar
 
 	if(config->normType == max_frequency)
 	{
-		MaxMagn				MaxRef, MaxTar;
-		double				ComparisonLocalMaximum = 0;
-		double				ratioRef = 0;
-		double				RefAvg = 0;
-		double				CompAvg = 0;
-		double				ratio = 0;
-
-		// Find Normalization factors
-		MaxRef = FindMaxMagnitudeBlock(*ReferenceSignal, config);
-		if(!MaxRef.magnitude)
-		{
-			logmsg("ERROR: Could not detect Max amplitude in 'Reference' File for normalization\n");
-			CloseFiles(&reference, &compare);
-			CleanUp(ReferenceSignal, ComparisonSignal, config);
+		if(!FrequencyDomainNormalize(ReferenceSignal, ComparisonSignal, config))
 			return 0;
-		}
-		MaxTar = FindMaxMagnitudeBlock(*ComparisonSignal, config);
-		if(!MaxTar.magnitude)
-		{
-			logmsg("ERROR: Could not detect Max amplitude in 'Comparison' file for normalization\n");
-			CloseFiles(&reference, &compare);
-			CleanUp(ReferenceSignal, ComparisonSignal, config);
-			return 0;
-		}
-	
-		ComparisonLocalMaximum = FindLocalMaximumInBlock(*ComparisonSignal, MaxRef, 0, config);
-		if(ComparisonLocalMaximum)
-			ratioRef = ComparisonLocalMaximum/MaxRef.magnitude;
-
-		/* Detect extreme cases, and try another approach */
-		if(ComparisonLocalMaximum == 0 || (ratioRef && 1.0/ratioRef > FREQDOMRATIO))
-		{
-			int		found = 0, pos = 1, allowDifference = 0, tries = 0;
-			MaxMagn	MaxRefArray[FREQDOMTRIES];
-			double	ComparisonLocalMaximumArray = 0, ratioRefArray = 0;
-
-			memset(MaxRefArray, 0, FREQDOMTRIES*sizeof(MaxMagn));
-			if(FindMultiMaxMagnitudeBlock(*ReferenceSignal, MaxRefArray, FREQDOMTRIES, config))
-			{
-				// We have a do for a second cycle allowing tolerance
-				do
-				{
-					while(MaxRefArray[pos].magnitude != 0 && pos < FREQDOMTRIES)
-					{
-						if(config->verbose)
-						{
-							logmsg(" - Reference Max Magnitude[%d] found in %s# %d (%d) at %g Hz with %g\n", 
-								pos,
-								GetBlockName(config, MaxRefArray[pos].block), GetBlockSubIndex(config, MaxRefArray[pos].block),
-								MaxRefArray[pos].block, MaxRefArray[pos].hertz, MaxRefArray[pos].magnitude);
-						}
-	
-						ratioRefArray = 0;
-						ComparisonLocalMaximumArray = FindLocalMaximumInBlock(*ComparisonSignal, MaxRefArray[pos], allowDifference, config);
-						if(ComparisonLocalMaximumArray)
-						{
-							ratioRefArray = ComparisonLocalMaximumArray/MaxRefArray[pos].magnitude;
-							if(config->verbose) logmsg(" - Comparision ratio is %g (%g/%g)\n", 1.0/ratioRefArray, ComparisonLocalMaximumArray, MaxRefArray[pos].magnitude);
-							if(1.0/ratioRefArray <= FREQDOMRATIO)
-							{
-								found = 1;
-								break;
-							}
-						}
-						pos++;
-					}
-	
-					if(found){
-						int copy = 0;
-
-						if(ComparisonLocalMaximum)  // we are here because no clean match was found
-							copy = 1;
-						else  /* we are here because of ratio */ {
-							if(ratioRefArray < ratioRef)
-								copy = 1;
-
-							if(!ratioRef)
-								copy = 1;
-						}
-
-						if(copy){
-							ComparisonLocalMaximum = ComparisonLocalMaximumArray;
-							ratioRef = ratioRefArray;
-							config->frequencyNormalizationTries = pos + 1;
-						}
-						else {
-							if(config->verbose)	logmsg(" - Alternative matches were worse than original, (%g<-%g)reverting\n",
-								ratioRefArray, ratioRef);
-						}
-					}
-					else {
-						config->frequencyNormalizationTries = -1;
-						allowDifference = 1;
-						pos = 0;
-					}
-					tries ++;
-				}while(tries == 1 && allowDifference == 1);
-			}
-		}
-		else
-			config->frequencyNormalizationTries = 0;
-
-		if(!ComparisonLocalMaximum || !ratioRef)
-		{
-			PrintFrequenciesWMagnitudes(*ReferenceSignal, config);
-			PrintFrequenciesWMagnitudes(*ComparisonSignal, config);
-
-			logmsg("ERROR: Could not detect Local Maximum in 'Comparison' file for normalization\n");
-			CloseFiles(&reference, &compare);
-			CleanUp(ReferenceSignal, ComparisonSignal, config);
-			return 0;
-		}
-
-		NormalizeMagnitudesByRatio(*ReferenceSignal, ratioRef, config);
-
-		RefAvg = FindFundamentalMagnitudeAverage(*ReferenceSignal, config);
-		CompAvg = FindFundamentalMagnitudeAverage(*ComparisonSignal, config);
-		
-		if(RefAvg > CompAvg)
-			ratio = RefAvg/CompAvg;
-		else
-			ratio = CompAvg/RefAvg;
-		if(ratio > FREQDOMRATIO)
-		{
-			double RefAmpl = 0, CompAmpl = 0;
-
-			logmsg("\n=====WARNING=====\n");
-			logmsg("\tAverage frequency difference after normalization between the signals is too high. (Ratio:%g to 1)\n", ratio);
-			logmsg("\tIf results make no sense (emply graphs), please try the following in the Extra Commands box:\n");
-			logmsg("\t* Use Time Domain normalization: -n t\n");
-			logmsg("\t* Compare just the left channel: -a l\n");
-			logmsg("\t* Compare just the right channel: -a r\n");
-			logmsg("\tThis can be caused by: comparing very different signals, a capacitor problem,\n");
-			logmsg("\tframerate difference causing pitch drifting, an unusual frequency scenario, etc.\n\n");
-
-			RefAmpl = CalculateAmplitude(RefAvg, MaxTar.magnitude, config);
-			CompAmpl = CalculateAmplitude(MaxTar.magnitude, MaxTar.magnitude, config);  // 0
-			
-			config->significantAmplitude = -1.5*fabs(CompAmpl - RefAmpl);
-			config->maxDbPlotZC = 1.2*fabs(CompAmpl - RefAmpl);
-			//config->ignoreFloor = 1;
-
-			logmsg("\tValues will be auto adjusted to show the whole differences:\n");
-			logmsg("\t\tSignificant Amplitude set to %g dBFS\n", config->significantAmplitude);
-			logmsg("\t\tPlot view range set to %g dBFS\n", config->maxDbPlotZC);
-		}
-
-		/* This is just for waveform visualization */
-		if((config->hasTimeDomain && config->plotTimeDomain) || config->plotAllNotes)
-			ProcessWaveformsByBlock(*ReferenceSignal, *ComparisonSignal, ratioRef, config);
-
 	}
 
 	if(config->normType == average)
 	{
-		double		RefAvg = 0, CompAvg = 0, ratio = 0;
-
-		RefAvg = FindFundamentalMagnitudeAverage(*ReferenceSignal, config);
-		CompAvg = FindFundamentalMagnitudeAverage(*ComparisonSignal, config);
-		if(CompAvg > RefAvg)
-		{
-			ratio = CompAvg/RefAvg;
-			NormalizeMagnitudesByRatio(*ReferenceSignal, ratio, config);
-			/* waveforms */
-			ProcessWaveformsByBlock(*ReferenceSignal, *ComparisonSignal, ratio, config);
-		}
-		else
-		{
-			ratio = RefAvg/CompAvg;
-			NormalizeMagnitudesByRatio(*ComparisonSignal, ratio, config);
-			/* waveforms */
-			ProcessWaveformsByBlock(*ComparisonSignal, *ReferenceSignal, ratio, config);
-		}
+		if(!AverageNormalize(ReferenceSignal, ComparisonSignal, config))
+			return 0;
 	}
 
-	logmsg("\n* Processing Signal Frequencies and Amplitudes\n");
 	/*
 	// Compensate time normalization to match frequency normalization
 	if(config->normType == max_time)
 	{
-		// Check if we have the same peaks
-		// This is in order to compensate TimeDomain Differences
-		// But we probably default to Frequency domain and leave this commented out
-		if((*ReferenceSignal)->MaxMagnitude.hertz == (*ComparisonSignal)->MaxMagnitude.hertz &&
-			(*ReferenceSignal)->MaxMagnitude.block == (*ComparisonSignal)->MaxMagnitude.block)
-		{
-			double diff = 0;
-	
-			diff = fabs((*ReferenceSignal)->MaxMagnitude.magnitude - (*ComparisonSignal)->MaxMagnitude.magnitude);
-			if(diff > 0.5)
-			{
-				double ratio = 0;
-	
-				if((*ReferenceSignal)->MaxMagnitude.magnitude > (*ComparisonSignal)->MaxMagnitude.magnitude)
-				{
-					//if(config->verbose)
-						logmsg(" - Both Peaks match in frequency and Block, readjusting magnitudes");
-					ratio = (*ComparisonSignal)->MaxMagnitude.magnitude/(*ReferenceSignal)->MaxMagnitude.magnitude;
-					NormalizeMagnitudesByRatio(*ReferenceSignal, ratio, config);
-				}
-				else
-				{
-					if(config->verbose)
-						logmsg(" - Both Peaks match in frequency and Block, readjusting magnitudes");
-					ratio = (*ReferenceSignal)->MaxMagnitude.magnitude/(*ComparisonSignal)->MaxMagnitude.magnitude;
-					NormalizeMagnitudesByRatio(*ComparisonSignal, ratio, config);
-				}
-			}
-			//ZeroDbMagnitudeRef = (*ReferenceSignal)->MaxMagnitude.magnitude;
-		}
+		if(!TimeDomainNormalizeCompensate(ReferenceSignal, ComparisonSignal, config))
+			return 0;
 	}
 	*/
 
+	logmsg("\n* Processing Signal Frequencies and Amplitudes\n");
 	if((*ReferenceSignal)->MaxMagnitude.magnitude < (*ComparisonSignal)->MaxMagnitude.magnitude)
 	{
 		ZeroDbMagnitudeRef = (*ComparisonSignal)->MaxMagnitude.magnitude;
@@ -741,56 +814,9 @@ int LoadAndProcessAudioFiles(AudioSignal **ReferenceSignal, AudioSignal **Compar
 
 	if(!config->ignoreFloor)
 	{
-		double	avgRef = 0, avgComp = 0;
-
-		/* analyze silence floor if available */
-		if((*ReferenceSignal)->hasSilenceBlock)
-			FindFloor(*ReferenceSignal, config);
-		if((*ComparisonSignal)->hasSilenceBlock)
-			FindFloor(*ComparisonSignal, config);
-	
-		avgRef = FindFundamentalAmplitudeAverage(*ReferenceSignal, config);
-		avgComp = FindFundamentalAmplitudeAverage(*ComparisonSignal, config);
-	
-		if((*ReferenceSignal)->floorAmplitude &&
-			avgRef <= (*ReferenceSignal)->floorAmplitude)
-		{
-			config->noiseFloorTooHigh = 1;
-			logmsg(" - Reference noise floor %g dBFS is louder than the average %g dBFS of the signal, ignoring\n",
-					(*ReferenceSignal)->floorAmplitude, avgRef);
-			(*ComparisonSignal)->floorAmplitude = SIGNIFICANT_VOLUME;
-		}
-	
-		if((*ComparisonSignal)->floorAmplitude && 
-			avgComp <= (*ComparisonSignal)->floorAmplitude)
-		{
-			config->noiseFloorTooHigh = 1;
-			logmsg(" - Comparison noise floor %g dBFS is louder than the average %g dBFS of the signal, ignoring\n",
-					(*ComparisonSignal)->floorAmplitude, avgComp);
-			(*ComparisonSignal)->floorAmplitude = SIGNIFICANT_VOLUME;
-		}
-	
-		/* Detect Signal Floor */
-		if((*ReferenceSignal)->hasSilenceBlock  && 
-			(*ReferenceSignal)->floorAmplitude != 0.0)
-			/* &&
-			(*ReferenceSignal)->floorAmplitude > config->significantAmplitude)*/
-		{
-			config->significantAmplitude = (*ReferenceSignal)->floorAmplitude;
-		}
-	
-		if(config->significantAmplitude > LOWEST_NOISEFLOOR_ALLOWED)
-		{
-			logmsg(" - WARNING: Noise floor %g dBFS is louder than the default %g dBFS\n\tIf differences are not visible, use -i\n",
-					config->significantAmplitude, LOWEST_NOISEFLOOR_ALLOWED);
-			config->noiseFloorTooHigh = 1;
-			// we rather not take action
-			//config->significantAmplitude = SIGNIFICANT_VOLUME;
-		}
+		if(!ProcessNoiseFloor(ReferenceSignal, ComparisonSignal, config))
+			return 0;
 	}
-
-	logmsg(" - Using %g dBFS as minimum significant amplitude for analysis\n",
-		config->significantAmplitude);
 
 	//DetectOvertoneStart(*ReferenceSignal, config);
 	//DetectOvertoneStart(*ComparisonSignal, config);
@@ -800,9 +826,6 @@ int LoadAndProcessAudioFiles(AudioSignal **ReferenceSignal, AudioSignal **Compar
 		PrintFrequencies(*ReferenceSignal, config);
 		PrintFrequencies(*ComparisonSignal, config);
 	}
-
-	config->referenceSignal = *ReferenceSignal;
-	config->comparisonSignal = *ComparisonSignal;
 
 	if(config->types.useWatermark)
 	{
@@ -817,6 +840,9 @@ int LoadAndProcessAudioFiles(AudioSignal **ReferenceSignal, AudioSignal **Compar
 			return 0;
 		}
 	}
+
+	config->referenceSignal = *ReferenceSignal;
+	config->comparisonSignal = *ComparisonSignal;
 
 	return 1;
 }

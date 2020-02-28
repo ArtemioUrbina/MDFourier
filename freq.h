@@ -156,6 +156,8 @@ int GetLineCount(int role, parameters *config);
 double GetMSPerFrame(AudioSignal *Signal, parameters *config);
 double GetMSPerFrameRole(int role, parameters *config);
 double CalculateClk(AudioSignal *Signal, parameters *config);
+//void AdjustFrequenciesByClockRate(AudioSignal *Signal1, AudioSignal *Signal2, int type, double ratio, parameters *config);
+//double calculateClockRatio(AudioSignal *Signal1, AudioSignal *Signal2, parameters *config);
 
 
 #endif
