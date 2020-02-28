@@ -3252,7 +3252,7 @@ double CalculateFrameRate(AudioSignal *Signal, parameters *config)
 			}
 			else
 				Signal->clkEstimatedAC = ACsamplerate;
-			config->clkNoMatch = 1;
+			config->intClkNoMatch |= Signal->role;
 		}
 	}
 

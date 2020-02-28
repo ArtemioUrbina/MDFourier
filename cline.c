@@ -232,7 +232,8 @@ void CleanParameters(parameters *config)
 	config->compressToBlocks = 0;
 	config->quantizeRound = 1;
 	config->drawPerfect = 0;
-	config->clkNoMatch = 0;
+	config->intClkNoMatch = 0;
+	config->diffClkNoMatch = 0;
 
 	EnableLog();
 }

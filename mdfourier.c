@@ -244,11 +244,15 @@ void ReportClockResults(AudioSignal *ReferenceSignal, AudioSignal *ComparisonSig
 	logmsg(" - Reference: %gHz", refClk);
 	if(!config->doClkAdjust && ReferenceSignal->clkEstimatedAC)
 		logmsg(" estimated at %gHz from signal length and samplerate\n\t(can be auto matched with -j)", ReferenceSignal->clkEstimatedAC);
+	else if(ReferenceSignal->originalCLK)
+		logmsg(" adjusted from %dHz", ReferenceSignal->originalCLK);
 	logmsg("\n");
 
 	logmsg(" - Comparison: %gHz", compClk);
 	if(!config->doClkAdjust && ComparisonSignal->clkEstimatedAC)
 		logmsg(" estimated at %gHz from signal length and samplerate\n\t(can be auto matched with -j)", ComparisonSignal->clkEstimatedAC);
+	else if(ComparisonSignal->originalCLK)
+		logmsg(" adjusted from %dHz", ComparisonSignal->originalCLK);
 	logmsg("\n");
 
 	if(fabs(refClk - compClk) > 10)

@@ -1144,20 +1144,28 @@ void DrawLabelsMDF(PlotFile *plot, char *Gname, char *GType, int type, parameter
 			pl_alabel_r(plot->plotter, 'l', 'l', "WARNING: No Normalization, PLEASE DISREGARD");
 	}
 
-	if(config->clkNoMatch)
+	if(config->intClkNoMatch && !config->doClkAdjust)
 	{
 		PLOT_WARN(1, 2);
 		pl_pencolor_r(plot->plotter, 0xeeee, 0xeeee, 0);
-		if(!config->doClkAdjust)
-			sprintf(msg, "WARNING: %s clock doesn't match length (can use -j).", config->clkName);
-		else
-			sprintf(msg, "WARNING: %s Signal clocks don't match.", config->clkName);
+		sprintf(msg, "WARNING: %s %s clock%s match length (can use -j).",
+			config->intClkNoMatch == ROLE_REF ? "R" : config->intClkNoMatch == ROLE_COMP ? "C" : "",
+			config->clkName,
+			config->intClkNoMatch == ROLE_REF ? " doesn't" : config->intClkNoMatch == ROLE_COMP ? " doesn't" : "s don't");
+		pl_alabel_r(plot->plotter, 'l', 'l', msg);
+	}
+
+	if(config->diffClkNoMatch)
+	{
+		PLOT_WARN(1, 1);
+		pl_pencolor_r(plot->plotter, 0xeeee, 0xeeee, 0);
+		sprintf(msg, "WARNING: %s Signal clocks don't match.", config->clkName);
 		pl_alabel_r(plot->plotter, 'l', 'l', msg);
 	}
 
 	if(config->doClkAdjust)
 	{
-		PLOT_WARN(1, 1);
+		PLOT_WARN(1, 0);
 		pl_pencolor_r(plot->plotter, 0xeeee, 0xeeee, 0);
 		sprintf(msg, "WARNING: %s clock auto adjusted, values above.", config->clkName);
 		pl_alabel_r(plot->plotter, 'l', 'l', msg);
@@ -1165,7 +1173,7 @@ void DrawLabelsMDF(PlotFile *plot, char *Gname, char *GType, int type, parameter
 
 	if(config->syncTolerance)
 	{
-		PLOT_WARN(1, 0);
+		PLOT_WARN(1, -1);
 		pl_pencolor_r(plot->plotter, 0xeeee, 0xeeee, 0);
 		pl_alabel_r(plot->plotter, 'l', 'l', "WARNING: Sync tolerance enabled");
 	}

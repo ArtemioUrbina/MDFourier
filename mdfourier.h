@@ -530,7 +530,8 @@ typedef struct parameters_st {
 	int				channelWithLowFundamentals;
 	int				singleSyncUsed;
 	double			notVisible;
-	int				clkNoMatch;
+	int				intClkNoMatch;
+	int				diffClkNoMatch;
 
 	double 			plotResX;
 	double			plotResY;
