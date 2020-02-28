@@ -52,7 +52,69 @@ long int DetectPulse(char *AllSamples, wav_hdr header, int role, parameters *con
 		logmsgFileOnly("\nStarting Detect start pulse\n");
 
 	AudioChannels = header.fmt.NumOfChan;
+
 	position = DetectPulseInternal(AllSamples, header, FACTOR_EXPLORE, 0, &maxdetected, role, AudioChannels, config);
+	if(position == -1)
+	{
+		if(config->debugSync)
+			logmsgFileOnly("First round start pulse failed\n", offset);
+
+		return DetectPulseSecondTry(AllSamples, header, role, config);
+	}
+
+	if(errcount && position != -1)
+		logmsgFileOnly(" - Sync pulse had %d imperfections\n", errcount);
+
+#ifdef DOUBLE_SYNC
+	if(GetPulseSyncFreq(role, config) >= FORCE_SINGLE_4K)
+	{
+		if(config->debugSync)
+			logmsgFileOnly("First round start pulse detected at %ld, refinement\n", position);
+	
+		offset = position;
+		if(offset >= 8*22*AudioChannels)  /* return 8 "ms segments" as dictated by ratio "9" below */
+			offset -= 8*22*AudioChannels;
+	
+		maxdetected = 0;
+		errcount = 0;
+		position = DetectPulseInternal(AllSamples, header, FACTOR_DETECT, offset, &maxdetected, role, AudioChannels, config);
+	}
+	else
+	{
+		logmsgFileOnly(" - WARNING: Using only First round start pulse %ld, tone frequency too low\n", position, GetPulseSyncFreq(role, config));
+		config->singleSyncUsed = 1;
+		return(position);
+	}
+#endif
+
+	if(config->debugSync)
+		logmsgFileOnly("Start pulse return value %ld\n", position);
+
+	return position;
+}
+
+/* only difference is taht it auto detects the start first, helps in some cases with long silence and high noise floor */
+long int DetectPulseSecondTry(char *AllSamples, wav_hdr header, int role, parameters *config)
+{
+	int			maxdetected = 0, errcount = 0, AudioChannels = 0;
+	long int	position = 0, offset = 0;
+
+	if(config->debugSync)
+		logmsgFileOnly("\nStarting Detect start pulse\n");
+
+	AudioChannels = header.fmt.NumOfChan;
+
+	offset = DetectSignalStart(AllSamples, header, 0, 0, NULL, config);
+	if(offset)
+	{
+		long int MSBytes = 0;
+			
+		MSBytes = SecondsToBytes(header.fmt.SamplesPerSec, 0.04, AudioChannels, NULL, NULL, NULL);
+		if(offset >= MSBytes)
+			offset -= MSBytes;
+	}
+
+	position = DetectPulseInternal(AllSamples, header, FACTOR_EXPLORE, offset, &maxdetected, role, AudioChannels, config);
 	if(position == -1)
 	{
 		if(config->debugSync)

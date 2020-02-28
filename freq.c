@@ -355,6 +355,7 @@ void InitAudio(AudioSignal *Signal, parameters *config)
 	Signal->balance = 0;
 	memset(&Signal->clkFrequencies, 0, sizeof(AudioBlocks));
 	Signal->clkEstimatedAC = 0;
+	Signal->originalCLK = 0;
 
 	memset(&Signal->delayArray, 0, sizeof(double)*DELAYCOUNT);
 	Signal->delayElemCount = 0;
@@ -1249,12 +1250,13 @@ void PrintAudioBlocks(parameters *config)
 		seconds *= config->types.typeArray[i].elementCount;
 		TotalSeconds += seconds;
 
-		logmsgFileOnly("%s%s %s %d %d %s %c %s | Frames: %ld | Seconds: %g [%g to %g]\n", 
+		logmsgFileOnly("%s%s %s %d %d %d %s %c %s | Frames: %ld | Seconds: %g [%g to %g]\n", 
 			config->types.typeArray[i].type == TYPE_SKIP ? "     " : "",
 			config->types.typeArray[i].typeName,
 			type,
 			config->types.typeArray[i].elementCount,
 			config->types.typeArray[i].frames,
+			config->types.typeArray[i].cutFrames*-1,
 			config->types.typeArray[i].color,
 			config->types.typeArray[i].channel,
 			config->types.typeArray[i].IsaddOnData ? "(ExtraData)" : "",
@@ -3232,7 +3234,24 @@ double CalculateFrameRate(AudioSignal *Signal, parameters *config)
 
 		if(config->clkProcess)
 		{
-			Signal->clkEstimatedAC = ACsamplerate;
+			if(config->doClkAdjust)
+			{
+				logmsg("- WARNING: Auto adjustment of samplerate and frame rate applied\n");
+				logmsg("    Original framerate %gms\n", framerate);
+
+				Signal->originalCLK = Signal->header.fmt.SamplesPerSec;
+
+				Signal->header.fmt.SamplesPerSec = ceil(ACsamplerate);
+				samplerate = Signal->header.fmt.SamplesPerSec;
+				framerate = (endOffset-startOffset)/(samplerate*LastSyncFrameOffset); // 1000 ms 
+				framerate = framerate*1000.0/(2.0*Signal->AudioChannels);  // 1000 ms and 2/4 bytes per stereo sample
+
+				logmsg("    Used sample rate sample rate %dHz\n", Signal->header.fmt.SamplesPerSec);
+
+				Signal->clkEstimatedAC = Signal->header.fmt.SamplesPerSec;
+			}
+			else
+				Signal->clkEstimatedAC = ACsamplerate;
 			config->clkNoMatch = 1;
 		}
 	}

@@ -242,13 +242,13 @@ void ReportClockResults(AudioSignal *ReferenceSignal, AudioSignal *ComparisonSig
 		config->clkName, config->clkFreq, GetBlockName(config, config->clkBlock), 
 		GetBlockSubIndex(config, config->clkBlock));
 	logmsg(" - Reference: %gHz", refClk);
-	if(ReferenceSignal->clkEstimatedAC)
-		logmsg(" estimated at %gHz from signal length and samplerate", ReferenceSignal->clkEstimatedAC);
+	if(!config->doClkAdjust && ReferenceSignal->clkEstimatedAC)
+		logmsg(" estimated at %gHz from signal length and samplerate\n\t(can be auto matched with -j)", ReferenceSignal->clkEstimatedAC);
 	logmsg("\n");
 
 	logmsg(" - Comparison: %gHz", compClk);
-	if(ComparisonSignal->clkEstimatedAC)
-		logmsg(" estimated at %gHz from signal length and samplerate", ComparisonSignal->clkEstimatedAC);
+	if(!config->doClkAdjust && ComparisonSignal->clkEstimatedAC)
+		logmsg(" estimated at %gHz from signal length and samplerate\n\t(can be auto matched with -j)", ComparisonSignal->clkEstimatedAC);
 	logmsg("\n");
 
 	if(fabs(refClk - compClk) > 10)
@@ -1688,8 +1688,11 @@ int ProcessFile(AudioSignal *Signal, parameters *config)
 		memset(buffer, 0, buffersize);
 		if(pos + loadedBlockSize > Signal->header.data.DataSize)
 		{
-			config->smallFile |= Signal->role;
-			logmsg("\tunexpected end of File, please record the full Audio Test from the 240p Test Suite.\n");
+			if(i != config->types.totalBlocks - 1)
+			{
+				config->smallFile |= Signal->role;
+				logmsg("\tunexpected end of File, please record the full Audio Test from the 240p Test Suite.\n");
+			}
 			break;
 		}
 		memcpy(buffer, Signal->Samples + pos, loadedBlockSize-difference);

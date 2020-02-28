@@ -372,6 +372,7 @@ typedef struct AudioSt {
 
 	int			nyquistLimit;
 	int			watermarkStatus;
+
 	double		startHz;
 	double		endHz;
 
@@ -381,6 +382,7 @@ typedef struct AudioSt {
 	double		balance;
 	AudioBlocks	clkFrequencies;
 	double		clkEstimatedAC;
+	int			originalCLK;
 
 	AudioBlocks *Blocks;
 }  AudioSignal;
@@ -554,6 +556,8 @@ typedef struct parameters_st {
 	int			clkBlock;
 	int			clkFreq;
 	int			clkRatio;
+
+	int			doClkAdjust;
 
 	AudioSignal		*referenceSignal;
 	AudioSignal		*comparisonSignal;

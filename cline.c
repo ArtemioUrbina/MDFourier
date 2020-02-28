@@ -57,6 +57,7 @@ void PrintUsage()
 	logmsg("	 -T: Increase Sync detection <T>olerance (ignore frequency for pulses)\n");
 	logmsg("	 -Y: Define the Reference Video Format from the profile\n");
 	logmsg("	 -Z: Define the Comparison Video Format from the profile\n");
+	logmsg("	 -j: Ad<j>ust samplerate clock if difference is found\n");
 	logmsg("	 -k: cloc<k> FFTW operations\n");
 	logmsg("	 -X: Do not E<x>tra Data from Profiles\n");
 	logmsg("	 -q: Do not round (<q>uantize) frequencies and amplitudes\n");
@@ -225,6 +226,8 @@ void CleanParameters(parameters *config)
 	config->clkBlock = NO_CLK;
 	config->clkFreq = 0;
 	config->clkRatio = 0;
+
+	config->doClkAdjust = 0;
 	config->useExtraData = 1;
 	config->compressToBlocks = 0;
 	config->quantizeRound = 1;
@@ -243,8 +246,8 @@ int commandline(int argc , char *argv[], parameters *config)
 	
 	CleanParameters(config);
 
-	// Available: GJjR1234567
-	while ((c = getopt (argc, argv, "Aa:Bb:Cc:Dd:Ee:Ff:gHhIiKkL:lMmNn:Oo:P:p:Qqr:Ss:TtUuVvWw:XxY:yZ:z0:89")) != -1)
+	// Available: GJR1234567
+	while ((c = getopt (argc, argv, "Aa:Bb:Cc:Dd:Ee:Ff:gHhIijKkL:lMmNn:Oo:P:p:Qqr:Ss:TtUuVvWw:XxY:yZ:z0:89")) != -1)
 	switch (c)
 	  {
 	  case 'A':
@@ -339,6 +342,9 @@ int commandline(int argc , char *argv[], parameters *config)
 		break;
 	  case 'i':
 		config->ignoreFloor = 1;
+		break;
+	  case 'j':
+		config->doClkAdjust = 1;
 		break;
 	  case 'K':
 		config->drawPerfect = 1;

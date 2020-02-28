@@ -815,6 +815,7 @@ void enableTestWarnings(parameters *config)
 	config->clkFreq = 8000;
 	config->clkRatio = 4;
 	config->clkNoMatch = 1;
+	config->doClkAdjust = 1;
 	config->referenceSignal->clkEstimatedAC = 32780;
 	config->comparisonSignal->clkEstimatedAC = 34812.87;
 		
@@ -834,6 +835,32 @@ void enableTestWarnings(parameters *config)
 	logmsg("ERROR: enableTestWarnings Enabled\n");
 }
 #endif
+
+void DrawClockData(PlotFile *plot, AudioSignal *Signal, char *msg, parameters *config)
+{
+	pl_pencolor_r(plot->plotter, 0, 0xcccc, 0xcccc);
+	if(!Signal->clkEstimatedAC)
+	{
+		sprintf(msg, "CLK %s: %gHz",
+			Signal->role == ROLE_REF ? "R" : "C",
+			CalculateClk(Signal, config));
+	}
+	else
+	{
+		char str[100];
+
+		pl_pencolor_r(plot->plotter, 0xcccc, 0xcccc, 0);
+		if(config->doClkAdjust && Signal->originalCLK)
+			sprintf(str, "CLK %%s: %%g\\->%%gHz");
+		else
+			sprintf(str, "CLK %%s: %%g(%%g)Hz");
+		sprintf(msg, str,
+			Signal->role == ROLE_REF ? "R" : "C",
+			Signal->originalCLK ? Signal->originalCLK : 
+			CalculateClk(Signal, config), 
+			Signal->clkEstimatedAC);
+	}
+}
 
 #define PLOT_COLUMN(x,y) pl_fmove_r(plot->plotter, config->plotResX-(x)*config->plotResX/10-config->plotResX/40, config->plotResY/2-(y)*BAR_HEIGHT)
 #define PLOT_COLUMN_DISP(x,x1,y) pl_fmove_r(plot->plotter, config->plotResX-(x)*config->plotResX/10-config->plotResX/40+x1, config->plotResY/2-(y)*BAR_HEIGHT)
@@ -924,10 +951,11 @@ void DrawLabelsMDF(PlotFile *plot, char *Gname, char *GType, int type, parameter
 
 		x = config->plotResX/2-config->plotResX/50*14;
 		y = -1*config->plotResY/2+config->plotResY/80;
-		pl_pencolor_r(plot->plotter, 0, 0xeeee, 0);
 
+		pl_pencolor_r(plot->plotter, 0, 0xeeee, 0);
 		if(type == PLOT_COMPARE)
 		{
+			pl_pencolor_r(plot->plotter, 0, 0xeeee, 0);
 			if(config->referenceSignal)
 			{
 				sprintf(label, "Reference:   %5.5s %4dkHz %s %.110s%s",
@@ -939,6 +967,8 @@ void DrawLabelsMDF(PlotFile *plot, char *Gname, char *GType, int type, parameter
 				pl_fmove_r(plot->plotter, x, y+config->plotResY/40);
 				pl_alabel_r(plot->plotter, 'l', 'l', label);
 
+				if(config->doClkAdjust && config->referenceSignal->clkEstimatedAC)
+					pl_pencolor_r(plot->plotter, 0xeeee, 0xeeee, 0);
 				sprintf(label, "[%0.4fms %0.4fHz]", 
 						config->referenceSignal->framerate, roundFloat(CalculateScanRate(config->referenceSignal)));
 				pl_fmove_r(plot->plotter, config->plotResX/20*17, y+config->plotResY/40);
@@ -950,6 +980,7 @@ void DrawLabelsMDF(PlotFile *plot, char *Gname, char *GType, int type, parameter
 				pl_fmove_r(plot->plotter, x, y+config->plotResY/40);
 				pl_alabel_r(plot->plotter, 'l', 'l', label);
 			}
+			pl_pencolor_r(plot->plotter, 0, 0xeeee, 0);
 			if(config->comparisonSignal)
 			{
 				sprintf(label, "Comparison: %5.5s %4dkHz %s %.110s%s",
@@ -961,6 +992,8 @@ void DrawLabelsMDF(PlotFile *plot, char *Gname, char *GType, int type, parameter
 				pl_fmove_r(plot->plotter, x, -1*config->plotResY/2+config->plotResY/80);
 				pl_alabel_r(plot->plotter, 'l', 'l', label);
 
+				if(config->doClkAdjust && config->comparisonSignal->clkEstimatedAC)
+					pl_pencolor_r(plot->plotter, 0xeeee, 0xeeee, 0);
 				sprintf(label, "[%0.4fms %0.4fHz]", 
 						config->comparisonSignal->framerate, roundFloat(CalculateScanRate(config->comparisonSignal)));
 				pl_fmove_r(plot->plotter, config->plotResX/20*17, y);
@@ -1003,15 +1036,24 @@ void DrawLabelsMDF(PlotFile *plot, char *Gname, char *GType, int type, parameter
 			pl_alabel_r(plot->plotter, 'l', 'l', label);
 
 			if(type == PLOT_SINGLE_REF)
+			{
+				if(config->doClkAdjust && config->referenceSignal->clkEstimatedAC)
+					pl_pencolor_r(plot->plotter, 0xeeee, 0xeeee, 0);
 				sprintf(label, "[%0.4fms %0.4fHz]", config->referenceSignal->framerate, roundFloat(CalculateScanRate(config->referenceSignal)));
+			}
 			else
+			{
+				if(config->doClkAdjust && config->comparisonSignal->clkEstimatedAC)
+					pl_pencolor_r(plot->plotter, 0xeeee, 0xeeee, 0);
 				sprintf(label, "[%0.4fms %0.4fHz]", config->comparisonSignal->framerate, roundFloat(CalculateScanRate(config->comparisonSignal)));
+			}
 			pl_fmove_r(plot->plotter, config->plotResX/20*17, y);
 			pl_alabel_r(plot->plotter, 'l', 'l', label);
 		}
 	}
 
 	/* Warnings */
+
 	if(config->ignoreFrameRateDiff)
 	{
 		PLOT_WARN(1, 13);
@@ -1106,13 +1148,24 @@ void DrawLabelsMDF(PlotFile *plot, char *Gname, char *GType, int type, parameter
 	{
 		PLOT_WARN(1, 2);
 		pl_pencolor_r(plot->plotter, 0xeeee, 0xeeee, 0);
-		sprintf(msg, "WARNING: %s Clocks don't match. Values above.", config->clkName);
+		if(!config->doClkAdjust)
+			sprintf(msg, "WARNING: %s clock doesn't match length (can use -j).", config->clkName);
+		else
+			sprintf(msg, "WARNING: %s Signal clocks don't match.", config->clkName);
+		pl_alabel_r(plot->plotter, 'l', 'l', msg);
+	}
+
+	if(config->doClkAdjust)
+	{
+		PLOT_WARN(1, 1);
+		pl_pencolor_r(plot->plotter, 0xeeee, 0xeeee, 0);
+		sprintf(msg, "WARNING: %s clock auto adjusted, values above.", config->clkName);
 		pl_alabel_r(plot->plotter, 'l', 'l', msg);
 	}
 
 	if(config->syncTolerance)
 	{
-		PLOT_WARN(1, 1);
+		PLOT_WARN(1, 0);
 		pl_pencolor_r(plot->plotter, 0xeeee, 0xeeee, 0);
 		pl_alabel_r(plot->plotter, 'l', 'l', "WARNING: Sync tolerance enabled");
 	}
@@ -1256,71 +1309,23 @@ void DrawLabelsMDF(PlotFile *plot, char *Gname, char *GType, int type, parameter
 		if(type == PLOT_COMPARE)
 		{
 			PLOT_COLUMN(6, 1);
-			if(!config->referenceSignal->clkEstimatedAC)
-			{
-				pl_pencolor_r(plot->plotter, 0, 0xcccc, 0xcccc);
-				sprintf(msg, "%s CLK R: %gHz", config->clkName,
-					CalculateClk(config->referenceSignal, config));
-			}
-			else
-			{
-				pl_pencolor_r(plot->plotter, 0xcccc, 0xcccc, 0);
-				sprintf(msg, "CLK R: %g\\->%gHz",
-					CalculateClk(config->referenceSignal, config), 
-					config->referenceSignal->clkEstimatedAC);
-			}
+			DrawClockData(plot, config->referenceSignal, msg, config);
 			pl_alabel_r(plot->plotter, 'l', 'l', msg);
 
 			PLOT_COLUMN(6, 2);
-			if(!config->comparisonSignal->clkEstimatedAC)
-			{
-				pl_pencolor_r(plot->plotter, 0, 0xcccc, 0xcccc);
-				sprintf(msg, "CLK C: %gHz",
-					CalculateClk(config->comparisonSignal, config));
-			}
-			else
-			{
-				pl_pencolor_r(plot->plotter, 0xcccc, 0xcccc, 0);
-				sprintf(msg, "CLK C: %g\\->%gHz",
-					CalculateClk(config->comparisonSignal, config),
-					config->comparisonSignal->clkEstimatedAC);
-			}
+			DrawClockData(plot, config->comparisonSignal, msg, config);
 			pl_alabel_r(plot->plotter, 'l', 'l', msg);
 		}
 		else if(type == PLOT_SINGLE_REF)
 		{
 			PLOT_COLUMN(6, 1);
-			if(!config->referenceSignal->clkEstimatedAC)
-			{
-				pl_pencolor_r(plot->plotter, 0, 0xcccc, 0xcccc);
-				sprintf(msg, "CLK R: %gHz",
-					CalculateClk(config->referenceSignal, config));
-			}
-			else
-			{
-				pl_pencolor_r(plot->plotter, 0xcccc, 0xcccc, 0);
-				sprintf(msg, "CLK R: %g\\->%gHz",
-					CalculateClk(config->referenceSignal, config), 
-					config->referenceSignal->clkEstimatedAC);
-			}
+			DrawClockData(plot, config->referenceSignal, msg, config);
 			pl_alabel_r(plot->plotter, 'l', 'l', msg);
 		}
 		else
 		{
 			PLOT_COLUMN(6, 2);
-			if(!config->comparisonSignal->clkEstimatedAC)
-			{
-				pl_pencolor_r(plot->plotter, 0, 0xcccc, 0xcccc);
-				sprintf(msg, "CLK C: %gHz",
-					CalculateClk(config->comparisonSignal, config));
-			}
-			else
-			{
-				pl_pencolor_r(plot->plotter, 0xcccc, 0xcccc, 0);
-				sprintf(msg, "CLK C: %g\\->%gHz",
-					CalculateClk(config->comparisonSignal, config),
-					config->comparisonSignal->clkEstimatedAC);
-			}
+			DrawClockData(plot, config->comparisonSignal, msg, config);
 			pl_alabel_r(plot->plotter, 'l', 'l', msg);
 		}
 	}
