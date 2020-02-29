@@ -178,16 +178,6 @@ void FindViewPort(parameters *config)
 
 	average = FindDifferenceAverage(config);
 	logmsg("Average difference is %g dBFS\n", average);
-	/*
-	if(fabs(average) > DB_DIFF)
-	{
-		if(fabs(average) > config->maxDbPlotZC/2)
-		{
-			config->maxDbPlotZC = ceil(fabs(average)*2.0);
-			logmsg("\tAdjusting viewport to %gdBFS for graphs\n\n", config.maxDbPlotZC);
-		}
-	}
-	*/
 
 	outside = FindDifferencePercentOutsideViewPort(&maxDiff, &type, fabs(config->maxDbPlotZC), config);		
 	if(outside)
@@ -208,7 +198,8 @@ void FindViewPort(parameters *config)
 				value = ceil(FindVisibleInViewPortWithinStandardDeviation(&maxDiff, &outside, type, 2, config));
 				if(value != -1)
 					config->maxDbPlotZC = value;
-				/*  // swap above for this to expand fully if needed
+				// swap above for this to expand fully if needed
+				/*  
 				value = ceil(FindVisibleInViewPortWithinStandardDeviation(&maxDiff, &outside, type, 2, config));
 				if(value != -1 && outside < 5)
 					config->maxDbPlotZC = value;
@@ -231,6 +222,25 @@ void FindViewPort(parameters *config)
 	config->notVisible = outside;
 }
 
+void PrintSignalCLKData(AudioSignal *Signal, parameters *config)
+{
+	if(Signal->clkEstimatedSR)
+	{
+		if(!config->doClkAdjust)
+			logmsg(", sample rate estimated at %gHz from signal length\n\t(can be auto matched with -j)",
+				Signal->clkEstimatedSR);
+		else
+		{
+			if(Signal->originalSR)
+			{
+				logmsg(", sample rate adjusted from %dHz to ", 
+					Signal->originalSR, Signal->clkEstimatedSR);
+			}
+		}
+	}
+	logmsg("\n");
+}
+
 int ReportClockResults(AudioSignal *ReferenceSignal, AudioSignal *ComparisonSignal, parameters *config)
 {
 	double refClk = 0, compClk = 0;
@@ -245,26 +255,23 @@ int ReportClockResults(AudioSignal *ReferenceSignal, AudioSignal *ComparisonSign
 		config->clkName, config->clkFreq, GetBlockName(config, config->clkBlock), 
 		GetBlockSubIndex(config, config->clkBlock));
 	logmsg(" - Reference: %gHz", refClk);
-	if(!config->doClkAdjust && ReferenceSignal->clkEstimatedAC)
-		logmsg(" estimated at %gHz from signal length and samplerate\n\t(can be auto matched with -j)", ReferenceSignal->clkEstimatedAC);
-	else if(ReferenceSignal->originalCLK)
-		logmsg(" adjusted from %dHz", ReferenceSignal->originalCLK);
-	logmsg("\n");
+	PrintSignalCLKData(ReferenceSignal, config);
 
 	logmsg(" - Comparison: %gHz", compClk);
-	if(!config->doClkAdjust && ComparisonSignal->clkEstimatedAC)
-		logmsg(" estimated at %gHz from signal length and samplerate\n\t(can be auto matched with -j)", ComparisonSignal->clkEstimatedAC);
-	else if(ComparisonSignal->originalCLK)
-		logmsg(" adjusted from %dHz", ComparisonSignal->originalCLK);
-	logmsg("\n");
+	PrintSignalCLKData(ComparisonSignal, config);
 
 	if(fabs(refClk - compClk) > 10)
 	{
 		logmsg(" - WARNING: Clocks don't match, results will vary considerably.\n");
-		if(fabs(refClk - ComparisonSignal->clkEstimatedAC) <= 5)
-			logmsg(" - It is recommended you edit the header of the Comparison file to %gHz to match\n", ComparisonSignal->clkEstimatedAC);
-		if(fabs(compClk - ReferenceSignal->clkEstimatedAC) <= 5)
-			logmsg(" - It is recommended you edit the header of the Reference file to %gHz to match\n", ReferenceSignal->clkEstimatedAC);
+		if(fabs(refClk - ComparisonSignal->clkEstimatedSR) <= 5)
+		{
+			logmsg(" - It is recommended you edit the header of the Comparison file to %gHz to match\n", ComparisonSignal->clkEstimatedSR);
+		}
+		if(fabs(compClk - ReferenceSignal->clkEstimatedSR) <= 5)
+			logmsg(" - It is recommended you edit the header of the Reference file to %gHz to match\n", ReferenceSignal->clkEstimatedSR);
+
+		config->diffClkNoMatch = 1;
+		return 0;
 	}
 	return 1;
 }

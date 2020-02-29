@@ -228,6 +228,7 @@ void CleanParameters(parameters *config)
 	config->clkRatio = 0;
 
 	config->doClkAdjust = 0;
+	config->doPlaybackClkAdjust = 0;
 	config->useExtraData = 1;
 	config->compressToBlocks = 0;
 	config->quantizeRound = 1;
@@ -346,6 +347,7 @@ int commandline(int argc , char *argv[], parameters *config)
 		break;
 	  case 'j':
 		config->doClkAdjust = 1;
+		//config->doPlaybackClkAdjust = 1;
 		break;
 	  case 'K':
 		config->drawPerfect = 1;

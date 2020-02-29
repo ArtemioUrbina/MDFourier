@@ -139,6 +139,7 @@ double CalculateFrequency(double boxindex, double boxsize, parameters *config);
 double CalculateFrameRate(AudioSignal *Signal, parameters *config);
 double CalculateFrameRateNS(AudioSignal *Signal, double Frames, parameters *config);
 double CalculateScanRate(AudioSignal *Signal);
+double CalculateScanRateOriginalFramerate(AudioSignal *Signal);
 
 double FindFrequencyBinSizeForBlock(AudioSignal *Signal, long int block);
 long int GetZeroPadValues(long int *monoSignalSize, double *seconds, long int samplerate);

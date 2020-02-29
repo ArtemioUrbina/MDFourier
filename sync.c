@@ -42,6 +42,8 @@
 
 // Use 1 to do double in all cases, 6000 for single if below 6k
 #define	FORCE_SINGLE_4K	1
+// Cut off for harmonic search
+#define HARMONIC_TSHLD 6000
 
 long int DetectPulse(char *AllSamples, wav_hdr header, int role, parameters *config)
 {
@@ -667,9 +669,9 @@ long int DetectPulseInternal(char *Samples, wav_hdr header, int factor, long int
 		/* check for the duration of the sync pulses */
 		msLen = GetLastSyncDuration(GetMSPerFrameRole(role, config), config)*1000;
 		if(factor == FACTOR_EXPLORE)  /* are we exploring? */
-			msLen *= 2.5;  /* widen so that the silence offset is compensated for */
+			msLen *= 2.0;  /* widen so that the silence offset is compensated for */
 		else
-			msLen *= 1.5;  /* widen so that the silence offset is compensated for */
+			msLen *= 1.2;  /* widen so that the silence offset is compensated for */
 		TotalMS = i + floor(msLen*factor);
 
 		if(config->debugSync)
@@ -691,7 +693,7 @@ long int DetectPulseInternal(char *Samples, wav_hdr header, int factor, long int
 	origFrequency = GetPulseSyncFreq(role, config);
 	targetFrequency = FindFrequencyBracketForSync(origFrequency,
 						millisecondSize/2, AudioChannels, header.fmt.SamplesPerSec, config);
-	if(origFrequency >= 6000)  //default behavior for around 8khz, harmonic is identical
+	if(origFrequency >= HARMONIC_TSHLD)  //default behavior for around 8khz, harmonic is identical
 		targetFrequencyHarmonic = targetFrequency;
 	else  //Scenario where we accept first harmonic
 	{
@@ -704,7 +706,7 @@ long int DetectPulseInternal(char *Samples, wav_hdr header, int factor, long int
 	{
 		logmsgFileOnly("\nDefined Sync %g/%g Adjusted to %g/%g\n", 
 				origFrequency, 
-				origFrequency >= 6000 ? origFrequency : targetFrequency*2, 
+				origFrequency >= HARMONIC_TSHLD ? origFrequency : targetFrequency*2, 
 				targetFrequency, targetFrequencyHarmonic);
 		logmsgFileOnly("Start ms %ld Total MS: %ld (%ld)\n",
 			 i, TotalMS, header.data.DataSize / buffersize - 1);

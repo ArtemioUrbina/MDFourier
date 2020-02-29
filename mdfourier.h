@@ -381,8 +381,9 @@ typedef struct AudioSt {
 
 	double		balance;
 	AudioBlocks	clkFrequencies;
-	double		clkEstimatedAC;
-	int			originalCLK;
+	double		clkEstimatedSR;
+	int			originalSR;
+	double		originalFrameRate;
 
 	AudioBlocks *Blocks;
 }  AudioSignal;
@@ -559,6 +560,7 @@ typedef struct parameters_st {
 	int			clkRatio;
 
 	int			doClkAdjust;
+	int			doPlaybackClkAdjust;
 
 	AudioSignal		*referenceSignal;
 	AudioSignal		*comparisonSignal;
