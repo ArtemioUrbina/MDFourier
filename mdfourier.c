@@ -57,6 +57,9 @@ int FindMaxSampleForWaveform(AudioSignal *Signal, int *block, parameters *config
 int FindMaxSampleInBlock(AudioBlocks *AudioArray);
 void FindViewPort(parameters *config);
 int ReportClockResults(AudioSignal *ReferenceSignal, AudioSignal *ComparisonSignal, parameters *config);
+int RecalculateFrequencyStructures(AudioSignal *ReferenceSignal, AudioSignal *ComparisonSignal, parameters *config);
+int NormalizeAndFinishProcess(AudioSignal **ReferenceSignal, AudioSignal **ComparisonSignal, parameters *config);
+int FrequencyDomainNormalize(AudioSignal **ReferenceSignal, AudioSignal **ComparisonSignal, parameters *config);
 
 // Time domain
 MaxSample FindMaxSampleAmplitude(AudioSignal *Signal);
@@ -126,7 +129,17 @@ int main(int argc , char *argv[])
 		return 1;
 	}
 
-	ReportClockResults(ReferenceSignal, ComparisonSignal, &config);
+	if(!ReportClockResults(ReferenceSignal, ComparisonSignal, &config))
+	{
+		if(config.doClkAdjust)
+		{
+			if(!RecalculateFrequencyStructures(ReferenceSignal, ComparisonSignal, &config))
+			{
+				logmsg("Could not recalculate frequencies, Aborting\n");
+				return 1;
+			}
+		}
+	}
 
 	logmsg("\n* Comparing frequencies: ");
 	if(!CompareAudioBlocks(ReferenceSignal, ComparisonSignal, &config))
@@ -221,12 +234,11 @@ void FindViewPort(parameters *config)
 
 	config->notVisible = outside;
 }
-
 void PrintSignalCLKData(AudioSignal *Signal, parameters *config)
 {
 	if(Signal->clkEstimatedSR)
 	{
-		if(!config->doClkAdjust)
+		if(!config->doSamplerateAdjust)
 			logmsg(", sample rate estimated at %gHz from signal length\n\t(can be auto matched with -j)",
 				Signal->clkEstimatedSR);
 		else
@@ -240,7 +252,6 @@ void PrintSignalCLKData(AudioSignal *Signal, parameters *config)
 	}
 	logmsg("\n");
 }
-
 int ReportClockResults(AudioSignal *ReferenceSignal, AudioSignal *ComparisonSignal, parameters *config)
 {
 	double refClk = 0, compClk = 0;
@@ -260,17 +271,13 @@ int ReportClockResults(AudioSignal *ReferenceSignal, AudioSignal *ComparisonSign
 	logmsg(" - Comparison: %gHz", compClk);
 	PrintSignalCLKData(ComparisonSignal, config);
 
-	if(fabs(refClk - compClk) > 10)
+	if(fabs(refClk - compClk) > 2)
 	{
-		logmsg(" - WARNING: Clocks don't match, results will vary considerably.\n");
-		if(fabs(refClk - ComparisonSignal->clkEstimatedSR) <= 5)
+		if(!config->doClkAdjust)
 		{
-			logmsg(" - It is recommended you edit the header of the Comparison file to %gHz to match\n", ComparisonSignal->clkEstimatedSR);
+			logmsg(" - WARNING: Clocks don't match, results will vary considerably.\n");
+			config->diffClkNoMatch = 1;
 		}
-		if(fabs(compClk - ReferenceSignal->clkEstimatedSR) <= 5)
-			logmsg(" - It is recommended you edit the header of the Reference file to %gHz to match\n", ReferenceSignal->clkEstimatedSR);
-
-		config->diffClkNoMatch = 1;
 		return 0;
 	}
 	return 1;
@@ -720,8 +727,6 @@ int ProcessNoiseFloor(AudioSignal **ReferenceSignal, AudioSignal **ComparisonSig
 
 int LoadAndProcessAudioFiles(AudioSignal **ReferenceSignal, AudioSignal **ComparisonSignal, parameters *config)
 {
-	double	ZeroDbMagnitudeRef = 0;
-
 	if(!LoadAudioFiles(ReferenceSignal, ComparisonSignal, config))
 		return 0;
 
@@ -770,6 +775,33 @@ int LoadAndProcessAudioFiles(AudioSignal **ReferenceSignal, AudioSignal **Compar
 	CalcuateFrequencyBrackets(*ReferenceSignal, config);
 	CalcuateFrequencyBrackets(*ComparisonSignal, config);
 
+	NormalizeAndFinishProcess(ReferenceSignal, ComparisonSignal, config);
+
+	// Display Absolute and independent Noise Floor
+	/*
+	if(!config->ignoreFloor)
+	{
+		FindStandAloneFloor(*ReferenceSignal, config);
+		FindStandAloneFloor(*ComparisonSignal, config);
+	}
+	*/
+
+	if(!config->ignoreFloor)
+	{
+		if(!ProcessNoiseFloor(ReferenceSignal, ComparisonSignal, config))
+			return 0;
+	}
+
+	//DetectOvertoneStart(*ReferenceSignal, config);
+	//DetectOvertoneStart(*ComparisonSignal, config);
+
+	return 1;
+}
+
+int NormalizeAndFinishProcess(AudioSignal **ReferenceSignal, AudioSignal **ComparisonSignal, parameters *config)
+{
+	double ZeroDbMagnitudeRef = 0;
+
 	if(config->normType == max_frequency)
 	{
 		if(!FrequencyDomainNormalize(ReferenceSignal, ComparisonSignal, config))
@@ -810,24 +842,6 @@ int LoadAndProcessAudioFiles(AudioSignal **ReferenceSignal, AudioSignal **Compar
 	CalculateAmplitudes(*ReferenceSignal, ZeroDbMagnitudeRef, config);
 	CalculateAmplitudes(*ComparisonSignal, ZeroDbMagnitudeRef, config);
 
-	// Display Absolute and independent Noise Floor
-	/*
-	if(!config->ignoreFloor)
-	{
-		FindStandAloneFloor(*ReferenceSignal, config);
-		FindStandAloneFloor(*ComparisonSignal, config);
-	}
-	*/
-
-	if(!config->ignoreFloor)
-	{
-		if(!ProcessNoiseFloor(ReferenceSignal, ComparisonSignal, config))
-			return 0;
-	}
-
-	//DetectOvertoneStart(*ReferenceSignal, config);
-	//DetectOvertoneStart(*ComparisonSignal, config);
-
 	if(config->verbose)
 	{
 		PrintFrequencies(*ReferenceSignal, config);
@@ -850,7 +864,6 @@ int LoadAndProcessAudioFiles(AudioSignal **ReferenceSignal, AudioSignal **Compar
 
 	config->referenceSignal = *ReferenceSignal;
 	config->comparisonSignal = *ComparisonSignal;
-
 	return 1;
 }
 
@@ -1103,7 +1116,7 @@ int LoadFile(FILE *file, AudioSignal *Signal, parameters *config, char *fileName
 				logmsg(" %gs [%ld samples|%ld bytes|%ld bytes/head]\n", 
 					BytesToSeconds(Signal->header.fmt.SamplesPerSec, Signal->endOffset, Signal->AudioChannels),
 					Signal->endOffset/2/Signal->AudioChannels, Signal->endOffset, Signal->endOffset + Signal->SamplesStart);
-			Signal->framerate = CalculateFrameRate(Signal, config);
+			Signal->framerate = CalculateFrameRateAndCheckSamplerate(Signal, config);
 			if(!Signal->framerate)
 			{
 				logmsg("\nERROR: Framerate could not be detected.\n");
@@ -1654,6 +1667,97 @@ int CopySamplesForTimeDomainPlotInternalSync(AudioBlocks *AudioArray, int16_t *s
 	return(1);
 }
 
+int RecalculateFFTW(AudioSignal *Signal, parameters *config)
+{
+	long int		i = 0;
+	double			*windowUsed = NULL;
+	windowManager	windows;
+
+	if(!config->doClkAdjust)
+		return 0;
+
+	if(!initWindows(&windows, Signal->header.fmt.SamplesPerSec, config->window, config))
+		return 0;
+
+	while(i < config->types.totalBlocks)
+	{
+		if(Signal->Blocks[i].type > TYPE_SILENCE)
+		{
+			long int frames = 0, cutFrames = 0;
+
+			frames = GetBlockFrames(config, i);
+			cutFrames = GetBlockCutFrames(config, i);
+	
+			windowUsed = getWindowByLength(&windows, frames, cutFrames, config->smallerFramerate);
+
+			CleanFrequenciesInBlock(&Signal->Blocks[i], config);
+			if(!ExecuteDFFT(&Signal->Blocks[i], Signal->Blocks[i].audio.samples, Signal->Blocks[i].audio.size-Signal->Blocks[i].audio.difference, Signal->header.fmt.SamplesPerSec, windowUsed, 1, config->ZeroPad, config))
+				return 0;
+			if(!FillFrequencyStructures(Signal, &Signal->Blocks[i], config))
+				return 0;
+
+			if(config->clkProcess && config->clkBlock == i)
+			{
+				CleanFrequenciesInBlock(&Signal->clkFrequencies, config);
+				if(!ExecuteDFFT(&Signal->clkFrequencies, Signal->Blocks[i].audio.samples, Signal->Blocks[i].audio.size-Signal->Blocks[i].audio.difference, Signal->header.fmt.SamplesPerSec, windowUsed, 1, 1, config))
+					return 0;
+	
+				if(!FillFrequencyStructures(Signal, &Signal->clkFrequencies, config))
+					return 0;
+			}
+		}
+		i++;
+	}
+
+	freeWindows(&windows);
+
+	if(config->normType != max_frequency)
+		FindMaxMagnitude(Signal, config);
+
+	//logmsg("NEW CLK: %g\n", CalculateClk(Signal, config));
+
+	return 1;
+}
+
+void RecalculateFrameRateAndSamplerateComp(AudioSignal *ReferenceSignal, AudioSignal *ComparisonSignal, parameters *config)
+{
+	double	ratio = 0;
+	int		estimatedSampleRate = 0, originalSampleRate = 0;
+
+	ratio = CalculateClk(ReferenceSignal, config)/CalculateClk(ComparisonSignal, config);
+	estimatedSampleRate = ceil((double)ComparisonSignal->header.fmt.SamplesPerSec*ratio);
+	ComparisonSignal->clkEstimatedSR = estimatedSampleRate;
+
+	originalSampleRate = ComparisonSignal->header.fmt.SamplesPerSec;
+	ComparisonSignal->header.fmt.SamplesPerSec = estimatedSampleRate;
+	ComparisonSignal->framerate = CalculateFrameRate(ComparisonSignal, config);
+	if(config->verbose)
+		logmsg(" - New frame rate: %g SR: %d->%d (%g)\n", 
+			ComparisonSignal->framerate,
+			originalSampleRate, ComparisonSignal->header.fmt.SamplesPerSec,
+			ratio);
+}
+
+int RecalculateFrequencyStructures(AudioSignal *ReferenceSignal, AudioSignal *ComparisonSignal, parameters *config)
+{
+	logmsg(" - Adjusting Comparison %s CLK to %gHz\n", config->clkName, CalculateClk(ReferenceSignal, config));
+	RecalculateFrameRateAndSamplerateComp(ReferenceSignal, ComparisonSignal, config);
+	CompareFrameRates(ReferenceSignal, ComparisonSignal, config);
+
+	logmsg(" - Recalculation FFT with new %s CLK value\n", config->clkName);
+	if(!RecalculateFFTW(ReferenceSignal, config))
+		return 0;
+
+	if(!RecalculateFFTW(ComparisonSignal, config))
+		return 0;
+
+	if(!NormalizeAndFinishProcess(&ReferenceSignal, &ComparisonSignal, config))
+		return 0;
+
+	return 1;
+}
+
+
 int ProcessFile(AudioSignal *Signal, parameters *config)
 {
 	long int		pos = 0;
@@ -1734,12 +1838,13 @@ int ProcessFile(AudioSignal *Signal, parameters *config)
 		}
 		memcpy(buffer, Signal->Samples + pos, loadedBlockSize-difference);
 
-		if(config->plotTimeDomainHiDiff || config->plotAllNotes || Signal->Blocks[i].type == TYPE_TIMEDOMAIN)
+		if(config->plotTimeDomainHiDiff || config->plotAllNotes || 
+			config->doClkAdjust ||  Signal->Blocks[i].type == TYPE_TIMEDOMAIN)
 		{
 			if(!CopySamplesForTimeDomainPlot(&Signal->Blocks[i], (int16_t*)(Signal->Samples + pos), loadedBlockSize/2, difference/2, Signal->header.fmt.SamplesPerSec, windowUsed, Signal->AudioChannels, config))
 				return 0;
 		}
-
+		
 		if(config->debugSync && Signal->Blocks[i].type == TYPE_SYNC)
 		{
 			long int oneFrameBytes = 0;

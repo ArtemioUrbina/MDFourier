@@ -227,8 +227,9 @@ void CleanParameters(parameters *config)
 	config->clkFreq = 0;
 	config->clkRatio = 0;
 
+	config->doSamplerateAdjust = 0;
 	config->doClkAdjust = 0;
-	config->doPlaybackClkAdjust = 0;
+
 	config->useExtraData = 1;
 	config->compressToBlocks = 0;
 	config->quantizeRound = 1;
@@ -248,8 +249,8 @@ int commandline(int argc , char *argv[], parameters *config)
 	
 	CleanParameters(config);
 
-	// Available: GJR1234567
-	while ((c = getopt (argc, argv, "Aa:Bb:Cc:Dd:Ee:Ff:gHhIijKkL:lMmNn:Oo:P:p:Qqr:Ss:TtUuVvWw:XxY:yZ:z0:89")) != -1)
+	// Available: GR1234567
+	while ((c = getopt (argc, argv, "Aa:Bb:Cc:Dd:Ee:Ff:gHhIiJjKkL:lMmNn:Oo:P:p:Qqr:Ss:TtUuVvWw:XxY:yZ:z0:89")) != -1)
 	switch (c)
 	  {
 	  case 'A':
@@ -345,9 +346,12 @@ int commandline(int argc , char *argv[], parameters *config)
 	  case 'i':
 		config->ignoreFloor = 1;
 		break;
-	  case 'j':
+	  case 'J':
 		config->doClkAdjust = 1;
-		//config->doPlaybackClkAdjust = 1;
+		config->ZeroPad = 1;
+		break;
+	  case 'j':
+		config->doSamplerateAdjust = 1;
 		break;
 	  case 'K':
 		config->drawPerfect = 1;
@@ -600,6 +604,12 @@ int commandline(int argc , char *argv[], parameters *config)
 
 	if(config->FullTimeSpectroScale)
 		config->MaxFreq = END_HZ;
+
+	if(config->doClkAdjust)
+		logmsg("\t- Adjusting CLK rates, align to 1hz enabled (Zero padding)\n");
+
+	if(config->doSamplerateAdjust)
+		logmsg("\t- Adjusting sample rate if inconsistency found\n");
 
 	if(config->endHz <= config->startHz)
 	{

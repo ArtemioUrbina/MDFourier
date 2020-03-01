@@ -162,13 +162,15 @@ long int DetectPulseSecondTry(char *AllSamples, wav_hdr header, int role, parame
  2.1 and above were added for PAL MD at 60 detection. Yes, that is 2.1
 */
 
-#define END_SYNC_MAX_TRIES		44
+#define END_SYNC_MAX_TRIES		64
 #define END_SYNC_VALUES			{ 0.50, 0.25, 0.0, 1.25, 1.50,\
 								0.9, 0.8, 0.7, 0.6, 1.6, 1.7, 1.8, 1.9, \
 								0.4, 0.3, 0.1, 1.1, 1.3, 1.4,\
 								1.0, -1,0, 2.0, -2.0,\
 								2.1, 2.2, 2.3, 2.4, 2.5, 2.5, 2.7, 2.8, 2.9, 3.0,\
-								-2.1, -2.2, -2.3, -2.4, -2.5, -2.5, -2.7, -2.8, -2.9, -3.0 }
+								-2.1, -2.2, -2.3, -2.4, -2.5, -2.5, -2.7, -2.8, -2.9, -3.0,\
+								3.1, 3.2, 3.3, 3.4, 3.5, 3.5, 3.7, 3.8, 3.9, 4.0,\
+								-3.1, -3.2, -3.3, -3.4, -3.5, -3.5, -3.7, -3.8, -3.9, -4.0 }
 
 long int DetectEndPulse(char *AllSamples, long int startpulse, wav_hdr header, int role, parameters *config)
 {
@@ -401,7 +403,7 @@ long int DetectPulseTrainSequence(Pulses *pulseArray, double targetFrequency, do
 {
 	long	i, sequence_start = 0;
 	int		frame_pulse_count = 0, frame_silence_count = 0, 
-			pulse_count = 0, silence_count = 0, lastcounted = 0, lookingfor = 0;
+			pulse_count = 0, silence_count = 0, lookingfor = 0;
 	double	averageAmplitude = 0;
 
 	*maxdetected = 0;
@@ -429,7 +431,6 @@ long int DetectPulseTrainSequence(Pulses *pulseArray, double targetFrequency, do
 				&& (pulseArray[i].hertz == targetFrequency || pulseArray[i].hertz == targetFrequencyHarmonic))
 			{
 				frame_pulse_count++;
-				lastcounted = 1;
 				if(config->debugSync)
 					logmsgFileOnly("[i:%ld] byte:%7ld [%5gHz %0.2f dBFS]Pulse Frame counted %d\n", 
 						i, pulseArray[i].bytes, pulseArray[i].hertz, pulseArray[i].amplitude, 
@@ -469,65 +470,40 @@ long int DetectPulseTrainSequence(Pulses *pulseArray, double targetFrequency, do
 
 		if(checkSilence)
 		{
-			if(pulseArray[i].amplitude < averageAmplitude)
+			frame_silence_count ++;
+			if(config->debugSync)
+				logmsgFileOnly("[i:%ld] byte:%7ld [%5gHz %0.2f dBFS] Silence Frame counted %d\n", 
+					i, pulseArray[i].bytes, pulseArray[i].hertz, pulseArray[i].amplitude, 
+					frame_silence_count);
+
+			if(frame_pulse_count >= lookingfor)
 			{
-				frame_silence_count ++;
-				lastcounted = 0;
+				pulse_count++;
+
 				if(config->debugSync)
-					logmsgFileOnly("[i:%ld] byte:%7ld [%5gHz %0.2f dBFS] Silence Frame counted %d\n", 
-						i, pulseArray[i].bytes, pulseArray[i].hertz, pulseArray[i].amplitude, 
-						frame_silence_count);
+					logmsgFileOnly("Closed pulse #%d cycle, silence count %d pulse count %d\n", pulse_count, silence_count, frame_pulse_count);
+				
+				if(config->syncTolerance)
+					silence_count = pulse_count - 1;
 
-				if(frame_pulse_count >= lookingfor)
+				if(pulse_count == getPulseCount(role, config) && silence_count >= pulse_count/2 /* silence_count == pulse_count - 1 */)
 				{
-					pulse_count++;
-	
 					if(config->debugSync)
-						logmsgFileOnly("Closed pulse #%d cycle, silence count %d pulse count %d\n", pulse_count, silence_count, frame_pulse_count);
-					
-					if(config->syncTolerance)
-						silence_count = pulse_count - 1;
-
-					if(pulse_count == getPulseCount(role, config) && silence_count >= pulse_count/2 /* silence_count == pulse_count - 1 */)
-					{
-						if(config->debugSync)
-							logmsgFileOnly("Completed the sequence %ld\n", sequence_start);
-						return sequence_start;
-					}
-				}
-	
-				if(frame_pulse_count > 0)
-				{
-					if(!pulse_count && sequence_start)
-					{
-						if(config->debugSync)
-							logmsgFileOnly("Resets the sequence (no pulse count)\n");
-						sequence_start = 0;
-					}
-	
-					frame_pulse_count = 0;
+						logmsgFileOnly("Completed the sequence %ld\n", sequence_start);
+					return sequence_start;
 				}
 			}
-			else
+
+			if(frame_pulse_count > 0)
 			{
-				if(lastcounted == 0)
+				if(!pulse_count && sequence_start)
 				{
 					if(config->debugSync)
-						logmsgFileOnly("NON SKIPPED and counting as silence\n");
-					frame_silence_count++;
+						logmsgFileOnly("Resets the sequence (no pulse count)\n");
+					sequence_start = 0;
 				}
 
-				if(lastcounted == 1 && frame_pulse_count >= lookingfor)
-				{
-					if(config->debugSync)
-						logmsgFileOnly("NON SKIPPED and counting as silence due to pulse count\n");
-					frame_silence_count++;
-				}
-
-				if(config->debugSync)
-					logmsgFileOnly("%7ld [%5gHz %0.2f dBFS] Non Frame skipped %d\n", 
-						pulseArray[i].bytes, pulseArray[i].hertz, pulseArray[i].amplitude, 
-						frame_silence_count);
+				frame_pulse_count = 0;
 			}
 		}
 	}

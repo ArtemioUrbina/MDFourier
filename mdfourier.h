@@ -560,7 +560,7 @@ typedef struct parameters_st {
 	int			clkRatio;
 
 	int			doClkAdjust;
-	int			doPlaybackClkAdjust;
+	int			doSamplerateAdjust;
 
 	AudioSignal		*referenceSignal;
 	AudioSignal		*comparisonSignal;

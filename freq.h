@@ -88,6 +88,7 @@ int ConvertAudioTypeForProcessing(int type, parameters *config);
 
 AudioSignal *CreateAudioSignal(parameters *config);
 void CleanFrequency(Frequency *freq);
+void CleanFrequenciesInBlock(AudioBlocks * AudioArray,  parameters *config);
 void ReleaseFFTW(AudioBlocks * AudioArray);
 void CleanAndReleaseFFTW(AudioBlocks * AudioArray);
 void ReleaseSamples(AudioBlocks * AudioArray);
@@ -138,6 +139,7 @@ double CalculatePhase(fftw_complex value, parameters *config);
 double CalculateFrequency(double boxindex, double boxsize, parameters *config);
 double CalculateFrameRate(AudioSignal *Signal, parameters *config);
 double CalculateFrameRateNS(AudioSignal *Signal, double Frames, parameters *config);
+double CalculateFrameRateAndCheckSamplerate(AudioSignal *Signal, parameters *config);
 double CalculateScanRate(AudioSignal *Signal);
 double CalculateScanRateOriginalFramerate(AudioSignal *Signal);
 
@@ -157,8 +159,6 @@ int GetLineCount(int role, parameters *config);
 double GetMSPerFrame(AudioSignal *Signal, parameters *config);
 double GetMSPerFrameRole(int role, parameters *config);
 double CalculateClk(AudioSignal *Signal, parameters *config);
-//void AdjustFrequenciesByClockRate(AudioSignal *Signal1, AudioSignal *Signal2, int type, double ratio, parameters *config);
-//double calculateClockRatio(AudioSignal *Signal1, AudioSignal *Signal2, parameters *config);
 
 
 #endif

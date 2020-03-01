@@ -815,7 +815,7 @@ void enableTestWarnings(parameters *config)
 	config->clkFreq = 8000;
 	config->clkRatio = 4;
 	config->intClkNoMatch = 1;
-	config->doClkAdjust = 1;
+	config->doSamplerateAdjust = 1;
 	config->referenceSignal->clkEstimatedSR = 32780;
 	config->comparisonSignal->clkEstimatedSR = 34812.87;
 		
@@ -859,7 +859,7 @@ void DrawClockData(PlotFile *plot, AudioSignal *Signal, char *msg, parameters *c
 		char str[100];
 
 		pl_pencolor_r(plot->plotter, 0xcccc, 0xcccc, 0);
-		if(config->doClkAdjust && Signal->originalSR)
+		if(config->doSamplerateAdjust && Signal->originalSR)
 			sprintf(str, "%s %%s: %%g\\->%%gHz", config->clkProcess ? "CLK" : "SR");
 		else
 			sprintf(str, "%s %%s: %%g(%%g)Hz", config->clkProcess ? "CLK" : "SR");
@@ -922,7 +922,7 @@ void DrawFileInfo(PlotFile *plot, AudioSignal *Signal, char *msg, int type, int 
 			pl_fmove_r(plot->plotter, x, y+config->plotResY/(ypos*40));
 			pl_alabel_r(plot->plotter, 'l', 'l', msg);
 	
-			if(config->doClkAdjust && Signal->clkEstimatedSR)
+			if(config->doSamplerateAdjust && Signal->clkEstimatedSR)
 				pl_pencolor_r(plot->plotter, 0xeeee, 0xeeee, 0);
 			if(Signal->originalFrameRate)
 			{
@@ -968,7 +968,7 @@ void DrawFileInfo(PlotFile *plot, AudioSignal *Signal, char *msg, int type, int 
 		pl_fmove_r(plot->plotter, x, y);
 		pl_alabel_r(plot->plotter, 'l', 'l', msg);
 
-		if(config->doClkAdjust && Signal->clkEstimatedSR)
+		if(config->doSamplerateAdjust && Signal->clkEstimatedSR)
 			pl_pencolor_r(plot->plotter, 0xeeee, 0xeeee, 0);
 		if(Signal->originalFrameRate)
 		{
@@ -981,7 +981,7 @@ void DrawFileInfo(PlotFile *plot, AudioSignal *Signal, char *msg, int type, int 
 			sprintf(msg, "[%0.4fms %0.4fHz]\\->[%0.4fms %0.4fHz]", 
 					Signal->originalFrameRate, roundFloat(CalculateScanRateOriginalFramerate(Signal)),
 					Signal->framerate, roundFloat(CalculateScanRate(Signal)));
-			pl_fmove_r(plot->plotter, config->plotResX/20*17-labelwidth, y+config->plotResY/(ypos*40));
+			pl_fmove_r(plot->plotter, config->plotResX/20*17-labelwidth, y);
 		}
 		else
 		{
@@ -1178,7 +1178,15 @@ void DrawLabelsMDF(PlotFile *plot, char *Gname, char *GType, int type, parameter
 			pl_alabel_r(plot->plotter, 'l', 'l', "WARNING: No Normalization, PLEASE DISREGARD");
 	}
 
-	if(config->intClkNoMatch && !config->doClkAdjust)
+	if(config->doClkAdjust)
+	{
+		PLOT_WARN(1, warning++);
+		pl_pencolor_r(plot->plotter, 0xeeee, 0xeeee, 0);
+		sprintf(msg, "WARNING: %s clock matched to reference.", config->clkName);
+		pl_alabel_r(plot->plotter, 'l', 'l', msg);
+	}
+
+	if(config->intClkNoMatch && !config->doSamplerateAdjust)
 	{
 		PLOT_WARN(1, warning++);
 		pl_pencolor_r(plot->plotter, 0xeeee, 0xeeee, 0);
@@ -1190,7 +1198,7 @@ void DrawLabelsMDF(PlotFile *plot, char *Gname, char *GType, int type, parameter
 		pl_alabel_r(plot->plotter, 'l', 'l', msg);
 	}
 
-	if(config->diffClkNoMatch)
+	if(config->diffClkNoMatch && !config->doClkAdjust)
 	{
 		PLOT_WARN(1, warning++);
 		pl_pencolor_r(plot->plotter, 0xeeee, 0xeeee, 0);
@@ -1198,7 +1206,7 @@ void DrawLabelsMDF(PlotFile *plot, char *Gname, char *GType, int type, parameter
 		pl_alabel_r(plot->plotter, 'l', 'l', msg);
 	}
 
-	if(config->doClkAdjust && (config->referenceSignal->originalSR || config->comparisonSignal->originalSR))
+	if(config->doSamplerateAdjust && (config->referenceSignal->originalSR || config->comparisonSignal->originalSR))
 	{
 		PLOT_WARN(1, warning++);
 		pl_pencolor_r(plot->plotter, 0xeeee, 0xeeee, 0);
@@ -1347,7 +1355,7 @@ void DrawLabelsMDF(PlotFile *plot, char *Gname, char *GType, int type, parameter
 		pl_alabel_r(plot->plotter, 'l', 'l', "Vertical scale changed");
 	}
 
-	if(config->referenceSignal->clkEstimatedSR || config->comparisonSignal->clkEstimatedSR)
+	if(config->clkProcess || config->referenceSignal->clkEstimatedSR || config->comparisonSignal->clkEstimatedSR)
 	{
 		if(type == PLOT_COMPARE)
 		{

@@ -233,7 +233,7 @@ double *getWindowByLength(windowManager *wm, long int frames, long int cutFrames
 		//logmsg("Comparing pos %d: %g to %g from %d\n", i, seconds, wm->windowArray[i].seconds, wm->windowCount);
 		if(size == wm->windowArray[i].size && sizePadding == wm->windowArray[i].sizePadding)
 		{
-			//logmsg("Served window size %ld (%ld frames %g fr)\n", size, frames, framerate);
+			//logmsg("Served window size %ld zero:%ld (%ld frames %ld cut frames %g fr)\n", size, sizePadding, frames, cutFrames, framerate);
 			return wm->windowArray[i].window;
 		}
 	}
