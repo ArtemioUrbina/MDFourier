@@ -441,9 +441,9 @@ int commandline(int argc , char *argv[], parameters *config)
 		break;
 	  case 'p':
 		config->significantAmplitude = atof(optarg);
-		if(config->significantAmplitude <= -120.0 || config->significantAmplitude >= -1.0)
+		if(config->significantAmplitude <= -200.0 || config->significantAmplitude >= -1.0)
 		{
-			logmsg("\t - Significant amplitude must be between %d and %d, changed to %g\n", -1, -120.0, SIGNIFICANT_VOLUME);
+			logmsg("\t - Significant amplitude must be between %d and %d, changed to %g\n", -1, -200.0, SIGNIFICANT_VOLUME);
 			config->significantAmplitude = SIGNIFICANT_VOLUME;
 		}
 		config->origSignificantAmplitude = config->significantAmplitude;

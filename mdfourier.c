@@ -705,19 +705,32 @@ int ProcessNoiseFloor(AudioSignal **ReferenceSignal, AudioSignal **ComparisonSig
 	/* Detect Signal Floor */
 	if((*ReferenceSignal)->hasSilenceBlock  && 
 		(*ReferenceSignal)->floorAmplitude != 0.0)
-		/* &&
-		(*ReferenceSignal)->floorAmplitude > config->significantAmplitude)*/
-	{
 		config->significantAmplitude = (*ReferenceSignal)->floorAmplitude;
-	}
 
 	if(config->significantAmplitude > LOWEST_NOISEFLOOR_ALLOWED)
 	{
-		logmsg(" - WARNING: Noise floor %g dBFS is louder than the default %g dBFS\n\tIf differences are not visible, use -i\n",
+		logmsg(" - WARNING: Noise floor %g dBFS is louder than the default %g dBFS\n\tIf differences are not visible, use -i  and define a limit with -p <dbfs>\n",
 				config->significantAmplitude, LOWEST_NOISEFLOOR_ALLOWED);
 		config->noiseFloorTooHigh = 1;
 		// we rather not take action
 		//config->significantAmplitude = SIGNIFICANT_VOLUME;
+	}
+
+	if(NS_SIGNIFICANT_VOLUME > config->significantAmplitude)
+	{
+		/* Check if Comparison Noise floor is in par */
+		if((*ComparisonSignal)->floorAmplitude != 0.0 && (*ReferenceSignal)->floorAmplitude != 0.0)
+		{
+			// If comparison is lower than the default and higher than reference, use that
+			if((*ReferenceSignal)->floorAmplitude < (*ComparisonSignal)->floorAmplitude &&
+				NS_SIGNIFICANT_VOLUME > (*ComparisonSignal)->floorAmplitude)
+				config->significantAmplitude = (*ComparisonSignal)->floorAmplitude;
+		}
+		/*
+		logmsg(" = Noise floor %g dBFS is lower than the default %g dBFS. If differences are not visible, use -i\n",
+				config->significantAmplitude, NS_SIGNIFICANT_VOLUME);
+		config->significantAmplitude = NS_SIGNIFICANT_VOLUME;
+		*/
 	}
 
 	logmsg(" - Using %g dBFS as minimum significant amplitude for analysis\n",
@@ -775,7 +788,8 @@ int LoadAndProcessAudioFiles(AudioSignal **ReferenceSignal, AudioSignal **Compar
 	CalcuateFrequencyBrackets(*ReferenceSignal, config);
 	CalcuateFrequencyBrackets(*ComparisonSignal, config);
 
-	NormalizeAndFinishProcess(ReferenceSignal, ComparisonSignal, config);
+	if(!NormalizeAndFinishProcess(ReferenceSignal, ComparisonSignal, config))
+		return 0;
 
 	// Display Absolute and independent Noise Floor
 	/*

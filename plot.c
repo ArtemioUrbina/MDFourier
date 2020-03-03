@@ -904,6 +904,9 @@ void DrawFileInfo(PlotFile *plot, AudioSignal *Signal, char *msg, int type, int 
 	x = config->plotResX/2-config->plotResX/50*14;
 	y = -1*config->plotResY/2+config->plotResY/80;
 
+	if(!Signal)
+		return;
+
 	name = basename(Signal->role == ROLE_REF ? config->referenceFile : config->comparisonFile);
 	format = Signal->role == ROLE_REF ? config->videoFormatRef : config->videoFormatCom;
 
@@ -1317,10 +1320,12 @@ void DrawLabelsMDF(PlotFile *plot, char *Gname, char *GType, int type, parameter
 	if(config->channel != 's' && (config->referenceSignal->AudioChannels == 2 || config->comparisonSignal->AudioChannels == 2))
 	{
 		PLOT_COLUMN(4, 1);
+		pl_pencolor_r(plot->plotter, 0xcccc, 0xcccc, 0);
 		if(config->channel == 'l')
-			pl_alabel_r(plot->plotter, 'l', 'l', "Left Channel");
+			pl_alabel_r(plot->plotter, 'l', 'l', "Left Channel only");
 		if(config->channel == 'r')
-			pl_alabel_r(plot->plotter, 'l', 'l', "Right Channel");
+			pl_alabel_r(plot->plotter, 'l', 'l', "Right Channel only");
+		pl_pencolor_r(plot->plotter, 0, 0xcccc, 0xcccc);
 	}
 
 	if(config->MaxFreq != FREQ_COUNT)
@@ -1388,7 +1393,7 @@ void DrawLabelsMDF(PlotFile *plot, char *Gname, char *GType, int type, parameter
 			pl_pencolor_r(plot->plotter, 0xeeee, 0xeeee, 0);
 		else
 			pl_pencolor_r(plot->plotter, 0, 0xcccc, 0xcccc);
-		sprintf(msg, "Data \\ua\\da %gdBFS: %0.2f%%", config->maxDbPlotZC, config->notVisible);
+		sprintf(msg, "Data \\ua\\da %0.2fdBFS: %0.2f%%", config->maxDbPlotZC, config->notVisible);
 		pl_alabel_r(plot->plotter, 'l', 'l', msg);
 	}
 

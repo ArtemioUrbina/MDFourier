@@ -49,7 +49,7 @@
 
 #include "incbeta.h"
 
-#define MDVERSION "0.992rc"
+#define MDVERSION "0.992rc2"
 
 #if INTPTR_MAX == INT64_MAX
 #define	BITS_MDF "64-bit"
@@ -179,7 +179,7 @@
 #define	MAX_SYNC		10
 
 #define	FREQDOMTRIES	10
-#define	FREQDOMRATIO	20.0
+#define	FREQDOMRATIO	40.0
 
 #define	DELAYCOUNT		10
 

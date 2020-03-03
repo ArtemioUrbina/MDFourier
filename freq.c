@@ -145,12 +145,14 @@ void CalcuateFrequencyBrackets(AudioSignal *Signal, parameters *config)
 	index = GetFirstSilenceIndex(config);
 	if(index != NO_INDEX)
 	{
-		double gridNoise = 0, scanNoise = 0, crossNoise = 0;
+		double gridNoise = 0, scanNoise = 0, crossNoise = 0, ntsc = 0, pal = 0;
 
 		Signal->SilenceBinSize = FindFrequencyBinSizeForBlock(Signal, index);
 
 		// NTSC or PAL
-		gridNoise = fabs(60.0 - roundFloat(1000.0/Signal->framerate)) < 5 ? 60.0 : 50.0;
+		ntsc = fabs(60.0 - roundFloat(1000.0/Signal->framerate));
+		pal = fabs(50.0 - roundFloat(1000.0/Signal->framerate));
+		gridNoise = ntsc < pal ? 60.0 : 50.0;
 		Signal->gridFrequency = FindFrequencyBracket(gridNoise, Signal->Blocks[index].fftwValues.size, Signal->AudioChannels, Signal->header.fmt.SamplesPerSec, config);
 
 		scanNoise = CalculateScanRate(Signal)*(double)GetLineCount(Signal->role, config);
@@ -719,12 +721,12 @@ int LoadAudioBlockStructure(FILE *file, parameters *config)
 		config->types.SyncFormat[i].MSPerFrame = strtod(buffer2, NULL);
 		if(!config->types.SyncFormat[i].MSPerFrame)
 		{
-			logmsg("ERROR: Invalid line count Adjustment '%s'\n", lineBuffer);
+			logmsg("ERROR: Invalid MS per frame  Adjustment '%s'\n", lineBuffer);
 			fclose(file);
 			return 0;
 		}
 		config->types.SyncFormat[i].LineCount = strtod(buffer3, NULL);
-		if(!config->types.SyncFormat[i].LineCount)
+		if(config->types.SyncFormat[i].LineCount < 0)
 		{
 			logmsg("ERROR: Invalid line count Adjustment '%s'\n", lineBuffer);
 			fclose(file);
