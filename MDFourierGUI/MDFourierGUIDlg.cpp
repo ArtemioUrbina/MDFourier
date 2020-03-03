@@ -286,7 +286,11 @@ void CMDFourierGUIDlg::OnBnClickedOk()
 	}
 
 	if(elementCount)
+	{
 		ExecuteCommand(elements[elementPos]);
+		if(elementCount > 1)
+			ChangeWindowText(L"0%");
+	}
 }
 
 void CMDFourierGUIDlg::ExecuteCommand(CString Compare)
@@ -459,6 +463,7 @@ void CMDFourierGUIDlg::OnTimer(UINT_PTR nIDEvent)
 				m_ComparisonLbl.SetWindowText(listName);
 				listName.Empty();
 			}
+			ChangeWindowText();
 		}
 		DosWaitCount ++;
 	}
@@ -513,7 +518,15 @@ void CMDFourierGUIDlg::OnTimer(UINT_PTR nIDEvent)
 			if(elementPos < elementCount)
 			{
 				if(!errorFound)
+				{
+					double percent = 0;
+					CString msg;
+
+					percent = (double)elementPos/(double)elementCount*100.0;
+					msg.Format(L"%0.1f%%", percent);
 					ExecuteCommand(elements[elementPos]);
+					ChangeWindowText(msg);
+				}
 				else
 					finished = 1;
 			}
@@ -533,6 +546,8 @@ void CMDFourierGUIDlg::OnTimer(UINT_PTR nIDEvent)
 					m_ComparisonLbl.SetWindowText(listName);
 					listName.Empty();
 				}
+
+				ChangeWindowText();
 			}
 		}
     }
@@ -777,11 +792,32 @@ int CMDFourierGUIDlg::FindProfiles(CString sPath, CString pattern)
 	return count;
 }
 
+void CMDFourierGUIDlg::ChangeWindowText(CString data)
+{
+	CString newName;
+
+	if(data.GetLength())
+	{
+		newName.Format(L"%s -- %s -- %s", baseWintext, data, wintextProfile);
+		SetWindowText(newName);
+	}
+	else
+	{
+		if(wintextProfile.GetLength())
+		{
+			newName.Format(L"%s -- %s", baseWintext, wintextProfile);
+			SetWindowText(newName);
+		}
+		else
+			SetWindowText(baseWintext);
+	}
+}
+
 int CMDFourierGUIDlg::CheckDependencies()
 {
 	FILE *file;
 	errno_t err;
-	CString	msg, pattern, bits, versionText, wintext, version, readText, profile;
+	CString	msg, pattern, bits, versionText, version, readText, profile;
 	TCHAR	pwd[MAX_PATH];
 	int counter = 0, error = 0, matched = 0;
 	BOOL finished = 0;
@@ -859,8 +895,8 @@ int CMDFourierGUIDlg::CheckDependencies()
 	}
 	MDFVersion = readText;
 	ProfileVersion = profile;
-	wintext.Format(L"MDFourier Front End [using %s/%s]", version, bits);
-	SetWindowText(wintext);
+	baseWintext.Format(L"MDFourier [%s/%s]", version, bits);
+	ChangeWindowText();
 
 	/* Check profiles */
 	matched = FindProfiles(L"profiles", L"*.mfn");
@@ -1266,6 +1302,8 @@ void CMDFourierGUIDlg::OnCbnSelendokProfile()
 		m_ComSync.SetCurSel(0);
 		syncTypes = syncCount;
 	}
+	wintextProfile = Name;
+	ChangeWindowText();
 }
 
 
@@ -1280,5 +1318,7 @@ void CMDFourierGUIDlg::OnCbnSelendcancelProfile()
 		m_RefSync.ResetContent();
 		m_ComSync.ResetContent();
 		m_OpenResultsBttn.EnableWindow(FALSE);
+		wintextProfile.Empty();
+		ChangeWindowText();
 	}
 }
