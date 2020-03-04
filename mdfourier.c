@@ -236,17 +236,17 @@ void FindViewPort(parameters *config)
 }
 void PrintSignalCLKData(AudioSignal *Signal, parameters *config)
 {
-	if(Signal->clkEstimatedSR)
+	if(Signal->EstimatedSR)
 	{
 		if(!config->doSamplerateAdjust)
-			logmsg(", sample rate estimated at %gHz from signal length\n\t(can be auto matched with -j)",
-				Signal->clkEstimatedSR);
+			logmsg(", WARNING: sample rate estimated at %gHz from signal length (can be auto matched with -R)",
+				Signal->EstimatedSR);
 		else
 		{
 			if(Signal->originalSR)
 			{
-				logmsg(", sample rate adjusted from %dHz to ", 
-					Signal->originalSR, Signal->clkEstimatedSR);
+				logmsg(" [adjusted from %dHz]", 
+					Signal->originalSR, Signal->EstimatedSR);
 			}
 		}
 	}
@@ -256,7 +256,7 @@ int ReportClockResults(AudioSignal *ReferenceSignal, AudioSignal *ComparisonSign
 {
 	double refClk = 0, compClk = 0;
 
-	if(!config->clkProcess)
+	if(!config->clkMeasure)
 		return 1;
 
 	refClk = CalculateClk(ReferenceSignal, config);
@@ -271,11 +271,22 @@ int ReportClockResults(AudioSignal *ReferenceSignal, AudioSignal *ComparisonSign
 	logmsg(" - Comparison: %gHz", compClk);
 	PrintSignalCLKData(ComparisonSignal, config);
 
-	if(fabs(refClk - compClk) > 2)
+	config->centsDifferenceCLK = 1200*log2(refClk/compClk);
+	if(fabs(config->centsDifferenceCLK) >= SIG_CLK_DIFF) // 2hz
 	{
+		logmsg(" - Pitch difference in cents: %g\n", config->centsDifferenceCLK);
 		if(!config->doClkAdjust)
 		{
-			logmsg(" - WARNING: Clocks don't match, results will vary considerably.\n");
+			if(config->centsDifferenceSR)
+			{
+				double diff = 0;
+	
+				diff = fabs(config->centsDifferenceSR - config->centsDifferenceCLK);
+				if(diff >= 1) // Same issue between both, reported above
+					logmsg(" - WARNING: Clocks don't match, results may vary considerably. Can adjust with -j\n");
+			}
+			else
+				logmsg(" - WARNING: Clocks don't match, results may vary considerably. Can adjust with -j\n");
 			config->diffClkNoMatch = 1;
 		}
 		return 0;
@@ -580,27 +591,14 @@ int FrequencyDomainNormalize(AudioSignal **ReferenceSignal, AudioSignal **Compar
 		ratio = CompAvg/RefAvg;
 	if(ratio > FREQDOMRATIO)
 	{
-		double RefAmpl = 0, CompAmpl = 0;
-
 		logmsg("\n=====WARNING=====\n");
 		logmsg("\tAverage frequency difference after normalization between the signals is too high. (Ratio:%g to 1)\n", ratio);
-		logmsg("\tIf results make no sense (emply graphs), please try the following in the Extra Commands box:\n");
+		logmsg("\tIf results make no sense please try the following in the Extra Commands box:\n");
 		logmsg("\t* Use Time Domain normalization: -n t\n");
 		logmsg("\t* Compare just the left channel: -a l\n");
 		logmsg("\t* Compare just the right channel: -a r\n");
 		logmsg("\tThis can be caused by: comparing very different signals, a capacitor problem,\n");
-		logmsg("\tframerate difference causing pitch drifting, an unusual frequency scenario, etc.\n\n");
-
-		RefAmpl = CalculateAmplitude(RefAvg, MaxTar.magnitude, config);
-		CompAmpl = CalculateAmplitude(MaxTar.magnitude, MaxTar.magnitude, config);  // 0
-		
-		config->significantAmplitude = -1.5*fabs(CompAmpl - RefAmpl);
-		config->maxDbPlotZC = 1.2*fabs(CompAmpl - RefAmpl);
-		//config->ignoreFloor = 1;
-
-		logmsg("\tValues will be auto adjusted to show the whole differences:\n");
-		logmsg("\t\tSignificant Amplitude set to %g dBFS\n", config->significantAmplitude);
-		logmsg("\t\tPlot view range set to %g dBFS\n", config->maxDbPlotZC);
+		logmsg("\tframerate difference causing pitch drifting, an unusual frequency scenario, etc.\n");
 	}
 
 	/* This is just for waveform visualization */
@@ -707,13 +705,13 @@ int ProcessNoiseFloor(AudioSignal **ReferenceSignal, AudioSignal **ComparisonSig
 		(*ReferenceSignal)->floorAmplitude != 0.0)
 		config->significantAmplitude = (*ReferenceSignal)->floorAmplitude;
 
-	if(config->significantAmplitude > LOWEST_NOISEFLOOR_ALLOWED)
+	if(config->significantAmplitude >= LOWEST_NOISEFLOOR_ALLOWED)
 	{
 		logmsg(" - WARNING: Noise floor %g dBFS is louder than the default %g dBFS\n\tIf differences are not visible, use -i  and define a limit with -p <dbfs>\n",
 				config->significantAmplitude, LOWEST_NOISEFLOOR_ALLOWED);
 		config->noiseFloorTooHigh = 1;
 		// we rather not take action
-		//config->significantAmplitude = SIGNIFICANT_VOLUME;
+		//config->significantAmplitude = NS_SIGNIFICANT_VOLUME;
 	}
 
 	if(NS_SIGNIFICANT_VOLUME > config->significantAmplitude)
@@ -721,16 +719,27 @@ int ProcessNoiseFloor(AudioSignal **ReferenceSignal, AudioSignal **ComparisonSig
 		/* Check if Comparison Noise floor is in par */
 		if((*ComparisonSignal)->floorAmplitude != 0.0 && (*ReferenceSignal)->floorAmplitude != 0.0)
 		{
+			double diff = 0;
+
+			diff = fabs((*ReferenceSignal)->floorAmplitude - (*ComparisonSignal)->floorAmplitude);
+
 			// If comparison is lower than the default and higher than reference, use that
-			if((*ReferenceSignal)->floorAmplitude < (*ComparisonSignal)->floorAmplitude &&
-				NS_SIGNIFICANT_VOLUME > (*ComparisonSignal)->floorAmplitude)
-				config->significantAmplitude = (*ComparisonSignal)->floorAmplitude;
+			if((*ReferenceSignal)->floorAmplitude < (*ComparisonSignal)->floorAmplitude)
+			{
+				if(config->noiseFloorAutoAdjust || 
+					(NS_SIGNIFICANT_VOLUME > (*ComparisonSignal)->floorAmplitude && 
+					LOWEST_NOISEFLOOR_ALLOWED >= (*ComparisonSignal)->floorAmplitude))
+				{
+					config->significantAmplitude = (*ComparisonSignal)->floorAmplitude;
+					if(config->noiseFloorAutoAdjust && LOWEST_NOISEFLOOR_ALLOWED < (*ComparisonSignal)->floorAmplitude)
+						config->noiseFloorTooHigh = 1;
+				}
+				//else config->significantAmplitude = NS_SIGNIFICANT_VOLUME;
+			}
+
+			if(diff > 20)
+				config->noiseFloorBigDifference = 1;
 		}
-		/*
-		logmsg(" = Noise floor %g dBFS is lower than the default %g dBFS. If differences are not visible, use -i\n",
-				config->significantAmplitude, NS_SIGNIFICANT_VOLUME);
-		config->significantAmplitude = NS_SIGNIFICANT_VOLUME;
-		*/
 	}
 
 	logmsg(" - Using %g dBFS as minimum significant amplitude for analysis\n",
@@ -1710,7 +1719,7 @@ int RecalculateFFTW(AudioSignal *Signal, parameters *config)
 			if(!FillFrequencyStructures(Signal, &Signal->Blocks[i], config))
 				return 0;
 
-			if(config->clkProcess && config->clkBlock == i)
+			if(config->clkMeasure && config->clkBlock == i)
 			{
 				CleanFrequenciesInBlock(&Signal->clkFrequencies, config);
 				if(!ExecuteDFFT(&Signal->clkFrequencies, Signal->Blocks[i].audio.samples, Signal->Blocks[i].audio.size-Signal->Blocks[i].audio.difference, Signal->header.fmt.SamplesPerSec, windowUsed, 1, 1, config))
@@ -1733,32 +1742,52 @@ int RecalculateFFTW(AudioSignal *Signal, parameters *config)
 	return 1;
 }
 
+// This use dto always adjust teh comparison signal
+// That caused issues when Ref CLK was lower than comp clk
+// Didn't check why, maybe someday I'll figure it out when I need to (if)
 void RecalculateFrameRateAndSamplerateComp(AudioSignal *ReferenceSignal, AudioSignal *ComparisonSignal, parameters *config)
 {
-	double	ratio = 0;
-	int		estimatedSampleRate = 0, originalSampleRate = 0;
+	double		ratio = 0, refCLK = 0, compCLK = 0;
+	int			estimatedSampleRate = 0;
+	AudioSignal	*changedSignal = 0;
 
-	ratio = CalculateClk(ReferenceSignal, config)/CalculateClk(ComparisonSignal, config);
-	estimatedSampleRate = ceil((double)ComparisonSignal->header.fmt.SamplesPerSec*ratio);
-	ComparisonSignal->clkEstimatedSR = estimatedSampleRate;
+	refCLK = CalculateClk(ReferenceSignal, config);
+	compCLK = CalculateClk(ComparisonSignal, config);
 
-	originalSampleRate = ComparisonSignal->header.fmt.SamplesPerSec;
-	ComparisonSignal->header.fmt.SamplesPerSec = estimatedSampleRate;
-	ComparisonSignal->framerate = CalculateFrameRate(ComparisonSignal, config);
+	if(refCLK > compCLK)
+	{
+		changedSignal = ComparisonSignal;
+		ratio = refCLK/compCLK;
+		changedSignal->originalCLK = compCLK;
+	}
+	else
+	{
+		changedSignal = ReferenceSignal;
+		ratio = compCLK/refCLK;
+		changedSignal->originalCLK = refCLK;
+	}
+	config->changedCLKFrom = changedSignal->role;
+	
+	estimatedSampleRate = ceil((double)changedSignal->header.fmt.SamplesPerSec*ratio);
+	changedSignal->EstimatedSR_CLK = estimatedSampleRate;
+
+	changedSignal->originalSR_CLK = changedSignal->header.fmt.SamplesPerSec;
+	changedSignal->header.fmt.SamplesPerSec = estimatedSampleRate;
+	//changedSignal->originalFrameRate = changedSignal->framerate;
+	changedSignal->framerate = CalculateFrameRate(changedSignal, config);
 	if(config->verbose)
-		logmsg(" - New frame rate: %g SR: %d->%d (%g)\n", 
-			ComparisonSignal->framerate,
-			originalSampleRate, ComparisonSignal->header.fmt.SamplesPerSec,
-			ratio);
+		logmsg(" - Adjusted frame rate to match same lengths with CLK: %gms [SR: %d->%dHz]\n", 
+			changedSignal->framerate,
+			changedSignal->originalSR_CLK, changedSignal->header.fmt.SamplesPerSec);
 }
 
 int RecalculateFrequencyStructures(AudioSignal *ReferenceSignal, AudioSignal *ComparisonSignal, parameters *config)
 {
-	logmsg(" - Adjusting Comparison %s CLK to %gHz\n", config->clkName, CalculateClk(ReferenceSignal, config));
+	logmsg(" - Adjusted Comparison %s CLK: %gHz\n", config->clkName, CalculateClk(ReferenceSignal, config));
 	RecalculateFrameRateAndSamplerateComp(ReferenceSignal, ComparisonSignal, config);
 	CompareFrameRates(ReferenceSignal, ComparisonSignal, config);
 
-	logmsg(" - Recalculation FFT with new %s CLK value\n", config->clkName);
+	logmsg(" - Recalculation Discrete Fast Fourier Transforms with new %s CLK value\n", config->clkName);
 	if(!RecalculateFFTW(ReferenceSignal, config))
 		return 0;
 
@@ -1885,7 +1914,7 @@ int ProcessFile(AudioSignal *Signal, parameters *config)
 				return 0;
 		}
 
-		if(config->clkProcess && config->clkBlock == i)
+		if(config->clkMeasure && config->clkBlock == i)
 		{
 			if(!ExecuteDFFT(&Signal->clkFrequencies, (int16_t*)buffer, (loadedBlockSize-difference)/2, Signal->header.fmt.SamplesPerSec, windowUsed, Signal->AudioChannels, 1, config))
 				return 0;

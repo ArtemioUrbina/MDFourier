@@ -273,7 +273,7 @@ AudioSignal *CreateAudioSignal(parameters *config)
 	}
 
 	InitAudio(Signal, config);
-	if(config->clkProcess)
+	if(config->clkMeasure)
 		InitAudioBlock(&Signal->clkFrequencies, config);
 	return Signal;
 }
@@ -362,9 +362,13 @@ void InitAudio(AudioSignal *Signal, parameters *config)
 
 	Signal->balance = 0;
 	memset(&Signal->clkFrequencies, 0, sizeof(AudioBlocks));
-	Signal->clkEstimatedSR = 0;
+	Signal->EstimatedSR = 0;
 	Signal->originalSR = 0;
 	Signal->originalFrameRate = 0;
+
+	Signal->EstimatedSR_CLK = 0;
+	Signal->originalSR_CLK = 0;
+	Signal->originalCLK = 0;
 
 	memset(&Signal->delayArray, 0, sizeof(double)*DELAYCOUNT);
 	Signal->delayElemCount = 0;
@@ -516,7 +520,7 @@ void ReleaseAudio(AudioSignal *Signal, parameters *config)
 		Signal->Blocks = NULL;
 	}
 
-	if(config->clkProcess)
+	if(config->clkMeasure)
 		ReleaseBlock(&Signal->clkFrequencies);
 	ReleasePCM(Signal);
 
@@ -664,6 +668,20 @@ int EndProfileLoad(parameters *config)
 	if(config->compressToBlocks)
 		FlattenProfile(config);
 
+	if(config->doClkAdjust)
+	{
+		if(config->clkMeasure)
+		{
+			logmsg(" - Adjusting CLK rates, align to 1hz enabled (Zero padding)\n");
+			config->ZeroPad = 1;
+		}
+		else
+		{
+			logmsg(" - Ignoring -j since no CLK rates were found in profile\n");
+			config->doClkAdjust = 0;  // no current need to, but anyway...
+		}
+	}
+
 	CheckSilenceOverride(config);
 	PrintAudioBlocks(config);
 	if(!CheckSyncFormats(config))
@@ -763,8 +781,8 @@ int LoadAudioBlockStructure(FILE *file, parameters *config)
 		fclose(file);
 		return 0;
 	}
-	config->clkProcess = (tmp == 'y');
-	if(config->clkProcess)
+	config->clkMeasure = (tmp == 'y');
+	if(config->clkMeasure)
 	{
 		if(sscanf(lineBuffer, "%*s %*c %d %d %d\n", 
 			&config->clkBlock,
@@ -3228,23 +3246,11 @@ double CalculateFrameRateAndCheckSamplerate(AudioSignal *Signal, parameters *con
 	ACsamplerate = (endOffset-startOffset)/(expectedFR*LastSyncFrameOffset);
 	ACsamplerate = ACsamplerate*1000.0/(2.0*Signal->AudioChannels);
 	if(fabs(ACsamplerate - samplerate) >= 5.0)
-	{
-		//if(config->verbose)
-		{
-			logmsg(" - %s file framerate difference is %g.\n",
-					Signal->role == ROLE_REF ? "Reference" : "Comparision",
-					diff);
-			logmsg("\tAssuming recording is not from an emulator\n\tAudio Card sample rate estimated at %f\n",
-					ACsamplerate);
-		}
-
-		if(!config->clkProcess)
-			sprintf(config->clkName, "Sample rate");
-		
+	{	
 		if(config->doSamplerateAdjust)
 		{
-			logmsg("- WARNING: Auto adjustment of samplerate and frame rate applied\n");
-			logmsg("    Original framerate: %gms\n", framerate);
+			logmsg(" - WARNING: Auto adjustment of samplerate and frame rate applied\n");
+			logmsg("    Original framerate: %gms (%g difference)\n", framerate, diff);
 
 			Signal->originalSR = Signal->header.fmt.SamplesPerSec;
 			Signal->originalFrameRate = framerate;
@@ -3256,14 +3262,21 @@ double CalculateFrameRateAndCheckSamplerate(AudioSignal *Signal, parameters *con
 
 			logmsg("    Adjusted sample rate to: %dHz\n", Signal->header.fmt.SamplesPerSec);
 
-			Signal->clkEstimatedSR = Signal->header.fmt.SamplesPerSec;
+			Signal->EstimatedSR = Signal->header.fmt.SamplesPerSec;
 		}
 		else
 		{
-			Signal->clkEstimatedSR = ACsamplerate;
+			logmsg(" - WARNING: %s file framerate difference is %g ms per frame.\n",
+					Signal->role == ROLE_REF ? "Reference" : "Comparision", diff);
+			logmsg(" - Sample rate estimated at %f\n", ACsamplerate);
+
+			Signal->EstimatedSR = ACsamplerate;
 			Signal->originalSR = Signal->header.fmt.SamplesPerSec;
 		}
-		config->intClkNoMatch |= Signal->role;
+		
+		config->centsDifferenceSR = 1200*log2(Signal->EstimatedSR/Signal->originalSR);
+		logmsg(" - Pitch difference in cents: %g\n", config->centsDifferenceSR);
+		config->SRNoMatch |= Signal->role;
 	}
 
 	return framerate;
@@ -3383,10 +3396,10 @@ double getMSPerFrameInternal(int role, parameters *config)
 
 double CalculateClk(AudioSignal *Signal, parameters *config)
 {
-	if(!config->clkProcess)
+	if(!config->clkMeasure)
 		return 0;
 
-	if(!Signal || !Signal->Blocks)
+	if(!Signal || !Signal->clkFrequencies.freq)
 		return 0;
 
 	return Signal->clkFrequencies.freq[0].hertz * config->clkRatio;

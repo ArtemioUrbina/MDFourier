@@ -49,7 +49,7 @@
 
 #include "incbeta.h"
 
-#define MDVERSION "0.992rc2"
+#define MDVERSION "0.992rc"
 
 #if INTPTR_MAX == INT64_MAX
 #define	BITS_MDF "64-bit"
@@ -116,6 +116,7 @@
 
 #define INT16_03DB		23197.0   // 0x5AD9
 
+#define SIG_CLK_DIFF 0.15
 // Use -3dbfs scale
 #define WAVEFORM_SCALE	INT16_03DB
 // Use Max Scale
@@ -381,7 +382,11 @@ typedef struct AudioSt {
 
 	double		balance;
 	AudioBlocks	clkFrequencies;
-	double		clkEstimatedSR;
+	double		originalCLK;
+	double		EstimatedSR_CLK;
+	int			originalSR_CLK;
+
+	double		EstimatedSR;
 	int			originalSR;
 	double		originalFrameRate;
 
@@ -527,12 +532,17 @@ typedef struct parameters_st {
 	int				hasAddOnData;
 	int				frequencyNormalizationTries;
 	double			frequencyNormalizationTolerant;
+	int				noiseFloorAutoAdjust;
 	int				noiseFloorTooHigh;
+	int				noiseFloorBigDifference;
 	int				channelWithLowFundamentals;
 	int				singleSyncUsed;
 	double			notVisible;
-	int				intClkNoMatch;
+	int				SRNoMatch;
 	int				diffClkNoMatch;
+	int				changedCLKFrom;
+	double			centsDifferenceCLK;
+	double			centsDifferenceSR;
 
 	double 			plotResX;
 	double			plotResY;
@@ -554,7 +564,7 @@ typedef struct parameters_st {
 
 /* Values only used for clock frequency */
 	char		clkName[20];
-	int			clkProcess;
+	int			clkMeasure;
 	int			clkBlock;
 	int			clkFreq;
 	int			clkRatio;

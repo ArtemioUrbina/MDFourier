@@ -809,15 +809,16 @@ void enableTestWarnings(parameters *config)
 	config->maxDbPlotZC = DB_HEIGHT+3;
 	config->notVisible = 20.75;
 
-	config->clkProcess = 1;
-
+	config->clkMeasure = 1;
 	config->clkBlock = 2;
 	config->clkFreq = 8000;
 	config->clkRatio = 4;
-	config->intClkNoMatch = 1;
+	config->doClkAdjust = 1;
+
 	config->doSamplerateAdjust = 1;
-	config->referenceSignal->clkEstimatedSR = 32780;
-	config->comparisonSignal->clkEstimatedSR = 34812.87;
+	config->SRNoMatch = 1;
+	config->referenceSignal->EstimatedSR = 32780;
+	config->comparisonSignal->EstimatedSR = 34812.87;
 		
 	config->referenceSignal->balance = -5.7;
 	config->comparisonSignal->balance = 10.48;
@@ -836,37 +837,60 @@ void enableTestWarnings(parameters *config)
 }
 #endif
 
-#define PLOT_COLUMN(x,y) pl_fmove_r(plot->plotter, config->plotResX-(x)*config->plotResX/10-config->plotResX/40, config->plotResY/2-(y)*BAR_HEIGHT)
+#define PLOT_COLUMN(x,y) pl_fmove_r(plot->plotter, config->plotResX-(x)*config->plotResX/10, config->plotResY/2-(y)*BAR_HEIGHT)
 #define PLOT_COLUMN_DISP(x,x1,y) pl_fmove_r(plot->plotter, config->plotResX-(x)*config->plotResX/10-config->plotResX/40+x1, config->plotResY/2-(y)*BAR_HEIGHT)
 
-#define PLOT_WARN(x,y) pl_fmove_r(plot->plotter, x*config->plotResX-config->plotResX/4, -1*config->plotResY/2+config->plotResY/20+(y+2)*BAR_HEIGHT);
+#define PLOT_WARN(x,y) pl_fmove_r(plot->plotter, x*config->plotResX-config->plotResX/4, -1*config->plotResY/2+config->plotResY/20+(y+2)*BAR_HEIGHT)
+#define PLOT_WARN_XDISP(x,y,d) pl_fmove_r(plot->plotter, x*config->plotResX-config->plotResX/4+d, -1*config->plotResY/2+config->plotResY/20+(y+2)*BAR_HEIGHT)
 
+void DrawSRData(PlotFile *plot, AudioSignal *Signal, char *msg, parameters *config)
+{
+	char str[100];
+
+	msg[0] = '\0';
+	
+	if(!Signal->originalSR || !Signal->EstimatedSR)
+		return;
+
+	pl_pencolor_r(plot->plotter, 0xcccc, 0xcccc, 0);
+	if(config->doSamplerateAdjust)
+		sprintf(str, "SR %%s: %%d\\->%%gHz");
+	else
+		sprintf(str, "SR %%s: %%d(%%g)Hz");
+	sprintf(msg, str,
+		Signal->role == ROLE_REF ? "R" : "C",
+		Signal->originalSR, Signal->EstimatedSR);
+}
 
 void DrawClockData(PlotFile *plot, AudioSignal *Signal, char *msg, parameters *config)
 {
-	pl_pencolor_r(plot->plotter, 0, 0xcccc, 0xcccc);
-	if(!Signal->clkEstimatedSR)
-	{
-		if(config->clkProcess)
-			sprintf(msg, "CLK %s: %gHz",
-				Signal->role == ROLE_REF ? "R" : "C",
-				CalculateClk(Signal, config));
-		else
-			msg[0] = '\0';
-	}
+	msg[0] = '\0';
+	if(!config->clkMeasure)
+		return;
+
+	if(fabs(config->centsDifferenceCLK) >= SIG_CLK_DIFF)
+		pl_pencolor_r(plot->plotter, 0xcccc, 0xcccc, 0);
+	else
+		pl_pencolor_r(plot->plotter, 0, 0xcccc, 0xcccc);
+
+	if(!Signal->originalCLK)
+		sprintf(msg, "%s %s: %gHz",
+			config->clkName,
+			Signal->role == ROLE_REF ? "R" : "C",
+			CalculateClk(Signal, config));
 	else
 	{
 		char str[100];
 
 		pl_pencolor_r(plot->plotter, 0xcccc, 0xcccc, 0);
-		if(config->doSamplerateAdjust && Signal->originalSR)
-			sprintf(str, "%s %%s: %%g\\->%%gHz", config->clkProcess ? "CLK" : "SR");
+		if(config->doClkAdjust)
+			sprintf(str, "%s %%s: %%g\\->%%gHz", config->clkName);
 		else
-			sprintf(str, "%s %%s: %%g(%%g)Hz", config->clkProcess ? "CLK" : "SR");
+			sprintf(str, "%s %%s: %%g(%%g)Hz", config->clkName);
 		sprintf(msg, str,
 			Signal->role == ROLE_REF ? "R" : "C",
-			Signal->originalSR ? Signal->originalSR : CalculateClk(Signal, config),
-			Signal->clkEstimatedSR);
+			Signal->originalCLK,
+			CalculateClk(Signal, config));
 	}
 }
 
@@ -876,9 +900,9 @@ void DrawImbalance(PlotFile *plot, AudioSignal *Signal, char *msg, parameters *c
 		return;
 
 	if(Signal->role == ROLE_REF)
-		PLOT_COLUMN(7, 1);
+		PLOT_COLUMN(8, 1);
 	else
-		PLOT_COLUMN(7, 2);
+		PLOT_COLUMN(8, 2);
 
 	if(fabs(Signal->balance) >= 10)
 		pl_pencolor_r(plot->plotter, 0xcccc, 0xcccc, 0);
@@ -918,19 +942,18 @@ void DrawFileInfo(PlotFile *plot, AudioSignal *Signal, char *msg, int type, int 
 			sprintf(msg, "%s %5.5s %4dkHz %s %.92s%s",
 				Signal->role == ROLE_REF ? "Reference:  " : "Comparison:",
 				config->types.SyncFormat[format].syncName,
-				Signal->header.fmt.SamplesPerSec/1000,
+				Signal->originalSR ? Signal->originalSR/1000 : Signal->header.fmt.SamplesPerSec/1000,
 				Signal->AudioChannels == 2 ? "Stereo" : "Mono ",
 				name,
 				strlen(name) > 92 ? "\\.." : " ");
 			pl_fmove_r(plot->plotter, x, y+config->plotResY/(ypos*40));
 			pl_alabel_r(plot->plotter, 'l', 'l', msg);
 	
-			if(config->doSamplerateAdjust && Signal->clkEstimatedSR)
-				pl_pencolor_r(plot->plotter, 0xeeee, 0xeeee, 0);
 			if(Signal->originalFrameRate)
 			{
 				double labelwidth = 0;
 
+				pl_pencolor_r(plot->plotter, 0xeeee, 0xeeee, 0);
 				sprintf(msg, "[%0.4fms %0.4fHz]\\->", 
 						Signal->originalFrameRate, roundFloat(CalculateScanRateOriginalFramerate(Signal)));
 				labelwidth = pl_flabelwidth_r(plot->plotter, msg);
@@ -963,7 +986,7 @@ void DrawFileInfo(PlotFile *plot, AudioSignal *Signal, char *msg, int type, int 
 
 		sprintf(msg, "File: %5.5s %4dkHz %s %.92s%s",
 			config->types.SyncFormat[format].syncName,
-			Signal->header.fmt.SamplesPerSec/1000,
+			Signal->originalSR ? Signal->originalSR/1000 : Signal->header.fmt.SamplesPerSec/1000,
 			Signal->AudioChannels == 2 ? "Stereo" : "Mono  ",
 			name,
 			strlen(name) > 92 ? "\\.." : " ");
@@ -971,12 +994,11 @@ void DrawFileInfo(PlotFile *plot, AudioSignal *Signal, char *msg, int type, int 
 		pl_fmove_r(plot->plotter, x, y);
 		pl_alabel_r(plot->plotter, 'l', 'l', msg);
 
-		if(config->doSamplerateAdjust && Signal->clkEstimatedSR)
-			pl_pencolor_r(plot->plotter, 0xeeee, 0xeeee, 0);
 		if(Signal->originalFrameRate)
 		{
 			double labelwidth = 0;
 
+			pl_pencolor_r(plot->plotter, 0xeeee, 0xeeee, 0);
 			sprintf(msg, "[%0.4fms %0.4fHz]\\->", 
 					Signal->originalFrameRate, roundFloat(CalculateScanRateOriginalFramerate(Signal)));
 			labelwidth = pl_flabelwidth_r(plot->plotter, msg);
@@ -1145,6 +1167,15 @@ void DrawLabelsMDF(PlotFile *plot, char *Gname, char *GType, int type, parameter
 		pl_alabel_r(plot->plotter, 'l', 'l', "WARNING: Noise floor too high");
 	}
 
+	/*
+	if(config->noiseFloorBigDifference)
+	{
+		PLOT_WARN(1, warning++);
+		pl_pencolor_r(plot->plotter, 0xeeee, 0xeeee, 0);
+		pl_alabel_r(plot->plotter, 'l', 'l', "WARNING: High noise floor difference");
+	}
+	*/
+
 	if(config->types.useWatermark && DetectWatermarkIssue(msg, config))
 	{
 		PLOT_WARN(1, warning++);
@@ -1181,39 +1212,51 @@ void DrawLabelsMDF(PlotFile *plot, char *Gname, char *GType, int type, parameter
 			pl_alabel_r(plot->plotter, 'l', 'l', "WARNING: No Normalization, PLEASE DISREGARD");
 	}
 
-	if(config->doClkAdjust)
+	if(config->doSamplerateAdjust &&
+		(config->referenceSignal->originalSR || config->comparisonSignal->originalSR))
 	{
 		PLOT_WARN(1, warning++);
 		pl_pencolor_r(plot->plotter, 0xeeee, 0xeeee, 0);
-		sprintf(msg, "WARNING: %s clock matched to reference.", config->clkName);
+		sprintf(msg, "WARNING: Sample rate adjusted to match pitch by: %0.2f\\ct", config->centsDifferenceSR);
 		pl_alabel_r(plot->plotter, 'l', 'l', msg);
 	}
 
-	if(config->intClkNoMatch && !config->doSamplerateAdjust)
+	if(config->SRNoMatch && !config->doSamplerateAdjust)
 	{
+		double labelwidth = 0;
+
+		labelwidth = pl_flabelwidth_r(plot->plotter, "WARNING: ");
+		PLOT_WARN_XDISP(1, warning++, labelwidth);
+		pl_pencolor_r(plot->plotter, 0xeeee, 0xeeee, 0);
+		sprintf(msg, "%s pitch might be off by: %0.2f\\ct (can use -R)",
+			config->SRNoMatch == ROLE_REF ? "R" : config->SRNoMatch == ROLE_COMP ? "C" : "",
+			config->centsDifferenceSR);
+		pl_alabel_r(plot->plotter, 'l', 'l', msg);
+
 		PLOT_WARN(1, warning++);
 		pl_pencolor_r(plot->plotter, 0xeeee, 0xeeee, 0);
-		sprintf(msg, "WARNING: %s %s%s%s match length (can use -j).",
-			config->intClkNoMatch == ROLE_REF ? "R" : config->intClkNoMatch == ROLE_COMP ? "C" : "",
-			config->clkName,
-			config->clkProcess ? " clock" : "",
-			config->intClkNoMatch == ROLE_REF ? " doesn't" : config->intClkNoMatch == ROLE_COMP ? " doesn't" : "s don't");
+		sprintf(msg, "WARNING: %s sample rate%s match length.",
+			config->SRNoMatch == ROLE_REF ? "R" : config->SRNoMatch == ROLE_COMP ? "C" : "",
+			config->SRNoMatch == (ROLE_REF | ROLE_COMP) ? "s don't" : " doesn't");
 		pl_alabel_r(plot->plotter, 'l', 'l', msg);
 	}
 
-	if(config->diffClkNoMatch && !config->doClkAdjust)
+	if(config->clkMeasure && config->doClkAdjust && config->comparisonSignal->originalCLK)
 	{
 		PLOT_WARN(1, warning++);
 		pl_pencolor_r(plot->plotter, 0xeeee, 0xeeee, 0);
-		sprintf(msg, "WARNING: %s Signal clocks don't match.", config->clkName);
+		sprintf(msg, "WARNING: %s %s clock adjusted by: %0.2f\\ct", 
+				config->changedCLKFrom == ROLE_REF ? "Reference" : "Comparison",
+				config->clkName, config->centsDifferenceCLK);
 		pl_alabel_r(plot->plotter, 'l', 'l', msg);
 	}
 
-	if(config->doSamplerateAdjust && (config->referenceSignal->originalSR || config->comparisonSignal->originalSR))
+	if(config->clkMeasure && config->diffClkNoMatch && !config->doClkAdjust)
 	{
 		PLOT_WARN(1, warning++);
 		pl_pencolor_r(plot->plotter, 0xeeee, 0xeeee, 0);
-		sprintf(msg, "WARNING: %s clock adjusted, values in yellow.", config->clkName);
+		sprintf(msg, "WARNING: %s clock don't match by: %0.2f\\ct (can use -j)", 
+				config->clkName, config->centsDifferenceCLK);
 		pl_alabel_r(plot->plotter, 'l', 'l', msg);
 	}
 
@@ -1353,14 +1396,14 @@ void DrawLabelsMDF(PlotFile *plot, char *Gname, char *GType, int type, parameter
 		pl_alabel_r(plot->plotter, 'l', 'l', "Single precision sync used");
 	}
 	
-	if(config->maxDbPlotZC != DB_HEIGHT)
+	if(config->maxDbPlotZC != DB_HEIGHT && type == PLOT_COMPARE)
 	{
 		PLOT_COLUMN(5, 3);
 		pl_pencolor_r(plot->plotter, 0xeeee, 0xeeee, 0);
 		pl_alabel_r(plot->plotter, 'l', 'l', "Vertical scale changed");
 	}
 
-	if(config->clkProcess || config->referenceSignal->clkEstimatedSR || config->comparisonSignal->clkEstimatedSR)
+	if(config->clkMeasure)
 	{
 		if(type == PLOT_COMPARE)
 		{
@@ -1384,6 +1427,16 @@ void DrawLabelsMDF(PlotFile *plot, char *Gname, char *GType, int type, parameter
 			DrawClockData(plot, config->comparisonSignal, msg, config);
 			pl_alabel_r(plot->plotter, 'l', 'l', msg);
 		}
+	}
+
+	if(config->referenceSignal->EstimatedSR || config->comparisonSignal->EstimatedSR)
+	{
+		PLOT_COLUMN(7, 1);
+		DrawSRData(plot, config->referenceSignal, msg, config);
+		pl_alabel_r(plot->plotter, 'l', 'l', msg);
+		PLOT_COLUMN(7, 2);
+		DrawSRData(plot, config->comparisonSignal, msg, config);
+		pl_alabel_r(plot->plotter, 'l', 'l', msg);
 	}
 
 	if(config->notVisible > 1)

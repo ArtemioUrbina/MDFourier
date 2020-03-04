@@ -53,11 +53,12 @@ void PrintUsage()
 	logmsg("		'f' Frequency Domain Max, 't' Time Domain or 'a' Average\n");
 	logmsg("	 -B: Do not do stereo channel audio <B>alancing\n");
 	logmsg("	 -I: <I>gnore frame rate difference for analysis\n");
-	logmsg("	 -p: Define the significant volume value in dBFS\n");
+	logmsg("	 -p: Define the significant volume value in dBFS (0 to disable auto adjust)\n");
 	logmsg("	 -T: Increase Sync detection <T>olerance (ignore frequency for pulses)\n");
 	logmsg("	 -Y: Define the Reference Video Format from the profile\n");
 	logmsg("	 -Z: Define the Comparison Video Format from the profile\n");
-	logmsg("	 -j: Ad<j>ust samplerate clock if difference is found\n");
+	logmsg("	 -R: Adjust sample <R>ate if duration difference is found\n");
+	logmsg("	 -j: Ad<j>ust clock (profile defined) via FFTW if difference is found\n");
 	logmsg("	 -k: cloc<k> FFTW operations\n");
 	logmsg("	 -X: Do not E<x>tra Data from Profiles\n");
 	logmsg("	 -q: Do not round (<q>uantize) frequencies and amplitudes\n");
@@ -165,6 +166,7 @@ void CleanParameters(parameters *config)
 	config->frequencyNormalizationTries = 0;
 	config->frequencyNormalizationTolerant = 0;
 	config->noiseFloorTooHigh = 0;
+	config->noiseFloorBigDifference = 0;
 	config->channelWithLowFundamentals = 0;
 	config->singleSyncUsed = 0;
 	config->notVisible = 0;
@@ -192,6 +194,8 @@ void CleanParameters(parameters *config)
 	config->plotTimeDomainHiDiff = 0;
 	config->averagePlot = 1;
 	config->weightedAveragePlot = 1;
+	config->noiseFloorAutoAdjust = 1;
+	config->changedCLKFrom = 0;
 
 	config->Differences.BlockDiffArray = NULL;
 	config->Differences.cntFreqAudioDiff = 0;
@@ -234,8 +238,12 @@ void CleanParameters(parameters *config)
 	config->compressToBlocks = 0;
 	config->quantizeRound = 1;
 	config->drawPerfect = 0;
-	config->intClkNoMatch = 0;
+
+	config->SRNoMatch = 0;
 	config->diffClkNoMatch = 0;
+
+	config->centsDifferenceCLK = 0;
+	config->centsDifferenceSR = 0;
 
 	EnableLog();
 }
@@ -249,8 +257,8 @@ int commandline(int argc , char *argv[], parameters *config)
 	
 	CleanParameters(config);
 
-	// Available: GR1234567
-	while ((c = getopt (argc, argv, "Aa:Bb:Cc:Dd:Ee:Ff:gHhIiJjKkL:lMmNn:Oo:P:p:Qqr:Ss:TtUuVvWw:XxY:yZ:z0:89")) != -1)
+	// Available: GJ1234567
+	while ((c = getopt (argc, argv, "Aa:Bb:Cc:Dd:Ee:Ff:gHhIijKkL:lMmNn:Oo:P:p:QqRr:Ss:TtUuVvWw:XxY:yZ:z0:89")) != -1)
 	switch (c)
 	  {
 	  case 'A':
@@ -346,12 +354,8 @@ int commandline(int argc , char *argv[], parameters *config)
 	  case 'i':
 		config->ignoreFloor = 1;
 		break;
-	  case 'J':
-		config->doClkAdjust = 1;
-		config->ZeroPad = 1;
-		break;
 	  case 'j':
-		config->doSamplerateAdjust = 1;
+		config->doClkAdjust = 1;
 		break;
 	  case 'K':
 		config->drawPerfect = 1;
@@ -441,7 +445,12 @@ int commandline(int argc , char *argv[], parameters *config)
 		break;
 	  case 'p':
 		config->significantAmplitude = atof(optarg);
-		if(config->significantAmplitude <= -200.0 || config->significantAmplitude >= -1.0)
+		if(config->significantAmplitude == 0)
+		{
+			config->noiseFloorAutoAdjust = 0;
+			config->significantAmplitude = SIGNIFICANT_VOLUME;
+		}
+		else if(config->significantAmplitude <= -200.0 || config->significantAmplitude >= -1.0)
 		{
 			logmsg("\t - Significant amplitude must be between %d and %d, changed to %g\n", -1, -200.0, SIGNIFICANT_VOLUME);
 			config->significantAmplitude = SIGNIFICANT_VOLUME;
@@ -453,6 +462,9 @@ int commandline(int argc , char *argv[], parameters *config)
 		break;
 	  case 'q':
 		config->quantizeRound = 0;
+		break;
+	  case 'R':
+		config->doSamplerateAdjust = 1;
 		break;
 	  case 'r':
 		sprintf(config->referenceFile, "%s", optarg);
@@ -566,7 +578,7 @@ int commandline(int argc , char *argv[], parameters *config)
 		else if (optopt == 'P')
 		  logmsg("\t ERROR: Profile File -%c requires a file argument\n", optopt);
 		else if (optopt == 'p')
-		  logmsg("\t ERROR: Significant Amplitude -%c requires an argument: -1.0 to -100.0 dBFS\n", optopt);
+		  logmsg("\t ERROR: Significant Amplitude -%c requires an argument: -1.0 to -200.0 dBFS\n\t\tOr 0 for Auto Adjustment to Comparision Noise Floor\n", optopt);
 		else if (optopt == 'r')
 		  logmsg("\t ERROR: Reference File -%c requires an argument.\n", optopt);
 		else if (optopt == 's')
@@ -574,9 +586,9 @@ int commandline(int argc , char *argv[], parameters *config)
 		else if (optopt == 'w')
 		  logmsg("\t ERROR: FFT Window option -%c requires an argument: n,t,f or h\n", optopt);
 		else if (optopt == 'Y')
-		  logmsg("\t ERROR:  Reference format: needs a number with a selection from the profile\n");
+		  logmsg("\t ERROR: Reference format: needs a number with a selection from the profile\n");
 		else if (optopt == 'Z')
-		  logmsg("\t ERROR:  Comparison format: needs a number with a selection from the profile\n");
+		  logmsg("\t ERROR: Comparison format: needs a number with a selection from the profile\n");
 		else if (isprint (optopt))
 		  logmsg("\t ERROR: Unknown option `-%c'.\n", optopt);
 		else
@@ -604,9 +616,6 @@ int commandline(int argc , char *argv[], parameters *config)
 
 	if(config->FullTimeSpectroScale)
 		config->MaxFreq = END_HZ;
-
-	if(config->doClkAdjust)
-		logmsg("\t- Adjusting CLK rates, align to 1hz enabled (Zero padding)\n");
 
 	if(config->doSamplerateAdjust)
 		logmsg("\t- Adjusting sample rate if inconsistency found\n");
