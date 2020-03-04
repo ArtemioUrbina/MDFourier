@@ -1720,7 +1720,7 @@ int RecalculateFFTW(AudioSignal *Signal, parameters *config)
 			frames = GetBlockFrames(config, i);
 			cutFrames = GetBlockCutFrames(config, i);
 	
-			windowUsed = getWindowByLength(&windows, frames, cutFrames, config->smallerFramerate);
+			windowUsed = getWindowByLength(&windows, frames, cutFrames, config->smallerFramerate, config);
 
 			CleanFrequenciesInBlock(&Signal->Blocks[i], config);
 			if(!ExecuteDFFT(&Signal->Blocks[i], Signal->Blocks[i].audio.samples, Signal->Blocks[i].audio.size-Signal->Blocks[i].audio.difference, Signal->header.fmt.SamplesPerSec, windowUsed, 1, config->ZeroPad, config))
@@ -1752,6 +1752,7 @@ int RecalculateFFTW(AudioSignal *Signal, parameters *config)
 }
 
 /*
+// This rebased them both to the expected ideal CLK, noisier
 void RecalculateFrameRateAndSamplerate(AudioSignal *Signal, parameters *config)
 {
 	double	ratio = 0;
@@ -1766,14 +1767,13 @@ void RecalculateFrameRateAndSamplerate(AudioSignal *Signal, parameters *config)
 	Signal->framerate = CalculateFrameRate(Signal, config);
 	logmsg("New frame rate: %g SR: %d->%d (%g)\n", 
 		Signal->framerate,
-		originalSampleRate, Signal->header.fmt.SamplesPerSec,
+		Signal->originalSR_CLK, Signal->header.fmt.SamplesPerSec,
 		ratio);
 }
 */
 
-// This use dto always adjust teh comparison signal
-// That caused issues when Ref CLK was lower than comp clk
-// Didn't check why, maybe someday I'll figure it out when I need to (if)
+// Doing comparison always was default
+// It is norier to adjsut clk upwards than downwards though
 double RecalculateFrameRateAndSamplerateComp(AudioSignal *ReferenceSignal, AudioSignal *ComparisonSignal, parameters *config)
 {
 	double		ratio = 0, refCLK = 0, compCLK = 0, adjustedTo = 0;
@@ -1783,7 +1783,7 @@ double RecalculateFrameRateAndSamplerateComp(AudioSignal *ReferenceSignal, Audio
 	refCLK = CalculateClk(ReferenceSignal, config);
 	compCLK = CalculateClk(ComparisonSignal, config);
 
-	if(refCLK > compCLK)
+	if(refCLK < compCLK)
 	{
 		changedSignal = ComparisonSignal;
 		ratio = refCLK/compCLK;
@@ -1797,6 +1797,7 @@ double RecalculateFrameRateAndSamplerateComp(AudioSignal *ReferenceSignal, Audio
 		changedSignal->originalCLK = refCLK;
 		adjustedTo = compCLK;
 	}
+
 	config->changedCLKFrom = changedSignal->role;
 	
 	estimatedSampleRate = ceil((double)changedSignal->header.fmt.SamplesPerSec*ratio);
@@ -1900,9 +1901,9 @@ int ProcessFile(AudioSignal *Signal, parameters *config)
 		if(Signal->Blocks[i].type >= TYPE_SILENCE || Signal->Blocks[i].type == TYPE_WATERMARK) // We get the smaller window, since we'll truncate
 		{
 			if(!syncinternal)
-				windowUsed = getWindowByLength(&windows, frames, cutFrames, config->smallerFramerate);
+				windowUsed = getWindowByLength(&windows, frames, cutFrames, config->smallerFramerate, config);
 			else
-				windowUsed = getWindowByLength(&windows, frames, cutFrames, framerate);
+				windowUsed = getWindowByLength(&windows, frames, cutFrames, framerate, config);
 		}
 
 /*

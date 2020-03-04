@@ -66,13 +66,43 @@ int initWindows(windowManager *wm, int SamplesPerSec, char winType, parameters *
 	return 1;
 }
 
-double *CreateWindow(windowManager *wm, long int frames, long int cutFrames, double framerate)
+double *CreateWindowInternal(windowManager *wm, double *(*creator)(long), char *name, double seconds, long size, long sizePadding, long clkAdjustBufferSize)
+{
+	double *window = NULL, *tmp = NULL;
+
+	window = creator(size);
+	if(!window)
+	{
+		logmsg ("%s window creation failed\n", name);
+		return NULL;
+	}
+	if(sizePadding)
+	{
+		tmp = (double*)realloc(window, sizeof(double)*(size+sizePadding+clkAdjustBufferSize));
+		if(!tmp)
+		{
+			free(window);
+			logmsg ("%s window creation failed, padding\n", name);
+			return NULL;
+		}
+		window = tmp;
+		memset(window+size, 0, sizeof(double)*(sizePadding+clkAdjustBufferSize));
+	}
+	wm->windowArray[wm->windowCount].sizePadding = sizePadding;
+
+	wm->windowArray[wm->windowCount].window = window;
+	wm->windowArray[wm->windowCount].seconds = seconds;
+	wm->windowArray[wm->windowCount].size = size;
+	wm->windowCount++;
+	return window;
+}
+
+double *CreateWindow(windowManager *wm, long int frames, long int cutFrames, double framerate, parameters *config)
 {
 	double		seconds = 0;
-	double		*window = NULL, *tmp = NULL;
 	long int	size = 0;
-	double		secondsPadding = 0;
-	long int	sizePadding = 0;
+	double		secondsPadding = 0, oneFramePadding = 0;
+	long int	sizePadding = 0, clkAdjustBufferSize = 0;
 
 	if(!wm)
 		return NULL;
@@ -92,6 +122,13 @@ double *CreateWindow(windowManager *wm, long int frames, long int cutFrames, dou
 	secondsPadding = FramesToSeconds(cutFrames, framerate);
 	sizePadding = ceil(wm->SamplesPerSec*secondsPadding);
 
+	/* Used for clk adjust */
+	if(config->doClkAdjust)
+	{
+		oneFramePadding = FramesToSeconds(1, framerate);
+		clkAdjustBufferSize = ceil(wm->SamplesPerSec*oneFramePadding);
+	}
+
 	if(!size)
 	{
 		logmsg("ERROR: Asked for window with null size %ld Frames %g Framerate\n", frames, framerate);
@@ -99,128 +136,22 @@ double *CreateWindow(windowManager *wm, long int frames, long int cutFrames, dou
 	}
 	//logmsg("**** Creating window size %ld (%ld frames %g fr)\n", size, frames, framerate);
 	if(wm->winType == 't')
-	{
-		window = tukeyWindow(size);
-		if(!window)
-		{
-			logmsg ("Tukey window creation failed\n");
-			return NULL;
-		}
-		if(sizePadding)
-		{
-			tmp = (double*)realloc(window, sizeof(double)*(size+sizePadding));
-			if(!tmp)
-			{
-				free(window);
-				logmsg ("Tukey window creation failed, padding\n");
-				return NULL;
-			}
-			window = tmp;
-			memset(window+size, 0, sizeof(double)*sizePadding);
-		}
-		wm->windowArray[wm->windowCount].sizePadding = sizePadding;
-
-		wm->windowArray[wm->windowCount].window = window;
-		wm->windowArray[wm->windowCount].seconds = seconds;
-		wm->windowArray[wm->windowCount].size = size;
-		wm->windowCount++;
-		return window;
-	}
+		return(CreateWindowInternal(wm, tukeyWindow, "Tukey", seconds, size, sizePadding, clkAdjustBufferSize));
 
 	if(wm->winType == 'f')
-	{
-		window = flattopWindow(size);
-		if(!window)
-		{
-			logmsg ("Flattop window creation failed\n");
-			return NULL;
-		}
-		if(sizePadding)
-		{
-			tmp = (double*)realloc(window, sizeof(double)*(size+sizePadding));
-			if(!tmp)
-			{
-				free(window);
-				logmsg ("Flattop window creation failed, padding\n");
-				return NULL;
-			}
-			window = tmp;
-			memset(window+size, 0, sizeof(double)*sizePadding);
-		}
-		wm->windowArray[wm->windowCount].sizePadding = sizePadding;
-
-		wm->windowArray[wm->windowCount].window = window;
-		wm->windowArray[wm->windowCount].seconds = seconds;
-		wm->windowArray[wm->windowCount].size = size;
-		wm->windowCount++;
-		return window;
-	}
+		return(CreateWindowInternal(wm, flattopWindow, "Flattop", seconds, size, sizePadding, clkAdjustBufferSize));
 
 	if(wm->winType == 'h')
-	{
-		window = hannWindow(size);
-		if(!window)
-		{
-			logmsg ("Hann window creation failed\n");
-			return NULL;
-		}
-
-		if(sizePadding)
-		{
-			tmp = (double*)realloc(window, sizeof(double)*(size+sizePadding));
-			if(!tmp)
-			{
-				free(window);
-				logmsg ("Hann window creation failed, padding\n");
-				return NULL;
-			}
-			window = tmp;
-			memset(window+size, 0, sizeof(double)*sizePadding);
-		}
-		wm->windowArray[wm->windowCount].sizePadding = sizePadding;
-
-		wm->windowArray[wm->windowCount].window = window;
-		wm->windowArray[wm->windowCount].seconds = seconds;
-		wm->windowArray[wm->windowCount].size = size;
-		wm->windowCount++;
-		return window;
-	}
+		return(CreateWindowInternal(wm, hannWindow, "Hann", seconds, size, sizePadding, clkAdjustBufferSize));
 
 	if(wm->winType == 'm')
-	{
-		window = hammingWindow(size);
-		if(!window)
-		{
-			logmsg ("Hamming window creation failed\n");
-			return NULL;
-		}
-
-		if(sizePadding)
-		{
-			tmp = (double*)realloc(window, sizeof(double)*(size+sizePadding));
-			if(!tmp)
-			{
-				free(window);
-				logmsg ("Hamming window creation failed, padding\n");
-				return NULL;
-			}
-			window = tmp;
-			memset(window+size, 0, sizeof(double)*sizePadding);
-		}
-		wm->windowArray[wm->windowCount].sizePadding = sizePadding;
-
-		wm->windowArray[wm->windowCount].window = window;
-		wm->windowArray[wm->windowCount].seconds = seconds;
-		wm->windowArray[wm->windowCount].size = size;
-		wm->windowCount++;
-		return window;
-	}
+		return(CreateWindowInternal(wm, hammingWindow, "Hamming", seconds, size, sizePadding, clkAdjustBufferSize));
 
 	logmsg("FAILED Creating window size %g (%ld frames %g fr)\n", frames*framerate, frames, framerate);
 	return NULL;
 }
 
-double *getWindowByLength(windowManager *wm, long int frames, long int cutFrames, double framerate)
+double *getWindowByLength(windowManager *wm, long int frames, long int cutFrames, double framerate, parameters *config)
 {
 	double		seconds = 0;
 	long int	size = 0;
@@ -246,7 +177,7 @@ double *getWindowByLength(windowManager *wm, long int frames, long int cutFrames
 		}
 	}
 
-	return CreateWindow(wm, frames, cutFrames, framerate);
+	return CreateWindow(wm, frames, cutFrames, framerate, config);
 }
 
 void freeWindows(windowManager *wm)

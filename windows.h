@@ -38,8 +38,8 @@ double *tukeyWindow(long int n);
 double *hammingWindow(long int n);
 
 int initWindows(windowManager *wm, int SamplesPerSec, char winType, parameters *config);
-double *getWindowByLength(windowManager *wm, long int frames, long int cutFrames, double framerate);
-double *CreateWindow(windowManager *wm, long int frames, long int cutFrames, double framerate);
+double *getWindowByLength(windowManager *wm, long int frames, long int cutFrames, double framerate, parameters *config);
+double *CreateWindow(windowManager *wm, long int frames, long int cutFrames, double framerate, parameters *config);
 void freeWindows(windowManager *windows);
 double CompensateValueForWindow(double value, char winType);
 double CalculateCorrectionFactor(windowManager *wm, long int frames);

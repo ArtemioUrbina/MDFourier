@@ -3491,40 +3491,6 @@ double FindFundamentalAmplitudeAverage(AudioSignal *Signal, parameters *config)
 }
 
 /*
-void AdjustFrequenciesByClockRate(AudioSignal *Signal, int type, double ratio, parameters *config)
-{
-	if(!Signal)
-		return;
-
-	if(!ratio)
-	{
-		logmsg("ERROR: received null ratio for clock rate adjustment.\n");
-		return;
-	}
-
-	for(int block = 0; block < config->types.totalBlocks; block++)
-	{
-		int currentType = TYPE_NOTYPE;
-
-		currentType = GetBlockType(config, block);
-		if(currentType == type)
-		{
-			for(int i = 0; i < config->MaxFreq; i++)
-			{
-				double hertz;
-
-				hertz = Signal->Blocks[block].freq[i].hertz;
-				if(!hertz)
-					break;
-
-				Signal->Blocks[block].freq[i].hertz = roundFloat(hertz*ratio);
-			}
-		}
-	}
-}
-*/
-
-/*
 void DetectOvertoneStart(AudioSignal *Signal, parameters *config)
 {
 	Frequency *tones = NULL;

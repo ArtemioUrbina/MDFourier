@@ -929,7 +929,7 @@ int ProcessFile(AudioSignal *Signal, parameters *config)
 
 		windowUsed = NULL;
 		if(Signal->Blocks[i].type >= TYPE_SILENCE)
-			windowUsed = getWindowByLength(&windows, frames, cutFrames, Signal->framerate);
+			windowUsed = getWindowByLength(&windows, frames, cutFrames, Signal->framerate, config);
 
 		//logmsg("Loaded %ld Left %ld Discard %ld difference %ld Decimals %g\n", loadedBlockSize, leftover, discardBytes, difference, leftDecimals);
 		memset(buffer, 0, buffersize);
@@ -1030,7 +1030,7 @@ int ProcessFile(AudioSignal *Signal, parameters *config)
 			cutFrames = GetBlockCutFrames(config, i);
 			duration = FramesToSeconds(Signal->framerate, frames);
 			if(Signal->Blocks[i].type >= TYPE_SILENCE)
-				windowUsed = getWindowByLength(&windows, frames, cutFrames, Signal->framerate);
+				windowUsed = getWindowByLength(&windows, frames, cutFrames, Signal->framerate, config);
 			
 			loadedBlockSize = SecondsToBytes(Signal->header.fmt.SamplesPerSec, duration, Signal->AudioChannels, &leftover, &discardBytes, &leftDecimals);
 	

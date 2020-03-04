@@ -94,7 +94,7 @@ int CheckBalance(AudioSignal *Signal, int block, parameters *config)
 
 		difference = GetByteSizeDifferenceByFrameRate(Signal->framerate, frames, Signal->header.fmt.SamplesPerSec, Signal->AudioChannels, config);
 
-		windowUsed = getWindowByLength(&windows, frames, cutFrames, config->smallerFramerate);
+		windowUsed = getWindowByLength(&windows, frames, cutFrames, config->smallerFramerate, config);
 
 		if(i == block)
 		{
