@@ -161,8 +161,7 @@ void CalcuateFrequencyBrackets(AudioSignal *Signal, parameters *config)
 		crossNoise = scanNoise/2;
 		Signal->crossFrequency = FindFrequencyBracket(crossNoise, Signal->Blocks[index].fftwValues.size, Signal->AudioChannels, Signal->header.fmt.SamplesPerSec, config);
 
-		if(config->verbose)
-		{
+		if(config->verbose) {
 			logmsg(" - Searching for noise frequencies [%s]: Power grid %g Hz Scan Rate: %g Hz Crossnoise %g Hz\n", 
 				Signal->role == ROLE_REF ? "Reference" : "Comparison",
 				Signal->gridFrequency, Signal->scanrateFrequency, Signal->crossFrequency);
@@ -1348,9 +1347,11 @@ void CompareFrameRates(AudioSignal *Signal1, AudioSignal *Signal2, parameters *c
 	else
 	{
 		config->smallerFramerate =  GetLowerFrameRate(Signal1->framerate, Signal2->framerate);
-		if((config->verbose && diff > 0.001) || diff > 0.1)
+		if((config->verbose && diff > 0.001) || diff > 0.1) {
 			logmsg("\n= Different frame rates found (%g), compensating to %g =\n", 
 				diff, config->smallerFramerate);
+		}
+
 		/*
 		if(diff <= 0.0004) // this is probably a sync detection error
 		{
@@ -1379,9 +1380,10 @@ void CompareFrameRatesMDW(AudioSignal *Signal, double framerate, parameters *con
 	else
 	{
 		config->smallerFramerate =  GetLowerFrameRate(Signal->framerate, framerate);
-		if(config->verbose && diff > 0.001)
+		if(config->verbose && diff > 0.001) {
 			logmsg("\n= Different frame rates found (%g), compensating to %g =\n", 
 				diff, config->smallerFramerate);
+		}
 		if(diff <= 0.0005) // this is a sync detection error
 			Signal->framerate = framerate;
 	}
@@ -2287,8 +2289,7 @@ Frequency FindNoiseBlockInsideOneStandardDeviation(AudioSignal *Signal, paramete
 	cutOff.hertz = mean.hertz+sd.hertz;
 	cutOff.amplitude = -1.0*(mean.amplitude+sd.amplitude);
 
-	if(config->verbose)
-	{
+	if(config->verbose) {
 		logmsg("  - %s signal profile defined noise channel data:\n", 
 			Signal->role == ROLE_REF ? "Reference" : "Comparison");
 		logmsg("      Standard deviation: %g dBFS [%g Hz] Mean: %g dBFS [%g Hz] Cutoff: %g dBFS [%g Hz]\n",
@@ -2310,9 +2311,10 @@ Frequency FindNoiseBlockInsideOneStandardDeviation(AudioSignal *Signal, paramete
 		}
 	}
 
-	if(config->verbose)
+	if(config->verbose) {
 		logmsg("  - Using %g would leave %g%% data out\n", 
 				cutOff.amplitude, outside/count*100);
+	}
 	return cutOff;
 }
 
@@ -2631,10 +2633,8 @@ void GlobalNormalize(AudioSignal *Signal, parameters *config)
 		}
 	}
 
-	if(config->verbose)
-	{
-		if(MaxBlock != -1)
-			logmsg(" - MAX Amplitude found in block %d at %g Hz with %g magnitude\n", MaxBlock, MaxFreq, MaxMagnitude);
+	if(config->verbose&& MaxBlock != -1) {
+		logmsg(" - MAX Amplitude found in block %d at %g Hz with %g magnitude\n", MaxBlock, MaxFreq, MaxMagnitude);
 	}
 
 	Signal->MaxMagnitude.magnitude = MaxMagnitude;
@@ -2703,10 +2703,8 @@ void FindMaxMagnitude(AudioSignal *Signal, parameters *config)
 		Signal->MaxMagnitude.block = MaxBlock;
 	}
 
-	if(config->verbose)
-	{
-		if(MaxBlock != -1)
-			logmsg(" - Max Amplitude found in block %d (%s %d) at %g Hz with magnitude [%g]\n", 
+	if(config->verbose && MaxBlock != -1) {
+		logmsg(" - Max Amplitude found in block %d (%s %d) at %g Hz with magnitude [%g]\n", 
 					MaxBlock, GetBlockName(config, MaxBlock), GetBlockSubIndex(config, MaxBlock), MaxFreq, MaxMagnitude);
 	}
 }
@@ -3329,7 +3327,6 @@ double CalculateFrameRateNS(AudioSignal *Signal, double Frames, parameters *conf
 		logmsg(" - %s file framerate difference is %g.\n\tAudio card sample rate estimated at %g\n",
 				Signal->role == ROLE_REF ? "Reference" : "Comparision",
 				diff, ACsamplerate);
-		
 	}
 
 	return framerate;
@@ -3484,8 +3481,7 @@ double FindFundamentalAmplitudeAverage(AudioSignal *Signal, parameters *config)
 	if(count)
 		AvgFundAmp /= count;
 
-	if(config->verbose)
-	{
+	if(config->verbose) {
 		logmsg(" - %s signal Average Fundamental Amplitude %g dBFS from %ld elements\n", 
 				Signal->role == ROLE_REF ? "Reference" : "Comparison",
 				AvgFundAmp, count);

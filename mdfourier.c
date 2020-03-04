@@ -323,8 +323,7 @@ int LoadAudioFiles(AudioSignal **ReferenceSignal, AudioSignal **ComparisonSignal
 		if(config->clock)
 			clock_gettime(CLOCK_MONOTONIC, &start);
 
-		if(config->verbose)
-			logmsg(" - Decoding FLAC\n");
+		if(config->verbose) { logmsg(" - Decoding FLAC\n"); }
 		renameFLAC(config->referenceFile, tmpFile);
 		if(!FLACtoWAV(config->referenceFile, tmpFile))
 		{
@@ -359,8 +358,7 @@ int LoadAudioFiles(AudioSignal **ReferenceSignal, AudioSignal **ComparisonSignal
 		if(config->clock)
 			clock_gettime(CLOCK_MONOTONIC, &start);
 
-		if(config->verbose)
-			logmsg(" - Decoding FLAC\n");
+		if(config->verbose) { logmsg(" - Decoding FLAC\n"); }
 		renameFLAC(config->comparisonFile, tmpFile);
 		if(!FLACtoWAV(config->comparisonFile, tmpFile))
 		{
@@ -513,8 +511,7 @@ int FrequencyDomainNormalize(AudioSignal **ReferenceSignal, AudioSignal **Compar
 			{
 				while(MaxRefArray[pos].magnitude != 0 && pos < FREQDOMTRIES)
 				{
-					if(config->verbose)
-					{
+					if(config->verbose) {
 						logmsg(" - Reference Max Magnitude[%d] found in %s# %d (%d) at %g Hz with %g\n", 
 							pos,
 							GetBlockName(config, MaxRefArray[pos].block), GetBlockSubIndex(config, MaxRefArray[pos].block),
@@ -526,7 +523,7 @@ int FrequencyDomainNormalize(AudioSignal **ReferenceSignal, AudioSignal **Compar
 					if(ComparisonLocalMaximumArray)
 					{
 						ratioRefArray = ComparisonLocalMaximumArray/MaxRefArray[pos].magnitude;
-						if(config->verbose) logmsg(" - Comparision ratio is %g (%g/%g)\n", 1.0/ratioRefArray, ComparisonLocalMaximumArray, MaxRefArray[pos].magnitude);
+						if(config->verbose) { logmsg(" - Comparision ratio is %g (%g/%g)\n", 1.0/ratioRefArray, ComparisonLocalMaximumArray, MaxRefArray[pos].magnitude); }
 						if(1.0/ratioRefArray <= FREQDOMRATIO)
 						{
 							found = 1;
@@ -555,8 +552,7 @@ int FrequencyDomainNormalize(AudioSignal **ReferenceSignal, AudioSignal **Compar
 						config->frequencyNormalizationTries = pos + 1;
 					}
 					else {
-						if(config->verbose)	logmsg(" - Alternative matches were worse than original, (%g<-%g)reverting\n",
-							ratioRefArray, ratioRef);
+						if(config->verbose) { logmsg(" - Alternative matches were worse than original, (%g<-%g)reverting\n", ratioRefArray, ratioRef); }
 					}
 				}
 				else {
@@ -767,9 +763,10 @@ int LoadAndProcessAudioFiles(AudioSignal **ReferenceSignal, AudioSignal **Compar
 		if(block != NO_INDEX)
 		{
 			logmsg("\n* Comparing Stereo channel amplitude\n");
-			if(config->verbose)
+			if(config->verbose) {
 				logmsg(" - Mono block used for balance: %s# %d\n", 
 					GetBlockName(config, block), GetBlockSubIndex(config, block));
+			}
 			CheckBalance(*ReferenceSignal, block, config);
 			CheckBalance(*ComparisonSignal, block, config);
 		}
@@ -850,16 +847,18 @@ int NormalizeAndFinishProcess(AudioSignal **ReferenceSignal, AudioSignal **Compa
 	if((*ReferenceSignal)->MaxMagnitude.magnitude < (*ComparisonSignal)->MaxMagnitude.magnitude)
 	{
 		ZeroDbMagnitudeRef = (*ComparisonSignal)->MaxMagnitude.magnitude;
-		if(config->verbose)
+		if(config->verbose) {
 			logmsg(" - Comparison file has the highest peak at %g vs %g\n",
 				ZeroDbMagnitudeRef, (*ReferenceSignal)->MaxMagnitude.magnitude);
+		}
 	}
 	else
 	{
 		ZeroDbMagnitudeRef = (*ReferenceSignal)->MaxMagnitude.magnitude;
-		if(config->verbose)
+		if(config->verbose) {
 			logmsg(" - Reference file has the highest peak at %g vs %g\n",
 				ZeroDbMagnitudeRef, (*ComparisonSignal)->MaxMagnitude.magnitude);
+		}
 	}
 
 	CalculateAmplitudes(*ReferenceSignal, ZeroDbMagnitudeRef, config);
@@ -1087,8 +1086,9 @@ int LoadFile(FILE *file, AudioSignal *Signal, parameters *config, char *fileName
 			clock_gettime(CLOCK_MONOTONIC, &start);
 
 		/* Find the start offset */
-		if(config->verbose)
-			logmsg(" - Sync pulse train: ");
+		if(config->verbose) { 
+			logmsg(" - Sync pulse train: "); 
+		}
 		Signal->startOffset = DetectPulse(Signal->Samples, Signal->header, Signal->role, config);
 		if(Signal->startOffset == -1)
 		{
@@ -1107,17 +1107,19 @@ int LoadFile(FILE *file, AudioSignal *Signal, parameters *config, char *fileName
 							config->types.SyncFormat[format].syncName, config->smallFile ? " and is smaller than expected" : "");
 			return 0;
 		}
-		if(config->verbose)
+		if(config->verbose) {
 			logmsg(" %gs [%ld samples|%ld bytes|%ld bytes/head]", 
 				BytesToSeconds(Signal->header.fmt.SamplesPerSec, Signal->startOffset, Signal->AudioChannels),
 				Signal->startOffset/2/Signal->AudioChannels, Signal->startOffset, Signal->startOffset + Signal->SamplesStart);
+		}
 
 		if(GetLastSyncIndex(config) != NO_INDEX)
 		{
 			double diff = 0, expected = 0;
 
-			if(config->verbose)
+			if(config->verbose) { 
 				logmsg(" to");
+			}
 			Signal->endOffset = DetectEndPulse(Signal->Samples, Signal->startOffset, Signal->header, Signal->role, config);
 			if(Signal->endOffset == -1)
 			{
@@ -1135,10 +1137,11 @@ int LoadFile(FILE *file, AudioSignal *Signal, parameters *config, char *fileName
 							config->types.SyncFormat[format].syncName, config->smallFile ? " and is smaller than expected" : "");
 				return 0;
 			}
-			if(config->verbose)
+			if(config->verbose) {
 				logmsg(" %gs [%ld samples|%ld bytes|%ld bytes/head]\n", 
 					BytesToSeconds(Signal->header.fmt.SamplesPerSec, Signal->endOffset, Signal->AudioChannels),
 					Signal->endOffset/2/Signal->AudioChannels, Signal->endOffset, Signal->endOffset + Signal->SamplesStart);
+			}
 			Signal->framerate = CalculateFrameRateAndCheckSamplerate(Signal, config);
 			if(!Signal->framerate)
 			{
@@ -1281,13 +1284,15 @@ int MoveSampleBlockInternal(AudioSignal *Signal, long int element, long int pos,
 	if(pos + signalStartOffset + signalLengthBytes > Signal->header.data.DataSize)
 	{
 		signalLengthBytes = Signal->header.data.DataSize - (pos+signalStartOffset);
-		if(config->verbose)
+		if(config->verbose) {
 			logmsg(" - Internal sync adjust: Signal is smaller than expected\n");
+		}
 	}
 
-	if(config->verbose)
+	if(config->verbose) {
 		logmsg(" - Internal Segment Info:\n\tFinal Offset: %ld Frames: %d Seconds: %g Bytes: %ld\n",
 				pos+signalStartOffset, signalLengthFrames, signalLengthSeconds, signalLengthBytes);
+	}
 
 	sampleBuffer = (char*)malloc(sizeof(char)*signalLengthBytes);
 	if(!sampleBuffer)
@@ -1335,12 +1340,14 @@ int MoveSampleBlockExternal(AudioSignal *Signal, long int element, long int pos,
 	if(pos + signalStartOffset + signalLengthBytes > Signal->header.data.DataSize)
 	{
 		signalLengthBytes = Signal->header.data.DataSize - (pos+signalStartOffset);
-		if(config->verbose)
+		if(config->verbose) {
 			logmsg(" - Internal sync adjust: Signal is smaller than expected\n");
+		}
 	}
-	if(config->verbose)
+	if(config->verbose) {
 		logmsg(" - Internal Segment Info:\n\tFinal Offset: %ld Frames: %d Seconds: %g Bytes: %ld\n",
 				pos+signalStartOffset, signalLengthFrames, signalLengthSeconds, signalLengthBytes);
+	}
 
 	sampleBuffer = (char*)malloc(sizeof(char)*signalLengthBytes);
 	if(!sampleBuffer)
@@ -1410,9 +1417,10 @@ int ProcessInternal(AudioSignal *Signal, long int element, long int pos, int *sy
 				BytesToSeconds(Signal->header.fmt.SamplesPerSec, internalSyncOffset, Signal->AudioChannels)*1000.0,
 				BytesToFrames(Signal->header.fmt.SamplesPerSec, internalSyncOffset, config->referenceFramerate, Signal->AudioChannels));
 
-			if(config->verbose)
+			if(config->verbose) {
 					logmsg("  > Found at: %ld Previous: %ld Offset: %ld\n\tPulse Length: %ld Silence Length: %ld\n", 
 						pos + internalSyncOffset, pos, internalSyncOffset, pulseLengthBytes, syncLengthBytes/2);
+			}
 
 #ifndef MDWAVE
 			/* Copy waveforms for visual inspection, create 3 slots: silence, sync pulse, silence */
@@ -1482,9 +1490,10 @@ int ProcessInternal(AudioSignal *Signal, long int element, long int pos, int *sy
 				BytesToSeconds(Signal->header.fmt.SamplesPerSec, internalSyncOffset, Signal->AudioChannels)*1000.0,
 				BytesToFrames(Signal->header.fmt.SamplesPerSec, internalSyncOffset, config->referenceFramerate, Signal->AudioChannels));
 
-			if(config->verbose)
+			if(config->verbose) {
 				logmsg("  > Found at: %ld Previous: %ld\n\tPulse Length: %ld Silence Length: %ld\n", 
 					pos + internalSyncOffset, pos, pulseLengthBytes, silenceLengthBytes);
+			}
 			
 			// skip the pulse real duration to sync perfectly
 			signalStart += pulseLengthBytes;
@@ -1742,12 +1751,32 @@ int RecalculateFFTW(AudioSignal *Signal, parameters *config)
 	return 1;
 }
 
+/*
+void RecalculateFrameRateAndSamplerate(AudioSignal *Signal, parameters *config)
+{
+	double	ratio = 0;
+	int		estimatedSampleRate = 0;
+
+	ratio = ((double)(config->clkFreq*config->clkRatio))/CalculateClk(Signal, config);
+	estimatedSampleRate = ceil((double)Signal->header.fmt.SamplesPerSec*ratio);
+	Signal->EstimatedSR_CLK = estimatedSampleRate;
+
+	Signal->originalSR_CLK = Signal->header.fmt.SamplesPerSec;
+	Signal->header.fmt.SamplesPerSec = estimatedSampleRate;
+	Signal->framerate = CalculateFrameRate(Signal, config);
+	logmsg("New frame rate: %g SR: %d->%d (%g)\n", 
+		Signal->framerate,
+		originalSampleRate, Signal->header.fmt.SamplesPerSec,
+		ratio);
+}
+*/
+
 // This use dto always adjust teh comparison signal
 // That caused issues when Ref CLK was lower than comp clk
 // Didn't check why, maybe someday I'll figure it out when I need to (if)
-void RecalculateFrameRateAndSamplerateComp(AudioSignal *ReferenceSignal, AudioSignal *ComparisonSignal, parameters *config)
+double RecalculateFrameRateAndSamplerateComp(AudioSignal *ReferenceSignal, AudioSignal *ComparisonSignal, parameters *config)
 {
-	double		ratio = 0, refCLK = 0, compCLK = 0;
+	double		ratio = 0, refCLK = 0, compCLK = 0, adjustedTo = 0;
 	int			estimatedSampleRate = 0;
 	AudioSignal	*changedSignal = 0;
 
@@ -1759,12 +1788,14 @@ void RecalculateFrameRateAndSamplerateComp(AudioSignal *ReferenceSignal, AudioSi
 		changedSignal = ComparisonSignal;
 		ratio = refCLK/compCLK;
 		changedSignal->originalCLK = compCLK;
+		adjustedTo = refCLK;
 	}
 	else
 	{
 		changedSignal = ReferenceSignal;
 		ratio = compCLK/refCLK;
 		changedSignal->originalCLK = refCLK;
+		adjustedTo = compCLK;
 	}
 	config->changedCLKFrom = changedSignal->role;
 	
@@ -1775,16 +1806,25 @@ void RecalculateFrameRateAndSamplerateComp(AudioSignal *ReferenceSignal, AudioSi
 	changedSignal->header.fmt.SamplesPerSec = estimatedSampleRate;
 	//changedSignal->originalFrameRate = changedSignal->framerate;
 	changedSignal->framerate = CalculateFrameRate(changedSignal, config);
-	if(config->verbose)
+	if(config->verbose) {
 		logmsg(" - Adjusted frame rate to match same lengths with CLK: %gms [SR: %d->%dHz]\n", 
 			changedSignal->framerate,
 			changedSignal->originalSR_CLK, changedSignal->header.fmt.SamplesPerSec);
+	}
+	return adjustedTo;
 }
 
 int RecalculateFrequencyStructures(AudioSignal *ReferenceSignal, AudioSignal *ComparisonSignal, parameters *config)
 {
-	logmsg(" - Adjusted Comparison %s CLK: %gHz\n", config->clkName, CalculateClk(ReferenceSignal, config));
-	RecalculateFrameRateAndSamplerateComp(ReferenceSignal, ComparisonSignal, config);
+	double adjusted = 0;
+
+	//RecalculateFrameRateAndSamplerate(ReferenceSignal, config);
+	//RecalculateFrameRateAndSamplerate(ComparisonSignal, config);
+
+	adjusted = RecalculateFrameRateAndSamplerateComp(ReferenceSignal, ComparisonSignal, config);
+	logmsg(" - Adjusted %s %s CLK: %gHz\n", 
+			config->changedCLKFrom == ROLE_REF? "Reference" : "Comparison", 
+			config->clkName, adjusted);
 	CompareFrameRates(ReferenceSignal, ComparisonSignal, config);
 
 	logmsg(" - Recalculation Discrete Fast Fourier Transforms with new %s CLK value\n", config->clkName);
@@ -1882,7 +1922,7 @@ int ProcessFile(AudioSignal *Signal, parameters *config)
 		memcpy(buffer, Signal->Samples + pos, loadedBlockSize-difference);
 
 		if(config->plotTimeDomainHiDiff || config->plotAllNotes || 
-			config->doClkAdjust ||  Signal->Blocks[i].type == TYPE_TIMEDOMAIN)
+			config->doClkAdjust || Signal->Blocks[i].type == TYPE_TIMEDOMAIN)
 		{
 			if(!CopySamplesForTimeDomainPlot(&Signal->Blocks[i], (int16_t*)(Signal->Samples + pos), loadedBlockSize/2, difference/2, Signal->header.fmt.SamplesPerSec, windowUsed, Signal->AudioChannels, config))
 				return 0;
@@ -2421,9 +2461,10 @@ void ProcessWaveformsByBlock(AudioSignal *SignalToModify, AudioSignal *FixedSign
 	scaleRatio = FindClippingAndRatio(SignalToModify, ratio, config);
 	if(scaleRatio != 0)
 	{
-		if(config->verbose)
+		if(config->verbose) {
 			logmsg(" - Found clipping values: %g scaling by %g -> %g \n",
 				ratio, scaleRatio, ratio*scaleRatio);
+		}
 
 		ratio *= scaleRatio;
 		NormalizeTimeDomainByFrequencyRatio(FixedSignal, scaleRatio, config);
@@ -2436,20 +2477,22 @@ void ProcessWaveformsByBlock(AudioSignal *SignalToModify, AudioSignal *FixedSign
 
 	if(MaxSampleToModify && MaxSampleFixed)
 	{
-		if(config->verbose)
+		if(config->verbose) {
 			logmsg(" - Found Sample values. Modify(%s): %d at %s# %d (%d) and Fixed(%s): %d at %s# %d (%d)\n",
 				SignalToModify->role == ROLE_REF ? "Reference" : "Comparison",
 				MaxSampleToModify, GetBlockName(config, blockMod), GetBlockSubIndex(config, blockMod), blockMod,
 				FixedSignal->role == ROLE_REF ? "Reference" : "Comparison",
 				MaxSampleFixed, GetBlockName(config, blockFixed), GetBlockSubIndex(config, blockFixed), blockFixed);
+		}
 
 		if(MaxSampleToModify > MaxSampleFixed)
 			scaleRatio = WAVEFORM_SCALE/(double)MaxSampleToModify;
 		else
 			scaleRatio = WAVEFORM_SCALE/(double)MaxSampleFixed;
 		
-		if(config->verbose)
+		if(config->verbose) {
 			logmsg(" - Scale factor to reach -3dBFS: %g\n", scaleRatio);
+		}
 
 		if(scaleRatio != 1.0)
 		{
@@ -2691,15 +2734,11 @@ MaxMagn FindMaxMagnitudeBlock(AudioSignal *Signal, parameters *config)
 		Signal->MaxMagnitude.block = MaxMag.block;
 	}
 
-	if(config->verbose)
-	{
-		if(MaxMag.block != -1)
-		{
+	if(config->verbose && MaxMag.block != -1) {
 			logmsg(" - %s Max Magnitude found in %s# %d (%d) at %g Hz with %g\n", 
 					Signal->role == ROLE_REF ? "Reference" : "Comparison",
 					GetBlockName(config, MaxMag.block), GetBlockSubIndex(config, MaxMag.block),
 					MaxMag.block, MaxMag.hertz, MaxMag.magnitude);
-		}
 	}
 
 	return MaxMag;
@@ -2793,15 +2832,12 @@ double FindLocalMaximumInBlock(AudioSignal *Signal, MaxMagn refMax, int allowDif
 
 		if(diff == 0)
 		{
-			if(config->verbose)
-			{
+			if(config->verbose) {
 				logmsg(" - Comparison Local Max magnitude for [R:%g->C:%g] Hz is %g at %s# %d (%d)\n",
 					refMax.hertz, Signal->Blocks[refMax.block].freq[i].hertz, 
 					magnitude, GetBlockName(config, refMax.block), GetBlockSubIndex(config, refMax.block), refMax.block);
 			}
 			return (magnitude);
-			if(magnitude > highest)
-				highest = magnitude;
 		}
 	}
 
@@ -2827,8 +2863,7 @@ double FindLocalMaximumInBlock(AudioSignal *Signal, MaxMagn refMax, int allowDif
 			binSize = FindFrequencyBinSizeForBlock(Signal, refMax.block);
 			if(diff < 5*binSize)
 			{
-				if(config->verbose)
-				{
+				if(config->verbose) {
 					logmsg(" - Comparison Local Max magnitude with tolerance for [R:%g->C:%g] Hz is %g at %s# %d (%d)\n",
 						refMax.hertz, Signal->Blocks[refMax.block].freq[i].hertz, 
 						magnitude, GetBlockName(config, refMax.block), GetBlockSubIndex(config, refMax.block), refMax.block);
@@ -2841,8 +2876,7 @@ double FindLocalMaximumInBlock(AudioSignal *Signal, MaxMagn refMax, int allowDif
 		}
 	}
 
-	if(config->verbose)
-	{
+	if(config->verbose) {
 		logmsg(" - Comparison Local Maximum (No Hz match%s) with %g magnitude at block %d\n",
 			allowDifference ? " with tolerance": "", highest, refMax.block);
 	}
@@ -2873,8 +2907,7 @@ double FindFundamentalMagnitudeAverage(AudioSignal *Signal, parameters *config)
 	if(count)
 		AvgFundMag /= count;
 
-	if(config->verbose)
-	{
+	if(config->verbose) {
 		logmsg(" - %s signal Average Fundamental Magnitude %g from %ld elements\n", 
 				Signal->role == ROLE_REF ? "Reference" : "Comparison",
 				AvgFundMag, count);
