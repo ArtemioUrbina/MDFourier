@@ -69,7 +69,7 @@ int initWindows(windowManager *wm, int SamplesPerSec, char winType, parameters *
 double *CreateWindow(windowManager *wm, long int frames, long int cutFrames, double framerate)
 {
 	double		seconds = 0;
-	double		*window = NULL;
+	double		*window = NULL, *tmp = NULL;
 	long int	size = 0;
 	double		secondsPadding = 0;
 	long int	sizePadding = 0;
@@ -108,12 +108,14 @@ double *CreateWindow(windowManager *wm, long int frames, long int cutFrames, dou
 		}
 		if(sizePadding)
 		{
-			window = (double*)realloc(window, sizeof(double)*(size+sizePadding));
-			if(!window)
+			tmp = (double*)realloc(window, sizeof(double)*(size+sizePadding));
+			if(!tmp)
 			{
-				logmsg ("Tukey window creation failed\n");
+				free(window);
+				logmsg ("Tukey window creation failed, padding\n");
 				return NULL;
 			}
+			window = tmp;
 			memset(window+size, 0, sizeof(double)*sizePadding);
 		}
 		wm->windowArray[wm->windowCount].sizePadding = sizePadding;
@@ -135,12 +137,14 @@ double *CreateWindow(windowManager *wm, long int frames, long int cutFrames, dou
 		}
 		if(sizePadding)
 		{
-			window = (double*)realloc(window, sizeof(double)*(size+sizePadding));
-			if(!window)
+			tmp = (double*)realloc(window, sizeof(double)*(size+sizePadding));
+			if(!tmp)
 			{
-				logmsg ("Flattop window creation failed\n");
+				free(window);
+				logmsg ("Flattop window creation failed, padding\n");
 				return NULL;
 			}
+			window = tmp;
 			memset(window+size, 0, sizeof(double)*sizePadding);
 		}
 		wm->windowArray[wm->windowCount].sizePadding = sizePadding;
@@ -163,12 +167,14 @@ double *CreateWindow(windowManager *wm, long int frames, long int cutFrames, dou
 
 		if(sizePadding)
 		{
-			window = (double*)realloc(window, sizeof(double)*(size+sizePadding));
-			if(!window)
+			tmp = (double*)realloc(window, sizeof(double)*(size+sizePadding));
+			if(!tmp)
 			{
-				logmsg ("Hann window creation failed\n");
+				free(window);
+				logmsg ("Hann window creation failed, padding\n");
 				return NULL;
 			}
+			window = tmp;
 			memset(window+size, 0, sizeof(double)*sizePadding);
 		}
 		wm->windowArray[wm->windowCount].sizePadding = sizePadding;
@@ -191,12 +197,14 @@ double *CreateWindow(windowManager *wm, long int frames, long int cutFrames, dou
 
 		if(sizePadding)
 		{
-			window = (double*)realloc(window, sizeof(double)*(size+sizePadding));
-			if(!window)
+			tmp = (double*)realloc(window, sizeof(double)*(size+sizePadding));
+			if(!tmp)
 			{
-				logmsg ("Hamming window creation failed\n");
+				free(window);
+				logmsg ("Hamming window creation failed, padding\n");
 				return NULL;
 			}
+			window = tmp;
 			memset(window+size, 0, sizeof(double)*sizePadding);
 		}
 		wm->windowArray[wm->windowCount].sizePadding = sizePadding;
