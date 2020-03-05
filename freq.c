@@ -3243,7 +3243,7 @@ double CalculateFrameRateAndCheckSamplerate(AudioSignal *Signal, parameters *con
 
 	ACsamplerate = (endOffset-startOffset)/(expectedFR*LastSyncFrameOffset);
 	ACsamplerate = ACsamplerate*1000.0/(2.0*Signal->AudioChannels);
-	if(fabs(ACsamplerate - samplerate) >= 5.0)
+	if(fabs(ACsamplerate - samplerate) >= 2.0)
 	{	
 		if(config->doSamplerateAdjust)
 		{
@@ -3489,62 +3489,3 @@ double FindFundamentalAmplitudeAverage(AudioSignal *Signal, parameters *config)
 
 	return AvgFundAmp;
 }
-
-/*
-void DetectOvertoneStart(AudioSignal *Signal, parameters *config)
-{
-	Frequency *tones = NULL;
-	
-	tones = (Frequency*)malloc(sizeof(Frequency)*config->MaxFreq);
-	if(!tones)
-	{
-		logmsg("Not enough memory\n");
-		return;
-	}
-	for(int n = 0; n < config->types.totalBlocks; n++)
-	{
-		int		fcount = 0;
-
-		logmsg("BLOCK (%d) %s# %d\n", n, GetBlockName(config, n), GetBlockSubIndex(config, n));
-		for(int i = 0; i < config->MaxFreq; i++)
-		{
-			Frequency freq;
-
-			freq = Signal->Blocks[n].freq[i];
-			if(freq.hertz != 0)
-			{
-				int found = 0;
-
-				for(int f = 0; f < fcount; f++)
-				{
-					int overtone = 0;
-
-					overtone = (int)round(freq.hertz) % (int)round(tones[f].hertz);
-					if(overtone == 0)
-					{
-						logmsgFileOnly("Overtone found! %g[%d] Hz %g dBFS of %g[%d] Hz %g dBFS at pos %d\n", 
-							freq.hertz, (int)round(freq.hertz), freq.amplitude, 
-							tones[f].hertz, (int)round(tones[f].hertz), tones[f].amplitude, i);
-						found = 1;
-						// destroy the rest!
-						Signal->Blocks[n].freq[i].hertz = 0;
-						Signal->Blocks[n].freq[i].amplitude = NO_AMPLITUDE;
-						break;
-					}
-				}
-
-				if	(!found)
-				{
-					tones[fcount] = freq;
-					fcount ++;
-				}
-				else
-					break;
-			}
-		}
-	}
-	free(tones);
-	tones = NULL;
-}
-
-*/

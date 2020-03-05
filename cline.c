@@ -53,7 +53,7 @@ void PrintUsage()
 	logmsg("		'f' Frequency Domain Max, 't' Time Domain or 'a' Average\n");
 	logmsg("	 -B: Do not do stereo channel audio <B>alancing\n");
 	logmsg("	 -I: <I>gnore frame rate difference for analysis\n");
-	logmsg("	 -p: Define the significant volume value in dBFS (0 to disable auto adjust)\n");
+	logmsg("	 -p: Define the noise floor value in dBFS (0 to disable auto adjust)\n");
 	logmsg("	 -T: Increase Sync detection <T>olerance (ignore frequency for pulses)\n");
 	logmsg("	 -Y: Define the Reference Video Format from the profile\n");
 	logmsg("	 -Z: Define the Comparison Video Format from the profile\n");
@@ -450,12 +450,14 @@ int commandline(int argc , char *argv[], parameters *config)
 			config->noiseFloorAutoAdjust = 0;
 			config->significantAmplitude = SIGNIFICANT_VOLUME;
 		}
-		else if(config->significantAmplitude <= -200.0 || config->significantAmplitude >= -1.0)
+		else if(config->significantAmplitude < -200.0 || config->significantAmplitude > -1.0)
 		{
-			logmsg("\t - Significant amplitude must be between %d and %d, changed to %g\n", -1, -200.0, SIGNIFICANT_VOLUME);
+			logmsg("\t - Significant amplitude must be between %d and %d, changed to %g\n", -1, -200, SIGNIFICANT_VOLUME);
 			config->significantAmplitude = SIGNIFICANT_VOLUME;
+		} else {
+			config->ignoreFloor = 2;
+			config->origSignificantAmplitude = config->significantAmplitude;
 		}
-		config->origSignificantAmplitude = config->significantAmplitude;
 		break;
 	  case 'Q':
 		config->plotTimeDomain = 0;

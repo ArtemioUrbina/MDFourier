@@ -665,69 +665,70 @@ int TimeDomainNormalizeCompensate(AudioSignal **ReferenceSignal, AudioSignal **C
 }
 */
 
-int ProcessNoiseFloor(AudioSignal **ReferenceSignal, AudioSignal **ComparisonSignal, parameters *config)
+int ProcessNoiseFloor(AudioSignal *ReferenceSignal, AudioSignal *ComparisonSignal, parameters *config)
 {
+	int		refHasFloor = 0, comHasFloor = 0;
 	double	avgRef = 0, avgComp = 0;
 
 	/* analyze silence floor if available */
-	if((*ReferenceSignal)->hasSilenceBlock)
-		FindFloor(*ReferenceSignal, config);
-	if((*ComparisonSignal)->hasSilenceBlock)
-		FindFloor(*ComparisonSignal, config);
+	if(ReferenceSignal->hasSilenceBlock)
+		FindFloor(ReferenceSignal, config);
+	if(ComparisonSignal->hasSilenceBlock)
+		FindFloor(ComparisonSignal, config);
 
-	avgRef = FindFundamentalAmplitudeAverage(*ReferenceSignal, config);
-	avgComp = FindFundamentalAmplitudeAverage(*ComparisonSignal, config);
+	refHasFloor = (ReferenceSignal->hasSilenceBlock && ReferenceSignal->floorAmplitude != 0.0);
+	comHasFloor = (ComparisonSignal->hasSilenceBlock && ComparisonSignal->floorAmplitude != 0.0);
 
-	if((*ReferenceSignal)->floorAmplitude &&
-		avgRef <= (*ReferenceSignal)->floorAmplitude)
+	avgRef = FindFundamentalAmplitudeAverage(ReferenceSignal, config);
+	avgComp = FindFundamentalAmplitudeAverage(ComparisonSignal, config);
+
+	if(refHasFloor && avgRef < ReferenceSignal->floorAmplitude)
 	{
-		config->noiseFloorTooHigh = 1;
+		config->noiseFloorTooHigh |= ReferenceSignal->role;
 		logmsg(" - Reference noise floor %g dBFS is louder than the average %g dBFS of the signal, ignoring\n",
-				(*ReferenceSignal)->floorAmplitude, avgRef);
-		(*ComparisonSignal)->floorAmplitude = SIGNIFICANT_VOLUME;
+				ReferenceSignal->floorAmplitude, avgRef);
+		ReferenceSignal->floorAmplitude = SIGNIFICANT_VOLUME;
 	}
 
-	if((*ComparisonSignal)->floorAmplitude && 
-		avgComp <= (*ComparisonSignal)->floorAmplitude)
+	if(comHasFloor && avgComp < ComparisonSignal->floorAmplitude)
 	{
-		config->noiseFloorTooHigh = 1;
+		config->noiseFloorTooHigh |= ComparisonSignal->role;
 		logmsg(" - Comparison noise floor %g dBFS is louder than the average %g dBFS of the signal, ignoring\n",
-				(*ComparisonSignal)->floorAmplitude, avgComp);
-		(*ComparisonSignal)->floorAmplitude = SIGNIFICANT_VOLUME;
+				ComparisonSignal->floorAmplitude, avgComp);
+		ComparisonSignal->floorAmplitude = SIGNIFICANT_VOLUME;
 	}
 
-	/* Detect Signal Floor */
-	if((*ReferenceSignal)->hasSilenceBlock  && 
-		(*ReferenceSignal)->floorAmplitude != 0.0)
-		config->significantAmplitude = (*ReferenceSignal)->floorAmplitude;
+	/* Detect Signal Floor, default to Reference's*/
+	if(refHasFloor)
+		config->significantAmplitude = ReferenceSignal->floorAmplitude;
 
 	if(config->significantAmplitude >= LOWEST_NOISEFLOOR_ALLOWED)
 	{
 		logmsg(" - WARNING: Noise floor %g dBFS is louder than the default %g dBFS\n\tIf differences are not visible, use -i  and define a limit with -p <dbfs>\n",
 				config->significantAmplitude, LOWEST_NOISEFLOOR_ALLOWED);
 		config->noiseFloorTooHigh = 1;
-		// we rather not take action
+		// we rather not take action for now
 		//config->significantAmplitude = NS_SIGNIFICANT_VOLUME;
 	}
 
 	if(NS_SIGNIFICANT_VOLUME > config->significantAmplitude)
 	{
 		/* Check if Comparison Noise floor is in par */
-		if((*ComparisonSignal)->floorAmplitude != 0.0 && (*ReferenceSignal)->floorAmplitude != 0.0)
+		if(refHasFloor && comHasFloor)
 		{
 			double diff = 0;
 
-			diff = fabs((*ReferenceSignal)->floorAmplitude - (*ComparisonSignal)->floorAmplitude);
+			diff = fabs(ReferenceSignal->floorAmplitude - ComparisonSignal->floorAmplitude);
 
 			// If comparison is lower than the default and higher than reference, use that
-			if((*ReferenceSignal)->floorAmplitude < (*ComparisonSignal)->floorAmplitude)
+			if(ReferenceSignal->floorAmplitude < ComparisonSignal->floorAmplitude)
 			{
 				if(config->noiseFloorAutoAdjust || 
-					(NS_SIGNIFICANT_VOLUME > (*ComparisonSignal)->floorAmplitude && 
-					LOWEST_NOISEFLOOR_ALLOWED >= (*ComparisonSignal)->floorAmplitude))
+					(NS_SIGNIFICANT_VOLUME > ComparisonSignal->floorAmplitude && 
+					LOWEST_NOISEFLOOR_ALLOWED >= ComparisonSignal->floorAmplitude))
 				{
-					config->significantAmplitude = (*ComparisonSignal)->floorAmplitude;
-					if(config->noiseFloorAutoAdjust && LOWEST_NOISEFLOOR_ALLOWED < (*ComparisonSignal)->floorAmplitude)
+					config->significantAmplitude = ComparisonSignal->floorAmplitude;
+					if(config->noiseFloorAutoAdjust && LOWEST_NOISEFLOOR_ALLOWED < ComparisonSignal->floorAmplitude)
 						config->noiseFloorTooHigh = 1;
 				}
 				//else config->significantAmplitude = NS_SIGNIFICANT_VOLUME;
@@ -736,6 +737,12 @@ int ProcessNoiseFloor(AudioSignal **ReferenceSignal, AudioSignal **ComparisonSig
 			if(diff > 20)
 				config->noiseFloorBigDifference = 1;
 		}
+	}
+
+	if(config->significantAmplitude < NS_SIGNIFICANT_VOLUME && config->noiseFloorAutoAdjust)
+	{
+		config->significantAmplitude = NS_SIGNIFICANT_VOLUME;
+		logmsg(" - Limiting noise floor to %g, can override with -p 0\n", config->significantAmplitude);
 	}
 
 	logmsg(" - Using %g dBFS as minimum significant amplitude for analysis\n",
@@ -808,13 +815,11 @@ int LoadAndProcessAudioFiles(AudioSignal **ReferenceSignal, AudioSignal **Compar
 
 	if(!config->ignoreFloor)
 	{
-		if(!ProcessNoiseFloor(ReferenceSignal, ComparisonSignal, config))
+		if(!ProcessNoiseFloor(*ReferenceSignal, *ComparisonSignal, config))
 			return 0;
 	}
-
-	//DetectOvertoneStart(*ReferenceSignal, config);
-	//DetectOvertoneStart(*ComparisonSignal, config);
-
+	else
+		logmsg(" - Ignoring Noise floor, using %gdBFS\n", config->significantAmplitude);
 	return 1;
 }
 
@@ -1545,6 +1550,57 @@ int ProcessInternal(AudioSignal *Signal, long int element, long int pos, int *sy
 	return 1;
 }
 
+int CopySamplesForTimeDomainPlotWindowOnly(AudioBlocks *AudioArray, long samplerate, double *window, parameters *config)
+{
+	long			i = 0, monoSignalSize = 0, difference = 0;
+	int16_t			*signal = NULL, *window_samples = NULL;
+	
+	if(!AudioArray)
+	{
+		logmsg("No Array for results\n");
+		return 0;
+	}
+
+	if(!config->plotAllNotesWindowed || !window || !config->doClkAdjust)
+	{
+		logmsg("Unplanned function call\n");
+		return 0;
+	}
+
+	if(AudioArray->audio.window_samples)
+	{
+		logmsg("ERROR: Window waveforms already stored\n");
+		return 0;
+	}
+
+	if(!AudioArray->audio.samples)
+	{
+		logmsg("ERROR: Waveforms not stored\n");
+		return 0;
+	}
+
+	signal = AudioArray->audio.samples;
+	monoSignalSize = AudioArray->audio.size;
+	difference = AudioArray->audio.difference;
+
+	window_samples = (int16_t*)malloc(sizeof(int16_t)*(monoSignalSize+1));
+	if(!window_samples)
+	{
+		logmsg("Not enough memory for window\n");
+		return(0);
+	}
+	memset(window_samples, 0, sizeof(int16_t)*(monoSignalSize+1));
+
+	AudioArray->audio.size = monoSignalSize;
+	AudioArray->audio.difference = difference;
+
+	for(i = 0; i < monoSignalSize - difference; i++)
+		window_samples[i] = (double)((double)signal[i]*window[i]);
+	AudioArray->audio.window_samples = window_samples;
+
+	return(1);
+}
+
 int CopySamplesForTimeDomainPlot(AudioBlocks *AudioArray, int16_t *samples, size_t size, size_t diff, long samplerate, double *window, int AudioChannels, parameters *config)
 {
 	char			channel = 0;
@@ -1577,7 +1633,7 @@ int CopySamplesForTimeDomainPlot(AudioBlocks *AudioArray, int16_t *samples, size
 	}
 	memset(signal, 0, sizeof(int16_t)*(monoSignalSize+1));
 
-	if(config->plotAllNotesWindowed && window)
+	if(config->plotAllNotesWindowed && window && !config->doClkAdjust)
 	{
 		window_samples = (int16_t*)malloc(sizeof(int16_t)*(monoSignalSize+1));
 		if(!window_samples)
@@ -1607,7 +1663,7 @@ int CopySamplesForTimeDomainPlot(AudioBlocks *AudioArray, int16_t *samples, size
 	AudioArray->audio.size = monoSignalSize;
 	AudioArray->audio.difference = difference;
 
-	if(config->plotAllNotesWindowed && window)
+	if(config->plotAllNotesWindowed && window && !config->doClkAdjust)
 	{
 		for(i = 0; i < monoSignalSize - difference; i++)
 			window_samples[i] = (double)((double)signal[i]*window[i]);
@@ -1728,6 +1784,9 @@ int RecalculateFFTW(AudioSignal *Signal, parameters *config)
 			if(!FillFrequencyStructures(Signal, &Signal->Blocks[i], config))
 				return 0;
 
+			if(config->plotAllNotesWindowed && !CopySamplesForTimeDomainPlotWindowOnly(&Signal->Blocks[i], Signal->header.fmt.SamplesPerSec, windowUsed, config))
+				return 0;
+
 			if(config->clkMeasure && config->clkBlock == i)
 			{
 				CleanFrequenciesInBlock(&Signal->clkFrequencies, config);
@@ -1745,8 +1804,6 @@ int RecalculateFFTW(AudioSignal *Signal, parameters *config)
 
 	if(config->normType != max_frequency)
 		FindMaxMagnitude(Signal, config);
-
-	//logmsg("NEW CLK: %g\n", CalculateClk(Signal, config));
 
 	return 1;
 }
@@ -1773,7 +1830,8 @@ void RecalculateFrameRateAndSamplerate(AudioSignal *Signal, parameters *config)
 */
 
 // Doing comparison always was default
-// It is norier to adjsut clk upwards than downwards though
+// It is noisier to adjust clk upwards than downwards though
+// so we go for the lower one
 double RecalculateFrameRateAndSamplerateComp(AudioSignal *ReferenceSignal, AudioSignal *ComparisonSignal, parameters *config)
 {
 	double		ratio = 0, refCLK = 0, compCLK = 0, adjustedTo = 0;
@@ -1805,7 +1863,7 @@ double RecalculateFrameRateAndSamplerateComp(AudioSignal *ReferenceSignal, Audio
 
 	changedSignal->originalSR_CLK = changedSignal->header.fmt.SamplesPerSec;
 	changedSignal->header.fmt.SamplesPerSec = estimatedSampleRate;
-	//changedSignal->originalFrameRate = changedSignal->framerate;
+	changedSignal->originalFrameRate = changedSignal->framerate;
 	changedSignal->framerate = CalculateFrameRate(changedSignal, config);
 	if(config->verbose) {
 		logmsg(" - Adjusted frame rate to match same lengths with CLK: %gms [SR: %d->%dHz]\n", 

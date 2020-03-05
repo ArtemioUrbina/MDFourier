@@ -122,7 +122,7 @@ double *CreateWindow(windowManager *wm, long int frames, long int cutFrames, dou
 	secondsPadding = FramesToSeconds(cutFrames, framerate);
 	sizePadding = ceil(wm->SamplesPerSec*secondsPadding);
 
-	/* Used for clk adjust */
+	/* Used for clk adjust, eventhough one frame is overkill */
 	if(config->doClkAdjust)
 	{
 		oneFramePadding = FramesToSeconds(1, framerate);
@@ -134,7 +134,14 @@ double *CreateWindow(windowManager *wm, long int frames, long int cutFrames, dou
 		logmsg("ERROR: Asked for window with null size %ld Frames %g Framerate\n", frames, framerate);
 		return NULL;
 	}
-	//logmsg("**** Creating window size %ld (%ld frames %g fr)\n", size, frames, framerate);
+
+	/*
+	if(!config->doClkAdjust)
+		logmsg("**** Creating window size %ld+%ld=%ld (%ld frames %g fr)\n", size, sizePadding, size+sizePadding, frames, framerate);
+	else
+		logmsg("**** Creating window size %ld+%ld(+%ld)=%ld(%ld) (%ld frames %g fr)\n", size, sizePadding, clkAdjustBufferSize, size+sizePadding, size+sizePadding+clkAdjustBufferSize, frames, framerate);
+	*/
+
 	if(wm->winType == 't')
 		return(CreateWindowInternal(wm, tukeyWindow, "Tukey", seconds, size, sizePadding, clkAdjustBufferSize));
 

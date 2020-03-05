@@ -858,7 +858,7 @@ void DrawSRData(PlotFile *plot, AudioSignal *Signal, char *msg, parameters *conf
 	else
 		sprintf(str, "SR %%s: %%d(%%g)Hz");
 	sprintf(msg, str,
-		Signal->role == ROLE_REF ? "R" : "C",
+		Signal->role == ROLE_REF ? "RF" : "CM",
 		Signal->originalSR, Signal->EstimatedSR);
 }
 
@@ -876,7 +876,7 @@ void DrawClockData(PlotFile *plot, AudioSignal *Signal, char *msg, parameters *c
 	if(!Signal->originalCLK)
 		sprintf(msg, "%s %s: %gHz",
 			config->clkName,
-			Signal->role == ROLE_REF ? "R" : "C",
+			Signal->role == ROLE_REF ? "RF" : "CM",
 			CalculateClk(Signal, config));
 	else
 	{
@@ -888,7 +888,7 @@ void DrawClockData(PlotFile *plot, AudioSignal *Signal, char *msg, parameters *c
 		else
 			sprintf(str, "%s %%s: %%g(%%g)Hz", config->clkName);
 		sprintf(msg, str,
-			Signal->role == ROLE_REF ? "R" : "C",
+			Signal->role == ROLE_REF ? "RF" : "CM",
 			Signal->originalCLK,
 			CalculateClk(Signal, config));
 	}
@@ -910,12 +910,12 @@ void DrawImbalance(PlotFile *plot, AudioSignal *Signal, char *msg, parameters *c
 		pl_pencolor_r(plot->plotter, 0, 0xcccc, 0xcccc);
 	if(Signal->balance)
 		sprintf(msg, "Imbalance %s [%s]: %0.2f%%", 
-				Signal->role == ROLE_REF ? "R" : "C",
-				Signal->balance > 0 ? "R" : "L", 
+				Signal->role == ROLE_REF ? "RF" : "CM",
+				Signal->balance > 0 ? "RF" : "L", 
 				fabs(Signal->balance));
 	else
 		sprintf(msg, "%s Stereo balanced", 
-				Signal->role == ROLE_REF ? "R" : "C");
+				Signal->role == ROLE_REF ? "RF" : "CM");
 	pl_alabel_r(plot->plotter, 'l', 'l', msg);
 }
 
@@ -953,15 +953,32 @@ void DrawFileInfo(PlotFile *plot, AudioSignal *Signal, char *msg, int type, int 
 			{
 				double labelwidth = 0;
 
-				pl_pencolor_r(plot->plotter, 0xeeee, 0xeeee, 0);
-				sprintf(msg, "[%0.4fms %0.4fHz]\\->", 
-						Signal->originalFrameRate, roundFloat(CalculateScanRateOriginalFramerate(Signal)));
-				labelwidth = pl_flabelwidth_r(plot->plotter, msg);
-
-				sprintf(msg, "[%0.4fms %0.4fHz]\\->[%0.4fms %0.4fHz]", 
-						Signal->originalFrameRate, roundFloat(CalculateScanRateOriginalFramerate(Signal)),
+				if(!config->doClkAdjust)
+				{
+					pl_pencolor_r(plot->plotter, 0xeeee, 0xeeee, 0);
+					sprintf(msg, "[%0.4fms %0.4fHz]\\->", 
+							Signal->originalFrameRate, roundFloat(CalculateScanRateOriginalFramerate(Signal)));
+					labelwidth = pl_flabelwidth_r(plot->plotter, msg);
+	
+					sprintf(msg, "[%0.4fms %0.4fHz]\\->[%0.4fms %0.4fHz]", 
+							Signal->originalFrameRate, roundFloat(CalculateScanRateOriginalFramerate(Signal)),
+							Signal->framerate, roundFloat(CalculateScanRate(Signal)));
+					pl_fmove_r(plot->plotter, config->plotResX/20*17-labelwidth, y+config->plotResY/(ypos*40));
+				}
+				else
+				{
+					pl_pencolor_r(plot->plotter, 0, 0xeeee, 0xeeee);
+					sprintf(msg, "(%0.4fms %0.4fHz) ", 
 						Signal->framerate, roundFloat(CalculateScanRate(Signal)));
-				pl_fmove_r(plot->plotter, config->plotResX/20*17-labelwidth, y+config->plotResY/(ypos*40));
+					labelwidth = pl_flabelwidth_r(plot->plotter, msg);
+					pl_fmove_r(plot->plotter, config->plotResX/20*17-labelwidth, y+config->plotResY/(ypos*40));
+					pl_alabel_r(plot->plotter, 'l', 'l', msg);
+
+					pl_pencolor_r(plot->plotter, 0, 0xeeee, 0);
+					sprintf(msg, "[%0.4fms %0.4fHz]", 
+						Signal->originalFrameRate, roundFloat(CalculateScanRateOriginalFramerate(Signal)));
+					pl_fmove_r(plot->plotter, config->plotResX/20*17, y+config->plotResY/(ypos*40));
+				}
 			}
 			else
 			{
@@ -1157,7 +1174,20 @@ void DrawLabelsMDF(PlotFile *plot, char *Gname, char *GType, int type, parameter
 	{
 		PLOT_WARN(1, warning++);
 		pl_pencolor_r(plot->plotter, 0xeeee, 0xeeee, 0);
-		pl_alabel_r(plot->plotter, 'l', 'l', "WARNING: Noise floor was ignored during analysis");
+		if(config->ignoreFloor == 2)
+		{
+			sprintf(msg, "WARNING: Noise floor was manually set tp %gdBFS.", config->origSignificantAmplitude);
+			pl_alabel_r(plot->plotter, 'l', 'l', msg);
+		}
+		else
+			pl_alabel_r(plot->plotter, 'l', 'l', "WARNING: Noise floor was ignored during analysis");
+	}
+
+	if(!config->noiseFloorAutoAdjust)
+	{
+		PLOT_WARN(1, warning++);
+		pl_pencolor_r(plot->plotter, 0xeeee, 0xeeee, 0);
+		pl_alabel_r(plot->plotter, 'l', 'l', "WARNING: Noise floor auto adjustment disabled.");
 	}
 
 	if(config->noiseFloorTooHigh)
@@ -1229,14 +1259,14 @@ void DrawLabelsMDF(PlotFile *plot, char *Gname, char *GType, int type, parameter
 		PLOT_WARN_XDISP(1, warning++, labelwidth);
 		pl_pencolor_r(plot->plotter, 0xeeee, 0xeeee, 0);
 		sprintf(msg, "%s pitch might be off by: %0.2f\\ct (can use -R)",
-			config->SRNoMatch == ROLE_REF ? "R" : config->SRNoMatch == ROLE_COMP ? "C" : "",
+			config->SRNoMatch == ROLE_REF ? "RF" : config->SRNoMatch == ROLE_COMP ? "CM" : "",
 			config->centsDifferenceSR);
 		pl_alabel_r(plot->plotter, 'l', 'l', msg);
 
 		PLOT_WARN(1, warning++);
 		pl_pencolor_r(plot->plotter, 0xeeee, 0xeeee, 0);
 		sprintf(msg, "WARNING: %s sample rate%s match length.",
-			config->SRNoMatch == ROLE_REF ? "R" : config->SRNoMatch == ROLE_COMP ? "C" : "",
+			config->SRNoMatch == ROLE_REF ? "RF" : config->SRNoMatch == ROLE_COMP ? "CM" : "",
 			config->SRNoMatch == (ROLE_REF | ROLE_COMP) ? "s don't" : " doesn't");
 		pl_alabel_r(plot->plotter, 'l', 'l', msg);
 	}
