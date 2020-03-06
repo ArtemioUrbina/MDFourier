@@ -1,0 +1,70 @@
+MDFourierAudioBlockFile 2.1
+DCSG: SMS/GG/SG-1000/ColecoVision
+2
+NTSC 16.688 262 8820 14 10
+PAL 20.20 313 8820 17 10
+CLK n
+63
+Sync s 1 20 0 red m
+Silence n 1 20 0 gray m
+Square 1 63 10 0 yellow m
+    PADDING k 1 10 0 gray m
+Buzz 2 39 10 0 orange m
+    PADDING k 1 10 0 gray m
+Hiss 3 32 20 0 green m
+    PADDING k 1 20 0 gray m
+Noise 4 7 20 0 aqua m
+    PADDING k 1 20 0 gray m
+Steady_112k 4 8 10 0 aqua m
+    PADDING k 1 10 0 gray m
+Steady_14k 4 18 20 0 aqua m
+    PADDING k 1 10 0 gray m
+Square_phase_reset k 8 10 0 yellow m
+    PADDING k 1 10 0 gray m
+Buzz_Noise_reset k 14 10 0 orange m
+    PADDING k 1 10 0 gray m
+Sweep_Square 1 25 10 0 yellow m
+    PADDING k 1 30 0 gray m
+Sweep_Buzz 2 27 10 0 orange m
+    PADDING k 1 10 0 gray m
+Silence N 1 60 -1 gray m
+Fade_Square_D0 t 1 75 0 yellow m
+    PADDING k 1 5 0 gray m
+Fade_Square_00 t 1 75 0 yellow m
+    PADDING k 1 5 0 gray m
+Fades_Square_40 t 1 75 0 yellow m
+    PADDING k 1 5 0 gray m
+Fades_Noise_F0 t 1 75 0 aqua m
+    PADDING k 1 5 0 gray m
+Chord_Fade_1 t 1 75 0 yellow m
+    PADDING k 1 5 0 gray m
+Chord_Fade_2 t 1 75 0 yellow m
+    PADDING k 1 5 0 gray m
+Chord_Fade_3 t 1 75 0 yellow m
+    PADDING k 1 5 0 gray m
+Chord_Fade_4 t 1 75 0 yellow m
+    PADDING k 1 5 0 gray m
+Chord_Fade_5 t 1 75 0 yellow m
+    PADDING k 1 5 0 gray m
+Chord_Fade_6 t 1 75 0 yellow m
+    PADDING k 1 5 0 gray m
+Period_Extreme_1 t 1 30 0 yellow m
+    PADDING k 1 10 0 gray m
+Period_Extreme_2 t 1 30 0 yellow m
+    PADDING k 1 10 0 gray m
+Period_Extreme_3 t 1 30 0 yellow m
+    PADDING k 1 10 0 gray m
+Period_Extreme_4 t 1 30 0 yellow m
+    PADDING k 1 10 0 gray m
+Period_Extreme_5 t 1 30 0 yellow m
+    PADDING k 1 10 0 gray m
+Period_Extreme_6 t 1 30 0 yellow m
+    PADDING k 1 10 0 gray m
+Period_Extreme_7 t 1 30 0 yellow m
+    PADDING k 1 10 0 gray m
+Period_Extreme_8 t 1 30 0 yellow m
+    PADDING k 1 10 0 gray m
+Period_Extreme_9 t 1 30 0 yellow m
+    PADDING k 1 10 0 gray m
+Silence n 1 20 0 gray m
+Sync s 1 20 0 red m
