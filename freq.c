@@ -690,7 +690,7 @@ int EndProfileLoad(parameters *config)
 
 int LoadAudioBlockStructure(FILE *file, parameters *config)
 {
-	int		insideInternal = 0, i = 0;
+	int		insideInternal = 0, i = 0, syncCount = 0;
 	char	lineBuffer[LINE_BUFFER_SIZE], tmp = '\0';
 	char	buffer[PARAM_BUFFER_SIZE], buffer2[PARAM_BUFFER_SIZE], buffer3[PARAM_BUFFER_SIZE];
 
@@ -850,6 +850,7 @@ int LoadAudioBlockStructure(FILE *file, parameters *config)
 				config->types.typeArray[i].type = TYPE_SYNC;
 				if(config->debugSync)
 					config->hasTimeDomain++;
+				syncCount++;
 				break;
 			case TYPE_INTERNAL_KNOWN_C:
 				config->types.typeArray[i].type = TYPE_INTERNAL_KNOWN;
@@ -983,6 +984,12 @@ int LoadAudioBlockStructure(FILE *file, parameters *config)
 	if(insideInternal)
 	{
 		logmsg("ERROR: Internal sync detection block didn't have a closing section\n");
+		return 0;
+	}
+
+	if(syncCount != 2)
+	{
+		logmsg("ERROR: There must be two Sync lines (%d found)\n", syncCount);
 		return 0;
 	}
 

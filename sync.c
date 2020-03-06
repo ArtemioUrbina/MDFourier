@@ -259,12 +259,14 @@ long int DetectEndPulse(char *AllSamples, long int startpulse, wav_hdr header, i
 }
 
 
-#define LOGCASE(x, y) { x; logmsgFileOnly("Case #%d\n"); }
+#define LOGCASE(x, y) { x; if(config->debugSync) logmsgFileOnly("Case #%d\n"); }
 double findAverageAmplitudeForTarget(Pulses *pulseArray, double targetFrequency, double targetFrequencyHarmonic, long int TotalMS, long int start, int factor, parameters *config)
 {
 	long	count = 0, i = 0;
 	double	averageAmplitude = 0, standardDeviation = 0, useAmplitude = 0, percent = 0;
 
+	if(config->debugSync)
+		logmsgFileOnly("Searching for in range: %ld-%ld bytes\n", pulseArray[start].bytes, pulseArray[TotalMS-1].bytes);
 	for(i = start; i < TotalMS; i++)
 	{
 		if(pulseArray[i].hertz == targetFrequency || pulseArray[i].hertz == targetFrequencyHarmonic)
@@ -632,7 +634,7 @@ long int DetectPulseInternal(char *Samples, wav_hdr header, int factor, long int
 				origFrequency >= HARMONIC_TSHLD ? origFrequency : targetFrequency*2, 
 				targetFrequency, targetFrequencyHarmonic);
 		logmsgFileOnly("Start ms %ld Total MS: %ld (%ld)\n",
-			 i, TotalMS, header.data.DataSize / buffersize - 1);
+			 i, TotalMS-1, header.data.DataSize / buffersize - 1);
 	}
 
 	while(i < TotalMS)
