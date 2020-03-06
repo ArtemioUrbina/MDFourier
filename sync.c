@@ -259,7 +259,7 @@ long int DetectEndPulse(char *AllSamples, long int startpulse, wav_hdr header, i
 }
 
 
-#define LOGCASE(x, y) { x; if(config->debugSync) logmsgFileOnly("Case #%d\n"); }
+#define LOGCASE(x, y) { x; if(config->debugSync) logmsgFileOnly("Case #%d\n", y); }
 double findAverageAmplitudeForTarget(Pulses *pulseArray, double targetFrequency, double targetFrequencyHarmonic, long int TotalMS, long int start, int factor, parameters *config)
 {
 	long	count = 0, i = 0;
