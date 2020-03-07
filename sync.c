@@ -106,7 +106,7 @@ long int DetectPulseSecondTry(char *AllSamples, wav_hdr header, int role, parame
 	AudioChannels = header.fmt.NumOfChan;
 
 	offset = DetectSignalStart(AllSamples, header, 0, 0, NULL, config);
-	if(offset)
+	if(offset > 0)
 	{
 		long int MSBytes = 0;
 			
@@ -114,6 +114,8 @@ long int DetectPulseSecondTry(char *AllSamples, wav_hdr header, int role, parame
 		if(offset >= MSBytes)
 			offset -= MSBytes;
 	}
+	else
+		offset = 0;
 
 	position = DetectPulseInternal(AllSamples, header, FACTOR_EXPLORE, offset, &maxdetected, role, AudioChannels, config);
 	if(position == -1)

@@ -282,8 +282,10 @@ int ReportClockResults(AudioSignal *ReferenceSignal, AudioSignal *ComparisonSign
 				double diff = 0;
 	
 				diff = fabs(config->centsDifferenceSR - config->centsDifferenceCLK);
-				if(diff >= 1) // Same issue between both, reported above
+				if(diff >= 5) // Same issue between both, reported above
 					logmsg(" - WARNING: Clocks don't match, results may vary considerably. Can adjust with -j\n");
+				else if(diff >= 1)
+					logmsg(" - WARNING: Clocks don't match, results will show differences. Can adjust with -j\n");
 			}
 			else
 				logmsg(" - WARNING: Clocks don't match, results may vary considerably. Can adjust with -j\n");
@@ -1043,6 +1045,12 @@ int LoadFile(FILE *file, AudioSignal *Signal, parameters *config, char *fileName
 		Signal->nyquistLimit = 1;
 
 		logmsg(" - Changed to %gHz-%gHz for this file\n", config->startHz, Signal->endHz);
+	}
+
+	if(Signal->header.data.DataSize <= 0)
+	{
+		logmsg("\tERROR: RIFf header has an invalid Data length %ld\n", Signal->header.data.DataSize);
+		return(0);
 	}
 
 	// Default if none is found
@@ -1866,7 +1874,8 @@ double RecalculateFrameRateAndSamplerateComp(AudioSignal *ReferenceSignal, Audio
 	changedSignal->originalFrameRate = changedSignal->framerate;
 	changedSignal->framerate = CalculateFrameRate(changedSignal, config);
 	if(config->verbose) {
-		logmsg(" - Adjusted frame rate to match same lengths with CLK: %gms [SR: %d->%dHz]\n", 
+		logmsg(" - Adjusted frame rate to match same lengths with %s: %gms [SR: %d->%dHz]\n", 
+			config->clkName,
 			changedSignal->framerate,
 			changedSignal->originalSR_CLK, changedSignal->header.fmt.SamplesPerSec);
 	}
@@ -1881,12 +1890,12 @@ int RecalculateFrequencyStructures(AudioSignal *ReferenceSignal, AudioSignal *Co
 	//RecalculateFrameRateAndSamplerate(ComparisonSignal, config);
 
 	adjusted = RecalculateFrameRateAndSamplerateComp(ReferenceSignal, ComparisonSignal, config);
-	logmsg(" - Adjusted %s %s CLK: %gHz\n", 
+	logmsg(" - Adjusted %s %s to %gHz\n", 
 			config->changedCLKFrom == ROLE_REF? "Reference" : "Comparison", 
 			config->clkName, adjusted);
 	CompareFrameRates(ReferenceSignal, ComparisonSignal, config);
 
-	logmsg(" - Recalculation Discrete Fast Fourier Transforms with new %s CLK value\n", config->clkName);
+	logmsg(" - Recalculation Discrete Fast Fourier Transforms with adjusted %s value\n", config->clkName);
 	if(!RecalculateFFTW(ReferenceSignal, config))
 		return 0;
 

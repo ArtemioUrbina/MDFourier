@@ -939,13 +939,13 @@ int LoadAudioBlockStructure(FILE *file, parameters *config)
 				return 0;
 			}
 
-			if(config->types.typeArray[i].cutFrames != 0 && config->types.typeArray[i].frames - fabs(config->types.typeArray[i].cutFrames) <= 0)
+			if(config->types.typeArray[i].cutFrames != 0 && config->types.typeArray[i].frames - abs(config->types.typeArray[i].cutFrames) <= 0)
 			{
 				logmsg("ERROR: Invalid MD Fourier Audio Blocks File: %s, Skip bigger than element\n", lineBuffer);
 				fclose(file);
 				return 0;
 			}
-			config->types.typeArray[i].cutFrames = fabs(config->types.typeArray[i].cutFrames);
+			config->types.typeArray[i].cutFrames = abs(config->types.typeArray[i].cutFrames);
 		}
 
 		if(!config->types.typeArray[i].elementCount)
