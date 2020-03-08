@@ -77,32 +77,12 @@ int IsFlac(char *name)
 	return 0;
 }
 
-char *getTempDir()
-{
-	char *tmp = NULL;
-
-	tmp = getenv("TMPDIR");
-	if(!tmp)
-		tmp = getenv("TEMP");
-	if(!tmp)
-		tmp = getenv("TMP");
-	return tmp;
-}
-
 void renameFLAC(char *flac, char *wav, char *path)
 {
-	char	*tmpPath = NULL;
-	int		len = 0, ext = 0;
+	int len = 0, ext = 0;
 
-	if(path[0] != '\0')
-		tmpPath = path;
-	else
-		tmpPath = getTempDir();
-
-	if(!tmpPath)
+	if(!path || !strlen(path))
 	{
-		logmsg("WARNING: No temp path available, using original folder\n");
-
 		len = strlen(flac);
 		ext = getExtensionLength(flac)+1;
 	
@@ -114,11 +94,11 @@ void renameFLAC(char *flac, char *wav, char *path)
 	}
 	else
 	{
-		len = strlen(tmpPath);
-		if(tmpPath[len-1] != FOLDERCHAR)
-			sprintf(wav, "%s%ctmp__mdf__%s", tmpPath, FOLDERCHAR, basename(flac));
+		len = strlen(path);
+		if(path[len-1] != FOLDERCHAR)
+			sprintf(wav, "%s%ctmp__mdf__%s", path, FOLDERCHAR, basename(flac));
 		else
-			sprintf(wav, "%stmp__mdf__%s", tmpPath, basename(flac));
+			sprintf(wav, "%stmp__mdf__%s", path, basename(flac));
 	
 		len = strlen(wav);
 		ext = getExtensionLength(basename(flac))+1;

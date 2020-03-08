@@ -732,7 +732,7 @@ int checkPath(char *path)
 	int		len = 0;
 	char 	*CurrentPath = NULL;
 
-	if(!path || path[0] == '\0')
+	if(!path || strlen(path) == 0)
 		return 1;
 
 	len = strlen(path);
@@ -772,11 +772,33 @@ int checkPath(char *path)
 	return 1;
 }
 
+char *getTempDir()
+{
+        char *tmp = NULL;
+
+        tmp = getenv("TMPDIR");
+        if(!tmp)
+                tmp = getenv("TEMP");
+        if(!tmp)
+                tmp = getenv("TMP");
+        return tmp;
+}
+
 int checkAlternatePaths(parameters *config)
 {
 	if(!checkPath(config->outputPath))
 		return 0;
 
+	if(strlen(config->tmpPath) == 0)
+	{
+		char *tmp;
+
+		tmp = getTempDir();
+		if(!tmp)
+			logmsg("WARNING: No temp path available, using original folder\n");
+		else
+			sprintf(config->tmpPath, "%s", tmp);
+	}
 	if(!checkPath(config->tmpPath))
 		return 0;
 	
@@ -787,7 +809,7 @@ char *PushMainPath(parameters *config)
 {
 	char 	*CurrentPath = NULL;
 
-	if(config->outputPath[0] == '\0')
+	if(strlen(config->outputPath) == 0)
 		return NULL;
 
 	CurrentPath = (char*)malloc(sizeof(char)*FILENAME_MAX);
