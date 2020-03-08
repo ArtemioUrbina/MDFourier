@@ -849,7 +849,7 @@ int CMDFourierGUIDlg::CheckDependencies()
 				cDos.KillNow();
 				cDos.Release();
 
-				msg.Format(L"MDFourier command could not be executed");
+				msg.Format(L"MDFourier command could not be executed:\n%s", cDos.m_OutputText);
 				MessageBox(msg, L"Error mdfourier.exe not working");
 				return FALSE;
 			}
@@ -888,7 +888,7 @@ int CMDFourierGUIDlg::CheckDependencies()
 		error = 1;
 	if(error)
 	{
-		msg.Format(L"Invalid mdfourier.exe version.\nNeed %s [Got:\n\"%s\"]", 
+		msg.Format(L"Invalid mdfourier.exe version.\nNeed:\n\"%s\"\nGot:\n\"%s\"", 
 			MDFVERSION, readText);
 		MessageBox(msg, L"Error improper mdfourier.exe");
 		return FALSE;

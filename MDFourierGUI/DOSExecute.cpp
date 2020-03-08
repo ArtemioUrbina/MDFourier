@@ -42,6 +42,7 @@ int CDOSExecute::ExecuteExternalFile()
 {
 	int nStrBuffer;
 	BOOL result;
+	DWORD ExitCode = 0;
 	HANDLE rPipe, wPipe;
 	char buf[BUFFER_SIZE];
 	DWORD reDword; 
@@ -147,6 +148,15 @@ int CDOSExecute::ExecuteExternalFile()
 		memset(buf, 0, sizeof(char)*BUFFER_SIZE);
 		csTemp.Empty();
 	}while(result);
+
+	if(GetExitCodeProcess(pInfo.hProcess, &ExitCode))
+	{
+		if(ExitCode == STATUS_DLL_NOT_FOUND)
+		{
+			m_OutputText = L"Command was not statically linked. DLLs not found.";
+			return 0;
+		}
+	}
 
 	CloseHandle(pInfo.hProcess);
 	CloseHandle(pInfo.hThread);
