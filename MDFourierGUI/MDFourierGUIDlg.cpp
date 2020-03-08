@@ -495,7 +495,7 @@ void CMDFourierGUIDlg::OnTimer(UINT_PTR nIDEvent)
 
 					GetCurrentDirectory(MAX_PATH, pwd);
 					m_ResultsFolderText.Format(L"%s\\%s", pwd,
-						ntext.Right(ntext.GetLength() - pos - searchFor.GetLength() - 1));
+						ntext.Right(ntext.GetLength() - pos - searchFor.GetLength()));
 				}
 				else
 					m_ResultsFolderText.Format(L"%s", ntext.Right(ntext.GetLength() - pos - searchFor.GetLength()));
