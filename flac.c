@@ -32,6 +32,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include "flac.h"
+#include "log.h"
 #include "mdfourier.h"
 #include "FLAC/stream_decoder.h"
 
@@ -76,18 +77,53 @@ int IsFlac(char *name)
 	return 0;
 }
 
-void renameFLAC(char *flac, char *wav)
+char *getTempDir()
 {
-	int len = 0, ext = 0;
+	char *tmp = NULL;
 
-	len = strlen(flac);
-	ext = getExtensionLength(flac)+1;
+	tmp = getenv("TMPDIR");
+	if(!tmp)
+		tmp = getenv("TEMP");
+	if(!tmp)
+		tmp = getenv("TMP");
+	return tmp;
+}
 
-	memcpy(wav, flac, sizeof(char)*(len-ext));
-	sprintf(wav+len-ext, "__tmp_mdf__");
+void renameFLAC(char *flac, char *wav, char *path)
+{
+	char	*tmpPath = NULL;
+	int		len = 0, ext = 0;
 
-	len = strlen(wav);
-	sprintf(wav+len, ".wav");
+	if(path[0] != '\0')
+		tmpPath = path;
+	else
+		tmpPath = getTempDir();
+
+	if(!tmpPath)
+	{
+		logmsg("WARNING: No temp path available, using original folder\n");
+
+		len = strlen(flac);
+		ext = getExtensionLength(flac)+1;
+	
+		memcpy(wav, flac, sizeof(char)*(len-ext));
+		sprintf(wav+len-ext, "__tmp_mdf__");
+	
+		len = strlen(wav);
+		sprintf(wav+len, ".wav");
+	}
+	else
+	{
+		len = strlen(tmpPath);
+		if(tmpPath[len-1] != FOLDERCHAR)
+			sprintf(wav, "%s%ctmp__mdf__%s", tmpPath, FOLDERCHAR, basename(flac));
+		else
+			sprintf(wav, "%stmp__mdf__%s", tmpPath, basename(flac));
+	
+		len = strlen(wav);
+		ext = getExtensionLength(basename(flac))+1;
+		sprintf(wav+len-ext, ".wav");
+	}
 }
 
 static FLAC__StreamDecoderWriteStatus write_callback(const FLAC__StreamDecoder *decoder, const FLAC__Frame *frame, const FLAC__int32 * const buffer[], void *client_data);

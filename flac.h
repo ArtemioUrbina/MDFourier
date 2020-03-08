@@ -31,7 +31,7 @@
 #define MDFOURIER_FLAC_H
 
 int IsFlac(char *name);
-void renameFLAC(char *flac, char *wav);
+void renameFLAC(char *flac, char *wav, char *path);
 int FLACtoWAV(char *input, char *output);
 
 #endif

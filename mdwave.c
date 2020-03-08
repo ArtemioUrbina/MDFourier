@@ -48,7 +48,7 @@ void PrintUsage_wave();
 void Header_wave(int log);
 void CleanUp(AudioSignal **ReferenceSignal, parameters *config);
 void CloseFiles(FILE **ref);
-void RemoveFLACTemp(char *referenceFile);
+void RemoveFLACTemp(char *referenceFile, parameters *config);
 int ExecuteMDWave(parameters *config, int invert);
 void FlattenProfile(parameters *config);
 
@@ -138,7 +138,7 @@ int ExecuteMDWave(parameters *config, int invert)
 
 		if(config->verbose)
 			logmsg(" - Decoding FLAC\n");
-		renameFLAC(config->referenceFile, tmpFile);
+		renameFLAC(config->referenceFile, tmpFile, config->tmpPath);
 		if(!FLACtoWAV(config->referenceFile, tmpFile))
 		{
 			logmsg("\nInvalid FLAC file %s\n", config->referenceFile);
@@ -159,7 +159,7 @@ int ExecuteMDWave(parameters *config, int invert)
 	if(!reference)
 	{
 		logmsg("\nERROR: Could not open REFERENCE file: \"%s\"\n", config->referenceFile);
-		RemoveFLACTemp(config->referenceFile);
+		RemoveFLACTemp(config->referenceFile, config);
 		CleanUp(&ReferenceSignal, config);
 		return 1;
 	}
@@ -168,7 +168,7 @@ int ExecuteMDWave(parameters *config, int invert)
 	if(!ReferenceSignal)
 	{
 		CloseFiles(&reference);
-		RemoveFLACTemp(config->referenceFile);
+		RemoveFLACTemp(config->referenceFile, config);
 		CleanUp(&ReferenceSignal, config);
 		logmsg("Not enough memory for Data Structures\n");
 		return 1;
@@ -183,13 +183,13 @@ int ExecuteMDWave(parameters *config, int invert)
 	if(!LoadFile(reference, ReferenceSignal, config, config->referenceFile))
 	{
 		CloseFiles(&reference);
-		RemoveFLACTemp(config->referenceFile);
+		RemoveFLACTemp(config->referenceFile, config);
 		CleanUp(&ReferenceSignal, config);
 		return 1;
 	}
 
 	CloseFiles(&reference);
-	RemoveFLACTemp(config->referenceFile);
+	RemoveFLACTemp(config->referenceFile, config);
 
 	config->referenceFramerate = ReferenceSignal->framerate;
 	config->smallerFramerate = ReferenceSignal->framerate;
@@ -227,9 +227,8 @@ int ExecuteMDWave(parameters *config, int invert)
 	CleanUp(&ReferenceSignal, config);
 
 	if(invert)
-		printf("\nResults stored in %s%c%s\n", 
-			config->outputPath, 
-			config->outputPath[0] == '\0' ? ' ' : FOLDERCHAR, 
+		printf("\nResults stored in %s%s\n", 
+			config->outputPath,
 			config->folderName);
 	
 	return(0);
@@ -256,13 +255,13 @@ void CloseFiles(FILE **ref)
 	}
 }
 
-void RemoveFLACTemp(char *referenceFile)
+void RemoveFLACTemp(char *referenceFile, parameters *config)
 {
 	char tmpFile[BUFFER_SIZE];
 
 	if(IsFlac(referenceFile))
 	{
-		renameFLAC(referenceFile, tmpFile);
+		renameFLAC(referenceFile, tmpFile, config->tmpPath);
 		remove(tmpFile);
 	}
 }

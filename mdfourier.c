@@ -121,9 +121,8 @@ int main(int argc , char *argv[])
 	{
 		logmsg("Aborting\n");
 		if(config.debugSync)
-			printf("\nResults stored in %s%c%s\n", 
+			printf("\nResults stored in %s%s\n", 
 				config.outputPath, 
-				config.outputPath[0] == '\0' ? ' ' : FOLDERCHAR, 
 				config.folderName);
 		CleanUp(&ReferenceSignal, &ComparisonSignal, &config);
 		return 1;
@@ -175,9 +174,8 @@ int main(int argc , char *argv[])
 		logmsg("\n");
 	}
 
-	printf("\nResults stored in %s%c%s\n", 
-			config.outputPath, 
-			config.outputPath[0] == '\0' ? ' ' : FOLDERCHAR, 
+	printf("\nResults stored in %s%s\n", 
+			config.outputPath,
 			config.folderName);
 	
 	return(0);
@@ -296,18 +294,18 @@ int ReportClockResults(AudioSignal *ReferenceSignal, AudioSignal *ComparisonSign
 	return 1;
 }
 
-void RemoveFLACTemp(char *referenceFile, char *comparisonFile)
+void RemoveFLACTemp(char *referenceFile, char *comparisonFile, parameters *config)
 {
 	char tmpFile[BUFFER_SIZE];
 
 	if(IsFlac(referenceFile))
 	{
-		renameFLAC(referenceFile, tmpFile);
+		renameFLAC(referenceFile, tmpFile, config->tmpPath);
 		remove(tmpFile);
 	}
 	if(IsFlac(comparisonFile))
 	{
-		renameFLAC(comparisonFile, tmpFile);
+		renameFLAC(comparisonFile, tmpFile, config->tmpPath);
 		remove(tmpFile);
 	}
 }
@@ -326,7 +324,7 @@ int LoadAudioFiles(AudioSignal **ReferenceSignal, AudioSignal **ComparisonSignal
 			clock_gettime(CLOCK_MONOTONIC, &start);
 
 		if(config->verbose) { logmsg(" - Decoding FLAC\n"); }
-		renameFLAC(config->referenceFile, tmpFile);
+		renameFLAC(config->referenceFile, tmpFile, config->tmpPath);
 		if(!FLACtoWAV(config->referenceFile, tmpFile))
 		{
 			logmsg("\nERROR: Invalid FLAC file %s\n", config->referenceFile);
@@ -347,7 +345,7 @@ int LoadAudioFiles(AudioSignal **ReferenceSignal, AudioSignal **ComparisonSignal
 
 	if(!reference)
 	{
-		RemoveFLACTemp(config->referenceFile, config->comparisonFile);
+		RemoveFLACTemp(config->referenceFile, config->comparisonFile, config);
 		logmsg("\tERROR: Could not open 'Reference' file:\n\t\"%s\"\n", config->referenceFile);
 		return 0;
 	}
@@ -361,12 +359,12 @@ int LoadAudioFiles(AudioSignal **ReferenceSignal, AudioSignal **ComparisonSignal
 			clock_gettime(CLOCK_MONOTONIC, &start);
 
 		if(config->verbose) { logmsg(" - Decoding FLAC\n"); }
-		renameFLAC(config->comparisonFile, tmpFile);
+		renameFLAC(config->comparisonFile, tmpFile, config->tmpPath);
 		if(!FLACtoWAV(config->comparisonFile, tmpFile))
 		{
 			CloseFiles(&reference, &compare);
 			logmsg("\nERROR: Invalid FLAC file %s\n", config->comparisonFile);
-			RemoveFLACTemp(config->referenceFile, config->comparisonFile);
+			RemoveFLACTemp(config->referenceFile, config->comparisonFile, config);
 			return 0;
 		}
 		if(config->clock)
@@ -383,7 +381,7 @@ int LoadAudioFiles(AudioSignal **ReferenceSignal, AudioSignal **ComparisonSignal
 	if(!compare)
 	{
 		CloseFiles(&reference, &compare);
-		RemoveFLACTemp(config->referenceFile, config->comparisonFile);
+		RemoveFLACTemp(config->referenceFile, config->comparisonFile, config);
 		logmsg("\tERROR: Could not open 'Comparison' file:\n\t\"%s\"\n", config->comparisonFile);
 		return 0;
 	}
@@ -392,7 +390,7 @@ int LoadAudioFiles(AudioSignal **ReferenceSignal, AudioSignal **ComparisonSignal
 	if(!*ReferenceSignal)
 	{
 		CloseFiles(&reference, &compare);
-		RemoveFLACTemp(config->referenceFile, config->comparisonFile);
+		RemoveFLACTemp(config->referenceFile, config->comparisonFile, config);
 		return 0;
 	}
 	(*ReferenceSignal)->role = ROLE_REF;
@@ -401,7 +399,7 @@ int LoadAudioFiles(AudioSignal **ReferenceSignal, AudioSignal **ComparisonSignal
 	if(!*ComparisonSignal)
 	{
 		CloseFiles(&reference, &compare);
-		RemoveFLACTemp(config->referenceFile, config->comparisonFile);
+		RemoveFLACTemp(config->referenceFile, config->comparisonFile, config);
 		return 0;
 	}
 	(*ComparisonSignal)->role = ROLE_COMP;
@@ -410,7 +408,7 @@ int LoadAudioFiles(AudioSignal **ReferenceSignal, AudioSignal **ComparisonSignal
 	if(!LoadFile(reference, *ReferenceSignal, config, config->referenceFile))
 	{
 		CloseFiles(&reference, &compare);
-		RemoveFLACTemp(config->referenceFile, config->comparisonFile);
+		RemoveFLACTemp(config->referenceFile, config->comparisonFile, config);
 		return 0;
 	}
 
@@ -418,12 +416,12 @@ int LoadAudioFiles(AudioSignal **ReferenceSignal, AudioSignal **ComparisonSignal
 	if(!LoadFile(compare, *ComparisonSignal, config, config->comparisonFile))
 	{
 		CloseFiles(&reference, &compare);
-		RemoveFLACTemp(config->referenceFile, config->comparisonFile);
+		RemoveFLACTemp(config->referenceFile, config->comparisonFile, config);
 		return 0;
 	}
 
 	CloseFiles(&reference, &compare);
-	RemoveFLACTemp(config->referenceFile, config->comparisonFile);
+	RemoveFLACTemp(config->referenceFile, config->comparisonFile, config);
 	return 1;
 }
 

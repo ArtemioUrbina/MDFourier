@@ -470,6 +470,7 @@ typedef struct parameters_st {
 	char			profileFile[BUFFER_SIZE];
 	char			outputFolder[BUFFER_SIZE];
 	char			outputPath[BUFFER_SIZE];
+	char			tmpPath[BUFFER_SIZE];
 	double			startHz, endHz;
 	double			startHzPlot, endHzPlot;
 	double			maxDbPlotZC;

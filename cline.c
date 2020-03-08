@@ -122,6 +122,7 @@ void CleanParameters(parameters *config)
 
 	sprintf(config->outputFolder, OUTPUT_FOLDER);
 	config->outputPath[0] = '\0';
+	config->tmpPath[0] = '\0';
 
 	config->startHz = START_HZ;
 	config->endHz = END_HZ;
@@ -258,7 +259,7 @@ int commandline(int argc , char *argv[], parameters *config)
 	CleanParameters(config);
 
 	// Available: GJ1234567
-	while ((c = getopt (argc, argv, "Aa:Bb:Cc:Dd:Ee:Ff:gHhIijKkL:lMmNn:Oo:P:p:QqRr:Ss:TtUuVvWw:XxY:yZ:z0:89")) != -1)
+	while ((c = getopt (argc, argv, "Aa:Bb:Cc:Dd:Ee:Ff:G:gHhIijKkL:lMmNn:Oo:P:p:QqRr:Ss:TtUuVvWw:XxY:yZ:z0:89")) != -1)
 	switch (c)
 	  {
 	  case 'A':
@@ -337,6 +338,9 @@ int commandline(int argc , char *argv[], parameters *config)
 			logmsg("\t - Number fo frequencies must be between %d and %d, changed to %g\n", 1, MAX_FREQ_COUNT, MAX_FREQ_COUNT);
 			config->MaxFreq = MAX_FREQ_COUNT;
 		}
+		break;
+	  case 'G':
+		sprintf(config->tmpPath, "%s", optarg);
 		break;
 	  case 'g':
 		config->averagePlot = 0;
@@ -571,6 +575,8 @@ int commandline(int argc , char *argv[], parameters *config)
 		  logmsg("\t ERROR: Max frequency range for FFTW -%c requires an argument: %d-%d\n", START_HZ*2, END_HZ, optopt);
 		else if (optopt == 'f')
 		  logmsg("\t ERROR: Max # of frequencies to use from FFTW -%c requires an argument: 1-%d\n", optopt, MAX_FREQ_COUNT);
+		else if (optopt == 'G')
+		  logmsg("\t ERROR: Temp folder argument -%c requires a valid path.\n", optopt);
 		else if (optopt == 'L')
 		  logmsg("\t ERROR: Plot Resolution -%c requires an argument: 1-6\n", optopt);
 		else if (optopt == 'n')
@@ -591,6 +597,8 @@ int commandline(int argc , char *argv[], parameters *config)
 		  logmsg("\t ERROR: Reference format: needs a number with a selection from the profile\n");
 		else if (optopt == 'Z')
 		  logmsg("\t ERROR: Comparison format: needs a number with a selection from the profile\n");
+		else if (optopt == '0')
+		  logmsg("\t ERROR: Output folder argument -%c requires a valid path.\n", optopt);
 		else if (isprint (optopt))
 		  logmsg("\t ERROR: Unknown option `-%c'.\n", optopt);
 		else
@@ -719,12 +727,28 @@ int commandline(int argc , char *argv[], parameters *config)
 	return 1;
 }
 
-int checkAlternatePath(parameters *config)
+int checkPath(char *path)
 {
+	int		len = 0;
 	char 	*CurrentPath = NULL;
 
-	if(config->outputPath[0] == '\0')
+	if(!path || path[0] == '\0')
 		return 1;
+
+	len = strlen(path);
+	if(path[len-1] != FOLDERCHAR)
+	{
+		if(len < BUFFER_SIZE)
+		{
+			path[len] = FOLDERCHAR;
+			path[len+1] = '\0';
+		}
+		else
+		{
+			logmsg("Path too long %s\n", path);
+			return 0;
+		}
+	}
 
 	CurrentPath = (char*)malloc(sizeof(char)*FILENAME_MAX);
 	if(!CurrentPath)
@@ -737,14 +761,25 @@ int checkAlternatePath(parameters *config)
 		return 0;
 	}
 
-	if(chdir(config->outputPath) == -1)
+	if(chdir(path) == -1)
 	{
 		free(CurrentPath);
-		logmsg("Could not change to selected path '%s'\n", config->outputPath);
+		logmsg("Could not open selected path '%s'\n", path);
 		return 0;
 	}
 
 	PopMainPath(&CurrentPath);
+	return 1;
+}
+
+int checkAlternatePaths(parameters *config)
+{
+	if(!checkPath(config->outputPath))
+		return 0;
+
+	if(!checkPath(config->tmpPath))
+		return 0;
+	
 	return 1;
 }
 
@@ -791,7 +826,7 @@ int SetupFolders(char *folder, char *logname, parameters *config)
 {
 	char *mainDir = NULL;
 
-	if(!checkAlternatePath(config))
+	if(!checkAlternatePaths(config))
 		return 0;
 
 	mainDir = PushMainPath(config);
