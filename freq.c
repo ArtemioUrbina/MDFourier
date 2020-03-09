@@ -165,16 +165,9 @@ void CalcuateFrequencyBrackets(AudioSignal *Signal, parameters *config)
 		Signal->SilenceBinSize = FindFrequencyBinSizeForBlock(Signal, index);
 
 		// NTSC or PAL
-		if(config->quantizeRound)
-		{
-			ntsc = fabs(60.0 - roundFloat(1000.0/Signal->framerate));
-			pal = fabs(50.0 - roundFloat(1000.0/Signal->framerate));
-		}
-		else
-		{
-			ntsc = fabs(60.0 - 1000.0/Signal->framerate);
-			pal = fabs(50.0 - 1000.0/Signal->framerate);
-		}
+		ntsc = fabs(60.0 - 1000.0/Signal->framerate);
+		pal = fabs(50.0 - 1000.0/Signal->framerate);
+
 		gridNoise = ntsc < pal ? 60.0 : 50.0;
 		Signal->gridFrequency = FindFrequencyBracket(gridNoise, Signal->Blocks[index].fftwValues.size, Signal->AudioChannels, Signal->header.fmt.SamplesPerSec, config);
 
@@ -2907,8 +2900,7 @@ inline double CalculatePhase(fftw_complex value, parameters *config)
 	r1 = creal(value);
 	i1 = cimag(value);
 	phase = atan2(i1, r1)*180/M_PI;
-	if(config && config->quantizeRound)
-		phase = roundFloat(phase);
+
 	return phase;
 }
 
@@ -2920,8 +2912,7 @@ inline double CalculateAmplitude(double magnitude, double MaxMagnitude, paramete
 		return NO_AMPLITUDE;
 
 	amplitude = 20*log10(magnitude/MaxMagnitude);
-	if(config && config->quantizeRound)
-		amplitude = roundFloat(amplitude);
+	
 	return amplitude;
 }
 
@@ -2930,8 +2921,7 @@ inline double CalculateFrequency(double boxindex, double boxsize, parameters *co
 	double Hertz = 0;
 
 	Hertz = boxindex/boxsize;
-	if(config && !config->ZeroPad && config->quantizeRound) // if zero padded (Hertz Aligned), we are using 1Hz integer bins
-		Hertz = roundFloat(Hertz);  // default, overkill yes
+	
 	return Hertz;
 }
 

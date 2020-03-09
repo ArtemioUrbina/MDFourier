@@ -35,6 +35,7 @@
 	The higher, the less precise in frequency but more in position and vice versa 
 */
 
+#define	FACTOR_LFEXPL	4
 #define	FACTOR_EXPLORE	8
 #define	FACTOR_DETECT	8
 
@@ -131,17 +132,21 @@ long int DetectPulseSecondTry(char *AllSamples, wav_hdr header, int role, parame
 long int DetectEndPulse(char *AllSamples, long int startpulse, wav_hdr header, int role, parameters *config)
 {
 	int			maxdetected = 0, frameAdjust = 0, tries = 0, maxtries = END_SYNC_MAX_TRIES;
-	int			AudioChannels = 0;
+	int			factor = 0, AudioChannels = 0;
 	long int 	offset = 0;
 	double		silenceOffset[END_SYNC_MAX_TRIES] = END_SYNC_VALUES;
 
 
+	if(GetPulseSyncFreq(role, config) < HARMONIC_TSHLD)
+		factor = FACTOR_LFEXPL;
+	else
+		factor = FACTOR_EXPLORE;
 	/* Try a clean detection */
 	offset = GetSecondSyncSilenceByteOffset(GetMSPerFrameRole(role, config), header, 0, 1, config) + startpulse;
 	if(config->debugSync)
 		logmsgFileOnly("\nStarting CLEAN Detect end pulse with offset %ld\n", offset);
 	AudioChannels = header.fmt.NumOfChan;
-	offset = DetectPulseInternal(AllSamples, header, FACTOR_EXPLORE, offset, &maxdetected, role, AudioChannels, config);
+	offset = DetectPulseInternal(AllSamples, header, factor, offset, &maxdetected, role, AudioChannels, config);
 	if(offset != -1)
 	{
 		offset = AdjustPulseSampleStart(AllSamples, header, offset, role, AudioChannels, config);
@@ -166,7 +171,7 @@ long int DetectEndPulse(char *AllSamples, long int startpulse, wav_hdr header, i
 		frameAdjust = 0;
 		maxdetected = 0;
 
-		offset = DetectPulseInternal(AllSamples, header, FACTOR_EXPLORE, offset, &maxdetected, role, AudioChannels, config);
+		offset = DetectPulseInternal(AllSamples, header, factor, offset, &maxdetected, role, AudioChannels, config);
 		if(offset == -1 && !maxdetected)
 		{
 			if(config->debugSync)
@@ -360,6 +365,7 @@ long int DetectPulseTrainSequence(Pulses *pulseArray, double targetFrequency, do
 	
 					if(config->debugSync)
 						logmsgFileOnly("Closed a silence cycle %d\n", silence_count);
+					/*
 					if(silence_count > getPulseCount(role, config))
 					{
 						if(config->debugSync)
@@ -367,11 +373,13 @@ long int DetectPulseTrainSequence(Pulses *pulseArray, double targetFrequency, do
 						sequence_start = 0;
 						silence_count = 0;
 					}
+					*/
 					linefeedNeeded = 0;
+					frame_silence_count = 0;
 				}
 	
-				if(frame_silence_count)
-					frame_silence_count = 0;
+				//if(frame_silence_count)
+					//frame_silence_count = 0;
 
 				if(config->debugSync && linefeedNeeded)
 					logmsgFileOnly("\n");
@@ -398,7 +406,6 @@ long int DetectPulseTrainSequence(Pulses *pulseArray, double targetFrequency, do
 
 		if(checkSilence)
 		{
-			
 			if(pulseArray[i].amplitude < averageAmplitude)
 			{
 				if(config->debugSync)

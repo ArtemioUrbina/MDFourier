@@ -537,7 +537,6 @@ typedef struct parameters_st {
 	int				noiseFloorTooHigh;
 	int				noiseFloorBigDifference;
 	int				channelWithLowFundamentals;
-	int				singleSyncUsed;
 	double			notVisible;
 	int				SRNoMatch;
 	int				diffClkNoMatch;
@@ -560,7 +559,6 @@ typedef struct parameters_st {
 	int				nyquistLimit;
 	int				useExtraData;
 	int				compressToBlocks;
-	int				quantizeRound;
 	int				drawPerfect;
 
 /* Values only used for clock frequency */

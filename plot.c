@@ -784,7 +784,6 @@ void enableTestWarnings(parameters *config)
 	config->channel = 'l';
 
 	config->hasAddOnData = 1;
-	config->quantizeRound = 0;
 
 	config->ZeroPad = 1;
 
@@ -804,7 +803,6 @@ void enableTestWarnings(parameters *config)
 
 	config->compressToBlocks = 1;
 	config->channelWithLowFundamentals = 1;
-	config->singleSyncUsed = 1;
 
 	config->maxDbPlotZC = DB_HEIGHT+3;
 	config->notVisible = 20.75;
@@ -900,16 +898,16 @@ void DrawImbalance(PlotFile *plot, AudioSignal *Signal, char *msg, parameters *c
 		return;
 
 	if(Signal->role == ROLE_REF)
-		PLOT_COLUMN(8, 1);
+		PLOT_COLUMN(7, 1);
 	else
-		PLOT_COLUMN(8, 2);
+		PLOT_COLUMN(7, 2);
 
 	if(fabs(Signal->balance) >= 10)
 		pl_pencolor_r(plot->plotter, 0xcccc, 0xcccc, 0);
 	else
 		pl_pencolor_r(plot->plotter, 0, 0xcccc, 0xcccc);
 	if(Signal->balance)
-		sprintf(msg, "Imbalance %s [%s]: %0.2f%%", 
+		sprintf(msg, "Imbalance %s [%s]: %0.1f%%", 
 				Signal->role == ROLE_REF ? "RF" : "CM",
 				Signal->balance > 0 ? "RF" : "L", 
 				fabs(Signal->balance));
@@ -1409,28 +1407,10 @@ void DrawLabelsMDF(PlotFile *plot, char *Gname, char *GType, int type, parameter
 		sprintf(msg, "Frequencies/note: %d", config->MaxFreq);
 		pl_alabel_r(plot->plotter, 'l', 'l', msg);
 	}
-
-	if(!config->quantizeRound)
-	{
-		PLOT_COLUMN(4, 3);
-		pl_alabel_r(plot->plotter, 'l', 'l', "Quantization: OFF");
-	}
-
-	if(config->channelWithLowFundamentals)
-	{
-		PLOT_COLUMN(5, 1);
-		pl_alabel_r(plot->plotter, 'l', 'l', "Low Fundamentals present");
-	}
-
-	if(config->singleSyncUsed)
-	{
-		PLOT_COLUMN(5, 2);
-		pl_alabel_r(plot->plotter, 'l', 'l', "Single precision sync used");
-	}
 	
 	if(config->maxDbPlotZC != DB_HEIGHT && type == PLOT_COMPARE)
 	{
-		PLOT_COLUMN(5, 3);
+		PLOT_COLUMN(4, 3);
 		pl_pencolor_r(plot->plotter, 0xeeee, 0xeeee, 0);
 		pl_alabel_r(plot->plotter, 'l', 'l', "Vertical scale changed");
 	}
@@ -1439,34 +1419,40 @@ void DrawLabelsMDF(PlotFile *plot, char *Gname, char *GType, int type, parameter
 	{
 		if(type == PLOT_COMPARE)
 		{
-			PLOT_COLUMN(6, 1);
+			PLOT_COLUMN(5, 1);
 			DrawClockData(plot, config->referenceSignal, msg, config);
 			pl_alabel_r(plot->plotter, 'l', 'l', msg);
 
-			PLOT_COLUMN(6, 2);
+			PLOT_COLUMN(5, 2);
 			DrawClockData(plot, config->comparisonSignal, msg, config);
 			pl_alabel_r(plot->plotter, 'l', 'l', msg);
 		}
 		else if(type == PLOT_SINGLE_REF)
 		{
-			PLOT_COLUMN(6, 1);
+			PLOT_COLUMN(5, 1);
 			DrawClockData(plot, config->referenceSignal, msg, config);
 			pl_alabel_r(plot->plotter, 'l', 'l', msg);
 		}
 		else
 		{
-			PLOT_COLUMN(6, 2);
+			PLOT_COLUMN(5, 2);
 			DrawClockData(plot, config->comparisonSignal, msg, config);
 			pl_alabel_r(plot->plotter, 'l', 'l', msg);
 		}
 	}
 
+	if(config->channelWithLowFundamentals)
+	{
+		PLOT_COLUMN(5, 3);
+		pl_alabel_r(plot->plotter, 'l', 'l', "Low Fundamentals present");
+	}
+
 	if(config->referenceSignal->EstimatedSR || config->comparisonSignal->EstimatedSR)
 	{
-		PLOT_COLUMN(7, 1);
+		PLOT_COLUMN(6, 1);
 		DrawSRData(plot, config->referenceSignal, msg, config);
 		pl_alabel_r(plot->plotter, 'l', 'l', msg);
-		PLOT_COLUMN(7, 2);
+		PLOT_COLUMN(6, 2);
 		DrawSRData(plot, config->comparisonSignal, msg, config);
 		pl_alabel_r(plot->plotter, 'l', 'l', msg);
 	}

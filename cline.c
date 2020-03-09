@@ -61,7 +61,6 @@ void PrintUsage()
 	logmsg("	 -j: Ad<j>ust clock (profile defined) via FFTW if difference is found\n");
 	logmsg("	 -k: cloc<k> FFTW operations\n");
 	logmsg("	 -X: Do not E<x>tra Data from Profiles\n");
-	logmsg("	 -q: Do not round (<q>uantize) frequencies and amplitudes\n");
 	logmsg("   Output options:\n");
 	logmsg("	 -l: Do not <l>og output to file [reference]_vs_[compare].txt\n");
 	logmsg("	 -v: Enable <v>erbose mode, spits all the FFTW results\n");
@@ -169,7 +168,6 @@ void CleanParameters(parameters *config)
 	config->noiseFloorTooHigh = 0;
 	config->noiseFloorBigDifference = 0;
 	config->channelWithLowFundamentals = 0;
-	config->singleSyncUsed = 0;
 	config->notVisible = 0;
 
 	config->logScale = 1;
@@ -237,7 +235,6 @@ void CleanParameters(parameters *config)
 
 	config->useExtraData = 1;
 	config->compressToBlocks = 0;
-	config->quantizeRound = 1;
 	config->drawPerfect = 0;
 
 	config->SRNoMatch = 0;
@@ -258,8 +255,8 @@ int commandline(int argc , char *argv[], parameters *config)
 	
 	CleanParameters(config);
 
-	// Available: GJ1234567
-	while ((c = getopt (argc, argv, "Aa:Bb:Cc:Dd:Ee:Ff:G:gHhIijKkL:lMmNn:Oo:P:p:QqRr:Ss:TtUuVvWw:XxY:yZ:z0:89")) != -1)
+	// Available: GJq1234567
+	while ((c = getopt (argc, argv, "Aa:Bb:Cc:Dd:Ee:Ff:G:gHhIijKkL:lMmNn:Oo:P:p:QRr:Ss:TtUuVvWw:XxY:yZ:z0:89")) != -1)
 	switch (c)
 	  {
 	  case 'A':
@@ -465,9 +462,6 @@ int commandline(int argc , char *argv[], parameters *config)
 		break;
 	  case 'Q':
 		config->plotTimeDomain = 0;
-		break;
-	  case 'q':
-		config->quantizeRound = 0;
 		break;
 	  case 'R':
 		config->doSamplerateAdjust = 1;
@@ -718,8 +712,6 @@ int commandline(int argc , char *argv[], parameters *config)
 		logmsg("\tPlots will not be adjusted to log scale\n");
 	if(config->averagePlot && !config->weightedAveragePlot)
 		logmsg("\tAveraged Plots will not be weighted\n");
-	if(!config->quantizeRound)
-		logmsg("\tDecimal values will not be rounded/quantized\n");
 
 	if(config->logScale && config->plotRatio == 0)
 		config->plotRatio = config->endHzPlot/log10(config->endHzPlot);
