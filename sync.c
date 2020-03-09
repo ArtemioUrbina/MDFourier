@@ -34,28 +34,25 @@
 	There are the number of subdivisions to use. 
 	The higher, the less precise in frequency but more in position and vice versa 
 */
-#define	FACTOR_EXPLORE	4
-#define	FACTOR_DETECT	9
 
-#define DOUBLE_SYNC
+#define	FACTOR_EXPLORE	8
+#define	FACTOR_DETECT	8
 
-// Use 1 to do double in all cases, 6000 for single if below 6k
-#define	FORCE_SINGLE_4K	1
 // Cut off for harmonic search
 #define HARMONIC_TSHLD 6000
 
 long int DetectPulse(char *AllSamples, wav_hdr header, int role, parameters *config)
 {
-	int			maxdetected = 0, errcount = 0, AudioChannels = 0;
-	long int	position = 0, offset = 0;
+	int			maxdetected = 0, AudioChannels = 0;
+	long int	offset = 0;
 
 	if(config->debugSync)
 		logmsgFileOnly("\nStarting Detect start pulse\n");
 
 	AudioChannels = header.fmt.NumOfChan;
 
-	position = DetectPulseInternal(AllSamples, header, FACTOR_EXPLORE, 0, &maxdetected, role, AudioChannels, config);
-	if(position == -1)
+	offset = DetectPulseInternal(AllSamples, header, FACTOR_EXPLORE, 0, &maxdetected, role, AudioChannels, config);
+	if(offset == -1)
 	{
 		if(config->debugSync)
 			logmsgFileOnly("First round start pulse failed\n", offset);
@@ -63,42 +60,21 @@ long int DetectPulse(char *AllSamples, wav_hdr header, int role, parameters *con
 		return DetectPulseSecondTry(AllSamples, header, role, config);
 	}
 
-	if(errcount && position != -1)
-		logmsgFileOnly(" - Sync pulse had %d imperfections\n", errcount);
-
-#ifdef DOUBLE_SYNC
-	if(GetPulseSyncFreq(role, config) >= FORCE_SINGLE_4K)
-	{
-		if(config->debugSync)
-			logmsgFileOnly("First round start pulse detected at %ld, refinement\n", position);
-	
-		offset = position;
-		if(offset >= 8*22*AudioChannels)  /* return 8 "ms segments" as dictated by ratio "9" below */
-			offset -= 8*22*AudioChannels;
-	
-		maxdetected = 0;
-		errcount = 0;
-		position = DetectPulseInternal(AllSamples, header, FACTOR_DETECT, offset, &maxdetected, role, AudioChannels, config);
-	}
-	else
-	{
-		logmsgFileOnly(" - WARNING: Using only First round start pulse %ld, tone frequency too low\n", position, GetPulseSyncFreq(role, config));
-		config->singleSyncUsed = 1;
-		return(position);
-	}
-#endif
+	offset = AdjustPulseSampleStart(AllSamples, header, offset, role, AudioChannels, config);
+	if(offset != -1)
+		return offset;
 
 	if(config->debugSync)
-		logmsgFileOnly("Start pulse return value %ld\n", position);
+		logmsgFileOnly("Start pulse return value %ld\n", offset);
 
-	return position;
+	return offset;
 }
 
-/* only difference is taht it auto detects the start first, helps in some cases with long silence and high noise floor */
+/* only difference is that it auto detects the start first, helps in some cases with long silence and high noise floor */
 long int DetectPulseSecondTry(char *AllSamples, wav_hdr header, int role, parameters *config)
 {
-	int			maxdetected = 0, errcount = 0, AudioChannels = 0;
-	long int	position = 0, offset = 0;
+	int			maxdetected = 0, AudioChannels = 0;
+	long int	offset = 0;
 
 	if(config->debugSync)
 		logmsgFileOnly("\nStarting Detect start pulse\n");
@@ -117,8 +93,8 @@ long int DetectPulseSecondTry(char *AllSamples, wav_hdr header, int role, parame
 	else
 		offset = 0;
 
-	position = DetectPulseInternal(AllSamples, header, FACTOR_EXPLORE, offset, &maxdetected, role, AudioChannels, config);
-	if(position == -1)
+	offset = DetectPulseInternal(AllSamples, header, FACTOR_EXPLORE, offset, &maxdetected, role, AudioChannels, config);
+	if(offset == -1)
 	{
 		if(config->debugSync)
 			logmsgFileOnly("First round start pulse failed\n", offset);
@@ -126,35 +102,14 @@ long int DetectPulseSecondTry(char *AllSamples, wav_hdr header, int role, parame
 		return -1;
 	}
 
-	if(errcount && position != -1)
-		logmsgFileOnly(" - Sync pulse had %d imperfections\n", errcount);
-
-#ifdef DOUBLE_SYNC
-	if(GetPulseSyncFreq(role, config) >= FORCE_SINGLE_4K)
-	{
-		if(config->debugSync)
-			logmsgFileOnly("First round start pulse detected at %ld, refinement\n", position);
-	
-		offset = position;
-		if(offset >= 8*22*AudioChannels)  /* return 8 "ms segments" as dictated by ratio "9" below */
-			offset -= 8*22*AudioChannels;
-	
-		maxdetected = 0;
-		errcount = 0;
-		position = DetectPulseInternal(AllSamples, header, FACTOR_DETECT, offset, &maxdetected, role, AudioChannels, config);
-	}
-	else
-	{
-		logmsgFileOnly(" - WARNING: Using only First round start pulse %ld, tone frequency too low\n", position, GetPulseSyncFreq(role, config));
-		config->singleSyncUsed = 1;
-		return(position);
-	}
-#endif
+	offset = AdjustPulseSampleStart(AllSamples, header, offset, role, AudioChannels, config);
+	if(offset != -1)
+		return offset;
 
 	if(config->debugSync)
-		logmsgFileOnly("Start pulse return value %ld\n", position);
+		logmsgFileOnly("Start pulse return value %ld\n", offset);
 
-	return position;
+	return offset;
 }
 
 /*
@@ -176,22 +131,24 @@ long int DetectPulseSecondTry(char *AllSamples, wav_hdr header, int role, parame
 long int DetectEndPulse(char *AllSamples, long int startpulse, wav_hdr header, int role, parameters *config)
 {
 	int			maxdetected = 0, frameAdjust = 0, tries = 0, maxtries = END_SYNC_MAX_TRIES;
-	int			factor = 0, errcount = 0, AudioChannels = 0;
-	long int 	position = 0, offset = 0;
+	int			AudioChannels = 0;
+	long int 	offset = 0;
 	double		silenceOffset[END_SYNC_MAX_TRIES] = END_SYNC_VALUES;
 
-	if(GetPulseSyncFreq(role, config) >= FORCE_SINGLE_4K)
-		factor = FACTOR_DETECT;
-	else
-		factor = FACTOR_EXPLORE;
+
 	/* Try a clean detection */
 	offset = GetSecondSyncSilenceByteOffset(GetMSPerFrameRole(role, config), header, 0, 1, config) + startpulse;
 	if(config->debugSync)
 		logmsgFileOnly("\nStarting CLEAN Detect end pulse with offset %ld\n", offset);
 	AudioChannels = header.fmt.NumOfChan;
-	position = DetectPulseInternal(AllSamples, header, factor, offset, &maxdetected, role, AudioChannels, config);
-	if(position != -1)
-		return position;
+	offset = DetectPulseInternal(AllSamples, header, FACTOR_EXPLORE, offset, &maxdetected, role, AudioChannels, config);
+	if(offset != -1)
+	{
+		offset = AdjustPulseSampleStart(AllSamples, header, offset, role, AudioChannels, config);
+		if(offset != -1)
+			return offset;
+	}
+
 	
 	/* We try to figure out position of the pulses */
 	if(config->debugSync)
@@ -208,56 +165,25 @@ long int DetectEndPulse(char *AllSamples, long int startpulse, wav_hdr header, i
 	
 		frameAdjust = 0;
 		maxdetected = 0;
-		errcount = 0;
-		position = DetectPulseInternal(AllSamples, header, factor, offset, &maxdetected, role, AudioChannels, config);
-		if(position == -1 && !maxdetected)
+
+		offset = DetectPulseInternal(AllSamples, header, FACTOR_EXPLORE, offset, &maxdetected, role, AudioChannels, config);
+		if(offset == -1 && !maxdetected)
 		{
 			if(config->debugSync)
 				logmsgFileOnly("End pulse failed try %d, started search at %ld bytes [%g silence]\n", tries+1, offset, silenceOffset[tries]);
 		}
 
-		/*
-		if(position == -1 && maxdetected)
-			frameAdjust = getPulseCount(role, config) - maxdetected/2;
-		*/
 		tries ++;
-	}while(position == -1 && tries < maxtries);
-
-
-	if(errcount && position != -1)
-		logmsgFileOnly(" - Sync pulse had %d imperfections\n", errcount);
+	}while(offset == -1 && tries < maxtries);
 
 	if(tries == maxtries)
 		return -1;
 
-/*
-#ifdef DOUBLE_SYNC
-	if(GetPulseSyncFreq(role, config) >= FORCE_SINGLE_4K)
-	{
-		if(config->debugSync)
-			logmsgFileOnly("First round end pulse detected at %ld, refinement\n", position);
-	
-		offset = position;
-		if(offset >= 8*22*AudioChannels)  // return 8 "ms segments" as dictated by ratio "9" below 
-			offset -= 8*22*AudioChannels;
-	
-		maxdetected = 0;
-		errcount = 0;
-		position = DetectPulseInternal(AllSamples, header, FACTOR_DETECT, offset, &maxdetected, role, AudioChannels, config);
-	}
-	else
-	{
-		logmsgFileOnly(" - WARNING: Using only First round end pulse %ld, tone frequency too low\n", position, GetPulseSyncFreq(role, config));
-		config->singleSyncUsed = 1;
-		return(position);
-	}
-#endif
-*/
-
+	offset = AdjustPulseSampleStart(AllSamples, header, offset, role, AudioChannels, config);
 	if(config->debugSync)
-		logmsgFileOnly("End pulse return value %ld\n", position);
+		logmsgFileOnly("End pulse return value %ld\n", offset);
 
-	return position;
+	return offset;
 }
 
 
@@ -422,6 +348,7 @@ long int DetectPulseTrainSequence(Pulses *pulseArray, double targetFrequency, do
 				{
 					if(config->debugSync)
 						logmsgFileOnly(" This starts the sequence\n");
+
 					sequence_start = pulseArray[i].bytes;
 					frame_silence_count = 0;
 					linefeedNeeded = 0;
@@ -563,6 +490,95 @@ long int DetectPulseTrainSequence(Pulses *pulseArray, double targetFrequency, do
 	return -1;
 }
 
+#define SORT_NAME PulsesByMagnitude
+#define SORT_TYPE Pulses
+#define SORT_CMP(x, y)  ((x).magnitude > (y).magnitude ? -1 : ((x).magnitude == (y).magnitude ? 0 : 1))
+#include "sort.h"  // https://github.com/swenson/sort/
+
+long int AdjustPulseSampleStart(char *Samples, wav_hdr header, long int offset, int role, int AudioChannels, parameters *config)
+{
+	int			samplesNeeded = 0, frequency = 0, bytesNeeded = 0, minDiffPos = -1;
+	long int	startSearch = 0, endSearch = 0, pos = 0, count = 0, foundPos = -1;
+	char		*buffer = NULL;
+	Pulses		*pulseArray = NULL;
+	double		targetFrequency = 0, minDiff = 1000;
+
+	frequency = GetPulseSyncFreq(role, config);
+	samplesNeeded = header.fmt.SamplesPerSec/frequency;
+	bytesNeeded = samplesNeeded*AudioChannels*2;
+
+	targetFrequency = FindFrequencyBracketForSync(frequency,
+						bytesNeeded/2, AudioChannels, header.fmt.SamplesPerSec, config);
+	logmsgFileOnly("\nGot %ld, looking for %g bytes %d\n", offset, targetFrequency, bytesNeeded);
+	buffer = (char*)malloc(bytesNeeded);
+	if(!buffer)
+	{
+		logmsgFileOnly("\tSync Adjust malloc failed\n");
+		return(foundPos);
+	}
+
+	if(offset >= 2*bytesNeeded)
+		startSearch = offset-2*bytesNeeded;
+	else
+		startSearch = 0;
+	endSearch = offset+bytesNeeded;
+
+	pulseArray = (Pulses*)malloc(sizeof(Pulses)*(endSearch-startSearch));
+	if(!pulseArray)
+	{
+		free(buffer);
+		logmsgFileOnly("\tPulse malloc failed!\n");
+		return(foundPos);
+	}
+	memset(pulseArray, 0, sizeof(Pulses)*(endSearch-startSearch));
+
+	for(pos = startSearch; pos < endSearch; pos += 2*AudioChannels)  // bytes
+	{
+		memset(buffer, 0, bytesNeeded);
+		if(pos + bytesNeeded > header.data.DataSize)
+		{
+			//logmsg("\tUnexpected end of File, please record the full Audio Test from the 240p Test Suite\n");
+			break;
+		}
+
+		pulseArray[count].bytes = pos;
+		memcpy(buffer, Samples + pos, bytesNeeded);
+		ProcessChunkForSyncPulse((int16_t*)buffer, bytesNeeded/2, 
+			header.fmt.SamplesPerSec, &pulseArray[count], 
+			config->channel == 's' ? 'l' : config->channel, AudioChannels, config);
+		count ++;
+	}
+
+	PulsesByMagnitude_tim_sort(pulseArray, count);
+	for(pos = 0; pos < count; pos++)
+	{
+		if(targetFrequency == pulseArray[pos].hertz)
+		{
+			double diff = 0;
+	
+			diff = fabs(0 - pulseArray[pos].phase);
+			logmsgFileOnly("Bytes: %ld %gHz Mag %g Phase %g diff: %g\n",
+					pulseArray[pos].bytes, pulseArray[pos].hertz, pulseArray[pos].magnitude, pulseArray[pos].phase, diff);
+			if(diff < minDiff)
+			{
+				minDiff = diff;
+				minDiffPos = pos;
+			}
+		}
+	}
+
+	if(minDiffPos != -1)
+	{
+		foundPos = pulseArray[minDiffPos].bytes;
+		logmsgFileOnly("FOUND: %ld Bytes: %ld %gHz Mag %g Phase %g diff: %g\n",
+				minDiffPos, pulseArray[minDiffPos].bytes, pulseArray[minDiffPos].hertz, pulseArray[minDiffPos].magnitude, pulseArray[minDiffPos].phase, minDiff);
+	}
+
+	free(buffer);
+	free(pulseArray);
+
+	return foundPos;
+}
 
 long int DetectPulseInternal(char *Samples, wav_hdr header, int factor, long int offset, int *maxdetected, int role, int AudioChannels, parameters *config)
 {
@@ -646,7 +662,7 @@ long int DetectPulseInternal(char *Samples, wav_hdr header, int factor, long int
 		memset(buffer, 0, buffersize);
 		if(pos + loadedBlockSize > header.data.DataSize)
 		{
-			logmsgFileOnly("\tunexpected end of File, please record the full Audio Test from the 240p Test Suite\n");
+			//logmsg("\tUnexpected end of File, please record the full Audio Test from the 240p Test Suite\n");
 			break;
 		}
 
@@ -719,7 +735,7 @@ double ProcessChunkForSyncPulse(int16_t *samples, size_t size, long samplerate, 
 	double		  	*signal = NULL;
 	fftw_complex  	*spectrum = NULL;
 	double		 	seconds = 0, boxsize = 0;
-	double			maxHertz = 0, maxMag = 0;
+	double			maxHertz = 0, maxMag = 0, maxPhase = 0;
 
 	stereoSignalSize = (long)size;
 	monoSignalSize = stereoSignalSize/AudioChannels;	 /* is 1/2 16 bit values */
@@ -791,15 +807,13 @@ double ProcessChunkForSyncPulse(int16_t *samples, size_t size, long samplerate, 
 	for(i = 1; i < monoSignalSize/2+1; i++)
 	{
 		double magnitude;
-		double Hertz;
 
 		magnitude = CalculateMagnitude(spectrum[i], size);
-		Hertz = CalculateFrequency(i, boxsize, config);
-
 		if(magnitude > maxMag)
 		{
 			maxMag = magnitude;
-			maxHertz = Hertz;
+			maxHertz = CalculateFrequency(i, boxsize, config);
+			maxPhase = CalculatePhase(spectrum[i], config);
 		}
 	}
 
@@ -811,6 +825,7 @@ double ProcessChunkForSyncPulse(int16_t *samples, size_t size, long samplerate, 
 
 	pulse->hertz = maxHertz;
 	pulse->magnitude = maxMag;
+	pulse->phase = maxPhase;
 
 	return(maxHertz);
 }

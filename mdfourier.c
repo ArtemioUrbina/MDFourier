@@ -1417,7 +1417,7 @@ int ProcessInternal(AudioSignal *Signal, long int element, long int pos, int *sy
 		if(pulseLengthBytes < syncLengthBytes/20)
 		{
 			logmsg("\tWARNING: No real signal found while in internal sync detection.\n");
-			return -1;
+			return 0;
 		}
 
 		if(knownLength == TYPE_INTERNAL_KNOWN)
@@ -2261,8 +2261,8 @@ int CompareAudioBlocks(AudioSignal *ReferenceSignal, AudioSignal *ComparisonSign
 			{
 				if(!ReferenceSignal->Blocks[block].freq[freq].matched && 
 					!ComparisonSignal->Blocks[block].freq[comp].matched && 
-					ReferenceSignal->Blocks[block].freq[freq].hertz ==
-					ComparisonSignal->Blocks[block].freq[comp].hertz)
+					areDoublesEqual(ReferenceSignal->Blocks[block].freq[freq].hertz, 
+					ComparisonSignal->Blocks[block].freq[comp].hertz))
 				{
 					ComparisonSignal->Blocks[block].freq[comp].matched = freq + 1;
 					ReferenceSignal->Blocks[block].freq[freq].matched = comp + 1;
@@ -2277,10 +2277,11 @@ int CompareAudioBlocks(AudioSignal *ReferenceSignal, AudioSignal *ComparisonSign
   			/* Now in either case, compare amplitudes */
 			if(found)
 			{
-				double diffAmpl = 0, diffPhase = 0;
+				//double diffAmpl = 0, diffPhase = 0;
 
-				diffAmpl = fabs(fabs(ComparisonSignal->Blocks[block].freq[index].amplitude) - fabs(ReferenceSignal->Blocks[block].freq[freq].amplitude));
-				if(diffAmpl != 0.0)
+				//diffAmpl = fabs(fabs(ComparisonSignal->Blocks[block].freq[index].amplitude) - fabs(ReferenceSignal->Blocks[block].freq[freq].amplitude));
+				//if(diffAmpl != 0.0)
+				if(!areDoublesEqual(ReferenceSignal->Blocks[block].freq[freq].amplitude, ComparisonSignal->Blocks[block].freq[index].amplitude))
 				{
 					if(!InsertAmplDifference(block, ReferenceSignal->Blocks[block].freq[freq], 
 							ComparisonSignal->Blocks[block].freq[index], config))
@@ -2298,8 +2299,9 @@ int CompareAudioBlocks(AudioSignal *ReferenceSignal, AudioSignal *ComparisonSign
 					}
 				}
 
-				diffPhase = ReferenceSignal->Blocks[block].freq[freq].phase - ComparisonSignal->Blocks[block].freq[index].phase;
-				if(diffPhase != 0.0)
+				//diffPhase = ReferenceSignal->Blocks[block].freq[freq].phase - ComparisonSignal->Blocks[block].freq[index].phase;
+				//if(diffPhase != 0.0)
+				if(!areDoublesEqual(ReferenceSignal->Blocks[block].freq[freq].phase, ComparisonSignal->Blocks[block].freq[index].phase))
 				{
 					if(!InsertPhaseDifference(block, ReferenceSignal->Blocks[block].freq[freq], 
 							ComparisonSignal->Blocks[block].freq[index], config))

@@ -586,9 +586,6 @@ double FindVisibleInViewPortWithinStandardDeviation(double *maxAmpl, double *out
 	if(!config->Differences.BlockDiffArray || !maxAmpl || !outside)
 		return -1;
 
-	if(!config->Differences.BlockDiffArray[type].cntAmplBlkDiff)
-		return -1;
-
 	if(numstd < 1)
 		numstd = 1;
 

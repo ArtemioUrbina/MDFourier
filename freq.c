@@ -31,12 +31,27 @@
 #include "log.h"
 #include "cline.h"
 #include "plot.h"
+//#include "float.h"
 
 #define SORT_NAME FFT_Frequency_Magnitude
 #define SORT_TYPE Frequency
 #define SORT_CMP(x, y)  ((x).magnitude > (y).magnitude ? -1 : ((x).magnitude == (y).magnitude ? 0 : 1))
 #include "sort.h"  // https://github.com/swenson/sort/
 
+
+inline int areDoublesEqual(double a, double b)
+{
+	double diff = 0;
+
+	if(a == b)
+		return 1;
+	diff = fabs(fabs(b) - fabs(a));
+	if(diff != 0.0 && diff < 0.00001)
+		return 1;
+	return 0;
+	
+	//return (fabs(a - b) < (DBL_EPSILON * fabs(a + b)));
+}
 
 double FindFrequencyBinSizeForBlock(AudioSignal *Signal, long int block)
 {
@@ -150,8 +165,16 @@ void CalcuateFrequencyBrackets(AudioSignal *Signal, parameters *config)
 		Signal->SilenceBinSize = FindFrequencyBinSizeForBlock(Signal, index);
 
 		// NTSC or PAL
-		ntsc = fabs(60.0 - roundFloat(1000.0/Signal->framerate));
-		pal = fabs(50.0 - roundFloat(1000.0/Signal->framerate));
+		if(config->quantizeRound)
+		{
+			ntsc = fabs(60.0 - roundFloat(1000.0/Signal->framerate));
+			pal = fabs(50.0 - roundFloat(1000.0/Signal->framerate));
+		}
+		else
+		{
+			ntsc = fabs(60.0 - 1000.0/Signal->framerate);
+			pal = fabs(50.0 - 1000.0/Signal->framerate);
+		}
 		gridNoise = ntsc < pal ? 60.0 : 50.0;
 		Signal->gridFrequency = FindFrequencyBracket(gridNoise, Signal->Blocks[index].fftwValues.size, Signal->AudioChannels, Signal->header.fmt.SamplesPerSec, config);
 
@@ -1348,8 +1371,10 @@ void CompareFrameRates(AudioSignal *Signal1, AudioSignal *Signal2, parameters *c
 {
 	double diff = 0;
 
+	
 	diff = fabs(Signal1->framerate - Signal2->framerate);
-	if(diff == 0.0)
+	//if(diff == 0.0)
+	if(areDoublesEqual(Signal1->framerate, Signal2->framerate))
 		config->smallerFramerate = Signal1->framerate;
 	else
 	{
@@ -3250,7 +3275,7 @@ double CalculateFrameRateAndCheckSamplerate(AudioSignal *Signal, parameters *con
 
 	ACsamplerate = (endOffset-startOffset)/(expectedFR*LastSyncFrameOffset);
 	ACsamplerate = ACsamplerate*1000.0/(2.0*Signal->AudioChannels);
-	if(fabs(ACsamplerate - samplerate) >= 2.0)
+	if(fabs(ACsamplerate - samplerate) >= 10.0)
 	{	
 		if(config->doSamplerateAdjust)
 		{
@@ -3260,7 +3285,7 @@ double CalculateFrameRateAndCheckSamplerate(AudioSignal *Signal, parameters *con
 			Signal->originalSR = Signal->header.fmt.SamplesPerSec;
 			Signal->originalFrameRate = framerate;
 
-			Signal->header.fmt.SamplesPerSec = RoundFloat(ACsamplerate, 0);
+			Signal->header.fmt.SamplesPerSec = round(ACsamplerate);
 			samplerate = Signal->header.fmt.SamplesPerSec;
 			framerate = (endOffset-startOffset)/(samplerate*LastSyncFrameOffset); // 1000 ms 
 			framerate = framerate*1000.0/(2.0*Signal->AudioChannels);  // 1000 ms and 2/4 bytes per stereo sample

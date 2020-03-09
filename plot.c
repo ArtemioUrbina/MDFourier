@@ -1071,13 +1071,14 @@ void DrawLabelsMDF(PlotFile *plot, char *Gname, char *GType, int type, parameter
 
 	/* Window */
 	pl_fmove_r(plot->plotter, config->plotResX/20*19, -1*config->plotResY/2+config->plotResY/80);
-	pl_pencolor_r(plot->plotter, 0xaaaa, 0xaaaa, 0xaaaa);
+	pl_pencolor_r(plot->plotter, 0xffff, 0xffff, 0);
 	switch(config->window)
 	{
 		case 'n':
 			pl_alabel_r(plot->plotter, 'l', 'l', "Rectangle");
 			break;
 		case 't':
+			pl_pencolor_r(plot->plotter, 0xaaaa, 0xaaaa, 0xaaaa);
 			pl_alabel_r(plot->plotter, 'l', 'l', "Tukey");
 			break;
 		case 'f':
@@ -1094,7 +1095,8 @@ void DrawLabelsMDF(PlotFile *plot, char *Gname, char *GType, int type, parameter
 			break;
 	}
 
-	/* Subpar Frequency domain nmormalization */
+	pl_pencolor_r(plot->plotter, 0xaaaa, 0xaaaa, 0xaaaa);
+	/* Subpar Frequency domain normalization */
 	if(config->frequencyNormalizationTries)
 	{
 		double width = 0;
