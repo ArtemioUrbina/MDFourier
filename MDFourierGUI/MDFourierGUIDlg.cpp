@@ -1284,6 +1284,8 @@ void CMDFourierGUIDlg::OnCbnSelendokProfile()
 	m_OpenResultsBttn.EnableWindow(FALSE);
 
 	FullFileName = GetSelectedCommandLineValue(m_Profiles, COUNT_PROFILES);
+	if(FullFileName == L"NONE")
+		return;
 	match = LoadProfile(FullFileName, Name, Version, Error, ProfileSyncTypes, COUNT_SYNCTYPE, syncCount);
 	if(match <= 0)
 	{
