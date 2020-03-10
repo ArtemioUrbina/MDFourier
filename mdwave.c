@@ -345,7 +345,7 @@ int LoadFile(FILE *file, AudioSignal *Signal, parameters *config, char *fileName
 
 	if(Signal->AudioChannels == INVALID_CHANNELS)
 	{
-		logmsg("\tERROR: Invalid Audio file. Only Stereo files are supported.\n");
+		logmsg("\tERROR: Invalid Audio file. Only Mono and Stereo files are supported.\n");
 		return(0);
 	}
 

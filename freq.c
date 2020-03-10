@@ -31,7 +31,7 @@
 #include "log.h"
 #include "cline.h"
 #include "plot.h"
-//#include "float.h"
+#include "float.h"
 
 #define SORT_NAME FFT_Frequency_Magnitude
 #define SORT_TYPE Frequency
@@ -43,14 +43,18 @@ inline int areDoublesEqual(double a, double b)
 {
 	double diff = 0;
 
+	// Exact matches for internal representation
 	if(a == b)
 		return 1;
+	// matches between very close values
+	if(fabs(a - b) < (DBL_EPSILON * fabs(a + b)))
+		return 1;
+
+	// matches with tolerance, 0.00001hz or dBFS seems way more than enough
 	diff = fabs(fabs(b) - fabs(a));
 	if(diff != 0.0 && diff < 0.00001)
 		return 1;
 	return 0;
-	
-	//return (fabs(a - b) < (DBL_EPSILON * fabs(a + b)));
 }
 
 double FindFrequencyBinSizeForBlock(AudioSignal *Signal, long int block)

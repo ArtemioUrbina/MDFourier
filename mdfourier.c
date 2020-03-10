@@ -193,7 +193,7 @@ void FindViewPort(parameters *config)
 	outside = FindDifferencePercentOutsideViewPort(&maxDiff, &type, fabs(config->maxDbPlotZC), config);		
 	if(outside)
 	{
-		name = GetTypeName(config, type);
+		name = GetTypeDisplayName(config, type);
 
 		logmsg(" - Differences outside +/-%gdBFS in [%s]: %g%%\n", 
 				config->maxDbPlotZC, name, outside);
@@ -1024,7 +1024,7 @@ int LoadFile(FILE *file, AudioSignal *Signal, parameters *config, char *fileName
 
 	if(Signal->AudioChannels == INVALID_CHANNELS)
 	{
-		logmsg("\tERROR: Invalid Audio file. Only Stereo files are supported.\n");
+		logmsg("\tERROR: Invalid Audio file. Only Mono and Stereo files are supported.\n");
 		return(0);
 	}
 

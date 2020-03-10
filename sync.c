@@ -193,7 +193,7 @@ long int DetectEndPulse(char *AllSamples, long int startpulse, wav_hdr header, i
 
 
 #define LOGCASE(x, y) { x; if(config->debugSync) logmsgFileOnly("Case #%d\n", y); }
-double findAverageAmplitudeForTarget(Pulses *pulseArray, double targetFrequency, double targetFrequencyHarmonic, long int TotalMS, long int start, int factor, parameters *config)
+double findAverageAmplitudeForTarget(Pulses *pulseArray, double targetFrequency, double *targetFrequencyHarmonic, long int TotalMS, long int start, int factor, parameters *config)
 {
 	long	count = 0, i = 0;
 	double	averageAmplitude = 0, standardDeviation = 0, useAmplitude = 0, percent = 0;
@@ -202,7 +202,9 @@ double findAverageAmplitudeForTarget(Pulses *pulseArray, double targetFrequency,
 		logmsgFileOnly("Searching for in range: %ld-%ld bytes\n", pulseArray[start].bytes, pulseArray[TotalMS-1].bytes);
 	for(i = start; i < TotalMS; i++)
 	{
-		if(pulseArray[i].hertz == targetFrequency || pulseArray[i].hertz == targetFrequencyHarmonic)
+		if(pulseArray[i].hertz == targetFrequency 
+			|| pulseArray[i].hertz == targetFrequencyHarmonic[0]
+			|| pulseArray[i].hertz == targetFrequencyHarmonic[1])
 		{
 			averageAmplitude += fabs(pulseArray[i].amplitude);
 			count ++;
@@ -221,7 +223,8 @@ double findAverageAmplitudeForTarget(Pulses *pulseArray, double targetFrequency,
 	count = 0;
 	for(i = start; i < TotalMS; i++)
 	{
-		if(pulseArray[i].hertz == targetFrequency || pulseArray[i].hertz == targetFrequencyHarmonic)
+		if(pulseArray[i].hertz == targetFrequency || pulseArray[i].hertz == targetFrequencyHarmonic[0]
+			|| pulseArray[i].hertz == targetFrequencyHarmonic[1])
 		{
 			standardDeviation += pow(fabs(pulseArray[i].amplitude) - averageAmplitude, 2);
 			count ++;
@@ -309,7 +312,7 @@ double findAverageAmplitudeForTarget(Pulses *pulseArray, double targetFrequency,
 	return useAmplitude;
 }
 
-long int DetectPulseTrainSequence(Pulses *pulseArray, double targetFrequency, double targetFrequencyHarmonic, long int TotalMS, int factor, int *maxdetected, long int start, int role, parameters *config)
+long int DetectPulseTrainSequence(Pulses *pulseArray, double targetFrequency, double *targetFrequencyHarmonic, long int TotalMS, int factor, int *maxdetected, long int start, int role, parameters *config)
 {
 	long	i, sequence_start = 0;
 	int		frame_pulse_count = 0, frame_silence_count = 0, 
@@ -325,8 +328,8 @@ long int DetectPulseTrainSequence(Pulses *pulseArray, double targetFrequency, do
 		return -1;
 
 	if(config->debugSync)
-		logmsgFileOnly("== Searching for %g/%g Average Amplitude %g looking for %d (%d*%d)\n", 
-			targetFrequency, targetFrequencyHarmonic, averageAmplitude, lookingfor,
+		logmsgFileOnly("== Searching for %g/%g/%g Average Amplitude %g looking for %d (%d*%d)\n", 
+			targetFrequency, targetFrequencyHarmonic[0], targetFrequencyHarmonic[1], averageAmplitude, lookingfor,
 			getPulseFrameLen(role, config), factor);
 
 	for(i = start; i < TotalMS; i++)
@@ -338,7 +341,7 @@ long int DetectPulseTrainSequence(Pulses *pulseArray, double targetFrequency, do
 			if(config->syncTolerance)
 				targetFrequency = pulseArray[i].hertz;
 			if(pulseArray[i].amplitude >= averageAmplitude
-				&& (pulseArray[i].hertz == targetFrequency || pulseArray[i].hertz == targetFrequencyHarmonic))
+				&& (pulseArray[i].hertz == targetFrequency || pulseArray[i].hertz == targetFrequencyHarmonic[0] || pulseArray[i].hertz == targetFrequencyHarmonic[1]))
 			{
 				int linefeedNeeded = 1;
 
@@ -393,7 +396,8 @@ long int DetectPulseTrainSequence(Pulses *pulseArray, double targetFrequency, do
 		// 1 tick tolerance within a pulse
 		if(checkSilence && pulseArray[i].amplitude < averageAmplitude)
 		{
-			if(frame_pulse_count >= lookingfor/3 && (lastcountedWasPulse && (pulseArray[i].hertz == targetFrequency || pulseArray[i].hertz == targetFrequencyHarmonic)))
+			if(frame_pulse_count >= lookingfor/3 && (lastcountedWasPulse && (pulseArray[i].hertz == targetFrequency 
+				|| pulseArray[i].hertz == targetFrequencyHarmonic[0] || pulseArray[i].hertz == targetFrequencyHarmonic[1])))
 			{
 				if(config->debugSync)
 					logmsgFileOnly("[i:%ld] byte:%7ld [%5gHz %0.2f dBFS] Silence Frame found due to AVG but skipped due to Hz%d\n", 
@@ -595,7 +599,7 @@ long int DetectPulseInternal(char *Samples, wav_hdr header, int factor, long int
 	size_t			 	buffersize = 0;
 	long int			pos = 0, millisecondSize = 0, startPos = 0;
 	Pulses				*pulseArray;
-	double				targetFrequency = 0, targetFrequencyHarmonic = 0, origFrequency = 0, MaxMagnitude = 0;
+	double				targetFrequency = 0, targetFrequencyHarmonic[2] = { -1000, -1000 }, origFrequency = 0, MaxMagnitude = 0;
 
 	/* Not a real ms, just approximate */
 	millisecondSize = RoundToNbytes(floor((((double)header.fmt.SamplesPerSec*2.0*AudioChannels)/1000.0)/(double)factor), AudioChannels, NULL, NULL, NULL);
@@ -643,21 +647,23 @@ long int DetectPulseInternal(char *Samples, wav_hdr header, int factor, long int
 	origFrequency = GetPulseSyncFreq(role, config);
 	targetFrequency = FindFrequencyBracketForSync(origFrequency,
 						millisecondSize/2, AudioChannels, header.fmt.SamplesPerSec, config);
-	if(origFrequency >= HARMONIC_TSHLD)  //default behavior for around 8khz, harmonic is identical
-		targetFrequencyHarmonic = targetFrequency;
-	else  //Scenario where we accept first harmonic
+	if(origFrequency < HARMONIC_TSHLD)  //default behavior for around 8khz, harmonic is -1000
 	{
-		targetFrequencyHarmonic = FindFrequencyBracketForSync(targetFrequency*2, 	
+		targetFrequencyHarmonic[0] = FindFrequencyBracketForSync(targetFrequency*2, 	
 						millisecondSize/2, AudioChannels, header.fmt.SamplesPerSec, config);
-		logmsgFileOnly("\n - Using %gHz and harmonic %gHz for sync detection\n", targetFrequency, targetFrequencyHarmonic);
+		targetFrequencyHarmonic[1] = FindFrequencyBracketForSync(targetFrequency*3,
+						millisecondSize/2, AudioChannels, header.fmt.SamplesPerSec, config);
+		logmsgFileOnly("\n - Using %gHz and harmonics %g/%gHz for sync detection\n", 
+				targetFrequency, targetFrequencyHarmonic[0], targetFrequencyHarmonic[1]);
 	}
 		
 	if(config->debugSync)
 	{
-		logmsgFileOnly("\nDefined Sync %g/%g Adjusted to %g/%g\n", 
+		logmsgFileOnly("\nDefined Sync %g/%g/%g Adjusted to %g/%g/%g\n", 
 				origFrequency, 
 				origFrequency >= HARMONIC_TSHLD ? origFrequency : targetFrequency*2, 
-				targetFrequency, targetFrequencyHarmonic);
+				origFrequency >= HARMONIC_TSHLD ? origFrequency : targetFrequency*3, 
+				targetFrequency, targetFrequencyHarmonic[0], targetFrequencyHarmonic[1]);
 		logmsgFileOnly("Start ms %ld Total MS: %ld (%ld)\n",
 			 i, TotalMS-1, header.data.DataSize / buffersize - 1);
 	}
@@ -871,7 +877,7 @@ long int DetectSignalStartInternal(char *Samples, wav_hdr header, int factor, lo
 	Pulses				*pulseArray;
 	double 				total = 0;
 	long int 			count = 0, length = 0;
-	double 				targetFrequency = 0, targetFrequencyHarmonic = 0, averageAmplitude = 0;
+	double 				targetFrequency = 0, targetFrequencyHarmonic[2] = { -1000, -1000 }, averageAmplitude = 0;
 
 	/* Not a real ms, just approximate */
 	millisecondSize = RoundToNbytes(floor((((double)header.fmt.SamplesPerSec*2.0*(double)AudioChannels)/1000.0)/(double)factor), AudioChannels, NULL, NULL, NULL);
@@ -971,7 +977,9 @@ long int DetectSignalStartInternal(char *Samples, wav_hdr header, int factor, lo
 	{
 		targetFrequency = FindFrequencyBracketForSync(syncKnown, 
 					millisecondSize/2, AudioChannels, header.fmt.SamplesPerSec, config);
-		targetFrequencyHarmonic = FindFrequencyBracketForSync(syncKnown*2, 
+		targetFrequencyHarmonic[0] = FindFrequencyBracketForSync(syncKnown*2, 
+					millisecondSize/2, AudioChannels, header.fmt.SamplesPerSec, config);
+		targetFrequencyHarmonic[1] = FindFrequencyBracketForSync(syncKnown*3, 
 					millisecondSize/2, AudioChannels, header.fmt.SamplesPerSec, config);
 		averageAmplitude = findAverageAmplitudeForTarget(pulseArray, targetFrequency, targetFrequencyHarmonic, TotalMS, start, factor, config);
 	}
@@ -992,7 +1000,8 @@ long int DetectSignalStartInternal(char *Samples, wav_hdr header, int factor, lo
 			{
 				if(pulseArray[i].amplitude > averageAmplitude &&
 					(pulseArray[i].hertz == targetFrequency ||
-					pulseArray[i].hertz == targetFrequencyHarmonic))  // harmonic
+					pulseArray[i].hertz == targetFrequencyHarmonic[0] ||
+					pulseArray[i].hertz == targetFrequencyHarmonic[1]))  // harmonic
 				{
 					if(offset == -1)
 						offset = pulseArray[i].bytes;
