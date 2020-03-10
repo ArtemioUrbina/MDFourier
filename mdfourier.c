@@ -275,11 +275,14 @@ int ReportClockResults(AudioSignal *ReferenceSignal, AudioSignal *ComparisonSign
 		logmsg(" - Pitch difference in cents: %g\n", config->centsDifferenceCLK);
 		if(!config->doClkAdjust)
 		{
-			if(config->centsDifferenceSR)
+			if(config->RefCentsDifferenceSR || config->ComCentsDifferenceSR)
 			{
 				double diff = 0;
 	
-				diff = fabs(config->centsDifferenceSR - config->centsDifferenceCLK);
+				if(config->RefCentsDifferenceSR)
+					diff = fabs(config->RefCentsDifferenceSR - config->centsDifferenceCLK);
+				else
+					diff = fabs(config->ComCentsDifferenceSR - config->centsDifferenceCLK);
 				if(diff >= 5) // Same issue between both, reported above
 					logmsg(" - WARNING: Clocks don't match, results may vary considerably. Can adjust with -j\n");
 				else if(diff >= 1)

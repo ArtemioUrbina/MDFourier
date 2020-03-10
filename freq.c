@@ -3271,6 +3271,8 @@ double CalculateFrameRateAndCheckSamplerate(AudioSignal *Signal, parameters *con
 	ACsamplerate = ACsamplerate*1000.0/(2.0*Signal->AudioChannels);
 	if(fabs(ACsamplerate - samplerate) >= 10.0)
 	{	
+		double	centsDifferenceSR = 0;
+
 		if(config->doSamplerateAdjust)
 		{
 			logmsg(" - WARNING: Auto adjustment of samplerate and frame rate applied\n");
@@ -3298,8 +3300,13 @@ double CalculateFrameRateAndCheckSamplerate(AudioSignal *Signal, parameters *con
 			Signal->originalSR = Signal->header.fmt.SamplesPerSec;
 		}
 		
-		config->centsDifferenceSR = 1200*log2(Signal->EstimatedSR/Signal->originalSR);
-		logmsg(" - Pitch difference in cents: %g\n", config->centsDifferenceSR);
+		centsDifferenceSR = 1200*log2(Signal->EstimatedSR/Signal->originalSR);
+		logmsg(" - Pitch difference in cents: %g\n", centsDifferenceSR);
+		if(Signal->role == ROLE_REF)
+			config->RefCentsDifferenceSR = centsDifferenceSR;
+		else
+			config->ComCentsDifferenceSR = centsDifferenceSR;
+		
 		config->SRNoMatch |= Signal->role;
 	}
 

@@ -241,7 +241,8 @@ void CleanParameters(parameters *config)
 	config->diffClkNoMatch = 0;
 
 	config->centsDifferenceCLK = 0;
-	config->centsDifferenceSR = 0;
+	config->RefCentsDifferenceSR = 0;
+	config->ComCentsDifferenceSR = 0;
 
 	EnableLog();
 }

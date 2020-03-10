@@ -542,7 +542,8 @@ typedef struct parameters_st {
 	int				diffClkNoMatch;
 	int				changedCLKFrom;
 	double			centsDifferenceCLK;
-	double			centsDifferenceSR;
+	double			RefCentsDifferenceSR;
+	double			ComCentsDifferenceSR;
 
 	double 			plotResX;
 	double			plotResY;

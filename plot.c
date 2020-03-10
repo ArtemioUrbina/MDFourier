@@ -838,8 +838,8 @@ void enableTestWarnings(parameters *config)
 #define PLOT_COLUMN(x,y) pl_fmove_r(plot->plotter, config->plotResX-(x)*config->plotResX/10, config->plotResY/2-(y)*BAR_HEIGHT)
 #define PLOT_COLUMN_DISP(x,x1,y) pl_fmove_r(plot->plotter, config->plotResX-(x)*config->plotResX/10-config->plotResX/40+x1, config->plotResY/2-(y)*BAR_HEIGHT)
 
-#define PLOT_WARN(x,y) pl_fmove_r(plot->plotter, x*config->plotResX-config->plotResX/4, -1*config->plotResY/2+config->plotResY/20+(y+2)*BAR_HEIGHT)
-#define PLOT_WARN_XDISP(x,y,d) pl_fmove_r(plot->plotter, x*config->plotResX-config->plotResX/4+d, -1*config->plotResY/2+config->plotResY/20+(y+2)*BAR_HEIGHT)
+#define PLOT_WARN(x,y) pl_fmove_r(plot->plotter, x*config->plotResX-config->plotResX/3.8, -1*config->plotResY/2+config->plotResY/20+(y+2)*BAR_HEIGHT)
+#define PLOT_WARN_XDISP(x,y,d) pl_fmove_r(plot->plotter, x*config->plotResX-config->plotResX/3.8+d, -1*config->plotResY/2+config->plotResY/20+(y+2)*BAR_HEIGHT)
 
 void DrawSRData(PlotFile *plot, AudioSignal *Signal, char *msg, parameters *config)
 {
@@ -1133,22 +1133,22 @@ void DrawLabelsMDF(PlotFile *plot, char *Gname, char *GType, int type, parameter
 	if(config->ignoreFrameRateDiff)
 	{
 		PLOT_WARN(1, warning++);
-		pl_pencolor_r(plot->plotter, 0xeeee, 0xeeee, 0);
-		pl_alabel_r(plot->plotter, 'l', 'l', "WARNING: Ignored frame rate difference during analysis");
+		pl_pencolor_r(plot->plotter, 0, 0xeeee, 0);
+		pl_alabel_r(plot->plotter, 'l', 'l', "NOTE: Ignored frame rate difference during analysis");
 	}
 
 	if(config->compressToBlocks)
 	{
 		PLOT_WARN(1, warning++);
-		pl_pencolor_r(plot->plotter, 0xeeee, 0xeeee, 0);
-		pl_alabel_r(plot->plotter, 'l', 'l', "WARNING: Debug setting, blocks flattened");
+		pl_pencolor_r(plot->plotter, 0, 0xeeee, 0);
+		pl_alabel_r(plot->plotter, 'l', 'l', "NOTE: Debug setting, blocks flattened");
 	}
 
 	if(!config->logScale)
 	{
 		PLOT_WARN(1, warning++);
-		pl_pencolor_r(plot->plotter, 0xeeee, 0xeeee, 0);
-		pl_alabel_r(plot->plotter, 'l', 'l', "WARNING: Log scale disabled");
+		pl_pencolor_r(plot->plotter, 0, 0xeeee, 0);
+		pl_alabel_r(plot->plotter, 'l', 'l', "NOTE: Log scale disabled");
 	}
 
 	if(config->channelBalance == 0 &&
@@ -1156,8 +1156,8 @@ void DrawLabelsMDF(PlotFile *plot, char *Gname, char *GType, int type, parameter
 		config->comparisonSignal->AudioChannels == 2))
 	{
 		PLOT_WARN(1, warning++);
-		pl_pencolor_r(plot->plotter, 0xeeee, 0xeeee, 0);
-		pl_alabel_r(plot->plotter, 'l', 'l', "WARNING: Audio channel balancing disabled");
+		pl_pencolor_r(plot->plotter, 0, 0xeeee, 0);
+		pl_alabel_r(plot->plotter, 'l', 'l', "NOTE: Audio channel balancing disabled");
 	}
 
 	if(config->noSyncProfile && type < PLOT_SINGLE_REF)
@@ -1173,21 +1173,21 @@ void DrawLabelsMDF(PlotFile *plot, char *Gname, char *GType, int type, parameter
 	if(config->ignoreFloor)
 	{
 		PLOT_WARN(1, warning++);
-		pl_pencolor_r(plot->plotter, 0xeeee, 0xeeee, 0);
+		pl_pencolor_r(plot->plotter, 0, 0xeeee, 0);
 		if(config->ignoreFloor == 2)
 		{
-			sprintf(msg, "WARNING: Noise floor was manually set tp %gdBFS.", config->origSignificantAmplitude);
+			sprintf(msg, "NOTE: Noise floor was manually set to %gdBFS.", config->origSignificantAmplitude);
 			pl_alabel_r(plot->plotter, 'l', 'l', msg);
 		}
 		else
-			pl_alabel_r(plot->plotter, 'l', 'l', "WARNING: Noise floor was ignored during analysis");
+			pl_alabel_r(plot->plotter, 'l', 'l', "NOTE: Noise floor was ignored during analysis");
 	}
 
 	if(!config->noiseFloorAutoAdjust)
 	{
 		PLOT_WARN(1, warning++);
-		pl_pencolor_r(plot->plotter, 0xeeee, 0xeeee, 0);
-		pl_alabel_r(plot->plotter, 'l', 'l', "WARNING: Noise floor auto adjustment disabled.");
+		pl_pencolor_r(plot->plotter, 0, 0xeeee, 0);
+		pl_alabel_r(plot->plotter, 'l', 'l', "NOTE: Noise floor auto adjustment disabled.");
 	}
 
 	if(config->noiseFloorTooHigh)
@@ -1216,8 +1216,8 @@ void DrawLabelsMDF(PlotFile *plot, char *Gname, char *GType, int type, parameter
 	if(config->AmpBarRange > BAR_DIFF_DB_TOLERANCE)
 	{
 		PLOT_WARN(1, warning++);
-		pl_pencolor_r(plot->plotter, 0xeeee, 0xeeee, 0);
-		pl_alabel_r(plot->plotter, 'l', 'l', "WARNING: Tolerance raised for matches");
+		pl_pencolor_r(plot->plotter, 0, 0xeeee, 0);
+		pl_alabel_r(plot->plotter, 'l', 'l', "NOTE: Tolerance raised for matches");
 	}
 
 	if(config->smallFile)
@@ -1233,22 +1233,36 @@ void DrawLabelsMDF(PlotFile *plot, char *Gname, char *GType, int type, parameter
 	if(config->normType != max_frequency)
 	{
 		PLOT_WARN(1, warning++);
-		pl_pencolor_r(plot->plotter, 0xeeee, 0xeeee, 0);
+		pl_pencolor_r(plot->plotter, 0, 0xeeee, 0);
 		if(config->normType == max_time)
-			pl_alabel_r(plot->plotter, 'l', 'l', "Time domain normalization");
+			pl_alabel_r(plot->plotter, 'l', 'l', "NOTE: Time domain normalization");
 		if(config->normType == average)
-			pl_alabel_r(plot->plotter, 'l', 'l', "Averaged normalization");
+			pl_alabel_r(plot->plotter, 'l', 'l', "NOTE: Normalized by averages");
 		if(config->normType == none)
+		{
+			pl_pencolor_r(plot->plotter, 0xeeee, 0xeeee, 0);
 			pl_alabel_r(plot->plotter, 'l', 'l', "WARNING: No Normalization, PLEASE DISREGARD");
+		}
 	}
 
 	if(config->doSamplerateAdjust &&
 		(config->referenceSignal->originalSR || config->comparisonSignal->originalSR))
 	{
-		PLOT_WARN(1, warning++);
+		pl_pencolor_r(plot->plotter, 0, 0xeeee, 0);
+		if(config->referenceSignal->originalSR)
+		{
+			PLOT_WARN(1, warning++);
+			sprintf(msg, "NOTE: RF sample rate adjusted to match pitch by: %0.2f\\ct", config->RefCentsDifferenceSR);
+			pl_alabel_r(plot->plotter, 'l', 'l', msg);
+		}
+
+		if(config->comparisonSignal->originalSR)
+		{
+			PLOT_WARN(1, warning++);
+			sprintf(msg, "NOTE: CM sample rate adjusted to match pitch by %0.2f\\ct", config->ComCentsDifferenceSR);
+			pl_alabel_r(plot->plotter, 'l', 'l', msg);
+		}
 		pl_pencolor_r(plot->plotter, 0xeeee, 0xeeee, 0);
-		sprintf(msg, "WARNING: Sample rate adjusted to match pitch by: %0.2f\\ct", config->centsDifferenceSR);
-		pl_alabel_r(plot->plotter, 'l', 'l', msg);
 	}
 
 	if(config->SRNoMatch && !config->doSamplerateAdjust)
@@ -1256,17 +1270,28 @@ void DrawLabelsMDF(PlotFile *plot, char *Gname, char *GType, int type, parameter
 		double labelwidth = 0;
 
 		labelwidth = pl_flabelwidth_r(plot->plotter, "WARNING: ");
-		PLOT_WARN_XDISP(1, warning++, labelwidth);
-		pl_pencolor_r(plot->plotter, 0xeeee, 0xeeee, 0);
-		sprintf(msg, "%s pitch might be off by: %0.2f\\ct (can use -R)",
-			config->SRNoMatch == ROLE_REF ? "RF" : config->SRNoMatch == ROLE_COMP ? "CM" : "",
-			config->centsDifferenceSR);
-		pl_alabel_r(plot->plotter, 'l', 'l', msg);
+
+		if(config->ComCentsDifferenceSR)
+		{
+			PLOT_WARN_XDISP(1, warning++, labelwidth);
+			pl_pencolor_r(plot->plotter, 0xeeee, 0xeeee, 0);
+			sprintf(msg, "CM pitch might be off by: %0.2f\\ct",
+				config->ComCentsDifferenceSR);
+			pl_alabel_r(plot->plotter, 'l', 'l', msg);
+		}
+
+		if(config->RefCentsDifferenceSR)
+		{
+			PLOT_WARN_XDISP(1, warning++, labelwidth);
+			pl_pencolor_r(plot->plotter, 0xeeee, 0xeeee, 0);
+			sprintf(msg, "RF pitch might be off by: %0.2f\\ct",
+				config->RefCentsDifferenceSR);
+			pl_alabel_r(plot->plotter, 'l', 'l', msg);
+		}
 
 		PLOT_WARN(1, warning++);
 		pl_pencolor_r(plot->plotter, 0xeeee, 0xeeee, 0);
-		sprintf(msg, "WARNING: %s sample rate%s match length.",
-			config->SRNoMatch == ROLE_REF ? "RF" : config->SRNoMatch == ROLE_COMP ? "CM" : "",
+		sprintf(msg, "WARNING: Sample rate%s match length. (can use -R)",
 			config->SRNoMatch == (ROLE_REF | ROLE_COMP) ? "s don't" : " doesn't");
 		pl_alabel_r(plot->plotter, 'l', 'l', msg);
 	}
@@ -1274,8 +1299,8 @@ void DrawLabelsMDF(PlotFile *plot, char *Gname, char *GType, int type, parameter
 	if(config->clkMeasure && config->doClkAdjust && config->comparisonSignal->originalCLK)
 	{
 		PLOT_WARN(1, warning++);
-		pl_pencolor_r(plot->plotter, 0xeeee, 0xeeee, 0);
-		sprintf(msg, "WARNING: %s %s clock adjusted by: %0.2f\\ct", 
+		pl_pencolor_r(plot->plotter, 0, 0xeeee, 0);
+		sprintf(msg, "NOTE: %s %s clock adjusted by: %0.2f\\ct", 
 				config->changedCLKFrom == ROLE_REF ? "Reference" : "Comparison",
 				config->clkName, config->centsDifferenceCLK);
 		pl_alabel_r(plot->plotter, 'l', 'l', msg);
@@ -1293,8 +1318,8 @@ void DrawLabelsMDF(PlotFile *plot, char *Gname, char *GType, int type, parameter
 	if(config->syncTolerance)
 	{
 		PLOT_WARN(1, warning++);
-		pl_pencolor_r(plot->plotter, 0xeeee, 0xeeee, 0);
-		pl_alabel_r(plot->plotter, 'l', 'l', "WARNING: Sync tolerance enabled");
+		pl_pencolor_r(plot->plotter, 0, 0xeeee, 0);
+		pl_alabel_r(plot->plotter, 'l', 'l', "NOTE: Sync tolerance enabled");
 	}
 
 	/* Top messages */
