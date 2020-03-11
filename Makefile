@@ -8,10 +8,19 @@ MINGW_LIB = -L/usr/local/lib -Wl,-Bstatic
 #EXTRA_CFLAGS = $(MINGW_CFLAGS)
 #EXTRA_LFLAGS = $(MINGW_LIB)
 
-CCFLAGS = $(EXTRA_CFLAGS) -Wfatal-errors -Wpedantic -Wall -std=gnu99 $(OPT)
+CCFLAGS = $(EXTRA_CFLAGS) -Wfatal-errors -Wpedantic -Wall -std=gnu99
 LFLAGS = $(EXTRA_LFLAGS) -lm -lfftw3 -lplot -lpng -lz -lFLAC
 
-all: mdfourier mdwave
+#extra flags for release
+all: CCFLAGS += -fdata-sections -ffunction-sections $(OPT)
+all: LFLAGS += -Wl,--gc-sections -Wl,--strip-all
+all: executable
+
+#extra flags for debug
+debug: CCFLAGS += -DDEBUG -g
+debug: executable
+
+executable: mdfourier mdwave
 
 mdfourier: sync.o freq.o windows.o log.o diff.o cline.o plot.o balance.o incbeta.o flac.o mdfourier.o 
 	$(CC) $(CCFLAGS) -o $@ $^ $(LFLAGS)
