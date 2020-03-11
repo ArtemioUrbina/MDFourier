@@ -1,10 +1,10 @@
 MDFourierAudioBlockFile 2.1
-DCSG: SMS/GG/SG-1000/ColecoVision
+SEGA: DCSG/SMS/GG/SG-1000/ColecoVision v2
 2
 NTSC 16.688 262 8820 14 10
 PAL 20.20 313 8820 17 10
-CLK n
-63
+NULL n
+69
 Sync s 1 20 0 red m
 Silence n 1 20 0 gray m
 Square 1 63 10 0 yellow m
@@ -47,6 +47,12 @@ Chord_Fade_4 t 1 75 0 yellow m
 Chord_Fade_5 t 1 75 0 yellow m
     PADDING k 1 5 0 gray m
 Chord_Fade_6 t 1 75 0 yellow m
+    PADDING k 1 5 0 gray m
+Chord_Fade_1_Stereo t 1 75 0 yellow m
+    PADDING k 1 5 0 gray m
+Chord_Fade_2_Stereo t 1 75 0 yellow m
+    PADDING k 1 5 0 gray m
+Chord_Fade_3_Stereo t 1 75 0 yellow m
     PADDING k 1 5 0 gray m
 Period_Extreme_1 t 1 30 0 yellow m
     PADDING k 1 10 0 gray m
