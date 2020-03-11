@@ -1,26 +1,29 @@
 CC = gcc
 OPT = -O3
 
-MINGW_CFLAGS = -I/usr/local/include
-MINGW_LIB = -L/usr/local/lib -Wl,-Bstatic
+CCFLAGS = -Wfatal-errors -Wpedantic -Wall -std=gnu99
+LFLAGS = -lm -lfftw3 -lplot -lpng -lz -lFLAC
 
-#Uncomment the next two lines for MINGW
-#EXTRA_CFLAGS = $(MINGW_CFLAGS)
-#EXTRA_LFLAGS = $(MINGW_LIB)
+#For local builds
+EXTRA_CFLAGS = -I/usr/local/include 
+EXTRA_LFLAGS = -L/usr/local/lib 
+EXTRA_CFLAGS_STATIC = -fdata-sections -ffunction-sections 
+EXTRA_LFLAGS_STATIC = -Wl,-Bstatic -Wl,--gc-sections -Wl,--strip-all
 
-CCFLAGS = $(EXTRA_CFLAGS) -Wfatal-errors -Wpedantic -Wall -std=gnu99
-LFLAGS = $(EXTRA_LFLAGS) -lm -lfftw3 -lplot -lpng -lz -lFLAC
+executable: mdfourier mdwave
+
+#extra flags for static release
+static: CCFLAGS += $(EXTRA_CFLAGS) $(OPT) $(EXTRA_CFLAGS_STATIC)
+static: LFLAGS += $(EXTRA_LFLAGS) $(EXTRA_LFLAGS_STATIC)
+static: executable
 
 #extra flags for release
-all: CCFLAGS += -fdata-sections -ffunction-sections $(OPT)
-all: LFLAGS += -Wl,--gc-sections -Wl,--strip-all
+all: CCFLAGS += $(OPT)
 all: executable
 
 #extra flags for debug
 debug: CCFLAGS += -DDEBUG -g
 debug: executable
-
-executable: mdfourier mdwave
 
 mdfourier: sync.o freq.o windows.o log.o diff.o cline.o plot.o balance.o incbeta.o flac.o mdfourier.o 
 	$(CC) $(CCFLAGS) -o $@ $^ $(LFLAGS)
