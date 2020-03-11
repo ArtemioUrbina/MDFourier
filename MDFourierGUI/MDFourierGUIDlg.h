@@ -6,7 +6,7 @@
 #include "afxwin.h"
 #include "DOSExecute.h"
 
-#define MDFVERSION			L"0.992rc3"
+#define MDFVERSION			L"0.992"
 #define	IDT_DOS				1000
 
 #define	COUNT_CURVES		6

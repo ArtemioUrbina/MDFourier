@@ -49,7 +49,7 @@
 
 #include "incbeta.h"
 
-#define MDVERSION "0.992rc3"
+#define MDVERSION "0.992"
 
 #if INTPTR_MAX == INT64_MAX
 #define	BITS_MDF "64-bit"
@@ -62,7 +62,7 @@
 #define MAX_FREQ_COUNT		40000 	/* Number of frequencies to compare(MAX) */
 #define FREQ_COUNT			2000	/* Number of frequencies to compare(default) */
 
-#define SIGNIFICANT_VOLUME			-60.0
+#define SIGNIFICANT_VOLUME			-66.0
 #define NS_LOWEST_AMPLITUDE			-200
 #define	PCM_16BIT_MIN_AMPLITUDE		-96.0
 #define LOWEST_NOISEFLOOR_ALLOWED	-40.0
@@ -94,12 +94,6 @@
 
 #define NO_INDEX 		-100
 #define	NO_AMPLITUDE	-1000
-
-/* Width of each peak */
-#define HERTZ_WIDTH			0.0
-
-/* +/- Tolerance in frequency Difference to be the same one */
-#define HERTZ_DIFF			0.0
 
 #define START_HZ	20.0
 #define END_HZ		20000.0

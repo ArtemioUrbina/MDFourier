@@ -42,17 +42,17 @@ Chord_Fade_2 t 1 75 0 yellow m
     PADDING k 1 5 0 gray m
 Chord_Fade_3 t 1 75 0 yellow m
     PADDING k 1 5 0 gray m
+Chord_Fade_1_Stereo t 1 75 0 yellow s
+    PADDING k 1 5 0 gray m
+Chord_Fade_2_Stereo t 1 75 0 yellow s
+    PADDING k 1 5 0 gray m
+Chord_Fade_3_Stereo t 1 75 0 yellow s
+    PADDING k 1 5 0 gray m
 Chord_Fade_4 t 1 75 0 yellow m
     PADDING k 1 5 0 gray m
 Chord_Fade_5 t 1 75 0 yellow m
     PADDING k 1 5 0 gray m
 Chord_Fade_6 t 1 75 0 yellow m
-    PADDING k 1 5 0 gray m
-Chord_Fade_1_Stereo t 1 75 0 yellow m
-    PADDING k 1 5 0 gray m
-Chord_Fade_2_Stereo t 1 75 0 yellow m
-    PADDING k 1 5 0 gray m
-Chord_Fade_3_Stereo t 1 75 0 yellow m
     PADDING k 1 5 0 gray m
 Period_Extreme_1 t 1 30 0 yellow m
     PADDING k 1 10 0 gray m
