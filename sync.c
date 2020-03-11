@@ -237,7 +237,7 @@ double findAverageAmplitudeForTarget(Pulses *pulseArray, double targetFrequency,
 		return 0;
 	}
 
-	standardDeviation = sqrt(standardDeviation/count);
+	standardDeviation = sqrt(standardDeviation/(count-1));
 
 	percent = (double)count/(double)(TotalMS-start)*100;
 	

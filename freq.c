@@ -1272,7 +1272,7 @@ int LoadAudioNoSyncProfile(FILE *file, parameters *config)
 		return 0;
 	}
 
-	config->significantAmplitude = NS_SIGNIFICANT_VOLUME;
+	config->significantAmplitude = SIGNIFICANT_VOLUME;
 	fclose(file);
 	
 	return 1;
@@ -2240,7 +2240,6 @@ int GetInternalSyncTotalLength(int pos, parameters *config)
 Frequency FindNoiseBlockInsideOneStandardDeviation(AudioSignal *Signal, parameters *config)
 {
 	Frequency	cutOff, mean, sd;
-	int 		noiseBlock = -1;
 	double		count = 0, outside = 0;
 
 	CleanFrequency(&cutOff);
@@ -2255,33 +2254,29 @@ Frequency FindNoiseBlockInsideOneStandardDeviation(AudioSignal *Signal, paramete
 	sd.hertz = 0;
 	sd.amplitude = 0;
 
+	// Calculate Mean
 	for(int block = 0; block < config->types.totalBlocks; block++)
 	{
-		int type = GetBlockType(config, block);
-		if(GetTypeChannel(config, type) == CHANNEL_NOISE)
+		int type = TYPE_NOTYPE;
+
+		type = GetBlockType(config, block);
+		if(GetTypeChannel(config, type) != CHANNEL_NOISE)
+			continue;
+
+		for(int i = 0; i < config->MaxFreq; i++)
 		{
-			noiseBlock = block;
-			break;
-		}
-	}
-
-	if(noiseBlock == -1)
-		return cutOff;
-
-	// Calculate Mean
-	for(int i = 0; i < config->MaxFreq; i++)
-	{
-		if(Signal->Blocks[noiseBlock].freq[i].hertz)
-		{
-			double hz, amp;
-
-			hz = Signal->Blocks[noiseBlock].freq[i].hertz;
-			amp = fabs(Signal->Blocks[noiseBlock].freq[i].amplitude);
-
-			mean.hertz += hz;
-			mean.amplitude += amp;
-
-			count ++;
+			if(Signal->Blocks[block].freq[i].hertz)
+			{
+				double hz, amp;
+	
+				hz = Signal->Blocks[block].freq[i].hertz;
+				amp = fabs(Signal->Blocks[block].freq[i].amplitude);
+	
+				mean.hertz += hz;
+				mean.amplitude += amp;
+	
+				count ++;
+			}
 		}
 	}
 
@@ -2293,32 +2288,40 @@ Frequency FindNoiseBlockInsideOneStandardDeviation(AudioSignal *Signal, paramete
 
 	count = 0;
 	// Calculate StandardDeviation
-	for(int i = 0; i < config->MaxFreq; i++)
+	for(int block = 0; block < config->types.totalBlocks; block++)
 	{
-		if(Signal->Blocks[noiseBlock].freq[i].hertz)
+		int type = TYPE_NOTYPE;
+
+		type = GetBlockType(config, block);
+		if(GetTypeChannel(config, type) != CHANNEL_NOISE)
+			continue;
+		for(int i = 0; i < config->MaxFreq; i++)
 		{
-			double hz, amp;
-
-			hz = Signal->Blocks[noiseBlock].freq[i].hertz;
-			amp = fabs(Signal->Blocks[noiseBlock].freq[i].amplitude);
-
-			sd.hertz += pow(hz - mean.hertz, 2);
-			sd.amplitude += pow(amp - mean.amplitude, 2);
-
-			count ++;
+			if(Signal->Blocks[block].freq[i].hertz)
+			{
+				double hz, amp;
+		
+				hz = Signal->Blocks[block].freq[i].hertz;
+				amp = fabs(Signal->Blocks[block].freq[i].amplitude);
+		
+				sd.hertz += pow(hz - mean.hertz, 2);
+				sd.amplitude += pow(amp - mean.amplitude, 2);
+		
+				count ++;
+			}
 		}
 	}
-	
+
 	if(!count)
 		return cutOff;
 
-	sd.hertz = sqrt(sd.hertz/count);
-	sd.amplitude = sqrt(sd.amplitude/count);
+	sd.hertz = sqrt(sd.hertz/(count-1));
+	sd.amplitude = sqrt(sd.amplitude/(count-1));
 
 	cutOff.hertz = mean.hertz+sd.hertz;
 	cutOff.amplitude = -1.0*(mean.amplitude+sd.amplitude);
 
-	if(config->verbose) {
+	if(config->verbose){
 		logmsg("  - %s signal profile defined noise channel data:\n", 
 			Signal->role == ROLE_REF ? "Reference" : "Comparison");
 		logmsg("      Standard deviation: %g dBFS [%g Hz] Mean: %g dBFS [%g Hz] Cutoff: %g dBFS [%g Hz]\n",
@@ -2327,16 +2330,24 @@ Frequency FindNoiseBlockInsideOneStandardDeviation(AudioSignal *Signal, paramete
 			cutOff.amplitude, cutOff.hertz);
 	}
 
-	for(int i = 0; i < config->MaxFreq; i++)
+	for(int block = 0; block < config->types.totalBlocks; block++)
 	{
-		if(Signal->Blocks[noiseBlock].freq[i].hertz)
+		int type = TYPE_NOTYPE;
+
+		type = GetBlockType(config, block);
+		if(GetTypeChannel(config, type) != CHANNEL_NOISE)
+			continue;
+		for(int i = 0; i < config->MaxFreq; i++)
 		{
-			double amp;
-
-			amp = Signal->Blocks[noiseBlock].freq[i].amplitude;
-
-			if(amp <= cutOff.amplitude)
-				outside ++;
+			if(Signal->Blocks[block].freq[i].hertz)
+			{
+				double amp;
+	
+				amp = Signal->Blocks[block].freq[i].amplitude;
+	
+				if(amp <= cutOff.amplitude)
+					outside ++;
+			}
 		}
 	}
 

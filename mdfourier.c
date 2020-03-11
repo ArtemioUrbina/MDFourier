@@ -250,6 +250,7 @@ void PrintSignalCLKData(AudioSignal *Signal, parameters *config)
 	}
 	logmsg("\n");
 }
+
 int ReportClockResults(AudioSignal *ReferenceSignal, AudioSignal *ComparisonSignal, parameters *config)
 {
 	double refClk = 0, compClk = 0;
@@ -705,47 +706,48 @@ int ProcessNoiseFloor(AudioSignal *ReferenceSignal, AudioSignal *ComparisonSigna
 	if(refHasFloor)
 		config->significantAmplitude = ReferenceSignal->floorAmplitude;
 
+	if(refHasFloor && ReferenceSignal->floorAmplitude > LOWEST_NOISEFLOOR_ALLOWED)
+		config->noiseFloorTooHigh = 1;
+
+	if(comHasFloor && ComparisonSignal->floorAmplitude > LOWEST_NOISEFLOOR_ALLOWED)
+		config->noiseFloorTooHigh = 1;
+
+
+	// If comparison is lower than the default and higher than reference, use that
+	if(config->noiseFloorAutoAdjust)
+	{ 
+		if(refHasFloor && comHasFloor &&
+			config->significantAmplitude < SIGNIFICANT_VOLUME && 
+			ComparisonSignal->floorAmplitude <= LOWEST_NOISEFLOOR_ALLOWED &&
+			ReferenceSignal->floorAmplitude < ComparisonSignal->floorAmplitude &&
+			ComparisonSignal->floorAmplitude < SIGNIFICANT_VOLUME)
+		{
+			double diff = 0;
+	
+			config->significantAmplitude = ComparisonSignal->floorAmplitude;
+	
+			diff = fabs(ReferenceSignal->floorAmplitude - ComparisonSignal->floorAmplitude);
+			if(diff > 20)
+				config->noiseFloorBigDifference = 1;
+		}
+	}
+	else
+	{
+		if(config->significantAmplitude < SIGNIFICANT_VOLUME)
+		{
+			logmsg(" - Limiting noise floor to %g from %g (from -p 0)\n", 
+				SIGNIFICANT_VOLUME, config->significantAmplitude);
+			config->significantAmplitude = SIGNIFICANT_VOLUME;
+		}
+	}
+
 	if(config->significantAmplitude >= LOWEST_NOISEFLOOR_ALLOWED)
 	{
 		logmsg(" - WARNING: Noise floor %g dBFS is louder than the default %g dBFS\n\tIf differences are not visible, define a limit with -p <dbfs>\n",
 				config->significantAmplitude, LOWEST_NOISEFLOOR_ALLOWED);
 		config->noiseFloorTooHigh = 1;
 		// we rather not take action for now
-		//config->significantAmplitude = NS_SIGNIFICANT_VOLUME;
-	}
-
-	if(NS_SIGNIFICANT_VOLUME > config->significantAmplitude)
-	{
-		/* Check if Comparison Noise floor is in par */
-		if(refHasFloor && comHasFloor)
-		{
-			double diff = 0;
-
-			diff = fabs(ReferenceSignal->floorAmplitude - ComparisonSignal->floorAmplitude);
-
-			// If comparison is lower than the default and higher than reference, use that
-			if(ReferenceSignal->floorAmplitude < ComparisonSignal->floorAmplitude)
-			{
-				if(config->noiseFloorAutoAdjust || 
-					(NS_SIGNIFICANT_VOLUME > ComparisonSignal->floorAmplitude && 
-					LOWEST_NOISEFLOOR_ALLOWED >= ComparisonSignal->floorAmplitude))
-				{
-					config->significantAmplitude = ComparisonSignal->floorAmplitude;
-					if(config->noiseFloorAutoAdjust && LOWEST_NOISEFLOOR_ALLOWED < ComparisonSignal->floorAmplitude)
-						config->noiseFloorTooHigh = 1;
-				}
-				//else config->significantAmplitude = NS_SIGNIFICANT_VOLUME;
-			}
-
-			if(diff > 20)
-				config->noiseFloorBigDifference = 1;
-		}
-	}
-
-	if(config->significantAmplitude < NS_SIGNIFICANT_VOLUME && config->noiseFloorAutoAdjust)
-	{
-		config->significantAmplitude = NS_SIGNIFICANT_VOLUME;
-		logmsg(" - Limiting noise floor to %g, can override with -p 0\n", config->significantAmplitude);
+		//config->significantAmplitude = SIGNIFICANT_VOLUME;
 	}
 
 	logmsg(" - Using %g dBFS as minimum significant amplitude for analysis\n",
