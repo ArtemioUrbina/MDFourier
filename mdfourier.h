@@ -109,7 +109,7 @@
 
 #define INT16_03DB		23197.0   // 0x5AD9
 
-#define SIG_CLK_DIFF 0.15
+#define SIG_CLK_DIFF 0.12
 // Use -3dbfs scale
 #define WAVEFORM_SCALE	INT16_03DB
 // Use Max Scale
@@ -140,9 +140,9 @@
 #define	WATERMARK_INVALID			2
 #define	WATERMARK_INDETERMINATE		3
 
-#define	AMPL_HIDIFF		6.0
-#define	MISS_HIDIFF		10.0
-#define	EXTRA_HIDIFF	10.0
+#define	AMPL_HIDIFF		1.0
+#define	MISS_HIDIFF		1.0
+#define	EXTRA_HIDIFF	1.0
 
 #define	NO_CLK			-1
 

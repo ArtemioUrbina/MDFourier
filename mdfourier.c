@@ -271,7 +271,7 @@ int ReportClockResults(AudioSignal *ReferenceSignal, AudioSignal *ComparisonSign
 	PrintSignalCLKData(ComparisonSignal, config);
 
 	config->centsDifferenceCLK = 1200*log2(refClk/compClk);
-	if(fabs(config->centsDifferenceCLK) >= SIG_CLK_DIFF) // 2hz
+	if(fabs(config->centsDifferenceCLK) >= SIG_CLK_DIFF)
 	{
 		logmsg(" - Pitch difference in cents: %g\n", config->centsDifferenceCLK);
 		if(!config->doClkAdjust)

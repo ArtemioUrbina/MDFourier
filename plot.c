@@ -899,6 +899,9 @@ void DrawImbalance(PlotFile *plot, AudioSignal *Signal, char *msg, parameters *c
 	if(Signal->AudioChannels == 1)
 		return;
 
+	if(config->channel != 's')
+		return;
+
 	if(Signal->role == ROLE_REF)
 		PLOT_COLUMN(7, 1);
 	else
