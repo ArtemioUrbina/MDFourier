@@ -3283,7 +3283,7 @@ double CalculateFrameRateAndCheckSamplerate(AudioSignal *Signal, parameters *con
 	ACsamplerate = ACsamplerate*1000.0/(2.0*Signal->AudioChannels);
 	centsDifferenceSR = 1200*log2(ACsamplerate/Signal->header.fmt.SamplesPerSec);
 
-	if(fabs(centsDifferenceSR) >= SIG_CLK_DIFF)
+	if(fabs(centsDifferenceSR) >= SIG_CENTS_DIFF)
 	{	
 		
 		if(config->doSamplerateAdjust)

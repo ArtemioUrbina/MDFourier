@@ -109,7 +109,7 @@
 
 #define INT16_03DB		23197.0   // 0x5AD9
 
-#define SIG_CLK_DIFF 0.12
+#define SIG_CENTS_DIFF 0.25
 // Use -3dbfs scale
 #define WAVEFORM_SCALE	INT16_03DB
 // Use Max Scale

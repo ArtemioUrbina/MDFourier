@@ -868,7 +868,7 @@ void DrawClockData(PlotFile *plot, AudioSignal *Signal, char *msg, parameters *c
 	if(!config->clkMeasure)
 		return;
 
-	if(fabs(config->centsDifferenceCLK) >= SIG_CLK_DIFF)
+	if(fabs(config->centsDifferenceCLK) >= SIG_CENTS_DIFF)
 		pl_pencolor_r(plot->plotter, 0xcccc, 0xcccc, 0);
 	else
 		pl_pencolor_r(plot->plotter, 0, 0xcccc, 0xcccc);
@@ -1223,6 +1223,14 @@ void DrawLabelsMDF(PlotFile *plot, char *Gname, char *GType, int type, parameter
 	{
 		PLOT_WARN(1, warning++);
 		sprintf(msg, "NOTE: %s %s clock adjusted by: %0.2f\\ct (-j)", 
+				config->changedCLKFrom == ROLE_REF ? "Reference" : "Comparison",
+				config->clkName, config->centsDifferenceCLK);
+		pl_alabel_r(plot->plotter, 'l', 'l', msg);
+	}
+	else if(config->clkMeasure && config->doClkAdjust && fabs(config->centsDifferenceCLK) <= SIG_CENTS_DIFF)
+	{
+		PLOT_WARN(1, warning++);
+		sprintf(msg, "NOTE: %s %s clock adjust ignored: %0.2f\\ct (-j)", 
 				config->changedCLKFrom == ROLE_REF ? "Reference" : "Comparison",
 				config->clkName, config->centsDifferenceCLK);
 		pl_alabel_r(plot->plotter, 'l', 'l', msg);

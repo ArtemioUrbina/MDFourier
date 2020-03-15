@@ -94,7 +94,7 @@ long int DetectPulseSecondTry(char *AllSamples, wav_hdr header, int role, parame
 	else
 		offset = 0;
 
-	offset = DetectPulseInternal(AllSamples, header, FACTOR_EXPLORE, offset, &maxdetected, role, AudioChannels, config);
+	offset = DetectPulseInternal(AllSamples, header, FACTOR_LFEXPL, offset, &maxdetected, role, AudioChannels, config);
 	if(offset == -1)
 	{
 		if(config->debugSync)
