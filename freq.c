@@ -251,10 +251,6 @@ int InitAudioBlock(AudioBlocks* block, parameters *config)
 	}
 	memset(block->freq, 0, sizeof(Frequency)*config->MaxFreq);
 
-#ifdef INDIVPHASE
-	block->linFreq = NULL;
-	block->linFreqSize = 0;
-#endif
 	return 1;
 }
 
@@ -491,15 +487,6 @@ void ReleaseFrequencies(AudioBlocks * AudioArray)
 		free(AudioArray->freq);
 		AudioArray->freq = NULL;
 	}
-
-#ifdef INDIVPHASE
-	if(AudioArray->linFreq)
-	{
-		free(AudioArray->linFreq);
-		AudioArray->linFreq = NULL;
-	}
-	AudioArray->linFreqSize = 0;
-#endif
 }
 
 void ReleaseBlock(AudioBlocks * AudioArray)
@@ -509,7 +496,7 @@ void ReleaseBlock(AudioBlocks * AudioArray)
 	ReleaseSamples(AudioArray);
 
 	AudioArray->index = 0;
-	AudioArray->type = 0;
+	AudioArray->type = TYPE_NOTYPE;
 	AudioArray->seconds = 0;
 }
 
@@ -708,6 +695,17 @@ int EndProfileLoad(parameters *config)
 	return 1;
 }
 
+int CheckChannel(char channel)
+{
+	if(channel == CHANNEL_MONO)
+		return 1;
+	if(channel == CHANNEL_STEREO)
+		return 1;
+	if(channel == CHANNEL_NOISE)
+		return 1;
+	return 0;
+}
+
 int LoadAudioBlockStructure(FILE *file, parameters *config)
 {
 	int		insideInternal = 0, i = 0, syncCount = 0;
@@ -843,7 +841,7 @@ int LoadAudioBlockStructure(FILE *file, parameters *config)
 	/* types */
 	for(int i = 0; i < config->types.typeCount; i++)
 	{
-		char type = 0;
+		char 	type = 0;
 
 		readLine(lineBuffer, file);
 		if(sscanf(lineBuffer, "%128s ", config->types.typeArray[i].typeName) != 1)
@@ -966,6 +964,13 @@ int LoadAudioBlockStructure(FILE *file, parameters *config)
 				return 0;
 			}
 			config->types.typeArray[i].cutFrames = abs(config->types.typeArray[i].cutFrames);
+
+			if(!CheckChannel(config->types.typeArray[i].channel))
+			{
+				logmsg("ERROR: Invalid MD Fourier Audio Blocks File (Element Count, frames, skip, color, *channel*): %s\n", lineBuffer);
+				fclose(file);
+				return 0;
+			}
 		}
 
 		if(!config->types.typeArray[i].elementCount)
@@ -1918,7 +1923,6 @@ int GetTotalAudioBlocks(parameters *config)
 
 	return count;
 }
-
 
 long int GetLongestElementFrames(parameters *config)
 {
@@ -2946,9 +2950,6 @@ int FillFrequencyStructures(AudioSignal *Signal, AudioBlocks *AudioArray, parame
 	double 		boxsize = 0;
 	int			nyquistLimit = 0;
 	Frequency	*f_array = NULL;
-#ifdef INDIVPHASE
-	Frequency	*f_linarray = NULL;
-#endif
 
 	size = AudioArray->fftwValues.size;
 	if(!size || !AudioArray->fftwValues.spectrum)
@@ -2989,17 +2990,6 @@ int FillFrequencyStructures(AudioSignal *Signal, AudioBlocks *AudioArray, parame
 	}
 	memset(f_array, 0, sizeof(Frequency)*(endBin-startBin));
 
-#ifdef INDIVPHASE
-	f_linarray = (Frequency*)malloc(sizeof(Frequency)*(endBin-startBin));
-	if(!f_linarray)
-	{
-		free(f_array);
-		logmsg("ERROR: Not enough memory (f_linarray)\n");
-		return 0;
-	}
-	memset(f_linarray, 0, sizeof(Frequency)*(endBin-startBin));
-#endif
-
 	for(i = startBin; i < endBin; i++)
 	{
 		f_array[count].hertz = CalculateFrequency(i, boxsize, config);
@@ -3009,14 +2999,6 @@ int FillFrequencyStructures(AudioSignal *Signal, AudioBlocks *AudioArray, parame
 		f_array[count].matched = 0;
 		count++;
 	}
-
-#ifdef INDIVPHASE
-	// Copy all available to Lin Array
-	memcpy(f_linarray, f_array, sizeof(Frequency)*count);
-	
-	AudioArray->linFreq = f_linarray;
-	AudioArray->linFreqSize = count;
-#endif
 
 	if(config->MaxFreq > count)
 		amount = count;
@@ -3288,7 +3270,7 @@ double CalculateFrameRateAndCheckSamplerate(AudioSignal *Signal, parameters *con
 		
 		if(config->doSamplerateAdjust)
 		{
-			logmsg(" - WARNING: Auto adjustment of samplerate and frame rate applied\n");
+			logmsg(" - NOTE: Auto adjustment of samplerate and frame rate applied\n");
 			logmsg("    Original framerate: %gms (%g difference)\n", framerate, diff);
 
 			Signal->originalSR = Signal->header.fmt.SamplesPerSec;

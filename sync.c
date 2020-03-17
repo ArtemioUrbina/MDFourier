@@ -599,7 +599,7 @@ long int DetectPulseInternal(char *Samples, wav_hdr header, int factor, long int
 	size_t			 	buffersize = 0;
 	long int			pos = 0, millisecondSize = 0, startPos = 0;
 	Pulses				*pulseArray;
-	double				targetFrequency = 0, targetFrequencyHarmonic[2] = { -1000, -1000 }, origFrequency = 0, MaxMagnitude = 0;
+	double				targetFrequency = 0, targetFrequencyHarmonic[2] = { NO_FREQ, NO_FREQ }, origFrequency = 0, MaxMagnitude = 0;
 
 	/* Not a real ms, just approximate */
 	millisecondSize = RoundToNbytes(floor((((double)header.fmt.SamplesPerSec*2.0*AudioChannels)/1000.0)/(double)factor), AudioChannels, NULL, NULL, NULL);
@@ -647,7 +647,7 @@ long int DetectPulseInternal(char *Samples, wav_hdr header, int factor, long int
 	origFrequency = GetPulseSyncFreq(role, config);
 	targetFrequency = FindFrequencyBracketForSync(origFrequency,
 						millisecondSize/2, AudioChannels, header.fmt.SamplesPerSec, config);
-	if(origFrequency < HARMONIC_TSHLD)  //default behavior for around 8khz, harmonic is -1000
+	if(origFrequency < HARMONIC_TSHLD)  //default behavior for around 8khz, harmonic is NO_FREQ
 	{
 		targetFrequencyHarmonic[0] = FindFrequencyBracketForSync(targetFrequency*2, 	
 						millisecondSize/2, AudioChannels, header.fmt.SamplesPerSec, config);
@@ -877,7 +877,7 @@ long int DetectSignalStartInternal(char *Samples, wav_hdr header, int factor, lo
 	Pulses				*pulseArray;
 	double 				total = 0;
 	long int 			count = 0, length = 0;
-	double 				targetFrequency = 0, targetFrequencyHarmonic[2] = { -1000, -1000 }, averageAmplitude = 0;
+	double 				targetFrequency = 0, targetFrequencyHarmonic[2] = { NO_FREQ, NO_FREQ }, averageAmplitude = 0;
 
 	/* Not a real ms, just approximate */
 	millisecondSize = RoundToNbytes(floor((((double)header.fmt.SamplesPerSec*2.0*(double)AudioChannels)/1000.0)/(double)factor), AudioChannels, NULL, NULL, NULL);

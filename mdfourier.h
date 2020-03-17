@@ -93,7 +93,8 @@
 #define	BAR_DIFF_DB_TOLERANCE	1.0
 
 #define NO_INDEX 		-100
-#define	NO_AMPLITUDE	-1000
+#define	NO_AMPLITUDE	-10000
+#define	NO_FREQ			-10000
 
 #define START_HZ	20.0
 #define END_HZ		20000.0
@@ -319,17 +320,14 @@ typedef struct AudioBlock_st {
 	Frequency		*freq;
 	FFTWSpectrum	fftwValues;
 	BlockSamples	audio;
+
 	BlockSamples	*internalSync;
 	int				internalSyncCount;
+
 	int				index;
 	int				type;
 	int				frames;
 	double 			seconds;
-
-#ifdef INDIVPHASE
-	Frequency		*linFreq;
-	long int		linFreqSize;
-#endif
 
 	double			AverageDifference;
 	double			missingPercent;

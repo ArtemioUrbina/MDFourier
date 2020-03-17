@@ -1255,7 +1255,9 @@ void DrawLabelsMDF(PlotFile *plot, char *Gname, char *GType, int type, parameter
 	if(config->noiseFloorTooHigh)
 	{
 		PLOT_WARN(1, warning++);
-		pl_alabel_r(plot->plotter, 'l', 'l', "WARNING: Noise floor too high");
+		sprintf(msg, "WARNING: %s noise floor too high", 
+			config->noiseFloorTooHigh == ROLE_REF ? "Reference" : config->noiseFloorTooHigh == ROLE_COMP ? "Comparison" : "Both");
+		pl_alabel_r(plot->plotter, 'l', 'l', msg);
 	}
 
 	if(config->smallFile)
@@ -4200,25 +4202,6 @@ void PlotTimeDomainGraphs(AudioSignal *Signal, parameters *config)
 				}
 			}
 
-#ifdef INDIVPHASE
-			/* These are phase graphs for each block */
-			if(config->plotPhase)
-			{
-				sprintf(name, "TD_%05ld_%s_%s_%05d_%s", 
-					i, Signal->role == ROLE_REF ? "5" : "6",
-					GetBlockName(config, i), GetBlockSubIndex(config, i), config->compareName);
-	
-				PlotBlockPhaseGraph(Signal, i, name, config);
-				logmsg(PLOT_ADVANCE_CHAR);
-				plots++;
-				if(plots == 80)
-				{
-					plots = 0;
-					logmsg("\n  ");
-				}
-			}
-#endif
-
 			if(config->plotAllNotesWindowed && Signal->Blocks[i].audio.window_samples)
 			{
 				sprintf(name, "TD_%05ld_%s_%s_%05d_%s", 
@@ -4646,60 +4629,6 @@ void PlotBlockTimeDomainInternalSyncGraph(AudioSignal *Signal, int block, char *
 
 	ClosePlot(&plot);
 }
-
-#ifdef INDIVPHASE
-void PlotBlockPhaseGraph(AudioSignal *Signal, int block, char *name, parameters *config)
-{
-	char		title[1024];
-	PlotFile	plot;
-	long int	color = 0, f = 0, count = 0;
-	Frequency	*freqs = NULL;
-	int			oldLog = 0;
-
-	if(!Signal || !config)
-		return;
-
-	if(block > config->types.totalBlocks)
-		return;
-
-	freqs = Signal->Blocks[block].linFreq;
-	count = Signal->Blocks[block].linFreqSize;
-	if(!count || !freqs)
-		return;
-
-	if(Signal->Blocks[block].type == TYPE_SKIP)
-		color = COLOR_RED;
-
-	FillPlot(&plot, name, config->startHzPlot, -1*PHASE_ANGLE, config->endHzPlot, PHASE_ANGLE, 1, 1, config);
-
-	if(!CreatePlotFile(&plot, config))
-		return;
-
-	oldLog = config->logScale;
-	config->logScale = 0;
-
-	DrawFrequencyHorizontal(&plot, PHASE_ANGLE, config->endHzPlot, 1000, config);
-
-	// 0 phase line
-	color = MatchColor(GetBlockColor(config, block));
-	SetPenColor(COLOR_GRAY, 0x7777, &plot);
-	pl_fline_r(plot.plotter, config->startHzPlot, 0, config->endHzPlot, 0);
-	pl_endpath_r(plot.plotter);
-
-	// Draw phase
-	SetPenColor(color, 0xffff, &plot);
-	for(f = 0; f < count - 1; f ++)
-		pl_fline_r(plot.plotter, transformtoLog(freqs[f].hertz, config), freqs[f].phase, transformtoLog(freqs[f+1].hertz, config), freqs[f+1].phase);
-	pl_endpath_r(plot.plotter);
-
-	sprintf(title, "%s# %d at %g", GetBlockName(config, block), GetBlockSubIndex(config, block), Signal->framerate);
-	DrawLabelsMDF(&plot, Signal->role == ROLE_REF ? WAVEFORM_TITLE_REF : WAVEFORM_TITLE_COM, title, Signal->role == ROLE_REF ? PLOT_SINGLE_REF : PLOT_SINGLE_COM, config);
-
-	ClosePlot(&plot);
-
-	config->logScale = oldLog;
-}
-#endif
 
 FlatPhase *CreatePhaseFlatDifferences(parameters *config, long int *size)
 {

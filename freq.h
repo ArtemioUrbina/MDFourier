@@ -91,7 +91,7 @@ int ConvertAudioTypeForProcessing(int type, parameters *config);
 
 AudioSignal *CreateAudioSignal(parameters *config);
 void CleanFrequency(Frequency *freq);
-void CleanFrequenciesInBlock(AudioBlocks * AudioArray,  parameters *config);
+void CleanFrequenciesInBlock(AudioBlocks * AudioArray, parameters *config);
 void ReleaseFFTW(AudioBlocks * AudioArray);
 void CleanAndReleaseFFTW(AudioBlocks * AudioArray);
 void ReleaseSamples(AudioBlocks * AudioArray);

@@ -40,7 +40,7 @@
 
 int LoadAndProcessAudioFiles(AudioSignal **ReferenceSignal, AudioSignal **ComparisonSignal, parameters *config);
 int LoadFile(FILE *file, AudioSignal *Signal, parameters *config, char *fileName);
-int ProcessFile(AudioSignal *Signal, parameters *config);
+int ProcessSignal(AudioSignal *Signal, parameters *config);
 int ExecuteDFFT(AudioBlocks *AudioArray, int16_t *samples, size_t size, long samplerate, double *window, int AudioChannels, int ZeroPad, parameters *config);
 int CompareAudioBlocks(AudioSignal *ReferenceSignal, AudioSignal *ComparisonSignal, parameters *config);
 int CopySamplesForTimeDomainPlot(AudioBlocks *AudioArray, int16_t *samples, size_t size, size_t diff, long samplerate, double *window, int AudioChannels, parameters *config);
@@ -710,10 +710,10 @@ int ProcessNoiseFloor(AudioSignal *ReferenceSignal, AudioSignal *ComparisonSigna
 		config->significantAmplitude = ReferenceSignal->floorAmplitude;
 
 	if(refHasFloor && ReferenceSignal->floorAmplitude > LOWEST_NOISEFLOOR_ALLOWED)
-		config->noiseFloorTooHigh = 1;
+		config->noiseFloorTooHigh |= ReferenceSignal->role;
 
 	if(comHasFloor && ComparisonSignal->floorAmplitude > LOWEST_NOISEFLOOR_ALLOWED)
-		config->noiseFloorTooHigh = 1;
+		config->noiseFloorTooHigh |= ComparisonSignal->role;
 
 
 	// If comparison is lower than the default and higher than reference, use that
@@ -748,7 +748,8 @@ int ProcessNoiseFloor(AudioSignal *ReferenceSignal, AudioSignal *ComparisonSigna
 	{
 		logmsg(" - WARNING: Noise floor %g dBFS is louder than the default %g dBFS\n\tIf differences are not visible, define a limit with -p <dbfs>\n",
 				config->significantAmplitude, LOWEST_NOISEFLOOR_ALLOWED);
-		config->noiseFloorTooHigh = 1;
+		//if(!config->noiseFloorTooHigh)
+		//	config->noiseFloorTooHigh = ROLE_COMP;
 		// we rather not take action for now
 		//config->significantAmplitude = SIGNIFICANT_VOLUME;
 	}
@@ -794,13 +795,13 @@ int LoadAndProcessAudioFiles(AudioSignal **ReferenceSignal, AudioSignal **Compar
 		if(!TimeDomainNormalize(ReferenceSignal, ComparisonSignal, config))
 			return 0;
 	}
-	
+
 	logmsg("\n* Executing Discrete Fast Fourier Transforms on 'Reference' file\n");
-	if(!ProcessFile(*ReferenceSignal, config))
+	if(!ProcessSignal(*ReferenceSignal, config))
 		return 0;
 
 	logmsg("* Executing Discrete Fast Fourier Transforms on 'Comparison' file\n");
-	if(!ProcessFile(*ComparisonSignal, config))
+	if(!ProcessSignal(*ComparisonSignal, config))
 		return 0;
 
 	ReleasePCM(*ReferenceSignal);
@@ -1914,8 +1915,33 @@ int RecalculateFrequencyStructures(AudioSignal *ReferenceSignal, AudioSignal *Co
 	return 1;
 }
 
+int DuplicateSamplesForWavefromPlots(AudioSignal *Signal, long int element, long int pos, long int loadedBlockSize, long int difference, double framerate, double *windowUsed, parameters *config)
+{
+	if(config->plotTimeDomainHiDiff || config->plotAllNotes || 
+			config->doClkAdjust || Signal->Blocks[element].type == TYPE_TIMEDOMAIN)
+	{
+		if(!CopySamplesForTimeDomainPlot(&Signal->Blocks[element], (int16_t*)(Signal->Samples + pos), loadedBlockSize/2, difference/2, Signal->header.fmt.SamplesPerSec, windowUsed, Signal->AudioChannels, config))
+			return 0;
+	}
+	
+	if(config->debugSync && Signal->Blocks[element].type == TYPE_SYNC)
+	{
+		long int oneFrameBytes = 0;
+		
+		oneFrameBytes = SecondsToBytes(Signal->header.fmt.SamplesPerSec, FramesToSeconds(framerate, 1), Signal->AudioChannels, NULL, NULL, NULL);
+		if(pos > oneFrameBytes) {
+			if(!CopySamplesForTimeDomainPlot(&Signal->Blocks[element], (int16_t*)(Signal->Samples + pos - oneFrameBytes), loadedBlockSize/2+oneFrameBytes/2, difference/2, Signal->header.fmt.SamplesPerSec, NULL, Signal->AudioChannels, config))
+				return 0;
+		}
+		else {
+			if(!CopySamplesForTimeDomainPlot(&Signal->Blocks[element], (int16_t*)(Signal->Samples + pos), loadedBlockSize/2, difference/2, Signal->header.fmt.SamplesPerSec, NULL, Signal->AudioChannels, config))
+				return 0;
+		}
+	}
+	return 1;
+}
 
-int ProcessFile(AudioSignal *Signal, parameters *config)
+int ProcessSignal(AudioSignal *Signal, parameters *config)
 {
 	long int		pos = 0;
 	double			longest = 0;
@@ -1995,27 +2021,8 @@ int ProcessFile(AudioSignal *Signal, parameters *config)
 		}
 		memcpy(buffer, Signal->Samples + pos, loadedBlockSize-difference);
 
-		if(config->plotTimeDomainHiDiff || config->plotAllNotes || 
-			config->doClkAdjust || Signal->Blocks[i].type == TYPE_TIMEDOMAIN)
-		{
-			if(!CopySamplesForTimeDomainPlot(&Signal->Blocks[i], (int16_t*)(Signal->Samples + pos), loadedBlockSize/2, difference/2, Signal->header.fmt.SamplesPerSec, windowUsed, Signal->AudioChannels, config))
-				return 0;
-		}
-		
-		if(config->debugSync && Signal->Blocks[i].type == TYPE_SYNC)
-		{
-			long int oneFrameBytes = 0;
-			
-			oneFrameBytes = SecondsToBytes(Signal->header.fmt.SamplesPerSec, FramesToSeconds(framerate, 1), Signal->AudioChannels, NULL, NULL, NULL);
-			if(pos > oneFrameBytes) {
-				if(!CopySamplesForTimeDomainPlot(&Signal->Blocks[i], (int16_t*)(Signal->Samples + pos - oneFrameBytes), loadedBlockSize/2+oneFrameBytes/2, difference/2, Signal->header.fmt.SamplesPerSec, NULL, Signal->AudioChannels, config))
-					return 0;
-			}
-			else {
-				if(!CopySamplesForTimeDomainPlot(&Signal->Blocks[i], (int16_t*)(Signal->Samples + pos), loadedBlockSize/2, difference/2, Signal->header.fmt.SamplesPerSec, NULL, Signal->AudioChannels, config))
-					return 0;
-			}
-		}
+		if(!DuplicateSamplesForWavefromPlots(Signal, i, pos, loadedBlockSize, difference, framerate, windowUsed, config))
+			return 0;
 
 		if(Signal->Blocks[i].type >= TYPE_SILENCE || Signal->Blocks[i].type == TYPE_WATERMARK)
 		{
@@ -2037,8 +2044,8 @@ int ProcessFile(AudioSignal *Signal, parameters *config)
 				return 0;
 		}
 
-		// MDWAVE exists for this, but just in case it is ever needed within MDFourier
 #ifdef CHECKWAV
+		// MDWAVE exists for this, but just in case it is ever needed within MDFourier
 		if(config->verbose)
 		{
 			SaveWAVEChunk(NULL, Signal, buffer, i, loadedBlockSize-difference, 0, config);

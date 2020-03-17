@@ -58,7 +58,6 @@ void logmsg(char *fmt, ... )
 {
 	va_list arguments;
 
-	
 	va_start(arguments, fmt);
 	vprintf(fmt, arguments);
 	fflush(stdout);  // output to Front end ASAP
@@ -69,10 +68,10 @@ void logmsg(char *fmt, ... )
 		va_start(arguments, fmt);
 		vfprintf(logfile, fmt, arguments);
 		va_end(arguments);
-		// uncomment to output to log file ASAP when debugging
-		//fflush(logfile);
+#ifdef DEBUG
+		fflush(logfile);
+#endif
 	}
-
 }
 
 void logmsgFileOnly(char *fmt, ... )
@@ -83,8 +82,9 @@ void logmsgFileOnly(char *fmt, ... )
 
 		va_start(arguments, fmt);
 		vfprintf(logfile, fmt, arguments);
-		// uncomment to output to log file ASAP when debugging
-		//fflush(logfile);
+#ifdef DEBUG
+		fflush(logfile);
+#endif
 		va_end(arguments);
 	}
 }
