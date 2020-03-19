@@ -110,7 +110,7 @@
 
 #define INT16_03DB		23197.0   // 0x5AD9
 
-#define SIG_CENTS_DIFF 0.25
+#define SIG_CENTS_DIFF 0.15
 // Use -3dbfs scale
 #define WAVEFORM_SCALE	INT16_03DB
 // Use Max Scale
@@ -127,6 +127,9 @@
 #define	CHANNEL_MONO	'm'
 #define	CHANNEL_STEREO	's'
 #define	CHANNEL_NOISE	'n'
+
+#define CHANNEL_LEFT	'l'
+#define CHANNEL_RIGHT	'r'
 
 #define NO_SYNC_AUTO_C		'A'
 #define NO_SYNC_MANUAL_C	'M'
@@ -201,6 +204,7 @@ typedef struct max_mag {
 	double		magnitude;
 	double		hertz;
 	long int	block;
+	char		channel;
 } MaxMagn;
 
 typedef struct abt_st {
@@ -321,6 +325,10 @@ typedef struct AudioBlock_st {
 	FFTWSpectrum	fftwValues;
 	BlockSamples	audio;
 
+	Frequency		*freqRight;
+	FFTWSpectrum	fftwValuesRight;
+	BlockSamples	audioRight;
+
 	BlockSamples	*internalSync;
 	int				internalSyncCount;
 
@@ -328,6 +336,7 @@ typedef struct AudioBlock_st {
 	int				type;
 	int				frames;
 	double 			seconds;
+	char			channel;
 
 	double			AverageDifference;
 	double			missingPercent;
@@ -469,7 +478,6 @@ typedef struct parameters_st {
 	int				extendedResults;
 	int				verbose;
 	char			window;
-	char			channel;
 	int				MaxFreq;
 	int				clock;
 	int				ignoreFloor;
@@ -529,6 +537,7 @@ typedef struct parameters_st {
 	int				noiseFloorBigDifference;
 	int				channelWithLowFundamentals;
 	double			notVisible;
+	int				usesStereo;
 	int				SRNoMatch;
 	int				diffClkNoMatch;
 	int				changedCLKFrom;

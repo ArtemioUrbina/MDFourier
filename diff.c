@@ -31,17 +31,19 @@
 #include "log.h"
 #include "freq.h"
 
+#define MAX_DIFF_SIZE	2*config->MaxFreq
+
 AmplDifference *CreateAmplDifferences(parameters *config)
 {
 	AmplDifference *ad = NULL;
 
-	ad = (AmplDifference*)malloc(sizeof(AmplDifference)*config->MaxFreq);
+	ad = (AmplDifference*)malloc(sizeof(AmplDifference)*MAX_DIFF_SIZE);
 	if(!ad)
 	{
-		logmsg("Insufficient memory for AmplDifference (%ld bytes)\n", sizeof(AmplDifference)*config->MaxFreq);
+		logmsg("Insufficient memory for AmplDifference (%ld bytes)\n", sizeof(AmplDifference)*MAX_DIFF_SIZE);
 		return 0;
 	}
-	memset(ad, 0, sizeof(AmplDifference)*config->MaxFreq);
+	memset(ad, 0, sizeof(AmplDifference)*MAX_DIFF_SIZE);
 	return ad;
 }
 
@@ -49,13 +51,13 @@ FreqDifference *CreateFreqDifferences(parameters *config)
 {
 	FreqDifference *fd = NULL;
 
-	fd = (FreqDifference*)malloc(sizeof(FreqDifference)*config->MaxFreq);
+	fd = (FreqDifference*)malloc(sizeof(FreqDifference)*MAX_DIFF_SIZE);
 	if(!fd)
 	{
-		logmsg("Insufficient memory for FreqDifference (%ld bytes)\n", sizeof(sizeof(FreqDifference)*config->MaxFreq));
+		logmsg("Insufficient memory for FreqDifference (%ld bytes)\n", sizeof(sizeof(FreqDifference)*MAX_DIFF_SIZE));
 		return 0;
 	}
-	memset(fd, 0, sizeof(FreqDifference)*config->MaxFreq);
+	memset(fd, 0, sizeof(FreqDifference)*MAX_DIFF_SIZE);
 	return fd;
 }
 
@@ -63,13 +65,13 @@ PhaseDifference *CreatePhaseDifferences(parameters *config)
 {
 	PhaseDifference *pd = NULL;
 
-	pd = (PhaseDifference*)malloc(sizeof(PhaseDifference)*config->MaxFreq);
+	pd = (PhaseDifference*)malloc(sizeof(PhaseDifference)*MAX_DIFF_SIZE);
 	if(!pd)
 	{
-		logmsg("Insufficient memory for FreqDifference (%ld bytes)\n", sizeof(sizeof(PhaseDifference)*config->MaxFreq));
+		logmsg("Insufficient memory for FreqDifference (%ld bytes)\n", sizeof(sizeof(PhaseDifference)*MAX_DIFF_SIZE));
 		return 0;
 	}
-	memset(pd, 0, sizeof(PhaseDifference)*config->MaxFreq);
+	memset(pd, 0, sizeof(PhaseDifference)*MAX_DIFF_SIZE);
 	return pd;
 }
 
@@ -83,7 +85,7 @@ int CreateDifferenceArray(parameters *config)
 	BlockDiffArray = (BlockDifference*)malloc(sizeof(BlockDifference)*config->types.totalBlocks);
 	if(!BlockDiffArray)
 	{
-		logmsg("Insufficient memory for AudioDiffArray(%ld bytes)\n", sizeof(sizeof(BlockDifference)*config->MaxFreq));
+		logmsg("Insufficient memory for AudioDiffArray(%ld bytes)\n", sizeof(sizeof(BlockDifference)*MAX_DIFF_SIZE));
 		return 0;
 	}
 
@@ -242,6 +244,10 @@ int InsertAmplDifference(int block, Frequency ref, Frequency comp, parameters *c
 	
 	diffAmpl = fabs(ref.amplitude) - fabs(comp.amplitude);
 	position = config->Differences.BlockDiffArray[block].cntAmplBlkDiff;
+
+	if(position >= MAX_DIFF_SIZE)
+		return 0;
+
 	config->Differences.BlockDiffArray[block].amplDiffArray[position].hertz = ref.hertz;
 	config->Differences.BlockDiffArray[block].amplDiffArray[position].refAmplitude = ref.amplitude;
 	config->Differences.BlockDiffArray[block].amplDiffArray[position].diffAmplitude = diffAmpl;
@@ -279,6 +285,10 @@ int InsertPhaseDifference(int block, Frequency ref, Frequency comp, parameters *
 	if(diffPhase == 0) diffPhase = 0; // remove -0.0 for plots.
 
 	position = config->Differences.BlockDiffArray[block].cntPhaseBlkDiff;
+
+	if(position >= MAX_DIFF_SIZE)
+		return 0;
+
 	config->Differences.BlockDiffArray[block].phaseDiffArray[position].hertz = ref.hertz;
 	config->Differences.BlockDiffArray[block].phaseDiffArray[position].diffPhase = diffPhase;
 
@@ -742,6 +752,32 @@ long int FindDifferenceAveragesperBlock(double thresholdAmplitude, double thresh
 				if(!Signal->Blocks[b].freq[i].matched
 					&& Signal->Blocks[b].freq[i].amplitude > config->significantAmplitude)
 					extraCount++;
+			}
+		}
+
+		if(config->referenceSignal && config->referenceSignal->Blocks[b].freqRight)
+		{
+			for(int i = config->MaxFreq-1; i >= 0; i--)
+			{
+				AudioSignal *Signal	= NULL;
+	
+				Signal = config->referenceSignal;
+				if(Signal && Signal->Blocks[b].freqRight[i].hertz)
+				{
+					missingTotal++;
+					if(!Signal->Blocks[b].freqRight[i].matched
+						&& Signal->Blocks[b].freqRight[i].amplitude > config->significantAmplitude)
+						missingCount++;
+				}
+	
+				Signal = config->comparisonSignal;
+				if(Signal && Signal->Blocks[b].freqRight[i].hertz)
+				{
+					extraTotal++;
+					if(!Signal->Blocks[b].freqRight[i].matched
+						&& Signal->Blocks[b].freqRight[i].amplitude > config->significantAmplitude)
+						extraCount++;
+				}
 			}
 		}
 		

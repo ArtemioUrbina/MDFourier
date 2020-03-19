@@ -38,7 +38,6 @@
 #define SORT_CMP(x, y)  ((x).magnitude > (y).magnitude ? -1 : ((x).magnitude == (y).magnitude ? 0 : 1))
 #include "sort.h"  // https://github.com/swenson/sort/
 
-
 inline int areDoublesEqual(double a, double b)
 {
 	double diff = 0;
@@ -237,21 +236,36 @@ int IsGridFrequencyNoise(AudioSignal *Signal, double freq)
 	return 0;
 }
 
-int InitAudioBlock(AudioBlocks* block, parameters *config)
+int InitFreqStruc(Frequency **freq, parameters *config)
+{
+	if(*freq)
+	{
+		logmsg("ERROR: InitFreqStruc, frequency block already full\n");
+		return 0;
+	}
+	*freq = (Frequency*)malloc(sizeof(Frequency)*config->MaxFreq);
+	if(!*freq)
+	{
+		logmsg("ERROR: InitFreqStruc, not enough memory for Data Structures\n");
+		return 0;
+	}
+	memset(*freq, 0, sizeof(Frequency)*config->MaxFreq);
+	return 1;
+}
+
+int InitAudioBlock(AudioBlocks* block, char channel, parameters *config)
 {
 	if(!block)
 		return 0;
 
 	memset(block, 0, sizeof(AudioBlocks));
-	block->freq = (Frequency*)malloc(sizeof(Frequency)*config->MaxFreq);
-	if(!block->freq)
+	if(channel == CHANNEL_STEREO)
 	{
-		logmsg("Not enough memory for Data Structures\n");
-		return 0;
+		if(!InitFreqStruc(&block->freqRight, config))
+			return 0;
 	}
-	memset(block->freq, 0, sizeof(Frequency)*config->MaxFreq);
-
-	return 1;
+	block->channel = channel;
+	return(InitFreqStruc(&block->freq, config));
 }
 
 AudioSignal *CreateAudioSignal(parameters *config)
@@ -283,13 +297,13 @@ AudioSignal *CreateAudioSignal(parameters *config)
 
 	for(int n = 0; n < config->types.totalBlocks; n++)
 	{
-		if(!InitAudioBlock(&Signal->Blocks[n], config))
+		if(!InitAudioBlock(&Signal->Blocks[n], GetBlockChannel(config, n), config))
 			return NULL;
 	}
 
 	InitAudio(Signal, config);
 	if(config->clkMeasure)
-		InitAudioBlock(&Signal->clkFrequencies, config);
+		InitAudioBlock(&Signal->clkFrequencies, CHANNEL_MONO, config);
 	return Signal;
 }
 
@@ -307,11 +321,17 @@ void CleanFrequency(Frequency *freq)
 
 void CleanFrequenciesInBlock(AudioBlocks * AudioArray,  parameters *config)
 {
-	if(!AudioArray->freq)
-		return;
+	if(AudioArray->freq)
+	{
+		for(int i = 0; i < config->MaxFreq; i++)
+			CleanFrequency(&AudioArray->freq[i]);
+	}
 
-	for(int i = 0; i < config->MaxFreq; i++)
-		CleanFrequency(&AudioArray->freq[i]);
+	if(AudioArray->freqRight)
+	{
+		for(int i = 0; i < config->MaxFreq; i++)
+			CleanFrequency(&AudioArray->freqRight[i]);
+	}
 }
 
 void InitAudio(AudioSignal *Signal, parameters *config)
@@ -327,11 +347,17 @@ void InitAudio(AudioSignal *Signal, parameters *config)
 			
 			Signal->Blocks[n].fftwValues.spectrum = NULL;
 			Signal->Blocks[n].fftwValues.size = 0;
-	
 			Signal->Blocks[n].audio.samples = NULL;
 			Signal->Blocks[n].audio.window_samples = NULL;
 			Signal->Blocks[n].audio.size = 0;
 			Signal->Blocks[n].audio.difference = 0;
+
+			Signal->Blocks[n].fftwValuesRight.spectrum = NULL;
+			Signal->Blocks[n].fftwValuesRight.size = 0;
+			Signal->Blocks[n].audioRight.samples = NULL;
+			Signal->Blocks[n].audioRight.window_samples = NULL;
+			Signal->Blocks[n].audioRight.size = 0;
+			Signal->Blocks[n].audioRight.difference = 0;
 
 			Signal->Blocks[n].internalSync = NULL;
 			Signal->Blocks[n].internalSyncCount = 0;
@@ -434,6 +460,12 @@ void ReleaseFFTW(AudioBlocks * AudioArray)
 		free(AudioArray->fftwValues.spectrum);
 		AudioArray->fftwValues.spectrum = NULL;
 	}
+
+	if(AudioArray->fftwValuesRight.spectrum)
+	{
+		free(AudioArray->fftwValuesRight.spectrum);
+		AudioArray->fftwValuesRight.spectrum = NULL;
+	}
 }
 
 void ReleaseSamples(AudioBlocks * AudioArray)
@@ -453,6 +485,19 @@ void ReleaseSamples(AudioBlocks * AudioArray)
 	}
 	AudioArray->audio.size = 0;
 	AudioArray->audio.difference = 0;
+
+	if(AudioArray->audioRight.samples)
+	{
+		free(AudioArray->audioRight.samples);
+		AudioArray->audioRight.samples = NULL;
+	}
+	if(AudioArray->audioRight.window_samples)
+	{
+		free(AudioArray->audioRight.window_samples);
+		AudioArray->audioRight.window_samples = NULL;
+	}
+	AudioArray->audioRight.size = 0;
+	AudioArray->audioRight.difference = 0;
 
 	if(AudioArray->internalSync)
 	{
@@ -486,6 +531,12 @@ void ReleaseFrequencies(AudioBlocks * AudioArray)
 	{
 		free(AudioArray->freq);
 		AudioArray->freq = NULL;
+	}
+
+	if(AudioArray->freqRight)
+	{
+		free(AudioArray->freqRight);
+		AudioArray->freqRight = NULL;
 	}
 }
 
@@ -729,13 +780,13 @@ int LoadAudioBlockStructure(FILE *file, parameters *config)
 	config->types.syncCount = atoi(buffer);
 	if(!config->types.syncCount)
 	{
-		logmsg("ERROR: Invalid Sync count '%s'\n", lineBuffer);
+		logmsg("ERROR: Invalid Sync count\n'%s'\n", lineBuffer);
 		fclose(file);
 		return 0;
 	}
 	if(config->types.syncCount > 10)
 	{
-		logmsg("ERROR: Invalid Sync count '%s'\n", lineBuffer);
+		logmsg("ERROR: Invalid Sync count\n'%s'\n", lineBuffer);
 		fclose(file);
 		return 0;
 	}
@@ -749,21 +800,21 @@ int LoadAudioBlockStructure(FILE *file, parameters *config)
 								&config->types.SyncFormat[i].pulseFrameLen,
 								&config->types.SyncFormat[i].pulseCount) != 6)
 		{
-			logmsg("ERROR: Invalid Frame Rate Adjustment '%s'\n", lineBuffer);
+			logmsg("ERROR: Invalid Frame Rate Adjustment\n'%s'\n", lineBuffer);
 			fclose(file);
 			return 0;
 		}
 		config->types.SyncFormat[i].MSPerFrame = strtod(buffer2, NULL);
 		if(!config->types.SyncFormat[i].MSPerFrame)
 		{
-			logmsg("ERROR: Invalid MS per frame  Adjustment '%s'\n", lineBuffer);
+			logmsg("ERROR: Invalid MS per frame  Adjustment\n'%s'\n", lineBuffer);
 			fclose(file);
 			return 0;
 		}
 		config->types.SyncFormat[i].LineCount = strtod(buffer3, NULL);
 		if(config->types.SyncFormat[i].LineCount < 0)
 		{
-			logmsg("ERROR: Invalid line count Adjustment '%s'\n", lineBuffer);
+			logmsg("ERROR: Invalid line count Adjustment\n'%s'\n", lineBuffer);
 			fclose(file);
 			return 0;
 		}
@@ -794,7 +845,7 @@ int LoadAudioBlockStructure(FILE *file, parameters *config)
 	readLine(lineBuffer, file);
 	if(sscanf(lineBuffer, "%s %c", config->clkName, &tmp) != 2)
 	{
-		logmsg("ERROR: Invalid MD Fourier Audio Blocks File (CLK): %s\n", lineBuffer);
+		logmsg("ERROR: Invalid MD Fourier Audio Blocks File (CLK):\n%s\n", lineBuffer);
 		fclose(file);
 		return 0;
 	}
@@ -806,14 +857,14 @@ int LoadAudioBlockStructure(FILE *file, parameters *config)
 			&config->clkFreq,
 			&config->clkRatio) != 3)
 		{
-			logmsg("ERROR: Invalid MD Fourier Audio Blocks File (CLK): %s\n", lineBuffer);
+			logmsg("ERROR: Invalid MD Fourier Audio Blocks File (CLK):\n%s\n", lineBuffer);
 			fclose(file);
 			return 0;
 		}
 
 		if(config->clkBlock <= 0 || config->clkFreq <= 0 || config->clkRatio <= 0)
 		{
-			logmsg("ERROR: Invalid MD Fourier Audio Blocks File (CLK): %s\n", lineBuffer);
+			logmsg("ERROR: Invalid MD Fourier Audio Blocks File (CLK):\n%s\n", lineBuffer);
 			fclose(file);
 			return 0;
 		}
@@ -916,7 +967,7 @@ int LoadAudioBlockStructure(FILE *file, parameters *config)
 				&config->types.typeArray[i].syncTone,
 				&config->types.typeArray[i].syncLen) != 6)
 			{
-				logmsg("ERROR: Invalid MD Fourier Audio Blocks File (Element Count, frames, color, channel): %s\n", lineBuffer);
+				logmsg("ERROR: Invalid MD Fourier Audio Blocks File\n(Element Count, frames, color, channel): %s\n", lineBuffer);
 				fclose(file);
 				return 0;
 			}
@@ -932,7 +983,7 @@ int LoadAudioBlockStructure(FILE *file, parameters *config)
 				&config->types.watermarkInvalidFreq,
 				config->types.watermarkDisplayName) != 7)
 			{
-				logmsg("ERROR: Invalid MD Fourier Audio Blocks File (Element Count, frames, color, channel, WMValid, WMFail, Name): %s\n", lineBuffer);
+				logmsg("ERROR: Invalid MD Fourier Audio Blocks File\n(Element Count, frames, color, channel, WMValid, WMFail, Name): %s\n", lineBuffer);
 				fclose(file);
 				return 0;
 			}
@@ -952,7 +1003,7 @@ int LoadAudioBlockStructure(FILE *file, parameters *config)
 				&config->types.typeArray[i].color[0],
 				&config->types.typeArray[i].channel) != 5)
 			{
-				logmsg("ERROR: Invalid MD Fourier Audio Blocks File (Element Count, frames, skip, color, channel): %s\n", lineBuffer);
+				logmsg("ERROR: Invalid MD Fourier Audio Blocks File\n(Element Count, frames, skip, color, channel): %s\n", lineBuffer);
 				fclose(file);
 				return 0;
 			}
@@ -967,9 +1018,20 @@ int LoadAudioBlockStructure(FILE *file, parameters *config)
 
 			if(!CheckChannel(config->types.typeArray[i].channel))
 			{
-				logmsg("ERROR: Invalid MD Fourier Audio Blocks File (Element Count, frames, skip, color, *channel*): %s\n", lineBuffer);
+				logmsg("ERROR: Invalid MD Fourier Audio Blocks File\n(Element Count, frames, skip, color, *channel*): %s\n", lineBuffer);
 				fclose(file);
 				return 0;
+			}
+
+			if(config->types.typeArray[i].channel == CHANNEL_STEREO)
+			{
+				if(config->types.typeArray[i].type <= TYPE_CONTROL)
+				{
+					logmsg("ERROR: Only regular blocks can be analyzed as stereo\n %s\n", lineBuffer);
+					fclose(file);
+					return 0;
+				}
+				config->usesStereo = 1;
 			}
 		}
 
@@ -1373,7 +1435,6 @@ void CompareFrameRates(AudioSignal *Signal1, AudioSignal *Signal2, parameters *c
 {
 	double diff = 0;
 
-	
 	diff = fabs(Signal1->framerate - Signal2->framerate);
 	//if(diff == 0.0)
 	if(areDoublesEqual(Signal1->framerate, Signal2->framerate))
@@ -2674,6 +2735,21 @@ void GlobalNormalize(AudioSignal *Signal, parameters *config)
 					MaxBlock = block;
 				}
 			}
+
+			if(Signal->Blocks[block].freqRight)
+			{
+				for(int i = 0; i < config->MaxFreq; i++)
+				{
+					if(!Signal->Blocks[block].freqRight[i].hertz)
+						break;
+					if(Signal->Blocks[block].freqRight[i].magnitude > MaxMagnitude)
+					{
+						MaxMagnitude = Signal->Blocks[block].freqRight[i].magnitude;
+						MaxFreq = Signal->Blocks[block].freqRight[i].hertz;
+						MaxBlock = block;
+					}
+				}
+			}
 		}
 	}
 
@@ -2703,6 +2779,21 @@ void GlobalNormalize(AudioSignal *Signal, parameters *config)
 				
 				if(Signal->Blocks[block].freq[i].amplitude < MinAmplitude)
 					MinAmplitude = Signal->Blocks[block].freq[i].amplitude;
+			}
+
+			if(Signal->Blocks[block].freqRight)
+			{
+				for(int i = 0; i < config->MaxFreq; i++)
+				{
+					if(!Signal->Blocks[block].freqRight[i].hertz)
+						break;
+		
+					Signal->Blocks[block].freqRight[i].amplitude = 
+						CalculateAmplitude(Signal->Blocks[block].freqRight[i].magnitude, MaxMagnitude, config);
+					
+					if(Signal->Blocks[block].freqRight[i].amplitude < MinAmplitude)
+						MinAmplitude = Signal->Blocks[block].freqRight[i].amplitude;
+				}
 			}
 		}
 	}
@@ -2735,6 +2826,21 @@ void FindMaxMagnitude(AudioSignal *Signal, parameters *config)
 					MaxMagnitude = Signal->Blocks[block].freq[i].magnitude;
 					MaxFreq = Signal->Blocks[block].freq[i].hertz;
 					MaxBlock = block;
+				}
+			}
+
+			if(Signal->Blocks[block].freqRight)
+			{
+				for(int i = 0; i < config->MaxFreq; i++)
+				{
+					if(!Signal->Blocks[block].freqRight[i].hertz)
+						break;
+					if(Signal->Blocks[block].freqRight[i].magnitude > MaxMagnitude)
+					{
+						MaxMagnitude = Signal->Blocks[block].freqRight[i].magnitude;
+						MaxFreq = Signal->Blocks[block].freqRight[i].hertz;
+						MaxBlock = block;
+					}
 				}
 			}
 		}
@@ -2779,6 +2885,21 @@ void CalculateAmplitudes(AudioSignal *Signal, double ZeroDbMagReference, paramet
 				if(Signal->Blocks[block].freq[i].amplitude < MinAmplitude)
 					MinAmplitude = Signal->Blocks[block].freq[i].amplitude;
 			}
+
+			if(Signal->Blocks[block].freqRight)
+			{
+				for(int i = 0; i < config->MaxFreq; i++)
+				{
+					if(!Signal->Blocks[block].freqRight[i].hertz)
+						break;
+		
+					Signal->Blocks[block].freqRight[i].amplitude = 
+						CalculateAmplitude(Signal->Blocks[block].freqRight[i].magnitude, ZeroDbMagReference, config);
+		
+					if(Signal->Blocks[block].freqRight[i].amplitude < MinAmplitude)
+						MinAmplitude = Signal->Blocks[block].freqRight[i].amplitude;
+				}
+			}
 		}
 	}
 
@@ -2796,6 +2917,16 @@ void CleanMatched(AudioSignal *ReferenceSignal, AudioSignal *TestSignal, paramet
 				break;
 			ReferenceSignal->Blocks[block].freq[i].matched = 0;	
 		}
+
+		if(ReferenceSignal->Blocks[block].freqRight)
+		{
+			for(int i = 0; i < config->MaxFreq; i++)
+			{
+				if(!ReferenceSignal->Blocks[block].freqRight[i].hertz)
+					break;
+				ReferenceSignal->Blocks[block].freqRight[i].matched = 0;	
+			}
+		}
 	}
 
 	for(int block = 0; block < config->types.totalBlocks; block++)
@@ -2805,6 +2936,16 @@ void CleanMatched(AudioSignal *ReferenceSignal, AudioSignal *TestSignal, paramet
 			if(!TestSignal->Blocks[block].freq[i].hertz)
 				break;
 			TestSignal->Blocks[block].freq[i].matched = 0;
+		}
+
+		if(TestSignal->Blocks[block].freqRight)
+		{
+			for(int i = 0; i < config->MaxFreq; i++)
+			{
+				if(!TestSignal->Blocks[block].freqRight[i].hertz)
+					break;
+				TestSignal->Blocks[block].freqRight[i].matched = 0;
+			}
 		}
 	}
 }
@@ -2830,7 +2971,6 @@ void PrintFrequenciesBlockMagnitude(AudioSignal *Signal, Frequency *freq, int ty
 		}
 	}
 }
-
 
 void PrintFrequenciesBlock(AudioSignal *Signal, Frequency *freq, int type, parameters *config)
 {
@@ -2879,7 +3019,14 @@ void PrintFrequenciesWMagnitudes(AudioSignal *Signal, parameters *config)
 				Signal->role == ROLE_REF ? "Reference" : "Comparision", GetBlockName(config, block), GetBlockSubIndex(config, block), block);
 
 		type = GetBlockType(config, block);
+		if(Signal->Blocks[block].freqRight)
+			logmsgFileOnly("Left Channel:\n");
 		PrintFrequenciesBlockMagnitude(Signal, Signal->Blocks[block].freq, type, config);
+		if(Signal->Blocks[block].freqRight)
+		{
+			logmsgFileOnly("Right Channel:\n");
+			PrintFrequenciesBlockMagnitude(Signal, Signal->Blocks[block].freqRight, type, config);
+		}
 	}
 }
 
@@ -2893,7 +3040,14 @@ void PrintFrequencies(AudioSignal *Signal, parameters *config)
 				Signal->role == ROLE_REF ? "Reference" : "Comparision", GetBlockName(config, block), GetBlockSubIndex(config, block), block);
 
 		type = GetBlockType(config, block);
+		if(Signal->Blocks[block].freqRight)
+			logmsgFileOnly("Left Channel:\n");
 		PrintFrequenciesBlock(Signal, Signal->Blocks[block].freq, type, config);
+		if(Signal->Blocks[block].freqRight)
+		{
+			logmsgFileOnly("Right Channel:\n");
+			PrintFrequenciesBlock(Signal, Signal->Blocks[block].freqRight, type, config);
+		}
 	}
 }
 
@@ -2946,13 +3100,41 @@ inline double CalculateFrequency(double boxindex, double boxsize, parameters *co
 
 int FillFrequencyStructures(AudioSignal *Signal, AudioBlocks *AudioArray, parameters *config)
 {
-	long int 	i = 0, startBin= 0, endBin = 0, count = 0, size = 0, amount = 0;
-	double 		boxsize = 0;
-	int			nyquistLimit = 0;
-	Frequency	*f_array = NULL;
+	char channel = CHANNEL_LEFT;
 
-	size = AudioArray->fftwValues.size;
-	if(!size || !AudioArray->fftwValues.spectrum)
+	if(Signal->AudioChannels == 2 && AudioArray->channel == CHANNEL_STEREO)
+	{
+		channel = CHANNEL_RIGHT;
+		if(!FillFrequencyStructuresInternal(Signal, AudioArray, channel, config))
+			return 0;
+		channel = CHANNEL_LEFT;
+	}
+	if(!FillFrequencyStructuresInternal(Signal, AudioArray, channel, config))
+		return 0;
+	ReleaseFFTW(AudioArray);
+	return 1;
+}
+
+int FillFrequencyStructuresInternal(AudioSignal *Signal, AudioBlocks *AudioArray, char channel, parameters *config)
+{
+	long int 		i = 0, startBin= 0, endBin = 0, count = 0, size = 0, amount = 0;
+	double 			boxsize = 0;
+	int				nyquistLimit = 0;
+	Frequency		*f_array = NULL, *targetFreq = NULL;
+	FFTWSpectrum	*fftw = NULL;
+
+	if(channel == CHANNEL_LEFT)
+	{
+		fftw = &AudioArray->fftwValues;
+		targetFreq = AudioArray->freq;
+	}
+	else
+	{
+		fftw = &AudioArray->fftwValuesRight;
+		targetFreq = AudioArray->freqRight;
+	}
+	size = fftw->size;
+	if(!size || !fftw->spectrum || !targetFreq)
 	{
 		logmsg("FillFrequencyStructures size == 0\n");
 		return 0;
@@ -2993,9 +3175,9 @@ int FillFrequencyStructures(AudioSignal *Signal, AudioBlocks *AudioArray, parame
 	for(i = startBin; i < endBin; i++)
 	{
 		f_array[count].hertz = CalculateFrequency(i, boxsize, config);
-		f_array[count].magnitude = CalculateMagnitude(AudioArray->fftwValues.spectrum[i], size);
+		f_array[count].magnitude = CalculateMagnitude(fftw->spectrum[i], size);
 		f_array[count].amplitude = NO_AMPLITUDE;
-		f_array[count].phase = CalculatePhase(AudioArray->fftwValues.spectrum[i], config);
+		f_array[count].phase = CalculatePhase(fftw->spectrum[i], config);
 		f_array[count].matched = 0;
 		count++;
 	}
@@ -3008,19 +3190,20 @@ int FillFrequencyStructures(AudioSignal *Signal, AudioBlocks *AudioArray, parame
 	// Sort the array by top magnitudes
 	FFT_Frequency_Magnitude_tim_sort(f_array, count);
 	// Only copy Top amount frequencies
-	memcpy(AudioArray->freq, f_array, sizeof(Frequency)*amount);
+	memcpy(targetFreq, f_array, sizeof(Frequency)*amount);
 
 	// release temporal storage
 	free(f_array);
 	f_array = NULL;
-
-	ReleaseFFTW(AudioArray);
 
 	return 1;
 }
 
 void PrintComparedBlocks(AudioBlocks *ReferenceArray, AudioBlocks *ComparedArray, parameters *config, AudioSignal *Signal)
 {
+	if(ReferenceArray->freqRight)
+		logmsgFileOnly("LEFT Channel\n");
+	
 	/* changed Magnitude->amplitude */
 	for(int j = 0; j < config->MaxFreq; j++)
 	{
@@ -3054,6 +3237,45 @@ void PrintComparedBlocks(AudioBlocks *ReferenceArray, AudioBlocks *ComparedArray
 					logmsgFileOnly("F-");
 			}
 			logmsgFileOnly("\n");
+		}
+	}
+
+	if(ReferenceArray->freqRight)
+	{
+		logmsgFileOnly("RIGHT Channel\n");
+		for(int j = 0; j < config->MaxFreq; j++)
+		{
+			if(config->significantAmplitude > ReferenceArray->freqRight[j].amplitude)
+				break;
+	
+			if(ReferenceArray->freqRight[j].hertz)
+			{
+				int match = 0;
+	
+				logmsgFileOnly("[%5d] Ref: %7g Hz %6.4f dBFS [>%3d]", 
+							j,
+							ReferenceArray->freqRight[j].hertz,
+							ReferenceArray->freqRight[j].amplitude,
+							ReferenceArray->freqRight[j].matched - 1);
+	
+				if(ComparedArray->freqRight[j].hertz)
+					logmsgFileOnly("\tComp: %7g Hz %6.4f dBFS [<%3d]", 
+							ComparedArray->freqRight[j].hertz,
+							ComparedArray->freqRight[j].amplitude,
+							ComparedArray->freqRight[j].matched - 1);
+				else
+					logmsgFileOnly("\tCompared:\tNULL");
+				match = ReferenceArray->freqRight[j].matched - 1;
+				if(match != -1)
+				{
+					if(ReferenceArray->freqRight[j].amplitude == 
+					ComparedArray->freqRight[match].amplitude)
+						logmsgFileOnly("FA");
+					else
+						logmsgFileOnly("F-");
+				}
+				logmsgFileOnly("\n");
+			}
 		}
 	}
 	logmsgFileOnly("\n\n");
@@ -3426,7 +3648,7 @@ double CalculateClk(AudioSignal *Signal, parameters *config)
 	if(!Signal || !Signal->clkFrequencies.freq)
 		return 0;
 
-	return Signal->clkFrequencies.freq[0].hertz * config->clkRatio;
+	return Signal->clkFrequencies.freq[0].hertz * (double)config->clkRatio;
 }
 
 char GetTypeProfileName(int type)
@@ -3502,6 +3724,21 @@ double FindFundamentalAmplitudeAverage(AudioSignal *Signal, parameters *config)
 		{
 			AvgFundAmp += Signal->Blocks[block].freq[0].amplitude;
 			count ++;
+		}
+	}
+
+	for(int block = 0; block < config->types.totalBlocks; block++)
+	{
+		if(Signal->Blocks[block].freqRight)
+		{
+			int type = TYPE_NOTYPE;
+
+			type = GetBlockType(config, block);
+			if(type > TYPE_SILENCE && Signal->Blocks[block].freqRight[0].hertz != 0)
+			{
+				AvgFundAmp += Signal->Blocks[block].freqRight[0].amplitude;
+				count ++;
+			}
 		}
 	}
 

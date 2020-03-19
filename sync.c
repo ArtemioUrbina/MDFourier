@@ -556,7 +556,7 @@ long int AdjustPulseSampleStart(char *Samples, wav_hdr header, long int offset, 
 		memcpy(buffer, Samples + pos, bytesNeeded);
 		ProcessChunkForSyncPulse((int16_t*)buffer, bytesNeeded/2, 
 			header.fmt.SamplesPerSec, &pulseArray[count], 
-			config->channel == 's' ? 'l' : config->channel, AudioChannels, config);
+			CHANNEL_LEFT, AudioChannels, config);
 		count ++;
 	}
 
@@ -700,7 +700,7 @@ long int DetectPulseInternal(char *Samples, wav_hdr header, int factor, long int
 		/* We use left channel by default, we don't know about channel imbalances yet */
 		ProcessChunkForSyncPulse((int16_t*)buffer, loadedBlockSize/2, 
 			header.fmt.SamplesPerSec, &pulseArray[i], 
-			config->channel == 's' ? 'l' : config->channel, AudioChannels, config);
+			CHANNEL_LEFT, AudioChannels, config);
 
 		if(pulseArray[i].magnitude > MaxMagnitude)
 			MaxMagnitude = pulseArray[i].magnitude;
@@ -800,17 +800,14 @@ double ProcessChunkForSyncPulse(int16_t *samples, size_t size, long samplerate, 
 	memset(signal, 0, sizeof(double)*(monoSignalSize+1));
 	memset(spectrum, 0, sizeof(fftw_complex)*(monoSignalSize/2+1));
 
-	if(AudioChannels == 1)
-		channel = 'l';
-
 	for(i = 0; i < monoSignalSize; i++)
 	{
-		if(channel == 'l')
+		if(channel == CHANNEL_LEFT)
 			signal[i] = (double)samples[i*AudioChannels];
-		if(channel == 'r')
-			signal[i] = (double)samples[i*2+1];
-		if(channel == 's')
-			signal[i] = ((double)samples[i*2]+(double)samples[i*2+1])/2.0;
+		if(channel == CHANNEL_RIGHT)
+			signal[i] = (double)samples[i*AudioChannels+1];
+		if(channel == CHANNEL_STEREO)
+			signal[i] = ((double)samples[i*AudioChannels]+(double)samples[i*AudioChannels+1])/2.0;
 	}
 
 	fftw_execute(p); 

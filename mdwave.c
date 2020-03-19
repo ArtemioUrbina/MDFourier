@@ -194,7 +194,7 @@ int ExecuteMDWave(parameters *config, int invert)
 	config->referenceFramerate = ReferenceSignal->framerate;
 	config->smallerFramerate = ReferenceSignal->framerate;
 
-	if(config->channel == 's')
+	if(ReferenceSignal->AudioChannels == 2)
 	{
 		int block = NO_INDEX;
 
@@ -1215,24 +1215,24 @@ int ProcessSamples(AudioBlocks *AudioArray, int16_t *samples, size_t size, long 
 	}
 
 	if(Signal->AudioChannels == 1)
-		channel = 'l';
+		channel = CHANNEL_LEFT;
 	else
-		channel = config->channel;
+		channel = CHANNEL_STEREO;
 
 	for(i = 0; i < monoSignalSize - zeropadding; i++)
 	{
-		if(channel == 'l')
+		if(channel == CHANNEL_LEFT)
 		{
 			signal[i] = (double)samples[i*Signal->AudioChannels];
 			if(Signal->AudioChannels == 2)
 				samples[i*2+1] = 0;
 		}
-		if(channel == 'r')
+		if(channel == CHANNEL_RIGHT)
 		{
 			signal[i] = (double)samples[i*2+1];
 			samples[i*2] = 0;
 		}
-		if(channel == 's')
+		if(channel == CHANNEL_STEREO)
 		{
 			signal[i] = ((double)samples[i*2]+(double)samples[i*2+1])/2.0;
 			samples[i*2] = signal[i];
@@ -1268,6 +1268,17 @@ int ProcessSamples(AudioBlocks *AudioArray, int16_t *samples, size_t size, long 
 				break;
 			if(AudioArray->freq[j].amplitude < MinAmplitude)
 				MinAmplitude = AudioArray->freq[j].amplitude;
+		}
+
+		if(AudioArray->freqRight)
+		{
+			for(int j = 0; j < config->MaxFreq; j++)
+			{
+				if(!AudioArray->freqRight[j].hertz)
+					break;
+				if(AudioArray->freqRight[j].amplitude < MinAmplitude)
+					MinAmplitude = AudioArray->freqRight[j].amplitude;
+			}
 		}
 
 		CutOff = MinAmplitude;
@@ -1326,18 +1337,18 @@ int ProcessSamples(AudioBlocks *AudioArray, int16_t *samples, size_t size, long 
 			//value = (signal[i]/window[i])/monoSignalSize;
 			//else
 			value = signal[i]/monoSignalSize; /* check CalculateMagnitude if changed */
-			if(channel == 'l')
+			if(channel == CHANNEL_LEFT)
 			{
 				samples[i*Signal->AudioChannels] = round(value);
 				if(Signal->AudioChannels == 2)
 					samples[i*2+1] = 0;
 			}
-			if(channel == 'r')
+			if(channel == CHANNEL_RIGHT)
 			{
 				samples[i*2] = 0;
 				samples[i*2+1] = round(value);
 			}
-			if(channel == 's')
+			if(channel == CHANNEL_STEREO)
 			{
 				samples[i*2] = round(value);
 				samples[i*2+1] = round(value);
@@ -1370,7 +1381,7 @@ int commandline_wave(int argc , char *argv[], parameters *config)
 	config->useCompProfile = 0;
 	config->executefft = 1;
 
-	while ((c = getopt (argc, argv, "qnhvzcklyCBis:e:f:t:p:a:w:r:P:IY:0:")) != -1)
+	while ((c = getopt (argc, argv, "qnhvzcklyCBis:e:f:t:p:w:r:P:IY:0:")) != -1)
 	switch (c)
 	  {
 	  case 'h':
@@ -1433,21 +1444,6 @@ int commandline_wave(int argc , char *argv[], parameters *config)
 			return 0;
 		}
 		break;
-	  case 'a':
-		switch(optarg[0])
-		{
-			case 'l':
-			case 'r':
-			case 's':
-				config->channel = optarg[0];
-				break;
-			default:
-				logmsg("Invalid audio channel option '%c'\n", optarg[0]);
-				logmsg("\tUse l for Left, r for Right or s for Stereo\n");
-				return 0;
-				break;
-		}
-		break;
 	 case 'w':
 		switch(optarg[0])
 		{
@@ -1486,8 +1482,6 @@ int commandline_wave(int argc , char *argv[], parameters *config)
 	  case '?':
 		if (optopt == 'r')
 		  logmsg("\t ERROR:  Reference File -%c requires an argument.\n", optopt);
-		else if (optopt == 'a')
-		  logmsg("\t ERROR:  Audio channel option -%c requires an argument: l,r or s\n", optopt);
 		else if (optopt == 'w')
 		  logmsg("\t ERROR:  FFT Window option -%c requires an argument: n,t,f or h\n", optopt);
 		else if (optopt == 'f')
@@ -1538,8 +1532,6 @@ int commandline_wave(int argc , char *argv[], parameters *config)
 	}
 	fclose(file);
 
-	if(config->channel != 's')
-		logmsg("\tAudio Channel is: %s\n", GetChannel(config->channel));
 	if(config->MaxFreq != FREQ_COUNT)
 		logmsg("\tMax frequencies to use from FFTW are %d (default %d)\n", config->MaxFreq, FREQ_COUNT);
 	if(config->startHz != START_HZ)
@@ -1566,7 +1558,6 @@ void PrintUsage_wave()
 {
 	logmsg("  usage: mdwave -P profile.mdf -r audio.wav\n");
 	logmsg("   FFT and Analysis options:\n");
-	logmsg("	 -a: select <a>udio channel to compare. 's', 'l' or 'r'\n");
 	logmsg("	 -c: Enable Audio <c>hunk creation, an individual WAV for each block\n");
 	logmsg("	 -w: enable <w>indowing. Default is a custom Tukey window.\n");
 	logmsg("		'n' none, 't' Tukey, 'h' Hann, 'f' FlatTop & 'm' Hamming\n");

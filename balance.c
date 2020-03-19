@@ -115,10 +115,10 @@ int CheckBalance(AudioSignal *Signal, int block, parameters *config)
 			
 			memcpy(buffer, Signal->Samples + pos, loadedBlockSize-difference);
 	
-			if(!ExecuteBalanceDFFT(&Channels[0], (int16_t*)buffer, (loadedBlockSize-difference)/2, Signal->header.fmt.SamplesPerSec, windowUsed, 'l', config))
+			if(!ExecuteBalanceDFFT(&Channels[0], (int16_t*)buffer, (loadedBlockSize-difference)/2, Signal->header.fmt.SamplesPerSec, windowUsed, CHANNEL_LEFT, config))
 				return 0;
 
-			if(!ExecuteBalanceDFFT(&Channels[1], (int16_t*)buffer, (loadedBlockSize-difference)/2, Signal->header.fmt.SamplesPerSec, windowUsed, 'r', config))
+			if(!ExecuteBalanceDFFT(&Channels[1], (int16_t*)buffer, (loadedBlockSize-difference)/2, Signal->header.fmt.SamplesPerSec, windowUsed, CHANNEL_RIGHT, config))
 				return 0;
 
 			Channels[0].freq = (Frequency*)malloc(sizeof(Frequency)*config->MaxFreq);
@@ -201,13 +201,13 @@ int CheckBalance(AudioSignal *Signal, int block, parameters *config)
 
 		if(Channels[0].freq[0].magnitude > Channels[1].freq[matchIndex].magnitude)
 		{
-			diffNam = 'l';
+			diffNam = CHANNEL_LEFT;
 			channDiff = diff*100.0/Channels[0].freq[0].magnitude;
 			ratio = Channels[1].freq[matchIndex].magnitude/Channels[0].freq[0].magnitude;
 		}
 		else
 		{
-			diffNam = 'r';
+			diffNam = CHANNEL_RIGHT;
 			channDiff = diff*100.0/Channels[1].freq[matchIndex].magnitude;
 			ratio = Channels[0].freq[0].magnitude/Channels[1].freq[matchIndex].magnitude;
 		}
@@ -217,7 +217,7 @@ int CheckBalance(AudioSignal *Signal, int block, parameters *config)
 		{
 			logmsg("\nWARNING for %s file\n", Signal->role == ROLE_REF ? "Reference" : "Comparison");
 			logmsg("\tStereo imbalance: %s channel is higher by %g%%\n",
-				diffNam == 'l' ? "left" : "right", channDiff);
+				diffNam == CHANNEL_LEFT ? "left" : "right", channDiff);
 			if(config->channelBalance)
 			{
 				logmsg("\tCompensating in software. [Use -B to disable auto-balance]\n");
@@ -232,17 +232,17 @@ int CheckBalance(AudioSignal *Signal, int block, parameters *config)
 			if(config->verbose)
 				logmsg(" - %s signal stereo imbalance: %s channel is higher by %0.2g%%\n",
 					Signal->role == ROLE_REF ? "Reference" : "Comparison",
-					diffNam == 'l' ? "left" : "right", channDiff);
+					diffNam == CHANNEL_LEFT ? "left" : "right", channDiff);
 		}
 		*/
 		
 		
 		logmsg(" - %s signal stereo imbalance: %s channel is higher by %0.5f%%\n",
 				Signal->role == ROLE_REF ? "Reference" : "Comparison",
-				diffNam == 'l' ? "left" : "right", channDiff);
+				diffNam == CHANNEL_LEFT ? "left" : "right", channDiff);
 
 		Signal->balance = channDiff;
-		if(diffNam == 'l')
+		if(diffNam == CHANNEL_LEFT)
 			Signal->balance *= -1;
 		
 		if(config->channelBalance)
@@ -269,7 +269,7 @@ int CheckBalance(AudioSignal *Signal, int block, parameters *config)
 	return 1;
 }
 
-int ExecuteBalanceDFFT(AudioBlocks *AudioArray, int16_t *samples, size_t size, long samplerate, double *window,  char channel, parameters *config)
+int ExecuteBalanceDFFT(AudioBlocks *AudioArray, int16_t *samples, size_t size, long samplerate, double *window, char channel, parameters *config)
 {
 	fftw_plan		p = NULL;
 	long		  	stereoSignalSize = 0;	
@@ -330,9 +330,9 @@ int ExecuteBalanceDFFT(AudioBlocks *AudioArray, int16_t *samples, size_t size, l
 
 	for(i = 0; i < monoSignalSize - zeropadding; i++)
 	{
-		if(channel == 'l')
+		if(channel == CHANNEL_LEFT)
 			signal[i] = (double)samples[i*2];
-		if(channel == 'r')
+		if(channel == CHANNEL_RIGHT)
 			signal[i] = (double)samples[i*2+1];
 
 		if(window)
@@ -370,9 +370,9 @@ void BalanceAudioChannel(AudioSignal *Signal, char channel, double ratio)
 
 	for(i = start; i < end; i+=2)
 	{
-		if(channel == 'l')
+		if(channel == CHANNEL_LEFT)
 			samples[i] = (int16_t)((double)samples[i])*ratio;
-		if(channel == 'r')
+		if(channel == CHANNEL_RIGHT)
 			samples[i+1] = (int16_t)((double)samples[i+1])*ratio;
 	}
 }

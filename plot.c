@@ -899,14 +899,6 @@ void DrawImbalance(PlotFile *plot, AudioSignal *Signal, char *msg, parameters *c
 	if(Signal->AudioChannels == 1)
 		return;
 
-	if(config->channel != 's')
-		return;
-
-	if(Signal->role == ROLE_REF)
-		PLOT_COLUMN(7, 1);
-	else
-		PLOT_COLUMN(7, 2);
-
 	if(fabs(Signal->balance) >= 10)
 		pl_pencolor_r(plot->plotter, 0xcccc, 0xcccc, 0);
 	else
@@ -1420,29 +1412,24 @@ void DrawLabelsMDF(PlotFile *plot, char *Gname, char *GType, int type, parameter
 		pl_alabel_r(plot->plotter, 'l', 'l', msg);
 	}
 
-	if(config->channel != 's' && (config->referenceSignal->AudioChannels == 2 || config->comparisonSignal->AudioChannels == 2))
-	{
-		PLOT_COLUMN(4, 1);
-		pl_pencolor_r(plot->plotter, 0xcccc, 0xcccc, 0);
-		if(config->channel == 'l')
-			pl_alabel_r(plot->plotter, 'l', 'l', "Left Channel only");
-		if(config->channel == 'r')
-			pl_alabel_r(plot->plotter, 'l', 'l', "Right Channel only");
-		pl_pencolor_r(plot->plotter, 0, 0xcccc, 0xcccc);
-	}
-
 	if(config->MaxFreq != FREQ_COUNT)
 	{
-		PLOT_COLUMN(4, 2);
+		PLOT_COLUMN(4, 1);
 		sprintf(msg, "Frequencies/note: %d", config->MaxFreq);
 		pl_alabel_r(plot->plotter, 'l', 'l', msg);
 	}
 	
 	if(config->maxDbPlotZC != DB_HEIGHT && type == PLOT_COMPARE)
 	{
-		PLOT_COLUMN(4, 3);
+		PLOT_COLUMN(4, 2);
 		pl_pencolor_r(plot->plotter, 0xeeee, 0xeeee, 0);
 		pl_alabel_r(plot->plotter, 'l', 'l', "Vertical scale changed");
+	}
+
+	if(config->channelWithLowFundamentals)
+	{
+		PLOT_COLUMN(4, 3);
+		pl_alabel_r(plot->plotter, 'l', 'l', "Low Fundamentals present");
 	}
 
 	if(config->clkMeasure)
@@ -1471,10 +1458,15 @@ void DrawLabelsMDF(PlotFile *plot, char *Gname, char *GType, int type, parameter
 		}
 	}
 
-	if(config->channelWithLowFundamentals)
+	if(config->notVisible > 1)
 	{
 		PLOT_COLUMN(5, 3);
-		pl_alabel_r(plot->plotter, 'l', 'l', "Low Fundamentals present");
+		if(config->notVisible > 5)
+			pl_pencolor_r(plot->plotter, 0xeeee, 0xeeee, 0);
+		else
+			pl_pencolor_r(plot->plotter, 0, 0xcccc, 0xcccc);
+		sprintf(msg, "Data \\ua\\da %0.2fdBFS: %0.2f%%", config->maxDbPlotZC, config->notVisible);
+		pl_alabel_r(plot->plotter, 'l', 'l', msg);
 	}
 
 	if(config->referenceSignal->EstimatedSR || config->comparisonSignal->EstimatedSR)
@@ -1487,28 +1479,25 @@ void DrawLabelsMDF(PlotFile *plot, char *Gname, char *GType, int type, parameter
 		pl_alabel_r(plot->plotter, 'l', 'l', msg);
 	}
 
-	if(config->notVisible > 1)
-	{
-		PLOT_COLUMN(6, 3);
-		if(config->notVisible > 5)
-			pl_pencolor_r(plot->plotter, 0xeeee, 0xeeee, 0);
-		else
-			pl_pencolor_r(plot->plotter, 0, 0xcccc, 0xcccc);
-		sprintf(msg, "Data \\ua\\da %0.2fdBFS: %0.2f%%", config->maxDbPlotZC, config->notVisible);
-		pl_alabel_r(plot->plotter, 'l', 'l', msg);
-	}
-
 	if(type == PLOT_COMPARE)
 	{
+		PLOT_COLUMN(7, 1);
 		DrawImbalance(plot, config->referenceSignal, msg, config);
+		PLOT_COLUMN(7, 2);
 		DrawImbalance(plot, config->comparisonSignal, msg, config);
 	}
 	else
 	{
 		if(type == PLOT_SINGLE_REF)
+		{
+			PLOT_COLUMN(7, 1);
 			DrawImbalance(plot, config->referenceSignal, msg, config);
+		}
 		else
+		{
+			PLOT_COLUMN(7, 2);
 			DrawImbalance(plot, config->comparisonSignal, msg, config);
+		}
 	}
 
 	pl_pencolor_r(plot->plotter, 0, 0xeeee, 0xeeee);
@@ -2938,59 +2927,6 @@ FlatAmplDifference *CreateFlatDifferences(parameters *config, long int *size, di
 	return(ADiff);
 }
 
-/*
-FlatFrequency *CreateFlatMissing(parameters *config, long int *size)
-{
-	long int	count = 0;
-	FlatFrequency *FDiff = NULL;
-
-	if(!config)
-		return NULL;
-
-	if(!size)
-		return NULL;
-
-	*size = 0;
-
-	for(int b = 0; b < config->types.totalBlocks; b++)
-	{
-		if(GetBlockType(config, b) > TYPE_SILENCE)
-			count += config->Differences.BlockDiffArray[b].cntFreqBlkDiff;
-	}
-
-	FDiff = (FlatFrequency*)malloc(sizeof(FlatFrequency)*count);
-	if(!FDiff)
-		return NULL;
-	memset(FDiff, 0, sizeof(FlatFrequency)*count);
-
-	count = 0;
-	for(int b = 0; b < config->types.totalBlocks; b++)
-	{
-		int type = 0, color = 0;
-		
-		type = GetBlockType(config, b);
-		if(type > TYPE_SILENCE)
-		{
-			color = MatchColor(GetBlockColor(config, b));
-			for(int f = 0; f < config->Differences.BlockDiffArray[b].cntFreqBlkDiff; f++)
-			{
-				FDiff[count].hertz = config->Differences.BlockDiffArray[b].freqMissArray[f].hertz;
-				FDiff[count].amplitude = config->Differences.BlockDiffArray[b].freqMissArray[f].amplitude;
-				FDiff[count].type = type;
-				FDiff[count].color = color;
-				count ++;
-			}
-		}
-	}
-	logmsg(PLOT_PROCESS_CHAR);
-	FlatMissingDifferencesByAmplitude_tim_sort(FDiff, count);
-	logmsg(PLOT_PROCESS_CHAR);
-
-	*size = count;
-	return(FDiff);
-}
-*/
-
 int InsertElementInPlace(FlatFrequency *Freqs, FlatFrequency Element, long int currentsize)
 {
 	if(!currentsize)
@@ -3054,6 +2990,27 @@ FlatFrequency *CreateFlatFrequencies(AudioSignal *Signal, long int *size, parame
 				else
 					break;
 			}
+
+			if(Signal->Blocks[block].freqRight)
+			{
+				for(i = 0; i < config->MaxFreq; i++)
+				{
+					int insert = 0;
+	
+					if(Signal->Blocks[block].freqRight[i].hertz == 0)
+						break;
+	
+					if(type > TYPE_SILENCE && Signal->Blocks[block].freqRight[i].hertz && Signal->Blocks[block].freqRight[i].amplitude > significant)
+						insert = 1;
+					if(type == TYPE_SILENCE && Signal->Blocks[block].freqRight[i].hertz)
+						insert = 1;
+	
+					if(insert)
+						count ++;
+					else
+						break;
+				}
+			}
 		}
 	}
 
@@ -3094,6 +3051,34 @@ FlatFrequency *CreateFlatFrequencies(AudioSignal *Signal, long int *size, parame
 				}
 				else
 					break;
+			}
+
+			if(Signal->Blocks[block].freqRight)
+			{
+				for(i = 0; i < config->MaxFreq; i++)
+				{
+					int insert = 0;
+	
+					if(type > TYPE_SILENCE && Signal->Blocks[block].freqRight[i].hertz && Signal->Blocks[block].freqRight[i].amplitude > significant)
+						insert = 1;
+					if(type == TYPE_SILENCE && Signal->Blocks[block].freqRight[i].hertz)
+						insert = 1;
+	
+					if(insert)
+					{
+						FlatFrequency tmp;
+		
+						tmp.hertz = Signal->Blocks[block].freqRight[i].hertz;
+						tmp.amplitude = Signal->Blocks[block].freqRight[i].amplitude;
+						tmp.type = type;
+						tmp.color = color;
+		
+						if(InsertElementInPlace(Freqs, tmp, counter))
+							counter ++;
+					}
+					else
+						break;
+				}
 			}
 		}
 	}
@@ -4026,6 +4011,29 @@ void PlotTimeSpectrogram(AudioSignal *Signal, parameters *config)
 				}
 			}
 
+			if(Signal->Blocks[block].freqRight)
+			{
+				for(i = config->MaxFreq-1; i >= 0; i--)
+				{
+					if(Signal->Blocks[block].freqRight[i].hertz && Signal->Blocks[block].freqRight[i].amplitude > significant)
+					{
+						long int intensity;
+						double y, amplitude;
+	
+						// x is fixed by block division
+						y = Signal->Blocks[block].freqRight[i].hertz;
+						if(config->logScaleTS)
+							y = transformtoLog(y, config);
+						amplitude = Signal->Blocks[block].freqRight[i].amplitude;
+						
+						intensity = CalculateWeightedError(fabs(abs_significant - fabs(amplitude))/abs_significant, config)*0xffff;
+						SetPenColor(color, intensity, &plot);
+						pl_fline_r(plot.plotter, x,	y, xpos, y);
+						pl_endpath_r(plot.plotter);
+					}
+				}
+			}
+
 			if(lastType != type)
 			{
 				double	spaceAvailable = 0;
@@ -4123,6 +4131,30 @@ void PlotTimeSpectrogramUnMatchedContent(AudioSignal *Signal, parameters *config
 					SetPenColor(color, intensity, &plot);
 					pl_fline_r(plot.plotter, x,	y, xpos, y);
 					pl_endpath_r(plot.plotter);
+				}
+			}
+
+			if(Signal->Blocks[block].freqRight)
+			{
+				for(i = config->MaxFreq-1; i >= 0; i--)
+				{
+					if(Signal->Blocks[block].freqRight[i].hertz && !Signal->Blocks[block].freqRight[i].matched
+						&& Signal->Blocks[block].freqRight[i].amplitude > significant)
+					{
+						long int intensity;
+						double y, amplitude;
+	
+						// x is fixed by block division
+						y = Signal->Blocks[block].freqRight[i].hertz;
+						if(config->logScaleTS)
+							y = transformtoLog(y, config);
+						amplitude = Signal->Blocks[block].freqRight[i].amplitude;
+						
+						intensity = CalculateWeightedError(fabs(abs_significant - fabs(amplitude))/abs_significant, config)*0xffff;
+						SetPenColor(color, intensity, &plot);
+						pl_fline_r(plot.plotter, x,	y, xpos, y);
+						pl_endpath_r(plot.plotter);
+					}
 				}
 			}
 
@@ -4911,75 +4943,6 @@ void DrawLabelsZeroAngleCentered(PlotFile *plot, double maxAngle, double angleIn
 
 	pl_restorestate_r(plot->plotter);
 }
-
-/*
-FlatPhase	*CreatePhaseFlatFromSignal(AudioSignal *Signal, long int *size, parameters *config)
-{
-	long int	block = 0, i = 0;
-	long int 	count = 0;
-	FlatPhase	*PhaseArray = NULL;
-
-	if(!size || !Signal || !config)
-		return NULL;
-
-	*size = 0;
-
-	for(block = 0; block < config->types.totalBlocks; block++)
-	{
-		int 	type = TYPE_NOTYPE;
-
-		type = GetBlockType(config, block);
-		if(type > TYPE_SILENCE)
-		{
-			for(i = 0; i < config->MaxFreq; i++)
-			{
-				if(Signal->Blocks[block].freq[i].hertz)
-					count ++;
-				else
-					break;
-			}
-		}
-	}
-
-	PhaseArray = (FlatPhase*)malloc(sizeof(FlatPhase)*count);
-	if(!PhaseArray)
-		return NULL;
-	memset(PhaseArray, 0, sizeof(FlatPhase)*count);
-
-	count = 0;
-	for(block = 0; block < config->types.totalBlocks; block++)
-	{
-		int type = 0;
-		int color = 0;
-		
-		type = GetBlockType(config, block);
-		color = MatchColor(GetBlockColor(config, block));
-
-		if(type > TYPE_SILENCE)
-		{
-			for(i = 0; i < config->MaxFreq; i++)
-			{
-				if(Signal->Blocks[block].freq[i].hertz)
-				{
-					PhaseArray[count].hertz = Signal->Blocks[block].freq[i].hertz;
-					PhaseArray[count].phase = Signal->Blocks[block].freq[i].phase;
-					PhaseArray[count].type = type;
-					PhaseArray[count].color = color;
-					count ++;
-				}
-				else
-					break;
-			}
-		}
-	}
-
-	logmsg(PLOT_PROCESS_CHAR);
-	PhaseDifferencesByFrequency_tim_sort(PhaseArray, count);
-	logmsg(PLOT_PROCESS_CHAR);
-	*size = count;
-	return PhaseArray;
-}
-*/
 
 void PlotDifferenceTimeSpectrogram(parameters *config)
 {

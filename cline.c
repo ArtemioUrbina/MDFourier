@@ -41,7 +41,6 @@ void PrintUsage()
 {
 	logmsg("  usage: mdfourier -P profile.mdf -r reference.wav -c compare.wav\n");
 	logmsg("   FFT and Analysis options:\n");
-	logmsg("	 -a: select <a>udio channel to compare. 's', 'l' or 'r'\n");
 	logmsg("	 -w: enable <w>indowing. Default is a custom Tukey window.\n");
 	logmsg("		'n' none, 't' Tukey, 'h' Hann, 'f' FlatTop & 'm' Hamming\n");
 	logmsg("	 -f: Change the number of analyzed frequencies to use from FFTW\n");
@@ -131,7 +130,6 @@ void CleanParameters(parameters *config)
 	config->extendedResults = 0;
 	config->verbose = 0;
 	config->window = 't';
-	config->channel = 's';
 	config->MaxFreq = FREQ_COUNT;
 	config->clock = 0;
 	config->showAll = 0;
@@ -169,6 +167,7 @@ void CleanParameters(parameters *config)
 	config->noiseFloorBigDifference = 0;
 	config->channelWithLowFundamentals = 0;
 	config->notVisible = 0;
+	config->usesStereo = 0;
 
 	config->logScale = 1;
 	config->logScaleTS = 0;
@@ -256,28 +255,13 @@ int commandline(int argc , char *argv[], parameters *config)
 	
 	CleanParameters(config);
 
-	// Available: GJq1234567
-	while ((c = getopt (argc, argv, "Aa:Bb:Cc:Dd:Ee:Ff:G:gHhIijKkL:lMmNn:Oo:P:p:QRr:Ss:TtUuVvWw:XxY:yZ:z0:89")) != -1)
+	// Available: aGJq1234567
+	while ((c = getopt (argc, argv, "ABb:Cc:Dd:Ee:Ff:G:gHhIijKkL:lMmNn:Oo:P:p:QRr:Ss:TtUuVvWw:XxY:yZ:z0:89")) != -1)
 	switch (c)
 	  {
 	  case 'A':
 		config->averagePlot = 1;
 		config->weightedAveragePlot = 0;
-		break;
-	  case 'a':
-		switch(optarg[0])
-		{
-			case 'l':
-			case 'r':
-			case 's':
-				config->channel = optarg[0];
-				break;
-			default:
-				logmsg("\t -Invalid audio channel option '%c'\n", optarg[0]);
-				logmsg("\t  Use l for Left, r for Right or s for Stereo\n");
-				return 0;
-				break;
-		}
 		break;
 	  case 'B':
 		config->channelBalance = 0;
@@ -558,9 +542,7 @@ int commandline(int argc , char *argv[], parameters *config)
 		config->compressToBlocks = 1;
 		break;
 	  case '?':
-		if (optopt == 'a')
-		  logmsg("\t ERROR: Audio channel option -%c requires an argument: l,r or s\n", optopt);
-		else if (optopt == 'b')
+		if (optopt == 'b')
 		  logmsg("\t ERROR: Bar Difference -%c option requires a real number.\n", optopt);
 		else if (optopt == 'c')
 		  logmsg("\t ERROR: Compare File -%c requires an argument.\n", optopt);
@@ -694,8 +676,6 @@ int commandline(int argc , char *argv[], parameters *config)
 		logmsg("\t -Go and play an arcade game credit if you have a slow CPU like mine...\n");
 	if(config->ignoreFloor)
 		logmsg("\t -Ignoring Silence block noise floor\n");
-	if(config->channel != 's')
-		logmsg("\t -Audio Channel is: %s\n", GetChannel(config->channel));
 	if(config->MaxFreq != FREQ_COUNT)
 		logmsg("\t -Max frequencies to use from FFTW are %d (default %d)\n", config->MaxFreq, FREQ_COUNT);
 	if(config->startHz != START_HZ)
