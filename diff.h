@@ -32,9 +32,9 @@
 
 #include "mdfourier.h"
 
-AmplDifference *CreateAmplDifferences(parameters *config);
-FreqDifference *CreateFreqDifferences(parameters *config);
-PhaseDifference *CreatePhaseDifferences(parameters *config);
+AmplDifference *CreateAmplDifferences(int block, parameters *config);
+FreqDifference *CreateFreqDifferences(int block, parameters *config);
+PhaseDifference *CreatePhaseDifferences(int block, parameters *config);
 int CreateDifferenceArray(parameters *config);
 int InsertFreqNotFound(int block, double freq, double amplitude, parameters *config);
 int InsertAmplDifference(int block, Frequency ref, Frequency comp, parameters *config);

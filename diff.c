@@ -31,47 +31,66 @@
 #include "log.h"
 #include "freq.h"
 
-#define MAX_DIFF_SIZE	2*config->MaxFreq
+#define STEREO_DIFF_SIZE	2*config->MaxFreq
+#define MONO_DIFF_SIZE		config->MaxFreq
 
-AmplDifference *CreateAmplDifferences(parameters *config)
+AmplDifference *CreateAmplDifferences(int block, parameters *config)
 {
-	AmplDifference *ad = NULL;
+	AmplDifference	*ad = NULL;
+	long int		size = 0;
 
-	ad = (AmplDifference*)malloc(sizeof(AmplDifference)*MAX_DIFF_SIZE);
+	if(GetBlockChannel(config, block) == CHANNEL_STEREO)
+	{
+		size = STEREO_DIFF_SIZE;
+		logmsg("Stereo\n");
+	}
+	else
+		size = MONO_DIFF_SIZE;
+	ad = (AmplDifference*)malloc(sizeof(AmplDifference)*size);
 	if(!ad)
 	{
-		logmsg("Insufficient memory for AmplDifference (%ld bytes)\n", sizeof(AmplDifference)*MAX_DIFF_SIZE);
+		logmsg("Insufficient memory for AmplDifference (%ld bytes)\n", sizeof(AmplDifference)*size);
 		return 0;
 	}
-	memset(ad, 0, sizeof(AmplDifference)*MAX_DIFF_SIZE);
+	memset(ad, 0, sizeof(AmplDifference)*size);
 	return ad;
 }
 
-FreqDifference *CreateFreqDifferences(parameters *config)
+FreqDifference *CreateFreqDifferences(int block, parameters *config)
 {
 	FreqDifference *fd = NULL;
+	long int		size = 0;
 
-	fd = (FreqDifference*)malloc(sizeof(FreqDifference)*MAX_DIFF_SIZE);
+	if(GetBlockChannel(config, block) == CHANNEL_STEREO)
+		size = STEREO_DIFF_SIZE;
+	else
+		size = MONO_DIFF_SIZE;
+	fd = (FreqDifference*)malloc(sizeof(FreqDifference)*size);
 	if(!fd)
 	{
-		logmsg("Insufficient memory for FreqDifference (%ld bytes)\n", sizeof(sizeof(FreqDifference)*MAX_DIFF_SIZE));
+		logmsg("Insufficient memory for FreqDifference (%ld bytes)\n", sizeof(sizeof(FreqDifference)*size));
 		return 0;
 	}
-	memset(fd, 0, sizeof(FreqDifference)*MAX_DIFF_SIZE);
+	memset(fd, 0, sizeof(FreqDifference)*size);
 	return fd;
 }
 
-PhaseDifference *CreatePhaseDifferences(parameters *config)
+PhaseDifference *CreatePhaseDifferences(int block, parameters *config)
 {
 	PhaseDifference *pd = NULL;
+	long int		size = 0;
 
-	pd = (PhaseDifference*)malloc(sizeof(PhaseDifference)*MAX_DIFF_SIZE);
+	if(GetBlockChannel(config, block) == CHANNEL_STEREO)
+		size = STEREO_DIFF_SIZE;
+	else
+		size = MONO_DIFF_SIZE;
+	pd = (PhaseDifference*)malloc(sizeof(PhaseDifference)*size);
 	if(!pd)
 	{
-		logmsg("Insufficient memory for FreqDifference (%ld bytes)\n", sizeof(sizeof(PhaseDifference)*MAX_DIFF_SIZE));
+		logmsg("Insufficient memory for FreqDifference (%ld bytes)\n", sizeof(sizeof(PhaseDifference)*size));
 		return 0;
 	}
-	memset(pd, 0, sizeof(PhaseDifference)*MAX_DIFF_SIZE);
+	memset(pd, 0, sizeof(PhaseDifference)*size);
 	return pd;
 }
 
@@ -85,7 +104,7 @@ int CreateDifferenceArray(parameters *config)
 	BlockDiffArray = (BlockDifference*)malloc(sizeof(BlockDifference)*config->types.totalBlocks);
 	if(!BlockDiffArray)
 	{
-		logmsg("Insufficient memory for AudioDiffArray(%ld bytes)\n", sizeof(sizeof(BlockDifference)*MAX_DIFF_SIZE));
+		logmsg("Insufficient memory for AudioDiffArray(%ld bytes)\n", sizeof(sizeof(BlockDifference)*config->types.totalBlocks));
 		return 0;
 	}
 
@@ -98,21 +117,21 @@ int CreateDifferenceArray(parameters *config)
 		type = GetBlockType(config, i);
 		if(type >= TYPE_SILENCE)
 		{
-			BlockDiffArray[i].freqMissArray = CreateFreqDifferences(config);
+			BlockDiffArray[i].freqMissArray = CreateFreqDifferences(i, config);
 			if(!BlockDiffArray[i].freqMissArray)
 			{
 				free(BlockDiffArray);
 				return 0;
 			}
 	
-			BlockDiffArray[i].amplDiffArray = CreateAmplDifferences(config);
+			BlockDiffArray[i].amplDiffArray = CreateAmplDifferences(i, config);
 			if(!BlockDiffArray[i].amplDiffArray)
 			{
 				free(BlockDiffArray);
 				return 0;
 			}
 
-			BlockDiffArray[i].phaseDiffArray = CreatePhaseDifferences(config);
+			BlockDiffArray[i].phaseDiffArray = CreatePhaseDifferences(i, config);
 			if(!BlockDiffArray[i].phaseDiffArray)
 			{
 				free(BlockDiffArray);
@@ -245,8 +264,16 @@ int InsertAmplDifference(int block, Frequency ref, Frequency comp, parameters *c
 	diffAmpl = fabs(ref.amplitude) - fabs(comp.amplitude);
 	position = config->Differences.BlockDiffArray[block].cntAmplBlkDiff;
 
-	if(position >= MAX_DIFF_SIZE)
-		return 0;
+	if(GetBlockChannel(config, block) == CHANNEL_STEREO)
+	{
+		if(position >= STEREO_DIFF_SIZE)
+			return 0;
+	}
+	else
+	{
+		if(position >= MONO_DIFF_SIZE)
+			return 0;
+	}
 
 	config->Differences.BlockDiffArray[block].amplDiffArray[position].hertz = ref.hertz;
 	config->Differences.BlockDiffArray[block].amplDiffArray[position].refAmplitude = ref.amplitude;
@@ -286,8 +313,16 @@ int InsertPhaseDifference(int block, Frequency ref, Frequency comp, parameters *
 
 	position = config->Differences.BlockDiffArray[block].cntPhaseBlkDiff;
 
-	if(position >= MAX_DIFF_SIZE)
-		return 0;
+	if(GetBlockChannel(config, block) == CHANNEL_STEREO)
+	{
+		if(position >= STEREO_DIFF_SIZE)
+			return 0;
+	}
+	else
+	{
+		if(position >= MONO_DIFF_SIZE)
+			return 0;
+	}
 
 	config->Differences.BlockDiffArray[block].phaseDiffArray[position].hertz = ref.hertz;
 	config->Differences.BlockDiffArray[block].phaseDiffArray[position].diffPhase = diffPhase;
