@@ -120,7 +120,6 @@ void CleanParameters(parameters *config)
 
 	sprintf(config->outputFolder, OUTPUT_FOLDER);
 	config->outputPath[0] = '\0';
-	config->tmpPath[0] = '\0';
 
 	config->startHz = START_HZ;
 	config->endHz = END_HZ;
@@ -256,7 +255,7 @@ int commandline(int argc , char *argv[], parameters *config)
 	CleanParameters(config);
 
 	// Available: aGJq1234567
-	while ((c = getopt (argc, argv, "ABb:Cc:Dd:Ee:Ff:G:gHhIijKkL:lMmNn:Oo:P:p:QRr:Ss:TtUuVvWw:XxY:yZ:z0:89")) != -1)
+	while ((c = getopt (argc, argv, "ABb:Cc:Dd:Ee:Ff:gHhIijKkL:lMmNn:Oo:P:p:QRr:Ss:TtUuVvWw:XxY:yZ:z0:89")) != -1)
 	switch (c)
 	  {
 	  case 'A':
@@ -320,9 +319,6 @@ int commandline(int argc , char *argv[], parameters *config)
 			logmsg("\t - Number fo frequencies must be between %d and %d, changed to %g\n", 1, MAX_FREQ_COUNT, MAX_FREQ_COUNT);
 			config->MaxFreq = MAX_FREQ_COUNT;
 		}
-		break;
-	  case 'G':
-		sprintf(config->tmpPath, "%s", optarg);
 		break;
 	  case 'g':
 		config->averagePlot = 0;
@@ -552,8 +548,6 @@ int commandline(int argc , char *argv[], parameters *config)
 		  logmsg("\t ERROR: Max frequency range for FFTW -%c requires an argument: %d-%d\n", START_HZ*2, END_HZ, optopt);
 		else if (optopt == 'f')
 		  logmsg("\t ERROR: Max # of frequencies to use from FFTW -%c requires an argument: 1-%d\n", optopt, MAX_FREQ_COUNT);
-		else if (optopt == 'G')
-		  logmsg("\t ERROR: Temp folder argument -%c requires a valid path.\n", optopt);
 		else if (optopt == 'L')
 		  logmsg("\t ERROR: Plot Resolution -%c requires an argument: 1-6\n", optopt);
 		else if (optopt == 'n')
@@ -745,6 +739,7 @@ int checkPath(char *path)
 	return 1;
 }
 
+/*
 char *getTempDir()
 {
 	char *tmp = NULL;
@@ -756,12 +751,14 @@ char *getTempDir()
 		tmp = getenv("TMP");
 	return tmp;
 }
+*/
 
 int checkAlternatePaths(parameters *config)
 {
 	if(!checkPath(config->outputPath))
 		return 0;
 
+	/*
 	if(strlen(config->tmpPath) == 0)
 	{
 		char *tmp;
@@ -774,7 +771,7 @@ int checkAlternatePaths(parameters *config)
 	}
 	if(!checkPath(config->tmpPath))
 		return 0;
-	
+	*/
 	return 1;
 }
 
