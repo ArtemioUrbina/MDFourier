@@ -4,16 +4,16 @@ MDF: Equipment Test 96khz
 Audio 13.33333 0 8000 11 13
 CLK n
 13
-Sync s 1 26 0 red s
-Silence n 1 24 0 gray s
+Sync s 1 26 0 red m
+Silence n 1 24 0 gray m
 Sine_sweep 1 150 11 0 green s
-    PAD k 1 30 0 red s
+    PAD k 1 30 0 red m
 Pulse_sweep 2 150 11 0 yellow s
-    PAD k 1 30 0 red s
-White_Noise 3 30 10 0 aqua s
-    PAD k 1 30 0 red s
-Pink_Noise 4 30 10 0 magenta s
-    PAD k 1 90 0 red s
+    PAD k 1 30 0 red m
+White_Noise 3 30 10 0 aqua m
+    PAD k 1 30 0 red m
+Pink_Noise 4 30 10 0 magenta m
+    PAD k 1 90 0 red m
 Fade 5 30 10 0 orange m
-Silence n 1 25 0 gray s
-Sync s 1 26 0 red s
+Silence n 1 25 0 gray m
+Sync s 1 26 0 red m

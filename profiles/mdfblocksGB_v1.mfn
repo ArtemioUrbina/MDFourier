@@ -26,9 +26,9 @@ Envelope_restart 7 2 10 0 red m
       PADDING k 1 10 0 gray m
 Envelope_restart 7 2 10 0 red m
       PADDING k 1 10 0 gray m
-Pulse_bend 8 27 10 0 yellow m
+Pulse_bend 1 27 10 0 yellow m
       PADDING k 1 10 0 gray m      
-Sine_bend 9 27 10 0 green m
+Sine_bend 4 27 10 0 green m
       PADDING k 1 10 0 gray m      
 Silence n 1 20 0 gray m
 Sync s 1 20 0 red m

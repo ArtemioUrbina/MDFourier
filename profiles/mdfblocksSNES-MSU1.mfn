@@ -5,12 +5,12 @@ NTSC 16.6392 262 8012 14 10
 PAL 19.997 313 8012 14 10
 APU y 54 8000 4
 9
-Sync s 1 20 0 red s
-Silence n 1 20 0 gray s
-SPC700 1 120 10 -5 magenta m
-Silence n 1 20 0 gray s
-Sync s 1 20 0 red s
+Sync s 1 20 0 red m
+Silence n 1 20 0 gray m
+SPC700 1 120 10 -5 magenta s
+Silence n 1 20 0 gray m
+Sync s 1 20 0 red m
 Wait k 1 4 0 red m
-MSU-Command i 1 2 red s 8000 0.300
+MSU-Command i 1 2 red m 8000 0.300
 MSU-1 5 68 10 0 orange s
-MSU-Command i 1 2 red s 0 0
+MSU-Command i 1 2 red m 0 0

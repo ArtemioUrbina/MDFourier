@@ -5,15 +5,15 @@ NTSC 16.6392 262 8012 14 10
 PAL 19.997 313 8012 14 10
 APU y 54 8000 4
 12
-Sync s 1 20 0 red s
-Silence n 1 20 0 gray s
-250hz 1 15 10 -5 red m
-1khz 2 15 10 -5 green m
-4khz 3 15 10 -5 yellow m
-8khz 4 15 10 -5 magenta m
-9khz 5 15 10 -5 aqua m
-11khz 6 15 10 -5 blue m
-13khz 7 15 10 -5 orange m
-15khz 8 15 10 -5 purple m
-Silence n 1 20 0 gray s
-Sync s 1 20 0 red s
+Sync s 1 20 0 red m
+Silence n 1 20 0 gray m
+250hz 1 15 10 -5 red s
+1khz 2 15 10 -5 green s
+4khz 3 15 10 -5 yellow s
+8khz 4 15 10 -5 magenta s
+9khz 5 15 10 -5 aqua s
+11khz 6 15 10 -5 blue s
+13khz 7 15 10 -5 orange s
+15khz 8 15 10 -5 purple s
+Silence n 1 20 0 gray m
+Sync s 1 20 0 red m
