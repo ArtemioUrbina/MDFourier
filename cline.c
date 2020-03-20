@@ -167,6 +167,7 @@ void CleanParameters(parameters *config)
 	config->channelWithLowFundamentals = 0;
 	config->notVisible = 0;
 	config->usesStereo = 0;
+	config->stereoNotFound = 0;
 
 	config->logScale = 1;
 	config->logScaleTS = 0;

@@ -33,7 +33,7 @@
 int LoadFile(AudioSignal **Signal, char *fileName, int role, parameters *config);
 int LoadWAVFile(FILE *file, AudioSignal *Signal, parameters *config, char *fileName);
 int DetectSync(AudioSignal *Signal, parameters *config);
-void AdjustSignalValues(AudioSignal *Signal, parameters *config);
+int AdjustSignalValues(AudioSignal *Signal, parameters *config);
 
 /* Functions that deal with samples */
 int MoveSampleBlockInternal(AudioSignal *Signal, long int element, long int pos, long int signalStartOffset, parameters *config);

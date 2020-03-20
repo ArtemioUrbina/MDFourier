@@ -529,6 +529,7 @@ typedef struct parameters_st {
 	int				whiteBG;
 	int				smallFile;
 	int				syncTolerance;
+	int				usesStereo;
 	double			AmpBarRange;
 	int				FullTimeSpectroScale;
 	int				hasTimeDomain;
@@ -541,7 +542,7 @@ typedef struct parameters_st {
 	int				noiseFloorBigDifference;
 	int				channelWithLowFundamentals;
 	double			notVisible;
-	int				usesStereo;
+	int				stereoNotFound;
 	int				SRNoMatch;
 	int				diffClkNoMatch;
 	int				changedCLKFrom;

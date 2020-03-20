@@ -850,6 +850,7 @@ void enableTestWarnings(parameters *config)
 	config->MaxFreq = FREQ_COUNT/2;
 
 	config->logScale = 0;
+	config->stereoNotFound = 1;
 
 	config->outputFilterFunction = 1;
 
@@ -1329,6 +1330,15 @@ void DrawLabelsMDF(PlotFile *plot, char *Gname, char *GType, int type, parameter
 	if(config->types.useWatermark && DetectWatermarkIssue(msg, config))
 	{
 		PLOT_WARN(1, warning++);
+		pl_alabel_r(plot->plotter, 'l', 'l', msg);
+	}
+
+	if(config->stereoNotFound)
+	{
+		PLOT_WARN(1, warning++);
+		sprintf(msg, "WARNING: %s %s mono for stereo profile", 
+			config->stereoNotFound == ROLE_REF ? "Reference" : config->stereoNotFound == ROLE_COMP ? "Comparison" : "Both files",
+			(config->stereoNotFound == ROLE_REF || config->stereoNotFound == ROLE_COMP) ? "is" : "are");
 		pl_alabel_r(plot->plotter, 'l', 'l', msg);
 	}
 

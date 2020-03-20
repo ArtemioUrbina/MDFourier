@@ -85,7 +85,9 @@ int LoadFile(AudioSignal **Signal, char *fileName, int role, parameters *config)
 		file = NULL;
 	}
 
-	AdjustSignalValues(*Signal, config);
+	if(!AdjustSignalValues(*Signal, config))
+		return 0;
+
 	sprintf((*Signal)->SourceFile, "%s", fileName);
 
 	if(!DetectSync(*Signal, config))
@@ -422,7 +424,7 @@ int DetectSync(AudioSignal *Signal, parameters *config)
 	return 1;
 }
 
-void AdjustSignalValues(AudioSignal *Signal, parameters *config)
+int AdjustSignalValues(AudioSignal *Signal, parameters *config)
 {
 	double seconds = 0;
 
@@ -430,7 +432,6 @@ void AdjustSignalValues(AudioSignal *Signal, parameters *config)
 	Signal->framerate = GetMSPerFrame(Signal, config);
 
 	Signal->AudioChannels = Signal->header.fmt.NumOfChan;
-
 	if(Signal->header.fmt.SamplesPerSec/2 < config->endHz)
 	{
 		logmsg(" - %d Hz sample rate was too low for %gHz-%gHz analysis\n",
@@ -455,6 +456,14 @@ void AdjustSignalValues(AudioSignal *Signal, parameters *config)
 				GetSignalTotalDuration(Signal->framerate, config));
 		config->smallFile |= Signal->role;
 	}
+
+	if(config->usesStereo && Signal->AudioChannels != 2)
+	{
+		logmsg("ERROR: Profile requests Stereo and file is Mono\n");
+		config->stereoNotFound = 1;
+		return 0;
+	}
+	return 1;
 }
 
 int MoveSampleBlockInternal(AudioSignal *Signal, long int element, long int pos, long int signalStartOffset, parameters *config)
