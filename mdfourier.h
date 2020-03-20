@@ -416,17 +416,20 @@ typedef struct window_st {
 typedef struct freq_diff_st {
 	double	hertz;
 	double	amplitude;
+	char	channel;
 } FreqDifference;
 
 typedef struct ampl_diff_st {
 	double	hertz;
 	double	refAmplitude;
 	double	diffAmplitude;
+	char	channel;
 } AmplDifference;
 
 typedef struct phase_diff_st {
 	double	hertz;
 	double	diffPhase;
+	char	channel;
 } PhaseDifference;
 
 typedef struct blk_diff_st {

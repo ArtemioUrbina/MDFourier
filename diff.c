@@ -40,10 +40,7 @@ AmplDifference *CreateAmplDifferences(int block, parameters *config)
 	long int		size = 0;
 
 	if(GetBlockChannel(config, block) == CHANNEL_STEREO)
-	{
 		size = STEREO_DIFF_SIZE;
-		logmsg("Stereo\n");
-	}
 	else
 		size = MONO_DIFF_SIZE;
 	ad = (AmplDifference*)malloc(sizeof(AmplDifference)*size);
@@ -244,7 +241,7 @@ int IncrementCmpPhaseDifference(int block, parameters *config)
 }
 
 
-int InsertAmplDifference(int block, Frequency ref, Frequency comp, parameters *config)
+int InsertAmplDifference(int block, Frequency ref, Frequency comp, char channel, parameters *config)
 {
 	int		position = 0;
 	double	diffAmpl = 0;
@@ -278,6 +275,7 @@ int InsertAmplDifference(int block, Frequency ref, Frequency comp, parameters *c
 	config->Differences.BlockDiffArray[block].amplDiffArray[position].hertz = ref.hertz;
 	config->Differences.BlockDiffArray[block].amplDiffArray[position].refAmplitude = ref.amplitude;
 	config->Differences.BlockDiffArray[block].amplDiffArray[position].diffAmplitude = diffAmpl;
+	config->Differences.BlockDiffArray[block].amplDiffArray[position].channel = channel;
 
 	config->Differences.BlockDiffArray[block].cntAmplBlkDiff ++;
 	config->Differences.cntAmplAudioDiff ++;
@@ -286,7 +284,7 @@ int InsertAmplDifference(int block, Frequency ref, Frequency comp, parameters *c
 	return 1;
 }
 
-int InsertPhaseDifference(int block, Frequency ref, Frequency comp, parameters *config)
+int InsertPhaseDifference(int block, Frequency ref, Frequency comp, char channel, parameters *config)
 {
 	int		position = 0;
 	double	diffPhase = 0;
@@ -326,6 +324,7 @@ int InsertPhaseDifference(int block, Frequency ref, Frequency comp, parameters *
 
 	config->Differences.BlockDiffArray[block].phaseDiffArray[position].hertz = ref.hertz;
 	config->Differences.BlockDiffArray[block].phaseDiffArray[position].diffPhase = diffPhase;
+	config->Differences.BlockDiffArray[block].phaseDiffArray[position].channel = channel;
 
 	config->Differences.BlockDiffArray[block].cntPhaseBlkDiff ++;
 	config->Differences.cntPhaseAudioDiff ++;
@@ -381,7 +380,7 @@ int IncrementCmpFreqNotFound(int block, parameters *config)
 	return 1;
 }
 
-int InsertFreqNotFound(int block, double freq, double amplitude, parameters *config)
+int InsertFreqNotFound(int block, double freq, double amplitude, char channel, parameters *config)
 {
 	int position = 0;
 
@@ -400,6 +399,7 @@ int InsertFreqNotFound(int block, double freq, double amplitude, parameters *con
 	position = config->Differences.BlockDiffArray[block].cntFreqBlkDiff;
 	config->Differences.BlockDiffArray[block].freqMissArray[position].hertz = freq;
 	config->Differences.BlockDiffArray[block].freqMissArray[position].amplitude = amplitude;
+	config->Differences.BlockDiffArray[block].freqMissArray[position].channel = channel;
 
 	config->Differences.BlockDiffArray[block].cntFreqBlkDiff ++;
 	config->Differences.cntFreqAudioDiff ++;

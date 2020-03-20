@@ -134,6 +134,7 @@ typedef struct flat_ampl_diff_st {
 	double	diffAmplitude;
 	int		type;
 	int		color;
+	char	channel;
 } FlatAmplDifference;
 
 typedef struct flat_FrequencySt {
@@ -141,6 +142,7 @@ typedef struct flat_FrequencySt {
 	double	amplitude;
 	int		type;
 	int		color;
+	char	channel;
 } FlatFrequency;
 
 typedef struct flat_phase_St {
@@ -148,6 +150,7 @@ typedef struct flat_phase_St {
 	double	phase;
 	int		type;
 	int		color;
+	char	channel;
 } FlatPhase;
 
 void PlotResults(AudioSignal *ReferenceSignal, AudioSignal *ComparisonSignal, parameters *config);
@@ -169,7 +172,7 @@ int MatchColor(char *color);
 
 void PlotAllDifferentAmplitudes(FlatAmplDifference *amplDiff, long int size, char *filename, parameters *config);
 int PlotEachTypeDifferentAmplitudes(FlatAmplDifference *amplDiff, long int size, char *filename, parameters *config);
-void PlotSingleTypeDifferentAmplitudes(FlatAmplDifference *amplDiff, long int size, int type, char *filename, parameters *config);
+void PlotSingleTypeDifferentAmplitudes(FlatAmplDifference *amplDiff, long int size, int type, char *filename, char channel, parameters *config);
 
 int PlotNoiseDifferentAmplitudes(FlatAmplDifference *amplDiff, long int size, char *filename, parameters *config, AudioSignal *Signal);
 void PlotSilenceBlockDifferentAmplitudes(FlatAmplDifference *amplDiff, long int size, int type, char *filename, parameters *config, AudioSignal *Signal);
@@ -179,7 +182,7 @@ void PlotSilenceBlockDifferentAmplitudes(FlatAmplDifference *amplDiff, long int 
 //void PlotAllMissingFrequencies(FlatFrequency *freqDiff, long int size, char *filename, parameters *config);
 
 int PlotEachTypeSpectrogram(FlatFrequency *freqs, long int size, char *filename, int signal, parameters *config, AudioSignal *Signal);
-void PlotSingleTypeSpectrogram(FlatFrequency *freqs, long int size, int type, char *filename, int signal, parameters *config);
+void PlotSingleTypeSpectrogram(FlatFrequency *freqs, long int size, int type, char *filename, int signal, char channel, parameters *config);
 void PlotAllSpectrogram(FlatFrequency *freqs, long int size, char *filename, int signal, parameters *config);
 
 void PlotWindow(windowUnit *windowUnit, parameters *config);
@@ -217,8 +220,8 @@ void SaveCSVAmpDiff(FlatAmplDifference *amplDiff, long int size, char *filename,
 
 void DrawFrequencyHorizontal(PlotFile *plot, double vertical, double hz, double hzIncrement, parameters *config);
 void DrawFrequencyHorizontalGrid(PlotFile *plot, double hz, double hzIncrement, parameters *config);
-void PlotTimeSpectrogram(AudioSignal *Signal, parameters *config);
-void PlotTimeSpectrogramUnMatchedContent(AudioSignal *Signal, parameters *config);
+void PlotTimeSpectrogram(AudioSignal *Signal, char channel, parameters *config);
+void PlotTimeSpectrogramUnMatchedContent(AudioSignal *Signal, char channel, parameters *config);
 
 void DrawLabelsTimeSpectrogram(PlotFile *plot, int khz, int khzIncrement, parameters *config);
 void PlotTimeDomainGraphs(AudioSignal *Signal, parameters *config);
@@ -228,7 +231,7 @@ void PlotBlockTimeDomainInternalSyncGraph(AudioSignal *Signal, int block, char *
 void PlotTimeDomainHighDifferenceGraphs(AudioSignal *Signal, parameters *config);
 
 FlatPhase *CreatePhaseFlatDifferences(parameters *config, long int *size);
-void PlotSingleTypePhase(FlatPhase *phaseDiff, long int size, int type, char *filename, int pType, parameters *config);
+void PlotSingleTypePhase(FlatPhase *phaseDiff, long int size, int type, char *filename, int pType, char channel, parameters *config);
 int PlotEachTypePhase(FlatPhase *phaseDiff, long int size, char *filename, int pType, parameters *config);
 void PlotAllPhase(FlatPhase *phaseDiff, long int size, char *filename, int pType, parameters *config);
 void PlotPhaseDifferences(parameters *config);

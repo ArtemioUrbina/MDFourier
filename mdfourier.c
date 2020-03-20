@@ -40,6 +40,7 @@
 
 int LoadAndProcessAudioFiles(AudioSignal **ReferenceSignal, AudioSignal **ComparisonSignal, parameters *config);
 int LoadFile(FILE *file, AudioSignal *Signal, parameters *config, char *fileName);
+int DetectSync(AudioSignal *Signal, parameters *config);
 int ProcessSignal(AudioSignal *Signal, parameters *config);
 int ExecuteDFFT(AudioBlocks *AudioArray, int16_t *samples, size_t size, long samplerate, double *window, int AudioChannels, int ZeroPad, parameters *config);
 int ExecuteDFFTInternal(AudioBlocks *AudioArray, int16_t *samples, size_t size, long samplerate, double *window, char channel, int AudioChannels, int ZeroPad, parameters *config);
@@ -432,6 +433,7 @@ int LoadAudioFiles(AudioSignal **ReferenceSignal, AudioSignal **ComparisonSignal
 
 	CloseFiles(&reference, &compare);
 	RemoveFLACTemp(config->referenceFile, config->comparisonFile, config);
+	
 	return 1;
 }
 
@@ -765,29 +767,41 @@ int LoadAndProcessAudioFiles(AudioSignal **ReferenceSignal, AudioSignal **Compar
 	if(!LoadAudioFiles(ReferenceSignal, ComparisonSignal, config))
 		return 0;
 
+	if(!DetectSync(*ReferenceSignal, config))
+		return 0;	
+
+	if(!DetectSync(*ComparisonSignal, config))
+		return 0;	
+
 	SelectSilenceProfile(config);
 
 	config->referenceFramerate = (*ReferenceSignal)->framerate;
 	CompareFrameRates(*ReferenceSignal, *ComparisonSignal, config);
 
 	/* Balance check */
-	if((*ReferenceSignal)->AudioChannels == 2 || (*ComparisonSignal)->AudioChannels == 2)
+	if(config->channelBalance)
 	{
-		int block = NO_INDEX;
-
-		block = GetFirstMonoIndex(config);
-		if(block != NO_INDEX)
+		if((*ReferenceSignal)->AudioChannels == 2 || (*ComparisonSignal)->AudioChannels == 2)
 		{
-			logmsg("\n* Comparing Stereo channel amplitude\n");
-			if(config->verbose) {
-				logmsg(" - Mono block used for balance: %s# %d\n", 
-					GetBlockName(config, block), GetBlockSubIndex(config, block));
+			int block = NO_INDEX;
+	
+			block = GetFirstMonoIndex(config);
+			if(block != NO_INDEX)
+			{
+				logmsg("\n* Comparing Stereo channel amplitude\n");
+				if(config->verbose) {
+					logmsg(" - Mono block used for balance: %s# %d\n", 
+						GetBlockName(config, block), GetBlockSubIndex(config, block));
+				}
+				CheckBalance(*ReferenceSignal, block, config);
+				CheckBalance(*ComparisonSignal, block, config);
 			}
-			CheckBalance(*ReferenceSignal, block, config);
-			CheckBalance(*ComparisonSignal, block, config);
+			else
+			{
+				logmsg(" - WARNING: No mono block for stereo balance check\n");
+				config->channelBalance = -1;
+			}
 		}
-		else
-			logmsg(" - No mono block for stereo balance check\n");
 	}
 
 	if(config->normType == max_time)
@@ -940,6 +954,7 @@ void CloseFiles(FILE **ref, FILE **comp)
 int LoadFile(FILE *file, AudioSignal *Signal, parameters *config, char *fileName)
 {
 	int					found = 0;
+	size_t				bytesRead = 0;
 	struct	timespec	start, end;
 	double				seconds = 0;
 
@@ -1085,10 +1100,11 @@ int LoadFile(FILE *file, AudioSignal *Signal, parameters *config, char *fileName
 	}
 
 	Signal->SamplesStart = ftell(file);
-	if(fread(Signal->Samples, 1, sizeof(char)*Signal->header.data.DataSize, file) !=
-			 sizeof(char)*Signal->header.data.DataSize)
+	bytesRead = fread(Signal->Samples, 1, sizeof(char)*Signal->header.data.DataSize, file);
+	if(bytesRead != sizeof(char)*Signal->header.data.DataSize)
 	{
-		logmsg("\tERROR: Could not read the whole sample block from disk to RAM.\n");
+		logmsg("\tERROR: Corrupt RIFF Header\n\tCould not read the whole sample block from disk to RAM.\n\tBytes Read: %ld Expected: %ld\n",
+			bytesRead, sizeof(char)*Signal->header.data.DataSize);
 		return(0);
 	}
 
@@ -1099,6 +1115,17 @@ int LoadFile(FILE *file, AudioSignal *Signal, parameters *config, char *fileName
 		elapsedSeconds = TimeSpecToSeconds(&end) - TimeSpecToSeconds(&start);
 		logmsg(" - clk: Loading Audio took %0.2fs\n", elapsedSeconds);
 	}
+
+	sprintf(Signal->SourceFile, "%s", fileName);
+	CalculateTimeDurations(Signal, config);
+
+	return 1;
+}
+
+int DetectSync(AudioSignal *Signal, parameters *config)
+{
+	struct	timespec	start, end;
+	double				seconds = 0;
 
 	if(GetFirstSyncIndex(config) != NO_INDEX && !config->noSyncProfile)
 	{
@@ -1272,15 +1299,13 @@ int LoadFile(FILE *file, AudioSignal *Signal, parameters *config, char *fileName
 		}
 	}
 
+	seconds = (double)Signal->header.data.DataSize/2.0/(double)Signal->header.fmt.SamplesPerSec/Signal->AudioChannels;
 	if(seconds < GetSignalTotalDuration(Signal->framerate, config))
 		logmsg(" - File length is smaller than the expected %gs\n",
 				GetSignalTotalDuration(Signal->framerate, config));
 
 	if(GetFirstSilenceIndex(config) != NO_INDEX)
 		Signal->hasSilenceBlock = 1;
-
-	sprintf(Signal->SourceFile, "%s", fileName);
-	CalculateTimeDurations(Signal, config);
 
 	return 1;
 }
@@ -2317,7 +2342,7 @@ int CompareFrequencies(AudioSignal *ReferenceSignal, AudioSignal *ComparisonSign
 		{
 			if(!areDoublesEqual(freqRef[freq].amplitude, freqComp[index].amplitude))
 			{
-				if(!InsertAmplDifference(block, freqRef[freq], freqComp[index], config))
+				if(!InsertAmplDifference(block, freqRef[freq], freqComp[index], channel, config))
 				{
 					logmsg("Internal consistency failure, please send error log (AmplDiff)\n");
 					return 0;
@@ -2334,7 +2359,7 @@ int CompareFrequencies(AudioSignal *ReferenceSignal, AudioSignal *ComparisonSign
 
 			if(!areDoublesEqual(freqRef[freq].phase, freqComp[index].phase))
 			{
-				if(!InsertPhaseDifference(block, freqRef[freq], freqComp[index], config))
+				if(!InsertPhaseDifference(block, freqRef[freq], freqComp[index], channel, config))
 				{
 					logmsg("Internal consistency failure, please send error log (PhaseDiff)\n");
 					return 0;
@@ -2346,7 +2371,7 @@ int CompareFrequencies(AudioSignal *ReferenceSignal, AudioSignal *ComparisonSign
 		}
 		else /* Frequency Not Found */
 		{
-			if(!InsertFreqNotFound(block, freqRef[freq].hertz, freqRef[freq].amplitude, config))
+			if(!InsertFreqNotFound(block, freqRef[freq].hertz, freqRef[freq].amplitude, channel, config))
 			{
 				logmsg("Internal consistency failure, please send error log (Not found)\n");
 				return 0;

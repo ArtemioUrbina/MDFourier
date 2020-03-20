@@ -146,12 +146,12 @@ int FLACtoWAV(char *input, char *output)
 	FILE *fout;
 
 	if((fout = fopen(output, "wb")) == NULL) {
-		fprintf(stderr, "ERROR: opening %s for output\n", output);
+		logmsg("ERROR: opening %s for output\n", output);
 		return 0;
 	}
 
 	if((decoder = FLAC__stream_decoder_new()) == NULL) {
-		fprintf(stderr, "ERROR: allocating decoder\n");
+		logmsg("ERROR: allocating decoder\n");
 		fclose(fout);
 		return 0;
 	}
@@ -160,7 +160,7 @@ int FLACtoWAV(char *input, char *output)
 
 	init_status = FLAC__stream_decoder_init_file(decoder, input, write_callback, metadata_callback, error_callback, /*client_data=*/fout);
 	if(init_status != FLAC__STREAM_DECODER_INIT_STATUS_OK) {
-		fprintf(stderr, "ERROR: initializing decoder: %s\n", FLAC__StreamDecoderInitStatusString[init_status]);
+		logmsg("ERROR: initializing decoder: %s\n", FLAC__StreamDecoderInitStatusString[init_status]);
 		ok = false;
 	}
 
@@ -168,8 +168,7 @@ int FLACtoWAV(char *input, char *output)
 		ok = FLAC__stream_decoder_process_until_end_of_stream(decoder);
 		if(!ok)
 		{
-			//fprintf(stderr, "decoding: %s\n", ok? "succeeded" : "FAILED");
-			//fprintf(stderr, "	state: %s\n", FLAC__StreamDecoderStateString[FLAC__stream_decoder_get_state(decoder)]);
+			logmsg("	state: %s\n", FLAC__StreamDecoderStateString[FLAC__stream_decoder_get_state(decoder)]);
 
 			errorFLAC++;
 		}
@@ -192,27 +191,27 @@ FLAC__StreamDecoderWriteStatus write_callback(const FLAC__StreamDecoder *decoder
 	(void)decoder;
 
 	if(total_samples == 0) {
-		fprintf(stderr, "ERROR: MDFourier only works for FLAC files that have a total_samples count in STREAMINFO\n");
+		logmsg("ERROR: MDFourier only works for FLAC files that have total_samples count in STREAMINFO\n");
 		return FLAC__STREAM_DECODER_WRITE_STATUS_ABORT;
 	}
 	if(bps != 16) {
-		fprintf(stderr, "ERROR: Please use a 16bit stream\n");
+		logmsg("ERROR: Please use a 16bit stream\n");
 		return FLAC__STREAM_DECODER_WRITE_STATUS_ABORT;
 	}
 	if(channels != frame->header.channels) {
-		fprintf(stderr, "ERROR: Channel definition discrepancy %d vs %d\n", channels, frame->header.channels);
+		logmsg("ERROR: Channel definition discrepancy %d vs %d\n", channels, frame->header.channels);
 		return FLAC__STREAM_DECODER_WRITE_STATUS_ABORT;
 	}
 	if(channels != 2 && channels != 1) {
-		fprintf(stderr, "ERROR: Please use a mono or stereo stream\n");
+		logmsg("ERROR: Please use a mono or stereo stream\n");
 		return FLAC__STREAM_DECODER_WRITE_STATUS_ABORT;
 	}
 	if(buffer [0] == NULL) {
-		fprintf(stderr, "ERROR: buffer [0] is NULL\n");
+		logmsg("ERROR: buffer [0] is NULL\n");
 		return FLAC__STREAM_DECODER_WRITE_STATUS_ABORT;
 	}
 	if(channels == 2 && buffer [1] == NULL) {
-		fprintf(stderr, "ERROR: buffer [1] is NULL\n");
+		logmsg("ERROR: buffer [1] is NULL\n");
 		return FLAC__STREAM_DECODER_WRITE_STATUS_ABORT;
 	}
 
@@ -232,7 +231,7 @@ FLAC__StreamDecoderWriteStatus write_callback(const FLAC__StreamDecoder *decoder
 			fwrite("data", 1, 4, f) < 4 ||
 			!write_little_endian_uint32(f, total_size)
 		) {
-			fprintf(stderr, "ERROR: write error\n");
+			logmsg("ERROR: write error\n");
 			return FLAC__STREAM_DECODER_WRITE_STATUS_ABORT;
 		}
 	}
@@ -243,7 +242,7 @@ FLAC__StreamDecoderWriteStatus write_callback(const FLAC__StreamDecoder *decoder
 			!write_little_endian_int16(f, (FLAC__int16)buffer[0][i]) ||  /* left channel */
 			(channels == 2 && !write_little_endian_int16(f, (FLAC__int16)buffer[1][i]))	 /* right channel */
 		) {
-			fprintf(stderr, "ERROR: write error\n");
+			logmsg("ERROR: write error\n");
 			return FLAC__STREAM_DECODER_WRITE_STATUS_ABORT;
 		}
 	}
@@ -263,10 +262,10 @@ void metadata_callback(const FLAC__StreamDecoder *decoder, const FLAC__StreamMet
 		channels = metadata->data.stream_info.channels;
 		bps = metadata->data.stream_info.bits_per_sample;
 
-		//fprintf(stderr, "sample rate	  : %u Hz\n", sample_rate);
-		//fprintf(stderr, "channels 	  : %u\n", channels);
-		//fprintf(stderr, "bits per sample: %u\n", bps);
-		//fprintf(stderr, "total samples  : %" PRIu64 "\n", total_samples);
+		//logmsg("sample rate	  : %u Hz\n", sample_rate);
+		//logmsg("channels 	  : %u\n", channels);
+		//logmsg("bits per sample: %u\n", bps);
+		//logmsg("total samples  : %" PRIu64 "\n", total_samples);
 	}
 }
 
@@ -274,6 +273,6 @@ void error_callback(const FLAC__StreamDecoder *decoder, FLAC__StreamDecoderError
 {
 	(void)decoder, (void)client_data;
 
-	//fprintf(stderr, "Got error while decoding FLAC: %s\n", FLAC__StreamDecoderErrorStatusString[status]);
+	logmsg("Got error while decoding FLAC: %s\n", FLAC__StreamDecoderErrorStatusString[status]);
 	errorFLAC ++;
 }
