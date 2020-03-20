@@ -44,7 +44,7 @@ int LoadFile(AudioSignal **Signal, char *fileName, int role, parameters *config)
 
 	logmsg("\n* Loading '%s' audio file %s\n", role == ROLE_REF ? "Reference" : "Comparison", config->referenceFile);
 
-	if(IsFlac(config->referenceFile))
+	if(IsFlac(fileName))
 	{
 		struct	timespec	start, end;
 

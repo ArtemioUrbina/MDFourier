@@ -230,7 +230,7 @@ void error_callback(const FLAC__StreamDecoder *decoder, FLAC__StreamDecoderError
 
 	(void)decoder;
 
-	logmsg("Got error while decoding FLAC: %s\n", FLAC__StreamDecoderErrorStatusString[status]);
+	logmsgFileOnly("Got error while decoding FLAC: %s\n", FLAC__StreamDecoderErrorStatusString[status]);
 	if(Signal)
 		Signal->errorFLAC ++;
 }
