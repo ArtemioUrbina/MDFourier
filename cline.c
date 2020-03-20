@@ -747,14 +747,14 @@ int checkPath(char *path)
 
 char *getTempDir()
 {
-        char *tmp = NULL;
-
-        tmp = getenv("TMPDIR");
-        if(!tmp)
-                tmp = getenv("TEMP");
-        if(!tmp)
-                tmp = getenv("TMP");
-        return tmp;
+	char *tmp = NULL;
+	
+	tmp = getenv("TMPDIR");
+	if(!tmp)
+		tmp = getenv("TEMP");
+	if(!tmp)
+		tmp = getenv("TMP");
+	return tmp;
 }
 
 int checkAlternatePaths(parameters *config)

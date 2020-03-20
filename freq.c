@@ -3102,7 +3102,7 @@ int FillFrequencyStructures(AudioSignal *Signal, AudioBlocks *AudioArray, parame
 {
 	char channel = CHANNEL_LEFT;
 
-	if(Signal->AudioChannels == 2 && AudioArray->channel == CHANNEL_STEREO)
+	if(Signal && Signal->AudioChannels == 2 && AudioArray->channel == CHANNEL_STEREO)
 	{
 		channel = CHANNEL_RIGHT;
 		if(!FillFrequencyStructuresInternal(Signal, AudioArray, channel, config))

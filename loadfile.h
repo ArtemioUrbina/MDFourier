@@ -27,13 +27,18 @@
  * 
  */
 
-#ifndef MDFOURIER_FLAC_H
-#define MDFOURIER_FLAC_H
+#ifndef MDFLOADFILE_H
+#define MDFLOADFILE_H
 
-#include "mdfourier.h"
+int LoadFile(AudioSignal **Signal, char *fileName, int role, parameters *config);
+int LoadWAVFile(FILE *file, AudioSignal *Signal, parameters *config, char *fileName);
+int DetectSync(AudioSignal *Signal, parameters *config);
+void AdjustSignalValues(AudioSignal *Signal, parameters *config);
 
-int IsFlac(char *name);
-void renameFLAC(char *flac, char *wav, char *path);
-int FLACtoSignal(char *input, AudioSignal *Signal, parameters *config);
+/* Functions that deal with samples */
+int MoveSampleBlockInternal(AudioSignal *Signal, long int element, long int pos, long int signalStartOffset, parameters *config);
+int MoveSampleBlockExternal(AudioSignal *Signal, long int element, long int pos, long int signalStartOffset, long int internalSyncToneSize, parameters *config);
+int ProcessInternal(AudioSignal *Signal, long int element, long int pos, int *syncinternal, long int *advanceBytes, int knownLength, parameters *config);
+int CopySamplesForTimeDomainPlotInternalSync(AudioBlocks *AudioArray, int16_t *samples, size_t size, int slotForSamples, long samplerate, double *window, int AudioChannels, parameters *config);
 
 #endif

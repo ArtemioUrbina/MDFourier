@@ -354,6 +354,8 @@ typedef struct AudioSt {
 
 	char 		*Samples;
 	long int	SamplesStart;
+	long int	samplesPosFLAC;
+	int			errorFLAC;
 	double		framerate;
 	wav_hdr		header;
 
