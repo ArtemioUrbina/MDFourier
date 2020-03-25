@@ -92,7 +92,7 @@ double FindFrequencyBracketForSync(double frequency, size_t size, int AudioChann
 	{
 		double Hertz = 0, difference = 0;
 
-		Hertz = CalculateFrequency(i, boxsize, config);
+		Hertz = CalculateFrequency(i, boxsize);
 		difference = fabs(Hertz - frequency);
 		if(difference < minDiff)
 		{
@@ -137,7 +137,7 @@ double FindFrequencyBracket(double frequency, size_t size, int AudioChannels, lo
 	{
 		double Hertz = 0, difference = 0;
 
-		Hertz = CalculateFrequency(i, boxsize, config);
+		Hertz = CalculateFrequency(i, boxsize);
 		difference = fabs(Hertz - frequency);
 		if(difference < minDiff)
 		{
@@ -2473,7 +2473,7 @@ void FindStandAloneFloor(AudioSignal *Signal, parameters *config)
 
 	if(loudest.hertz && loudest.magnitude != 0)
 	{
-		loudest.amplitude = CalculateAmplitude(loudest.magnitude, maxMagnitude, config);
+		loudest.amplitude = CalculateAmplitude(loudest.magnitude, maxMagnitude);
 
 		logmsg(" - %s signal noise floor: %g dBFS [%g Hz]\n", 
 			Signal->role == ROLE_REF ? "Reference" : "Comparison",
@@ -2775,7 +2775,7 @@ void GlobalNormalize(AudioSignal *Signal, parameters *config)
 					break;
 	
 				Signal->Blocks[block].freq[i].amplitude = 
-					CalculateAmplitude(Signal->Blocks[block].freq[i].magnitude, MaxMagnitude, config);
+					CalculateAmplitude(Signal->Blocks[block].freq[i].magnitude, MaxMagnitude);
 				
 				if(Signal->Blocks[block].freq[i].amplitude < MinAmplitude)
 					MinAmplitude = Signal->Blocks[block].freq[i].amplitude;
@@ -2789,7 +2789,7 @@ void GlobalNormalize(AudioSignal *Signal, parameters *config)
 						break;
 		
 					Signal->Blocks[block].freqRight[i].amplitude = 
-						CalculateAmplitude(Signal->Blocks[block].freqRight[i].magnitude, MaxMagnitude, config);
+						CalculateAmplitude(Signal->Blocks[block].freqRight[i].magnitude, MaxMagnitude);
 					
 					if(Signal->Blocks[block].freqRight[i].amplitude < MinAmplitude)
 						MinAmplitude = Signal->Blocks[block].freqRight[i].amplitude;
@@ -2880,7 +2880,7 @@ void CalculateAmplitudes(AudioSignal *Signal, double ZeroDbMagReference, paramet
 					break;
 	
 				Signal->Blocks[block].freq[i].amplitude = 
-					CalculateAmplitude(Signal->Blocks[block].freq[i].magnitude, ZeroDbMagReference, config);
+					CalculateAmplitude(Signal->Blocks[block].freq[i].magnitude, ZeroDbMagReference);
 	
 				if(Signal->Blocks[block].freq[i].amplitude < MinAmplitude)
 					MinAmplitude = Signal->Blocks[block].freq[i].amplitude;
@@ -2894,7 +2894,7 @@ void CalculateAmplitudes(AudioSignal *Signal, double ZeroDbMagReference, paramet
 						break;
 		
 					Signal->Blocks[block].freqRight[i].amplitude = 
-						CalculateAmplitude(Signal->Blocks[block].freqRight[i].magnitude, ZeroDbMagReference, config);
+						CalculateAmplitude(Signal->Blocks[block].freqRight[i].magnitude, ZeroDbMagReference);
 		
 					if(Signal->Blocks[block].freqRight[i].amplitude < MinAmplitude)
 						MinAmplitude = Signal->Blocks[block].freqRight[i].amplitude;
@@ -3064,7 +3064,7 @@ inline double CalculateMagnitude(fftw_complex value, long int size)
 	return magnitude;
 }
 
-inline double CalculatePhase(fftw_complex value, parameters *config)
+inline double CalculatePhase(fftw_complex value)
 {
 	double r1 = 0;
 	double i1 = 0;
@@ -3077,7 +3077,7 @@ inline double CalculatePhase(fftw_complex value, parameters *config)
 	return phase;
 }
 
-inline double CalculateAmplitude(double magnitude, double MaxMagnitude, parameters *config)
+inline double CalculateAmplitude(double magnitude, double MaxMagnitude)
 {
 	double amplitude = 0;
 
@@ -3089,7 +3089,7 @@ inline double CalculateAmplitude(double magnitude, double MaxMagnitude, paramete
 	return amplitude;
 }
 
-inline double CalculateFrequency(double boxindex, double boxsize, parameters *config)
+inline double CalculateFrequency(double boxindex, double boxsize)
 {
 	double Hertz = 0;
 
@@ -3174,10 +3174,10 @@ int FillFrequencyStructuresInternal(AudioSignal *Signal, AudioBlocks *AudioArray
 
 	for(i = startBin; i < endBin; i++)
 	{
-		f_array[count].hertz = CalculateFrequency(i, boxsize, config);
+		f_array[count].hertz = CalculateFrequency(i, boxsize);
 		f_array[count].magnitude = CalculateMagnitude(fftw->spectrum[i], size);
 		f_array[count].amplitude = NO_AMPLITUDE;
-		f_array[count].phase = CalculatePhase(fftw->spectrum[i], config);
+		f_array[count].phase = CalculatePhase(fftw->spectrum[i]);
 		f_array[count].matched = 0;
 		count++;
 	}
@@ -3287,11 +3287,15 @@ double CalculateWeightedError(double pError, parameters *config)
 
 	if(pError < 0.0)  // this should never happen
 	{
-		logmsg("pERROR < 0! (%g)\n", pError);
+		if(!config->pErrorReport)
+			logmsg("pERROR < 0! (%g)\n", pError);
+		config->pErrorReport++;
+
 		pError = fabs(pError);
 		if(pError > 1)
 		{
-			logmsg("pERROR > 1! (%g)\n", pError);
+			if(!config->pErrorReport)
+				logmsg("pERROR > 1! (%g)\n", pError);
 			return 1;
 		}
 	}

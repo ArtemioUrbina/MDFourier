@@ -177,7 +177,7 @@
 #define	MAX_SYNC		10
 
 #define	FREQDOMTRIES	10
-#define	FREQDOMRATIO	40.0
+#define	FREQDOMRATIO	60.0  // dBFS
 
 #define	DELAYCOUNT		10
 
@@ -549,6 +549,7 @@ typedef struct parameters_st {
 	double			centsDifferenceCLK;
 	double			RefCentsDifferenceSR;
 	double			ComCentsDifferenceSR;
+	int				pErrorReport;
 
 	double 			plotResX;
 	double			plotResY;

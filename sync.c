@@ -711,7 +711,7 @@ long int DetectPulseInternal(char *Samples, wav_hdr header, int factor, long int
 	for(i = startPos; i < TotalMS; i++)
 	{
 		if(pulseArray[i].hertz)  /* this can be zero if samples were zeroed */
-			pulseArray[i].amplitude = CalculateAmplitude(pulseArray[i].magnitude, MaxMagnitude, config);
+			pulseArray[i].amplitude = CalculateAmplitude(pulseArray[i].magnitude, MaxMagnitude);
 		else
 			pulseArray[i].amplitude = NO_AMPLITUDE;
 	}
@@ -822,8 +822,8 @@ double ProcessChunkForSyncPulse(int16_t *samples, size_t size, long samplerate, 
 		if(magnitude > maxMag)
 		{
 			maxMag = magnitude;
-			maxHertz = CalculateFrequency(i, boxsize, config);
-			maxPhase = CalculatePhase(spectrum[i], config);
+			maxHertz = CalculateFrequency(i, boxsize);
+			maxPhase = CalculatePhase(spectrum[i]);
 		}
 	}
 
@@ -945,7 +945,7 @@ long int DetectSignalStartInternal(char *Samples, wav_hdr header, int factor, lo
 	for(i = start; i < TotalMS; i++)
 	{
 		if(pulseArray[i].hertz)  /* we can get this empty due to zeroes in samples */
-			pulseArray[i].amplitude = CalculateAmplitude(pulseArray[i].magnitude, MaxMagnitude, config);
+			pulseArray[i].amplitude = CalculateAmplitude(pulseArray[i].magnitude, MaxMagnitude);
 		else
 			pulseArray[i].amplitude = NO_AMPLITUDE;
 	}

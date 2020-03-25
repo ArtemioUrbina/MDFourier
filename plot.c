@@ -833,8 +833,6 @@ void enableTestWarnings(parameters *config)
 	config->noSyncProfile = 1;
 	config->syncTolerance = 1;
 
-	config->channel = 'l';
-
 	config->hasAddOnData = 1;
 
 	config->ZeroPad = 1;
@@ -883,6 +881,12 @@ void enableTestWarnings(parameters *config)
 	config->comparisonSignal->delayArray[1] = 45.5;
 	config->comparisonSignal->delayArray[2] = 4012.1;
 	config->comparisonSignal->delayElemCount = 3;
+
+	config->referenceSignal->EstimatedSR = 192080;
+	config->comparisonSignal->EstimatedSR = 48212;
+
+	config->referenceSignal->originalSR = 192000;
+	config->comparisonSignal->originalSR = 48000;
 
 	logmsg("ERROR: enableTestWarnings Enabled\n");
 }
@@ -964,9 +968,9 @@ void DrawImbalance(PlotFile *plot, AudioSignal *Signal, char *msg, parameters *c
 	else
 		pl_pencolor_r(plot->plotter, 0, 0xcccc, 0xcccc);
 	if(Signal->balance)
-		sprintf(msg, "Imbalance %s [%s]: %0.2f%%", 
+		sprintf(msg, "Imbalance %s %s: %0.2fdBFS", 
 				Signal->role == ROLE_REF ? "RF" : "CM",
-				Signal->balance > 0 ? "RF" : "L", 
+				Signal->balance > 0 ? "R" : "L", 
 				fabs(Signal->balance));
 	else
 		sprintf(msg, "%s Stereo balanced", 
@@ -2290,6 +2294,7 @@ void PlotSingleTypeDifferentAmplitudes(FlatAmplDifference *amplDiff, long int si
 	{
 		if((channel == CHANNEL_STEREO || channel == amplDiff[a].channel) &&
 			amplDiff[a].hertz && amplDiff[a].type == type && fabs(amplDiff[a].diffAmplitude) <= fabs(dBFS))
+			//&& fabs(amplDiff[a].refAmplitude) <= fabs(config->significantAmplitude))  // should not be needed if data is correct
 		{ 
 			long int intensity;
 

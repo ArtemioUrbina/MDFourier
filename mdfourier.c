@@ -360,7 +360,7 @@ int FrequencyDomainNormalize(AudioSignal **ReferenceSignal, AudioSignal **Compar
 {
 	MaxMagn				MaxRef, MaxTar;
 	double				ComparisonLocalMaximum = 0;
-	double				ratioRef = 0;
+	double				ratioRef = 0, ratiodBFS = 0;
 	double				RefAvg = 0;
 	double				CompAvg = 0;
 	double				ratio = 0;
@@ -384,12 +384,15 @@ int FrequencyDomainNormalize(AudioSignal **ReferenceSignal, AudioSignal **Compar
 		ratioRef = ComparisonLocalMaximum/MaxRef.magnitude;
 
 	/* Detect extreme cases, and try another approach */
-	if(ComparisonLocalMaximum == 0 || (ratioRef && 1.0/ratioRef > FREQDOMRATIO))
+	ratiodBFS = CalculateAmplitude(ComparisonLocalMaximum, MaxRef.magnitude);
+	if(config->verbose) { logmsg(" - Amplitude ratio is %gdBFS\n", ratiodBFS); }
+	if(ComparisonLocalMaximum == 0 || ratiodBFS > FREQDOMRATIO)
 	{
 		int		found = 0, pos = 1, allowDifference = 0, tries = 0;
 		MaxMagn	MaxRefArray[FREQDOMTRIES];
 		double	ComparisonLocalMaximumArray = 0, ratioRefArray = 0;
 
+		if(config->verbose) { logmsg(" - Searching for lower ratio alternatives\n"); }
 		memset(MaxRefArray, 0, FREQDOMTRIES*sizeof(MaxMagn));
 		if(FindMultiMaxMagnitudeBlock(*ReferenceSignal, MaxRefArray, FREQDOMTRIES, config))
 		{
@@ -409,9 +412,12 @@ int FrequencyDomainNormalize(AudioSignal **ReferenceSignal, AudioSignal **Compar
 					ComparisonLocalMaximumArray = FindLocalMaximumInBlock(*ComparisonSignal, MaxRefArray[pos], allowDifference, config);
 					if(ComparisonLocalMaximumArray)
 					{
+						double dbfsratioArray = 0;
+
+						dbfsratioArray = CalculateAmplitude(ComparisonLocalMaximumArray, MaxRefArray[pos].magnitude);
 						ratioRefArray = ComparisonLocalMaximumArray/MaxRefArray[pos].magnitude;
-						if(config->verbose) { logmsg(" - Comparision ratio is %g (%g/%g)\n", 1.0/ratioRefArray, ComparisonLocalMaximumArray, MaxRefArray[pos].magnitude); }
-						if(1.0/ratioRefArray <= FREQDOMRATIO)
+						if(config->verbose) { logmsg(" - Comparision ratio is %gdBFS\n", dbfsratioArray); }
+						if(dbfsratioArray <= FREQDOMRATIO)
 						{
 							found = 1;
 							break;
@@ -557,12 +563,15 @@ int ProcessNoiseFloor(AudioSignal *ReferenceSignal, AudioSignal *ComparisonSigna
 
 	/* analyze silence floor if available */
 	if(ReferenceSignal->hasSilenceBlock)
+	{
 		FindFloor(ReferenceSignal, config);
+		refHasFloor = ReferenceSignal->floorAmplitude != 0.0;
+	}
 	if(ComparisonSignal->hasSilenceBlock)
+	{
 		FindFloor(ComparisonSignal, config);
-
-	refHasFloor = (ReferenceSignal->hasSilenceBlock && ReferenceSignal->floorAmplitude != 0.0);
-	comHasFloor = (ComparisonSignal->hasSilenceBlock && ComparisonSignal->floorAmplitude != 0.0);
+		comHasFloor = ComparisonSignal->floorAmplitude != 0.0;
+	}
 
 	avgRef = FindFundamentalAmplitudeAverage(ReferenceSignal, config);
 	avgComp = FindFundamentalAmplitudeAverage(ComparisonSignal, config);
@@ -600,8 +609,7 @@ int ProcessNoiseFloor(AudioSignal *ReferenceSignal, AudioSignal *ComparisonSigna
 		if(refHasFloor && comHasFloor &&
 			config->significantAmplitude < SIGNIFICANT_VOLUME && 
 			ComparisonSignal->floorAmplitude <= LOWEST_NOISEFLOOR_ALLOWED &&
-			ReferenceSignal->floorAmplitude < ComparisonSignal->floorAmplitude &&
-			ComparisonSignal->floorAmplitude < SIGNIFICANT_VOLUME)
+			ReferenceSignal->floorAmplitude < ComparisonSignal->floorAmplitude)
 		{
 			double diff = 0;
 	
@@ -1391,12 +1399,12 @@ int CalculateMaxCompare(int block, AudioSignal *Signal, parameters *config)
 		/* Out of valid frequencies */
 		if(!Signal->Blocks[block].freq[freq].hertz)
 		{
-			posFound = freq - 1;
+			posFound = freq;
 			break;
 		}
 
 		/* Amplitude is too low */
-		if(Signal->Blocks[block].freq[freq].amplitude < limit)
+		if(Signal->Blocks[block].freq[freq].amplitude <= limit)
 		{
 			posFound = freq;
 			break;
@@ -1410,14 +1418,21 @@ int CalculateMaxCompare(int block, AudioSignal *Signal, parameters *config)
 			/* Out of valid frequencies */
 			if(!Signal->Blocks[block].freqRight[freq].hertz)
 			{
-				if(posFound > freq - 1)
-					return freq - 1;
+				if(posFound == -1)
+					return freq;
+
+				if(posFound > freq)
+					return freq;
+
 				break;
 			}
 	
 			/* Amplitude is too low */
-			if(Signal->Blocks[block].freqRight[freq].amplitude < limit)
+			if(Signal->Blocks[block].freqRight[freq].amplitude <= limit)
 			{
+				if(posFound == -1)
+					return freq;
+
 				if(posFound > freq)
 					return freq;
 				break;
@@ -1425,7 +1440,7 @@ int CalculateMaxCompare(int block, AudioSignal *Signal, parameters *config)
 		}
 	}
 
-	if(posFound != -1)
+	if(posFound != -1)  // Is left channel data available?
 		return posFound;
 	return config->MaxFreq;
 }

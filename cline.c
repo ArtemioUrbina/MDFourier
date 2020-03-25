@@ -194,6 +194,7 @@ void CleanParameters(parameters *config)
 	config->weightedAveragePlot = 1;
 	config->noiseFloorAutoAdjust = 1;
 	config->changedCLKFrom = 0;
+	config->pErrorReport = 0;
 
 	config->Differences.BlockDiffArray = NULL;
 	config->Differences.cntFreqAudioDiff = 0;

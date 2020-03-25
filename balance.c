@@ -45,7 +45,7 @@ int CheckBalance(AudioSignal *Signal, int block, parameters *config)
 	long int		loadedBlockSize = 0, i = 0, matchIndex = 0;
 	struct timespec	start, end;
 	int				leftover = 0, discardBytes = 0;
-	double			leftDecimals = 0, diff = 0;
+	double			leftDecimals = 0, MaxMagLeft = 0, MaxMagRight = 0;
 	AudioBlocks		Channels[2];
 
 	if(Signal->AudioChannels != 2)
@@ -128,6 +128,7 @@ int CheckBalance(AudioSignal *Signal, int block, parameters *config)
 				return 0;
 			}
 			memset(Channels[0].freq, 0, sizeof(Frequency)*config->MaxFreq);
+
 			Channels[1].freq = (Frequency*)malloc(sizeof(Frequency)*config->MaxFreq);
 			if(!Channels[1].freq)
 			{
@@ -169,7 +170,7 @@ int CheckBalance(AudioSignal *Signal, int block, parameters *config)
 	}
 
 	if(Channels[0].freq[0].hertz != Channels[1].freq[matchIndex].hertz)
-		matchIndex = 1;
+		matchIndex = 1; // Allow one bin difference
 
 	if(Channels[0].freq[0].hertz != Channels[1].freq[matchIndex].hertz)
 	{
@@ -192,56 +193,60 @@ int CheckBalance(AudioSignal *Signal, int block, parameters *config)
 		return 0;
 	}
 
-	diff = fabs(Channels[0].freq[0].magnitude - Channels[1].freq[matchIndex].magnitude);
-	if(diff > 0.0)
+	for(i = 0; i < config->MaxFreq; i++)
+	{
+		if(!Channels[0].freq[i].hertz && Channels[1].freq[i].hertz)
+			break;
+
+		if(Channels[0].freq[i].hertz && Channels[0].freq[i].magnitude > MaxMagLeft)
+			MaxMagLeft = Channels[0].freq[i].magnitude;
+
+		if(Channels[1].freq[i].hertz && Channels[1].freq[i].magnitude > MaxMagRight)
+			MaxMagRight = Channels[1].freq[i].magnitude;
+	}
+
+	if(!areDoublesEqual(Channels[0].freq[0].magnitude, Channels[1].freq[matchIndex].magnitude))
 	{
 		double 	ratio = 0;
-		double 	channDiff = 0;
+		double	amplLeft = 0, amplRight = 0, amplDiff = 0;
 		char	diffNam = '\0';
 
 		if(Channels[0].freq[0].magnitude > Channels[1].freq[matchIndex].magnitude)
 		{
 			diffNam = CHANNEL_LEFT;
-			channDiff = diff*100.0/Channels[0].freq[0].magnitude;
 			ratio = Channels[1].freq[matchIndex].magnitude/Channels[0].freq[0].magnitude;
+
+			amplLeft = CalculateAmplitude(Channels[0].freq[0].magnitude, MaxMagLeft);
+			amplRight = CalculateAmplitude(Channels[1].freq[0].magnitude, MaxMagLeft);
+			amplDiff = amplLeft - amplRight;
 		}
 		else
 		{
 			diffNam = CHANNEL_RIGHT;
-			channDiff = diff*100.0/Channels[1].freq[matchIndex].magnitude;
 			ratio = Channels[0].freq[0].magnitude/Channels[1].freq[matchIndex].magnitude;
+
+			amplLeft = CalculateAmplitude(Channels[0].freq[0].magnitude, MaxMagRight);
+			amplRight = CalculateAmplitude(Channels[1].freq[0].magnitude, MaxMagRight);
+			amplDiff = amplRight - amplLeft;
 		}
 
-		/*
-		if(channDiff >= 1.0 || (channDiff > 0.0 && !config->channelBalance))
-		{
-			logmsg("\nWARNING for %s file\n", Signal->role == ROLE_REF ? "Reference" : "Comparison");
-			logmsg("\tStereo imbalance: %s channel is higher by %g%%\n",
-				diffNam == CHANNEL_LEFT ? "left" : "right", channDiff);
-			if(config->channelBalance)
-			{
-				logmsg("\tCompensating in software. [Use -B to disable auto-balance]\n");
-				logmsg("\tThis can be caused by gain controls in the audio card and/or\n");
-				logmsg("\tbe present in the system generating the audio signal.\n");
-			}
-			else
-				logmsg("\tAudio not compensated.\n");
-		}
-		else
-		{
-			if(config->verbose)
-				logmsg(" - %s signal stereo imbalance: %s channel is higher by %0.2g%%\n",
-					Signal->role == ROLE_REF ? "Reference" : "Comparison",
-					diffNam == CHANNEL_LEFT ? "left" : "right", channDiff);
-		}
-		*/
+		//logmsg("Amplitudes: Left %gdBFS Right %gdBFS, diff: %gdBFS\n", amplLeft, amplRight, amplDiff);
 		
-		
-		logmsg(" - %s signal stereo imbalance: %s channel is higher by %0.5f%%\n",
+		logmsg(" - %s signal stereo imbalance: %s channel is higher by %gdBFS",
 				Signal->role == ROLE_REF ? "Reference" : "Comparison",
-				diffNam == CHANNEL_LEFT ? "left" : "right", channDiff);
+				diffNam == CHANNEL_LEFT ? "left" : "right", amplDiff);
 
-		Signal->balance = channDiff;
+		if(config->verbose)
+		{
+			double	percent_higher;
+
+			percent_higher = 100.0 * (pow(10, amplDiff / 20)-1.0);
+			logmsg(" (%0.5f%%)",
+				percent_higher);
+		}
+		logmsg("\n");
+
+		Signal->balance = amplDiff;
 		if(diffNam == CHANNEL_LEFT)
 			Signal->balance *= -1;
 		

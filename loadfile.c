@@ -42,7 +42,7 @@ int LoadFile(AudioSignal **Signal, char *fileName, int role, parameters *config)
 		return 0;
 	(*Signal)->role = role;
 
-	logmsg("\n* Loading '%s' audio file %s\n", role == ROLE_REF ? "Reference" : "Comparison", config->referenceFile);
+	logmsg("\n* Loading '%s' audio file %s\n", role == ROLE_REF ? "Reference" : "Comparison", fileName);
 
 	if(IsFlac(fileName))
 	{
