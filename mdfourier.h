@@ -550,6 +550,7 @@ typedef struct parameters_st {
 	double			RefCentsDifferenceSR;
 	double			ComCentsDifferenceSR;
 	int				pErrorReport;
+	int				noBalance;
 
 	double 			plotResX;
 	double			plotResY;

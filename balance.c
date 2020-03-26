@@ -190,6 +190,8 @@ int CheckBalance(AudioSignal *Signal, int block, parameters *config)
 		ReleaseBlock(&Channels[0]);
 		ReleaseBlock(&Channels[1]);
 
+		config->noBalance |= Signal->role;
+
 		return 0;
 	}
 

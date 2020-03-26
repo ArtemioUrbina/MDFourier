@@ -963,6 +963,13 @@ void DrawImbalance(PlotFile *plot, AudioSignal *Signal, char *msg, parameters *c
 		return;
 	}
 
+	if(config->noBalance & Signal->role)
+	{
+		pl_pencolor_r(plot->plotter, 0xcccc, 0xcccc, 0);
+		pl_alabel_r(plot->plotter, 'l', 'l', "Unmatched Mono");
+		return;
+	}
+
 	if(fabs(Signal->balance) >= 10)
 		pl_pencolor_r(plot->plotter, 0xcccc, 0xcccc, 0);
 	else
@@ -1379,6 +1386,14 @@ void DrawLabelsMDF(PlotFile *plot, char *Gname, char *GType, int type, parameter
 		PLOT_WARN(1, warning++);
 		sprintf(msg, "WARNING: %s clock don't match by: %0.2f\\ct (can use -j)", 
 				config->clkName, config->centsDifferenceCLK);
+		pl_alabel_r(plot->plotter, 'l', 'l', msg);
+	}
+
+	if(config->noBalance)
+	{
+		PLOT_WARN(1, warning++);
+		sprintf(msg, "WARNING: %stereo balancing could not be made",
+			config->noBalance == ROLE_REF ? "RF s" : config->noBalance == ROLE_COMP ? "CM s" : "No s");
 		pl_alabel_r(plot->plotter, 'l', 'l', msg);
 	}
 

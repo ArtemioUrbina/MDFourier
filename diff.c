@@ -240,7 +240,6 @@ int IncrementCmpPhaseDifference(int block, parameters *config)
 	return 1;
 }
 
-
 int InsertAmplDifference(int block, Frequency ref, Frequency comp, char channel, parameters *config)
 {
 	int		position = 0;
@@ -257,7 +256,13 @@ int InsertAmplDifference(int block, Frequency ref, Frequency comp, char channel,
 
 	if(block > config->types.totalBlocks)
 		return 0;
-	
+
+	if(ref.amplitude == NO_AMPLITUDE || comp.amplitude == NO_AMPLITUDE)
+	{
+		logmsg("WARNING: Received NO_AMPLITUDE for Amplitude difference\n");
+		return 0;
+	}
+
 	diffAmpl = fabs(ref.amplitude) - fabs(comp.amplitude);
 	position = config->Differences.BlockDiffArray[block].cntAmplBlkDiff;
 
@@ -300,6 +305,12 @@ int InsertPhaseDifference(int block, Frequency ref, Frequency comp, char channel
 
 	if(block > config->types.totalBlocks)
 		return 0;
+
+	if(ref.amplitude == NO_AMPLITUDE || comp.amplitude == NO_AMPLITUDE)
+	{
+		logmsg("WARNING: Received NO_AMPLITUDE for Phase difference\n");
+		return 0;
+	}
 	
 	diffPhase =  comp.phase - ref.phase;
 	diffPhase = roundFloat(diffPhase);
@@ -395,6 +406,12 @@ int InsertFreqNotFound(int block, double freq, double amplitude, char channel, p
 
 	if(block > config->types.totalBlocks)
 		return 0;
+
+	if(amplitude == NO_AMPLITUDE)
+	{
+		logmsg("WARNING: Received NO_AMPLITUDE for Frequency not found\n");
+		return 0;
+	}
 
 	position = config->Differences.BlockDiffArray[block].cntFreqBlkDiff;
 	config->Differences.BlockDiffArray[block].freqMissArray[position].hertz = freq;

@@ -2330,7 +2330,7 @@ Frequency FindNoiseBlockInsideOneStandardDeviation(AudioSignal *Signal, paramete
 
 		for(int i = 0; i < config->MaxFreq; i++)
 		{
-			if(Signal->Blocks[block].freq[i].hertz)
+			if(Signal->Blocks[block].freq[i].hertz && Signal->Blocks[block].freq[i].amplitude != NO_AMPLITUDE)
 			{
 				double hz, amp;
 	
@@ -2362,7 +2362,7 @@ Frequency FindNoiseBlockInsideOneStandardDeviation(AudioSignal *Signal, paramete
 			continue;
 		for(int i = 0; i < config->MaxFreq; i++)
 		{
-			if(Signal->Blocks[block].freq[i].hertz)
+			if(Signal->Blocks[block].freq[i].hertz && Signal->Blocks[block].freq[i].amplitude != NO_AMPLITUDE)
 			{
 				double hz, amp;
 		
@@ -2404,7 +2404,7 @@ Frequency FindNoiseBlockInsideOneStandardDeviation(AudioSignal *Signal, paramete
 			continue;
 		for(int i = 0; i < config->MaxFreq; i++)
 		{
-			if(Signal->Blocks[block].freq[i].hertz)
+			if(Signal->Blocks[block].freq[i].hertz && Signal->Blocks[block].freq[i].amplitude != NO_AMPLITUDE)
 			{
 				double amp;
 	
@@ -2777,8 +2777,11 @@ void GlobalNormalize(AudioSignal *Signal, parameters *config)
 				Signal->Blocks[block].freq[i].amplitude = 
 					CalculateAmplitude(Signal->Blocks[block].freq[i].magnitude, MaxMagnitude);
 				
-				if(Signal->Blocks[block].freq[i].amplitude < MinAmplitude)
-					MinAmplitude = Signal->Blocks[block].freq[i].amplitude;
+				if(Signal->Blocks[block].freq[i].amplitude != NO_AMPLITUDE)
+				{
+					if(Signal->Blocks[block].freq[i].amplitude < MinAmplitude)
+						MinAmplitude = Signal->Blocks[block].freq[i].amplitude;
+				}
 			}
 
 			if(Signal->Blocks[block].freqRight)
@@ -2791,8 +2794,11 @@ void GlobalNormalize(AudioSignal *Signal, parameters *config)
 					Signal->Blocks[block].freqRight[i].amplitude = 
 						CalculateAmplitude(Signal->Blocks[block].freqRight[i].magnitude, MaxMagnitude);
 					
-					if(Signal->Blocks[block].freqRight[i].amplitude < MinAmplitude)
-						MinAmplitude = Signal->Blocks[block].freqRight[i].amplitude;
+					if(Signal->Blocks[block].freqRight[i].amplitude != NO_AMPLITUDE)
+					{
+						if(Signal->Blocks[block].freqRight[i].amplitude < MinAmplitude)
+							MinAmplitude = Signal->Blocks[block].freqRight[i].amplitude;
+					}
 				}
 			}
 		}
@@ -2882,8 +2888,11 @@ void CalculateAmplitudes(AudioSignal *Signal, double ZeroDbMagReference, paramet
 				Signal->Blocks[block].freq[i].amplitude = 
 					CalculateAmplitude(Signal->Blocks[block].freq[i].magnitude, ZeroDbMagReference);
 	
-				if(Signal->Blocks[block].freq[i].amplitude < MinAmplitude)
-					MinAmplitude = Signal->Blocks[block].freq[i].amplitude;
+				if(Signal->Blocks[block].freq[i].amplitude != NO_AMPLITUDE)
+				{
+					if(Signal->Blocks[block].freq[i].amplitude < MinAmplitude)
+						MinAmplitude = Signal->Blocks[block].freq[i].amplitude;
+				}
 			}
 
 			if(Signal->Blocks[block].freqRight)
@@ -2895,9 +2904,12 @@ void CalculateAmplitudes(AudioSignal *Signal, double ZeroDbMagReference, paramet
 		
 					Signal->Blocks[block].freqRight[i].amplitude = 
 						CalculateAmplitude(Signal->Blocks[block].freqRight[i].magnitude, ZeroDbMagReference);
-		
-					if(Signal->Blocks[block].freqRight[i].amplitude < MinAmplitude)
-						MinAmplitude = Signal->Blocks[block].freqRight[i].amplitude;
+
+					if(Signal->Blocks[block].freqRight[i].amplitude != NO_AMPLITUDE)
+					{
+						if(Signal->Blocks[block].freqRight[i].amplitude < MinAmplitude)
+							MinAmplitude = Signal->Blocks[block].freqRight[i].amplitude;
+					}
 				}
 			}
 		}
@@ -2991,7 +3003,7 @@ void PrintFrequenciesBlock(AudioSignal *Signal, Frequency *freq, int type, param
 		if(type != TYPE_SILENCE && significant > freq[j].amplitude)
 			break;
 
-		if(type == TYPE_SILENCE && significant > freq[j].amplitude && j > 500)
+		if(type == TYPE_SILENCE && significant > freq[j].amplitude && j > 200)
 			break;
 
 		if(freq[j].hertz && freq[j].amplitude != NO_AMPLITUDE)
@@ -3082,7 +3094,12 @@ inline double CalculateAmplitude(double magnitude, double MaxMagnitude)
 	double amplitude = 0;
 
 	if(magnitude == 0.0 || MaxMagnitude == 0.0)
+	{
+#ifdef DEBUG
+		logmsg("WARNING: Invalid data for CalculateAmplitude\n");
+#endif
 		return NO_AMPLITUDE;
+	}
 
 	amplitude = 20*log10(magnitude/MaxMagnitude);
 	
@@ -3718,13 +3735,13 @@ double FindFundamentalAmplitudeAverage(AudioSignal *Signal, parameters *config)
 	if(!Signal)
 		return 0;
 
-	// Find global peak
 	for(int block = 0; block < config->types.totalBlocks; block++)
 	{
 		int type = TYPE_NOTYPE;
 
 		type = GetBlockType(config, block);
-		if(type > TYPE_SILENCE && Signal->Blocks[block].freq[0].hertz != 0)
+		if(type > TYPE_SILENCE && Signal->Blocks[block].freq[0].hertz != 0 &&
+			Signal->Blocks[block].freq[0].amplitude != NO_AMPLITUDE)
 		{
 			AvgFundAmp += Signal->Blocks[block].freq[0].amplitude;
 			count ++;
@@ -3738,7 +3755,8 @@ double FindFundamentalAmplitudeAverage(AudioSignal *Signal, parameters *config)
 			int type = TYPE_NOTYPE;
 
 			type = GetBlockType(config, block);
-			if(type > TYPE_SILENCE && Signal->Blocks[block].freqRight[0].hertz != 0)
+			if(type > TYPE_SILENCE && Signal->Blocks[block].freqRight[0].hertz != 0  &&
+				Signal->Blocks[block].freqRight[0].amplitude != NO_AMPLITUDE)
 			{
 				AvgFundAmp += Signal->Blocks[block].freqRight[0].amplitude;
 				count ++;
