@@ -68,7 +68,6 @@ void PrintUsage()
 	logmsg("	 -A: Do not weight values in <A>veraged Plot (implies -g)\n");
 	logmsg("	 -W: Use <W>hite background for plots.\n");
 	logmsg("	 -d: Max <d>BFS for plots vertically\n");
-	logmsg("	 -K: Draw perfect match bards in diofference plots\n");
 	logmsg("	 -L: Plot resolution:\n");
 	logmsg("		1: %gx%g  2: %gx%g 3: %gx%g\n",
 			PLOT_RES_X_LOW, PLOT_RES_Y_LOW, PLOT_RES_X, PLOT_RES_Y, PLOT_RES_X_1K, PLOT_RES_Y_1K);
@@ -236,7 +235,7 @@ void CleanParameters(parameters *config)
 
 	config->useExtraData = 1;
 	config->compressToBlocks = 0;
-	config->drawPerfect = 0;
+	config->drawPerfect = 1;
 
 	config->SRNoMatch = 0;
 	config->diffClkNoMatch = 0;
@@ -257,8 +256,8 @@ int commandline(int argc , char *argv[], parameters *config)
 	
 	CleanParameters(config);
 
-	// Available: aGJq1234567
-	while ((c = getopt (argc, argv, "ABb:Cc:Dd:Ee:Ff:gHhIijKkL:lMmNn:Oo:P:p:QRr:Ss:TtUuVvWw:XxY:yZ:z0:89")) != -1)
+	// Available: aGJKq1234567
+	while ((c = getopt (argc, argv, "ABb:Cc:Dd:Ee:Ff:gHhIijkL:lMmNn:Oo:P:p:QRr:Ss:TtUuVvWw:XxY:yZ:z0:89")) != -1)
 	switch (c)
 	  {
 	  case 'A':
@@ -341,9 +340,6 @@ int commandline(int argc , char *argv[], parameters *config)
 		break;
 	  case 'j':
 		config->doClkAdjust = 1;
-		break;
-	  case 'K':
-		config->drawPerfect = 1;
 		break;
 	  case 'k':
 		config->clock = 1;
