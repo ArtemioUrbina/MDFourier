@@ -438,9 +438,10 @@ void PrintDifferentFrequencies(int block, parameters *config)
 
 	for(int f = 0; f < config->Differences.BlockDiffArray[block].cntFreqBlkDiff; f++)
 	{
-		logmsgFileOnly("Frequency: %7g Hz\tAmplituide: %4.2f\n", 
+		logmsgFileOnly("Frequency: %7g Hz\tAmplituide: %4.2f\tChannel: %c\n", 
 			config->Differences.BlockDiffArray[block].freqMissArray[f].hertz,
-			config->Differences.BlockDiffArray[block].freqMissArray[f].amplitude);
+			config->Differences.BlockDiffArray[block].freqMissArray[f].amplitude,
+			config->Differences.BlockDiffArray[block].freqMissArray[f].channel);
 	}
 }
 
@@ -457,10 +458,11 @@ void PrintDifferentAmplitudes(int block, parameters *config)
 
 	for(int a = 0; a < config->Differences.BlockDiffArray[block].cntAmplBlkDiff; a++)
 	{
-		logmsgFileOnly("Frequency: %7g Hz\tAmplitude: %4.2f dBFS\tAmplitude Difference: %4.2f dBFS\n",
+		logmsgFileOnly("Frequency: %7g Hz\tAmplitude: %4.2f dBFS\tAmplitude Difference: %4.2f dBFS\tChannel: %c\n",
 			config->Differences.BlockDiffArray[block].amplDiffArray[a].hertz,
 			config->Differences.BlockDiffArray[block].amplDiffArray[a].refAmplitude,
-			config->Differences.BlockDiffArray[block].amplDiffArray[a].diffAmplitude);
+			config->Differences.BlockDiffArray[block].amplDiffArray[a].diffAmplitude,
+			config->Differences.BlockDiffArray[block].amplDiffArray[a].channel);
 	}
 }
 
@@ -477,9 +479,10 @@ void PrintDifferentPhases(int block, parameters *config)
 
 	for(int a = 0; a < config->Differences.BlockDiffArray[block].cntPhaseBlkDiff; a++)
 	{
-		logmsgFileOnly("Frequency: %7g Hz\tPhase Difference: %3.2f\n",
+		logmsgFileOnly("Frequency: %7g Hz\tPhase Difference: %3.2f\tChannel: %c\n",
 			config->Differences.BlockDiffArray[block].phaseDiffArray[a].hertz,
-			config->Differences.BlockDiffArray[block].phaseDiffArray[a].diffPhase);
+			config->Differences.BlockDiffArray[block].phaseDiffArray[a].diffPhase,
+			config->Differences.BlockDiffArray[block].phaseDiffArray[a].channel);
 	}
 }
 
@@ -497,6 +500,7 @@ void PrintDifferenceArray(parameters *config)
 		return;
 	}
 
+	logmsgFileOnly("\n\n==========DIFFERENCE ARRAY==========\n");
 	logmsgFileOnly("\nPerfect Frequency/Amplitude Matches: %ld\n",
 				config->Differences.cntPerfectAmplMatch);
 	logmsgFileOnly("Total Differences: %ld from %ld\nTotal: %g%%\n", 
@@ -516,12 +520,12 @@ void PrintDifferenceArray(parameters *config)
 		if(GetBlockType(config, b) < TYPE_CONTROL)
 			continue;
 
-		if(config->Differences.BlockDiffArray[b].cntAmplBlkDiff)
-			logmsgFileOnly("\n\nBlock: %s# %d (%d) Not Found: %ld Differences: %ld Phase Diff: %ld\n", 
-					GetBlockName(config, b), GetBlockSubIndex(config, b), b,
-					config->Differences.BlockDiffArray[b].cntFreqBlkDiff,
-					config->Differences.BlockDiffArray[b].cntAmplBlkDiff,
-					config->Differences.BlockDiffArray[b].cntPhaseBlkDiff);
+		//if(config->Differences.BlockDiffArray[b].cntAmplBlkDiff)
+		logmsgFileOnly("\n\nBlock: %s# %d (%d) Not Found: %ld Differences: %ld Phase Diff: %ld\n", 
+				GetBlockName(config, b), GetBlockSubIndex(config, b), b,
+				config->Differences.BlockDiffArray[b].cntFreqBlkDiff,
+				config->Differences.BlockDiffArray[b].cntAmplBlkDiff,
+				config->Differences.BlockDiffArray[b].cntPhaseBlkDiff);
 
 		PrintDifferentFrequencies(b, config);
 		PrintDifferentAmplitudes(b, config);

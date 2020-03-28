@@ -60,26 +60,26 @@
 #include "sort.h"  // https://github.com/swenson/sort/
 
 #define DIFFERENCE_TITLE			"DIFFERENT AMPLITUDES [%s]"
-#define DIFFERENCE_TITLE_LEFT		"DIFFERENT AMPLITUDES [%s Left]"
-#define DIFFERENCE_TITLE_RIGHT		"DIFFERENT AMPLITUDES [%s Right]"
+#define DIFFERENCE_TITLE_LEFT		"DIFFERENT AMPLITUDES LEFT CHANNEL [%s]"
+#define DIFFERENCE_TITLE_RIGHT		"DIFFERENT AMPLITUDES RIGHT CHANNEL[%s]"
 #define EXTRA_TITLE_TS_REF			"Comparison - MISSING FREQUENCIES - Time Spectrogram [%s] (Expected in Comparison)"
-#define EXTRA_TITLE_TS_REF_LEFT		"Comparison - MISSING FREQUENCIES - Time Spectrogram [%s Left] (Expected in Comparison)"
-#define EXTRA_TITLE_TS_REF_RIGHT	"Comparison - MISSING FREQUENCIES - Time Spectrogram [%s Right] (Expected in Comparison)"
+#define EXTRA_TITLE_TS_REF_LEFT		"Comparison - MISSING FREQUENCIES LEFT CHANNEL - Time Spectrogram [%s] (Expected in Comparison)"
+#define EXTRA_TITLE_TS_REF_RIGHT	"Comparison - MISSING FREQUENCIES RIGHT CHANNEL - Time Spectrogram [%s] (Expected in Comparison)"
 #define EXTRA_TITLE_TS_COM			"Comparison - EXTRA FREQUENCIES - Time Spectrogram [%s] (Not in Reference)"
-#define EXTRA_TITLE_TS_COM_LEFT		"Comparison - EXTRA FREQUENCIES - Time Spectrogram [%s Left] (Not in Reference)"
-#define EXTRA_TITLE_TS_COM_RIGHT	"Comparison - EXTRA FREQUENCIES - Time Spectrogram [%s Right] (Not in Reference)"
+#define EXTRA_TITLE_TS_COM_LEFT		"Comparison - EXTRA FREQUENCIES LEFT CHANNEL - Time Spectrogram [%s] (Not in Reference)"
+#define EXTRA_TITLE_TS_COM_RIGHT	"Comparison - EXTRA FREQUENCIES RIGHT CHANNEL - Time Spectrogram [%s] (Not in Reference)"
 #define SPECTROGRAM_TITLE_REF		"Reference - SPECTROGRAM [%s]"
-#define SPECTROGRAM_TITLE_REF_LEFT	"Reference - SPECTROGRAM [%s Left]"
-#define SPECTROGRAM_TITLE_REF_RIGHT	"Reference - SPECTROGRAM [%s Right]"
+#define SPECTROGRAM_TITLE_REF_LEFT	"Reference - SPECTROGRAM LEFT CHANNEL [%s]"
+#define SPECTROGRAM_TITLE_REF_RIGHT	"Reference - SPECTROGRAM RIGHT CHANNEL [%s]"
 #define SPECTROGRAM_TITLE_COM		"Comparison - SPECTROGRAM [%s]"
-#define SPECTROGRAM_TITLE_COM_LEFT	"Comparison - SPECTROGRAM [%s Left]"
-#define SPECTROGRAM_TITLE_COM_RIGHT	"Comparison - SPECTROGRAM [%s Right]"
+#define SPECTROGRAM_TITLE_COM_LEFT	"Comparison - SPECTROGRAM LEFT CHANNEL [%s]"
+#define SPECTROGRAM_TITLE_COM_RIGHT	"Comparison - SPECTROGRAM RIGHT CHANNEL [%s]"
 #define TSPECTROGRAM_TITLE_REF		"Reference - TIME SPECTROGRAM [%s]"
-#define TSPECTROGRAM_TITLE_REF_LFT	"Reference - TIME SPECTROGRAM [%s Left]"
-#define TSPECTROGRAM_TITLE_REF_RGHT	"Reference - TIME SPECTROGRAM [%s Right]"
+#define TSPECTROGRAM_TITLE_REF_LFT	"Reference - TIME SPECTROGRAM LEFT CHANNEL [%s]"
+#define TSPECTROGRAM_TITLE_REF_RGHT	"Reference - TIME SPECTROGRAM RIGHT CHANNEL[%s]"
 #define TSPECTROGRAM_TITLE_COM		"Comparison - TIME SPECTROGRAM [%s]"
-#define TSPECTROGRAM_TITLE_COM_LFT	"Comparison - TIME SPECTROGRAM [%s Left]"
-#define TSPECTROGRAM_TITLE_COM_RGHT	"Comparison - TIME SPECTROGRAM [%s Right]"
+#define TSPECTROGRAM_TITLE_COM_LFT	"Comparison - TIME SPECTROGRAM LEFT CHANNEL [%s]"
+#define TSPECTROGRAM_TITLE_COM_RGHT	"Comparison - TIME SPECTROGRAM RIGHT CHANNEL [%s]"
 #define DIFFERENCE_AVG_TITLE		"DIFFERENT AMPLITUDES AVERAGED [%s]"
 #define NOISE_TITLE					"NOISE FLOOR AVERAGED"
 #define NOISE_AVG_TITLE				"NOISE FLOOR AVERAGED"
@@ -88,14 +88,14 @@
 #define WAVEFORM_TITLE_REF			"Reference - WAVEFORM[%s]"
 #define WAVEFORM_TITLE_COM			"Comparison - WAVEFORM [%s]"
 #define PHASE_DIFF_TITLE			"PHASE DIFFERENCE [%s]"
-#define PHASE_DIFF_TITLE_LEFT		"PHASE DIFFERENCE [%s Left]"
-#define PHASE_DIFF_TITLE_RIGHT		"PHASE DIFFERENCE [%s Right]"
+#define PHASE_DIFF_TITLE_LEFT		"PHASE DIFFERENCE LEFT CHANNEL [%s]"
+#define PHASE_DIFF_TITLE_RIGHT		"PHASE DIFFERENCE RIGHT CHANNEL [%s]"
 #define PHASE_SIG_TITLE_REF			"Reference - PHASE [%s]"
-#define PHASE_SIG_TITLE_REF_LEFT	"Reference - PHASE [%s Left]"
-#define PHASE_SIG_TITLE_REF_RIGHT	"Reference - PHASE [%s Right]"
+#define PHASE_SIG_TITLE_REF_LEFT	"Reference - PHASE LEFT CHANNEL [%s]"
+#define PHASE_SIG_TITLE_REF_RIGHT	"Reference - PHASE RIGHT CHANNEL [%s]"
 #define PHASE_SIG_TITLE_COM			"Comparison - PHASE [%s]"
-#define PHASE_SIG_TITLE_COM_LEFT	"Comparison - PHASE [%s Left]"
-#define PHASE_SIG_TITLE_COM_RIGHT	"Comparison - PHASE [%s Right]"
+#define PHASE_SIG_TITLE_COM_LEFT	"Comparison - PHASE LEFT CHANNEL [%s]"
+#define PHASE_SIG_TITLE_COM_RIGHT	"Comparison - PHASE RIGHT CHANNEL [%s]"
 #define TS_DIFFERENCE_TITLE			"DIFFERENT AMPLITUDES - TIME SPECTROGRAM [%s]"
 
 #define BAR_HEADER					"Matched frequencies"
@@ -269,7 +269,7 @@ void PlotResults(AudioSignal *ReferenceSignal, AudioSignal *ComparisonSignal, pa
 			PlotTimeSpectrogramUnMatchedContent(ComparisonSignal, CHANNEL_STEREO, config);
 			logmsg(PLOT_ADVANCE_CHAR);
 	
-			EndPlot("Missing", &lstart, &lend, config);
+			EndPlot("Missing and Extra", &lstart, &lend, config);
 		}
 		else
 			logmsg(" X Skipped: Missing and Extra Frequencies, due to range\n");
@@ -4014,7 +4014,9 @@ void PlotTimeSpectrogram(AudioSignal *Signal, char channel, parameters *config)
 
 			for(i = config->MaxFreq-1; i >= 0; i--)
 			{
-				if(channel == CHANNEL_LEFT || channel == CHANNEL_STEREO || Signal->Blocks[block].channel == CHANNEL_MONO)
+				if(channel == CHANNEL_LEFT || channel == CHANNEL_STEREO
+					|| Signal->Blocks[block].channel == CHANNEL_MONO
+					|| Signal->Blocks[block].channel == CHANNEL_NOISE)
 				{
 					if(Signal->Blocks[block].freq[i].hertz && Signal->Blocks[block].freq[i].amplitude > significant)
 					{
@@ -4145,7 +4147,9 @@ void PlotTimeSpectrogramUnMatchedContent(AudioSignal *Signal, char channel, para
 
 			for(i = config->MaxFreq-1; i >= 0; i--)
 			{
-				if(channel == CHANNEL_LEFT || channel == CHANNEL_STEREO || Signal->Blocks[block].channel == CHANNEL_MONO)
+				if(channel == CHANNEL_LEFT || channel == CHANNEL_STEREO
+					|| Signal->Blocks[block].channel == CHANNEL_MONO 
+					|| Signal->Blocks[block].channel == CHANNEL_NOISE)
 				{
 					if(Signal->Blocks[block].freq[i].hertz && !Signal->Blocks[block].freq[i].matched
 						&& Signal->Blocks[block].freq[i].amplitude > significant)

@@ -3247,8 +3247,8 @@ void PrintComparedBlocks(AudioBlocks *ReferenceArray, AudioBlocks *ComparedArray
 			match = ReferenceArray->freq[j].matched - 1;
 			if(match != -1)
 			{
-				if(ReferenceArray->freq[j].amplitude == 
-				ComparedArray->freq[match].amplitude)
+				if(areDoublesEqual(ReferenceArray->freq[j].amplitude, 
+									ComparedArray->freq[match].amplitude))
 					logmsgFileOnly("FA");
 				else
 					logmsgFileOnly("F-");
@@ -3285,8 +3285,8 @@ void PrintComparedBlocks(AudioBlocks *ReferenceArray, AudioBlocks *ComparedArray
 				match = ReferenceArray->freqRight[j].matched - 1;
 				if(match != -1)
 				{
-					if(ReferenceArray->freqRight[j].amplitude == 
-					ComparedArray->freqRight[match].amplitude)
+					if(areDoublesEqual(ReferenceArray->freqRight[j].amplitude,
+										ComparedArray->freqRight[match].amplitude))
 						logmsgFileOnly("FA");
 					else
 						logmsgFileOnly("F-");

@@ -520,7 +520,8 @@ long int AdjustPulseSampleStart(char *Samples, wav_hdr header, long int offset, 
 
 	targetFrequency = FindFrequencyBracketForSync(frequency,
 						bytesNeeded/2, AudioChannels, header.fmt.SamplesPerSec, config);
-	logmsgFileOnly("\nGot %ld, looking for %g bytes %d\n", offset, targetFrequency, bytesNeeded);
+	if(config->debugSync)
+		logmsgFileOnly("\nGot %ld, looking for %g bytes %d\n", offset, targetFrequency, bytesNeeded);
 	buffer = (char*)malloc(bytesNeeded);
 	if(!buffer)
 	{
@@ -568,7 +569,8 @@ long int AdjustPulseSampleStart(char *Samples, wav_hdr header, long int offset, 
 			double diff = 0;
 	
 			diff = fabs(0 - pulseArray[pos].phase);
-			logmsgFileOnly("Bytes: %ld %gHz Mag %g Phase %g diff: %g\n",
+			if(config->debugSync)
+				logmsgFileOnly("Bytes: %ld %gHz Mag %g Phase %g diff: %g\n",
 					pulseArray[pos].bytes, pulseArray[pos].hertz, pulseArray[pos].magnitude, pulseArray[pos].phase, diff);
 			if(diff < minDiff)
 			{
@@ -581,7 +583,8 @@ long int AdjustPulseSampleStart(char *Samples, wav_hdr header, long int offset, 
 	if(minDiffPos != -1)
 	{
 		foundPos = pulseArray[minDiffPos].bytes;
-		logmsgFileOnly("FOUND: %ld Bytes: %ld %gHz Mag %g Phase %g diff: %g\n",
+		if(config->debugSync)
+			logmsgFileOnly("FOUND: %ld Bytes: %ld %gHz Mag %g Phase %g diff: %g\n",
 				minDiffPos, pulseArray[minDiffPos].bytes, pulseArray[minDiffPos].hertz, pulseArray[minDiffPos].magnitude, pulseArray[minDiffPos].phase, minDiff);
 	}
 
@@ -653,7 +656,8 @@ long int DetectPulseInternal(char *Samples, wav_hdr header, int factor, long int
 						millisecondSize/2, AudioChannels, header.fmt.SamplesPerSec, config);
 		targetFrequencyHarmonic[1] = FindFrequencyBracketForSync(targetFrequency*3,
 						millisecondSize/2, AudioChannels, header.fmt.SamplesPerSec, config);
-		logmsgFileOnly("\n - Using %gHz and harmonics %g/%gHz for sync detection\n", 
+		if(config->debugSync)
+			logmsgFileOnly("\n - Using %gHz and harmonics %g/%gHz for sync detection\n", 
 				targetFrequency, targetFrequencyHarmonic[0], targetFrequencyHarmonic[1]);
 	}
 		

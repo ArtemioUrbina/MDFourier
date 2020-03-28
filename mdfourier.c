@@ -1384,12 +1384,20 @@ int ExecuteDFFTInternal(AudioBlocks *AudioArray, int16_t *samples, size_t size, 
 	return(1);
 }
 
-int CalculateMaxCompare(int block, AudioSignal *Signal, parameters *config)
+int CalculateMaxCompare(int block, AudioSignal *Signal, double significant, char channel, parameters *config)
 {
-	double	limit = 0;
-	int		posFound = -1;
+	double		limit = 0;
+	Frequency	*freqCheck = NULL;
 
-	limit = config->significantAmplitude;
+	if(channel == CHANNEL_LEFT)
+		freqCheck = Signal->Blocks[block].freq;
+	else
+		freqCheck = Signal->Blocks[block].freqRight;
+
+	if(!freqCheck)
+		return 0;
+
+	limit = significant;
 
 	if(Signal->role == ROLE_COMP)
 		limit += -20;	// Allow going 20 dbfs "deeper"
@@ -1397,51 +1405,14 @@ int CalculateMaxCompare(int block, AudioSignal *Signal, parameters *config)
 	for(int freq = 0; freq < config->MaxFreq; freq++)
 	{
 		/* Out of valid frequencies */
-		if(!Signal->Blocks[block].freq[freq].hertz)
-		{
-			posFound = freq;
-			break;
-		}
+		if(!freqCheck[freq].hertz)
+			return(freq);
 
 		/* Amplitude is too low */
-		if(Signal->Blocks[block].freq[freq].amplitude <= limit)
-		{
-			posFound = freq;
-			break;
-		}
+		if(freqCheck[freq].amplitude <= limit)
+			return(freq);
 	}
 
-	if(Signal->Blocks[block].freqRight)
-	{
-		for(int freq = 0; freq < config->MaxFreq; freq++)
-		{
-			/* Out of valid frequencies */
-			if(!Signal->Blocks[block].freqRight[freq].hertz)
-			{
-				if(posFound == -1)
-					return freq;
-
-				if(posFound > freq)
-					return freq;
-
-				break;
-			}
-	
-			/* Amplitude is too low */
-			if(Signal->Blocks[block].freqRight[freq].amplitude <= limit)
-			{
-				if(posFound == -1)
-					return freq;
-
-				if(posFound > freq)
-					return freq;
-				break;
-			}
-		}
-	}
-
-	if(posFound != -1)  // Is left channel data available?
-		return posFound;
 	return config->MaxFreq;
 }
 
@@ -1458,6 +1429,12 @@ int CompareFrequencies(AudioSignal *ReferenceSignal, AudioSignal *ComparisonSign
 	{
 		freqRef = ReferenceSignal->Blocks[block].freqRight;
 		freqComp = ComparisonSignal->Blocks[block].freqRight;
+	}
+
+	if(!freqRef || !freqComp)
+	{
+		logmsg("Internal consistency failure, please send error log (invalid channel)\n");
+		return 0;
 	}
 
 	for(int freq = 0; freq < refSize; freq++)
@@ -1542,7 +1519,7 @@ int CompareAudioBlocks(AudioSignal *ReferenceSignal, AudioSignal *ComparisonSign
 
 	for(block = 0; block < config->types.totalBlocks; block++)
 	{
-		char	channel = CHANNEL_LEFT;
+		char	channel = CHANNEL_MONO;
 		int 	refSize = 0, testSize = 0, type = 0;
 
 		/* Ignore Control blocks */
@@ -1558,34 +1535,8 @@ int CompareAudioBlocks(AudioSignal *ReferenceSignal, AudioSignal *ComparisonSign
 		if(type < TYPE_CONTROL)
 			continue;
 
-		if(type != TYPE_SILENCE)
-		{
-			refSize = CalculateMaxCompare(block, ReferenceSignal, config);
-			testSize = CalculateMaxCompare(block, ComparisonSignal, config);
-			/*
-			if(refSize == 0)
-			{
-				if(!warn)
-					logmsg("\n");
-				logmsg("WARNING: Reference %s# %ld (%ld) was below the Noise Floor\n", GetBlockName(config, block), GetBlockSubIndex(config, block), block);
-				config->noiseFloorTooHigh |= ComparisonSignal->role;
-				warn = 1;
-			}
-			if(testSize == 0)
-			{
-				if(!warn)
-					logmsg("\n");
-				logmsg("WARNING: Comparison %s# %ld (%ld) was below the Noise Floor\n", GetBlockName(config, block), GetBlockSubIndex(config, block), block);
-				config->noiseFloorTooHigh |= ComparisonSignal->role;
-				warn = 1;
-			}
-			*/
-		}
-		else
-		{
-			refSize = config->MaxFreq;
-			testSize = config->MaxFreq;
-		}
+		refSize = CalculateMaxCompare(block, ReferenceSignal, type != TYPE_SILENCE ? config->significantAmplitude : SILENCE_LIMIT, CHANNEL_LEFT, config);
+		testSize = CalculateMaxCompare(block, ComparisonSignal, type != TYPE_SILENCE ? config->significantAmplitude : SILENCE_LIMIT, CHANNEL_LEFT, config);
 
 		if(config->verbose)
 		{
@@ -1599,6 +1550,9 @@ int CompareAudioBlocks(AudioSignal *ReferenceSignal, AudioSignal *ComparisonSign
 
 		if(channel == CHANNEL_STEREO)
 		{
+			refSize = CalculateMaxCompare(block, ReferenceSignal, type != TYPE_SILENCE ? config->significantAmplitude : SILENCE_LIMIT, CHANNEL_RIGHT, config);
+			testSize = CalculateMaxCompare(block, ComparisonSignal, type != TYPE_SILENCE ? config->significantAmplitude : SILENCE_LIMIT, CHANNEL_RIGHT, config);
+	
 			if(!CompareFrequencies(ReferenceSignal, ComparisonSignal, CHANNEL_RIGHT, block, refSize, testSize, config))
 				return 0;
 		}

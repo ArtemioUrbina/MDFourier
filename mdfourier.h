@@ -100,6 +100,8 @@
 #define END_HZ		20000.0
 #define MAX_HZ		192000.0
 
+#define SILENCE_LIMIT	-220  //dBFS
+
 #define START_HZ_PLOT	0
 
 #define DB_HEIGHT	18.0
