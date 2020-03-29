@@ -746,13 +746,19 @@ int EndProfileLoad(parameters *config)
 	return 1;
 }
 
-int CheckChannel(char channel)
+int CheckChannel(char *channel, parameters *config)
 {
-	if(channel == CHANNEL_MONO)
+	if(*channel == CHANNEL_MONO)
 		return 1;
-	if(channel == CHANNEL_STEREO)
+	if(*channel == CHANNEL_STEREO)
 		return 1;
-	if(channel == CHANNEL_NOISE)
+	if(*channel == CHANNEL_PSTEREO)
+	{
+		config->allowStereoVsMono = 1;
+		*channel = CHANNEL_STEREO;
+		return 1;
+	}
+	if(*channel == CHANNEL_NOISE)
 		return 1;
 	return 0;
 }
@@ -1016,7 +1022,7 @@ int LoadAudioBlockStructure(FILE *file, parameters *config)
 			}
 			config->types.typeArray[i].cutFrames = abs(config->types.typeArray[i].cutFrames);
 
-			if(!CheckChannel(config->types.typeArray[i].channel))
+			if(!CheckChannel(&config->types.typeArray[i].channel, config))
 			{
 				logmsg("ERROR: Invalid MD Fourier Audio Blocks File\n(Element Count, frames, skip, color, *channel*): %s\n", lineBuffer);
 				fclose(file);

@@ -125,10 +125,11 @@
 #define	ROLE_REF	1
 #define	ROLE_COMP	2
 
-#define CHANNEL_NONE	'-'
-#define	CHANNEL_MONO	'm'
-#define	CHANNEL_STEREO	's'
-#define	CHANNEL_NOISE	'n'
+#define CHANNEL_NONE	'-'	//Invalid state
+#define	CHANNEL_MONO	'm'	//Is mono, used for balance
+#define	CHANNEL_STEREO	'S'	//Requires Stereo
+#define	CHANNEL_PSTEREO	's'	//Allows mono vs Stereo
+#define	CHANNEL_NOISE	'n'	//Allows "deeper" fundamental frequency noise analysis
 
 #define CHANNEL_LEFT	'l'
 #define CHANNEL_RIGHT	'r'
@@ -175,7 +176,7 @@
 #define M_PI 3.1415926535897932384626433832795
 #endif
 
-#define	PROFILE_VER		2.1
+#define	PROFILE_VER		2.2
 #define	MAX_SYNC		10
 
 #define	FREQDOMTRIES	10
@@ -532,6 +533,7 @@ typedef struct parameters_st {
 	int				smallFile;
 	int				syncTolerance;
 	int				usesStereo;
+	int				allowStereoVsMono;
 	double			AmpBarRange;
 	int				FullTimeSpectroScale;
 	int				hasTimeDomain;

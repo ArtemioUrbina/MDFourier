@@ -670,9 +670,9 @@ int LoadAndProcessAudioFiles(AudioSignal **ReferenceSignal, AudioSignal **Compar
 					logmsg(" - Mono block used for balance: %s# %d\n", 
 						GetBlockName(config, block), GetBlockSubIndex(config, block));
 				}
-				if(!CheckBalance(*ReferenceSignal, block, config))
+				if(CheckBalance(*ReferenceSignal, block, config) == 0)
 					return 0;
-				if(!CheckBalance(*ComparisonSignal, block, config))
+				if(CheckBalance(*ComparisonSignal, block, config) == 0)
 					return 0;
 			}
 			else

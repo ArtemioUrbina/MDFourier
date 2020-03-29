@@ -1,18 +1,18 @@
-MDFourierAudioBlockFile 2.1
-MDF: Equipment Test 44.1/48khz
+MDFourierAudioBlockFile 2.2
+MDF: Equipment Test 48/44.1khz
 1
 Audio 13.33333 0 8000 11 13
 CLK n
 13
 Sync s 1 26 0 red m
 Silence n 1 24 0 gray m
-Sine_sweep 1 150 10 0 green s
+Sine_sweep 1 150 10 0 green S
     PAD k 1 30 0 red m
-Pulse_sweep 2 150 10 0 yellow s
+Pulse_sweep 2 150 10 0 yellow S
     PAD k 1 30 0 red m
-White_Noise 3 30 10 0 aqua m
+White_Noise 3 30 10 0 aqua n
     PAD k 1 30 0 red m
-Pink_Noise 4 30 10 0 magenta m
+Pink_Noise 4 30 10 0 magenta n
     PAD k 1 90 0 red m
 Fade 5 30 10 0 orange m
 Silence n 1 25 0 gray m

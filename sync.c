@@ -940,7 +940,7 @@ long int DetectSignalStartInternal(char *Samples, wav_hdr header, int factor, lo
 		/* we go stereo, any signal is fine here */
 		ProcessChunkForSyncPulse((int16_t*)buffer, loadedBlockSize/2, 
 				header.fmt.SamplesPerSec, &pulseArray[i], 
-				's', AudioChannels, config);
+				CHANNEL_LEFT, AudioChannels, config);
 		if(pulseArray[i].magnitude > MaxMagnitude)
 			MaxMagnitude = pulseArray[i].magnitude;
 		i++;
@@ -978,10 +978,12 @@ long int DetectSignalStartInternal(char *Samples, wav_hdr header, int factor, lo
 	{
 		targetFrequency = FindFrequencyBracketForSync(syncKnown, 
 					millisecondSize/2, AudioChannels, header.fmt.SamplesPerSec, config);
+		/*
 		targetFrequencyHarmonic[0] = FindFrequencyBracketForSync(syncKnown*2, 
 					millisecondSize/2, AudioChannels, header.fmt.SamplesPerSec, config);
 		targetFrequencyHarmonic[1] = FindFrequencyBracketForSync(syncKnown*3, 
 					millisecondSize/2, AudioChannels, header.fmt.SamplesPerSec, config);
+		*/
 		averageAmplitude = findAverageAmplitudeForTarget(pulseArray, targetFrequency, targetFrequencyHarmonic, TotalMS, start, factor, config);
 	}
 
@@ -1000,9 +1002,9 @@ long int DetectSignalStartInternal(char *Samples, wav_hdr header, int factor, lo
 			if(syncKnown)
 			{
 				if(pulseArray[i].amplitude > averageAmplitude &&
-					(pulseArray[i].hertz == targetFrequency ||
+					pulseArray[i].hertz == targetFrequency) /* ||
 					pulseArray[i].hertz == targetFrequencyHarmonic[0] ||
-					pulseArray[i].hertz == targetFrequencyHarmonic[1]))  // harmonic
+					pulseArray[i].hertz == targetFrequencyHarmonic[1]))  // harmonic */
 				{
 					if(offset == -1)
 						offset = pulseArray[i].bytes;

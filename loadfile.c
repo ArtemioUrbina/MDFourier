@@ -459,9 +459,13 @@ int AdjustSignalValues(AudioSignal *Signal, parameters *config)
 
 	if(config->usesStereo && Signal->AudioChannels != 2)
 	{
-		logmsg("ERROR: Profile requests Stereo and file is Mono\n");
-		config->stereoNotFound = 1;
-		return 0;
+		logmsg(" - ERROR: Profile requests Stereo and file is Mono\n");
+		if(!config->allowStereoVsMono)
+		{
+			config->stereoNotFound |= Signal->role;
+			return 0;
+		}
+		logmsg(" - Enabling Mono vs Stereo compare mode\n");
 	}
 	return 1;
 }
@@ -679,8 +683,11 @@ int ProcessInternal(AudioSignal *Signal, long int element, long int pos, int *sy
 				}
 				else
 				{
-					logmsg(" - WARNING: Internal Sync too short. Got %ld] expected %ld\n", 
-						pulseLengthBytes, silenceLengthBytes);
+					logmsg(" - WARNING: Internal Sync too short.");
+					if(config->verbose)
+						logmsg(" Got %ld expected %ld\n", 
+							pulseLengthBytes, silenceLengthBytes);
+					logmsg("\n");
 				}
 				//silenceLengthBytes = syncLengthBytes - pulseLengthBytes;
 			}

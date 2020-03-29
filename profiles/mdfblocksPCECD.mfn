@@ -1,4 +1,4 @@
-MDFourierAudioBlockFile 2.1
+MDFourierAudioBlockFile 2.2
 NEC: PC Engine/Turbo Grafx-16 + CD-ROM2
 2
 NTSC 16.7145 262 8606 14 10
@@ -7,14 +7,14 @@ CLK n
 13
 Sync s 1 20 0 red m
 Silence n 1 20 0 gray m
-PSG 1 34 20 0 yellow s
+PSG 1 68 10 0 yellow S        ;twice each note since there are few (34 20)
 Noise 2 5 40 0 aqua n
 Silence n 1 20 0 gray m
 Sync s 1 20 0 red m
 Wait k 1 4 0 red m
 ADSTART k 1 1 0 red m
-ADPCM 4 28 10 0 magenta m
+ADPCM 4 56 5 0 magenta m      ;twice each note since there are few (28 10)
 ADEND k 1 2 0 red m
 CD-ROM I 1 1 red m 8000 0.300
-CD-DA 3 60 10 0 orange s
+CD-DA 3 120 5 0 orange S
 CD-ROM I 1 1 red m 0 0

@@ -52,7 +52,10 @@ int CheckBalance(AudioSignal *Signal, int block, parameters *config)
 	{
 		logmsg(" - %s signal is mono\n",
 			Signal->role == ROLE_REF ? "Reference" : "Comparison");
-		return 0;
+		if(config->allowStereoVsMono)
+			return -1;
+		else
+			return 0;
 	}
 
 	memset(&Channels, 0, sizeof(AudioBlocks)*2);

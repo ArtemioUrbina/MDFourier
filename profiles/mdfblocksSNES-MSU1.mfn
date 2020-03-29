@@ -1,4 +1,4 @@
-MDFourierAudioBlockFile 2.1
+MDFourierAudioBlockFile 2.2
 Nintendo: Super Famicom/Super Nintendo B3 + MSU-1
 2
 NTSC 16.6392 262 8012 14 10
@@ -7,10 +7,10 @@ APU y 54 8000 4
 9
 Sync s 1 20 0 red m
 Silence n 1 20 0 gray m
-SPC700 1 120 10 -5 magenta s
+SPC700 1 120 10 -5 magenta m
 Silence n 1 20 0 gray m
 Sync s 1 20 0 red m
 Wait k 1 4 0 red m
 MSU-Command i 1 2 red m 8000 0.300
-MSU-1 5 68 10 0 orange s
+MSU-1 5 68 10 0 orange m
 MSU-Command i 1 2 red m 0 0

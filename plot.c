@@ -61,7 +61,7 @@
 
 #define DIFFERENCE_TITLE			"DIFFERENT AMPLITUDES [%s]"
 #define DIFFERENCE_TITLE_LEFT		"DIFFERENT AMPLITUDES LEFT CHANNEL [%s]"
-#define DIFFERENCE_TITLE_RIGHT		"DIFFERENT AMPLITUDES RIGHT CHANNEL[%s]"
+#define DIFFERENCE_TITLE_RIGHT		"DIFFERENT AMPLITUDES RIGHT CHANNEL [%s]"
 #define EXTRA_TITLE_TS_REF			"Comparison - MISSING FREQUENCIES - Time Spectrogram [%s] (Expected in Comparison)"
 #define EXTRA_TITLE_TS_REF_LEFT		"Comparison - MISSING FREQUENCIES LEFT CHANNEL - Time Spectrogram [%s] (Expected in Comparison)"
 #define EXTRA_TITLE_TS_REF_RIGHT	"Comparison - MISSING FREQUENCIES RIGHT CHANNEL - Time Spectrogram [%s] (Expected in Comparison)"
@@ -76,7 +76,7 @@
 #define SPECTROGRAM_TITLE_COM_RIGHT	"Comparison - SPECTROGRAM RIGHT CHANNEL [%s]"
 #define TSPECTROGRAM_TITLE_REF		"Reference - TIME SPECTROGRAM [%s]"
 #define TSPECTROGRAM_TITLE_REF_LFT	"Reference - TIME SPECTROGRAM LEFT CHANNEL [%s]"
-#define TSPECTROGRAM_TITLE_REF_RGHT	"Reference - TIME SPECTROGRAM RIGHT CHANNEL[%s]"
+#define TSPECTROGRAM_TITLE_REF_RGHT	"Reference - TIME SPECTROGRAM RIGHT CHANNEL [%s]"
 #define TSPECTROGRAM_TITLE_COM		"Comparison - TIME SPECTROGRAM [%s]"
 #define TSPECTROGRAM_TITLE_COM_LFT	"Comparison - TIME SPECTROGRAM LEFT CHANNEL [%s]"
 #define TSPECTROGRAM_TITLE_COM_RGHT	"Comparison - TIME SPECTROGRAM RIGHT CHANNEL [%s]"
@@ -85,7 +85,7 @@
 #define NOISE_AVG_TITLE				"NOISE FLOOR AVERAGED"
 #define SPECTROGRAM_NOISE_REF		"Reference NOISE FLOOR - Spectrogram [%s]"
 #define SPECTROGRAM_NOISE_COM		"Comparison NOISE FLOOR - Spectrogram [%s]"
-#define WAVEFORM_TITLE_REF			"Reference - WAVEFORM[%s]"
+#define WAVEFORM_TITLE_REF			"Reference - WAVEFORM [%s]"
 #define WAVEFORM_TITLE_COM			"Comparison - WAVEFORM [%s]"
 #define PHASE_DIFF_TITLE			"PHASE DIFFERENCE [%s]"
 #define PHASE_DIFF_TITLE_LEFT		"PHASE DIFFERENCE LEFT CHANNEL [%s]"
@@ -251,15 +251,21 @@ void PlotResults(AudioSignal *ReferenceSignal, AudioSignal *ComparisonSignal, pa
 				if(!returnFolder)
 					return;
 
-				PlotTimeSpectrogramUnMatchedContent(ReferenceSignal, CHANNEL_LEFT, config);
-				logmsg(PLOT_ADVANCE_CHAR);
-				PlotTimeSpectrogramUnMatchedContent(ComparisonSignal, CHANNEL_LEFT, config);
-				logmsg(PLOT_ADVANCE_CHAR);
+				if(ReferenceSignal->AudioChannels == 2)
+				{
+					PlotTimeSpectrogramUnMatchedContent(ReferenceSignal, CHANNEL_LEFT, config);
+					logmsg(PLOT_ADVANCE_CHAR);
+					PlotTimeSpectrogramUnMatchedContent(ReferenceSignal, CHANNEL_RIGHT, config);
+					logmsg(PLOT_ADVANCE_CHAR);
+				}
 
-				PlotTimeSpectrogramUnMatchedContent(ReferenceSignal, CHANNEL_RIGHT, config);
-				logmsg(PLOT_ADVANCE_CHAR);
-				PlotTimeSpectrogramUnMatchedContent(ComparisonSignal, CHANNEL_RIGHT, config);
-				logmsg(PLOT_ADVANCE_CHAR);
+				if(ComparisonSignal->AudioChannels == 2)
+				{
+					PlotTimeSpectrogramUnMatchedContent(ComparisonSignal, CHANNEL_LEFT, config);
+					logmsg(PLOT_ADVANCE_CHAR);
+					PlotTimeSpectrogramUnMatchedContent(ComparisonSignal, CHANNEL_RIGHT, config);
+					logmsg(PLOT_ADVANCE_CHAR);
+				}
 
 				ReturnToMainPath(&returnFolder);
 			}
@@ -300,15 +306,20 @@ void PlotResults(AudioSignal *ReferenceSignal, AudioSignal *ComparisonSignal, pa
 			if(!returnFolder)
 				return;
 
-			PlotTimeSpectrogram(ReferenceSignal, CHANNEL_LEFT, config);
-			logmsg(PLOT_ADVANCE_CHAR);
-			PlotTimeSpectrogram(ComparisonSignal, CHANNEL_LEFT, config);
-			logmsg(PLOT_ADVANCE_CHAR);
-
-			PlotTimeSpectrogram(ReferenceSignal, CHANNEL_RIGHT, config);
-			logmsg(PLOT_ADVANCE_CHAR);
-			PlotTimeSpectrogram(ComparisonSignal, CHANNEL_RIGHT, config);
-			logmsg(PLOT_ADVANCE_CHAR);
+			if(ReferenceSignal->AudioChannels == 2)
+			{
+				PlotTimeSpectrogram(ReferenceSignal, CHANNEL_LEFT, config);
+				logmsg(PLOT_ADVANCE_CHAR);
+				PlotTimeSpectrogram(ReferenceSignal, CHANNEL_RIGHT, config);
+				logmsg(PLOT_ADVANCE_CHAR);
+			}
+			if(ComparisonSignal->AudioChannels == 2)
+			{
+				PlotTimeSpectrogram(ComparisonSignal, CHANNEL_LEFT, config);
+				logmsg(PLOT_ADVANCE_CHAR);
+				PlotTimeSpectrogram(ComparisonSignal, CHANNEL_RIGHT, config);
+				logmsg(PLOT_ADVANCE_CHAR);
+			}
 
 			ReturnToMainPath(&returnFolder);
 		}
@@ -1517,6 +1528,7 @@ void DrawLabelsMDF(PlotFile *plot, char *Gname, char *GType, int type, parameter
 	if(config->channelWithLowFundamentals)
 	{
 		PLOT_COLUMN(4, 3);
+		pl_pencolor_r(plot->plotter, 0, 0xeeee, 0xeeee);
 		pl_alabel_r(plot->plotter, 'l', 'l', "Low Fundamentals present");
 	}
 
@@ -2240,9 +2252,10 @@ void PlotAllDifferentAmplitudes(FlatAmplDifference *amplDiff, long int size, cha
 
 int PlotEachTypeDifferentAmplitudes(FlatAmplDifference *amplDiff, long int size, char *filename, parameters *config)
 {
-	int 		i = 0, type = 0, types = 0, typeCount = 0;
+	int 		i = 0, type = 0, types = 0, typeCount = 0, bothStereo = 0;
 	char		name[BUFFER_SIZE];
 
+	bothStereo = config->referenceSignal->AudioChannels == 2 && config->comparisonSignal->AudioChannels == 2;
 	typeCount = GetActiveBlockTypesNoRepeat(config);
 	for(i = 0; i < config->types.typeCount; i++)
 	{
@@ -2264,7 +2277,7 @@ int PlotEachTypeDifferentAmplitudes(FlatAmplDifference *amplDiff, long int size,
 			PlotSingleTypeDifferentAmplitudes(amplDiff, size, type, name, CHANNEL_STEREO, config);
 			logmsg(PLOT_ADVANCE_CHAR);
 
-			if(config->types.typeArray[i].channel == CHANNEL_STEREO)
+			if(config->types.typeArray[i].channel == CHANNEL_STEREO && bothStereo)
 			{
 				sprintf(name, "DA_%s_%02d%s_%c", filename, 
 					type, config->types.typeArray[i].typeName, CHANNEL_LEFT);
@@ -2489,7 +2502,7 @@ int PlotEachTypeSpectrogram(FlatFrequency *freqs, long int size, char *filename,
 			PlotSingleTypeSpectrogram(freqs, size, type, name, signal, CHANNEL_STEREO, config);			
 			logmsg(PLOT_ADVANCE_CHAR);
 
-			if(config->types.typeArray[i].channel == CHANNEL_STEREO)
+			if(config->types.typeArray[i].channel == CHANNEL_STEREO && Signal->AudioChannels == 2)
 			{
 				sprintf(name, "SP_%c_%s_%02d%s_%c", signal == ROLE_REF ? 'A' : 'B', filename, 
 						config->types.typeArray[i].type, config->types.typeArray[i].typeName, 
@@ -4837,9 +4850,10 @@ void PlotAllPhase(FlatPhase *phaseDiff, long int size, char *filename, int pType
 
 int PlotEachTypePhase(FlatPhase *phaseDiff, long int size, char *filename, int pType, parameters *config)
 {
-	int 		i = 0, type = 0, types = 0, typeCount = 0;
+	int 		i = 0, type = 0, types = 0, typeCount = 0, bothStereo = 0;
 	char		name[BUFFER_SIZE];
 
+	bothStereo = config->referenceSignal->AudioChannels == 2 && config->comparisonSignal->AudioChannels == 2;
 	typeCount = GetActiveBlockTypesNoRepeat(config);
 	for(i = 0; i < config->types.typeCount; i++)
 	{
@@ -4856,7 +4870,7 @@ int PlotEachTypePhase(FlatPhase *phaseDiff, long int size, char *filename, int p
 					return 0;
 			}
 
-			if(config->types.typeArray[i].channel == CHANNEL_STEREO)
+			if(config->types.typeArray[i].channel == CHANNEL_STEREO && bothStereo)
 			{
 				if(pType == PHASE_DIFF)
 					sprintf(name, "PHASE_DIFF_%s_%02d%s_%c", filename, 

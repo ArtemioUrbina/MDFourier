@@ -1,4 +1,4 @@
-MDFourierAudioBlockFile 2.1
+MDFourierAudioBlockFile 2.2
 SEGA: Mega Drive/Sega Genesis
 2
 NTSC 16.688 262 8820 14 10
@@ -7,7 +7,7 @@ CLK n
 8
 Sync s 1 20 0 red m
 Silence n 1 20 0 gray m
-FM 1 96 20 0 green s
+FM 1 96 20 0 green S
 SPSG 2 40 20 -1 yellow m
 SPSG_Ramp 2 40 10 0 yellow m
 Noise 3 16 20 -1 aqua m
