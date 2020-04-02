@@ -1,9 +1,9 @@
 /* 
  * MDFourier
- * A Fourier Transform analysis tool to compare different 
- * Sega Genesis/Mega Drive audio hardware revisions.
+ * A Fourier Transform analysis tool to compare game console audio
+ * http://junkerhq.net/MDFourier/
  *
- * Copyright (C)2019 Artemio Urbina
+ * Copyright (C)2019-2020 Artemio Urbina
  *
  * This file is part of the 240p Test Suite
  *
@@ -23,6 +23,7 @@
  *
  * Requires the FFTW library: 
  *	  http://www.fftw.org/
+ * 
  */
 
 #include "mdfourier.h"

@@ -1,10 +1,9 @@
 /* 
  * MDFourier
- * A Fourier Transform analysis tool to compare different 
- * Sega Genesis/Mega Drive audio hardware revisions, and
- * other hardware in the future
+ * A Fourier Transform analysis tool to compare game console audio
+ * http://junkerhq.net/MDFourier/
  *
- * Copyright (C)2019 Artemio Urbina
+ * Copyright (C)2019-2020 Artemio Urbina
  *
  * This file is part of the 240p Test Suite
  *
@@ -37,6 +36,7 @@
 #include "sync.h"
 #include "balance.h"
 #include "loadfile.h"
+#include "profile.h"
 
 int LoadAndProcessAudioFiles(AudioSignal **ReferenceSignal, AudioSignal **ComparisonSignal, parameters *config);
 int ProcessSignal(AudioSignal *Signal, parameters *config);

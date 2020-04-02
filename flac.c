@@ -1,25 +1,34 @@
-/* example_c_decode_file - Simple FLAC file decoder using libFLAC
- * Copyright (C) 2007-2009	Josh Coalson
- * Copyright (C) 2011-2016	Xiph.Org Foundation
+/* 
+ * MDFourier
+ * A Fourier Transform analysis tool to compare game console audio
+ * http://junkerhq.net/MDFourier/
  *
- * This program is free software; you can redistribute it and/or
- * modify it under the terms of the GNU General Public License
- * as published by the Free Software Foundation; either version 2
- * of the License, or (at your option) any later version.
+ * Copyright (C)2019-2020 Artemio Urbina
  *
- * This program is distributed in the hope that it will be useful,
+ * This file is part of the 240p Test Suite
+ *
+ * You can redistribute it and/or modify
+ * it under the terms of the GNU General Public License as published by
+ * the Free Software Foundation; either version 2 of the License, or
+ * (at your option) any later version.
+ *
+ * This software is distributed in the hope that it will be useful,
  * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.	See the
  * GNU General Public License for more details.
  *
- * You should have received a copy of the GNU General Public License along
- * with this program; if not, write to the Free Software Foundation, Inc.,
- * 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA.
+ * You should have received a copy of the GNU General Public License
+ * along with this software; if not, write to the Free Software
+ * Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA	02111-1307	USA
+ *
+ * Requires the FFTW library: 
+ *	  http://www.fftw.org/
+ * 
  */
 
 /*
- * This example shows how to use libFLAC to decode a FLAC file to a WAVE
- * file.  It only supports 16-bit stereo files.
+ * This implements libFLAC to decode a FLAC file to a data structure in RAM
+ * It only supports 16-bit stereo files.
  *
  * Complete API documentation can be found at:
  *	 http://xiph.org/flac/api/

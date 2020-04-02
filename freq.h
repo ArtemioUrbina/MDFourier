@@ -1,10 +1,9 @@
 /* 
  * MDFourier
- * A Fourier Transform analysis tool to compare different 
- * Sega Genesis/Mega Drive audio hardware revisions, and
- * other hardware in the future
+ * A Fourier Transform analysis tool to compare game console audio
+ * http://junkerhq.net/MDFourier/
  *
- * Copyright (C)2019 Artemio Urbina
+ * Copyright (C)2019-2020 Artemio Urbina
  *
  * This file is part of the 240p Test Suite
  *
@@ -32,17 +31,11 @@
 
 #include "mdfourier.h"
 
-#define LINE_BUFFER_SIZE	1024
-#define PARAM_BUFFER_SIZE	512
-
 //#define roundFloat(number) RoundFloat(number, 4)
 #define roundFloat(number) number
-#define readLine(buffer, file) if(fgets(buffer, LINE_BUFFER_SIZE, file) == NULL) { 	logmsg("Invalid Profile file (File ended prematurely)\n");	return 0;	} else { 	buffer[strcspn(buffer, "\r\n")] = '\0'; }
 
 int areDoublesEqual(double a, double b);
 
-int LoadProfile(parameters *config);
-int EndProfileLoad(parameters *config);
 int LoadAudioBlockStructure(FILE *file, parameters *config);
 int LoadAudioNoSyncProfile(FILE *file, parameters *config);
 int GetFirstSilenceIndex(parameters *config);
@@ -85,7 +78,6 @@ char GetBlockChannel(parameters *config, int pos);
 char GetTypeChannel(parameters *config, int type);
 void CleanName(char *name, char *display);
 int MatchesPreviousType(int pos, int type, parameters *config);
-void SelectSilenceProfile(parameters *config);
 void CheckSilenceOverride(parameters *config);
 int ConvertAudioTypeForProcessing(int type, parameters *config);
 
