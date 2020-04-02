@@ -33,10 +33,10 @@ executable: mdfourier mdwave
 debug: CCFLAGS += -DDEBUG -g
 debug: executable
 
-mdfourier: sync.o freq.o windows.o log.o diff.o cline.o plot.o balance.o incbeta.o loadfile.o flac.o mdfourier.o 
+mdfourier: profile.o sync.o freq.o windows.o log.o diff.o cline.o plot.o balance.o incbeta.o loadfile.o flac.o mdfourier.o 
 	$(CC) $(CCFLAGS) -o $@ $^ $(LFLAGS)
 
-mdwave: sync.o freq.o windows.o log.o diff.o cline.o plot.o incbeta.o balance.o loadfile.o flac.o mdwave.o
+mdwave: profile.o sync.o freq.o windows.o log.o diff.o cline.o plot.o incbeta.o balance.o loadfile.o flac.o mdwave.o
 	$(CC) $(CCFLAGS) -o $@ $^ $(LFLAGS)
 
 .c.o:
