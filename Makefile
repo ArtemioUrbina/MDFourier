@@ -20,6 +20,10 @@ static: CCFLAGS = $(EXTRA_MINGW_CFLAGS) $(OPT) $(EXTRA_CFLAGS_STATIC) $(BASE_CCF
 static: LFLAGS = $(EXTRA_MINGW_LFLAGS) $(EXTRA_LFLAGS_STATIC) $(BASE_LFLAGS)
 static: executable
 
+#extra flags for mac
+mac: CCFLAGS = $(BASE_CCFLAGS) $(OPT)
+mac: LFLAGS = $(BASE_LFLAGS) -Wl,-no_compact_unwind -logg
+mac: executable
 
 #extra flags for debug
 debug: CCFLAGS = $(EXTRA_MINGW_CFLAGS) -g $(BASE_CCFLAGS)
