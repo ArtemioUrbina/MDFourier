@@ -661,14 +661,29 @@ int LoadAndProcessAudioFiles(AudioSignal **ReferenceSignal, AudioSignal **Compar
 		if((*ReferenceSignal)->AudioChannels == 2 || (*ComparisonSignal)->AudioChannels == 2)
 		{
 			int block = NO_INDEX;
+			char *name = NULL;
 	
-			block = GetFirstMonoIndex(config);
+			if(config->stereoBalanceBlock)
+			{
+				block = config->stereoBalanceBlock;
+				name = GetBlockName(config, block);
+				if(!name)
+				{
+					logmsg("ERROR: Invalid Mono Balance Block %d\n", block);
+					return 0;
+				}
+			}
+			else
+			{
+				block = GetFirstMonoIndex(config);
+				logmsg("- WARNING: MonoBalanceBlock was 0, Using first Mono Block\n");
+			}
 			if(block != NO_INDEX)
 			{
 				logmsg("\n* Comparing Stereo channel amplitude\n");
 				if(config->verbose) {
 					logmsg(" - Mono block used for balance: %s# %d\n", 
-						GetBlockName(config, block), GetBlockSubIndex(config, block));
+						name, GetBlockSubIndex(config, block));
 				}
 				if(CheckBalance(*ReferenceSignal, block, config) == 0)
 					return 0;

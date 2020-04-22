@@ -1,11 +1,12 @@
-MDFourierAudioBlockFile 2.2
+MDFourierAudioBlockFile 2.3
 Nintendo: GameBoy (v1)
-3
+[VideoModes] 3
 GB 16.7427 308 7990 14 10
 SGB 16.3475 308 7990 14 10
 P-SGB 16.4953 308 7990 14 10
 NULL n
-26
+[MonoBalanceBlock] 48      ;Use 1khz-ish, Pulse_12.5# 46
+[ToneLines] 26
 Sync s 1 20 0 red m
 Silence n 1 20 0 gray m
 Pulse_12.5 1 73 10 0 yellow m

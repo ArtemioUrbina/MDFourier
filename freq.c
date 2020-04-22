@@ -1266,7 +1266,7 @@ char *GetBlockName(parameters *config, int pos)
 	int elementsCounted = 0;
 
 	if(!config)
-		return 0;
+		return NULL;
 
 	for(int i = 0; i < config->types.typeCount; i++)
 	{
@@ -1275,7 +1275,7 @@ char *GetBlockName(parameters *config, int pos)
 			return(config->types.typeArray[i].typeName);
 	}
 	
-	return 0;
+	return NULL;
 }
 
 int GetBlockSubIndex(parameters *config, int pos)

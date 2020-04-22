@@ -1,10 +1,11 @@
-MDFourierAudioBlockFile 2.2
+MDFourierAudioBlockFile 2.3
 Nintendo: Super Famicom/Super Nintendo B3
-2
+[VideoModes] 2
 NTSC 16.6392 262 8012 14 10
 PAL 19.997 313 8012 14 10
 APU y 54 8000 4
-5
+[MonoBalanceBlock] 24      ;Use 1khz-ish, 1khz# 7
+[ToneLines] 5
 Sync s 1 20 0 red m
 Silence n 1 20 0 gray m
 SPC700 1 120 10 -5 magenta m

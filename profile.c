@@ -184,7 +184,7 @@ int CheckChannel(char *channel, parameters *config)
 
 int LoadAudioBlockStructure(FILE *file, parameters *config)
 {
-	int		insideInternal = 0, i = 0, syncCount = 0;
+	int		insideInternal = 0, i = 0, syncCount = 0, lineCount = 8;
 	char	lineBuffer[LINE_BUFFER_SIZE], tmp = '\0';
 	char	buffer[PARAM_BUFFER_SIZE], buffer2[PARAM_BUFFER_SIZE], buffer3[PARAM_BUFFER_SIZE];
 
@@ -201,7 +201,12 @@ int LoadAudioBlockStructure(FILE *file, parameters *config)
 
 	/* Line 3: Profile Frame rates numbers */
 	readLine(lineBuffer, file);
-	sscanf(lineBuffer, "%s\n", buffer);
+	if(sscanf(lineBuffer, "[VideoModes] %s\n", buffer) != 1)
+	{
+		logmsg("ERROR: Invalid Line '%s'\nExpected [VideoModes] N\n", lineBuffer);
+		fclose(file);
+		return 0;
+	}
 	config->types.syncCount = atoi(buffer);
 	if(!config->types.syncCount)
 	{
@@ -295,9 +300,24 @@ int LoadAudioBlockStructure(FILE *file, parameters *config)
 		}
 	}
 
+	/* Stereo Balancing */
+	readLine(lineBuffer, file);
+	if(sscanf(lineBuffer, "[MonoBalanceBlock] %s\n", buffer) != 1)
+	{
+		logmsg("ERROR: Invalid Line '%s'\nExpected [MonoBalanceBlock] N\n", lineBuffer);
+		fclose(file);
+		return 0;
+	}
+	config->stereoBalanceBlock = atoi(buffer);
+
 	/* Type count */
 	readLine(lineBuffer, file);
-	sscanf(lineBuffer, "%s\n", buffer);
+	if(sscanf(lineBuffer, "[ToneLines] %s\n", buffer) != 1)
+	{
+		logmsg("ERROR: Invalid Line '%s'\nExpected [ToneLines] N\n", lineBuffer);
+		fclose(file);
+		return 0;
+	}
 	config->types.typeCount = atoi(buffer);
 	if(!config->types.typeCount)
 	{
@@ -330,7 +350,10 @@ int LoadAudioBlockStructure(FILE *file, parameters *config)
 
 		if(sscanf(lineBuffer, "%*s %c ", &type) != 1)
 		{
-			logmsg("ERROR: Invalid Block Type %c\n", type);
+			if(type)
+				logmsg("ERROR: Invalid Block Type %c\n", type);
+			else
+				logmsg("ERROR: Unexpected profile line %d\n%s\n", lineCount, lineBuffer);
 			fclose(file);
 			return 0;
 		}
@@ -491,6 +514,8 @@ int LoadAudioBlockStructure(FILE *file, parameters *config)
 		}
 		if(config->useExtraData && config->types.typeArray[i].IsaddOnData)
 			config->hasAddOnData ++;
+
+		lineCount++;
 	}
 
 	if(insideInternal)

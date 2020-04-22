@@ -1,10 +1,11 @@
-MDFourierAudioBlockFile 2.2
+MDFourierAudioBlockFile 2.3
 SEGA: DCSG/SMS/GG/SG-1000/ColecoVision v2
-2
+[VideoModes] 2
 NTSC 16.688 262 8820 14 10
 PAL 20.20 313 8820 17 10
 NULL n
-69
+[MonoBalanceBlock] 40      ;Use 1khz-ish, Square# 38
+[ToneLines] 69
 Sync s 1 20 0 red m
 Silence n 1 20 0 gray m
 Square 1 63 10 0 yellow m

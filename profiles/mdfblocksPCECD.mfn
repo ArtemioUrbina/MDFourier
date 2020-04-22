@@ -1,10 +1,11 @@
-MDFourierAudioBlockFile 2.2
+MDFourierAudioBlockFile 2.3
 NEC: PC Engine/Turbo Grafx-16 + CD-ROM2
-2
+[VideoModes] 2
 NTSC 16.7145 262 8606 14 10
 PAL 20 313 8606 17 10
 CLK n
-13
+[MonoBalanceBlock] 63         ;Balance mono. Use 1khz-ish, PSG# 61
+[ToneLines] 13
 Sync s 1 20 0 red m
 Silence n 1 20 0 gray m
 PSG 1 68 10 0 yellow S        ;twice each note since there are few (34 20)

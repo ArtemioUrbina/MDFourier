@@ -1,10 +1,11 @@
-MDFourierAudioBlockFile 2.2
+MDFourierAudioBlockFile 2.3
 SEGA: Mega Drive/Sega Genesis + CD-ROM
-2
+[VideoModes] 2
 NTSC 16.688 262 8820 14 10
 PAL 20 313 8820 17 10
 CLK n
-18
+[MonoBalanceBlock] 99      ;Use 1khz-ish, SPSG# 1
+[ToneLines] 18
 Sync s 1 20 0 red m
 Silence n 1 20 0 gray m
 FM 1 96 20 0 green S

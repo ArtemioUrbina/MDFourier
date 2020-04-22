@@ -54,7 +54,15 @@ int CheckBalance(AudioSignal *Signal, int block, parameters *config)
 		if(config->allowStereoVsMono)
 			return -1;
 		else
-			return 0;
+		{
+			if(config->usesStereo)
+			{
+				logmsg("ERROR: Stereo vs Mono not allowed by profile\n");
+				return 0;
+			}
+			else  // It is a stereo file for a mono recording
+				return -1;
+		}
 	}
 
 	memset(&Channels, 0, sizeof(AudioBlocks)*2);

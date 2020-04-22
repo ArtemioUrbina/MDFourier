@@ -29,6 +29,7 @@
 #include "cline.h"
 #include "log.h"
 #include "plot.h"
+#include "profile.h"
 
 #define CHAR_FOLDER_REMOVE		0
 #define CHAR_FOLDER_OK			1
@@ -167,6 +168,7 @@ void CleanParameters(parameters *config)
 	config->usesStereo = 0;
 	config->allowStereoVsMono = 0;
 	config->stereoNotFound = 0;
+	config->stereoBalanceBlock = 0;
 
 	config->logScale = 1;
 	config->logScaleTS = 0;

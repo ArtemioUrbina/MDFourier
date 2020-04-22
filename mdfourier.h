@@ -175,7 +175,6 @@
 #define M_PI 3.1415926535897932384626433832795
 #endif
 
-#define	PROFILE_VER		2.2
 #define	MAX_SYNC		10
 
 #define	FREQDOMTRIES	10
@@ -554,6 +553,7 @@ typedef struct parameters_st {
 	double			ComCentsDifferenceSR;
 	int				pErrorReport;
 	int				noBalance;
+	int				stereoBalanceBlock;
 
 	double 			plotResX;
 	double			plotResY;

@@ -1,10 +1,11 @@
-MDFourierAudioBlockFile 2.2
+MDFourierAudioBlockFile 2.3
 Nintendo: Famicom/NES (v8 All Noise)
-2
+[VideoModes] 2
 NTSC 16.63926734 262 7990 12 10
 PAL 19.99720039 314 7990 12 9
 NULL n
-46
+[MonoBalanceBlock] 44      ;Use 1khz-ish, Pulse_12.5# 42
+[ToneLines] 46
 Sync s 1 20 0 red m
 Silence n 1 20 0 gray m
 Pulse_12.5 1 87 10 0 yellow m
