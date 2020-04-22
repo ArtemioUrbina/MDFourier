@@ -663,7 +663,7 @@ int CMDFourierGUIDlg::LoadProfile(CString FullFileName, CString &Name, CString &
 		regularProfile = 1;
 
 	Version = version;
-	/*¨Only process matching versions */
+	/* Only process matching versions */
 	if(_wtof(version) != _wtof(ProfileVersion))
 	{
 		fclose(file);
@@ -693,7 +693,7 @@ int CMDFourierGUIDlg::LoadProfile(CString FullFileName, CString &Name, CString &
 		return 1;
 	}
 
-	if(fwscanf_s(file, L"%s\n", text, BUFFER_SIZE) != 1)
+	if(fwscanf_s(file, L"[VideoModes] %s\n", text, BUFFER_SIZE) != 1)
 	{
 		CString	msg;
 
