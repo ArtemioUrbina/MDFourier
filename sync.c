@@ -83,7 +83,7 @@ long int DetectPulseSecondTry(char *AllSamples, wav_hdr header, int role, parame
 
 	AudioChannels = header.fmt.NumOfChan;
 
-	offset = DetectSignalStart(AllSamples, header, 0, 0, NULL, config);
+	offset = DetectSignalStart(AllSamples, header, 0, 0, 0, NULL, NULL, config);
 	if(offset > 0)
 	{
 		long int MSBytes = 0;
@@ -845,7 +845,7 @@ double ProcessChunkForSyncPulse(int16_t *samples, size_t size, long samplerate, 
 	return(maxHertz);
 }
 
-long int DetectSignalStart(char *AllSamples, wav_hdr header, long int offset, int syncKnow, long int *endPulse, parameters *config)
+long int DetectSignalStart(char *AllSamples, wav_hdr header, long int offset, int syncKnow, long int expectedSyncLen, long int *endPulse, int *toleranceIssue, parameters *config)
 {
 	int			maxdetected = 0, AudioChannels = 0;
 	long int	position = 0;
@@ -854,7 +854,7 @@ long int DetectSignalStart(char *AllSamples, wav_hdr header, long int offset, in
 		logmsgFileOnly("\nStarting Detect Signal\n");
 
 	AudioChannels = header.fmt.NumOfChan;
-	position = DetectSignalStartInternal(AllSamples, header, FACTOR_DETECT, offset, syncKnow, &maxdetected, endPulse, AudioChannels, config);
+	position = DetectSignalStartInternal(AllSamples, header, FACTOR_DETECT, offset, syncKnow, expectedSyncLen, &maxdetected, endPulse, AudioChannels, toleranceIssue, config);
 	if(position == -1)
 	{
 		if(config->debugSync)
@@ -868,7 +868,8 @@ long int DetectSignalStart(char *AllSamples, wav_hdr header, long int offset, in
 	return position;
 }
 
-long int DetectSignalStartInternal(char *Samples, wav_hdr header, int factor, long int offset, int syncKnown, int *maxdetected, long int *endPulse, int AudioChannels, parameters *config)
+//#define DEBUG_SYNC_INTERNAL_TOLERANCE
+long int DetectSignalStartInternal(char *Samples, wav_hdr header, int factor, long int offset, int syncKnown, long int expectedSyncLen, int *maxdetected, long int *endPulse, int AudioChannels, int *toleranceIssue, parameters *config)
 {
 	long int			i = 0, TotalMS = 0, start = 0;
 	long int			loadedBlockSize = 0;
@@ -878,7 +879,7 @@ long int DetectSignalStartInternal(char *Samples, wav_hdr header, int factor, lo
 	double				MaxMagnitude = 0;
 	Pulses				*pulseArray;
 	double 				total = 0;
-	long int 			count = 0, length = 0;
+	long int 			count = 0, length = 0, tolerance = 0, toleranceIssueOffset = -1;
 	double 				targetFrequency = 0, targetFrequencyHarmonic[2] = { NO_FREQ, NO_FREQ }, averageAmplitude = 0;
 
 	/* Not a real ms, just approximate */
@@ -909,6 +910,9 @@ long int DetectSignalStartInternal(char *Samples, wav_hdr header, int factor, lo
 	else
 		TotalMS /= 6;
 
+	if(config->debugSync)
+		logmsg("- Signal range from %ld to %ld\n", start, TotalMS);
+
 	while(i < TotalMS)
 	{
 		loadedBlockSize = millisecondSize;
@@ -938,7 +942,7 @@ long int DetectSignalStartInternal(char *Samples, wav_hdr header, int factor, lo
 
 		pos += loadedBlockSize;
 
-		/* we go stereo, any signal is fine here */
+		/* we go left, any signal is fine here */
 		ProcessChunkForSyncPulse((int16_t*)buffer, loadedBlockSize/2, 
 				header.fmt.SamplesPerSec, &pulseArray[i], 
 				CHANNEL_LEFT, AudioChannels, config);
@@ -992,14 +996,15 @@ long int DetectSignalStartInternal(char *Samples, wav_hdr header, int factor, lo
 	{
 		if(pulseArray[i].hertz)
 		{
-/*
+#ifdef DEBUG_SYNC_INTERNAL_TOLERANCE
 			if(config->debugSync)
-				logmsgFileOnly("B: %ld Hz: %g A: %g avg: %g\n", 
+				logmsgFileOnly("Bytes: %ld Hz: %g Ampl: %g Avg: %g (%ld)\n", 
 					pulseArray[i].bytes, 
 					pulseArray[i].hertz, 
 					pulseArray[i].amplitude, 
-					average);
-*/
+					averageAmplitude, i);
+#endif
+
 			if(syncKnown)
 			{
 				if(pulseArray[i].amplitude > averageAmplitude &&
@@ -1015,9 +1020,35 @@ long int DetectSignalStartInternal(char *Samples, wav_hdr header, int factor, lo
 				{
 					if(offset != -1 && length > 4)
 					{
-						if(endPulse)
-							*endPulse = pulseArray[i].bytes;
-						break;
+						int doProcess = 0;
+
+						// If we are way smaller than expected...
+						if(offset != -1 && abs(expectedSyncLen - (pulseArray[i].bytes-offset)) > expectedSyncLen/5)
+						{
+#ifdef DEBUG_SYNC_INTERNAL_TOLERANCE
+							if(config->debugSync)
+								logmsgFileOnly("- Tolerance %ld (length %ld from expected %ld)\n",
+									tolerance, (pulseArray[i].bytes-offset), expectedSyncLen);
+#endif
+							tolerance ++;
+							if(toleranceIssueOffset == -1)
+								toleranceIssueOffset = pulseArray[i].bytes;
+							if(tolerance > 3)
+								doProcess = 1;
+						}
+						else
+							doProcess = 1;
+						
+						if(doProcess)
+						{
+							if(endPulse)
+								*endPulse = pulseArray[i].bytes;
+#ifdef DEBUG_SYNC_INTERNAL_TOLERANCE
+							if(config->debugSync)
+								logmsgFileOnly("EndPulse Set\n");
+#endif
+							break;
+						}
 					}
 					else
 					{
@@ -1037,10 +1068,21 @@ long int DetectSignalStartInternal(char *Samples, wav_hdr header, int factor, lo
 				if(pulseArray[i].amplitude * 1.5 > average)
 				{
 					offset = pulseArray[i].bytes;
+					/*
+					if(config->debugSync)
+						logmsgFileOnly("Offset Set\n");
+					*/
 					break;
 				}
 			}
 		}
+	}
+
+	if(tolerance)
+	{
+		logmsg("\t- WARNING: Internal sync has anomalies at %ld\n", toleranceIssueOffset);
+		if(toleranceIssue)
+			*toleranceIssue = 1;
 	}
 
 	free(pulseArray);

@@ -547,6 +547,7 @@ typedef struct parameters_st {
 	int				stereoNotFound;
 	int				SRNoMatch;
 	int				diffClkNoMatch;
+	int				internalSyncTolerance;
 	int				changedCLKFrom;
 	double			centsDifferenceCLK;
 	double			RefCentsDifferenceSR;

@@ -351,7 +351,7 @@ int DetectSync(AudioSignal *Signal, parameters *config)
 				/* Find the start offset */
 				
 				logmsg(" - Detecting audio signal: ");
-				Signal->startOffset = DetectSignalStart(Signal->Samples, Signal->header, 0, 0, NULL, config);
+				Signal->startOffset = DetectSignalStart(Signal->Samples, Signal->header, 0, 0, 0, NULL, NULL, config);
 				if(Signal->startOffset == -1)
 				{
 					logmsg("\nERROR: Starting position was not detected.\n");
@@ -494,7 +494,7 @@ int MoveSampleBlockInternal(AudioSignal *Signal, long int element, long int pos,
 	}
 
 	if(config->verbose) {
-		logmsg(" - Internal Segment Info:\n\tFinal Offset: %ld Frames: %d Seconds: %g Bytes: %ld\n",
+		logmsg(" - Internal Segment Info:\n\tSignal Start Offset: %ld Frames: %d Seconds: %g NumBytes: %ld\n\n",
 				pos+signalStartOffset, signalLengthFrames, signalLengthSeconds, signalLengthBytes);
 	}
 
@@ -587,14 +587,16 @@ int ProcessInternal(AudioSignal *Signal, long int element, long int pos, int *sy
 		*syncinternal = 0;
 	else
 	{
-		int			syncToneFreq = 0;
+		int			syncToneFreq = 0, toleranceIssue = 0;
 		double		syncLenSeconds = 0;
 		long int	internalSyncOffset = 0, syncLengthBytes = 0,
 					endPulseBytes = 0, pulseLengthBytes = 0, signalStart = 0;
 
 		syncToneFreq = GetInternalSyncTone(element, config);
 		syncLenSeconds = GetInternalSyncLen(element, config);
-		internalSyncOffset = DetectSignalStart(Signal->Samples, Signal->header, pos, syncToneFreq, &endPulseBytes, config);
+		syncLengthBytes = SecondsToBytes(Signal->header.fmt.SamplesPerSec, syncLenSeconds, Signal->AudioChannels, NULL, NULL, NULL);
+
+		internalSyncOffset = DetectSignalStart(Signal->Samples, Signal->header, pos, syncToneFreq, syncLengthBytes/2, &endPulseBytes, &toleranceIssue, config);
 		if(internalSyncOffset == -1)
 		{
 			logmsg("\tWARNING: No signal found while in internal sync detection.\n");
@@ -602,14 +604,19 @@ int ProcessInternal(AudioSignal *Signal, long int element, long int pos, int *sy
 		}
 		*syncinternal = 1;
 
+		if(toleranceIssue)
+			config->internalSyncTolerance |= Signal->role;
+		
 		pulseLengthBytes = endPulseBytes - internalSyncOffset;
-		syncLengthBytes = SecondsToBytes(Signal->header.fmt.SamplesPerSec, syncLenSeconds, Signal->AudioChannels, NULL, NULL, NULL);
 		internalSyncOffset -= pos;
 		signalStart = internalSyncOffset;
 
 		if(pulseLengthBytes < syncLengthBytes/20)
 		{
-			logmsg("\tWARNING: No real signal found while in internal sync detection.\n");
+			logmsg("\tWARNING: No real signal found while in internal sync detection");
+			if(config->verbose)
+ 				logmsg(" (got %ld expected > %ld)", pulseLengthBytes, syncLengthBytes/20);
+			logmsg("\n");
 			return 0;
 		}
 
@@ -622,8 +629,9 @@ int ProcessInternal(AudioSignal *Signal, long int element, long int pos, int *sy
 				BytesToFrames(Signal->header.fmt.SamplesPerSec, internalSyncOffset, config->referenceFramerate, Signal->AudioChannels));
 
 			if(config->verbose) {
-					logmsg("  > Found at: %ld Previous: %ld Offset: %ld\n\tPulse Length: %ld Silence Length: %ld\n", 
-						pos + internalSyncOffset, pos, internalSyncOffset, pulseLengthBytes, syncLengthBytes/2);
+					logmsg("  > Found at: %ld (%ld +%ld)\n\tPulse Length: %ld Silence Length: %ld\n", 
+						pos + internalSyncOffset, pos, internalSyncOffset,
+						pulseLengthBytes, syncLengthBytes/2);
 			}
 
 #ifndef MDWAVE

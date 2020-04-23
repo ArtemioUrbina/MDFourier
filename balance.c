@@ -60,7 +60,7 @@ int CheckBalance(AudioSignal *Signal, int block, parameters *config)
 				logmsg("ERROR: Stereo vs Mono not allowed by profile\n");
 				return 0;
 			}
-			else  // It is a stereo file for a mono recording
+			else  // All fine
 				return -1;
 		}
 	}

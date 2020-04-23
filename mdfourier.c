@@ -2084,7 +2084,7 @@ MaxMagn FindMaxMagnitudeBlock(AudioSignal *Signal, parameters *config)
 	}
 
 	if(config->verbose && MaxMag.block != -1) {
-			logmsg(" - %s Max Magnitude found in %s# %d (%d) [%c] at %g Hz with %g\n", 
+			logmsg(" - %s Max Magnitude found in %s# %d (%d) [ %c ] at %g Hz with %g\n", 
 					Signal->role == ROLE_REF ? "Reference" : "Comparison",
 					GetBlockName(config, MaxMag.block), GetBlockSubIndex(config, MaxMag.block),
 					MaxMag.block, MaxMag.channel, MaxMag.hertz, MaxMag.magnitude);

@@ -169,6 +169,7 @@ void CleanParameters(parameters *config)
 	config->allowStereoVsMono = 0;
 	config->stereoNotFound = 0;
 	config->stereoBalanceBlock = 0;
+	config->internalSyncTolerance = 0;
 
 	config->logScale = 1;
 	config->logScaleTS = 0;

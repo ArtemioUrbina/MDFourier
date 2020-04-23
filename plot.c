@@ -898,6 +898,8 @@ void enableTestWarnings(parameters *config)
 	config->referenceSignal->originalSR = 192000;
 	config->comparisonSignal->originalSR = 48000;
 
+	config->internalSyncTolerance = ROLE_COMP;
+
 	logmsg("ERROR: enableTestWarnings Enabled\n");
 }
 #endif
@@ -1339,6 +1341,15 @@ void DrawLabelsMDF(PlotFile *plot, char *Gname, char *GType, int type, parameter
 		sprintf(msg, "WARNING: %s file%s shorter than expected", 
 			config->smallFile == ROLE_REF ? "Reference" : config->smallFile == ROLE_COMP ? "Comparison" : "Both",
 			config->smallFile == (ROLE_REF | ROLE_COMP) ? "s were" : " was");
+		pl_alabel_r(plot->plotter, 'l', 'l', msg);
+	}
+
+	if(config->internalSyncTolerance)
+	{
+		PLOT_WARN(1, warning++);
+		sprintf(msg, "WARNING: %s file%s internal sync anomalies", 
+			config->internalSyncTolerance == ROLE_REF ? "Reference" : config->internalSyncTolerance == ROLE_COMP ? "Comparison" : "Both",
+			config->internalSyncTolerance == (ROLE_REF | ROLE_COMP) ? "s have" : " has");
 		pl_alabel_r(plot->plotter, 'l', 'l', msg);
 	}
 
