@@ -562,11 +562,10 @@ int FillPlot(PlotFile *plot, char *name, double x0, double y0, double x1, double
 	plot->Ry1 = y1;
 
 	plot->leftmargin = leftMarginSize;
-	// Commented for partial release
+
 	dX = X0BORDER*fabs(x0 - x1)*leftMarginSize;
 	dY = Y0BORDER*fabs(y0 - y1);
 
-	// Commented for partial release
 	plot->x0 = x0-dX;
 	plot->y0 = y0-dY;
 
@@ -4496,64 +4495,107 @@ void DrawVerticalFrameGrid(PlotFile *plot, AudioSignal *Signal, double frames, d
 	pl_restorestate_r(plot->plotter);
 }
 
-void DrawINT16DBFSLines(PlotFile *plot, double resx, parameters *config)
+void DrawINT16DBFSLines(PlotFile *plot, double resx, int AudioChannels, parameters *config)
 {
-	char label[20];
-	double factor = 0;
-	int		dbfs = -3;
+	char 	label[20];
+	double	factor = 0;
+	int		dbfs = -3, channel = 0;
 
-	// 0dbfs line
-	SetPenColor(COLOR_GRAY, 0x5555, plot);
-	pl_fline_r(plot->plotter, 0, 0, resx, 0);
-
-	// 3dbfs lines
-	SetPenColor(COLOR_GRAY, 0x3333, plot);
-	for(int db = 2; db <= 256; db *= 2)
+	for(channel = 1; channel <= AudioChannels; channel++)
 	{
-		double height;
+		if(AudioChannels == 2)
+		{
+			double margin1 = 0, margin2 = 0;
 
-		height = INT16_03DB*2/db;
-		pl_fline_r(plot->plotter, 0, height, resx, height);
-		pl_fline_r(plot->plotter, 0, -1*height, resx, -1*height);
+			margin1 = fabs(MAXINT16-MININT16)*Y0BORDER;
+			margin2 = fabs(MAXINT16-MININT16)*Y1BORDER;
 
-		height = MAXINT16/db;
-		pl_fline_r(plot->plotter, 0, height, resx, height);
-		pl_fline_r(plot->plotter, 0, -1*height, resx, -1*height);
+			// Split the vertical axis
+			pl_savestate_r(plot->plotter);
+			if(channel == 1)
+				pl_fspace_r(plot->plotter, plot->x0, 3*MININT16-margin1, plot->x1, MAXINT16+margin2);
+			if(channel == 2)
+				pl_fspace_r(plot->plotter, plot->x0, MININT16-margin1, plot->x1, 3*MAXINT16+margin2);
+		}
+
+		// center line
+		SetPenColor(COLOR_GRAY, 0x5555, plot);
+		pl_fline_r(plot->plotter, 0, 0, resx, 0);
+	
+		// 3dbfs step lines
+		SetPenColor(COLOR_GRAY, 0x3333, plot);
+		for(int db = 2; db <= 256; db *= 2)
+		{
+			double height;
+	
+			height = INT16_03DB*2/db;
+			pl_fline_r(plot->plotter, 0, height, resx, height);
+			pl_fline_r(plot->plotter, 0, -1*height, resx, -1*height);
+	
+			height = MAXINT16/db;
+			pl_fline_r(plot->plotter, 0, height, resx, height);
+			pl_fline_r(plot->plotter, 0, -1*height, resx, -1*height);
+		}
+
+		pl_endpath_r(plot->plotter);
+
+		if(AudioChannels == 2)
+			pl_restorestate_r(plot->plotter);
+
+		/* Draw the labels ¨*/
+	
+		pl_savestate_r(plot->plotter);
+		if(AudioChannels == 2)
+		{
+			// Split the vertical axis
+			if(channel == 1)
+				pl_fspace_r(plot->plotter, 0-X0BORDER*config->plotResX*plot->leftmargin, -3*config->plotResY/2-Y0BORDER*config->plotResY, config->plotResX+X1BORDER*config->plotResX, config->plotResY/2+Y1BORDER*config->plotResY);
+			if(channel == 2)
+				pl_fspace_r(plot->plotter, 0-X0BORDER*config->plotResX*plot->leftmargin, -1*config->plotResY/2-Y0BORDER*config->plotResY, config->plotResX+X1BORDER*config->plotResX, 3*config->plotResY/2+Y1BORDER*config->plotResY);
+		}
+		else
+			pl_fspace_r(plot->plotter, 0-X0BORDER*config->plotResX*plot->leftmargin, -1*config->plotResY/2-Y0BORDER*config->plotResY, config->plotResX+X1BORDER*config->plotResX, config->plotResY/2+Y1BORDER*config->plotResY);
+
+		pl_ffontsize_r(plot->plotter, FONT_SIZE_1);
+		pl_ffontname_r(plot->plotter, PLOT_FONT);
+	
+		if(AudioChannels == 2)
+		{
+			// Channel Label
+			pl_fmove_r(plot->plotter, config->plotResX+PLOT_SPACER, 0);
+			SetPenColor(COLOR_GRAY, 0xAAAA, plot);	
+			if(channel == 1)
+				pl_alabel_r(plot->plotter, 'l', 'c', " Left");
+			if(channel == 2)
+				pl_alabel_r(plot->plotter, 'l', 'c', " Right");
+		}
+
+		SetPenColor(COLOR_GRAY, 0x7777, plot);
+		dbfs = -3;
+		factor = config->plotResY/(2*MAXINT16);
+		for(int db = 2; db <= 8; db *= 2)
+		{
+			double height;
+	
+			height = INT16_03DB*2/db;
+			sprintf(label, "%ddBFS", dbfs);
+			pl_fmove_r(plot->plotter, config->plotResX+PLOT_SPACER, height*factor);
+			pl_alabel_r(plot->plotter, 'l', 'c', label);
+			pl_fmove_r(plot->plotter, config->plotResX+PLOT_SPACER, -1*height*factor);
+			pl_alabel_r(plot->plotter, 'l', 'c', label);
+			dbfs -= 3;
+	
+			height = MAXINT16/db;
+			sprintf(label, "%ddBFS", dbfs);
+			pl_fmove_r(plot->plotter, config->plotResX+PLOT_SPACER, height*factor);
+			pl_alabel_r(plot->plotter, 'l', 'c', label);
+			pl_fmove_r(plot->plotter, config->plotResX+PLOT_SPACER, -1*height*factor);
+			pl_alabel_r(plot->plotter, 'l', 'c', label);
+			dbfs -= 3;
+		}
+	
+		pl_restorestate_r(plot->plotter);
 	}
- 
-	pl_endpath_r(plot->plotter);
-
-	/* Draw the labels ¨*/
-
-	pl_savestate_r(plot->plotter);
-	pl_fspace_r(plot->plotter, 0-X0BORDER*config->plotResX*plot->leftmargin, -1*config->plotResY/2-Y0BORDER*config->plotResY, config->plotResX+X1BORDER*config->plotResX, config->plotResY/2+Y1BORDER*config->plotResY);
-	pl_ffontsize_r(plot->plotter, FONT_SIZE_1);
-	pl_ffontname_r(plot->plotter, PLOT_FONT);
-	SetPenColor(COLOR_GRAY, 0x7777, plot);
-
-	factor = config->plotResY/(2*MAXINT16);
-	for(int db = 2; db <= 8; db *= 2)
-	{
-		double height;
-
-		height = INT16_03DB*2/db;
-		sprintf(label, "%ddBFS", dbfs);
-		pl_fmove_r(plot->plotter, config->plotResX+PLOT_SPACER, height*factor);
-		pl_alabel_r(plot->plotter, 'l', 'c', label);
-		pl_fmove_r(plot->plotter, config->plotResX+PLOT_SPACER, -1*height*factor);
-		pl_alabel_r(plot->plotter, 'l', 'c', label);
-		dbfs -= 3;
-
-		height = MAXINT16/db;
-		sprintf(label, "%ddBFS", dbfs);
-		pl_fmove_r(plot->plotter, config->plotResX+PLOT_SPACER, height*factor);
-		pl_alabel_r(plot->plotter, 'l', 'c', label);
-		pl_fmove_r(plot->plotter, config->plotResX+PLOT_SPACER, -1*height*factor);
-		pl_alabel_r(plot->plotter, 'l', 'c', label);
-		dbfs -= 3;
-	}
-
-	pl_restorestate_r(plot->plotter);
 }
 
 char *GetWFMTypeText(int wftype, char *buffer, double data, int role)
@@ -4593,6 +4635,11 @@ void PlotBlockTimeDomainGraph(AudioSignal *Signal, int block, char *name, int wa
 	PlotFile	plot;
 	long int	color = 0, sample = 0, numSamples = 0, difference = 0, plotSize = 0;
 	int16_t		*samples = NULL;
+	double		margin1 = 0, margin2 = 0;
+
+	// for plots
+	margin1 = fabs(MAXINT16-MININT16)*Y0BORDER;
+	margin2 = fabs(MAXINT16-MININT16)*Y1BORDER;
 
 	if(!Signal || !config)
 		return;
@@ -4637,9 +4684,16 @@ void PlotBlockTimeDomainGraph(AudioSignal *Signal, int block, char *name, int wa
 	}
 
 	DrawVerticalFrameGrid(&plot, Signal, Signal->Blocks[block].frames, 1, plotSize, forceMS, config);
-	DrawINT16DBFSLines(&plot, numSamples, config);
+	DrawINT16DBFSLines(&plot, numSamples, Signal->AudioChannels, config);
 
 	color = MatchColor(GetBlockColor(config, block));
+
+	if(Signal->AudioChannels == 2)
+	{
+		// Split the vertical axis
+		pl_savestate_r(plot.plotter);
+		pl_fspace_r(plot.plotter, plot.x0, 3*MININT16-margin1, plot.x1, MAXINT16+margin2);
+	}
 
 	// Draw samples
 	SetPenColor(color, 0xffff, &plot);
@@ -4650,11 +4704,20 @@ void PlotBlockTimeDomainGraph(AudioSignal *Signal, int block, char *name, int wa
 	// Draw Extra Channel samples
 	if(Signal->AudioChannels == 2)
 	{
+		// End top split
+		pl_restorestate_r(plot.plotter);
+
+		// New lower split
+		pl_savestate_r(plot.plotter);
+		pl_fspace_r(plot.plotter, plot.x0, MININT16-margin1, plot.x1, 3*MAXINT16+margin2);
+
 		samples = Signal->Blocks[block].audioRight.samples;
-		SetPenColor(COLOR_AQUA, 0xffff, &plot);
+		SetPenColor(color, 0xffff, &plot);
 		for(sample = 0; sample < numSamples - 1; sample ++)
 			pl_fline_r(plot.plotter, sample, samples[sample], sample+1, samples[sample+1]);
 		pl_endpath_r(plot.plotter);
+
+		pl_restorestate_r(plot.plotter);
 	}
 	
 	sprintf(title, "%s# %d%s", GetBlockName(config, block), GetBlockSubIndex(config, block),
@@ -4720,8 +4783,7 @@ void PlotBlockTimeDomainInternalSyncGraph(AudioSignal *Signal, int block, char *
 	}
 
 	DrawVerticalFrameGrid(&plot, Signal, frames, 1, plotSize, forceMS, config);
-
-	DrawINT16DBFSLines(&plot, numSamples, config);
+	DrawINT16DBFSLines(&plot, numSamples, Signal->AudioChannels, config);
 
 	color = MatchColor(GetBlockColor(config, block));
 

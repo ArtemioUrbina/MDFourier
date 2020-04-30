@@ -244,9 +244,18 @@ int CheckBalance(AudioSignal *Signal, int block, parameters *config)
 
 		//logmsg("Amplitudes: Left %gdBFS Right %gdBFS, diff: %gdBFS\n", amplLeft, amplRight, amplDiff);
 		
-		logmsg(" - %s signal stereo imbalance: %s channel is higher by %gdBFS",
-				Signal->role == ROLE_REF ? "Reference" : "Comparison",
-				diffNam == CHANNEL_LEFT ? "left" : "right", amplDiff);
+		if(amplDiff >= 0.0001 || config->verbose)
+		{
+			logmsg(" - %s signal stereo imbalance: %s channel is higher by %g dBFS",
+					Signal->role == ROLE_REF ? "Reference" : "Comparison",
+					diffNam == CHANNEL_LEFT ? "left" : "right", amplDiff);
+		}
+		else
+		{
+			logmsg(" - %s signal stereo imbalance: %s channel is higher by less than 0.0001 dBFS",
+					Signal->role == ROLE_REF ? "Reference" : "Comparison",
+					diffNam == CHANNEL_LEFT ? "left" : "right");
+		}
 
 		if(config->verbose)
 		{
