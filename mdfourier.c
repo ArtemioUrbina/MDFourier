@@ -883,7 +883,6 @@ int CopySamplesForTimeDomainPlotWindowOnly(AudioBlocks *AudioArray, long sampler
 
 int CopySamplesForTimeDomainPlot(AudioBlocks *AudioArray, int16_t *samples, size_t size, size_t diff, long samplerate, double *window, int AudioChannels, parameters *config)
 {
-	char			channel = 0;
 	long			stereoSignalSize = 0;	
 	long			i = 0, monoSignalSize = 0, diffSize = 0, difference = 0;
 	int16_t			*signal = NULL, *window_samples = NULL;
@@ -924,24 +923,32 @@ int CopySamplesForTimeDomainPlot(AudioBlocks *AudioArray, int16_t *samples, size
 		memset(window_samples, 0, sizeof(int16_t)*(monoSignalSize+1));
 	}
 
-	if(AudioChannels == 1)
-		channel = CHANNEL_LEFT;
-	else
-		channel = CHANNEL_STEREO;
-
 	for(i = 0; i < monoSignalSize; i++)
-	{
-		if(channel == CHANNEL_LEFT)
-			signal[i] = (double)samples[i*AudioChannels];
-		if(channel == CHANNEL_RIGHT)
-			signal[i] = (double)samples[i*2+1];
-		if(channel == CHANNEL_STEREO)
-			signal[i] = (double)((double)samples[i*2]+(double)samples[i*2+1])/2.0;
-	}
-
+		signal[i] = (double)samples[i*AudioChannels];
+	
 	AudioArray->audio.samples = signal;
 	AudioArray->audio.size = monoSignalSize;
 	AudioArray->audio.difference = difference;
+
+	if(AudioChannels == 2)
+	{
+		int16_t *signalRight = NULL;
+
+		signalRight = (int16_t*)malloc(sizeof(int16_t)*(monoSignalSize+1));
+		if(!signalRight)
+		{
+			logmsg("Not enough memory\n");
+			return(0);
+		}
+		memset(signalRight, 0, sizeof(int16_t)*(monoSignalSize+1));
+
+		for(i = 0; i < monoSignalSize; i++)
+			signalRight[i] = (double)samples[i*AudioChannels+1];
+
+		AudioArray->audioRight.samples = signalRight;
+		AudioArray->audioRight.size = monoSignalSize;
+		AudioArray->audioRight.difference = difference;
+	}
 
 	if(config->plotAllNotesWindowed && window && !config->doClkAdjust)
 	{
@@ -1721,6 +1728,26 @@ int FindClippingAndRatioForBlock(AudioBlocks *AudioArray, double ratio)
 			}
 		}
 	}
+
+	samples = AudioArray->audioRight.samples;
+	if(!samples)
+		return abs(MaxSample);
+
+	for(i = 0; i < AudioArray->audioRight.size; i++)
+	{
+		double sample = 0;
+
+		sample = (((double)samples[i])*ratio)+0.5;
+		if(sample > MAXINT16 || sample < MININT16)
+		{
+			if(fabs(sample) > fabs(MaxSampleScaled))
+			{
+				MaxSample = samples[i];
+				MaxSampleScaled = sample;
+			}
+		}
+	}
+
 	return abs(MaxSample);
 }
 
@@ -1761,6 +1788,19 @@ int FindMaxSampleInBlock(AudioBlocks *AudioArray)
 		return 0;
 
 	for(i = 0; i < AudioArray->audio.size; i++)
+	{
+		int sample = 0;
+
+		sample = abs(samples[i]);
+		if(sample > MaxSample)
+			MaxSample = sample;
+	}
+
+	samples = AudioArray->audioRight.samples;
+	if(!samples)
+		return MaxSample;
+
+	for(i = 0; i < AudioArray->audioRight.size; i++)
 	{
 		int sample = 0;
 
@@ -1848,8 +1888,21 @@ void NormalizeBlockByRatio(AudioBlocks *AudioArray, double ratio)
 	samples = AudioArray->audio.samples;
 	if(samples)
 	{
-		// improvement suggested by plgDavid
 		for(i = 0; i < AudioArray->audio.size; i++)
+		{
+			double sample = 0;
+	
+			sample = (((double)samples[i])*ratio)+0.5;
+			if(sample > MAXINT16 || sample < MININT16)
+				logmsg("WARNING: Clipping while doing waveform visualization (%g)\n", sample);
+			samples[i] = sample;
+		}
+	}
+
+	samples = AudioArray->audioRight.samples;
+	if(samples)
+	{
+		for(i = 0; i < AudioArray->audioRight.size; i++)
 		{
 			double sample = 0;
 	

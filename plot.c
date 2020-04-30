@@ -4647,6 +4647,16 @@ void PlotBlockTimeDomainGraph(AudioSignal *Signal, int block, char *name, int wa
 		pl_fline_r(plot.plotter, sample, samples[sample], sample+1, samples[sample+1]);
 	pl_endpath_r(plot.plotter);
 
+	// Draw Extra Channel samples
+	if(Signal->AudioChannels == 2)
+	{
+		samples = Signal->Blocks[block].audioRight.samples;
+		SetPenColor(COLOR_AQUA, 0xffff, &plot);
+		for(sample = 0; sample < numSamples - 1; sample ++)
+			pl_fline_r(plot.plotter, sample, samples[sample], sample+1, samples[sample+1]);
+		pl_endpath_r(plot.plotter);
+	}
+	
 	sprintf(title, "%s# %d%s", GetBlockName(config, block), GetBlockSubIndex(config, block),
 			GetWFMTypeText(wavetype, buffer, data, Signal->role));
 	DrawLabelsMDF(&plot, Signal->role == ROLE_REF ? WAVEFORM_TITLE_REF : WAVEFORM_TITLE_COM, title, Signal->role == ROLE_REF ? PLOT_SINGLE_REF : PLOT_SINGLE_COM, config);

@@ -458,10 +458,10 @@ int AdjustSignalValues(AudioSignal *Signal, parameters *config)
 
 	if(config->usesStereo && Signal->AudioChannels != 2)
 	{
-		//logmsg(" - ERROR: Profile requests Stereo and file is Mono\n");
 		if(!config->allowStereoVsMono)
 		{
 			config->stereoNotFound |= Signal->role;
+			logmsg(" - ERROR: Profile requests Stereo and file is Mono\n");
 			return 0;
 		}
 		logmsg(" - Enabling Mono vs Stereo compare mode\n");

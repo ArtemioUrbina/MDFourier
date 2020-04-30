@@ -59,7 +59,7 @@ void PrintUsage()
 	logmsg("	 -R: Adjust sample <R>ate if duration difference is found\n");
 	logmsg("	 -j: Ad<j>ust clock (profile defined) via FFTW if difference is found\n");
 	logmsg("	 -k: cloc<k> FFTW operations\n");
-	logmsg("	 -X: Do not E<x>tra Data from Profiles\n");
+	logmsg("	 -X: Do not use E<x>tra Data from the Profile\n");
 	logmsg("   Output options:\n");
 	logmsg("	 -l: Do not <l>og output to file [reference]_vs_[compare].txt\n");
 	logmsg("	 -v: Enable <v>erbose mode, spits all the FFTW results\n");
