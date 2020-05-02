@@ -888,8 +888,8 @@ int CMDFourierGUIDlg::CheckDependencies()
 		error = 1;
 	if(error)
 	{
-		msg.Format(L"Invalid mdfourier.exe version.\nNeed:\n\"%s\"\nGot:\n\"%s\"", 
-			MDFVERSION, readText);
+		msg.Format(L"Invalid mdfourier.exe version.\nExpected:\n %s\nGot:\n %s %s", 
+			MDFVERSION, version, readText);
 		MessageBox(msg, L"Error improper mdfourier.exe");
 		return FALSE;
 	}
