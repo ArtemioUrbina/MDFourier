@@ -3546,7 +3546,7 @@ int PlotNoiseDifferentAmplitudesAveraged(FlatAmplDifference *amplDiff, long int 
 			sprintf(name, "NF__%s_%02d%s_AVG_", filename, 
 					config->types.typeArray[i].type, config->types.typeArray[i].typeName);
 
-			averagedArray = CreateFlatDifferencesAveraged(type, CHANNEL_RIGHT, &avgsize, chunks, floorPlot, config);
+			averagedArray = CreateFlatDifferencesAveraged(type, CHANNEL_STEREO, &avgsize, chunks, floorPlot, config);
 
 			if(averagedArray)
 			{
@@ -3556,6 +3556,8 @@ int PlotNoiseDifferentAmplitudesAveraged(FlatAmplDifference *amplDiff, long int 
 				averagedArray = NULL;
 				return 1;
 			}
+			//else
+				//logmsg(" WARNING: Noise Floor average data was empty\n");
 		}
 	}
 
