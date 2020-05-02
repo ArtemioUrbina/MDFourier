@@ -80,6 +80,9 @@
 #define TSPECTROGRAM_TITLE_COM_LFT	"Comparison - TIME SPECTROGRAM LEFT CHANNEL [%s]"
 #define TSPECTROGRAM_TITLE_COM_RGHT	"Comparison - TIME SPECTROGRAM RIGHT CHANNEL [%s]"
 #define DIFFERENCE_AVG_TITLE		"DIFFERENT AMPLITUDES AVERAGED [%s]"
+#define DIFFERENCE_AVG_TITLE_STEREO	"DIFFERENT AMPLITUDES STEREO AVERAGED  [%s]"
+#define DIFFERENCE_AVG_TITLE_LEFT	"DIFFERENT AMPLITUDES LEFT CHANNEL AVERAGED [%s]"
+#define DIFFERENCE_AVG_TITLE_RIGHT	"DIFFERENT AMPLITUDES RIGHT CHANNEL AVERAGED [%s]"
 #define NOISE_TITLE					"NOISE FLOOR AVERAGED"
 #define NOISE_AVG_TITLE				"NOISE FLOOR AVERAGED"
 #define SPECTROGRAM_NOISE_REF		"Reference NOISE FLOOR - Spectrogram [%s]"
@@ -3235,7 +3238,7 @@ long int movingAverage(AveragedFrequencies *data, AveragedFrequencies *averages,
 #define	SMA_SIZE					4	// Size for the Simple Moving average period
 #define	AVERAGE_CHUNKS				200	// How many chunks across the frequency spectrum
 
-AveragedFrequencies *CreateFlatDifferencesAveraged(int matchType, long int *avgSize, int chunks, diffPlotType plotType, parameters *config)
+AveragedFrequencies *CreateFlatDifferencesAveraged(int matchType, char channel, long int *avgSize, int chunks, diffPlotType plotType, parameters *config)
 {
 	long int			count = 0, interval = 0, realResults = 0;
 	FlatAmplDifference	*ADiff = NULL;
@@ -3257,7 +3260,16 @@ AveragedFrequencies *CreateFlatDifferencesAveraged(int matchType, long int *avgS
 	for(int b = 0; b < config->types.totalBlocks; b++)
 	{
 		if(GetBlockType(config, b) == matchType)
-			count += config->Differences.BlockDiffArray[b].cntAmplBlkDiff;
+		{
+			for(int a = 0; a < config->Differences.BlockDiffArray[b].cntAmplBlkDiff; a++)
+			{
+				if(config->Differences.BlockDiffArray[b].amplDiffArray[a].hertz > 0
+					&& (channel == CHANNEL_STEREO || config->Differences.BlockDiffArray[b].amplDiffArray[a].channel == channel))
+				{
+					count++;
+				}
+			}
+		}
 	}
 
 	if(!count)
@@ -3285,7 +3297,8 @@ AveragedFrequencies *CreateFlatDifferencesAveraged(int matchType, long int *avgS
 				// Find limits
 				for(int a = 0; a < config->Differences.BlockDiffArray[b].cntAmplBlkDiff; a++)
 				{
-					if(config->Differences.BlockDiffArray[b].amplDiffArray[a].hertz > 0)
+					if(config->Differences.BlockDiffArray[b].amplDiffArray[a].hertz > 0
+						&& (channel == CHANNEL_STEREO || config->Differences.BlockDiffArray[b].amplDiffArray[a].channel == channel))
 					{
 						if(config->Differences.BlockDiffArray[b].amplDiffArray[a].refAmplitude > startAmplitude)
 							startAmplitude = config->Differences.BlockDiffArray[b].amplDiffArray[a].refAmplitude;
@@ -3301,7 +3314,8 @@ AveragedFrequencies *CreateFlatDifferencesAveraged(int matchType, long int *avgS
 
 			for(int a = 0; a < config->Differences.BlockDiffArray[b].cntAmplBlkDiff; a++)
 			{
-				if(config->Differences.BlockDiffArray[b].amplDiffArray[a].refAmplitude > significant)
+				if(config->Differences.BlockDiffArray[b].amplDiffArray[a].refAmplitude > significant
+					&& (channel == CHANNEL_STEREO || config->Differences.BlockDiffArray[b].amplDiffArray[a].channel == channel))
 				{
 					if(config->weightedAveragePlot)
 					{
@@ -3410,12 +3424,13 @@ AveragedFrequencies *CreateFlatDifferencesAveraged(int matchType, long int *avgS
 
 int PlotDifferentAmplitudesAveraged(FlatAmplDifference *amplDiff, long int size, char *filename, parameters *config)
 {
-	int 				i = 0, type = 0, typeCount = 0, types = 0;
+	int 				i = 0, type = 0, typeCount = 0, types = 0, bothStereo = 0;
 	char				name[BUFFER_SIZE];
 	long int			*averagedSizes = NULL;
 	AveragedFrequencies	**averagedArray = NULL;
 
 	typeCount = GetActiveBlockTypesNoRepeat(config);
+	bothStereo = config->referenceSignal->AudioChannels == 2 && config->comparisonSignal->AudioChannels == 2;
 
 	averagedArray = (AveragedFrequencies**)malloc(sizeof(AveragedFrequencies*)*typeCount);
 	if(!averagedArray)
@@ -3437,12 +3452,12 @@ int PlotDifferentAmplitudesAveraged(FlatAmplDifference *amplDiff, long int size,
 			long int	chunks = AVERAGE_CHUNKS;
 
 			if(typeCount == 1)
-				sprintf(name, "DA__ALL_%s_AVG_", filename);
+				sprintf(name, "DA__ALL_%s_AVG", filename);
 			else
-				sprintf(name, "DA_%s_%02d%s_AVG_", filename, 
+				sprintf(name, "DA_%s_%02d%s_AVG", filename, 
 					config->types.typeArray[i].type, config->types.typeArray[i].typeName);
 
-			averagedArray[types] = CreateFlatDifferencesAveraged(type, &averagedSizes[types], chunks, normalPlot, config);
+			averagedArray[types] = CreateFlatDifferencesAveraged(type, CHANNEL_STEREO, &averagedSizes[types], chunks, normalPlot, config);
 
 			if(averagedArray[types])
 			{
@@ -3455,8 +3470,35 @@ int PlotDifferentAmplitudesAveraged(FlatAmplDifference *amplDiff, long int size,
 						return 0;
 				}
 
-				PlotSingleTypeDifferentAmplitudesAveraged(amplDiff, size, type, name, averagedArray[types], averagedSizes[types], config);
+				PlotSingleTypeDifferentAmplitudesAveraged(amplDiff, size, type, name, averagedArray[types], averagedSizes[types], config->types.typeArray[i].channel == CHANNEL_STEREO ? CHANNEL_STEREO : CHANNEL_MONO, config);
 				logmsg(PLOT_ADVANCE_CHAR);
+
+				if(config->types.typeArray[i].channel == CHANNEL_STEREO && bothStereo)
+				{
+					long int sizeLeft = 0, sizeRight = 0;
+					AveragedFrequencies	*averagedArrayLeft = NULL, *averagedArrayRight = NULL;
+
+					averagedArrayLeft = CreateFlatDifferencesAveraged(type, CHANNEL_LEFT, &sizeLeft, chunks, normalPlot, config);
+					if(typeCount == 1)
+						sprintf(name, "DA__ALL_%s_%c_AVG", filename, CHANNEL_LEFT);
+					else
+						sprintf(name, "DA_%s_%02d%s_%c_AVG", filename, 
+							config->types.typeArray[i].type, config->types.typeArray[i].typeName, CHANNEL_LEFT);
+					PlotSingleTypeDifferentAmplitudesAveraged(amplDiff, size, type, name, averagedArrayLeft, sizeLeft, CHANNEL_LEFT, config);
+					logmsg(PLOT_ADVANCE_CHAR);
+					free(averagedArrayLeft);
+
+					averagedArrayRight = CreateFlatDifferencesAveraged(type, CHANNEL_RIGHT, &sizeRight, chunks, normalPlot, config);
+					if(typeCount == 1)
+						sprintf(name, "DA__ALL_%s_%c_AVG", filename, CHANNEL_RIGHT);
+					else
+						sprintf(name, "DA_%s_%02d%s_%c_AVG", filename, 
+							config->types.typeArray[i].type, config->types.typeArray[i].typeName, CHANNEL_RIGHT);
+					PlotSingleTypeDifferentAmplitudesAveraged(amplDiff, size, type, name, averagedArrayRight, sizeRight, CHANNEL_RIGHT, config);
+					logmsg(PLOT_ADVANCE_CHAR);
+
+					free(averagedArrayRight);
+				}
 
 				if(typeCount > 1)
 					ReturnToMainPath(&returnFolder);
@@ -3504,7 +3546,7 @@ int PlotNoiseDifferentAmplitudesAveraged(FlatAmplDifference *amplDiff, long int 
 			sprintf(name, "NF__%s_%02d%s_AVG_", filename, 
 					config->types.typeArray[i].type, config->types.typeArray[i].typeName);
 
-			averagedArray = CreateFlatDifferencesAveraged(type, &avgsize, chunks, floorPlot, config);
+			averagedArray = CreateFlatDifferencesAveraged(type, CHANNEL_RIGHT, &avgsize, chunks, floorPlot, config);
 
 			if(averagedArray)
 			{
@@ -3630,11 +3672,12 @@ void PlotNoiseDifferentAmplitudesAveragedInternal(FlatAmplDifference *amplDiff, 
 	ClosePlot(&plot);
 }
 
-void PlotSingleTypeDifferentAmplitudesAveraged(FlatAmplDifference *amplDiff, long int size, int type, char *filename, AveragedFrequencies *averaged, long int avgsize, parameters *config)
+void PlotSingleTypeDifferentAmplitudesAveraged(FlatAmplDifference *amplDiff, long int size, int type, char *filename, AveragedFrequencies *averaged, long int avgsize, char channel, parameters *config)
 {
 	PlotFile	plot;
 	double		dbs = config->maxDbPlotZC;
 	int			color = 0;
+	char		*title = NULL;
 
 	if(!config)
 		return;
@@ -3655,7 +3698,8 @@ void PlotSingleTypeDifferentAmplitudesAveraged(FlatAmplDifference *amplDiff, lon
 
 	for(long int a = 0; a < size; a++)
 	{
-		if(amplDiff[a].type == type)
+		if((channel == CHANNEL_STEREO || channel == amplDiff[a].channel) &&
+			amplDiff[a].hertz && amplDiff[a].type == type)
 		{ 
 			if(amplDiff[a].refAmplitude > config->significantAmplitude && fabs(amplDiff[a].diffAmplitude) <= fabs(dbs))
 			{
@@ -3734,8 +3778,26 @@ void PlotSingleTypeDifferentAmplitudesAveraged(FlatAmplDifference *amplDiff, lon
 		pl_endpath_r(plot.plotter);
 	}
 
+	switch(channel)
+	{
+		case CHANNEL_MONO:
+			title = DIFFERENCE_AVG_TITLE;
+			break;
+		case CHANNEL_STEREO:
+			title = DIFFERENCE_AVG_TITLE_STEREO;
+			break;
+		case CHANNEL_LEFT:
+			title = DIFFERENCE_AVG_TITLE_LEFT;
+			break;
+		case CHANNEL_RIGHT:
+			title = DIFFERENCE_AVG_TITLE_RIGHT;
+			break;
+		default:
+			title = DIFFERENCE_AVG_TITLE;
+			break;
+	}
 	DrawColorScale(&plot, type, MODE_DIFF, LEFT_MARGIN, HEIGHT_MARGIN, config->plotResX/COLOR_BARS_WIDTH_SCALE, config->plotResY/1.15, 0, config->significantAmplitude, VERT_SCALE_STEP_BAR, config);
-	DrawLabelsMDF(&plot, DIFFERENCE_AVG_TITLE, GetTypeDisplayName(config, type), PLOT_COMPARE, config);
+	DrawLabelsMDF(&plot, title, GetTypeDisplayName(config, type), PLOT_COMPARE, config);
 	ClosePlot(&plot);
 }
 
@@ -3991,7 +4053,7 @@ void PlotTimeSpectrogram(AudioSignal *Signal, char channel, parameters *config)
 	if(channel == CHANNEL_STEREO)
 		sprintf(filename, "T_SP_%c_%s", Signal->role == ROLE_REF ? 'A' : 'B', name);
 	else
-		sprintf(filename, "T_SP_%c_%c_%s", Signal->role == ROLE_REF ? 'A' : 'B', channel, name);
+		sprintf(filename, "T_SP_%c_%c_%s", channel, Signal->role == ROLE_REF ? 'A' : 'B', name);
 
 	for(int i = 0; i < config->types.typeCount; i++)
 	{

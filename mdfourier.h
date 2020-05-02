@@ -48,7 +48,7 @@
 
 #include "incbeta.h"
 
-#define MDVERSION "1.0rc"
+#define MDVERSION "1.0rc2"
 
 #if INTPTR_MAX == INT64_MAX
 #define	BITS_MDF "64-bit"
@@ -451,6 +451,7 @@ typedef struct blk_diff_st {
 	long int		cmpPhaseBlkDiff;
 
 	int				type;
+	char			channel;
 } BlockDifference;
 
 typedef struct block_diff_st {

@@ -153,6 +153,8 @@ int CreateDifferenceArray(parameters *config)
 
 		BlockDiffArray[i].cntPhaseBlkDiff = 0;
 		BlockDiffArray[i].cmpPhaseBlkDiff = 0;
+
+		BlockDiffArray[i].channel = GetBlockChannel(config, i);
 	}
 	
 	config->Differences.BlockDiffArray = BlockDiffArray;
