@@ -2292,7 +2292,7 @@ inline double CalculateAmplitude(double magnitude, double MaxMagnitude)
 	if(magnitude == 0.0 || MaxMagnitude == 0.0)
 	{
 #ifdef DEBUG
-		logmsg("WARNING: Invalid data for CalculateAmplitude\n");
+		logmsg("WARNING: Invalid data for CalculateAmplitude (%g/%g)\n", magnitude, MaxMagnitude);
 #endif
 		return NO_AMPLITUDE;
 	}

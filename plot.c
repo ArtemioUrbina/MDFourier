@@ -3470,7 +3470,7 @@ int PlotDifferentAmplitudesAveraged(FlatAmplDifference *amplDiff, long int size,
 						return 0;
 				}
 
-				PlotSingleTypeDifferentAmplitudesAveraged(amplDiff, size, type, name, averagedArray[types], averagedSizes[types], config->types.typeArray[i].channel == CHANNEL_STEREO ? CHANNEL_STEREO : CHANNEL_LEFT, config);
+				PlotSingleTypeDifferentAmplitudesAveraged(amplDiff, size, type, name, averagedArray[types], averagedSizes[types], config->types.typeArray[i].channel == CHANNEL_STEREO ? CHANNEL_STEREO : CHANNEL_MONO, config);
 				logmsg(PLOT_ADVANCE_CHAR);
 
 				if(config->types.typeArray[i].channel == CHANNEL_STEREO && bothStereo)
@@ -3676,7 +3676,7 @@ void PlotSingleTypeDifferentAmplitudesAveraged(FlatAmplDifference *amplDiff, lon
 {
 	PlotFile	plot;
 	double		dbs = config->maxDbPlotZC;
-	int			color = 0;
+	int			color = 0, ismono = 0;
 	char		*title = NULL;
 
 	if(!config)
@@ -3695,6 +3695,12 @@ void PlotSingleTypeDifferentAmplitudesAveraged(FlatAmplDifference *amplDiff, lon
 
 	DrawGridZeroDBCentered(&plot, dbs, VERT_SCALE_STEP, config->endHzPlot, 1000, config);
 	DrawLabelsZeroDBCentered(&plot, dbs, VERT_SCALE_STEP, config->endHzPlot, 1000, config);
+
+	if(channel == CHANNEL_MONO)
+	{
+		channel = CHANNEL_LEFT;
+		ismono = 1;
+	}
 
 	for(long int a = 0; a < size; a++)
 	{
@@ -3777,6 +3783,9 @@ void PlotSingleTypeDifferentAmplitudesAveraged(FlatAmplDifference *amplDiff, lon
 		}
 		pl_endpath_r(plot.plotter);
 	}
+
+	if(ismono)
+		channel = CHANNEL_MONO;
 
 	switch(channel)
 	{

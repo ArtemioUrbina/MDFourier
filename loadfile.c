@@ -613,7 +613,7 @@ int ProcessInternal(AudioSignal *Signal, long int element, long int pos, int *sy
 
 		if(pulseLengthBytes < syncLengthBytes/20)
 		{
-			logmsg("\tWARNING: No real signal found while in internal sync detection");
+			logmsg("\t- WARNING: No real signal found while in internal sync detection");
 			if(config->verbose)
  				logmsg(" (got %ld expected > %ld)", pulseLengthBytes, syncLengthBytes/20);
 			logmsg("\n");
