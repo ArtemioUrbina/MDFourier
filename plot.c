@@ -3470,7 +3470,7 @@ int PlotDifferentAmplitudesAveraged(FlatAmplDifference *amplDiff, long int size,
 						return 0;
 				}
 
-				PlotSingleTypeDifferentAmplitudesAveraged(amplDiff, size, type, name, averagedArray[types], averagedSizes[types], config->types.typeArray[i].channel == CHANNEL_STEREO ? CHANNEL_STEREO : CHANNEL_MONO, config);
+				PlotSingleTypeDifferentAmplitudesAveraged(amplDiff, size, type, name, averagedArray[types], averagedSizes[types], config->types.typeArray[i].channel == CHANNEL_STEREO ? CHANNEL_STEREO : CHANNEL_LEFT, config);
 				logmsg(PLOT_ADVANCE_CHAR);
 
 				if(config->types.typeArray[i].channel == CHANNEL_STEREO && bothStereo)
@@ -3556,8 +3556,6 @@ int PlotNoiseDifferentAmplitudesAveraged(FlatAmplDifference *amplDiff, long int 
 				averagedArray = NULL;
 				return 1;
 			}
-			//else
-				//logmsg(" WARNING: Noise Floor average data was empty\n");
 		}
 	}
 
