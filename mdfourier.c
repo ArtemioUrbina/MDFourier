@@ -830,7 +830,7 @@ void CleanUp(AudioSignal **ReferenceSignal, AudioSignal **ComparisonSignal, para
 	ReleaseAudioBlockStructure(config);
 }
 
-int CopySamplesForTimeDomainPlotWindowOnly(AudioBlocks *AudioArray, long samplerate, double *window, parameters *config)
+int CopySamplesForTimeDomainPlotWindowOnly(AudioBlocks *AudioArray, long samplerate, double *window, int AudioChannels, parameters *config)
 {
 	long			i = 0, monoSignalSize = 0, difference = 0;
 	int16_t			*signal = NULL, *window_samples = NULL;
@@ -878,6 +878,40 @@ int CopySamplesForTimeDomainPlotWindowOnly(AudioBlocks *AudioArray, long sampler
 		window_samples[i] = (double)((double)signal[i]*window[i]);
 	AudioArray->audio.window_samples = window_samples;
 
+	if(AudioChannels == 2)
+	{
+		if(AudioArray->audioRight.window_samples)
+		{
+			logmsg("ERROR: Window waveforms already stored\n");
+			return 0;
+		}
+	
+		if(!AudioArray->audioRight.samples)
+		{
+			logmsg("ERROR: Waveforms not stored\n");
+			return 0;
+		}
+	
+		signal = AudioArray->audioRight.samples;
+		monoSignalSize = AudioArray->audioRight.size;
+		difference = AudioArray->audioRight.difference;
+	
+		window_samples = (int16_t*)malloc(sizeof(int16_t)*(monoSignalSize+1));
+		if(!window_samples)
+		{
+			logmsg("Not enough memory for window\n");
+			return(0);
+		}
+		memset(window_samples, 0, sizeof(int16_t)*(monoSignalSize+1));
+	
+		AudioArray->audioRight.size = monoSignalSize;
+		AudioArray->audioRight.difference = difference;
+	
+		for(i = 0; i < monoSignalSize - difference; i++)
+			window_samples[i] = (double)((double)signal[i]*window[i]);
+		AudioArray->audioRight.window_samples = window_samples;
+	}
+
 	return(1);
 }
 
@@ -885,7 +919,7 @@ int CopySamplesForTimeDomainPlot(AudioBlocks *AudioArray, int16_t *samples, size
 {
 	long			stereoSignalSize = 0;	
 	long			i = 0, monoSignalSize = 0, diffSize = 0, difference = 0;
-	int16_t			*signal = NULL, *window_samples = NULL;
+	int16_t			*signal = NULL, *signalRight = NULL, *window_samples = NULL;
 	
 	if(!AudioArray)
 	{
@@ -932,12 +966,10 @@ int CopySamplesForTimeDomainPlot(AudioBlocks *AudioArray, int16_t *samples, size
 
 	if(AudioChannels == 2)
 	{
-		int16_t *signalRight = NULL;
-
 		signalRight = (int16_t*)malloc(sizeof(int16_t)*(monoSignalSize+1));
 		if(!signalRight)
 		{
-			logmsg("Not enough memory\n");
+			logmsg("Not enough memory for window\n");
 			return(0);
 		}
 		memset(signalRight, 0, sizeof(int16_t)*(monoSignalSize+1));
@@ -955,6 +987,22 @@ int CopySamplesForTimeDomainPlot(AudioBlocks *AudioArray, int16_t *samples, size
 		for(i = 0; i < monoSignalSize - difference; i++)
 			window_samples[i] = (double)((double)signal[i]*window[i]);
 		AudioArray->audio.window_samples = window_samples;
+
+		if(AudioChannels == 2 && signalRight)
+		{
+			int16_t *window_samplesRight = NULL;
+
+			window_samplesRight = (int16_t*)malloc(sizeof(int16_t)*(monoSignalSize+1));
+			if(!window_samplesRight)
+			{
+				logmsg("Not enough memory for window\n");
+				return(0);
+			}
+			memset(window_samplesRight, 0, sizeof(int16_t)*(monoSignalSize+1));
+			for(i = 0; i < monoSignalSize - difference; i++)
+				window_samplesRight[i] = (double)((double)signalRight[i]*window[i]);
+			AudioArray->audioRight.window_samples = window_samplesRight;
+		}
 	}
 
 	return(1);
@@ -989,7 +1037,7 @@ int RecalculateFFTW(AudioSignal *Signal, parameters *config)
 			if(!FillFrequencyStructures(Signal, &Signal->Blocks[i], config))
 				return 0;
 
-			if(config->plotAllNotesWindowed && !CopySamplesForTimeDomainPlotWindowOnly(&Signal->Blocks[i], Signal->header.fmt.SamplesPerSec, windowUsed, config))
+			if(config->plotAllNotesWindowed && !CopySamplesForTimeDomainPlotWindowOnly(&Signal->Blocks[i], Signal->header.fmt.SamplesPerSec, windowUsed, Signal->AudioChannels, config))
 				return 0;
 
 			if(config->clkMeasure && config->clkBlock == i)
@@ -1915,6 +1963,20 @@ void NormalizeBlockByRatio(AudioBlocks *AudioArray, double ratio)
 
 	// Do window as well
 	samples = AudioArray->audio.window_samples;
+	if(samples)
+	{
+		for(i = 0; i < AudioArray->audio.size; i++)
+		{
+			double sample = 0;
+	
+			sample = (((double)samples[i])*ratio)+0.5;
+			if(sample > MAXINT16 || sample < MININT16)
+				logmsg("WARNING: Clipping while doing windowed waveform visualization (%g)\n", sample);
+			samples[i] = sample;
+		}
+	}
+
+	samples = AudioArray->audioRight.window_samples;
 	if(samples)
 	{
 		for(i = 0; i < AudioArray->audio.size; i++)

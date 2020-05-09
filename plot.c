@@ -4782,7 +4782,10 @@ void PlotBlockTimeDomainGraph(AudioSignal *Signal, int block, char *name, int wa
 		pl_savestate_r(plot.plotter);
 		pl_fspace_r(plot.plotter, plot.x0, MININT16-margin1, plot.x1, 3*MAXINT16+margin2);
 
-		samples = Signal->Blocks[block].audioRight.samples;
+		if(wavetype == WAVEFORM_WINDOW)
+			samples = Signal->Blocks[block].audioRight.window_samples;
+		else
+			samples = Signal->Blocks[block].audioRight.samples;
 		SetPenColor(color, 0xffff, &plot);
 		for(sample = 0; sample < numSamples - 1; sample ++)
 			pl_fline_r(plot.plotter, sample, samples[sample], sample+1, samples[sample+1]);
