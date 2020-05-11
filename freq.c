@@ -2302,6 +2302,14 @@ inline double CalculateAmplitude(double magnitude, double MaxMagnitude)
 	return amplitude;
 }
 
+inline double CalculatePCMMagnitude(double amplitude, double MaxMagnitude)
+{
+	double magnitude = 0;
+
+	magnitude = MaxMagnitude*pow(10, amplitude/20);
+	return magnitude;
+}
+
 inline double CalculateFrequency(double boxindex, double boxsize)
 {
 	double Hertz = 0;

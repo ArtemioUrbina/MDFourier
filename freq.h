@@ -109,6 +109,7 @@ void FindStandAloneFloor(AudioSignal *Signal, parameters *config);
 double GetLowerFrameRate(double framerateA, double framerateB);
 void CompareFrameRates(AudioSignal *Signal1, AudioSignal *Signal2, parameters *config);
 void CompareFrameRatesMDW(AudioSignal *Signal, double framerate, parameters *config);
+double CalculatePCMMagnitude(double amplitude, double MaxMagnitude);
 
 int IsHRefreshNoise(AudioSignal *Signal, double freq);
 int IsHRefreshNoiseCrossTalk(AudioSignal *Signal, double freq);

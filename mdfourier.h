@@ -48,7 +48,7 @@
 
 #include "incbeta.h"
 
-#define MDVERSION "1.0rc3"
+#define MDVERSION "1.0rc4"
 
 #if INTPTR_MAX == INT64_MAX
 #define	BITS_MDF "64-bit"
@@ -109,7 +109,7 @@
 #define	MAXINT16		 32768.0
 #define	MININT16		-32767.0
 
-#define INT16_03DB		23197.0   // 0x5AD9
+#define INT16_03DB		23198.0   // 0x5AD9
 
 #define SIG_CENTS_DIFF 0.15
 // Use -3dbfs scale
@@ -508,6 +508,7 @@ typedef struct parameters_st {
 	double			NoSyncTotalFrames;
 	int				ignoreFrameRateDiff;
 	int				labelNames;
+	double			zoomWaveForm;
 
 	double			thresholdAmplitudeHiDif;
 	double			thresholdMissingHiDif;

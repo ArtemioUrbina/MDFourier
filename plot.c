@@ -4491,7 +4491,13 @@ void PlotTimeDomainHighDifferenceGraphs(AudioSignal *Signal, parameters *config)
 void DrawVerticalFrameGrid(PlotFile *plot, AudioSignal *Signal, double frames, double frameIncrement, double MaxSamples, int forceDrawMS, parameters *config)
 {
 	int		drawMS = 0;
-	double	x = 0, xfactor = 0, segment = 0;
+	double	x = 0, xfactor = 0, segment = 0, MaxY = MAXINT16, MinY = MININT16;
+
+	if(config->zoomWaveForm != 0)
+	{
+		MaxY = CalculatePCMMagnitude(config->zoomWaveForm, MAXINT16);
+		MinY = CalculatePCMMagnitude(config->zoomWaveForm, MININT16);
+	}
 
 	if(frames <= 10 || forceDrawMS)
 		drawMS = 1;
@@ -4509,7 +4515,7 @@ void DrawVerticalFrameGrid(PlotFile *plot, AudioSignal *Signal, double frames, d
 			for(int i = 0; i <= Signal->framerate; i += 1)
 			{
 				x = offset+(double)i*factor;
-				pl_fline_r(plot->plotter, x, MININT16, x, MAXINT16);
+				pl_fline_r(plot->plotter, x, MinY, x, MaxY);
 				pl_endpath_r(plot->plotter);
 			}
 		}
@@ -4520,7 +4526,7 @@ void DrawVerticalFrameGrid(PlotFile *plot, AudioSignal *Signal, double frames, d
 	for(int i = frameIncrement; i <= frames; i += frameIncrement)
 	{
 		x = FramesToSamples(i, Signal->header.fmt.SamplesPerSec, Signal->framerate);
-		pl_fline_r(plot->plotter, x, MININT16, x, MAXINT16);
+		pl_fline_r(plot->plotter, x, MinY, x, MaxY);
 		pl_endpath_r(plot->plotter);
 	}
 
@@ -4541,7 +4547,7 @@ void DrawVerticalFrameGrid(PlotFile *plot, AudioSignal *Signal, double frames, d
 	for(int i = 0; i <= frames; i += segment)
 	{
 		x = FramesToSamples(i, Signal->header.fmt.SamplesPerSec, Signal->framerate);
-		pl_fline_r(plot->plotter, x, MININT16, x, MAXINT16);
+		pl_fline_r(plot->plotter, x, MinY, x, MaxY);
 		pl_endpath_r(plot->plotter);
 	}
 
@@ -4569,8 +4575,18 @@ void DrawVerticalFrameGrid(PlotFile *plot, AudioSignal *Signal, double frames, d
 void DrawINT16DBFSLines(PlotFile *plot, double resx, int AudioChannels, parameters *config)
 {
 	char 	label[20];
-	double	factor = 0;
-	int		dbfs = -3, channel = 0;
+	double	factor = 0, MaxY = MAXINT16, MinY = MININT16;
+	double	startDB = 3, endDB = 36, dbstep = 3;
+	int		channel = 0;
+
+	if(config->zoomWaveForm != 0)
+	{
+		MaxY = CalculatePCMMagnitude(config->zoomWaveForm, MAXINT16);
+		MinY = CalculatePCMMagnitude(config->zoomWaveForm, MININT16);
+
+		startDB = fabs(config->zoomWaveForm)+3;
+		endDB = fabs(config->zoomWaveForm)+30;
+	}
 
 	for(channel = 1; channel <= AudioChannels; channel++)
 	{
@@ -4578,15 +4594,15 @@ void DrawINT16DBFSLines(PlotFile *plot, double resx, int AudioChannels, paramete
 		{
 			double margin1 = 0, margin2 = 0;
 
-			margin1 = fabs(MAXINT16-MININT16)*Y0BORDER;
-			margin2 = fabs(MAXINT16-MININT16)*Y1BORDER;
+			margin1 = fabs(MaxY-MinY)*Y0BORDER;
+			margin2 = fabs(MaxY-MinY)*Y1BORDER;
 
 			// Split the vertical axis
 			pl_savestate_r(plot->plotter);
 			if(channel == 1)
-				pl_fspace_r(plot->plotter, plot->x0, 3*MININT16-margin1, plot->x1, MAXINT16+margin2);
+				pl_fspace_r(plot->plotter, plot->x0, 3*MinY-margin1, plot->x1, MaxY+margin2);
 			if(channel == 2)
-				pl_fspace_r(plot->plotter, plot->x0, MININT16-margin1, plot->x1, 3*MAXINT16+margin2);
+				pl_fspace_r(plot->plotter, plot->x0, MinY-margin1, plot->x1, 3*MaxY+margin2);
 		}
 
 		// center line
@@ -4595,17 +4611,15 @@ void DrawINT16DBFSLines(PlotFile *plot, double resx, int AudioChannels, paramete
 	
 		// 3dbfs step lines
 		SetPenColor(COLOR_GRAY, 0x3333, plot);
-		for(int db = 2; db <= 256; db *= 2)
+		for(double db = startDB; db <= endDB; db += dbstep)
 		{
-			double height;
-	
-			height = INT16_03DB*2/db;
+			double height = 0;
+
+			height = CalculatePCMMagnitude(-1*db, MAXINT16);
 			pl_fline_r(plot->plotter, 0, height, resx, height);
-			pl_fline_r(plot->plotter, 0, -1*height, resx, -1*height);
-	
-			height = MAXINT16/db;
+
+			height = CalculatePCMMagnitude(-1*db, MININT16);
 			pl_fline_r(plot->plotter, 0, height, resx, height);
-			pl_fline_r(plot->plotter, 0, -1*height, resx, -1*height);
 		}
 
 		pl_endpath_r(plot->plotter);
@@ -4634,7 +4648,7 @@ void DrawINT16DBFSLines(PlotFile *plot, double resx, int AudioChannels, paramete
 		{
 			// Channel Label
 			pl_fmove_r(plot->plotter, config->plotResX+PLOT_SPACER, 0);
-			SetPenColor(COLOR_GRAY, 0xAAAA, plot);	
+			SetPenColor(COLOR_GRAY, 0xAAAA, plot);
 			if(channel == 1)
 				pl_alabel_r(plot->plotter, 'l', 'c', " Left");
 			if(channel == 2)
@@ -4642,27 +4656,24 @@ void DrawINT16DBFSLines(PlotFile *plot, double resx, int AudioChannels, paramete
 		}
 
 		SetPenColor(COLOR_GRAY, 0x7777, plot);
-		dbfs = -3;
-		factor = config->plotResY/(2*MAXINT16);
-		for(int db = 2; db <= 8; db *= 2)
+		factor = config->plotResY/(2*MaxY);
+		for(double db = startDB; db <= endDB; db += dbstep)
 		{
 			double height;
 	
-			height = INT16_03DB*2/db;
-			sprintf(label, "%ddBFS", dbfs);
+			height = CalculatePCMMagnitude(-1*db, MAXINT16);
+			sprintf(label, "%ddBFS", (int)(-1*db));
 			pl_fmove_r(plot->plotter, config->plotResX+PLOT_SPACER, height*factor);
 			pl_alabel_r(plot->plotter, 'l', 'c', label);
 			pl_fmove_r(plot->plotter, config->plotResX+PLOT_SPACER, -1*height*factor);
 			pl_alabel_r(plot->plotter, 'l', 'c', label);
-			dbfs -= 3;
 	
-			height = MAXINT16/db;
-			sprintf(label, "%ddBFS", dbfs);
+			height = CalculatePCMMagnitude(-1*db, MININT16);
+			sprintf(label, "%ddBFS", (int)(-1*db));
 			pl_fmove_r(plot->plotter, config->plotResX+PLOT_SPACER, height*factor);
 			pl_alabel_r(plot->plotter, 'l', 'c', label);
 			pl_fmove_r(plot->plotter, config->plotResX+PLOT_SPACER, -1*height*factor);
 			pl_alabel_r(plot->plotter, 'l', 'c', label);
-			dbfs -= 3;
 		}
 	
 		pl_restorestate_r(plot->plotter);
@@ -4706,11 +4717,17 @@ void PlotBlockTimeDomainGraph(AudioSignal *Signal, int block, char *name, int wa
 	PlotFile	plot;
 	long int	color = 0, sample = 0, numSamples = 0, difference = 0, plotSize = 0;
 	int16_t		*samples = NULL;
-	double		margin1 = 0, margin2 = 0;
+	double		margin1 = 0, margin2 = 0, MaxY = MAXINT16, MinY = MININT16;
+
+	if(config->zoomWaveForm != 0)
+	{
+		MaxY = CalculatePCMMagnitude(config->zoomWaveForm, MAXINT16);
+		MinY = CalculatePCMMagnitude(config->zoomWaveForm, MININT16);
+	}
 
 	// for plots
-	margin1 = fabs(MAXINT16-MININT16)*Y0BORDER;
-	margin2 = fabs(MAXINT16-MININT16)*Y1BORDER;
+	margin1 = fabs(MaxY-MinY)*Y0BORDER;
+	margin2 = fabs(MaxY-MinY)*Y1BORDER;
 
 	if(!Signal || !config)
 		return;
@@ -4735,11 +4752,11 @@ void PlotBlockTimeDomainGraph(AudioSignal *Signal, int block, char *name, int wa
 
 	if(config->debugSync && Signal->Blocks[block].type == TYPE_SYNC)
 	{
-		FillPlotExtra(&plot, name, SYNC_DEBUG_SCALE*config->plotResX, config->plotResY, 0, MININT16, plotSize, MAXINT16, 1, 0.2, config);
+		FillPlotExtra(&plot, name, SYNC_DEBUG_SCALE*config->plotResX, config->plotResY, 0, MinY, plotSize, MaxY, 1, 0.2, config);
 		forceMS = 1;
 	}
 	else
-		FillPlot(&plot, name, 0, MININT16, plotSize, MAXINT16, 1, 0.2, config);
+		FillPlot(&plot, name, 0, MinY, plotSize, MaxY, 1, 0.2, config);
 
 	if(!CreatePlotFile(&plot, config))
 		return;
@@ -4750,7 +4767,7 @@ void PlotBlockTimeDomainGraph(AudioSignal *Signal, int block, char *name, int wa
 		pl_filltype_r(plot.plotter, 1);
 		pl_pencolor_r(plot.plotter, 0x6666, 0, 0);
 		pl_fillcolor_r(plot.plotter, 0x6666, 0, 0);
-		pl_fbox_r(plot.plotter, numSamples-difference, MININT16, numSamples-1, MAXINT16);
+		pl_fbox_r(plot.plotter, numSamples-difference, MinY, numSamples-1, MaxY);
 		pl_filltype_r(plot.plotter, 0);
 	}
 
@@ -4763,13 +4780,33 @@ void PlotBlockTimeDomainGraph(AudioSignal *Signal, int block, char *name, int wa
 	{
 		// Split the vertical axis
 		pl_savestate_r(plot.plotter);
-		pl_fspace_r(plot.plotter, plot.x0, 3*MININT16-margin1, plot.x1, MAXINT16+margin2);
+		pl_fspace_r(plot.plotter, plot.x0, 3*MinY-margin1, plot.x1, MaxY+margin2);
 	}
 
 	// Draw samples
 	SetPenColor(color, 0xffff, &plot);
-	for(sample = 0; sample < numSamples - 1; sample ++)
-		pl_fline_r(plot.plotter, sample, samples[sample], sample+1, samples[sample+1]);
+	if(config->zoomWaveForm == 0)	// This is the regular plot
+	{
+		for(sample = 0; sample < numSamples - 1; sample ++)
+			pl_fline_r(plot.plotter, sample, samples[sample], sample+1, samples[sample+1]);
+	}
+	else	// This is for zoomed in plots
+	{
+		for(sample = 0; sample < numSamples - 1; sample ++)
+		{
+			double s0 = samples[sample], s1 = samples[sample+1];
+
+			// draw samples outside zoom up to the zoom point
+			if(s0 > MaxY) s0 = MaxY;
+			if(s1 < MinY) s1 = MinY;
+
+			if(s0 < MinY) s0 = MinY;
+			if(s1 > MaxY) s1 = MaxY;
+
+			if(!(s0 == s1 && (s0 == MaxY || s0 == MinY)))  // clear samples fully outside zoom
+				pl_fline_r(plot.plotter, sample, s0, sample+1, s1);
+		}
+	}
 	pl_endpath_r(plot.plotter);
 
 	// Draw Extra Channel samples
@@ -4777,20 +4814,38 @@ void PlotBlockTimeDomainGraph(AudioSignal *Signal, int block, char *name, int wa
 	{
 		// End top split
 		pl_restorestate_r(plot.plotter);
-
 		// New lower split
 		pl_savestate_r(plot.plotter);
-		pl_fspace_r(plot.plotter, plot.x0, MININT16-margin1, plot.x1, 3*MAXINT16+margin2);
+		pl_fspace_r(plot.plotter, plot.x0, MinY-margin1, plot.x1, 3*MaxY+margin2);
 
 		if(wavetype == WAVEFORM_WINDOW)
 			samples = Signal->Blocks[block].audioRight.window_samples;
 		else
 			samples = Signal->Blocks[block].audioRight.samples;
 		SetPenColor(color, 0xffff, &plot);
-		for(sample = 0; sample < numSamples - 1; sample ++)
-			pl_fline_r(plot.plotter, sample, samples[sample], sample+1, samples[sample+1]);
+		if(config->zoomWaveForm == 0)	// This is the regular plot
+		{
+			for(sample = 0; sample < numSamples - 1; sample ++)
+				pl_fline_r(plot.plotter, sample, samples[sample], sample+1, samples[sample+1]);
+		}
+		else	// This is for zoomed in plots
+		{
+			for(sample = 0; sample < numSamples - 1; sample ++)
+			{
+				double s0 = samples[sample], s1 = samples[sample+1];
+	
+				// draw samples outside zoom up to the zoom point
+				if(s0 > MaxY) s0 = MaxY;
+				if(s1 < MinY) s1 = MinY;
+	
+				if(s0 < MinY) s0 = MinY;
+				if(s1 > MaxY) s1 = MaxY;
+	
+				if(!(s0 == s1 && (s0 == MaxY || s0 == MinY)))  // clear samples fully outside zoom
+					pl_fline_r(plot.plotter, sample, s0, sample+1, s1);
+			}
+		}
 		pl_endpath_r(plot.plotter);
-
 		pl_restorestate_r(plot.plotter);
 	}
 	

@@ -170,6 +170,7 @@ void CleanParameters(parameters *config)
 	config->stereoNotFound = 0;
 	config->stereoBalanceBlock = 0;
 	config->internalSyncTolerance = 0;
+	config->zoomWaveForm = 0;
 
 	config->logScale = 1;
 	config->logScaleTS = 0;
@@ -259,13 +260,21 @@ int commandline(int argc , char *argv[], parameters *config)
 	
 	CleanParameters(config);
 
-	// Available: aGJKq1234567
-	while ((c = getopt (argc, argv, "ABb:Cc:Dd:Ee:Ff:gHhIijkL:lMmNn:Oo:P:p:QRr:Ss:TtUuVvWw:XxY:yZ:z0:89")) != -1)
+	// Available: GJKq1234567
+	while ((c = getopt (argc, argv, "Aa:Bb:Cc:Dd:Ee:Ff:gHhIijkL:lMmNn:Oo:P:p:QRr:Ss:TtUuVvWw:XxY:yZ:z0:89")) != -1)
 	switch (c)
 	  {
 	  case 'A':
 		config->averagePlot = 1;
 		config->weightedAveragePlot = 0;
+		break;
+	  case 'a':
+		config->zoomWaveForm = atof(optarg);
+		if(config->zoomWaveForm > 0 || config->zoomWaveForm < -96)
+		{
+			logmsg("\t - Wave form Zoom Range must be between %d and %d, changed to %d\n", 0, -96, 0);
+			config->zoomWaveForm = 0;
+		}
 		break;
 	  case 'B':
 		config->channelBalance = 0;
