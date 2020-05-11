@@ -153,7 +153,7 @@ int CDOSExecute::ExecuteExternalFile()
 	{
 		if(ExitCode == STATUS_DLL_NOT_FOUND)
 		{
-			m_OutputText = L"ERROR: Command was not statically linked. DLLs not found.";
+			m_OutputText += L"ERROR: Command was not statically linked. DLLs not found.";
 			CloseHandle(pInfo.hProcess);
 			CloseHandle(pInfo.hThread);
 			CloseHandle(rPipe);
