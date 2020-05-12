@@ -1744,7 +1744,7 @@ double FindClippingAndRatio(AudioSignal *Signal, double normalizationRatio, para
 	}
 
 	if(MaxSample)
-		scaleRatio = (double)WAVEFORM_SCALE/(MaxSample*normalizationRatio);
+		scaleRatio = CalculatePCMMagnitude(-3.0, MAXINT16)/(MaxSample*normalizationRatio);
 	return scaleRatio;
 }
 
@@ -1893,9 +1893,9 @@ void ProcessWaveformsByBlock(AudioSignal *SignalToModify, AudioSignal *FixedSign
 		}
 
 		if(MaxSampleToModify > MaxSampleFixed)
-			scaleRatio = WAVEFORM_SCALE/(double)MaxSampleToModify;
+			scaleRatio = CalculatePCMMagnitude(-3.0, MAXINT16)/(double)MaxSampleToModify;
 		else
-			scaleRatio = WAVEFORM_SCALE/(double)MaxSampleFixed;
+			scaleRatio = CalculatePCMMagnitude(-3.0, MAXINT16)/(double)MaxSampleFixed;
 		
 		if(config->verbose) {
 			logmsg(" - Scale factor to reach -3dBFS: %g\n", scaleRatio);

@@ -109,13 +109,7 @@
 #define	MAXINT16		 32768.0
 #define	MININT16		-32767.0
 
-#define INT16_03DB		23198.0   // 0x5AD9
-
 #define SIG_CENTS_DIFF 0.15
-// Use -3dbfs scale
-#define WAVEFORM_SCALE	INT16_03DB
-// Use Max Scale
-//#define WAVEFORM_SCALE	(MAXINT16-1)
 
 #define BUFFER_SIZE		4096
 #define T_BUFFER_SIZE	BUFFER_SIZE*2+256
@@ -588,14 +582,12 @@ typedef struct parameters_st {
 	AudioSignal		*referenceSignal;
 	AudioSignal		*comparisonSignal;
 
-#ifdef MDWAVE
+// MDWave stuff
 	int				maxBlanked;
 	int				invert;
 	int				chunks;
 	int				useCompProfile;
 	int				executefft;
-#endif
-
 } parameters;
 
 

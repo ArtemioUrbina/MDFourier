@@ -134,6 +134,21 @@ int FLACtoSignal(char *input, AudioSignal *Signal, parameters *config)
 			Signal->samplesPosFLAC, Signal->header.data.DataSize);
 		Signal->header.data.DataSize = Signal->samplesPosFLAC;
 	}
+
+	// Fill header data for MDWave/SaveWAVEChunk
+
+	// riff
+	memcpy(Signal->header.riff.RIFF, "RIFF", sizeof(char)*4);
+	Signal->header.riff.ChunkSize = Signal->header.data.DataSize+36;
+	memcpy(Signal->header.riff.WAVE, "WAVE", sizeof(char)*4);
+
+	// fmt
+	memcpy(Signal->header.fmt.fmt, "fmt ", sizeof(char)*4);
+	Signal->header.fmt.Subchunk1Size = 16;
+
+	// data
+	memcpy(Signal->header.data.DataID, "data", sizeof(char)*4);
+
 	if(Signal->errorFLAC)
 		return 0;
 	return ok ? 1 : 0;

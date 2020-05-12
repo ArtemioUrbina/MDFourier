@@ -634,7 +634,6 @@ int ProcessInternal(AudioSignal *Signal, long int element, long int pos, int *sy
 						pulseLengthBytes, syncLengthBytes/2);
 			}
 
-#ifndef MDWAVE
 			/* Copy waveforms for visual inspection, create 3 slots: silence, sync pulse, silence */
 			if(config->plotAllNotes)
 			{
@@ -659,7 +658,7 @@ int ProcessInternal(AudioSignal *Signal, long int element, long int pos, int *sy
 						Signal->header.fmt.SamplesPerSec, NULL, Signal->AudioChannels, config))
 					return 0;
 			}
-#endif
+
 			// skip sync tone-which is silence-taken from config file
 			internalSyncOffset += syncLengthBytes;
 
@@ -669,9 +668,8 @@ int ProcessInternal(AudioSignal *Signal, long int element, long int pos, int *sy
 		if(knownLength == TYPE_INTERNAL_UNKNOWN)  // Our sync is outside the frame detection zone
 		{
 			long int 	silenceLengthBytes = 0;
-#ifndef MDWAVE
 			/* long int 	oneframe = 0; */
-#endif
+
 			silenceLengthBytes = syncLengthBytes/2;
 
 			if(pulseLengthBytes != silenceLengthBytes)
@@ -715,7 +713,6 @@ int ProcessInternal(AudioSignal *Signal, long int element, long int pos, int *sy
 			// skip half the sync tone-which is silence-taken from config file
 			signalStart += silenceLengthBytes;
 
-#ifndef MDWAVE
 			/* Copy waveforms for visual inspection, create 3 slots: silence, sync pulse, silence */
 			if(config->plotAllNotes)
 			{
@@ -749,7 +746,7 @@ int ProcessInternal(AudioSignal *Signal, long int element, long int pos, int *sy
 					return 0;
 				*/
 			}
-#endif
+
 			/* Do the real processing */
 			if(!MoveSampleBlockExternal(Signal, element, pos, signalStart, pulseLengthBytes + silenceLengthBytes, config))
 				return 0;

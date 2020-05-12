@@ -26,7 +26,6 @@
  * 
  */
 
-#define MDWAVE
 #define MDWVERSION MDVERSION
 
 #include "mdfourier.h"
