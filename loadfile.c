@@ -285,7 +285,7 @@ int DetectSync(AudioSignal *Signal, parameters *config)
 			{
 				int format = 0;
 
-				logmsg("\nERROR: Ending pulse train was not detected.\nProfile used: [%s]\n", config->types.Name);				
+				logmsg(" ERROR: Ending pulse train was not detected.\n - Profile used: [%s]\n", config->types.Name);				
 				if(Signal->role == ROLE_REF)
 					format = config->videoFormatRef;
 				else
@@ -596,11 +596,12 @@ int ProcessInternal(AudioSignal *Signal, long int element, long int pos, int *sy
 		syncLenSeconds = GetInternalSyncLen(element, config);
 		syncLengthBytes = SecondsToBytes(Signal->header.fmt.SamplesPerSec, syncLenSeconds, Signal->AudioChannels, NULL, NULL, NULL);
 
+		// we send , syncLenSeconds/2 since it is half silence half pulse
 		internalSyncOffset = DetectSignalStart(Signal->Samples, Signal->header, pos, syncToneFreq, syncLengthBytes/2, &endPulseBytes, &toleranceIssue, config);
 		if(internalSyncOffset == -1)
 		{
-			logmsg("\tWARNING: No signal found while in internal sync detection.\n");
-			return -1;
+			logmsg("\tERROR: No signal found while in internal sync detection.\n");
+			return 0;  // Was warning with -1
 		}
 		*syncinternal = 1;
 
@@ -611,12 +612,15 @@ int ProcessInternal(AudioSignal *Signal, long int element, long int pos, int *sy
 		internalSyncOffset -= pos;
 		signalStart = internalSyncOffset;
 
-		if(pulseLengthBytes < syncLengthBytes/20)
+		if(pulseLengthBytes < (syncLengthBytes/2)*0.90)
 		{
-			logmsg("\t- WARNING: No real signal found while in internal sync detection");
-			if(config->verbose)
- 				logmsg(" (got %ld expected > %ld)", pulseLengthBytes, syncLengthBytes/20);
-			logmsg("\n");
+			double expected = 0, got = 0;
+
+			got = BytesToSeconds(Signal->header.fmt.SamplesPerSec, pulseLengthBytes/2, Signal->AudioChannels);
+			expected = BytesToSeconds(Signal->header.fmt.SamplesPerSec, syncLengthBytes/2, Signal->AudioChannels);
+
+			logmsg(" - ERROR: Internal Sync %dhz tone at %ld bytes was shorter than the expected %gms by %gms\n",
+					syncToneFreq, pos + internalSyncOffset, expected, expected - got);
 			return 0;
 		}
 
@@ -688,11 +692,13 @@ int ProcessInternal(AudioSignal *Signal, long int element, long int pos, int *sy
 				}
 				else
 				{
-					logmsg(" - WARNING: Internal Sync too short.");
-					if(config->verbose)
-						logmsg(" Got %ld expected %ld\n", 
-							pulseLengthBytes, silenceLengthBytes);
-					logmsg("\n");
+					double expected = 0, got = 0;
+
+					got = BytesToSeconds(Signal->header.fmt.SamplesPerSec, pulseLengthBytes, Signal->AudioChannels);
+					expected = BytesToSeconds(Signal->header.fmt.SamplesPerSec, silenceLengthBytes, Signal->AudioChannels);
+
+					if(expected - got > 0.00015)  // This is the expected error in ms
+						logmsg(" - WARNING: Internal Sync was shorter than the expected %gms by %gms\n", expected, expected - got);
 				}
 				//silenceLengthBytes = syncLengthBytes - pulseLengthBytes;
 			}

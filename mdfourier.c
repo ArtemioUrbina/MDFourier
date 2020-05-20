@@ -656,7 +656,7 @@ int LoadAndProcessAudioFiles(AudioSignal **ReferenceSignal, AudioSignal **Compar
 	CompareFrameRates(*ReferenceSignal, *ComparisonSignal, config);
 
 	/* Balance check */
-	if(config->channelBalance)
+	if(config->channelBalance && !config->noSyncProfile)
 	{
 		if((*ReferenceSignal)->AudioChannels == 2 || (*ComparisonSignal)->AudioChannels == 2)
 		{

@@ -49,7 +49,8 @@ void PrintUsage()
 	logmsg("	 -i: <i>gnores the silence block noise floor if present\n");
 	logmsg("	 -z: Uses <z>ero Padding to equal 1 Hz FFT bins\n");
 	logmsg("	 -n: <N>ormalize:\n");
-	logmsg("		'f' Frequency Domain Max, 't' Time Domain or 'a' Average\n");
+	logmsg("		'f' Frequency Domain Max, 't' Time Domain, 'a' Average\n");
+	logmsg("		'n' No normalization\n");
 	logmsg("	 -B: Do not do stereo channel audio <B>alancing\n");
 	logmsg("	 -I: <I>gnore frame rate difference for analysis\n");
 	logmsg("	 -p: Define the noise floor value in dBFS (0 to disable auto adjust)\n");
@@ -68,6 +69,7 @@ void PrintUsage()
 	logmsg("	 -A: Do not weight values in <A>veraged Plot (implies -g)\n");
 	logmsg("	 -W: Use <W>hite background for plots.\n");
 	logmsg("	 -d: Max <d>BFS for plots vertically\n");
+	logmsg("	 -a: Zoom in to dBFS in waveform plots\n");
 	logmsg("	 -L: Plot resolution:\n");
 	logmsg("		1: %gx%g  2: %gx%g 3: %gx%g\n",
 			PLOT_RES_X_LOW, PLOT_RES_Y_LOW, PLOT_RES_X, PLOT_RES_Y, PLOT_RES_X_1K, PLOT_RES_Y_1K);
@@ -88,7 +90,6 @@ void PrintUsage()
 	logmsg("	 -E: Defines Full frequency rang<E> for Time Spectrogram plots\n");
 	logmsg("	 -N: Use li<N>ear scale instead of logaritmic scale for plots\n");
 	logmsg("	 -x: (text) Enables e<x>tended log results. Shows a table with matches\n");
-	logmsg("	 -m: (text) Enables Show all blocks compared with <m>atched frequencies\n");
 	logmsg("	 -0: Change output folder\n");
 	logmsg("	 -y: Output debug Sync pulse detection algorithm information\n");
 }
@@ -260,8 +261,8 @@ int commandline(int argc , char *argv[], parameters *config)
 	
 	CleanParameters(config);
 
-	// Available: GJKq1234567
-	while ((c = getopt (argc, argv, "Aa:Bb:Cc:Dd:Ee:Ff:gHhIijkL:lMmNn:Oo:P:p:QRr:Ss:TtUuVvWw:XxY:yZ:z0:89")) != -1)
+	// Available: GJKmq1234567
+	while ((c = getopt (argc, argv, "Aa:Bb:Cc:Dd:Ee:Ff:gHhIijkL:lMNn:Oo:P:p:QRr:Ss:TtUuVvWw:XxY:yZ:z0:89")) != -1)
 	switch (c)
 	  {
 	  case 'A':
@@ -270,9 +271,9 @@ int commandline(int argc , char *argv[], parameters *config)
 		break;
 	  case 'a':
 		config->zoomWaveForm = atof(optarg);
-		if(config->zoomWaveForm > 0 || config->zoomWaveForm < -96)
+		if(config->zoomWaveForm > 0 || config->zoomWaveForm < -112)
 		{
-			logmsg("\t - Wave form Zoom Range must be between %d and %d, changed to %d\n", 0, -96, 0);
+			logmsg("\t - Wave form Zoom Range must be between %d and %d, changed to %d\n", 0, -112, 0);
 			config->zoomWaveForm = 0;
 		}
 		break;
@@ -395,9 +396,6 @@ int commandline(int argc , char *argv[], parameters *config)
 	  case 'M':
 		config->plotMissing = 0;
 		break;
-	  case 'm':
-		config->showAll = 1;
-		break;
 	  case 'N':
 		config->logScale = 0;
 		break;
@@ -516,6 +514,7 @@ int commandline(int argc , char *argv[], parameters *config)
 		break;
 	  case 'x':
 		config->extendedResults = 1;
+		config->showAll = 1;
 		break;
 	  case 'Y':
 		config->videoFormatRef = atoi(optarg);

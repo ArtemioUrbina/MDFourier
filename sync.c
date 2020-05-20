@@ -879,7 +879,7 @@ long int DetectSignalStartInternal(char *Samples, wav_hdr header, int factor, lo
 	double				MaxMagnitude = 0;
 	Pulses				*pulseArray;
 	double 				total = 0;
-	long int 			count = 0, length = 0, tolerance = 0, toleranceIssueOffset = -1;
+	long int 			count = 0, length = 0, tolerance = 0, toleranceIssueOffset = -1, MaxTolerance = 4;
 	double 				targetFrequency = 0, targetFrequencyHarmonic[2] = { NO_FREQ, NO_FREQ }, averageAmplitude = 0;
 
 	/* Not a real ms, just approximate */
@@ -994,77 +994,78 @@ long int DetectSignalStartInternal(char *Samples, wav_hdr header, int factor, lo
 
 	for(i = start; i < TotalMS; i++)
 	{
-		if(pulseArray[i].hertz)
-		{
 #ifdef DEBUG_SYNC_INTERNAL_TOLERANCE
-			if(config->debugSync)
-				logmsgFileOnly("Bytes: %ld Hz: %g Ampl: %g Avg: %g (%ld)\n", 
-					pulseArray[i].bytes, 
-					pulseArray[i].hertz, 
-					pulseArray[i].amplitude, 
-					averageAmplitude, i);
+		/*
+		if(pulseArray[i].hertz)
+			logmsgFileOnly("Bytes: %ld Hz: %g Ampl: %g Avg: %g (%ld)\n", 
+				pulseArray[i].bytes, 
+				pulseArray[i].hertz, 
+				pulseArray[i].amplitude, 
+				averageAmplitude, i);
+		*/
 #endif
 
-			if(syncKnown)
+		if(syncKnown)
+		{
+			if(pulseArray[i].amplitude > averageAmplitude &&
+				pulseArray[i].hertz == targetFrequency) /* ||
+				pulseArray[i].hertz == targetFrequencyHarmonic[0] ||
+				pulseArray[i].hertz == targetFrequencyHarmonic[1]))  // harmonic */
 			{
-				if(pulseArray[i].amplitude > averageAmplitude &&
-					pulseArray[i].hertz == targetFrequency) /* ||
-					pulseArray[i].hertz == targetFrequencyHarmonic[0] ||
-					pulseArray[i].hertz == targetFrequencyHarmonic[1]))  // harmonic */
+				if(offset == -1)
+					offset = pulseArray[i].bytes;
+				length++;
+			}
+			else
+			{
+				if(offset != -1 && length > 4)
 				{
-					if(offset == -1)
-						offset = pulseArray[i].bytes;
-					length++;
+					int endProcess = 0;
+
+					// If we are way smaller than expected...
+					if(abs(expectedSyncLen - (pulseArray[i].bytes-offset)) > (expectedSyncLen)/5)
+					{
+						tolerance ++;
+
+#ifdef DEBUG_SYNC_INTERNAL_TOLERANCE
+						logmsg("- Tolerance %ld/%ld (bytes %ld from expected %ld)\n",
+								tolerance, MaxTolerance, (pulseArray[i].bytes-offset), expectedSyncLen);
+#endif
+						if(toleranceIssueOffset == -1)
+							toleranceIssueOffset = pulseArray[i].bytes;
+						if(tolerance > MaxTolerance)
+							endProcess = 1;
+					}
+					else
+						endProcess = 1;
+					
+					if(endProcess)
+					{
+						if(endPulse)
+							*endPulse = pulseArray[i].bytes;
+#ifdef DEBUG_SYNC_INTERNAL_TOLERANCE
+						logmsg("EndPulse Set %ld\n", pulseArray[i].bytes);
+#endif
+						break;
+					}
 				}
 				else
 				{
-					if(offset != -1 && length > 4)
-					{
-						int doProcess = 0;
-
-						// If we are way smaller than expected...
-						if(offset != -1 && abs(expectedSyncLen - (pulseArray[i].bytes-offset)) > expectedSyncLen/5)
-						{
-#ifdef DEBUG_SYNC_INTERNAL_TOLERANCE
-							if(config->debugSync)
-								logmsgFileOnly("- Tolerance %ld (length %ld from expected %ld)\n",
-									tolerance, (pulseArray[i].bytes-offset), expectedSyncLen);
-#endif
-							tolerance ++;
-							if(toleranceIssueOffset == -1)
-								toleranceIssueOffset = pulseArray[i].bytes;
-							if(tolerance > 3)
-								doProcess = 1;
-						}
-						else
-							doProcess = 1;
-						
-						if(doProcess)
-						{
-							if(endPulse)
-								*endPulse = pulseArray[i].bytes;
-#ifdef DEBUG_SYNC_INTERNAL_TOLERANCE
-							if(config->debugSync)
-								logmsgFileOnly("EndPulse Set\n");
-#endif
-							break;
-						}
-					}
-					else
-					{
-						length = 0;
-						offset = -1;
-					}
+					length = 0;
+					offset = -1;
 				}
 			}
-			else
+		}
+		else
+		{
+			if(pulseArray[i].hertz)
 			{
 				double average = 0;
 
 				total += pulseArray[i].amplitude;
 				count ++;
 				average = total/count;
-		
+	
 				if(pulseArray[i].amplitude * 1.5 > average)
 				{
 					offset = pulseArray[i].bytes;
@@ -1080,7 +1081,7 @@ long int DetectSignalStartInternal(char *Samples, wav_hdr header, int factor, lo
 
 	if(tolerance)
 	{
-		logmsg("\t- WARNING: Internal sync has anomalies at %ld\n", toleranceIssueOffset);
+		logmsg("\t- WARNING: Internal sync tone has anomalies at %ld bytes\n", toleranceIssueOffset);
 		if(toleranceIssue)
 			*toleranceIssue = 1;
 	}

@@ -86,6 +86,29 @@ int IsFlac(char *name)
 	return 0;
 }
 
+// Fill header data for MDWave/SaveWAVEChunk
+int FillRIFFHeader(wav_hdr *header)
+{
+	if(!header)
+	{
+		logmsg("ERROR: Received NULL RIFF header\n");
+		return 0;
+	}
+
+	// RIFF
+	memcpy(header->riff.RIFF, "RIFF", sizeof(char)*4);
+	header->riff.ChunkSize = header->data.DataSize+36;
+	memcpy(header->riff.WAVE, "WAVE", sizeof(char)*4);
+
+	// fmt
+	memcpy(header->fmt.fmt, "fmt ", sizeof(char)*4);
+	header->fmt.Subchunk1Size = 16;
+
+	// data
+	memcpy(header->data.DataID, "data", sizeof(char)*4);
+	return 1;
+}
+
 int FLACtoSignal(char *input, AudioSignal *Signal, parameters *config)
 {
 	FLAC__bool ok = true;
@@ -135,20 +158,9 @@ int FLACtoSignal(char *input, AudioSignal *Signal, parameters *config)
 		Signal->header.data.DataSize = Signal->samplesPosFLAC;
 	}
 
-	// Fill header data for MDWave/SaveWAVEChunk
-
-	// riff
-	memcpy(Signal->header.riff.RIFF, "RIFF", sizeof(char)*4);
-	Signal->header.riff.ChunkSize = Signal->header.data.DataSize+36;
-	memcpy(Signal->header.riff.WAVE, "WAVE", sizeof(char)*4);
-
-	// fmt
-	memcpy(Signal->header.fmt.fmt, "fmt ", sizeof(char)*4);
-	Signal->header.fmt.Subchunk1Size = 16;
-
-	// data
-	memcpy(Signal->header.data.DataID, "data", sizeof(char)*4);
-
+	if(!FillRIFFHeader(&Signal->header))
+		return 0;
+	
 	if(Signal->errorFLAC)
 		return 0;
 	return ok ? 1 : 0;
