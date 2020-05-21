@@ -43,11 +43,11 @@ Chord_Fade_2 t 1 75 0 yellow m
     PADDING k 1 5 0 gray m
 Chord_Fade_3 t 1 75 0 yellow m
     PADDING k 1 5 0 gray m
-Stereo 5 1 75 0 magenta s
+Stereo t 15 5 0 magenta s
     PADDING k 1 5 0 gray m
-Stereo 5 1 75 0 magenta s
+Stereo t 15 5 0 magenta s
     PADDING k 1 5 0 gray m
-Stereo 5 1 75 0 magenta s
+Stereo t 15 5 0 magenta s
     PADDING k 1 5 0 gray m
 Chord_Fade_4 t 1 75 0 yellow m
     PADDING k 1 5 0 gray m

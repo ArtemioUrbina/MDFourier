@@ -64,6 +64,7 @@ void PrintAudioBlocks(parameters *config);
 void ReleasePCM(AudioSignal *Signal);
 long int GetLastSyncFrameOffset(wav_hdr header, parameters *config);
 long int GetBlockFrameOffset(int block, parameters *config);
+long int GetElementFrameOffset(int block, parameters *config);
 long int GetByteSizeDifferenceByFrameRate(double framerate, long int frames, long int samplerate, int AudioChannels, parameters *config);
 int GetFirstSyncIndex(parameters *config);
 int GetLastSyncIndex(parameters *config);

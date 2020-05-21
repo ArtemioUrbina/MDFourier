@@ -1017,13 +1017,14 @@ long int GetLastSilenceByteOffset(double framerate, wav_hdr header, int frameAdj
 	{
 		if(config->types.typeArray[i].type == TYPE_SILENCE)
 		{
-			double offset = 0, length = 0;
+			double seconds = 0;
+			long int offset = 0, length = 0;
 
-			offset = FramesToSeconds(GetBlockFrameOffset(i, config) - frameAdjust, framerate);
-			offset = SecondsToBytes(header.fmt.SamplesPerSec, offset, header.fmt.NumOfChan, NULL, NULL, NULL);
+			seconds = FramesToSeconds(GetBlockFrameOffset(i, config) - frameAdjust, framerate);
+			offset = SecondsToBytes(header.fmt.SamplesPerSec, seconds, header.fmt.NumOfChan, NULL, NULL, NULL);
 
-			length = FramesToSeconds(config->types.typeArray[i].frames*silenceOffset, framerate);
-			length = SecondsToBytes(header.fmt.SamplesPerSec, length, header.fmt.NumOfChan, NULL, NULL, NULL);
+			seconds = FramesToSeconds(config->types.typeArray[i].frames*silenceOffset, framerate);
+			length = SecondsToBytes(header.fmt.SamplesPerSec, seconds, header.fmt.NumOfChan, NULL, NULL, NULL);
 			offset += length;
 			return(offset);
 		}
@@ -1044,13 +1045,14 @@ long int GetSecondSilenceByteOffset(double framerate, wav_hdr header, int frameA
 			silence_count ++;
 		if(silence_count == 2)
 		{
-			double offset = 0, length = 0;
+			double seconds = 0;
+			long int offset = 0, length = 0;
 
-			offset = FramesToSeconds(GetBlockFrameOffset(i, config) - frameAdjust, framerate);
-			offset = SecondsToBytes(header.fmt.SamplesPerSec, offset, header.fmt.NumOfChan, NULL, NULL, NULL);
+			seconds = FramesToSeconds(GetBlockFrameOffset(i, config) - frameAdjust, framerate);
+			offset = SecondsToBytes(header.fmt.SamplesPerSec, seconds, header.fmt.NumOfChan, NULL, NULL, NULL);
 
-			length = FramesToSeconds(config->types.typeArray[i].frames*silenceOffset, framerate);
-			length = SecondsToBytes(header.fmt.SamplesPerSec, length, header.fmt.NumOfChan, NULL, NULL, NULL);
+			seconds = FramesToSeconds(config->types.typeArray[i].frames*silenceOffset, framerate);
+			length = SecondsToBytes(header.fmt.SamplesPerSec, seconds, header.fmt.NumOfChan, NULL, NULL, NULL);
 			offset += length;
 			return(offset);
 		}
@@ -1079,13 +1081,14 @@ long int GetSecondSyncSilenceByteOffset(double framerate, wav_hdr header, int fr
 		}
 		if(silence_count == 2)
 		{
-			double offset = 0, length = 0;
+			double seconds = 0;
+			long int offset = 0, length = 0;
 
-			offset = FramesToSeconds(GetBlockFrameOffset(i, config) - frameAdjust, framerate);
-			offset = SecondsToBytes(header.fmt.SamplesPerSec, offset, header.fmt.NumOfChan, NULL, NULL, NULL);
+			seconds = FramesToSeconds(GetBlockFrameOffset(i, config) - frameAdjust, framerate);
+			offset = SecondsToBytes(header.fmt.SamplesPerSec, seconds, header.fmt.NumOfChan, NULL, NULL, NULL);
 
-			length = FramesToSeconds(config->types.typeArray[i].frames*silenceOffset, framerate);
-			length = SecondsToBytes(header.fmt.SamplesPerSec, length, header.fmt.NumOfChan, NULL, NULL, NULL);
+			seconds = FramesToSeconds(config->types.typeArray[i].frames*silenceOffset, framerate);
+			length = SecondsToBytes(header.fmt.SamplesPerSec, seconds, header.fmt.NumOfChan, NULL, NULL, NULL);
 			offset += length;
 			return(offset);
 		}
@@ -1106,6 +1109,27 @@ long int GetBlockFrameOffset(int block, parameters *config)
 	for(int i = 0; i < block; i++)
 		offset += config->types.typeArray[i].frames * config->types.typeArray[i].elementCount;
 	return offset;
+}
+
+long int GetElementFrameOffset(int block, parameters *config)
+{
+	int counter = 0;
+	double offset = 0;
+
+	if(!config)
+		return 0;
+
+	for(int i = 0; i < config->types.typeCount; i++)
+	{
+		for(int e = 0; e < config->types.typeArray[i].elementCount; e++)
+		{
+			offset += config->types.typeArray[i].frames;
+			counter ++;
+			if(counter == block)
+				return offset;
+		}
+	}
+	return 0;
 }
 
 long int GetLastSyncFrameOffset(wav_hdr header, parameters *config)

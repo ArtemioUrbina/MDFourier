@@ -2199,10 +2199,17 @@ MaxMagn FindMaxMagnitudeBlock(AudioSignal *Signal, parameters *config)
 	}
 
 	if(config->verbose && MaxMag.block != -1) {
-			logmsg(" - %s Max Magnitude found in %s# %d (%d) [ %c ] at %g Hz with %g\n", 
+			double seconds = 0;
+			long int offset = 0;
+
+			seconds = FramesToSeconds(GetElementFrameOffset(MaxMag.block, config), Signal->framerate);
+			offset = SecondsToBytes(Signal->header.fmt.SamplesPerSec, seconds, Signal->header.fmt.NumOfChan, NULL, NULL, NULL);
+
+			logmsg(" - %s Max Magnitude found in %s# %d (%d) [ %c ] at %g Hz with %g (%g seconds/%ld bytes)\n", 
 					Signal->role == ROLE_REF ? "Reference" : "Comparison",
 					GetBlockName(config, MaxMag.block), GetBlockSubIndex(config, MaxMag.block),
-					MaxMag.block, MaxMag.channel, MaxMag.hertz, MaxMag.magnitude);
+					MaxMag.block, MaxMag.channel, MaxMag.hertz, MaxMag.magnitude,
+					seconds, offset);
 	}
 
 	return MaxMag;
