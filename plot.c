@@ -876,6 +876,8 @@ void enableTestWarnings(parameters *config)
 	config->clkRatio = 4;
 	config->doClkAdjust = 1;
 
+	config->warningStereoReversed = 1;
+
 	config->doSamplerateAdjust = 1;
 	config->SRNoMatch = 1;
 	config->referenceSignal->EstimatedSR = 32780;
@@ -1376,6 +1378,12 @@ void DrawLabelsMDF(PlotFile *plot, char *Gname, char *GType, int type, parameter
 		pl_alabel_r(plot->plotter, 'l', 'l', msg);
 	}
 
+	if(config->warningStereoReversed)
+	{
+		PLOT_WARN(1, warning++);
+		pl_alabel_r(plot->plotter, 'l', 'l', "WARNING: Stereo channels might be reversed");
+	}
+
 	if(config->SRNoMatch && !config->doSamplerateAdjust)
 	{
 		double labelwidth = 0;
@@ -1399,7 +1407,7 @@ void DrawLabelsMDF(PlotFile *plot, char *Gname, char *GType, int type, parameter
 		}
 
 		PLOT_WARN(1, warning++);
-		sprintf(msg, "WARNING: Sample rate%s match length. (can use -R)",
+		sprintf(msg, "WARNING: Sample rate%s match spec length. (can use -R)",
 			config->SRNoMatch == (ROLE_REF | ROLE_COMP) ? "s don't" : " doesn't");
 		pl_alabel_r(plot->plotter, 'l', 'l', msg);
 	}

@@ -385,6 +385,14 @@ int FrequencyDomainNormalize(AudioSignal **ReferenceSignal, AudioSignal **Compar
 
 	/* Detect extreme cases, and try another approach */
 	ratiodBFS = CalculateAmplitude(ComparisonLocalMaximum, MaxRef.magnitude);
+
+	if(MaxRef.block == MaxTar.block && 
+		MaxRef.channel != MaxTar.channel && 
+		fabs(ratiodBFS) > STEREO_TOLERANCE_REPORT )
+	{
+		logmsg(" - WARNING: Stereo channels might be reversed between recordings\n");
+		config->warningStereoReversed = 1;
+	}
 	if(config->verbose) { logmsg(" - Amplitude ratio is %gdBFS\n", ratiodBFS); }
 	if(ComparisonLocalMaximum == 0 || ratiodBFS > FREQDOMRATIO)
 	{

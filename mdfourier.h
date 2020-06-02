@@ -65,6 +65,7 @@
 #define NS_LOWEST_AMPLITUDE			-200
 #define	PCM_16BIT_MIN_AMPLITUDE		-96.0
 #define LOWEST_NOISEFLOOR_ALLOWED	-40.0
+#define STEREO_TOLERANCE_REPORT		10.0
 
 #define TYPE_NOTYPE				-1000
 #define TYPE_SILENCE			-1
@@ -551,6 +552,7 @@ typedef struct parameters_st {
 	int				pErrorReport;
 	int				noBalance;
 	int				stereoBalanceBlock;
+	int				warningStereoReversed;
 
 	double 			plotResX;
 	double			plotResY;
