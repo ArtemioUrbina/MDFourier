@@ -2032,6 +2032,7 @@ void FindMaxMagnitude(AudioSignal *Signal, parameters *config)
 	double		MaxMagnitude = 0;
 	double		MaxFreq = 0;
 	int			MaxBlock = -1;
+	char		MaxChannel = CHANNEL_NONE;
 
 	if(!Signal)
 		return;
@@ -2053,6 +2054,7 @@ void FindMaxMagnitude(AudioSignal *Signal, parameters *config)
 					MaxMagnitude = Signal->Blocks[block].freq[i].magnitude;
 					MaxFreq = Signal->Blocks[block].freq[i].hertz;
 					MaxBlock = block;
+					MaxChannel = CHANNEL_LEFT;
 				}
 			}
 
@@ -2067,6 +2069,7 @@ void FindMaxMagnitude(AudioSignal *Signal, parameters *config)
 						MaxMagnitude = Signal->Blocks[block].freqRight[i].magnitude;
 						MaxFreq = Signal->Blocks[block].freqRight[i].hertz;
 						MaxBlock = block;
+						MaxChannel = CHANNEL_RIGHT;
 					}
 				}
 			}
@@ -2081,8 +2084,17 @@ void FindMaxMagnitude(AudioSignal *Signal, parameters *config)
 	}
 
 	if(config->verbose && MaxBlock != -1) {
-		logmsg(" - Max Amplitude found in block %d (%s %d) at %g Hz with magnitude [%g]\n", 
-					MaxBlock, GetBlockName(config, MaxBlock), GetBlockSubIndex(config, MaxBlock), MaxFreq, MaxMagnitude);
+		double seconds = 0;
+		long int offset = 0;
+
+		seconds = FramesToSeconds(GetElementFrameOffset(MaxBlock, config), Signal->framerate);
+		offset = SecondsToBytes(Signal->header.fmt.SamplesPerSec, seconds, Signal->header.fmt.NumOfChan, NULL, NULL, NULL);
+
+		logmsg(" - %s Max Magnitude found in %s# %d (%d) [ %c ] at %g Hz with %g (%g seconds/%ld bytes)\n", 
+					Signal->role == ROLE_REF ? "Reference" : "Comparison",
+					GetBlockName(config, MaxBlock), GetBlockSubIndex(config, MaxBlock),
+					MaxBlock, MaxChannel, MaxFreq, MaxMagnitude,
+					seconds, offset);
 	}
 }
 
@@ -2730,15 +2742,14 @@ double CalculateFrameRateAndCheckSamplerate(AudioSignal *Signal, parameters *con
 
 	framerate = CalculateFrameRate(Signal, config);
 
-	diff = roundFloat(fabs(expectedFR - framerate));	
+	diff = roundFloat(fabs(expectedFR - framerate));
 
 	ACsamplerate = (endOffset-startOffset)/(expectedFR*LastSyncFrameOffset);
 	ACsamplerate = ACsamplerate*1000.0/(2.0*Signal->AudioChannels);
 	centsDifferenceSR = 1200*log2(ACsamplerate/Signal->header.fmt.SamplesPerSec);
 
 	if(fabs(centsDifferenceSR) >= SIG_CENTS_DIFF)
-	{	
-		
+	{
 		if(config->doSamplerateAdjust)
 		{
 			logmsg(" - NOTE: Auto adjustment of samplerate and frame rate applied\n");
@@ -2761,6 +2772,15 @@ double CalculateFrameRateAndCheckSamplerate(AudioSignal *Signal, parameters *con
 			logmsg(" - WARNING: %s file framerate difference is %g ms per frame.\n",
 					Signal->role == ROLE_REF ? "Reference" : "Comparision", diff);
 			logmsg(" - Sample rate estimated at %f\n", ACsamplerate);
+			if(config->verbose)
+			{
+				double tDiff = 0;
+
+				tDiff = fabs(expectedFR*LastSyncFrameOffset) - fabs(framerate*LastSyncFrameOffset);
+				logmsg(" - Expected %gms and got %gms (%gms or %g frames of %gms)\n", 
+					expectedFR*LastSyncFrameOffset, framerate*LastSyncFrameOffset,
+					tDiff,	tDiff/expectedFR, expectedFR);
+			}
 
 			Signal->EstimatedSR = ACsamplerate;
 			Signal->originalSR = Signal->header.fmt.SamplesPerSec;

@@ -303,7 +303,7 @@ int commandline(int argc , char *argv[], parameters *config)
 		config->maxDbPlotZC = atof(optarg);
 		if(config->maxDbPlotZC < 0 || config->maxDbPlotZC > 120.0)
 		{
-			logmsg("\t - Range must be between %d and %d, changed to %g\n", 0, 120.0, DB_HEIGHT);
+			logmsg("\t - Range must be between %d and %d, changed to %g\n", 0, 120, DB_HEIGHT);
 			config->maxDbPlotZC = DB_HEIGHT;
 		}
 		break;
@@ -768,21 +768,6 @@ int checkAlternatePaths(parameters *config)
 {
 	if(!checkPath(config->outputPath))
 		return 0;
-
-	/*
-	if(strlen(config->tmpPath) == 0)
-	{
-		char *tmp;
-
-		tmp = getTempDir();
-		if(!tmp)
-			logmsg("WARNING: No temp path available, using original folder\n");
-		else
-			sprintf(config->tmpPath, "%s", tmp);
-	}
-	if(!checkPath(config->tmpPath))
-		return 0;
-	*/
 	return 1;
 }
 

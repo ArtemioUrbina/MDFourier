@@ -414,9 +414,9 @@ long int DetectPulseTrainSequence(Pulses *pulseArray, double targetFrequency, do
 			if(pulseArray[i].amplitude < averageAmplitude)
 			{
 				if(config->debugSync)
-					logmsgFileOnly("[i:%ld] byte:%7ld [%5gHz %0.2f dBFS] Silence Frame counted %d\n", 
+					logmsgFileOnly("[i:%ld] byte:%7ld [%5gHz %0.2f dBFS] %s %d\n", 
 						i, pulseArray[i].bytes, pulseArray[i].hertz, pulseArray[i].amplitude, 
-						frame_silence_count);
+						sequence_start ? " Silence Frame counted" : "--", frame_silence_count);
 
 				frame_silence_count ++;
 			}
@@ -638,7 +638,21 @@ long int DetectPulseInternal(char *Samples, wav_hdr header, int factor, long int
 				msLen, floor(msLen*factor), (int)buffersize, factor);
 	}
 	else
-		TotalMS /= 4;
+	{
+		double expectedlen = 0, seconds = 0;
+
+		seconds = GetSignalTotalDuration(GetMSPerFrameRole(role, config), config);
+		expectedlen = SecondsToBytes(header.fmt.SamplesPerSec, seconds, header.fmt.NumOfChan, NULL, NULL, NULL)/ buffersize - 1;
+
+		if(expectedlen*1.5 < TotalMS)
+		{
+			logmsg("\n - WARNING: Leading/tailing silence are too long, if detection fails please consider trimming them\n");
+			TotalMS = TotalMS - expectedlen*1.2;
+		}
+		else //default case
+			TotalMS = expectedlen/4; // load 1/4th of the file (was TotalMS/4)
+
+	}
 
 	pulseArray = (Pulses*)malloc(sizeof(Pulses)*TotalMS);
 	if(!pulseArray)

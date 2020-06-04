@@ -1381,7 +1381,7 @@ void DrawLabelsMDF(PlotFile *plot, char *Gname, char *GType, int type, parameter
 	if(config->warningStereoReversed)
 	{
 		PLOT_WARN(1, warning++);
-		pl_alabel_r(plot->plotter, 'l', 'l', "WARNING: Stereo channels might be reversed");
+		pl_alabel_r(plot->plotter, 'l', 'l', "WARNING: L/R Channels might be reversed, or mono");
 	}
 
 	if(config->SRNoMatch && !config->doSamplerateAdjust)

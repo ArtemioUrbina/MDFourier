@@ -285,7 +285,7 @@ int DetectSync(AudioSignal *Signal, parameters *config)
 			{
 				int format = 0;
 
-				logmsg(" ERROR: Ending pulse train was not detected.\n - Profile used: [%s]\n", config->types.Name);				
+				logmsg("\n ERROR: Ending pulse train was not detected.\n - Profile used: [%s]\n", config->types.Name);				
 				if(Signal->role == ROLE_REF)
 					format = config->videoFormatRef;
 				else
@@ -316,8 +316,8 @@ int DetectSync(AudioSignal *Signal, parameters *config)
 			diff = fabs(100.0 - Signal->framerate*100.0/expected);
 			if(diff > 1.0)
 			{
-				logmsg("\nERROR: Framerate is %g%% different from the expected %gms.\n",
-						diff, expected);
+				logmsg("\n%s: Framerate is %g%% different from the expected %gms.\n",
+						!config->ignoreFrameRateDiff ? "ERROR" : "WARNING", diff, expected);
 				logmsg("\tThis might be due a mismatched profile.\n");
 				if(!config->ignoreFrameRateDiff)
 				{

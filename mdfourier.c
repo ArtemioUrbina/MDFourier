@@ -347,6 +347,7 @@ int TimeDomainNormalize(AudioSignal **ReferenceSignal, AudioSignal **ComparisonS
 	}
 
 	ratioRef = (ComparisonLocalMaximum/(double)MaxRef.maxSample);
+	if(config->verbose) { logmsg(" - Sample ratio is %g\n", ratioRef); }
 	NormalizeAudioByRatio(*ReferenceSignal, ratioRef);
 
 	// Uncomment if you want to check the WAV files as normalized
@@ -390,11 +391,11 @@ int FrequencyDomainNormalize(AudioSignal **ReferenceSignal, AudioSignal **Compar
 		MaxRef.channel != MaxTar.channel && 
 		fabs(ratiodBFS) > STEREO_TOLERANCE_REPORT )
 	{
-		logmsg(" - WARNING: Stereo channels might be reversed between recordings\n");
+		logmsg(" - WARNING: Left and right channels might be reversed or converted from mono to stereo\n");
 		config->warningStereoReversed = 1;
 	}
 	if(config->verbose) { logmsg(" - Amplitude ratio is %gdBFS\n", ratiodBFS); }
-	if(ComparisonLocalMaximum == 0 || ratiodBFS > FREQDOMRATIO)
+	if(ComparisonLocalMaximum == 0 || fabs(ratiodBFS) > fabs(FREQDOMRATIO))
 	{
 		int		found = 0, pos = 1, allowDifference = 0, tries = 0;
 		MaxMagn	MaxRefArray[FREQDOMTRIES];
@@ -425,8 +426,7 @@ int FrequencyDomainNormalize(AudioSignal **ReferenceSignal, AudioSignal **Compar
 						dbfsratioArray = CalculateAmplitude(ComparisonLocalMaximumArray, MaxRefArray[pos].magnitude);
 						ratioRefArray = ComparisonLocalMaximumArray/MaxRefArray[pos].magnitude;
 						if(config->verbose) { logmsg(" - Comparision ratio is %gdBFS\n", dbfsratioArray); }
-						if(dbfsratioArray <= FREQDOMRATIO)
-						{
+						if(fabs(dbfsratioArray) <= fabs(FREQDOMRATIO)) {
 							found = 1;
 							break;
 						}
@@ -442,7 +442,6 @@ int FrequencyDomainNormalize(AudioSignal **ReferenceSignal, AudioSignal **Compar
 					else  /* we are here because of ratio */ {
 						if(ratioRefArray < ratioRef)
 							copy = 1;
-
 						if(!ratioRef)
 							copy = 1;
 					}
@@ -486,10 +485,8 @@ int FrequencyDomainNormalize(AudioSignal **ReferenceSignal, AudioSignal **Compar
 		ratio = RefAvg/CompAvg;
 	else
 		ratio = CompAvg/RefAvg;
-	if(ratio > FREQDOMRATIO)
-	{
-		logmsg("\n=====WARNING=====\n");
-		logmsg("\tAverage frequency difference after normalization between the signals is too high. (Ratio:%g to 1)\n", ratio);
+	if(fabs(ratio) > fabs(FREQDOMRATIO)) {
+		logmsg("\tWARNING: Average frequency difference after normalization between the signals is too high. (Ratio:%g to 1)\n", ratio);
 		logmsg("\tIf results make no sense please try the following in the Extra Commands box:\n");
 		logmsg("\t* Use Time Domain normalization: -n t\n");
 		logmsg("\tThis can be caused by: comparing very different signals, a capacitor problem,\n");
