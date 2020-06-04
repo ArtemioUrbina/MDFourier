@@ -93,6 +93,7 @@ protected:
 	CString	*elements;
 	CString	baseWintext;
 	CString wintextProfile;
+	CString multiWarnings;
 	int		elementCount;
 	int		elementPos;
 	bool	mdwave;

@@ -6,6 +6,7 @@
 #include "MDFourierGUI.h"
 #include "MDFourierGUIDlg.h"
 #include "afxdialogex.h"
+#include "Warnings.h"
 
 #ifdef _DEBUG
 #define new DEBUG_NEW
@@ -287,6 +288,7 @@ void CMDFourierGUIDlg::OnBnClickedOk()
 
 	if(elementCount)
 	{
+		multiWarnings.Empty();
 		ExecuteCommand(elements[elementPos]);
 		if(elementCount > 1)
 			ChangeWindowText(L"0%");
@@ -469,7 +471,7 @@ void CMDFourierGUIDlg::OnTimer(UINT_PTR nIDEvent)
 	}
 	else
 	{
-		int			pos = 0, errorFound = 0, finished = 0;
+		int			pos = 0, errorFound = 0, finished = 0, warncount = 0;;
 		CString		searchFor = L"Results stored in ";
 
 		if(cDos.m_fDone)
@@ -502,16 +504,48 @@ void CMDFourierGUIDlg::OnTimer(UINT_PTR nIDEvent)
 				m_ResultsFolderText = m_ResultsFolderText.Left(m_ResultsFolderText.GetLength() - 2);
 			}
 
-			searchFor = "ERROR";
+			searchFor = L"ERROR";
 			pos = ntext.Find(searchFor, 0);
 			if(pos != -1)
 			{
+				int	end = 0;
 				CString	errorMsg;
 
 				errorMsg = ntext.Right(ntext.GetLength()-pos);
+				end = errorMsg.Find(L"\n", 0);
+				if(end != -1)
+					errorMsg = errorMsg.Left(end);
 				MessageBox(errorMsg, L"Error from MDFourier");
 				errorFound = 1;
 			}
+
+			searchFor = L"WARNING";
+			pos = 0;
+			do {
+				pos = ntext.Find(searchFor, pos+1);
+				if(pos != -1)
+				{
+					int	end = 0;
+					CString	warnMsg;
+
+					warnMsg = ntext.Right(ntext.GetLength()-pos);
+					end = warnMsg.Find(L"\n", 0);
+					if(end != -1)
+						warnMsg = warnMsg.Left(end);
+					if(elementCount > 1 && !warncount)
+					{
+						multiWarnings += L"File: ";
+						multiWarnings += elements[elementPos];
+						multiWarnings += "\r\n";
+					}
+					multiWarnings += warnMsg;
+					multiWarnings += "\r\n";
+					warncount ++;
+				}
+			}while(pos != -1);
+
+			if(elementCount > 1 && warncount)
+				multiWarnings += L"\r\n";
 
 			elementPos++;
 
@@ -535,17 +569,29 @@ void CMDFourierGUIDlg::OnTimer(UINT_PTR nIDEvent)
 
 			if(finished)
 			{
-				elementCount = 0;
-				elementPos = 0;
-				if(elements)
-					delete [] elements;
-				elements = NULL;
-
 				if(listName.GetLength())
 				{
 					m_ComparisonLbl.SetWindowText(listName);
 					listName.Empty();
 				}
+
+				if(multiWarnings.GetLength())
+				{
+					if(!errorFound || elementCount > 1)
+					{
+						CWarnings Warnings;
+
+						Warnings.SetWarnings(multiWarnings);
+						Warnings.DoModal();
+					}
+					multiWarnings.Empty();
+				}
+
+				elementCount = 0;
+				elementPos = 0;
+				if(elements)
+					delete [] elements;
+				elements = NULL;
 
 				ChangeWindowText();
 			}

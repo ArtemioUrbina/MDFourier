@@ -42,6 +42,9 @@
     <ClInclude Include="DOSExecute.h">
       <Filter>Header Files</Filter>
     </ClInclude>
+    <ClInclude Include="Warnings.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="MDFourierGUI.cpp">
@@ -54,6 +57,9 @@
       <Filter>Source Files</Filter>
     </ClCompile>
     <ClCompile Include="DOSExecute.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="Warnings.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
   </ItemGroup>
