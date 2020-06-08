@@ -512,7 +512,7 @@ void CMDFourierGUIDlg::OnTimer(UINT_PTR nIDEvent)
 				CString	errorMsg;
 
 				errorMsg = ntext.Right(ntext.GetLength()-pos);
-				end = errorMsg.Find(L"\n", 0);
+				end = errorMsg.Find(L"Aborting", 0);
 				if(end != -1)
 					errorMsg = errorMsg.Left(end);
 				MessageBox(errorMsg, L"Error from MDFourier");
@@ -579,10 +579,15 @@ void CMDFourierGUIDlg::OnTimer(UINT_PTR nIDEvent)
 				{
 					if(!errorFound || elementCount > 1)
 					{
-						CWarnings Warnings;
+						if(elementCount > 1)
+						{
+							CWarnings Warnings;
 
-						Warnings.SetWarnings(multiWarnings);
-						Warnings.DoModal();
+							Warnings.SetWarnings(multiWarnings);
+							Warnings.DoModal();
+						}
+						else
+							MessageBox(multiWarnings, L"Warning from MDFourier");
 					}
 					multiWarnings.Empty();
 				}
