@@ -16,11 +16,12 @@ public:
 	enum { IDD = IDD_WARNINGS };
 
 protected:
+	bool SetError;
 	virtual void DoDataExchange(CDataExchange* pDX);    // DDX/DDV support
 
 	DECLARE_MESSAGE_MAP()
 public:
-	void SetWarnings(CString warnings) { m_WarningsText = warnings; }
+	void SetWarnings(CString warnings, bool isError = false) { m_WarningsText = warnings; if(isError) SetError = true;}
 	CString m_WarningsText;
 	virtual BOOL OnInitDialog();
 };

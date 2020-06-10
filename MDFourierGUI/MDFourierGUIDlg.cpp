@@ -288,6 +288,7 @@ void CMDFourierGUIDlg::OnBnClickedOk()
 
 	if(elementCount)
 	{
+		multiErrors.Empty();
 		multiWarnings.Empty();
 		ExecuteCommand(elements[elementPos]);
 		if(elementCount > 1)
@@ -471,7 +472,7 @@ void CMDFourierGUIDlg::OnTimer(UINT_PTR nIDEvent)
 	}
 	else
 	{
-		int			pos = 0, errorFound = 0, finished = 0, warncount = 0;;
+		int			pos = 0, finished = 0, warncount = 0;;
 		CString		searchFor = L"Results stored in ";
 
 		if(cDos.m_fDone)
@@ -515,8 +516,17 @@ void CMDFourierGUIDlg::OnTimer(UINT_PTR nIDEvent)
 				end = errorMsg.Find(L"Aborting", 0);
 				if(end != -1)
 					errorMsg = errorMsg.Left(end);
-				MessageBox(errorMsg, L"Error from MDFourier");
-				errorFound = 1;
+				if(elementCount > 1)
+				{
+					multiErrors += L"File: ";
+					multiErrors += elements[elementPos];
+					multiErrors += "\r\n";
+
+					multiErrors += errorMsg;
+					multiErrors += "\r\n";
+				}
+				else
+					MessageBox(errorMsg, L"Error from MDFourier");
 			}
 
 			searchFor = L"WARNING";
@@ -551,18 +561,14 @@ void CMDFourierGUIDlg::OnTimer(UINT_PTR nIDEvent)
 
 			if(elementPos < elementCount)
 			{
-				if(!errorFound)
-				{
-					double percent = 0;
-					CString msg;
 
-					percent = (double)elementPos/(double)elementCount*100.0;
-					msg.Format(L"%0.1f%%", percent);
-					ExecuteCommand(elements[elementPos]);
-					ChangeWindowText(msg);
-				}
-				else
-					finished = 1;
+				double percent = 0;
+				CString msg;
+
+				percent = (double)elementPos/(double)elementCount*100.0;
+				msg.Format(L"%0.1f%%", percent);
+				ExecuteCommand(elements[elementPos]);
+				ChangeWindowText(msg);
 			}
 			else
 				finished = 1;
@@ -575,20 +581,31 @@ void CMDFourierGUIDlg::OnTimer(UINT_PTR nIDEvent)
 					listName.Empty();
 				}
 
+				if(multiErrors.GetLength())
+				{
+					if(elementCount > 1)
+					{
+						CWarnings Warnings;
+
+						Warnings.SetWarnings(multiErrors, true);
+						Warnings.DoModal();
+					}
+					else
+						MessageBox(multiErrors, L"Error from MDFourier");
+					multiErrors.Empty();
+				}
+
 				if(multiWarnings.GetLength())
 				{
-					if(!errorFound || elementCount > 1)
+					if(elementCount > 1)
 					{
-						if(elementCount > 1)
-						{
-							CWarnings Warnings;
+						CWarnings Warnings;
 
-							Warnings.SetWarnings(multiWarnings);
-							Warnings.DoModal();
-						}
-						else
-							MessageBox(multiWarnings, L"Warning from MDFourier");
+						Warnings.SetWarnings(multiWarnings);
+						Warnings.DoModal();
 					}
+					else
+						MessageBox(multiWarnings, L"Warning from MDFourier");
 					multiWarnings.Empty();
 				}
 

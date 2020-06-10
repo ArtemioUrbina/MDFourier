@@ -15,7 +15,7 @@ CWarnings::CWarnings(CWnd* pParent /*=NULL*/)
 	: CDialogEx(CWarnings::IDD, pParent)
 	, m_WarningsText(_T(""))
 {
-
+	SetError = false;
 }
 
 CWarnings::~CWarnings()
@@ -40,7 +40,8 @@ BOOL CWarnings::OnInitDialog()
 {
 	CDialogEx::OnInitDialog();
 
-	// TODO:  Add extra initialization here
+	if(SetError)
+		SetWindowText(L"Errors from MDFourier");
 
 	return TRUE;  // return TRUE unless you set the focus to a control
 	// EXCEPTION: OCX Property Pages should return FALSE

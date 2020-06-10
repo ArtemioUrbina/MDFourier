@@ -6,7 +6,7 @@
 #include "afxwin.h"
 #include "DOSExecute.h"
 
-#define MDFVERSION			L"1.01"
+#define MDFVERSION			L"1.02"
 #define	IDT_DOS				1000
 
 #define	COUNT_CURVES		6
@@ -94,6 +94,7 @@ protected:
 	CString	baseWintext;
 	CString wintextProfile;
 	CString multiWarnings;
+	CString multiErrors;
 	int		elementCount;
 	int		elementPos;
 	bool	mdwave;
