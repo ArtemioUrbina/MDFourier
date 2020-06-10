@@ -619,39 +619,41 @@ long int DetectPulseInternal(char *Samples, wav_hdr header, int factor, long int
 	pos = offset;
 	if(offset)
 	{
-		double msLen = 0;
+		double syncLen = 0;
 
 		i = offset/buffersize;
 		startPos = i;
 
 		/* check for the duration of the sync pulses */
-		msLen = GetLastSyncDuration(GetMSPerFrameRole(role, config), config)*1000;
+		syncLen = GetLastSyncDuration(GetMSPerFrameRole(role, config), config)*1000;
 		if(factor == FACTOR_EXPLORE)  /* are we exploring? */
-			msLen *= 2.0;  /* widen so that the silence offset is compensated for */
+			syncLen *= 2.0;  /* widen so that the silence offset is compensated for */
 		else
-			msLen *= 1.2;  /* widen so that the silence offset is compensated for */
-		TotalMS = i + floor(msLen*factor);
+			syncLen *= 1.2;  /* widen so that the silence offset is compensated for */
+		TotalMS = i + floor(syncLen*factor);
 
 		if(config->debugSync)
 			logmsgFileOnly("changed to:\n\tMS: %ld, BuffSize: %ld, Bytes:%ld-%ld/ms:%ld-%ld]\n\tms len: %g Bytes: %g Buffer Size: %d Factor: %d\n", 
 				millisecondSize, buffersize, i*buffersize, TotalMS*buffersize, i, TotalMS,
-				msLen, floor(msLen*factor), (int)buffersize, factor);
+				syncLen, floor(syncLen*factor), (int)buffersize, factor);
 	}
 	else
 	{
-		double expectedlen = 0, seconds = 0;
+		double expectedlen = 0, seconds = 0, syncLenSeconds = 0, syncLen = 0, silenceLen = 0, silenceLenSeconds = 0;
 
 		seconds = GetSignalTotalDuration(GetMSPerFrameRole(role, config), config);
 		expectedlen = SecondsToBytes(header.fmt.SamplesPerSec, seconds, header.fmt.NumOfChan, NULL, NULL, NULL)/ buffersize - 1;
 
-		if(expectedlen*1.5 < TotalMS)
-		{
-			logmsg("\n - WARNING: Leading/tailing silence are too long, if detection fails please consider trimming them\n");
-			TotalMS = TotalMS - expectedlen*1.2;
-		}
-		else //default case
-			TotalMS = expectedlen/4; // load 1/4th of the file (was TotalMS/4)
+		syncLenSeconds = GetFirstSyncDuration(GetMSPerFrameRole(role, config), config);
+		syncLen = SecondsToBytes(header.fmt.SamplesPerSec, syncLenSeconds, header.fmt.NumOfChan, NULL, NULL, NULL)/ buffersize - 1;
 
+		silenceLenSeconds = GetFirstSilenceDuration(GetMSPerFrameRole(role, config), config);
+		silenceLen = SecondsToBytes(header.fmt.SamplesPerSec, silenceLenSeconds, header.fmt.NumOfChan, NULL, NULL, NULL)/ buffersize - 1;
+
+		TotalMS = TotalMS - expectedlen + syncLen + silenceLen/2;
+
+		if(expectedlen*1.5 < TotalMS)  // long file
+			config->trimmingNeeded = 1;
 	}
 
 	pulseArray = (Pulses*)malloc(sizeof(Pulses)*TotalMS);

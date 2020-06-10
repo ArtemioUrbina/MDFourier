@@ -42,4 +42,6 @@ int EndProfileLoad(parameters *config);
 
 void SelectSilenceProfile(parameters *config);
 
+char *getRoleText(AudioSignal *Signal);
+
 #endif

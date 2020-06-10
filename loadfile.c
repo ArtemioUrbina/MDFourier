@@ -32,6 +32,7 @@
 #include "flac.h"
 #include "freq.h"
 #include "loadfile.h"
+#include "profile.h"
 #include "sync.h"
 
 int LoadFile(AudioSignal **Signal, char *fileName, int role, parameters *config)
@@ -254,7 +255,8 @@ int DetectSync(AudioSignal *Signal, parameters *config)
 		{
 			int format = 0;
 
-			logmsg("\nERROR: Starting pulse train was not detected.\nProfile used: [%s]\n", config->types.Name);
+			logmsg("\nERROR: '%s' starting pulse train was not detected.\nProfile used: [%s]\n", 
+				getRoleText(Signal), config->types.Name);
 
 			if(Signal->role == ROLE_REF)
 				format = config->videoFormatRef;
@@ -265,6 +267,8 @@ int DetectSync(AudioSignal *Signal, parameters *config)
 			if(format != 0 || config->smallFile)
 				logmsg(" - This signal is configured as '%s'%s, check if that is not the issue.\n", 
 							config->types.SyncFormat[format].syncName, config->smallFile ? " and is smaller than expected" : "");
+			if(config->trimmingNeeded)
+				logmsg(" - Leading/tailing silence too long, if sync detection fails please consider trimming\n");
 			return 0;
 		}
 		if(config->verbose) {
@@ -531,7 +535,7 @@ int MoveSampleBlockExternal(AudioSignal *Signal, long int element, long int pos,
 	double		signalLengthSeconds = 0;
 	long int	signalLengthFrames = 0, signalLengthBytes = 0;
 
-	signalLengthFrames = GetInternalSyncTotalLength(element, config);
+	signalLengthFrames = GetRemainingLengthFromElement(element, config);
 	if(!signalLengthFrames)
 	{
 		logmsg("\tERROR: Internal Sync block has no frame duration. Aborting.\n");
@@ -560,18 +564,16 @@ int MoveSampleBlockExternal(AudioSignal *Signal, long int element, long int pos,
 		return 0;
 	}
 
-	/*
 	if(config->verbose)
 	{
 		logmsg(" - MOVEMENTS:\n");
 		logmsg("\tCopy: From %ld Bytes: %ld\n",
 				pos + signalStartOffset, signalLengthBytes);
 		logmsg("\tZero Out: Pos: %ld Bytes: %ld\n",
-				pos + pos, Signal->header.data.DataSize-pos);
+				pos, Signal->header.data.DataSize-pos);
 		logmsg("\tStore: Pos: %ld Bytes: %ld\n",
 				pos, signalLengthBytes);
 	}
-	*/
 
 	memcpy(sampleBuffer, Signal->Samples + pos + signalStartOffset, signalLengthBytes);
 	memset(Signal->Samples + pos, 0, Signal->header.data.DataSize-pos);
@@ -756,6 +758,9 @@ int ProcessInternal(AudioSignal *Signal, long int element, long int pos, int *sy
 			/* Do the real processing */
 			if(!MoveSampleBlockExternal(Signal, element, pos, signalStart, pulseLengthBytes + silenceLengthBytes, config))
 				return 0;
+
+			// Adjust for MDWave with advanceBytes
+			internalSyncOffset = signalStart;
 		}
 		if(advanceBytes)
 			*advanceBytes += internalSyncOffset;

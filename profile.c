@@ -184,7 +184,7 @@ int CheckChannel(char *channel, parameters *config)
 
 int LoadAudioBlockStructure(FILE *file, parameters *config)
 {
-	int		insideInternal = 0, i = 0, syncCount = 0, lineCount = 8;
+	int		insideInternal = 0, i = 0, syncCount = 0, lineCount = 7;
 	char	lineBuffer[LINE_BUFFER_SIZE], tmp = '\0';
 	char	buffer[PARAM_BUFFER_SIZE], buffer2[PARAM_BUFFER_SIZE], buffer3[PARAM_BUFFER_SIZE];
 
@@ -220,6 +220,7 @@ int LoadAudioBlockStructure(FILE *file, parameters *config)
 		fclose(file);
 		return 0;
 	}
+	lineCount += config->types.syncCount;
 	/* Lines 4 to 4+config->types.syncCount:sync types*/
 	for(i = 0; i < config->types.syncCount; i++)
 	{
@@ -415,7 +416,7 @@ int LoadAudioBlockStructure(FILE *file, parameters *config)
 				&config->types.typeArray[i].syncTone,
 				&config->types.typeArray[i].syncLen) != 6)
 			{
-				logmsg("ERROR: Invalid MD Fourier Audio Blocks File\n(Element Count, frames, color, channel): %s\n", lineBuffer);
+				logmsg("ERROR: Invalid MD Fourier Audio Blocks File (line %d)\n(Element Count, frames, color, channel): %s\n", lineCount, lineBuffer);
 				fclose(file);
 				return 0;
 			}
@@ -431,7 +432,7 @@ int LoadAudioBlockStructure(FILE *file, parameters *config)
 				&config->types.watermarkInvalidFreq,
 				config->types.watermarkDisplayName) != 7)
 			{
-				logmsg("ERROR: Invalid MD Fourier Audio Blocks File\n(Element Count, frames, color, channel, WMValid, WMFail, Name): %s\n", lineBuffer);
+				logmsg("ERROR: Invalid MD Fourier Audio Blocks File (line %d)\n(Element Count, frames, color, channel, WMValid, WMFail, Name): %s\n", lineCount, lineBuffer);
 				fclose(file);
 				return 0;
 			}
@@ -451,14 +452,14 @@ int LoadAudioBlockStructure(FILE *file, parameters *config)
 				&config->types.typeArray[i].color[0],
 				&config->types.typeArray[i].channel) != 5)
 			{
-				logmsg("ERROR: Invalid MD Fourier Audio Blocks File\n(Element Count, frames, skip, color, channel): %s\n", lineBuffer);
+				logmsg("ERROR: Invalid MD Fourier Audio Blocks File (line %d)\n(Element Count, frames, skip, color, channel): %s\n", lineCount, lineBuffer);
 				fclose(file);
 				return 0;
 			}
 
 			if(config->types.typeArray[i].cutFrames != 0 && config->types.typeArray[i].frames - abs(config->types.typeArray[i].cutFrames) <= 0)
 			{
-				logmsg("ERROR: Invalid MD Fourier Audio Blocks File: %s, Skip bigger than element\n", lineBuffer);
+				logmsg("ERROR: Invalid MD Fourier Audio Blocks File (line %d): %s, Skip bigger than element\n", lineCount, lineBuffer);
 				fclose(file);
 				return 0;
 			}
@@ -862,4 +863,15 @@ void SelectSilenceProfile(parameters *config)
 		if(config->types.typeArray[i].type == TYPE_SILENCE_OVERRIDE)
 			config->types.typeArray[i].type = TYPE_SILENCE;
 	}
+}
+
+char *getRoleText(AudioSignal *Signal)
+{
+	if(!Signal)
+		return("Invalid Signal");
+	if(Signal->role == ROLE_REF)
+		return("Reference");
+	if(Signal->role == ROLE_COMP)
+		return("Comparison");
+	return("Unknown Role");
 }

@@ -173,6 +173,7 @@ void CleanParameters(parameters *config)
 	config->internalSyncTolerance = 0;
 	config->zoomWaveForm = 0;
 	config->warningStereoReversed = 0;
+	config->trimmingNeeded = 0;
 
 	config->logScale = 1;
 	config->logScaleTS = 0;
@@ -274,8 +275,8 @@ int commandline(int argc , char *argv[], parameters *config)
 		config->zoomWaveForm = atof(optarg);
 		if(config->zoomWaveForm > 0 || config->zoomWaveForm < -112)
 		{
-			logmsg("\t - Wave form Zoom Range must be between %d and %d, changed to %d\n", 0, -112, 0);
-			config->zoomWaveForm = 0;
+			logmsg(" - ERROR: Wave form Zoom Range must be between %d and %d\n", 0, -112);
+			return 0;
 		}
 		break;
 	  case 'B':
@@ -285,8 +286,8 @@ int commandline(int argc , char *argv[], parameters *config)
 		config->AmpBarRange = atof(optarg);
 		if(config->AmpBarRange < 0 || config->AmpBarRange > 16)
 		{
-			logmsg("\t - Range must be between %d and %d, changed to %d\n", 0, 16, BAR_DIFF_DB_TOLERANCE);
-			config->AmpBarRange = BAR_DIFF_DB_TOLERANCE;
+			logmsg("- ERROR: Range must be between %d and %d\n", 0, 16);
+			return 0;
 		}
 		break;
 	  case 'C':
@@ -303,8 +304,8 @@ int commandline(int argc , char *argv[], parameters *config)
 		config->maxDbPlotZC = atof(optarg);
 		if(config->maxDbPlotZC < 0 || config->maxDbPlotZC > 120.0)
 		{
-			logmsg("\t - Range must be between %d and %d, changed to %g\n", 0, 120, DB_HEIGHT);
-			config->maxDbPlotZC = DB_HEIGHT;
+			logmsg("-ERROR: Range must be between %d and %d\n", 0, 120);
+			return 0;
 		}
 		break;
 	  case 'E':
@@ -314,13 +315,13 @@ int commandline(int argc , char *argv[], parameters *config)
 		config->endHz = atof(optarg);
 		if(config->endHz < START_HZ*2.0)
 		{
-			config->endHz = END_HZ;
-			logmsg("\t -Requested %g end frequency is lower than possible, set to %g\n", atof(optarg), config->endHz);
+			logmsg("- ERROR: Requested %g end frequency is lower than possible\n", atof(optarg));
+			return 0;
 		}
 		if(config->endHz > MAX_HZ)
 		{
-			config->endHz = MAX_HZ;
-			logmsg("\t -Requested %g end frequency is higher than possible, set to %g\n", atof(optarg), config->endHz);
+			logmsg("-ERROR: Requested %g end frequency is higher than possible\n", atof(optarg));
+			return 0;
 		}
 		if(config->endHz > END_HZ)
 			config->endHzPlot = config->endHz;
@@ -331,9 +332,9 @@ int commandline(int argc , char *argv[], parameters *config)
 	  case 'f':
 		config->MaxFreq = atoi(optarg);
 		if(config->MaxFreq < 1 || config->MaxFreq > MAX_FREQ_COUNT)
-				{
-			logmsg("\t - Number fo frequencies must be between %d and %d, changed to %g\n", 1, MAX_FREQ_COUNT, MAX_FREQ_COUNT);
-			config->MaxFreq = MAX_FREQ_COUNT;
+		{
+			logmsg("-ERROR: Number fo frequencies must be between %d and %d\n", 1, MAX_FREQ_COUNT);
+			return 0;
 		}
 		break;
 	  case 'g':
@@ -387,7 +388,8 @@ int commandline(int argc , char *argv[], parameters *config)
 				config->plotResY = PLOT_RES_Y_FP;
 				break;
 			default:
-				logmsg("\t -Invalid reslution (-%c) parameter %s, using default\n", optopt, optarg);
+				logmsg("-ERROR: Invalid resolution (-%c) parameter %s\n", optopt, optarg);
+				return 0;
 				break;
 		}
 		break;
@@ -416,7 +418,7 @@ int commandline(int argc , char *argv[], parameters *config)
 				config->normType = none;
 				break;
 			default:
-				logmsg("Invalid Normalization option '%c'\n", optarg[0]);
+				logmsg("-ERROR: Invalid Normalization option '%c'\n", optarg[0]);
 				logmsg("\tUse 't' Time Domain Max, 'f' Frequency Domain Max or 'a' Average\n");
 				return 0;
 				break;
@@ -428,9 +430,15 @@ int commandline(int argc , char *argv[], parameters *config)
 	  case 'o':
 		config->outputFilterFunction = atoi(optarg);
 		if(config->outputFilterFunction < 0 || config->outputFilterFunction > 5)
-			config->outputFilterFunction = 3;
+		{
+			logmsg("-ERROR: Invalid Output Filter option '%s'\n", optarg);
+			return 0;
+		}
 		if(!config->outputFilterFunction)
-			config->useOutputFilter = 0;
+		{
+			logmsg("-ERROR: Invalid Output Filter option '%s'\n", optarg);
+			return 0;
+		}
 		break;
 	  case 'P':
 		sprintf(config->profileFile, "%s", optarg);
@@ -442,10 +450,10 @@ int commandline(int argc , char *argv[], parameters *config)
 			config->noiseFloorAutoAdjust = 0;
 			config->significantAmplitude = SIGNIFICANT_VOLUME;
 		}
-		else if(config->significantAmplitude < -200.0 || config->significantAmplitude > -1.0)
+		else if(config->significantAmplitude < -250.0 || config->significantAmplitude > -1.0)
 		{
-			logmsg("\t - Significant amplitude must be between %d and %d, changed to %g\n", -1, -200, SIGNIFICANT_VOLUME);
-			config->significantAmplitude = SIGNIFICANT_VOLUME;
+			logmsg("-ERROR: Significant amplitude must be between %d and %d\n", -1, -250);
+			return 0;
 		} else {
 			config->ignoreFloor = 2;
 			config->origSignificantAmplitude = config->significantAmplitude;
@@ -468,8 +476,8 @@ int commandline(int argc , char *argv[], parameters *config)
 		config->startHz = atof(optarg);
 		if(config->startHz < 1.0 || config->startHz > END_HZ-100.0)
 		{
-			config->startHz = START_HZ;
-			logmsg("\t -Requested %g start frequency is out of range, set to %g\n", atof(optarg), config->startHz);
+			logmsg("-ERROR: Requested %g start frequency is out of range\n", atof(optarg));
+			return 0;
 		}
 		break;
 	  case 'T':
@@ -504,7 +512,7 @@ int commandline(int argc , char *argv[], parameters *config)
 				config->window = optarg[0];
 				break;
 			default:
-				logmsg("\t -Invalid Window for FFT option '%c'\n", optarg[0]);
+				logmsg("-ERROR: Invalid Window for FFT option '%c'\n", optarg[0]);
 				logmsg("\t  Use n for None, t for Tukey window (default), f for Flattop, h for Hann or m for Hamming window\n");
 				return 0;
 				break;
@@ -521,7 +529,7 @@ int commandline(int argc , char *argv[], parameters *config)
 		config->videoFormatRef = atoi(optarg);
 		if(config->videoFormatRef < 0 || config->videoFormatRef > MAX_SYNC)  // We'll confirm this later
 		{
-			logmsg("\tProfile can have up to %d types\n", MAX_SYNC);
+			logmsg("- ERROR: Profile can have up to %d types\n", MAX_SYNC);
 			return 0;
 		}
 		break;
@@ -532,7 +540,7 @@ int commandline(int argc , char *argv[], parameters *config)
 		config->videoFormatCom = atoi(optarg);
 		if(config->videoFormatRef < 0 || config->videoFormatRef > MAX_SYNC)
 		{
-			logmsg("\tProfile can have up to %d types\n", MAX_SYNC);
+			logmsg("- ERROR: Profile can have up to %d types\n", MAX_SYNC);
 			return 0;
 		}
 		break;
@@ -614,7 +622,7 @@ int commandline(int argc , char *argv[], parameters *config)
 
 	if(config->endHz <= config->startHz)
 	{
-		logmsg("* Invalid frequency range for FFTW (%g Hz to %g Hz)\n", 
+		logmsg("-ERROR: Invalid frequency range for FFTW (%g Hz to %g Hz)\n", 
 				config->startHz, config->endHz);
 		return 0;
 	}
@@ -624,14 +632,14 @@ int commandline(int argc , char *argv[], parameters *config)
 		!config->plotNoiseFloor && !config->plotTimeSpectrogram &&
 		!config->plotTimeDomain && !config->plotPhase)
 	{
-		logmsg("* It makes no sense to process everything and plot nothing\nAborting.\n");
+		logmsg("-ERROR: It makes no sense to process everything and plot nothing\nAborting.\n");
 		return 0;
 	}
 
 	file = fopen(config->profileFile, "rb");
 	if(!file)
 	{
-		logmsg("* ERROR: Could not load profile configuration file: \"%s\"\n", config->profileFile);
+		logmsg("- ERROR: Could not load profile configuration file: \"%s\"\n", config->profileFile);
 		return 0;
 	}
 	fclose(file);
@@ -639,7 +647,7 @@ int commandline(int argc , char *argv[], parameters *config)
 	file = fopen(config->referenceFile, "rb");
 	if(!file)
 	{
-		logmsg("* ERROR: Could not open REFERENCE file: \"%s\"\n", config->referenceFile);
+		logmsg("- ERROR: Could not open REFERENCE file: \"%s\"\n", config->referenceFile);
 		return 0;
 	}
 	fclose(file);
@@ -647,7 +655,7 @@ int commandline(int argc , char *argv[], parameters *config)
 	file = fopen(config->comparisonFile, "rb");
 	if(!file)
 	{
-		logmsg("* ERROR: Could not open COMPARE file: \"%s\"\n", config->comparisonFile);
+		logmsg("- ERROR: Could not open COMPARE file: \"%s\"\n", config->comparisonFile);
 		return 0;
 	}
 	fclose(file);

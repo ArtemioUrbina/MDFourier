@@ -1893,7 +1893,7 @@ void ProcessWaveformsByBlock(AudioSignal *SignalToModify, AudioSignal *FixedSign
 			logmsg(" - Found Sample values. Modify(%s): %d at %s# %d (%d) and Fixed(%s): %d at %s# %d (%d)\n",
 				SignalToModify->role == ROLE_REF ? "Reference" : "Comparison",
 				MaxSampleToModify, GetBlockName(config, blockMod), GetBlockSubIndex(config, blockMod), blockMod,
-				FixedSignal->role == ROLE_REF ? "Reference" : "Comparison",
+				getRoleText(FixedSignal),
 				MaxSampleFixed, GetBlockName(config, blockFixed), GetBlockSubIndex(config, blockFixed), blockFixed);
 		}
 
@@ -2211,7 +2211,7 @@ MaxMagn FindMaxMagnitudeBlock(AudioSignal *Signal, parameters *config)
 			offset = SecondsToBytes(Signal->header.fmt.SamplesPerSec, seconds, Signal->header.fmt.NumOfChan, NULL, NULL, NULL);
 
 			logmsg(" - %s Max Magnitude found in %s# %d (%d) [ %c ] at %g Hz with %g (%g seconds/%ld bytes)\n", 
-					Signal->role == ROLE_REF ? "Reference" : "Comparison",
+					getRoleText(Signal),
 					GetBlockName(config, MaxMag.block), GetBlockSubIndex(config, MaxMag.block),
 					MaxMag.block, MaxMag.channel, MaxMag.hertz, MaxMag.magnitude,
 					seconds, offset);
@@ -2297,7 +2297,7 @@ int FindMultiMaxMagnitudeBlock(AudioSignal *Signal, MaxMagn	*MaxMag, int size, p
 			if(MaxMag[j].block != -1)
 			{
 				logmsg(" - %s Max Magnitude[%d] found in %s# %d (%d) at %g Hz with %g\n",
-						Signal->role == ROLE_REF ? "Reference" : "Comparison", j, 
+						getRoleText(Signal), j, 
 						GetBlockName(config, MaxMag[j].block), GetBlockSubIndex(config, MaxMag[j].block),
 						MaxMag[j].block, MaxMag[j].hertz, MaxMag[j].magnitude);
 			}
@@ -2497,7 +2497,7 @@ double FindFundamentalMagnitudeAverage(AudioSignal *Signal, parameters *config)
 
 	if(config->verbose) {
 		logmsg(" - %s signal Average Fundamental Magnitude %g from %ld elements\n", 
-				Signal->role == ROLE_REF ? "Reference" : "Comparison",
+				getRoleText(Signal),
 				AvgFundMag, count);
 	}
 

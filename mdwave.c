@@ -200,6 +200,14 @@ int CreateChunksFolder(parameters *config)
 	sprintf(name, "%s%cChunks", config->folderName, FOLDERCHAR);
 	if(!CreateFolder(name))
 		return 0;
+
+	sprintf(name, "%s%cChunks%cProcessed", config->folderName, FOLDERCHAR, FOLDERCHAR);
+	if(!CreateFolder(name))
+		return 0;
+
+	sprintf(name, "%s%cChunks%cSource", config->folderName, FOLDERCHAR, FOLDERCHAR);
+	if(!CreateFolder(name))
+		return 0;
 	return 1;
 }
 
@@ -287,8 +295,8 @@ int ProcessSignalMDW(AudioSignal *Signal, parameters *config)
 		{
 			if(!CreateChunksFolder(config))
 				return 0;
-			sprintf(Name, "%s%cChunks%c%03ld_0_Source_%010ld_%s_%03d_chunk.wav", 
-				config->folderName, FOLDERCHAR, FOLDERCHAR,
+			sprintf(Name, "%s%cChunks%cSource%c%03ld_0_%010ld_%s_%03d_chunk.wav", 
+				config->folderName, FOLDERCHAR, FOLDERCHAR, FOLDERCHAR,
 				i, pos+syncAdvance+Signal->SamplesStart, 
 				GetBlockName(config, i), GetBlockSubIndex(config, i));
 			SaveWAVEChunk(Name, Signal, buffer, 0, loadedBlockSize, 0, config); 
@@ -407,7 +415,7 @@ int ProcessSignalMDW(AudioSignal *Signal, parameters *config)
 			{
 				if(!CreateChunksFolder(config))
 					return 0;
-				sprintf(tempName, "Chunks%c%03ld_%s_Processed_%s_%03d_chunk", FOLDERCHAR, i, 
+				sprintf(tempName, "Chunks%cProcessed%c%03ld_%s_%s_%03d_chunk", FOLDERCHAR, FOLDERCHAR, i, 
 					GenerateFileNamePrefix(config), GetBlockName(config, i), 
 					GetBlockSubIndex(config, i));
 				ComposeFileName(Name, tempName, ".wav", config);
@@ -751,34 +759,59 @@ int commandline_wave(int argc , char *argv[], parameters *config)
 		config->debugSync = 1;
 		break;
 	  case 's':
-		config->startHz = atoi(optarg);
-		if(config->startHz < 1 || config->startHz > END_HZ-100)
-			config->startHz = START_HZ;
+		config->startHz = atof(optarg);
+		if(config->startHz < 1.0 || config->startHz > END_HZ-100.0)
+		{
+			logmsg("-ERROR: Requested %g start frequency is out of range\n", atof(optarg));
+			return 0;
+		}
 		break;
 	  case 'e':
 		config->endHz = atof(optarg);
-		if(config->endHz < START_HZ*2.0 || config->endHz > END_HZ)
-			config->endHz = END_HZ;
+		if(config->endHz < START_HZ*2.0)
+		{
+			logmsg("- ERROR: Requested %g end frequency is lower than possible\n", atof(optarg));
+			return 0;
+		}
+		if(config->endHz > MAX_HZ)
+		{
+			logmsg("-ERROR: Requested %g end frequency is higher than possible\n", atof(optarg));
+			return 0;
+		}
+		if(config->endHz > END_HZ)
+			config->endHzPlot = config->endHz;
 		break;
 	  case 'f':
 		config->MaxFreq = atoi(optarg);
 		if(config->MaxFreq < 1 || config->MaxFreq > MAX_FREQ_COUNT)
-			config->MaxFreq = MAX_FREQ_COUNT;
-		break;
+		{
+			logmsg("-ERROR: Number fo frequencies must be between %d and %d\n", 1, MAX_FREQ_COUNT);
+			return 0;
+		}
 	  case 'p':
 		config->significantAmplitude = atof(optarg);
-		if(config->significantAmplitude <= -120.0 || config->significantAmplitude >= -1.0)
+		if(config->significantAmplitude == 0)
+		{
+			config->noiseFloorAutoAdjust = 0;
 			config->significantAmplitude = SIGNIFICANT_VOLUME;
-		config->origSignificantAmplitude = config->significantAmplitude;
+		}
+		else if(config->significantAmplitude < -250.0 || config->significantAmplitude > -1.0)
+		{
+			logmsg("-ERROR: Significant amplitude must be between %d and %d\n", -1, -250);
+			return 0;
+		} else {
+			config->ignoreFloor = 2;
+			config->origSignificantAmplitude = config->significantAmplitude;
+		}
 		break;
 	  case 'q':
 		config->compressToBlocks = 1;
 		break;
 	  case 'Y':
-		config->videoFormatRef = atof(optarg);
+		config->videoFormatRef = atoi(optarg);
 		if(config->videoFormatRef < 0 || config->videoFormatRef > MAX_SYNC)  // We'll confirm this later
 		{
-			logmsg("\tProfile can have up to %d types\n", MAX_SYNC);
+			logmsg("- ERROR: Profile can have up to %d types\n", MAX_SYNC);
 			return 0;
 		}
 		break;
@@ -792,7 +825,7 @@ int commandline_wave(int argc , char *argv[], parameters *config)
 				config->window = optarg[0];
 				break;
 			default:
-				logmsg("Invalid Window for FFT option '%c'\n", optarg[0]);
+				logmsg("- ERROR: Invalid Window for FFT option '%c'\n", optarg[0]);
 				logmsg("\tUse n for None, t for Tukey window (default), f for Flattop or h for Hann window\n");
 				return 0;
 				break;
@@ -842,7 +875,7 @@ int commandline_wave(int argc , char *argv[], parameters *config)
 		logmsg("Invalid argument %c\n", optopt);
 		return(0);
 		break;
-	  }
+	}
 	
 	for (index = optind; index < argc; index++)
 	{

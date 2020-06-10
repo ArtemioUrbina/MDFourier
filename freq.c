@@ -31,6 +31,7 @@
 #include "cline.h"
 #include "plot.h"
 #include "float.h"
+#include "profile.h"
 
 #define SORT_NAME FFT_Frequency_Magnitude
 #define SORT_TYPE Frequency
@@ -180,7 +181,7 @@ void CalcuateFrequencyBrackets(AudioSignal *Signal, parameters *config)
 
 		if(config->verbose) {
 			logmsg(" - Searching for noise frequencies [%s]: Power grid %g Hz Scan Rate: %g Hz Crossnoise %g Hz\n", 
-				Signal->role == ROLE_REF ? "Reference" : "Comparison",
+				getRoleText(Signal),
 				Signal->gridFrequency, Signal->scanrateFrequency, Signal->crossFrequency);
 		}
 	}
@@ -867,7 +868,7 @@ int DetectWatermark(AudioSignal *Signal, parameters *config)
 			{
 				Signal->watermarkStatus = WATERMARK_INVALID;
 				logmsg(" - WARNING: %s signal was recorded with %s difference. Results are probably incorrect.\n",
-						Signal->role == ROLE_REF ? "Reference" : "Comparison", config->types.watermarkDisplayName);
+						getRoleText(Signal), config->types.watermarkDisplayName);
 				found = 1;
 				break;
 			}
@@ -877,7 +878,7 @@ int DetectWatermark(AudioSignal *Signal, parameters *config)
 	{
 		Signal->watermarkStatus = WATERMARK_INDETERMINATE;
 		logmsg(" - WARNING: %s file has an unknown %s status. Results might be incorrect.\n",
-				Signal->role == ROLE_REF ? "Reference" : "Comparison", config->types.watermarkDisplayName);
+				getRoleText(Signal), config->types.watermarkDisplayName);
 	}
 
 	return 1;
@@ -952,6 +953,21 @@ int GetLastSyncElementIndex(parameters *config)
 	return 0;
 }
 
+double GetFirstSyncDuration(double framerate, parameters *config)
+{
+	int		first = 0;
+	double	frames = 0;
+
+	if(!config)
+		return 0;
+
+	first = GetFirstSyncIndex(config);
+	if(first == NO_INDEX)
+		return 0;
+	frames = config->types.typeArray[first].elementCount * config->types.typeArray[first].frames;
+	return(FramesToSeconds(frames, framerate));
+}
+
 double GetLastSyncDuration(double framerate, parameters *config)
 {
 	int		first = 0;
@@ -989,6 +1005,29 @@ int GetFirstSilenceIndex(parameters *config)
 	}
 	return NO_INDEX;
 }
+
+double GetFirstSilenceDuration(double framerate, parameters *config)
+{
+	int index = 0;
+
+	if(!config)
+		return NO_INDEX;
+
+	for(int i = 0; i < config->types.typeCount; i++)
+	{
+		if(config->types.typeArray[i].type == TYPE_SILENCE)
+		{
+			double	frames = 0;
+
+			frames = config->types.typeArray[i].elementCount * config->types.typeArray[i].frames;
+			return(FramesToSeconds(frames, framerate));
+		}
+		else
+			index += config->types.typeArray[i].elementCount;
+	}
+	return 0;
+}
+
 
 int GetFirstMonoIndex(parameters *config)
 {
@@ -1513,7 +1552,7 @@ int GetInternalSyncTotalLength(int pos, parameters *config)
 			}
 			else
 			{
-				if(inside)
+				if(inside && config->types.typeArray[i].type >= TYPE_SILENCE)
 					frames += config->types.typeArray[i].elementCount *
 							config->types.typeArray[i].frames;
 			}
@@ -1521,6 +1560,28 @@ int GetInternalSyncTotalLength(int pos, parameters *config)
 		index += config->types.typeArray[i].elementCount;
 	}
 	return 0;
+}
+
+int GetRemainingLengthFromElement(int pos, parameters *config)
+{
+	int frames = 0, index = 0;
+
+	if(!config)
+		return 0;
+
+	for(int i = 0; i < config->types.typeCount; i++)
+	{
+		if(index > pos)
+		{
+			if(config->types.typeArray[i].type >= TYPE_SILENCE || 
+				config->types.typeArray[i].type == TYPE_INTERNAL_KNOWN ||
+				config->types.typeArray[i].type == TYPE_INTERNAL_UNKNOWN)
+				frames += config->types.typeArray[i].elementCount *
+						config->types.typeArray[i].frames;
+		}
+		index += config->types.typeArray[i].elementCount;
+	}
+	return frames;
 }
 
 Frequency FindNoiseBlockInsideOneStandardDeviation(AudioSignal *Signal, parameters *config)
@@ -1609,7 +1670,7 @@ Frequency FindNoiseBlockInsideOneStandardDeviation(AudioSignal *Signal, paramete
 
 	if(config->verbose){
 		logmsg("  - %s signal profile defined noise channel data:\n", 
-			Signal->role == ROLE_REF ? "Reference" : "Comparison");
+			getRoleText(Signal));
 		logmsg("      Standard deviation: %g dBFS [%g Hz] Mean: %g dBFS [%g Hz] Cutoff: %g dBFS [%g Hz]\n",
 			sd.amplitude, sd.hertz,
 			mean.amplitude, mean.hertz,
@@ -1697,7 +1758,7 @@ void FindStandAloneFloor(AudioSignal *Signal, parameters *config)
 		loudest.amplitude = CalculateAmplitude(loudest.magnitude, maxMagnitude);
 
 		logmsg(" - %s signal noise floor: %g dBFS [%g Hz]\n", 
-			Signal->role == ROLE_REF ? "Reference" : "Comparison",
+			getRoleText(Signal),
 			loudest.amplitude,
 			loudest.hertz);
 	}
@@ -1789,7 +1850,7 @@ void FindFloor(AudioSignal *Signal, parameters *config)
 	if(loudestFreq.hertz && loudestFreq.amplitude != NO_AMPLITUDE)
 	{
 		logmsg(" - %s signal relative noise floor: %g Hz %g dBFS\n", 
-			Signal->role == ROLE_REF ? "Reference" : "Comparison",
+			getRoleText(Signal),
 			loudestFreq.hertz,
 			loudestFreq.amplitude);
 
@@ -1893,7 +1954,7 @@ void FindFloor(AudioSignal *Signal, parameters *config)
 	{
 		if(Signal->floorAmplitude == 0)
 			logmsg("- %s signal relative noise floor is too loud ( %g Hz %g dBFS)\n", 
-				Signal->role == ROLE_REF ? "Reference" : "Comparison",
+				getRoleText(Signal),
 				loudestFreq.hertz,
 				loudestFreq.amplitude);
 		return;
@@ -1916,7 +1977,7 @@ void FindFloor(AudioSignal *Signal, parameters *config)
 		Signal->floorFreq = noiseFreq.hertz;
 
 		logmsg("  - %s Noise Channel relative floor: %g Hz %g dBFS\n", 
-			Signal->role == ROLE_REF ? "Reference" : "Comparison",
+			getRoleText(Signal),
 			noiseFreq.hertz,
 			noiseFreq.amplitude);
 		config->channelWithLowFundamentals = 1;
@@ -2068,7 +2129,7 @@ void FindMaxMagnitude(AudioSignal *Signal, parameters *config)
 					{
 						MaxMagnitude = Signal->Blocks[block].freqRight[i].magnitude;
 						MaxFreq = Signal->Blocks[block].freqRight[i].hertz;
-						MaxBlock = block;
+						MaxBlock = block;	
 						MaxChannel = CHANNEL_RIGHT;
 					}
 				}
@@ -2091,7 +2152,7 @@ void FindMaxMagnitude(AudioSignal *Signal, parameters *config)
 		offset = SecondsToBytes(Signal->header.fmt.SamplesPerSec, seconds, Signal->header.fmt.NumOfChan, NULL, NULL, NULL);
 
 		logmsg(" - %s Max Magnitude found in %s# %d (%d) [ %c ] at %g Hz with %g (%g seconds/%ld bytes)\n", 
-					Signal->role == ROLE_REF ? "Reference" : "Comparison",
+					getRoleText(Signal),
 					GetBlockName(config, MaxBlock), GetBlockSubIndex(config, MaxBlock),
 					MaxBlock, MaxChannel, MaxFreq, MaxMagnitude,
 					seconds, offset);
@@ -2260,7 +2321,7 @@ void PrintFrequenciesWMagnitudes(AudioSignal *Signal, parameters *config)
 		int type = TYPE_NOTYPE;
 
 		logmsgFileOnly("==================== %s %s# %d (%d) ===================\n", 
-				Signal->role == ROLE_REF ? "Reference" : "Comparision", GetBlockName(config, block), GetBlockSubIndex(config, block), block);
+				getRoleText(Signal), GetBlockName(config, block), GetBlockSubIndex(config, block), block);
 
 		type = GetBlockType(config, block);
 		if(Signal->Blocks[block].freqRight)
@@ -2281,7 +2342,7 @@ void PrintFrequencies(AudioSignal *Signal, parameters *config)
 		int type = TYPE_NOTYPE;
 
 		logmsgFileOnly("==================== %s %s# %d (%d) ===================\n", 
-				Signal->role == ROLE_REF ? "Reference" : "Comparision", GetBlockName(config, block), GetBlockSubIndex(config, block), block);
+				getRoleText(Signal), GetBlockName(config, block), GetBlockSubIndex(config, block), block);
 
 		type = GetBlockType(config, block);
 		if(Signal->Blocks[block].freqRight)
@@ -2770,7 +2831,7 @@ double CalculateFrameRateAndCheckSamplerate(AudioSignal *Signal, parameters *con
 		else
 		{
 			logmsg(" - WARNING: %s file framerate difference is %g ms per frame.\n",
-					Signal->role == ROLE_REF ? "Reference" : "Comparision", diff);
+					getRoleText(Signal), diff);
 			logmsg(" - Sample rate estimated at %f\n", ACsamplerate);
 			if(config->verbose)
 			{
@@ -2843,7 +2904,7 @@ double CalculateFrameRateNS(AudioSignal *Signal, double Frames, parameters *conf
 		ACsamplerate = (endOffset-startOffset)/(expectedFR*Frames);
 		ACsamplerate = ACsamplerate*1000.0/(2.0*Signal->AudioChannels);
 		logmsg(" - %s file framerate difference is %g.\n\tAudio card sample rate estimated at %g\n",
-				Signal->role == ROLE_REF ? "Reference" : "Comparision",
+				getRoleText(Signal),
 				diff, ACsamplerate);
 	}
 
@@ -3017,7 +3078,7 @@ double FindFundamentalAmplitudeAverage(AudioSignal *Signal, parameters *config)
 
 	if(config->verbose) {
 		logmsg(" - %s signal Average Fundamental Amplitude %g dBFS from %ld elements\n", 
-				Signal->role == ROLE_REF ? "Reference" : "Comparison",
+				getRoleText(Signal),
 				AvgFundAmp, count);
 	}
 

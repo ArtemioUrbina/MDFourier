@@ -32,6 +32,7 @@
 #include "windows.h"
 #include "log.h"
 #include "cline.h"
+#include "profile.h"
 
 int CheckBalance(AudioSignal *Signal, int block, parameters *config)
 {
@@ -49,8 +50,7 @@ int CheckBalance(AudioSignal *Signal, int block, parameters *config)
 
 	if(Signal->AudioChannels != 2)
 	{
-		logmsg(" - %s signal is mono\n",
-			Signal->role == ROLE_REF ? "Reference" : "Comparison");
+		logmsg(" - %s signal is mono\n", getRoleText(Signal));
 		if(config->allowStereoVsMono)
 			return -1;
 		else
@@ -184,7 +184,7 @@ int CheckBalance(AudioSignal *Signal, int block, parameters *config)
 
 	if(Channels[0].freq[0].hertz != Channels[1].freq[matchIndex].hertz)
 	{
-		logmsg("\nERROR: Channel balance block has different frequency content.\n");
+		logmsg("\nERROR: Channel balance block has different frequency content. (use -B to ignore)\n");
 		logmsg("\tNot a MONO signal for balance check. [%s# %d (%d) at %g Hz / %g vs %g Hz / %g]\n",
 					GetBlockName(config, block), GetBlockSubIndex(config, block), block, 
 					Channels[0].freq[0].hertz, Channels[0].freq[0].magnitude,
@@ -247,13 +247,13 @@ int CheckBalance(AudioSignal *Signal, int block, parameters *config)
 		if(amplDiff >= 0.0001 || config->verbose)
 		{
 			logmsg(" - %s signal stereo imbalance: %s channel is higher by %g dBFS",
-					Signal->role == ROLE_REF ? "Reference" : "Comparison",
+					getRoleText(Signal),
 					diffNam == CHANNEL_LEFT ? "left" : "right", amplDiff);
 		}
 		else
 		{
 			logmsg(" - %s signal stereo imbalance: %s channel is higher by less than 0.0001 dBFS",
-					Signal->role == ROLE_REF ? "Reference" : "Comparison",
+					getRoleText(Signal),
 					diffNam == CHANNEL_LEFT ? "left" : "right");
 		}
 
@@ -276,7 +276,7 @@ int CheckBalance(AudioSignal *Signal, int block, parameters *config)
 	}
 	else
 		logmsg(" - %s signal has no stereo imbalance\n",
-			Signal->role == ROLE_REF ? "Reference" : "Comparison");
+			getRoleText(Signal));
 
 	if(config->clock)
 	{

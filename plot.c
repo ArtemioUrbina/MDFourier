@@ -32,6 +32,7 @@
 #include "diff.h"
 #include "cline.h"
 #include "windows.h"
+#include "profile.h"
 
 #define SORT_NAME AmplitudeDifferences
 #define SORT_TYPE FlatAmplDifference
@@ -2649,6 +2650,9 @@ void PlotNoiseSpectrogram(FlatFrequency *freqs, long int size, int type, char *f
 		config->refNoiseMax = endAmplitude;
 	}
 
+	if(config->significantAmplitude < endAmplitude)
+		endAmplitude = config->significantAmplitude;
+
 	FillPlot(&plot, filename, config->startHzPlot, endAmplitude, config->endHzPlot, 0.0, 1, 1, config);
 
 	if(!CreatePlotFile(&plot, config))
@@ -4346,7 +4350,7 @@ void PlotTimeDomainGraphs(AudioSignal *Signal, parameters *config)
 					plots += Signal->Blocks[i].internalSyncCount;
 			}
 		}
-		logmsg("\n  Creating %ld plots for %s:\n  ", plots, Signal->role == ROLE_REF ? "Reference" : "Comparison");
+		logmsg("\n  Creating %ld plots for %s:\n  ", plots, getRoleText(Signal));
 	}
 	plots = 0;
 	for(i = 0; i < config->types.totalBlocks; i++)
