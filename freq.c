@@ -1552,7 +1552,7 @@ int GetInternalSyncTotalLength(int pos, parameters *config)
 			}
 			else
 			{
-				if(inside && config->types.typeArray[i].type >= TYPE_SILENCE)
+				if(inside)
 					frames += config->types.typeArray[i].elementCount *
 							config->types.typeArray[i].frames;
 			}
