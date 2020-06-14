@@ -65,7 +65,7 @@
 #define NS_LOWEST_AMPLITUDE			-200
 #define	PCM_16BIT_MIN_AMPLITUDE		-96.0
 #define LOWEST_NOISEFLOOR_ALLOWED	-40.0
-#define STEREO_TOLERANCE_REPORT		6.0
+#define STEREO_TOLERANCE_REPORT		0.3
 
 #define TYPE_NOTYPE				-1000
 #define TYPE_SILENCE			-1
@@ -190,7 +190,7 @@ enum normalize
 
 
 typedef struct max_vol {
-	int16_t		maxSample;
+	int32_t		maxSample;
 	uint32_t	offset;
 	uint32_t	samplerate;
 	double		framerate;
@@ -310,8 +310,8 @@ typedef struct fftw_spectrum_st {
 } FFTWSpectrum;
 
 typedef struct samples_st {
-	int16_t			*samples;
-	int16_t			*window_samples;
+	int32_t			*samples;
+	int32_t			*window_samples;
 	long int		size;
 	long int		difference;
 } BlockSamples;
@@ -348,7 +348,9 @@ typedef struct AudioSt {
 	double		floorFreq;
 	double		floorAmplitude;
 
-	char 		*Samples;
+	int32_t		*SamplesInternal;
+	int			bytesPerSample;
+	long int	numSamples;
 	long int	SamplesStart;
 	long int	samplesPosFLAC;
 	int			errorFLAC;
