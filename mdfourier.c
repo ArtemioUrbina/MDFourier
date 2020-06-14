@@ -388,11 +388,11 @@ int FrequencyDomainNormalize(AudioSignal **ReferenceSignal, AudioSignal **Compar
 	ratiodBFS = CalculateAmplitude(ComparisonLocalMaximum, MaxRef.magnitude);
 
 	if(MaxRef.block == MaxTar.block && 
-		MaxRef.channel != MaxTar.channel)
+		MaxRef.channel != MaxTar.channel && 
+		fabs(ratiodBFS) > STEREO_TOLERANCE_REPORT )
 	{
-		logmsg(" - WARNING: Left and right channels might be reversed or converted from mono to stereo\n",);
-		if(fabs(ratiodBFS) > STEREO_TOLERANCE_REPORT)
-			config->warningStereoReversed = 1;
+		logmsg(" - WARNING: Left and right channels might be reversed or converted from mono to stereo\n");
+		config->warningStereoReversed = 1;
 	}
 	if(config->verbose) { logmsg(" - Amplitude ratio is %gdBFS\n", ratiodBFS); }
 	if(ComparisonLocalMaximum == 0 || fabs(ratiodBFS) > fabs(FREQDOMRATIO))

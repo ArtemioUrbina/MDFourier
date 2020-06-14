@@ -190,7 +190,7 @@ enum normalize
 
 
 typedef struct max_vol {
-	int32_t		maxSample;
+	int16_t		maxSample;
 	uint32_t	offset;
 	uint32_t	samplerate;
 	double		framerate;
@@ -310,8 +310,8 @@ typedef struct fftw_spectrum_st {
 } FFTWSpectrum;
 
 typedef struct samples_st {
-	int32_t			*samples;
-	int32_t			*window_samples;
+	int16_t			*samples;
+	int16_t			*window_samples;
 	long int		size;
 	long int		difference;
 } BlockSamples;
@@ -348,9 +348,7 @@ typedef struct AudioSt {
 	double		floorFreq;
 	double		floorAmplitude;
 
-	int32_t		*SamplesInternal;
-	int			bytesPerSample;
-	long int	numSamples;
+	char 		*Samples;
 	long int	SamplesStart;
 	long int	samplesPosFLAC;
 	int			errorFLAC;
