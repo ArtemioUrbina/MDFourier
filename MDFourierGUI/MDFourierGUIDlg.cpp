@@ -385,17 +385,17 @@ void CMDFourierGUIDlg::OnBnClickedCancel()
 {
 	CString msg;
 
-	if(killingDOS)
-	{
-		msg.Format(L"%s is already being terminated, please wait", mdwave ? L"MDWave" : L"MDFourier");
-		if(MessageBox(msg, L"Please wait", MB_OK))
-			return;
-	}
-
 	if(cDos.m_fDone)
 		CDialogEx::OnCancel();
 	else
 	{
+		if(killingDOS)
+		{
+			msg.Format(L"%s is already being terminated, please wait", mdwave ? L"MDWave" : L"MDFourier");
+			if(MessageBox(msg, L"Please wait", MB_OK))
+				return;
+		}
+
 		msg.Format(L"%s is currently running.\nStop it?", mdwave ? L"MDWave" : L"MDFourier");
 		if(MessageBox(msg, L"Terminate?", MB_OKCANCEL) == IDOK)
 		{
@@ -521,17 +521,17 @@ void CMDFourierGUIDlg::OnTimer(UINT_PTR nIDEvent)
 					multiErrors += L"File: ";
 					multiErrors += elements[elementPos];
 					multiErrors += "\r\n";
-
-					multiErrors += errorMsg;
-					multiErrors += "\r\n";
 				}
-				else
-					MessageBox(errorMsg, L"Error from MDFourier");
+
+				multiErrors += errorMsg;
+				multiErrors += "\r\n";
 			}
 
 			searchFor = L"WARNING";
 			pos = 0;
 			do {
+				int insert = 0;
+
 				pos = ntext.Find(searchFor, pos+1);
 				if(pos != -1)
 				{
@@ -548,9 +548,22 @@ void CMDFourierGUIDlg::OnTimer(UINT_PTR nIDEvent)
 						multiWarnings += elements[elementPos];
 						multiWarnings += "\r\n";
 					}
-					multiWarnings += warnMsg;
-					multiWarnings += "\r\n";
-					warncount ++;
+					if(warncount > 0)
+					{
+						int check = 0;
+
+						check = multiWarnings.Find(warnMsg, 0);
+						if(check == -1)
+							insert = 1;
+					}
+					else
+						insert = 1;
+					if(insert)
+					{
+						multiWarnings += warnMsg;
+						multiWarnings += "\r\n";
+						warncount ++;
+					}
 				}
 			}while(pos != -1);
 
@@ -592,7 +605,6 @@ void CMDFourierGUIDlg::OnTimer(UINT_PTR nIDEvent)
 					}
 					else
 						MessageBox(multiErrors, L"Error from MDFourier");
-					multiErrors.Empty();
 				}
 
 				if(multiWarnings.GetLength())
@@ -605,10 +617,14 @@ void CMDFourierGUIDlg::OnTimer(UINT_PTR nIDEvent)
 						Warnings.DoModal();
 					}
 					else
-						MessageBox(multiWarnings, L"Warning from MDFourier");
-					multiWarnings.Empty();
+					{
+						if(!multiErrors.GetLength())
+							MessageBox(multiWarnings, L"Warning from MDFourier");
+					}
 				}
 
+				multiErrors.Empty();
+				multiWarnings.Empty();
 				elementCount = 0;
 				elementPos = 0;
 				if(elements)
@@ -1038,7 +1054,8 @@ void CMDFourierGUIDlg::OnBnClickedAbout()
 {
 	CString msg;
 
-	msg.Format(L"MDFourier Front End\n\nArtemio Urbina 2019-2020\nUsing %s\nCode available under GPL\n\nhttp://junkerhq.net/MDFourier/\n\nOpen website and manual?", MDFVersion);
+	msg.Format(L"MDFourier Front End\n\nArtemio Urbina 2019-2020\nUsing %s\nCode available under GPL\n\nhttp://junkerhq.net/MDFourier/\n\nOpen website and manual?", 
+		MDFVersion);
 	if(MessageBox(msg, L"About MDFourier", MB_OKCANCEL | MB_ICONQUESTION) == IDOK)
 	{
 		ShellExecute(0, 0, L"http://junkerhq.net/MDFourier/", 0, 0 , SW_SHOW );
