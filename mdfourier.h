@@ -213,40 +213,40 @@ typedef struct abt_st {
 	char		typeName[128];
 	char		typeDisplayName[128];
 	int 		type;
-	int			elementCount;
-	int			frames;
-	int			cutFrames;
+	int		elementCount;
+	int		frames;
+	int		cutFrames;
 	char		color[20];
 	char		channel;
-	int			syncTone;
+	int		syncTone;
 	double		syncLen;
-	int			IsaddOnData;
+	int		IsaddOnData;
 } AudioBlockType;
 
 typedef struct sync_st {
-	char			syncName[255];
-	double			MSPerFrame;
-	double			LineCount;
-	int				pulseSyncFreq;
-	int				pulseFrameLen;
-	int				pulseCount;
+	char		syncName[255];
+	double		MSPerFrame;
+	double		LineCount;
+	int		pulseSyncFreq;
+	int		pulseFrameLen;
+	int		pulseCount;
 } VideoBlockDef;
 
 typedef struct abd_st {
-	char			Name[256];
-	int				totalBlocks;
-	int				regularBlocks;
+	char		Name[256];
+	int		totalBlocks;
+	int		regularBlocks;
 
 	VideoBlockDef	SyncFormat[MAX_SYNC];
-	int				syncCount;
+	int		syncCount;
 
 	AudioBlockType	*typeArray;
-	int				typeCount;
+	int		typeCount;
 
-	int				useWatermark;
-	int				watermarkValidFreq;
-	int				watermarkInvalidFreq;
-	char			watermarkDisplayName[128];
+	int		useWatermark;
+	int		watermarkValidFreq;
+	int		watermarkInvalidFreq;
+	char		watermarkDisplayName[128];
 } AudioBlockDef;
 
 /********************************************************/

@@ -821,8 +821,8 @@ void PrintAudioBlocks(parameters *config)
 	logmsgFileOnly("\n======== PROFILE ========\n");
 	for(int i = 0; i < config->types.typeCount; i++)
 	{
-		char	type[5], t;
-		double	seconds =	 0, StartSeconds = 0;
+		char	type[20], t;
+		double	seconds = 0, StartSeconds = 0;
 
 		t = GetTypeProfileName(config->types.typeArray[i].type);
 		if(t == TYPE_NULLTYPE_C)
@@ -835,17 +835,18 @@ void PrintAudioBlocks(parameters *config)
 		seconds *= config->types.typeArray[i].elementCount;
 		TotalSeconds += seconds;
 
-		logmsgFileOnly("%s%s %s %d %d %d %s %c %s | Frames: %ld | Seconds: %g [%g to %g]\n", 
-			config->types.typeArray[i].type == TYPE_SKIP ? "     " : "",
-			config->types.typeArray[i].typeName,
+		//logmsgFileOnly("%s%s %s %d %d %d %s %c %s | Frames: %ld | Seconds: %g [%g to %g]\n", 
+		logmsg("%c%s %s %d %d %d %s %c %s | Frames: %ld | Seconds: %g [%g to %g]\n", 
+			config->types.typeArray[i].type == TYPE_SKIP ? '\t' : ' ',
+			config->types.typeArray[i].typeDisplayName,
 			type,
 			config->types.typeArray[i].elementCount,
 			config->types.typeArray[i].frames,
 			config->types.typeArray[i].cutFrames*-1,
 			config->types.typeArray[i].color,
 			config->types.typeArray[i].channel,
-			config->types.typeArray[i].IsaddOnData ? "(ExtraData)" : "",
-			config->types.typeArray[i].elementCount*config->types.typeArray[i].frames,
+			config->types.typeArray[i].IsaddOnData ? "(ExtraData)" : " ",
+			(long int)config->types.typeArray[i].elementCount*config->types.typeArray[i].frames,
 			seconds, 
 			StartSeconds,
 			TotalSeconds);

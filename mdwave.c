@@ -111,7 +111,12 @@ int main(int argc , char *argv[])
 		elapsedSeconds = TimeSpecToSeconds(&end) - TimeSpecToSeconds(&start);
 		logmsg(" - clk: MDWave took %0.2fs\n", elapsedSeconds);
 	}
+
 	fftw_cleanup();
+
+        if(IsLogEnabled())
+	        endLog();
+
 
 	return 0;
 }
@@ -777,6 +782,7 @@ int ExecuteDFFTInternal(AudioBlocks *AudioArray, double *samples, long int size,
 		//logmsg("Blanked frequencies were %ld from %ld\n", blanked, monoSignalSize/2);
 		if(blanked > config->maxBlanked)
 			config->maxBlanked = blanked;
+		fftw_free(spectrum);
 	}
 
 	free(signal);
