@@ -42,15 +42,23 @@
 #include <stdlib.h>
 #include "flac.h"
 #include "log.h"
+#include "freq.h"
 #include "FLAC/stream_decoder.h"
 
 #include <ctype.h>
+
+int flacInternalMDFErrors = 0;
 
 extern char *getFilenameExtension(char *filename);
 extern int getExtensionLength(char *filename);
 static FLAC__StreamDecoderWriteStatus write_callback(const FLAC__StreamDecoder *decoder, const FLAC__Frame *frame, const FLAC__int32 * const buffer[], void *client_data);
 static void metadata_callback(const FLAC__StreamDecoder *decoder, const FLAC__StreamMetadata *metadata, void *client_data);
 static void error_callback(const FLAC__StreamDecoder *decoder, FLAC__StreamDecoderErrorStatus status, void *client_data);
+
+int flacErrorReported()
+{
+	return(flacInternalMDFErrors);
+}
 
 char *strtoupper(char *str)
 {
@@ -116,7 +124,7 @@ int FLACtoSignal(char *input, AudioSignal *Signal, parameters *config)
 	FLAC__StreamDecoderInitStatus init_status;
 
 	if(!Signal) {
-		logmsg("ERROR: opening empty Data Sturcture\n");
+		logmsg("ERROR: opening empty Data Structure\n");
 		return 0;
 	}
 
@@ -137,14 +145,15 @@ int FLACtoSignal(char *input, AudioSignal *Signal, parameters *config)
 		ok = FLAC__stream_decoder_process_until_end_of_stream(decoder);
 		if(!ok)
 		{
-			logmsg("ERROR: (FLAC) %s\n", FLAC__StreamDecoderStateString[FLAC__stream_decoder_get_state(decoder)]);
+			if(!flacInternalMDFErrors)
+				logmsg("ERROR: (FLAC) %s\n", FLAC__StreamDecoderStateString[FLAC__stream_decoder_get_state(decoder)]);
 			Signal->errorFLAC++;
 		}
 	}
 
 	FLAC__stream_decoder_delete(decoder);
 
-	if(Signal->header.data.DataSize != Signal->samplesPosFLAC)
+	if(Signal->header.data.DataSize != Signal->samplesPosFLAC*Signal->bytesPerSample)
 	{
 		if(Signal->samplesPosFLAC > Signal->header.data.DataSize)  // Buffer overflow!!!
 		{
@@ -153,8 +162,9 @@ int FLACtoSignal(char *input, AudioSignal *Signal, parameters *config)
 			return 0;
 		}
 		//if(config->verbose)
-		logmsg(" - WARNING: FLAC decoder got %ld bytes and expected %ld bytes (fixed internally)\n",
-			Signal->samplesPosFLAC, Signal->header.data.DataSize);
+		if(!flacInternalMDFErrors)
+			logmsg(" - WARNING: FLAC decoder got %ld bytes and expected %ld bytes (fixed internally)\n",
+				Signal->samplesPosFLAC*Signal->bytesPerSample, Signal->header.data.DataSize);
 		Signal->header.data.DataSize = Signal->samplesPosFLAC;
 	}
 
@@ -169,27 +179,30 @@ int FLACtoSignal(char *input, AudioSignal *Signal, parameters *config)
 FLAC__StreamDecoderWriteStatus write_callback(const FLAC__StreamDecoder *decoder, const FLAC__Frame *frame, const FLAC__int32 * const buffer[], void *client_data)
 {
 	AudioSignal *Signal = (AudioSignal*)client_data;
-	int16_t *samples16 = NULL;
 	long int pos = 0;
 	size_t i;
 
 	(void)decoder;
 
 	if(!Signal) {
-		logmsg("ERROR: Got empty SIgnal structure for FLAC decoding\n");
+		logmsg("ERROR: Got empty Signal structure for FLAC decoding\n");
+		flacInternalMDFErrors = 1;
 		return FLAC__STREAM_DECODER_WRITE_STATUS_ABORT;
 	}
 
 	if(Signal->header.fmt.NumOfChan != frame->header.channels) {
 		logmsg("ERROR: FLAC Channel definition discrepancy %d vs %d\n", Signal->header.fmt.NumOfChan, frame->header.channels);
+		flacInternalMDFErrors = 1;
 		return FLAC__STREAM_DECODER_WRITE_STATUS_ABORT;
 	}
 	if(buffer[0] == NULL) {
 		logmsg("ERROR: FLAC buffer[0] is NULL\n");
+		flacInternalMDFErrors = 1;
 		return FLAC__STREAM_DECODER_WRITE_STATUS_ABORT;
 	}
 	if(Signal->header.fmt.NumOfChan == 2 && buffer[1] == NULL) {
 		logmsg("ERROR: FLAC buffer[1] is NULL\n");
+		flacInternalMDFErrors = 1;
 		return FLAC__STREAM_DECODER_WRITE_STATUS_ABORT;
 	}
 
@@ -198,34 +211,38 @@ FLAC__StreamDecoderWriteStatus write_callback(const FLAC__StreamDecoder *decoder
 	{
 		if(Signal->header.data.DataSize == 0) {
 			logmsg("ERROR: MDFourier only works for FLAC files that have total_samples count in STREAMINFO\n");
+			flacInternalMDFErrors = 1;
 			return FLAC__STREAM_DECODER_WRITE_STATUS_ABORT;
 		}
-		if(Signal->header.fmt.bitsPerSample != 16) {
-			logmsg("ERROR: Please use a 16bit stream\n");
+		if(Signal->header.fmt.bitsPerSample != 16 && Signal->header.fmt.bitsPerSample != 24) {
+			logmsg("ERROR: Only 16/24 bit flac supported.\n\tPlease convert file to 16/24 bit flac.\n");
+			flacInternalMDFErrors = 1;
 			return FLAC__STREAM_DECODER_WRITE_STATUS_ABORT;
 		}
 		if(Signal->header.fmt.NumOfChan != 2 && Signal->header.fmt.NumOfChan != 1) {
-			logmsg("ERROR: Please use a mono or stereo stream\n");
+			logmsg("ERROR: Only Mono and Stereo files are supported.\n");
+			flacInternalMDFErrors = 1;
 			return FLAC__STREAM_DECODER_WRITE_STATUS_ABORT;
 		}
-		Signal->Samples = (char*)malloc(sizeof(char)*Signal->header.data.DataSize);
+		Signal->Samples = (double*)malloc(sizeof(double)*Signal->numSamples*Signal->header.fmt.NumOfChan);
 		if(!Signal->Samples)
 		{
 			logmsg("\tERROR: FLAC data chunks malloc failed!\n");
+			flacInternalMDFErrors = 1;
 			return(FLAC__STREAM_DECODER_WRITE_STATUS_ABORT);
 		}
-		memset(Signal->Samples, 0, sizeof(char)*Signal->header.data.DataSize);
+		memset(Signal->Samples, 0, sizeof(double)*Signal->numSamples*Signal->header.fmt.NumOfChan);
 	}
 
 	/* save decoded PCM samples */
-	samples16 = (int16_t*)(Signal->Samples + Signal->samplesPosFLAC);
+	pos = Signal->samplesPosFLAC;
 	for(i = 0; i < frame->header.blocksize; i++)
 	{
-		samples16[pos++] = (FLAC__int16)buffer[0][i];
+		Signal->Samples[pos++] = (double)(FLAC__int32)buffer[0][i];
 		if(Signal->header.fmt.NumOfChan == 2)
-			samples16[pos++] = (FLAC__int16)buffer[1][i];
+			Signal->Samples[pos++] = (double)(FLAC__int32)buffer[1][i];
 	}
-	Signal->samplesPosFLAC += pos*2;
+	Signal->samplesPosFLAC = pos;
 
 	return FLAC__STREAM_DECODER_WRITE_STATUS_CONTINUE;
 }
@@ -255,6 +272,8 @@ void metadata_callback(const FLAC__StreamDecoder *decoder, const FLAC__StreamMet
 		Signal->header.fmt.blockAlign = (FLAC__uint16)(channels * (bps/8));
 		Signal->header.fmt.bitsPerSample = bps;
 		Signal->header.data.DataSize = (FLAC__uint32)(total_samples * channels * (bps/8));
+		Signal->numSamples = total_samples*channels;
+		Signal->bytesPerSample = bps/8;
 		Signal->SamplesStart = 0;
 		Signal->samplesPosFLAC = 0;
 	}

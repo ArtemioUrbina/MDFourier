@@ -126,6 +126,7 @@ void CleanParameters(parameters *config)
 	config->startHzPlot = START_HZ_PLOT;
 	config->endHzPlot = END_HZ;
 	config->maxDbPlotZC = DB_HEIGHT;
+	config->maxDbPlotZCChanged = 0;
 	config->extendedResults = 0;
 	config->verbose = 0;
 	config->window = 't';
@@ -133,7 +134,6 @@ void CleanParameters(parameters *config)
 	config->clock = 0;
 	config->showAll = 0;
 	config->ignoreFloor = 0;
-	config->useOutputFilter = 1;
 	config->outputFilterFunction = 3;
 	config->origSignificantAmplitude = SIGNIFICANT_VOLUME;
 	config->significantAmplitude = SIGNIFICANT_VOLUME;
@@ -142,6 +142,7 @@ void CleanParameters(parameters *config)
 	config->referenceFramerate = 0;
 	config->ZeroPad = 0;
 	config->debugSync = 0;
+	config->timeDomainSync = 1;
 	config->drawWindows = 0;
 	config->channelBalance = 1;
 	config->showPercent = 1;
@@ -172,8 +173,12 @@ void CleanParameters(parameters *config)
 	config->stereoBalanceBlock = 0;
 	config->internalSyncTolerance = 0;
 	config->zoomWaveForm = 0;
-	config->warningStereoReversed = 0;
 	config->trimmingNeeded = 0;
+	config->highestValueBitDepth = 0;
+	config->lowestValueBitDepth = 0;
+
+	config->warningStereoReversed = 0;
+	config->warningRatioTooHigh = 0;
 
 	config->logScale = 1;
 	config->logScaleTS = 0;
@@ -278,9 +283,11 @@ int commandline(int argc , char *argv[], parameters *config)
 			logmsg(" - ERROR: Wave form Zoom Range must be between %d and %d\n", 0, -112);
 			return 0;
 		}
+		logmsg("\tZooming waveform to %dbfs\n", config->zoomWaveForm);
 		break;
 	  case 'B':
 		config->channelBalance = 0;
+		logmsg("\t -Audio channel balance disabled\n");
 		break;
 	  case 'b':
 		config->AmpBarRange = atof(optarg);
@@ -289,6 +296,7 @@ int commandline(int argc , char *argv[], parameters *config)
 			logmsg("- ERROR: Range must be between %d and %d\n", 0, 16);
 			return 0;
 		}
+		logmsg("\tChanging Bar range to %dbfs\n", config->AmpBarRange);
 		break;
 	  case 'C':
 		config->outputCSV = 1;
@@ -307,9 +315,12 @@ int commandline(int argc , char *argv[], parameters *config)
 			logmsg("-ERROR: Range must be between %d and %d\n", 0, 120);
 			return 0;
 		}
+		config->maxDbPlotZCChanged = 1;
+		logmsg("\t -Plot range set to %g\n", config->maxDbPlotZC);
 		break;
 	  case 'E':
 		config->FullTimeSpectroScale = 1;
+		logmsg("\t -Full Time spectrogram selected, this is slower\n");
 		break;
 	  case 'e':
 		config->endHz = atof(optarg);
@@ -325,6 +336,7 @@ int commandline(int argc , char *argv[], parameters *config)
 		}
 		if(config->endHz > END_HZ)
 			config->endHzPlot = config->endHz;
+		logmsg("\t -Frequency end range for FFTW is now %g (default %g)\n", config->endHz, END_HZ);
 		break;
 	  case 'F':
 		config->plotNoiseFloor = 0;
@@ -336,6 +348,7 @@ int commandline(int argc , char *argv[], parameters *config)
 			logmsg("-ERROR: Number fo frequencies must be between %d and %d\n", 1, MAX_FREQ_COUNT);
 			return 0;
 		}
+		logmsg("\t -Max frequencies to use from FFTW are %d (default %d)\n", config->MaxFreq, FREQ_COUNT);
 		break;
 	  case 'g':
 		config->averagePlot = 0;
@@ -349,12 +362,15 @@ int commandline(int argc , char *argv[], parameters *config)
 		break;
 	  case 'I':
 		config->ignoreFrameRateDiff = 1;
+		logmsg("\tIgnoring frame rate differences\n");
 		break;
 	  case 'i':
 		config->ignoreFloor = 1;
+		logmsg("\t -Ignoring Silence block noise floor\n");
 		break;
 	  case 'j':
 		config->doClkAdjust = 1;
+		logmsg("\tAdjusting Clock\n");
 		break;
 	  case 'k':
 		config->clock = 1;
@@ -401,21 +417,26 @@ int commandline(int argc , char *argv[], parameters *config)
 		break;
 	  case 'N':
 		config->logScale = 0;
+		logmsg("\tPlots will not be adjusted to log scale\n");
 		break;
 	  case 'n':
 		switch(optarg[0])
 		{
 			case 't':
 				config->normType = max_time;
+				logmsg("\tUsing Time Domain Normalization\n");
 				break;
 			case 'f':
 				config->normType = max_frequency;
+				logmsg("\tUsing Frequency Domain Normalization\n");
 				break;
 			case 'a':
 				config->normType = average;
+				logmsg("\tUsing Average Fundamental Frequency Normalization\n");
 				break;
 			case 'n':
 				config->normType = none;
+				logmsg("\tNot using Normalization\n");
 				break;
 			default:
 				logmsg("-ERROR: Invalid Normalization option '%c'\n", optarg[0]);
@@ -430,11 +451,6 @@ int commandline(int argc , char *argv[], parameters *config)
 	  case 'o':
 		config->outputFilterFunction = atoi(optarg);
 		if(config->outputFilterFunction < 0 || config->outputFilterFunction > 5)
-		{
-			logmsg("-ERROR: Invalid Output Filter option '%s'\n", optarg);
-			return 0;
-		}
-		if(!config->outputFilterFunction)
 		{
 			logmsg("-ERROR: Invalid Output Filter option '%s'\n", optarg);
 			return 0;
@@ -464,6 +480,7 @@ int commandline(int argc , char *argv[], parameters *config)
 		break;
 	  case 'R':
 		config->doSamplerateAdjust = 1;
+		logmsg("\t- Adjusting sample rate if inconsistency found\n");
 		break;
 	  case 'r':
 		sprintf(config->referenceFile, "%s", optarg);
@@ -476,9 +493,10 @@ int commandline(int argc , char *argv[], parameters *config)
 		config->startHz = atof(optarg);
 		if(config->startHz < 1.0 || config->startHz > END_HZ-100.0)
 		{
-			logmsg("-ERROR: Requested %g start frequency is out of range\n", atof(optarg));
+			logmsg(" - ERROR: Requested %g start frequency is out of range\n", atof(optarg));
 			return 0;
 		}
+		logmsg("\t -Frequency start range for FFTW is now %g (default %g)\n", config->startHz, START_HZ);
 		break;
 	  case 'T':
 		config->syncTolerance = 1;
@@ -487,10 +505,12 @@ int commandline(int argc , char *argv[], parameters *config)
 		config->plotTimeSpectrogram = 0;
 		break;
 	  case 'U':
+		logmsg(" - Creating waveform plots for all notes with window for FFT\n");
 		config->plotAllNotes = 1;
 		config->plotAllNotesWindowed = 1;
 		break;
 	  case 'u':
+		logmsg(" - Creating waveform plots for all notes\n");
 		config->plotAllNotes = 1;
 		break;
 	  case 'V':  // reserved
@@ -535,6 +555,7 @@ int commandline(int argc , char *argv[], parameters *config)
 		break;
 	  case 'y':
 		config->debugSync = 1;
+		config->timeDomainSync = 1;
 		break;
 	  case 'Z':
 		config->videoFormatCom = atoi(optarg);
@@ -546,12 +567,14 @@ int commandline(int argc , char *argv[], parameters *config)
 		break;
 	  case 'z':
 		config->ZeroPad = 1;
+		logmsg("\t -FFT bins will be aligned to 1Hz, this is slower\n");
 		break;
 	  case '0':
 		sprintf(config->outputPath, "%s", optarg);
 		break;
 	  case '8':
 		config->logScaleTS = 1;
+		logmsg("\t - Using linear scale for Time Spectrogram plots\n");
 		break;
 	  case '9':
 		config->compressToBlocks = 1;
@@ -617,9 +640,6 @@ int commandline(int argc , char *argv[], parameters *config)
 	if(config->FullTimeSpectroScale)
 		config->MaxFreq = END_HZ;
 
-	if(config->doSamplerateAdjust)
-		logmsg("\t- Adjusting sample rate if inconsistency found\n");
-
 	if(config->endHz <= config->startHz)
 	{
 		logmsg("-ERROR: Invalid frequency range for FFTW (%g Hz to %g Hz)\n", 
@@ -666,44 +686,10 @@ int commandline(int argc , char *argv[], parameters *config)
 			logmsg("\tA %s window will be applied to each block to be compared\n", GetWindow(config->window));
 		else
 			logmsg("\tNo window (rectangle) will be applied to each block to be compared\n");
-		if(config->useOutputFilter)
-		{
-			logmsg("\tOutput Filter function #%d will be applied to the results\n", 
-					config->outputFilterFunction);
-		}
-		else
-			logmsg("\tNo filtering will be applied to the results\n");
 	}
 
-	if(config->FullTimeSpectroScale)
-		logmsg("\t -Uinsg full scale\n");
-	if(config->maxDbPlotZC != DB_HEIGHT)
-		logmsg("\t -Plot range set to %g\n", config->maxDbPlotZC);
-	if(!config->channelBalance)
-		logmsg("\t -Audio channel balance disabled\n");
-	if(config->ZeroPad)
-		logmsg("\t -FFT bins will be aligned to 1Hz, this is slower\n");
-	if(config->FullTimeSpectroScale)
-		logmsg("\t -Full Time spectrogram selected, this is slower\n");
 	if(config->ZeroPad && config->FullTimeSpectroScale)
 		logmsg("\t -Go and play an arcade game credit if you have a slow CPU like mine...\n");
-	if(config->ignoreFloor)
-		logmsg("\t -Ignoring Silence block noise floor\n");
-	if(config->MaxFreq != FREQ_COUNT)
-		logmsg("\t -Max frequencies to use from FFTW are %d (default %d)\n", config->MaxFreq, FREQ_COUNT);
-	if(config->startHz != START_HZ)
-		logmsg("\t -Frequency start range for FFTW is now %g (default %g)\n", config->startHz, START_HZ);
-	if(config->endHz != END_HZ)
-		logmsg("\t -Frequency end range for FFTW is now %g (default %g)\n", config->endHz, END_HZ);
-	if(config->normType != max_frequency)
-	{
-		if(config->normType == max_time)
-			logmsg("\tUsing Time Domain Normalization\n");
-		if(config->normType == average)
-			logmsg("\tUsing Average Fundamental Frequency Normalization\n");
-	}
-	if(!config->logScale)
-		logmsg("\tPlots will not be adjusted to log scale\n");
 	if(config->averagePlot && !config->weightedAveragePlot)
 		logmsg("\tAveraged Plots will not be weighted\n");
 

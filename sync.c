@@ -43,75 +43,76 @@
 // Cut off for harmonic search
 #define HARMONIC_TSHLD 6000
 
-long int DetectPulse(char *AllSamples, wav_hdr header, int role, parameters *config)
+long int DetectPulse(double *AllSamples, wav_hdr header, int role, parameters *config)
 {
 	int			maxdetected = 0, AudioChannels = 0;
-	long int	offset = 0;
+	long int	sampleOffset = 0;
 
 	if(config->debugSync)
 		logmsgFileOnly("\nStarting Detect start pulse\n");
 
 	AudioChannels = header.fmt.NumOfChan;
 
-	offset = DetectPulseInternal(AllSamples, header, FACTOR_EXPLORE, 0, &maxdetected, role, AudioChannels, config);
-	if(offset == -1)
+	sampleOffset = DetectPulseInternal(AllSamples, header, FACTOR_EXPLORE, 0, &maxdetected, role, AudioChannels, config);
+	if(sampleOffset == -1)
 	{
 		if(config->debugSync)
-			logmsgFileOnly("First round start pulse failed\n", offset);
+			logmsgFileOnly("First round start pulse failed\n");
 
 		return DetectPulseSecondTry(AllSamples, header, role, config);
 	}
 
-	offset = AdjustPulseSampleStart(AllSamples, header, offset, role, AudioChannels, config);
-	if(offset != -1)
-		return offset;
+	sampleOffset = AdjustPulseSampleStart(AllSamples, header, sampleOffset, role, AudioChannels, config);
+	if(sampleOffset != -1)
+		return sampleOffset;
 
 	if(config->debugSync)
-		logmsgFileOnly("Start pulse return value %ld\n", offset);
+		logmsgFileOnly("Start pulse return value %ld\n", SamplesForDisplay(sampleOffset, AudioChannels));
 
-	return offset;
+	return sampleOffset;
 }
 
 /* only difference is that it auto detects the start first, helps in some cases with long silence and high noise floor */
-long int DetectPulseSecondTry(char *AllSamples, wav_hdr header, int role, parameters *config)
+long int DetectPulseSecondTry(double *AllSamples, wav_hdr header, int role, parameters *config)
 {
-	int			maxdetected = 0, AudioChannels = 0;
-	long int	offset = 0;
+	int			maxdetected = 0, AudioChannels = 0, bytesPerSample = 0;
+	long int	sampleOffset = 0;
 
 	if(config->debugSync)
 		logmsgFileOnly("\nStarting Detect start pulse\n");
 
 	AudioChannels = header.fmt.NumOfChan;
+	bytesPerSample = header.fmt.bitsPerSample/8;
 
-	offset = DetectSignalStart(AllSamples, header, 0, 0, 0, NULL, NULL, config);
-	if(offset > 0)
+	sampleOffset = DetectSignalStart(AllSamples, header, 0, 0, 0, NULL, NULL, config);
+	if(sampleOffset > 0)
 	{
-		long int MSBytes = 0;
+		long int MS_Samples = 0;
 			
-		MSBytes = SecondsToBytes(header.fmt.SamplesPerSec, 0.015, AudioChannels, NULL, NULL, NULL);
-		if(offset >= MSBytes)
-			offset -= MSBytes;
+		MS_Samples = SecondsToSamples(header.fmt.SamplesPerSec, 0.015, AudioChannels, bytesPerSample, NULL, NULL, NULL);
+		if(sampleOffset >= MS_Samples)
+			sampleOffset -= MS_Samples;
 	}
 	else
-		offset = 0;
+		sampleOffset = 0;
 
-	offset = DetectPulseInternal(AllSamples, header, FACTOR_LFEXPL, offset, &maxdetected, role, AudioChannels, config);
-	if(offset == -1)
+	sampleOffset = DetectPulseInternal(AllSamples, header, FACTOR_LFEXPL, sampleOffset, &maxdetected, role, AudioChannels, config);
+	if(sampleOffset == -1)
 	{
 		if(config->debugSync)
-			logmsgFileOnly("First round start pulse failed\n", offset);
+			logmsgFileOnly("First round start pulse failed\n");
 
 		return -1;
 	}
 
-	offset = AdjustPulseSampleStart(AllSamples, header, offset, role, AudioChannels, config);
-	if(offset != -1)
-		return offset;
+	sampleOffset = AdjustPulseSampleStart(AllSamples, header, sampleOffset, role, AudioChannels, config);
+	if(sampleOffset != -1)
+		return sampleOffset;
 
 	if(config->debugSync)
-		logmsgFileOnly("Start pulse return value %ld\n", offset);
+		logmsgFileOnly("Start pulse return value %ld\n", SamplesForDisplay(sampleOffset, AudioChannels));
 
-	return offset;
+	return sampleOffset;
 }
 
 /*
@@ -130,77 +131,79 @@ long int DetectPulseSecondTry(char *AllSamples, wav_hdr header, int role, parame
 								3.1, 3.2, 3.3, 3.4, 3.5, 3.5, 3.7, 3.8, 3.9, 4.0,\
 								-3.1, -3.2, -3.3, -3.4, -3.5, -3.5, -3.7, -3.8, -3.9, -4.0 }
 
-long int DetectEndPulse(char *AllSamples, long int startpulse, wav_hdr header, int role, parameters *config)
+long int DetectEndPulse(double *AllSamples, long int startpulse, wav_hdr header, int role, parameters *config)
 {
 	int			maxdetected = 0, frameAdjust = 0, tries = 0, maxtries = END_SYNC_MAX_TRIES;
 	int			factor = 0, AudioChannels = 0;
-	long int 	offset = 0;
+	long int 	sampleOffset = 0;
 	double		silenceOffset[END_SYNC_MAX_TRIES] = END_SYNC_VALUES;
 
-
+	AudioChannels = header.fmt.NumOfChan;
 	if(GetPulseSyncFreq(role, config) < HARMONIC_TSHLD)
 		factor = FACTOR_LFEXPL;
 	else
 		factor = FACTOR_EXPLORE;
 	/* Try a clean detection */
-	offset = GetSecondSyncSilenceByteOffset(GetMSPerFrameRole(role, config), header, 0, 1, config) + startpulse;
+	sampleOffset = GetSecondSyncSilenceSampleOffset(GetMSPerFrameRole(role, config), header, 0, 1, config) + startpulse;
 	if(config->debugSync)
-		logmsgFileOnly("\nStarting CLEAN Detect end pulse with offset %ld\n", offset);
-	AudioChannels = header.fmt.NumOfChan;
-	offset = DetectPulseInternal(AllSamples, header, factor, offset, &maxdetected, role, AudioChannels, config);
-	if(offset != -1)
+		logmsgFileOnly("\nStarting CLEAN Detect end pulse with sample offset %ld\n", SamplesForDisplay(sampleOffset, AudioChannels));
+	sampleOffset = DetectPulseInternal(AllSamples, header, factor, sampleOffset, &maxdetected, role, AudioChannels, config);
+	if(sampleOffset != -1)
 	{
-		offset = AdjustPulseSampleStart(AllSamples, header, offset, role, AudioChannels, config);
-		if(offset != -1)
-			return offset;
+		sampleOffset = AdjustPulseSampleStart(AllSamples, header, sampleOffset, role, AudioChannels, config);
+		if(sampleOffset != -1)
+			return sampleOffset;
 	}
 
 	
 	/* We try to figure out position of the pulses */
 	if(config->debugSync)
-		logmsgFileOnly("End pulse CLEAN detection failed started search at %ld bytes\n", offset);
+		logmsgFileOnly("End pulse CLEAN detection failed started search at %ld samples\n", SamplesForDisplay(sampleOffset, AudioChannels));
 
 	do
 	{
 		/* Use defaults to calculate real frame rate */
-		offset = GetSecondSyncSilenceByteOffset(GetMSPerFrameRole(role, config), header, frameAdjust, silenceOffset[tries], config) + startpulse;
+		sampleOffset = GetSecondSyncSilenceSampleOffset(GetMSPerFrameRole(role, config), header, frameAdjust, silenceOffset[tries], config) + startpulse;
 	
 		if(config->debugSync)
-			logmsgFileOnly("\nStarting Detect end pulse with offset %ld [%g silence]\n\tMaxDetected %d frameAdjust: %d\n",
-				offset, silenceOffset[tries], maxdetected, frameAdjust);
+			logmsgFileOnly("\nStarting Detect end pulse with sample offset %ld [%g silence]\n\tMaxDetected %d frameAdjust: %d\n",
+				SamplesForDisplay(sampleOffset, AudioChannels), silenceOffset[tries], maxdetected, frameAdjust);
 	
 		frameAdjust = 0;
 		maxdetected = 0;
 
-		offset = DetectPulseInternal(AllSamples, header, factor, offset, &maxdetected, role, AudioChannels, config);
-		if(offset == -1 && !maxdetected)
+		sampleOffset = DetectPulseInternal(AllSamples, header, factor, sampleOffset, &maxdetected, role, AudioChannels, config);
+		if(sampleOffset == -1 && !maxdetected)
 		{
 			if(config->debugSync)
-				logmsgFileOnly("End pulse failed try %d, started search at %ld bytes [%g silence]\n", tries+1, offset, silenceOffset[tries]);
+				logmsgFileOnly("End pulse failed try %d, started search at %ld samples [%g silence]\n",
+				tries+1, SamplesForDisplay(sampleOffset, AudioChannels), silenceOffset[tries]);
 		}
 
 		tries ++;
-	}while(offset == -1 && tries < maxtries);
+	}while(sampleOffset == -1 && tries < maxtries);
 
 	if(tries == maxtries)
 		return -1;
 
-	offset = AdjustPulseSampleStart(AllSamples, header, offset, role, AudioChannels, config);
+	sampleOffset = AdjustPulseSampleStart(AllSamples, header, sampleOffset, role, AudioChannels, config);
 	if(config->debugSync)
-		logmsgFileOnly("End pulse return value %ld\n", offset);
+		logmsgFileOnly("End pulse return value %ld\n", SamplesForDisplay(sampleOffset, AudioChannels));
 
-	return offset;
+	return sampleOffset;
 }
 
 
 #define LOGCASE(x, y) { x; if(config->debugSync) logmsgFileOnly("Case #%d\n", y); }
-double findAverageAmplitudeForTarget(Pulses *pulseArray, double targetFrequency, double *targetFrequencyHarmonic, long int TotalMS, long int start, int factor, parameters *config)
+double findAverageAmplitudeForTarget(Pulses *pulseArray, double targetFrequency, double *targetFrequencyHarmonic, long int TotalMS, long int start, int factor, int AudioChannels, parameters *config)
 {
 	long	count = 0, i = 0;
 	double	averageAmplitude = 0, standardDeviation = 0, useAmplitude = 0, percent = 0;
 
 	if(config->debugSync)
-		logmsgFileOnly("Searching for in range: %ld-%ld bytes\n", pulseArray[start].bytes, pulseArray[TotalMS-1].bytes);
+		logmsgFileOnly("Searching for in range: %ld-%ld samples\n", 
+				SamplesForDisplay(pulseArray[start].samples, AudioChannels),
+				SamplesForDisplay(pulseArray[TotalMS-1].samples, AudioChannels));
 	for(i = start; i < TotalMS; i++)
 	{
 		if(pulseArray[i].hertz == targetFrequency 
@@ -304,18 +307,18 @@ double findAverageAmplitudeForTarget(Pulses *pulseArray, double targetFrequency,
 			TotalMS-start, count, (double)count/(double)(TotalMS-start)*100);
 
 	if(config->debugSync)
-		logmsgFileOnly("Searching for Average amplitude in block: F %g Total Start byte: %ld milliseconds to check: %ld\n", 
+		logmsgFileOnly("Searching for Average amplitude in block: F %g Total Start sample: %ld milliseconds to check: %ld\n", 
 			targetFrequency, 
-			pulseArray[start].bytes,
+			SamplesForDisplay(pulseArray[start].samples, AudioChannels),
 			TotalMS);
 
 
 	return useAmplitude;
 }
 
-long int DetectPulseTrainSequence(Pulses *pulseArray, double targetFrequency, double *targetFrequencyHarmonic, long int TotalMS, int factor, int *maxdetected, long int start, int role, parameters *config)
+long int DetectPulseTrainSequence(Pulses *pulseArray, double targetFrequency, double *targetFrequencyHarmonic, long int TotalMS, int factor, int *maxdetected, long int start, int role, int AudioChannels, parameters *config)
 {
-	long	i, sequence_start = 0;
+	long	i = 0, sequence_start = 0;
 	int		frame_pulse_count = 0, frame_silence_count = 0, 
 			pulse_count = 0, silence_count = 0, lastcountedWasPulse = 0, lookingfor = 0;
 	double	averageAmplitude = 0;
@@ -324,7 +327,7 @@ long int DetectPulseTrainSequence(Pulses *pulseArray, double targetFrequency, do
 
 	lookingfor = getPulseFrameLen(role, config)*factor-factor/2;
 	//smoothAmplitudes(pulseArray, targetFrequency, TotalMS, start);
-	averageAmplitude = findAverageAmplitudeForTarget(pulseArray, targetFrequency, targetFrequencyHarmonic, TotalMS, start, factor, config);
+	averageAmplitude = findAverageAmplitudeForTarget(pulseArray, targetFrequency, targetFrequencyHarmonic, TotalMS, start, factor, AudioChannels, config);
 	if(averageAmplitude == 0)
 		return -1;
 
@@ -349,8 +352,9 @@ long int DetectPulseTrainSequence(Pulses *pulseArray, double targetFrequency, do
 				frame_pulse_count++;
 				lastcountedWasPulse = 1;
 				if(config->debugSync)
-					logmsgFileOnly("[i:%ld] byte:%7ld [%5gHz %0.2f dBFS] <<Pulse Frame counted %d>>", 
-						i, pulseArray[i].bytes, pulseArray[i].hertz, pulseArray[i].amplitude, 
+					logmsgFileOnly("[i:%ld] Sample:%7ld [%5gHz %0.2f dBFS] <<Pulse Frame counted %d>>", 
+						i, SamplesForDisplay(pulseArray[i].samples, AudioChannels),
+						pulseArray[i].hertz, pulseArray[i].amplitude, 
 						frame_pulse_count);
 	
 				if(!sequence_start)
@@ -358,7 +362,7 @@ long int DetectPulseTrainSequence(Pulses *pulseArray, double targetFrequency, do
 					if(config->debugSync)
 						logmsgFileOnly(" This starts the sequence\n");
 
-					sequence_start = pulseArray[i].bytes;
+					sequence_start = pulseArray[i].samples;
 					frame_silence_count = 0;
 					linefeedNeeded = 0;
 				}
@@ -401,8 +405,9 @@ long int DetectPulseTrainSequence(Pulses *pulseArray, double targetFrequency, do
 				|| pulseArray[i].hertz == targetFrequencyHarmonic[0] || pulseArray[i].hertz == targetFrequencyHarmonic[1])))
 			{
 				if(config->debugSync)
-					logmsgFileOnly("[i:%ld] byte:%7ld [%5gHz %0.2f dBFS] Silence Frame found due to AVG but skipped due to Hz%d\n", 
-						i, pulseArray[i].bytes, pulseArray[i].hertz, pulseArray[i].amplitude, 
+					logmsgFileOnly("[i:%ld] Sample:%7ld [%5gHz %0.2f dBFS] Silence Frame found due to AVG but skipped due to Hz%d\n", 
+						i, SamplesForDisplay(pulseArray[i].samples, AudioChannels),
+						pulseArray[i].hertz, pulseArray[i].amplitude, 
 						frame_silence_count);
 				lastcountedWasPulse = 0;
 				checkSilence = 0;
@@ -414,8 +419,9 @@ long int DetectPulseTrainSequence(Pulses *pulseArray, double targetFrequency, do
 			if(pulseArray[i].amplitude < averageAmplitude)
 			{
 				if(config->debugSync)
-					logmsgFileOnly("[i:%ld] byte:%7ld [%5gHz %0.2f dBFS] %s %d\n", 
-						i, pulseArray[i].bytes, pulseArray[i].hertz, pulseArray[i].amplitude, 
+					logmsgFileOnly("[i:%ld] sample:%7ld [%5gHz %0.2f dBFS] %s %d\n", 
+						i, SamplesForDisplay(pulseArray[i].samples, AudioChannels),
+						pulseArray[i].hertz, pulseArray[i].amplitude, 
 						sequence_start ? " Silence Frame counted" : "--", frame_silence_count);
 
 				frame_silence_count ++;
@@ -425,8 +431,9 @@ long int DetectPulseTrainSequence(Pulses *pulseArray, double targetFrequency, do
 				int linefeedNeeded = 1;
 
 				if(config->debugSync)
-					logmsgFileOnly("[i:%ld] byte:%7ld [%5gHz %0.2f dBFS] Non Frame skipped %d LC:%d", 
-						i, pulseArray[i].bytes, pulseArray[i].hertz, pulseArray[i].amplitude, 
+					logmsgFileOnly("[i:%ld] sample:%7ld [%5gHz %0.2f dBFS] Non Frame skipped %d LC:%d", 
+						i, SamplesForDisplay(pulseArray[i].samples, AudioChannels),
+						pulseArray[i].hertz, pulseArray[i].amplitude, 
 						frame_silence_count, lastcountedWasPulse);
 
 				if(lastcountedWasPulse == 0)
@@ -461,7 +468,7 @@ long int DetectPulseTrainSequence(Pulses *pulseArray, double targetFrequency, do
 				if(pulse_count == getPulseCount(role, config) && silence_count >= pulse_count/2) /* silence_count == pulse_count - 1 */
 				{
 					if(config->debugSync)
-						logmsgFileOnly("Completed the sequence %ld\n", sequence_start);
+						logmsgFileOnly("Completed the sequence %ld\n", SamplesForDisplay(sequence_start, AudioChannels));
 					return sequence_start;
 				}
 				lastcountedWasPulse = 0;
@@ -507,34 +514,35 @@ long int DetectPulseTrainSequence(Pulses *pulseArray, double targetFrequency, do
 #define SORT_CMP(x, y)  ((x).magnitude > (y).magnitude ? -1 : ((x).magnitude == (y).magnitude ? 0 : 1))
 #include "sort.h"  // https://github.com/swenson/sort/
 
-long int AdjustPulseSampleStart(char *Samples, wav_hdr header, long int offset, int role, int AudioChannels, parameters *config)
+long int AdjustPulseSampleStart(double *Samples, wav_hdr header, long int offset, int role, int AudioChannels, parameters *config)
 {
-	int			samplesNeeded = 0, frequency = 0, bytesNeeded = 0, minDiffPos = -1;
-	long int	startSearch = 0, endSearch = 0, pos = 0, count = 0, foundPos = -1;
-	char		*buffer = NULL;
+	int			samplesNeeded = 0, frequency = 0, minDiffPos = -1, bytesPerSample = 0;
+	long int	startSearch = 0, endSearch = 0, pos = 0, count = 0, foundPos = -1, totalSamples = 0;
+	double		*buffer = NULL;
 	Pulses		*pulseArray = NULL;
 	double		targetFrequency = 0, minDiff = 1000;
 
 	frequency = GetPulseSyncFreq(role, config);
-	samplesNeeded = header.fmt.SamplesPerSec/frequency;
-	bytesNeeded = samplesNeeded*AudioChannels*2;
+	samplesNeeded = header.fmt.SamplesPerSec/frequency*AudioChannels;
 
 	targetFrequency = FindFrequencyBracketForSync(frequency,
-						bytesNeeded/2, AudioChannels, header.fmt.SamplesPerSec, config);
+						samplesNeeded, AudioChannels, header.fmt.SamplesPerSec, config);
 	if(config->debugSync)
-		logmsgFileOnly("\nGot %ld, looking for %g bytes %d\n", offset, targetFrequency, bytesNeeded);
-	buffer = (char*)malloc(bytesNeeded);
+		logmsgFileOnly("\nSearcing at %ld, looking for %ghz samples needed: %d\n",
+				SamplesForDisplay(offset, AudioChannels), targetFrequency, 
+				SamplesForDisplay(samplesNeeded, AudioChannels));
+	buffer = (double*)malloc(samplesNeeded*sizeof(double));
 	if(!buffer)
 	{
 		logmsgFileOnly("\tSync Adjust malloc failed\n");
 		return(foundPos);
 	}
 
-	if(offset >= 2*bytesNeeded)
-		startSearch = offset-2*bytesNeeded;
+	if(offset >= 2*samplesNeeded)
+		startSearch = offset-2*samplesNeeded;
 	else
 		startSearch = 0;
-	endSearch = offset+bytesNeeded;
+	endSearch = offset+samplesNeeded;
 
 	pulseArray = (Pulses*)malloc(sizeof(Pulses)*(endSearch-startSearch));
 	if(!pulseArray)
@@ -545,18 +553,21 @@ long int AdjustPulseSampleStart(char *Samples, wav_hdr header, long int offset, 
 	}
 	memset(pulseArray, 0, sizeof(Pulses)*(endSearch-startSearch));
 
-	for(pos = startSearch; pos < endSearch; pos += 2*AudioChannels)  // bytes
+	bytesPerSample = header.fmt.bitsPerSample/8;
+	totalSamples = header.data.DataSize/bytesPerSample;
+
+	for(pos = startSearch; pos < endSearch; pos += AudioChannels)
 	{
-		memset(buffer, 0, bytesNeeded);
-		if(pos + bytesNeeded > header.data.DataSize)
+		memset(buffer, 0, samplesNeeded*sizeof(double));
+		if(pos + samplesNeeded > totalSamples)
 		{
 			//logmsg("\tUnexpected end of File, please record the full Audio Test from the 240p Test Suite\n");
 			break;
 		}
 
-		pulseArray[count].bytes = pos;
-		memcpy(buffer, Samples + pos, bytesNeeded);
-		ProcessChunkForSyncPulse((int16_t*)buffer, bytesNeeded/2, 
+		pulseArray[count].samples = pos;
+		memcpy(buffer, Samples + pos, samplesNeeded*sizeof(double));
+		ProcessChunkForSyncPulse(buffer, samplesNeeded, 
 			header.fmt.SamplesPerSec, &pulseArray[count], 
 			CHANNEL_LEFT, AudioChannels, config);
 		count ++;
@@ -571,8 +582,9 @@ long int AdjustPulseSampleStart(char *Samples, wav_hdr header, long int offset, 
 	
 			diff = fabs(0 - pulseArray[pos].phase);
 			if(config->debugSync)
-				logmsgFileOnly("Bytes: %ld %gHz Mag %g Phase %g diff: %g\n",
-					pulseArray[pos].bytes, pulseArray[pos].hertz, pulseArray[pos].magnitude, pulseArray[pos].phase, diff);
+				logmsgFileOnly("Sample: %ld %gHz Mag %g Phase %g diff: %g\n",
+					SamplesForDisplay(pulseArray[pos].samples, AudioChannels),
+					pulseArray[pos].hertz, pulseArray[pos].magnitude, pulseArray[pos].phase, diff);
 			if(diff < minDiff)
 			{
 				minDiff = diff;
@@ -583,10 +595,12 @@ long int AdjustPulseSampleStart(char *Samples, wav_hdr header, long int offset, 
 
 	if(minDiffPos != -1)
 	{
-		foundPos = pulseArray[minDiffPos].bytes;
+		foundPos = pulseArray[minDiffPos].samples;
 		if(config->debugSync)
-			logmsgFileOnly("FOUND: %ld Bytes: %ld %gHz Mag %g Phase %g diff: %g\n",
-				minDiffPos, pulseArray[minDiffPos].bytes, pulseArray[minDiffPos].hertz, pulseArray[minDiffPos].magnitude, pulseArray[minDiffPos].phase, minDiff);
+			logmsgFileOnly("FOUND: Item-%ld Sample: %ld %gHz Mag %g Phase %g diff: %g\n",
+				minDiffPos, 
+				SamplesForDisplay(pulseArray[minDiffPos].samples, AudioChannels),
+				pulseArray[minDiffPos].hertz, pulseArray[minDiffPos].magnitude, pulseArray[minDiffPos].phase, minDiff);
 	}
 
 	free(buffer);
@@ -595,60 +609,70 @@ long int AdjustPulseSampleStart(char *Samples, wav_hdr header, long int offset, 
 	return foundPos;
 }
 
-long int DetectPulseInternal(char *Samples, wav_hdr header, int factor, long int offset, int *maxdetected, int role, int AudioChannels, parameters *config)
+// Searches using 1ms/factor blocks
+long int DetectPulseInternal(double *Samples, wav_hdr header, int factor, long int offset, int *maxdetected, int role, int AudioChannels, parameters *config)
 {
-	long int			i = 0, TotalMS = 0;
-	long int			loadedBlockSize = 0;
-	char				*buffer;
-	size_t			 	buffersize = 0;
-	long int			pos = 0, millisecondSize = 0, startPos = 0;
-	Pulses				*pulseArray;
+	int					bytesPerSample = 0;
+	long int			i = 0, TotalMS = 0, totalSamples = 0;
+	double				*sampleBuffer = NULL;
+	long int		 	sampleBufferSize = 0, pos = 0, startPos = 0;
+	Pulses				*pulseArray = NULL;
 	double				targetFrequency = 0, targetFrequencyHarmonic[2] = { NO_FREQ, NO_FREQ }, origFrequency = 0, MaxMagnitude = 0;
 
+	bytesPerSample = header.fmt.bitsPerSample/8;
 	/* Not a real ms, just approximate */
-	millisecondSize = RoundToNbytes(floor((((double)header.fmt.SamplesPerSec*2.0*AudioChannels)/1000.0)/(double)factor), AudioChannels, NULL, NULL, NULL);
-	buffersize = millisecondSize*sizeof(char); 
-	buffer = (char*)malloc(buffersize);
-	if(!buffer)
+	sampleBufferSize = SecondsToSamples(header.fmt.SamplesPerSec, 1.0/((double)factor*1000.0), AudioChannels, bytesPerSample, NULL, NULL, NULL);
+	if(sampleBufferSize < 4){
+		logmsg("ERROR: Invalid parameters for sync detection\n");
+		return -1;
+	}
+	sampleBuffer = (double*)malloc(sampleBufferSize*sizeof(double));
+	if(!sampleBuffer)
 	{
-		logmsgFileOnly("\tmalloc failed\n");
-		return(0);
+		logmsgFileOnly("\tERROR: malloc failed for sample buffer during DetectPulseInternal\n");
+		return -1;
 	}
 
-	TotalMS = header.data.DataSize / buffersize - 1;
+	totalSamples = header.data.DataSize/bytesPerSample;
+	// calculate how many sampleBufferSize units fit in the available samples from the file
+	TotalMS = totalSamples/sampleBufferSize-1;
 	pos = offset;
 	if(offset)
 	{
 		double syncLen = 0;
 
-		i = offset/buffersize;
+		i = offset;
 		startPos = i;
 
-		/* check for the duration of the sync pulses */
-		syncLen = GetLastSyncDuration(GetMSPerFrameRole(role, config), config)*1000;
+		/* check for the time duration in ms*factor of the sync pulses */
+		syncLen = GetLastSyncDuration(GetMSPerFrameRole(role, config), config)*1000*factor;
 		if(factor == FACTOR_EXPLORE)  /* are we exploring? */
 			syncLen *= 2.0;  /* widen so that the silence offset is compensated for */
 		else
 			syncLen *= 1.2;  /* widen so that the silence offset is compensated for */
-		TotalMS = i + floor(syncLen*factor);
+		//if(i+syncLen > TotalMS)
+		TotalMS = i+syncLen;
 
 		if(config->debugSync)
-			logmsgFileOnly("changed to:\n\tMS: %ld, BuffSize: %ld, Bytes:%ld-%ld/ms:%ld-%ld]\n\tms len: %g Bytes: %g Buffer Size: %d Factor: %d\n", 
-				millisecondSize, buffersize, i*buffersize, TotalMS*buffersize, i, TotalMS,
-				syncLen, floor(syncLen*factor), (int)buffersize, factor);
+			logmsgFileOnly("changed to:\n\tSamplesBufferSize: %ld, Samples:%ld-%ld/ms:%ld-%ld]\n\tms len: %g Bytes: %g Factor: %d\n", 
+				sampleBufferSize, i*factor, TotalMS*factor, i, TotalMS,
+				syncLen, syncLen/factor, factor);
 	}
 	else
 	{
 		double expectedlen = 0, seconds = 0, syncLenSeconds = 0, syncLen = 0, silenceLen = 0, silenceLenSeconds = 0;
 
 		seconds = GetSignalTotalDuration(GetMSPerFrameRole(role, config), config);
-		expectedlen = SecondsToBytes(header.fmt.SamplesPerSec, seconds, header.fmt.NumOfChan, NULL, NULL, NULL)/ buffersize - 1;
+		expectedlen = SecondsToSamples(header.fmt.SamplesPerSec, seconds, header.fmt.NumOfChan, bytesPerSample, NULL, NULL, NULL);
+		expectedlen = floor(expectedlen/sampleBufferSize) - 1;
 
 		syncLenSeconds = GetFirstSyncDuration(GetMSPerFrameRole(role, config), config);
-		syncLen = SecondsToBytes(header.fmt.SamplesPerSec, syncLenSeconds, header.fmt.NumOfChan, NULL, NULL, NULL)/ buffersize - 1;
+		syncLen = SecondsToSamples(header.fmt.SamplesPerSec, syncLenSeconds, header.fmt.NumOfChan, bytesPerSample, NULL, NULL, NULL);
+		syncLen = floor(syncLen/sampleBufferSize) - 1;
 
 		silenceLenSeconds = GetFirstSilenceDuration(GetMSPerFrameRole(role, config), config);
-		silenceLen = SecondsToBytes(header.fmt.SamplesPerSec, silenceLenSeconds, header.fmt.NumOfChan, NULL, NULL, NULL)/ buffersize - 1;
+		silenceLen = SecondsToSamples(header.fmt.SamplesPerSec, silenceLenSeconds, header.fmt.NumOfChan, bytesPerSample, NULL, NULL, NULL);
+		silenceLen = floor(silenceLen/sampleBufferSize) - 1;
 
 		TotalMS = TotalMS - expectedlen + syncLen + silenceLen/2;
 
@@ -660,19 +684,19 @@ long int DetectPulseInternal(char *Samples, wav_hdr header, int factor, long int
 	if(!pulseArray)
 	{
 		logmsgFileOnly("\tPulse malloc failed!\n");
-		return(0);
+		return -1;
 	}
 	memset(pulseArray, 0, sizeof(Pulses)*TotalMS);
 
 	origFrequency = GetPulseSyncFreq(role, config);
 	targetFrequency = FindFrequencyBracketForSync(origFrequency,
-						millisecondSize/2, AudioChannels, header.fmt.SamplesPerSec, config);
+						sampleBufferSize, AudioChannels, header.fmt.SamplesPerSec, config);
 	if(origFrequency < HARMONIC_TSHLD)  //default behavior for around 8khz, harmonic is NO_FREQ
 	{
 		targetFrequencyHarmonic[0] = FindFrequencyBracketForSync(targetFrequency*2, 	
-						millisecondSize/2, AudioChannels, header.fmt.SamplesPerSec, config);
+						sampleBufferSize, AudioChannels, header.fmt.SamplesPerSec, config);
 		targetFrequencyHarmonic[1] = FindFrequencyBracketForSync(targetFrequency*3,
-						millisecondSize/2, AudioChannels, header.fmt.SamplesPerSec, config);
+						sampleBufferSize, AudioChannels, header.fmt.SamplesPerSec, config);
 		if(config->debugSync)
 			logmsgFileOnly("\n - Using %gHz and harmonics %g/%gHz for sync detection\n", 
 				targetFrequency, targetFrequencyHarmonic[0], targetFrequencyHarmonic[1]);
@@ -686,40 +710,25 @@ long int DetectPulseInternal(char *Samples, wav_hdr header, int factor, long int
 				origFrequency >= HARMONIC_TSHLD ? origFrequency : targetFrequency*3, 
 				targetFrequency, targetFrequencyHarmonic[0], targetFrequencyHarmonic[1]);
 		logmsgFileOnly("Start ms %ld Total MS: %ld (%ld)\n",
-			 i, TotalMS-1, header.data.DataSize / buffersize - 1);
+			 i, TotalMS-1, totalSamples/sampleBufferSize - 1);
 	}
 
 	while(i < TotalMS)
 	{
-		loadedBlockSize = millisecondSize;
-
-		memset(buffer, 0, buffersize);
-		if(pos + loadedBlockSize > header.data.DataSize)
+		if(pos + sampleBufferSize > totalSamples)
 		{
 			//logmsg("\tUnexpected end of File, please record the full Audio Test from the 240p Test Suite\n");
 			break;
 		}
 
-		pulseArray[i].bytes = pos;
-		memcpy(buffer, Samples + pos, loadedBlockSize);
+		memset(sampleBuffer, 0, sampleBufferSize*sizeof(double));
+		memcpy(sampleBuffer, Samples + pos, sampleBufferSize*sizeof(double));
+		pulseArray[i].samples = pos;
 
-#ifdef SAVE_CHUNKS
-		if(1)
-		{	
-			char FName[4096];
-			AudioSignal s;
-
-			s.header = header;
-			sprintf(FName,	 "%06ld_SYNC_chunk.wav", i);
-
-			SaveWAVEChunk(FName, &s, buffer, 0, loadedBlockSize, config); 
-		}
-#endif
-
-		pos += loadedBlockSize;
+		pos += sampleBufferSize;
 
 		/* We use left channel by default, we don't know about channel imbalances yet */
-		ProcessChunkForSyncPulse((int16_t*)buffer, loadedBlockSize/2, 
+		ProcessChunkForSyncPulse(sampleBuffer, sampleBufferSize, 
 			header.fmt.SamplesPerSec, &pulseArray[i], 
 			CHANNEL_LEFT, AudioChannels, config);
 
@@ -740,28 +749,29 @@ long int DetectPulseInternal(char *Samples, wav_hdr header, int factor, long int
 	/*
 	if(config->debugSync)
 	{
-		logmsgFileOnly("===== Searching for %gHz =======\n", targetFrequency);
-		for(i = startPos; i < TotalMS; i++)
+		//logmsgFileOnly("===== Searching for %gHz =======\n", targetFrequency);
+		for(i = startPos; i < 40; i++)
 		{
 			//if(pulseArray[i].hertz == targetFrequency)
 				logmsgFileOnly("B: %ld Hz: %g A: %g M: %g\n", 
-					pulseArray[i].bytes, 
+					pulseArray[i].samples, 
 					pulseArray[i].hertz, 
 					pulseArray[i].amplitude,
 					pulseArray[i].magnitude);
 		}
-		logmsgFileOnly("========  End listing =========\n");
+		//logmsgFileOnly("========  End listing =========\n");
 	}
-*/
-	offset = DetectPulseTrainSequence(pulseArray, targetFrequency, targetFrequencyHarmonic, TotalMS, factor, maxdetected, startPos, role, config);
+	*/
+
+	offset = DetectPulseTrainSequence(pulseArray, targetFrequency, targetFrequencyHarmonic, TotalMS, factor, maxdetected, startPos, role, AudioChannels, config);
 
 	free(pulseArray);
-	free(buffer);
+	free(sampleBuffer);
 
 	return offset;
 }
 
-double ProcessChunkForSyncPulse(int16_t *samples, size_t size, long samplerate, Pulses *pulse, char channel, int AudioChannels, parameters *config)
+double ProcessChunkForSyncPulse(double *samples, size_t size, long samplerate, Pulses *pulse, char channel, int AudioChannels, parameters *config)
 {
 	fftw_plan		p = NULL;
 	long		  	stereoSignalSize = 0;	
@@ -861,7 +871,7 @@ double ProcessChunkForSyncPulse(int16_t *samples, size_t size, long samplerate, 
 	return(maxHertz);
 }
 
-long int DetectSignalStart(char *AllSamples, wav_hdr header, long int offset, int syncKnow, long int expectedSyncLen, long int *endPulse, int *toleranceIssue, parameters *config)
+long int DetectSignalStart(double *AllSamples, wav_hdr header, long int offset, int syncKnow, long int expectedSyncLen, long int *endPulse, int *toleranceIssue, parameters *config)
 {
 	int			maxdetected = 0, AudioChannels = 0;
 	long int	position = 0;
@@ -874,41 +884,47 @@ long int DetectSignalStart(char *AllSamples, wav_hdr header, long int offset, in
 	if(position == -1)
 	{
 		if(config->debugSync)
-			logmsgFileOnly("Detect signal failed\n", offset);
+			logmsgFileOnly("Detect signal failed %ld\n", SamplesForDisplay(offset, AudioChannels));
 
 		return -1;
 	}
 
 	if(config->debugSync)
-		logmsgFileOnly("Detect signal return value %ld\n", position);
+		logmsgFileOnly("Detect signal return value %ld\n", SamplesForDisplay(position, AudioChannels));
 	return position;
 }
 
 //#define DEBUG_SYNC_INTERNAL_TOLERANCE
-long int DetectSignalStartInternal(char *Samples, wav_hdr header, int factor, long int offset, int syncKnown, long int expectedSyncLen, int *maxdetected, long int *endPulse, int AudioChannels, int *toleranceIssue, parameters *config)
+long int DetectSignalStartInternal(double *Samples, wav_hdr header, int factor, long int offset, int syncKnown, long int expectedSyncLen, int *maxdetected, long int *endPulse, int AudioChannels, int *toleranceIssue, parameters *config)
 {
-	long int			i = 0, TotalMS = 0, start = 0;
-	long int			loadedBlockSize = 0;
-	char				*buffer;
-	size_t			 	buffersize = 0;
-	long int			pos = 0, millisecondSize = 0;
+	int					bytesPerSample;
+	long int			i = 0, TotalMS = 0, start = 0, totalSamples = 0;
+	double				*sampleBuffer = NULL;
+	long int		 	sampleBufferSize = 0;
+	long int			pos = 0;
 	double				MaxMagnitude = 0;
 	Pulses				*pulseArray;
 	double 				total = 0;
 	long int 			count = 0, length = 0, tolerance = 0, toleranceIssueOffset = -1, MaxTolerance = 4;
 	double 				targetFrequency = 0, targetFrequencyHarmonic[2] = { NO_FREQ, NO_FREQ }, averageAmplitude = 0;
 
+	bytesPerSample = header.fmt.bitsPerSample/8;
 	/* Not a real ms, just approximate */
-	millisecondSize = RoundToNbytes(floor((((double)header.fmt.SamplesPerSec*2.0*(double)AudioChannels)/1000.0)/(double)factor), AudioChannels, NULL, NULL, NULL);
-	buffersize = millisecondSize*sizeof(char); 
-	buffer = (char*)malloc(buffersize);
-	if(!buffer)
-	{
-		logmsgFileOnly("\tmalloc failed\n");
-		return(0);
+	sampleBufferSize = SecondsToSamples(header.fmt.SamplesPerSec, 1.0/((double)factor*1000.0), AudioChannels, bytesPerSample, NULL, NULL, NULL);
+	if(sampleBufferSize < 4){
+		logmsg("ERROR: Invalid parameters for sync detection\n");
+		return -1;
 	}
-	
-	TotalMS = header.data.DataSize / buffersize - 1;
+	sampleBuffer = (double*)malloc(sampleBufferSize*sizeof(double));
+	if(!sampleBuffer)
+	{
+		logmsgFileOnly("\tERROR: malloc failed for sample buffer during DetectPulseInternal\n");
+		return -1;
+	}
+
+	totalSamples = header.data.DataSize/bytesPerSample;
+	// calculate how many sampleBufferSize units fit in the available samples from the file
+	TotalMS = totalSamples/sampleBufferSize-1;
 	pulseArray = (Pulses*)malloc(sizeof(Pulses)*TotalMS);
 	if(!pulseArray)
 	{
@@ -920,48 +936,31 @@ long int DetectSignalStartInternal(char *Samples, wav_hdr header, int factor, lo
 	pos = offset;
 	if(offset)
 	{
-		i = offset/buffersize;
+		i = offset/sampleBufferSize;
 		start = i;
 	}
 	else
 		TotalMS /= 6;
 
-	if(config->debugSync)
-		logmsg("- Signal range from %ld to %ld\n", start, TotalMS);
-
 	while(i < TotalMS)
 	{
-		loadedBlockSize = millisecondSize;
-
-		memset(buffer, 0, buffersize);
-		if(pos + loadedBlockSize > header.data.DataSize)
+		if(pos + sampleBufferSize > totalSamples)
 		{
-			logmsgFileOnly("\tunexpected end of File, please record the full Audio Test from the 240p Test Suite\n");
+			//logmsg("\tUnexpected end of File, please record the full Audio Test from the 240p Test Suite\n");
 			break;
 		}
 
-		pulseArray[i].bytes = pos;
-		memcpy(buffer, Samples + pos, loadedBlockSize);
+		memset(sampleBuffer, 0, sampleBufferSize*sizeof(double));
+		memcpy(sampleBuffer, Samples + pos, sampleBufferSize*sizeof(double));
+		pulseArray[i].samples = pos;
 
-#ifdef SAVE_CHUNKS
-		if(1)
-		{	
-			char FName[4096];
-			AudioSignal s;
+		pos += sampleBufferSize;
 
-			s.header = header;
-			sprintf(FName,	 "%06ld_SYNC_chunk.wav", i);
+		/* We use left channel by default, we don't know about channel imbalances yet */
+		ProcessChunkForSyncPulse(sampleBuffer, sampleBufferSize, 
+			header.fmt.SamplesPerSec, &pulseArray[i], 
+			CHANNEL_LEFT, AudioChannels, config);
 
-			SaveWAVEChunk(FName, &s, buffer, 0, loadedBlockSize, config); 
-		}
-#endif
-
-		pos += loadedBlockSize;
-
-		/* we go left, any signal is fine here */
-		ProcessChunkForSyncPulse((int16_t*)buffer, loadedBlockSize/2, 
-				header.fmt.SamplesPerSec, &pulseArray[i], 
-				CHANNEL_LEFT, AudioChannels, config);
 		if(pulseArray[i].magnitude > MaxMagnitude)
 			MaxMagnitude = pulseArray[i].magnitude;
 		i++;
@@ -998,14 +997,14 @@ long int DetectSignalStartInternal(char *Samples, wav_hdr header, int factor, lo
 	if(syncKnown)
 	{
 		targetFrequency = FindFrequencyBracketForSync(syncKnown, 
-					millisecondSize/2, AudioChannels, header.fmt.SamplesPerSec, config);
+					sampleBufferSize, AudioChannels, header.fmt.SamplesPerSec, config);
 		/*
 		targetFrequencyHarmonic[0] = FindFrequencyBracketForSync(syncKnown*2, 
 					millisecondSize/2, AudioChannels, header.fmt.SamplesPerSec, config);
 		targetFrequencyHarmonic[1] = FindFrequencyBracketForSync(syncKnown*3, 
 					millisecondSize/2, AudioChannels, header.fmt.SamplesPerSec, config);
 		*/
-		averageAmplitude = findAverageAmplitudeForTarget(pulseArray, targetFrequency, targetFrequencyHarmonic, TotalMS, start, factor, config);
+		averageAmplitude = findAverageAmplitudeForTarget(pulseArray, targetFrequency, targetFrequencyHarmonic, TotalMS, start, factor, AudioChannels, config);
 	}
 
 	for(i = start; i < TotalMS; i++)
@@ -1029,7 +1028,7 @@ long int DetectSignalStartInternal(char *Samples, wav_hdr header, int factor, lo
 				pulseArray[i].hertz == targetFrequencyHarmonic[1]))  // harmonic */
 			{
 				if(offset == -1)
-					offset = pulseArray[i].bytes;
+					offset = pulseArray[i].samples;
 				length++;
 			}
 			else
@@ -1039,16 +1038,17 @@ long int DetectSignalStartInternal(char *Samples, wav_hdr header, int factor, lo
 					int endProcess = 0;
 
 					// If we are way smaller than expected...
-					if(abs(expectedSyncLen - (pulseArray[i].bytes-offset)) > (expectedSyncLen)/5)
+					if(labs(expectedSyncLen - (pulseArray[i].samples-offset)) > (expectedSyncLen)/5)
 					{
 						tolerance ++;
 
 #ifdef DEBUG_SYNC_INTERNAL_TOLERANCE
-						logmsg("- Tolerance %ld/%ld (bytes %ld from expected %ld)\n",
-								tolerance, MaxTolerance, (pulseArray[i].bytes-offset), expectedSyncLen);
+						logmsg("- Tolerance %ld/%ld (samples %ld from expected %ld)\n",
+								tolerance, MaxTolerance, SamplesForDisplay(pulseArray[i].samples-offset, AudioChannels),
+								SamplesForDisplay(expectedSyncLen, AudioChannels));
 #endif
 						if(toleranceIssueOffset == -1)
-							toleranceIssueOffset = pulseArray[i].bytes;
+							toleranceIssueOffset = pulseArray[i].samples;
 						if(tolerance > MaxTolerance)
 							endProcess = 1;
 					}
@@ -1058,9 +1058,9 @@ long int DetectSignalStartInternal(char *Samples, wav_hdr header, int factor, lo
 					if(endProcess)
 					{
 						if(endPulse)
-							*endPulse = pulseArray[i].bytes;
+							*endPulse = pulseArray[i].samples;
 #ifdef DEBUG_SYNC_INTERNAL_TOLERANCE
-						logmsg("EndPulse Set %ld\n", pulseArray[i].bytes);
+						logmsg("EndPulse Set %ld\n", SamplesForDisplay(pulseArray[i].samples, AudioChannels));
 #endif
 						break;
 					}
@@ -1084,7 +1084,7 @@ long int DetectSignalStartInternal(char *Samples, wav_hdr header, int factor, lo
 	
 				if(pulseArray[i].amplitude * 1.5 > average)
 				{
-					offset = pulseArray[i].bytes;
+					offset = pulseArray[i].samples;
 					/*
 					if(config->debugSync)
 						logmsgFileOnly("Offset Set\n");
@@ -1097,13 +1097,15 @@ long int DetectSignalStartInternal(char *Samples, wav_hdr header, int factor, lo
 
 	if(tolerance)
 	{
-		logmsg("\t- WARNING: Internal sync tone has anomalies at %ld bytes\n", toleranceIssueOffset);
+		logmsg("\t- WARNING: Internal sync tone has anomalies at %g seconds (%ld bytes)\n", 
+				SamplesToSeconds(header.fmt.SamplesPerSec, toleranceIssueOffset, AudioChannels),
+				SamplesToBytes(toleranceIssueOffset, bytesPerSample));
 		if(toleranceIssue)
 			*toleranceIssue = 1;
 	}
 
 	free(pulseArray);
-	free(buffer);
+	free(sampleBuffer);
 
 	return offset;
 }

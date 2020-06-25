@@ -40,9 +40,9 @@ int LoadAudioBlockStructure(FILE *file, parameters *config);
 int LoadAudioNoSyncProfile(FILE *file, parameters *config);
 int GetFirstSilenceIndex(parameters *config);
 int GetFirstMonoIndex(parameters *config);
-long int GetLastSilenceByteOffset(double framerate, wav_hdr header, int frameAdjust, double silenceOffset, parameters *config);
-long int GetSecondSilenceByteOffset(double framerate, wav_hdr header, int frameAdjust, double silenceOffset, parameters *config);
-long int GetSecondSyncSilenceByteOffset(double framerate, wav_hdr header, int frameAdjust, double silenceOffset, parameters *config);
+long int GetLastSilenceSampleOffset(double framerate, wav_hdr header, int frameAdjust, double silenceOffset, parameters *config);
+long int GetSecondSilenceSampleOffset(double framerate, wav_hdr header, int frameAdjust, double silenceOffset, parameters *config);
+long int GetSecondSyncSilenceSampleOffset(double framerate, wav_hdr header, int frameAdjust, double silenceOffset, parameters *config);
 int GetActiveAudioBlocks(parameters *config);
 int GetTotalAudioBlocks(parameters *config);
 long int GetLongestElementFrames(parameters *config);
@@ -67,7 +67,7 @@ void ReleasePCM(AudioSignal *Signal);
 long int GetLastSyncFrameOffset(wav_hdr header, parameters *config);
 long int GetBlockFrameOffset(int block, parameters *config);
 long int GetElementFrameOffset(int block, parameters *config);
-long int GetByteSizeDifferenceByFrameRate(double framerate, long int frames, long int samplerate, int AudioChannels, parameters *config);
+long int GetSampleSizeDifferenceByFrameRate(double framerate, long int frames, long int samplerate, int AudioChannels, int bytesPerSample, parameters *config);
 int GetFirstSyncIndex(parameters *config);
 int GetLastSyncIndex(parameters *config);
 int GetLastSyncElementIndex(parameters *config);
@@ -124,15 +124,16 @@ void PrintComparedBlocks(AudioBlocks *ReferenceArray, AudioBlocks *ComparedArray
 int CalculateTimeDurations(AudioSignal *Signal, parameters *config);
 double CalculateWeightedError(double pError, parameters *config);
 double RoundFloat(double x, int p);
-long int RoundToNbytes(double src, int AudioChannels, int *leftover, int *discard, double *leftDecimals);
+long int RoundToNbytes(double src, int AudioChannels, int bytesPerSample, int *leftover, int *discard, double *leftDecimals);
 double GetDecimalValues(double value);
-double BytesToSeconds(long int samplerate, long int bytes, int AudioChannels);
+double SamplesToSeconds(long int samplerate, long int samples, int AudioChannels);
 double FramesToSeconds(double frames, double framerate);
 double SecondsToFrames(double seconds, double framerate);
-long int SecondsToBytes(long int samplerate, double seconds, int AudioChannels, int *leftover, int *discard, double *leftDecimals);
-double BytesToFrames(long int samplerate, long int bytes, double framerate, int AudioChannels);
+long int SecondsToSamples(long int samplerate, double seconds, int AudioChannels, int bytesPerSample, int *leftover, int *discard, double *leftDecimals);
 double FramesToSamples(double frames, long int samplerate, double framerate);
-double SamplesToFrames(double samples, long int samplerate, double framerate);
+double SamplesToFrames(long int samplerate, long int samples, double framerate, int AudioChannels);
+long int SamplesToBytes(long int samples, int bytesPerSample);
+long int SamplesForDisplay(long int samples, int AudioChannels);
 int DetectWatermark(AudioSignal *Signal, parameters *config);
 int DetectWatermarkIssue(char *msg, parameters *config);
 
@@ -163,5 +164,6 @@ double GetMSPerFrame(AudioSignal *Signal, parameters *config);
 double GetMSPerFrameRole(int role, parameters *config);
 double CalculateClk(AudioSignal *Signal, parameters *config);
 
-
+double GetSignalMaxInt(AudioSignal *Signal);
+double GetSignalMinInt(AudioSignal *Signal);
 #endif

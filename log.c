@@ -143,11 +143,39 @@ void endLog()
 	do_log = 0;
 }
 
-int SaveWAVEChunk(char *filename, AudioSignal *Signal, char *buffer, long int block, long int loadedBlockSize, int diff, parameters *config)
+// no endianess considerations, PCM in RIFF is little endian and this code is little endian
+void ConvertPCMSampleToByteArray(double sample, char *bytes, int size)
+{
+	int32_t	sampleInt = 0;
+
+	sampleInt = (int32_t)(sample + 0.5);
+	
+	bytes[0] = (char)((sampleInt & 0x000000ff));
+	if(size >= 2)
+		bytes[1] = (char)((sampleInt & 0x0000ff00) >> 8);
+	if(size >= 3)
+		bytes[2] = (char)((sampleInt & 0x00ff0000) >> 16);
+	if(size == 4)
+		bytes[3] = (char)((sampleInt & 0xff000000) >> 24);
+
+	return;
+}
+
+int SaveWAVEChunk(char *filename, AudioSignal *Signal, double *buffer, long int block, long int loadedBlockSize, int diff, parameters *config)
 {
 	FILE 		*chunk = NULL;
 	wav_hdr		cheader;
-	char 		FName[4096];
+	char 		*samples = NULL, FName[4096];
+	long int	i = 0;
+	int			convertedSamples = 0;
+
+	samples = (char*)malloc(sizeof(char)*loadedBlockSize*Signal->bytesPerSample);
+	if(!samples)
+	{
+		logmsg("\tCould not allocate WAV memory\n");
+		return 0;
+	}
+	memset(samples, 0, sizeof(char)*loadedBlockSize*Signal->bytesPerSample);
 
 	cheader = Signal->header;
 	if(!filename)
@@ -166,25 +194,104 @@ int SaveWAVEChunk(char *filename, AudioSignal *Signal, char *buffer, long int bl
 	if(!chunk)
 	{
 		logmsg("\tCould not open chunk file %s\n", filename);
+		free(samples);
 		return 0;
 	}
 
-	cheader.riff.ChunkSize = loadedBlockSize+36;
-	cheader.data.DataSize = loadedBlockSize;
-	if(fwrite(&cheader, 1, sizeof(wav_hdr), chunk) != sizeof(wav_hdr))
+	if(Signal->header.fmt.AudioFormat == WAVE_FORMAT_PCM ||
+		Signal->header.fmt.AudioFormat == WAVE_FORMAT_EXTENSIBLE)
+	{
+		for(i = 0; i < loadedBlockSize; i++)
+			ConvertPCMSampleToByteArray(buffer[i], samples+i*Signal->bytesPerSample, Signal->bytesPerSample);
+		convertedSamples = 1;
+	}
+
+	if(Signal->header.fmt.AudioFormat == WAVE_FORMAT_IEEE_FLOAT)
+	{
+		float *samplesf = NULL;
+
+		samplesf = (float*)samples;
+		for(i = 0; i < loadedBlockSize; i++)
+			samplesf[i] = (float)buffer[i];
+		convertedSamples = 1;
+	}
+
+	if(!convertedSamples)
+	{
+		logmsg("ERROR: Unsupported audio format, samples were not loaded\n");
+		return 0;
+	}
+
+	cheader.riff.ChunkSize = sizeof(riff_hdr)+sizeof(fmt_hdr)+Signal->fmtType*sizeof(int8_t)+
+				loadedBlockSize*Signal->bytesPerSample+Signal->factExists*sizeof(fact_ck);
+
+	if(fwrite(&cheader.riff, 1, sizeof(riff_hdr), chunk) != sizeof(riff_hdr))
 	{
 		fclose(chunk);
-		logmsg("\tCould not write chunk header to file %s\n", filename);
+		logmsg("\tCould not write RIFf header chunk to file %s\n", filename);
+		free(samples);
 		return(0);
 	}
 
-	if(fwrite(buffer, 1, sizeof(char)*loadedBlockSize, chunk) != sizeof(char)*loadedBlockSize)
+	if(fwrite(&cheader.fmt, 1, sizeof(fmt_hdr), chunk) != sizeof(fmt_hdr))
+	{
+		fclose(chunk);
+		logmsg("\tCould not write fmt header chunk to file %s\n", filename);
+		free(samples);
+		return(0);
+	}
+
+	// Check extended fmt header
+	if(Signal->fmtType != FMT_TYPE_1_SIZE)
+	{
+		if(fwrite(Signal->fmtExtra, 1, sizeof(int8_t)*Signal->fmtType, chunk) != sizeof(int8_t)*Signal->fmtType)
+		{
+			fclose(chunk);
+			logmsg("\tCould not write fmt extended header chunk to file %s\n", filename);
+			free(samples);
+			return(0);
+		}
+	}
+
+	cheader.data.DataSize = loadedBlockSize*Signal->bytesPerSample;
+	if(fwrite(&cheader.data, 1, sizeof(data_hdr), chunk) != sizeof(data_hdr))
+	{
+		fclose(chunk);
+		logmsg("\tCould not write data header chunk to file %s\n", filename);
+		free(samples);
+		return(0);
+	}
+
+	if(fwrite(samples, 1, sizeof(char)*loadedBlockSize*Signal->bytesPerSample, chunk) != sizeof(char)*loadedBlockSize*Signal->bytesPerSample)
 	{
 		fclose(chunk);
 		logmsg("\tCould not write samples to chunk file %s\n", filename);
+		free(samples);
 		return (0);
 	}
 
+	if(Signal->header.fmt.AudioFormat == WAVE_FORMAT_EXTENSIBLE && !Signal->factExists)
+	{
+		if(config->verbose)
+			logmsg("\tWARNING: Extensible wave requires a fact chunk. generating one.\n");
+		memcpy(Signal->fact.DataID, "fact", sizeof(char)*4);
+		Signal->fact.DataSize = 4;
+		Signal->factExists = 1;
+	}
+
+	if(Signal->factExists)
+	{
+		Signal->fact.dwSampleLength = loadedBlockSize/Signal->AudioChannels;
+		if(fwrite(&Signal->fact, 1, sizeof(fact_ck), chunk) != sizeof(fact_ck))
+		{
+			fclose(chunk);
+			logmsg("\tCould not write fact header chunk to file %s\n", filename);
+			free(samples);
+			return(0);
+		}
+	}
+
 	fclose(chunk);
+	free(samples);
 	return 1;
 }

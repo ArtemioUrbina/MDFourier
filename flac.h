@@ -31,6 +31,7 @@
 
 #include "mdfourier.h"
 
+int flacErrorReported();
 int IsFlac(char *name);
 void renameFLAC(char *flac, char *wav, char *path);
 int FLACtoSignal(char *input, AudioSignal *Signal, parameters *config);

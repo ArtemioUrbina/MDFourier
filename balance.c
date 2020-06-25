@@ -38,8 +38,8 @@ int CheckBalance(AudioSignal *Signal, int block, parameters *config)
 {
 	long int		pos = 0;
 	double			longest = 0;
-	char			*buffer;
-	size_t			buffersize = 0;
+	double			*buffer;
+	long int		buffersize = 0;
 	windowManager	windows;
 	double			*windowUsed = NULL;
 	long int		loadedBlockSize = 0, i = 0, matchIndex = 0;
@@ -76,8 +76,8 @@ int CheckBalance(AudioSignal *Signal, int block, parameters *config)
 		return 0;
 	}
 
-	buffersize = SecondsToBytes(Signal->header.fmt.SamplesPerSec, longest, Signal->AudioChannels, NULL, NULL, NULL);
-	buffer = (char*)malloc(buffersize);
+	buffersize = SecondsToSamples(Signal->header.fmt.SamplesPerSec, longest, Signal->AudioChannels, Signal->bytesPerSample, NULL, NULL, NULL);
+	buffer = (double*)malloc(sizeof(double)*buffersize);
 	if(!buffer)
 	{
 		logmsg("\tmalloc failed\n");
@@ -100,9 +100,9 @@ int CheckBalance(AudioSignal *Signal, int block, parameters *config)
 		cutFrames = GetBlockCutFrames(config, i);
 		duration = FramesToSeconds(Signal->framerate, frames);
 		
-		loadedBlockSize = SecondsToBytes(Signal->header.fmt.SamplesPerSec, duration, Signal->AudioChannels, &leftover, &discardBytes, &leftDecimals);
+		loadedBlockSize = SecondsToSamples(Signal->header.fmt.SamplesPerSec, duration, Signal->AudioChannels, Signal->bytesPerSample, &leftover, &discardBytes, &leftDecimals);
 
-		difference = GetByteSizeDifferenceByFrameRate(Signal->framerate, frames, Signal->header.fmt.SamplesPerSec, Signal->AudioChannels, config);
+		difference = GetSampleSizeDifferenceByFrameRate(Signal->framerate, frames, Signal->header.fmt.SamplesPerSec, Signal->AudioChannels, Signal->bytesPerSample, config);
 
 		windowUsed = getWindowByLength(&windows, frames, cutFrames, config->smallerFramerate, config);
 
@@ -123,12 +123,12 @@ int CheckBalance(AudioSignal *Signal, int block, parameters *config)
 				break;
 			}
 			
-			memcpy(buffer, Signal->Samples + pos, loadedBlockSize-difference);
+			memcpy(buffer, Signal->Samples + pos, sizeof(double)*(loadedBlockSize-difference));
 	
-			if(!ExecuteBalanceDFFT(&Channels[0], (int16_t*)buffer, (loadedBlockSize-difference)/2, Signal->header.fmt.SamplesPerSec, windowUsed, CHANNEL_LEFT, config))
+			if(!ExecuteBalanceDFFT(&Channels[0], buffer, (loadedBlockSize-difference), Signal->header.fmt.SamplesPerSec, windowUsed, CHANNEL_LEFT, config))
 				return 0;
 
-			if(!ExecuteBalanceDFFT(&Channels[1], (int16_t*)buffer, (loadedBlockSize-difference)/2, Signal->header.fmt.SamplesPerSec, windowUsed, CHANNEL_RIGHT, config))
+			if(!ExecuteBalanceDFFT(&Channels[1], buffer, (loadedBlockSize-difference), Signal->header.fmt.SamplesPerSec, windowUsed, CHANNEL_RIGHT, config))
 				return 0;
 
 			Channels[0].freq = (Frequency*)malloc(sizeof(Frequency)*config->MaxFreq);
@@ -244,7 +244,7 @@ int CheckBalance(AudioSignal *Signal, int block, parameters *config)
 
 		//logmsg("Amplitudes: Left %gdBFS Right %gdBFS, diff: %gdBFS\n", amplLeft, amplRight, amplDiff);
 		
-		if(amplDiff >= 0.0001 || config->verbose)
+		if(fabs(amplDiff) >= 0.0001)
 		{
 			logmsg(" - %s signal stereo imbalance: %s channel is higher by %g dBFS",
 					getRoleText(Signal),
@@ -295,7 +295,7 @@ int CheckBalance(AudioSignal *Signal, int block, parameters *config)
 	return 1;
 }
 
-int ExecuteBalanceDFFT(AudioBlocks *AudioArray, int16_t *samples, size_t size, long samplerate, double *window, char channel, parameters *config)
+int ExecuteBalanceDFFT(AudioBlocks *AudioArray, double *samples, size_t size, long samplerate, double *window, char channel, parameters *config)
 {
 	fftw_plan		p = NULL;
 	long		  	stereoSignalSize = 0;	
@@ -311,7 +311,7 @@ int ExecuteBalanceDFFT(AudioBlocks *AudioArray, int16_t *samples, size_t size, l
 	}
 
 	stereoSignalSize = (long)size;
-	monoSignalSize = stereoSignalSize/2;	 /* 4 is 2 16 bit values */
+	monoSignalSize = stereoSignalSize/2;
 	seconds = (double)size/((double)samplerate*2);
 
 	if(config->ZeroPad)  /* disabled by default */
@@ -382,7 +382,7 @@ int ExecuteBalanceDFFT(AudioBlocks *AudioArray, int16_t *samples, size_t size, l
 void BalanceAudioChannel(AudioSignal *Signal, char channel, double ratio)
 {
 	long int 	i = 0, start = 0, end = 0;
-	int16_t		*samples = NULL;
+	double		*samples = NULL;
 
 	if(!Signal)
 		return;
@@ -390,15 +390,15 @@ void BalanceAudioChannel(AudioSignal *Signal, char channel, double ratio)
 	if(!Signal->Samples)
 		return;
 
-	samples = (int16_t*)Signal->Samples;
-	start = Signal->startOffset/2;
-	end = Signal->endOffset/2;
+	samples = Signal->Samples;
+	start = Signal->startOffset;
+	end = Signal->endOffset;
 
 	for(i = start; i < end; i+=2)
 	{
 		if(channel == CHANNEL_LEFT)
-			samples[i] = (int16_t)((double)samples[i])*ratio;
+			samples[i] = samples[i]*ratio;
 		if(channel == CHANNEL_RIGHT)
-			samples[i+1] = (int16_t)((double)samples[i+1])*ratio;
+			samples[i+1] = samples[i+1]*ratio;
 	}
 }

@@ -27,6 +27,8 @@
  */
 
 #define MDWVERSION MDVERSION
+#define FORWARD_FFTW 0
+#define REVERSE_FFTW 1
 
 #include "mdfourier.h"
 #include "log.h"
@@ -40,12 +42,13 @@
 #include "profile.h"
 
 int ProcessSignalMDW(AudioSignal *Signal, parameters *config);
-int ProcessSamples(AudioBlocks *AudioArray, int16_t *samples, size_t size, long samplerate, double *window, parameters *config, int reverse, AudioSignal *Signal);
+int ExecuteDFFT(AudioBlocks *AudioArray, double *samples, long int size, long samplerate, double *window, parameters *config, int fftw_direction, AudioSignal *Signal);
+int ExecuteDFFTInternal(AudioBlocks *AudioArray, double *samples, long int size, long samplerate, double *window, char channel, parameters *config, int fftw_direction, AudioSignal *Signal);
 int commandline_wave(int argc , char *argv[], parameters *config);
 void PrintUsage_wave();
 void Header_wave(int log);
 void CleanUp(AudioSignal **ReferenceSignal, parameters *config);
-int ExecuteMDWave(parameters *config, int invert);
+int ExecuteMDWave(parameters *config, int discardMDW);
 
 int main(int argc , char *argv[])
 {
@@ -96,9 +99,8 @@ int main(int argc , char *argv[])
 	}
 	else
 	{
-		printf("\nResults stored in %s%c%s\n", 
-			config.outputPath, 
-			config.outputPath[0] == '\0' ? ' ' : FOLDERCHAR, 
+		printf("\nResults stored in %s%s\n", 
+			config.outputPath,
 			config.folderName);
 	}
 
@@ -111,15 +113,15 @@ int main(int argc , char *argv[])
 	}
 }
 
-int ExecuteMDWave(parameters *config, int invert)
+int ExecuteMDWave(parameters *config, int discardMDW)
 {
 	AudioSignal  		*ReferenceSignal = NULL;
 	char 				*MainPath = NULL;
 
-	if(invert)
+	if(discardMDW)
 	{
 		logmsg("\n* Calculating values for Discard file\n");
-		config->invert = 1;
+		config->discardMDW = 1;
 	}
 
 	if(!LoadFile(&ReferenceSignal, config->referenceFile, ROLE_REF, config))
@@ -168,7 +170,7 @@ int ExecuteMDWave(parameters *config, int invert)
 	//logmsg("* Max blanked frequencies per block %d\n", config->maxBlanked);
 	CleanUp(&ReferenceSignal, config);
 
-	if(invert)
+	if(discardMDW)
 		printf("\nResults stored in %s%s\n", 
 			config->outputPath,
 			config->folderName);
@@ -190,7 +192,7 @@ void CleanUp(AudioSignal **ReferenceSignal, parameters *config)
 
 char *GenerateFileNamePrefix(parameters *config)
 {
-	return(config->invert ? "2_Discarded" : "1_Used");
+	return(config->discardMDW ? "2_Discarded" : "1_Used");
 }
 
 int CreateChunksFolder(parameters *config)
@@ -215,44 +217,50 @@ int ProcessSignalMDW(AudioSignal *Signal, parameters *config)
 {
 	long int		pos = 0;
 	double			longest = 0;
-	char			*buffer;
-	size_t			buffersize = 0;
+	double			*sampleBuffer;
+	long int		sampleBufferSize = 0;
 	windowManager	windows;
 	double			*windowUsed = NULL;
 	long int		loadedBlockSize = 0, i = 0, syncAdvance = 0;
 	struct timespec	start, end;
-	FILE			*processed = NULL;
 	char			Name[BUFFER_SIZE*2+256], tempName[BUFFER_SIZE];
-	int				leftover = 0, discardBytes = 0, syncinternal = 0;
+	int				leftover = 0, discardSamples = 0, syncinternal = 0, hadSync = 0;
 	double			leftDecimals = 0;
+	FILE			*processed = NULL;
 
 	pos = Signal->startOffset;
-	
-	if(config->clock)
-		clock_gettime(CLOCK_MONOTONIC, &start);
 
 	longest = FramesToSeconds(Signal->framerate, GetLongestElementFrames(config));
 	if(!longest)
 	{
-		logmsg("Block definitions are invalid, total length is 0\n");
+		logmsg("\tERROR: Block definitions are invalid, total length is 0.\n");
 		return 0;
 	}
 
-	buffersize = SecondsToBytes(Signal->header.fmt.SamplesPerSec, longest, Signal->AudioChannels, NULL, NULL, NULL);
-	buffer = (char*)malloc(buffersize);
-	if(!buffer)
+	sampleBufferSize = SecondsToSamples(Signal->header.fmt.SamplesPerSec, longest, Signal->AudioChannels, Signal->bytesPerSample, NULL, NULL, NULL);
+	sampleBuffer = (double*)malloc(sampleBufferSize*sizeof(double));
+	if(!sampleBuffer)
 	{
-		logmsg("\tmalloc failed\n");
+		logmsg("\tERROR: malloc failed.\n");
 		return(0);
 	}
 
 	if(!initWindows(&windows, Signal->header.fmt.SamplesPerSec, config->window, config))
 	{
-		logmsg("Copuld not create windows\n");
+		logmsg("\tERROR: Could not create FFTW windows.\n");
 		return 0;
 	}
 
 	CompareFrameRatesMDW(Signal, GetMSPerFrame(Signal, config), config);
+
+	if(config->chunks && !CreateChunksFolder(config))
+	{
+		logmsg("\tERROR: Could not create output folders.\n");
+		return 0;
+	}
+
+	if(config->clock)
+		clock_gettime(CLOCK_MONOTONIC, &start);
 
 	while(i < config->types.totalBlocks)
 	{
@@ -268,56 +276,69 @@ int ProcessSignalMDW(AudioSignal *Signal, parameters *config)
 		cutFrames = GetBlockCutFrames(config, i);
 		duration = FramesToSeconds(framerate, frames);
 				
-		loadedBlockSize = SecondsToBytes(Signal->header.fmt.SamplesPerSec, duration, Signal->AudioChannels, &leftover, &discardBytes, &leftDecimals);
+		loadedBlockSize = SecondsToSamples(Signal->header.fmt.SamplesPerSec, duration, Signal->AudioChannels, Signal->bytesPerSample, &leftover, &discardSamples, &leftDecimals);
 
-		difference = GetByteSizeDifferenceByFrameRate(framerate, frames, Signal->header.fmt.SamplesPerSec, Signal->AudioChannels, config);
+		difference = GetSampleSizeDifferenceByFrameRate(framerate, frames, Signal->header.fmt.SamplesPerSec, Signal->AudioChannels, Signal->bytesPerSample, config);
 
 		windowUsed = NULL;
-		if(Signal->Blocks[i].type >= TYPE_SILENCE)
+		if(Signal->Blocks[i].type >= TYPE_SILENCE || Signal->Blocks[i].type == TYPE_WATERMARK)
 			windowUsed = getWindowByLength(&windows, frames, cutFrames, Signal->framerate, config);
 
-		//logmsg("Loaded %ld Left %ld Discard %ld difference %ld Decimals %g\n", loadedBlockSize, leftover, discardBytes, difference, leftDecimals);
-		memset(buffer, 0, buffersize);
-		if(pos + loadedBlockSize > Signal->header.data.DataSize)
+		//logmsg("Loaded %ld Left %ld Discard %ld difference %ld Decimals %g\n", loadedBlockSize, leftover, discardSamples, difference, leftDecimals);
+		if(pos + loadedBlockSize > Signal->numSamples)
 		{
-			logmsg("\tunexpected end of File, please record the full Audio Test from the 240p Test Suite\n");
+			if(i != config->types.totalBlocks - 1)
+			{
+				config->smallFile |= Signal->role;
+				logmsg("\tUnexpected end of File, please record the full Audio Test from the 240p Test Suite.\n");
+				if(config->verbose)
+					logmsg("load: %ld size: %ld exceed: %ld pos: %ld limit: %ld\n", loadedBlockSize, sampleBufferSize, pos + loadedBlockSize, pos, Signal->numSamples);
+			}
 			break;
 		}
-		memcpy(buffer, Signal->Samples + pos, loadedBlockSize);
+
+		// Clean Buffer and fill it
+		memset(sampleBuffer, 0, sampleBufferSize*sizeof(double));
+		memcpy(sampleBuffer, Signal->Samples + pos, loadedBlockSize*sizeof(double));
 
 		if(Signal->Blocks[i].type >= TYPE_SILENCE && config->executefft)
 		{
-			if(!ProcessSamples(&Signal->Blocks[i], (int16_t*)buffer, (loadedBlockSize-difference)/2, Signal->header.fmt.SamplesPerSec, windowUsed, config, 0, Signal))
+			if(!ExecuteDFFT(&Signal->Blocks[i], sampleBuffer, loadedBlockSize-difference, Signal->header.fmt.SamplesPerSec, windowUsed, config, FORWARD_FFTW, Signal))
 				return 0;
 		}
-
-		if(config->chunks && !config->invert)
+		
+		if(config->chunks && !config->discardMDW)
 		{
-			if(!CreateChunksFolder(config))
-				return 0;
 			sprintf(Name, "%s%cChunks%cSource%c%03ld_0_%010ld_%s_%03d_chunk.wav", 
 				config->folderName, FOLDERCHAR, FOLDERCHAR, FOLDERCHAR,
-				i, pos+syncAdvance+Signal->SamplesStart, 
+				i, SamplesForDisplay(pos+syncAdvance, Signal->AudioChannels), 
 				GetBlockName(config, i), GetBlockSubIndex(config, i));
-			SaveWAVEChunk(Name, Signal, buffer, 0, loadedBlockSize, 0, config); 
+			SaveWAVEChunk(Name, Signal, sampleBuffer, 0, loadedBlockSize, 0, config); 
 		}
 
 		pos += loadedBlockSize;
-		pos += discardBytes;
+		pos += discardSamples;
 
-		if(config->executefft)
+		if(Signal->Blocks[i].type == TYPE_INTERNAL_KNOWN)
 		{
-			if(Signal->Blocks[i].type == TYPE_INTERNAL_KNOWN)
-			{
-				if(!ProcessInternal(Signal, i, pos, &syncinternal, &syncAdvance, TYPE_INTERNAL_KNOWN, config))
-					return 0;
-			}
-	
-			if(Signal->Blocks[i].type == TYPE_INTERNAL_UNKNOWN)
-			{
-				if(!ProcessInternal(Signal, i, pos, &syncinternal, &syncAdvance, TYPE_INTERNAL_UNKNOWN, config))
-					return 0;
-			}
+			if(!ProcessInternalSync(Signal, i, pos, &syncinternal, &syncAdvance, TYPE_INTERNAL_KNOWN, config))
+				return 0;
+			
+			if(!syncinternal)
+				syncAdvance = 0;
+
+			hadSync = 1;
+		}
+
+		if(Signal->Blocks[i].type == TYPE_INTERNAL_UNKNOWN)
+		{
+			if(!ProcessInternalSync(Signal, i, pos, &syncinternal, &syncAdvance, TYPE_INTERNAL_UNKNOWN, config))
+				return 0;
+			
+			if(!syncinternal)
+				syncAdvance = 0;
+
+			hadSync = 1;
 		}
 
 		i++;
@@ -333,9 +354,7 @@ int ProcessSignalMDW(AudioSignal *Signal, parameters *config)
 			FindFloor(Signal, config);
 	
 			if(Signal->floorAmplitude != 0.0 && Signal->floorAmplitude > config->significantAmplitude)
-			{
 				config->significantAmplitude = Signal->floorAmplitude;
-			}
 		}
 	
 		logmsg(" - Using %g dBFS as minimum significant amplitude for analysis\n",
@@ -361,72 +380,91 @@ int ProcessSignalMDW(AudioSignal *Signal, parameters *config)
 		// Clean up everything again
 		pos = Signal->startOffset;
 		leftover = 0;
-		discardBytes = 0;
+		discardSamples = 0;
 		leftDecimals = 0;
 		i = 0;
 	
 		// redo after processing
 		while(i < config->types.totalBlocks)
 		{
-			double duration = 0;
+			double duration = 0, framerate = 0;
 			long int frames = 0, difference = 0, cutFrames = 0;
+	
+			if(!syncinternal)
+				framerate = Signal->framerate;
+			else
+				framerate = config->referenceFramerate;
 	
 			frames = GetBlockFrames(config, i);
 			cutFrames = GetBlockCutFrames(config, i);
-			duration = FramesToSeconds(Signal->framerate, frames);
-			if(Signal->Blocks[i].type >= TYPE_SILENCE)
-				windowUsed = getWindowByLength(&windows, frames, cutFrames, Signal->framerate, config);
+			duration = FramesToSeconds(framerate, frames);
+
+			loadedBlockSize = SecondsToSamples(Signal->header.fmt.SamplesPerSec, duration, Signal->AudioChannels, Signal->bytesPerSample, &leftover, &discardSamples, &leftDecimals);
+	
+			difference = GetSampleSizeDifferenceByFrameRate(framerate, frames, Signal->header.fmt.SamplesPerSec, Signal->AudioChannels, Signal->bytesPerSample, config);
+
+			windowUsed = NULL;
+			if(Signal->Blocks[i].type >= TYPE_SILENCE  || Signal->Blocks[i].type == TYPE_WATERMARK)
+				windowUsed = getWindowByLength(&windows, frames, cutFrames, framerate, config);
 			
-			loadedBlockSize = SecondsToBytes(Signal->header.fmt.SamplesPerSec, duration, Signal->AudioChannels, &leftover, &discardBytes, &leftDecimals);
-	
-			difference = GetByteSizeDifferenceByFrameRate(Signal->framerate, frames, Signal->header.fmt.SamplesPerSec, Signal->AudioChannels, config);
-	
-			memset(buffer, 0, buffersize);
-			if(pos + loadedBlockSize > Signal->header.data.DataSize)
+			//logmsg("Loaded %ld Left %ld Discard %ld difference %ld Decimals %g\n", loadedBlockSize, leftover, discardSamples, difference, leftDecimals);
+			if(pos + loadedBlockSize > Signal->numSamples)
 			{
-				logmsg("\tunexpected end of File, please record the full Audio Test from the 240p Test Suite\n");
+				if(i != config->types.totalBlocks - 1)
+				{
+					config->smallFile |= Signal->role;
+					logmsg("\tUnexpected end of File, please record the full Audio Test from the 240p Test Suite.\n");
+					if(config->verbose)
+						logmsg("load: %ld size: %ld exceed: %ld pos: %ld limit: %ld\n", loadedBlockSize, sampleBufferSize, pos + loadedBlockSize, pos, Signal->numSamples);
+				}
 				break;
 			}
-			memcpy(buffer, Signal->Samples + pos, loadedBlockSize);
+
+			// Clean Buffer and fill it
+			memset(sampleBuffer, 0, sampleBufferSize*sizeof(double));
+			memcpy(sampleBuffer, Signal->Samples + pos, loadedBlockSize*sizeof(double));
+			// Empty original signal, and overlap
+			if(pos > 4 && pos+loadedBlockSize+discardSamples+4 <= Signal->numSamples)
+				memset(Signal->Samples + pos-4, 0, (loadedBlockSize+discardSamples+4)*sizeof(double));
+			else
+				memset(Signal->Samples + pos, 0, loadedBlockSize*sizeof(double));
 		
 			if(Signal->Blocks[i].type >= TYPE_SILENCE)
 			{
-				// now rewrite array
-				if(!ProcessSamples(&Signal->Blocks[i], (int16_t*)buffer, (loadedBlockSize-difference)/2, Signal->header.fmt.SamplesPerSec, windowUsed, config, 1, Signal))
+				if(!ExecuteDFFT(&Signal->Blocks[i], sampleBuffer, loadedBlockSize-difference, Signal->header.fmt.SamplesPerSec, windowUsed, config, REVERSE_FFTW, Signal))
 					return 0;
-	
-				// Now rewrite global
-				memcpy(Signal->Samples + pos, buffer, loadedBlockSize);
 			}
 
-			if(Signal->Blocks[i].type < TYPE_SILENCE && !config->invert)
+			if(Signal->Blocks[i].type < TYPE_SILENCE && !config->discardMDW)
 			{
-				if(Signal->Blocks[i].type != TYPE_SYNC)
-				{
-					memset(buffer, 0, sizeof(char)*loadedBlockSize);
-					memcpy(Signal->Samples + pos, buffer, loadedBlockSize);
-				}
+				if(Signal->Blocks[i].type != TYPE_SYNC)  // Copy control notes to discarded for reference
+					memcpy(sampleBuffer, Signal->Samples + pos, loadedBlockSize*sizeof(double));
 			}
+
+			// Fill back original signal with whatever we have in sampleBuffer
+			memcpy(Signal->Samples + pos, sampleBuffer, loadedBlockSize*sizeof(double));
 	
 			pos += loadedBlockSize;
-			pos += discardBytes;
+			pos += discardSamples;
 	
-			if(config->chunks && Signal->Blocks[i].type >= TYPE_SILENCE)
+			if(config->chunks && (Signal->Blocks[i].type >= TYPE_SILENCE || Signal->Blocks[i].type == TYPE_WATERMARK))
 			{
-				if(!CreateChunksFolder(config))
-					return 0;
 				sprintf(tempName, "Chunks%cProcessed%c%03ld_%s_%s_%03d_chunk", FOLDERCHAR, FOLDERCHAR, i, 
 					GenerateFileNamePrefix(config), GetBlockName(config, i), 
 					GetBlockSubIndex(config, i));
 				ComposeFileName(Name, tempName, ".wav", config);
-				SaveWAVEChunk(Name, Signal, buffer, 0, loadedBlockSize, 0, config);
+				SaveWAVEChunk(Name, Signal, sampleBuffer, 0, loadedBlockSize, 0, config);
 			}
-	
+
+			// Use original framerate for CD-DA chunks
+			if(Signal->Blocks[i].type == TYPE_INTERNAL_KNOWN || Signal->Blocks[i].type == TYPE_INTERNAL_UNKNOWN)
+				syncinternal = !syncinternal;
+
 			i++;
 		}
 
 		// clear the rest of the buffer
-		memset(Signal->Samples + pos, 0, (sizeof(char)*(Signal->header.data.DataSize - pos)));
+		memset(Signal->Samples + pos, 0, (sizeof(double)*(Signal->numSamples - pos)));
 
 		ComposeFileName(Name, GenerateFileNamePrefix(config), ".wav", config);
 		processed = fopen(Name, "wb");
@@ -436,24 +474,31 @@ int ProcessSignalMDW(AudioSignal *Signal, parameters *config)
 			return 0;
 		}
 	
-		if(fwrite(&Signal->header, 1, sizeof(wav_hdr), processed) != sizeof(wav_hdr))
+		SaveWAVEChunk(Name, Signal, Signal->Samples, 0, Signal->numSamples, 0, config);
+		if(processed)
 		{
-			logmsg("\tCould not write processed header\n");
-			return(0);
-		}
-	
-		if(fwrite(Signal->Samples, 1, sizeof(char)*Signal->header.data.DataSize, processed) !=
-				sizeof(char)*Signal->header.data.DataSize)
-		{
-			logmsg("\tCould not write samples to processed file\n");
-			return (0);
+			fclose(processed);
+			processed = NULL;
 		}
 	}
 
-	if(processed)
+	// save frequency unprocesed wav if requested with -n, for internal sync and verification
+	if(hadSync && !config->executefft)
 	{
-		fclose(processed);
-		processed = NULL;
+		ComposeFileName(Name, "SyncRemoved", ".wav", config);
+		processed = fopen(Name, "wb");
+		if(!processed)
+		{
+			logmsg("\tCould not open processed file %s\n", Name);
+			return 0;
+		}
+	
+		SaveWAVEChunk(Name, Signal, Signal->Samples, 0, Signal->numSamples, 0, config);
+		if(processed)
+		{
+			fclose(processed);
+			processed = NULL;
+		}
 	}
 
 	if(config->clock)
@@ -464,23 +509,57 @@ int ProcessSignalMDW(AudioSignal *Signal, parameters *config)
 		logmsg(" - clk: iFFTW on Audio chunks took %0.2fs\n", elapsedSeconds);
 	}
 
-	free(buffer);
+	free(sampleBuffer);
 	freeWindows(&windows);
 
 	return 1;
 }
 
-int ProcessSamples(AudioBlocks *AudioArray, int16_t *samples, size_t size, long samplerate, double *window, parameters *config, int reverse, AudioSignal *Signal)
+int ExecuteDFFT(AudioBlocks *AudioArray, double *samples, long int size, long samplerate, double *window, parameters *config, int fftw_direction, AudioSignal *Signal)
+{
+	int AudioChannels = Signal->AudioChannels;
+	char channel = CHANNEL_STEREO;
+
+	if(AudioChannels == 1)
+		channel = CHANNEL_LEFT;
+	else
+	{
+		// If we are procesing a mono signal in a stereo file, use both channels
+		if(AudioArray->channel == CHANNEL_MONO)
+			channel = CHANNEL_STEREO;
+
+		if(AudioArray->channel == CHANNEL_STEREO)
+		{
+			channel = CHANNEL_RIGHT;
+			if(!ExecuteDFFTInternal(AudioArray, samples, size, samplerate, window, channel, config, fftw_direction, Signal))
+				return 0;
+			channel = CHANNEL_LEFT;
+		}
+	}
+
+	if(!ExecuteDFFTInternal(AudioArray, samples, size, samplerate, window, channel, config, fftw_direction, Signal))
+		return 0;
+
+	if(fftw_direction == FORWARD_FFTW)
+	{
+		if(!FillFrequencyStructures(Signal, AudioArray, config))
+			return 0;
+	}
+
+	return 1;
+}
+
+int ExecuteDFFTInternal(AudioBlocks *AudioArray, double *samples, long int size, long samplerate, double *window, char channel, parameters *config, int fftw_direction, AudioSignal *Signal)
 {
 	fftw_plan		p = NULL, pBack = NULL;
-	char			channel = 0;
-	long		  	stereoSignalSize = 0, blanked = 0;	
-	long		  	i = 0, monoSignalSize = 0, zeropadding = 0; 
-	double		  	*signal = NULL;
-	fftw_complex  	*spectrum = NULL;
-	double		 	boxsize = 0, seconds = 0;
+	long int		stereoSignalSize = 0, blanked = 0;	
+	long int		i = 0, monoSignalSize = 0, zeropadding = 0; 
+	double			*signal = NULL;
+	fftw_complex	*spectrum = NULL;
+	double			boxsize = 0, seconds = 0;
 	double			CutOff = 0;
-	long int 		startBin = 0, endBin = 0;
+	long int		startBin = 0, endBin = 0;
+	int				AudioChannels = Signal->AudioChannels;
 	
 	if(!AudioArray)
 	{
@@ -488,17 +567,22 @@ int ProcessSamples(AudioBlocks *AudioArray, int16_t *samples, size_t size, long 
 		return 0;
 	}
 
+	//logmsg("discardMDW %d fftw_direction %s\n", config->discardMDW, fftw_direction == FORWARD_FFTW ? "forward" : "reverse");
 	stereoSignalSize = (long)size;
-	monoSignalSize = stereoSignalSize/Signal->AudioChannels;	 // 4 is 2 16 bit values
-	seconds = (double)size/((double)samplerate*Signal->AudioChannels);
+	monoSignalSize = stereoSignalSize/AudioChannels;
+	seconds = (double)size/((double)samplerate*AudioChannels);
 
 	if(config->ZeroPad)  /* disabled by default */
 		zeropadding = GetZeroPadValues(&monoSignalSize, &seconds, samplerate);
 
-	boxsize = roundFloat(seconds);
+	// Round to 3 decimal places so that 48kHz and 44 kHz line up
+	boxsize = RoundFloat(AudioArray->seconds, 3);
 
 	startBin = floor(config->startHz*boxsize);
 	endBin = floor(config->endHz*boxsize);
+
+	if(Signal->nyquistLimit && endBin > size/2)
+		endBin = ceil(size/2);
 
 	signal = (double*)malloc(sizeof(double)*(monoSignalSize+1));
 	if(!signal)
@@ -512,9 +596,6 @@ int ProcessSamples(AudioBlocks *AudioArray, int16_t *samples, size_t size, long 
 		logmsg("Not enough memory (fftw_malloc)\n");
 		return(0);
 	}
-
-	memset(signal, 0, sizeof(double)*(monoSignalSize+1));
-	memset(spectrum, 0, sizeof(fftw_complex)*(monoSignalSize/2+1));
 
 	if(!config->model_plan)
 	{
@@ -537,7 +618,7 @@ int ProcessSamples(AudioBlocks *AudioArray, int16_t *samples, size_t size, long 
 		return 0;
 	}
 
-	if(reverse)
+	if(fftw_direction == REVERSE_FFTW)
 	{
 		if(!config->reverse_plan)
 		{
@@ -560,71 +641,65 @@ int ProcessSamples(AudioBlocks *AudioArray, int16_t *samples, size_t size, long 
 		}
 	}
 
-	if(Signal->AudioChannels == 1)
-		channel = CHANNEL_LEFT;
-	else
-		channel = CHANNEL_STEREO;
+	memset(signal, 0, sizeof(double)*(monoSignalSize+1));
+	memset(spectrum, 0, sizeof(fftw_complex)*(monoSignalSize/2+1));
 
 	for(i = 0; i < monoSignalSize - zeropadding; i++)
 	{
 		if(channel == CHANNEL_LEFT)
-		{
-			signal[i] = (double)samples[i*Signal->AudioChannels];
-			if(Signal->AudioChannels == 2)
-				samples[i*2+1] = 0;
-		}
+			signal[i] = samples[i*AudioChannels];
 		if(channel == CHANNEL_RIGHT)
-		{
-			signal[i] = (double)samples[i*2+1];
-			samples[i*2] = 0;
-		}
+			signal[i] = samples[i*AudioChannels+1];
 		if(channel == CHANNEL_STEREO)
-		{
-			signal[i] = ((double)samples[i*2]+(double)samples[i*2+1])/2.0;
-			samples[i*2] = signal[i];
-			samples[i*2+1] = signal[i];
-		}
+			signal[i] = (samples[i*AudioChannels]+samples[i*AudioChannels+1])/2.0;
 
 		if(window)
-			signal[i] = (int16_t)((double)signal[i]*window[i]);
+			signal[i] = signal[i]*window[i];
 	}
 
 	fftw_execute(p); 
 	fftw_destroy_plan(p);
 	p = NULL;
 
-	if(!reverse)
+	if(fftw_direction == FORWARD_FFTW)
 	{
-		AudioArray->fftwValues.spectrum = spectrum;
-		AudioArray->fftwValues.size = monoSignalSize;
+		if(channel != CHANNEL_RIGHT)
+		{
+			AudioArray->fftwValues.spectrum = spectrum;
+			AudioArray->fftwValues.size = monoSignalSize;
+		}
+		else
+		{
+			AudioArray->fftwValuesRight.spectrum = spectrum;
+			AudioArray->fftwValuesRight.size = monoSignalSize;
+		}
 		AudioArray->seconds = seconds;
-
-		if(!FillFrequencyStructures(NULL, AudioArray, config))
-			return 0;
 	}
 
-	if(reverse)
+	if(fftw_direction == REVERSE_FFTW)
 	{
-		double MinAmplitude = 0;
+		long int		endBinLimit = 0;
+		double			MinAmplitude = 0;
+		Frequency		*targetFreq = NULL;
 
 		// Find the Max magnitude for frequency at -f cuttoff
-		for(int j = 0; j < config->MaxFreq; j++)
+		if(channel != CHANNEL_RIGHT)
+			targetFreq = AudioArray->freq;
+		else
+			targetFreq = AudioArray->freqRight;
+
+		if(!targetFreq)
 		{
-			if(!AudioArray->freq[j].hertz)
-				break;
-			if(AudioArray->freq[j].amplitude < MinAmplitude)
-				MinAmplitude = AudioArray->freq[j].amplitude;
+			logmsg("Invalid channel data\n");
+			return 0;
 		}
 
-		if(AudioArray->freqRight)
+		for(int j = 0; j < config->MaxFreq; j++)
 		{
-			for(int j = 0; j < config->MaxFreq; j++)
-			{
-				if(!AudioArray->freqRight[j].hertz)
-					break;
-				if(AudioArray->freqRight[j].amplitude < MinAmplitude)
-					MinAmplitude = AudioArray->freqRight[j].amplitude;
-			}
+			if(!targetFreq[j].hertz)
+				break;
+			if(targetFreq[j].amplitude < MinAmplitude)
+				MinAmplitude = targetFreq[j].amplitude;
 		}
 
 		CutOff = MinAmplitude;
@@ -636,7 +711,11 @@ int ProcessSamples(AudioBlocks *AudioArray, int16_t *samples, size_t size, long 
 			CutOff = Signal->floorAmplitude;
 
 		//Process the defined frequency spectrum
-		for(i = 1; i < floor(boxsize*(samplerate/2)); i++)
+		endBinLimit = floor(boxsize*(samplerate/2));
+		if(endBinLimit > monoSignalSize/2)
+			endBinLimit = monoSignalSize/2;
+		
+		for(i = 1; i < endBinLimit; i++)
 		{
 			double amplitude = 0, magnitude = 0;
 			int blank = 0;
@@ -644,20 +723,23 @@ int ProcessSamples(AudioBlocks *AudioArray, int16_t *samples, size_t size, long 
 			magnitude = CalculateMagnitude(spectrum[i], monoSignalSize);
 			amplitude = CalculateAmplitude(magnitude, Signal->MaxMagnitude.magnitude);
 
+			// limit by noise cut frequncy count/amplitude
 			if(amplitude <= CutOff)
 				blank = 1;
+
+			// Limit startHz to endHz
 			if(i < startBin || i > endBin)
 				blank = 1;
 
-			if(config->invert)
+			if(config->discardMDW)
 				blank = !blank;
 
 			if(blank)
 			{
-				float filter;
+				fftw_complex filter;
 
-				// This should never bed one as such
-				// A proper filter shoudl be used, or you'll get
+				// This should never be done as such
+				// A proper filter shuld be used, or you'll get
 				// ringing artifacts via Gibbs phenomenon
 				// Here it "works" because we are just
 				// "visualizing" the results
@@ -677,28 +759,16 @@ int ProcessSamples(AudioBlocks *AudioArray, int16_t *samples, size_t size, long 
 			double value;
 
 			// reversing window causes distortion since we have zeroes
-			// but we do want t see the windows in the iFFT anyway
+			// but we do want to see the windows in the iFFT anyway
 			// uncomment if needed
-			//if(window)
+			//if(window && window[i])
 			//value = (signal[i]/window[i])/monoSignalSize;
 			//else
 			value = signal[i]/monoSignalSize; /* check CalculateMagnitude if changed */
-			if(channel == CHANNEL_LEFT)
-			{
-				samples[i*Signal->AudioChannels] = round(value);
-				if(Signal->AudioChannels == 2)
-					samples[i*2+1] = 0;
-			}
-			if(channel == CHANNEL_RIGHT)
-			{
-				samples[i*2] = 0;
-				samples[i*2+1] = round(value);
-			}
-			if(channel == CHANNEL_STEREO)
-			{
-				samples[i*2] = round(value);
-				samples[i*2+1] = round(value);
-			}
+			if(channel == CHANNEL_LEFT || channel == CHANNEL_STEREO || channel == CHANNEL_MONO)
+				samples[i*AudioChannels] = value;
+			if(channel == CHANNEL_RIGHT || channel == CHANNEL_STEREO)
+				samples[i*AudioChannels+1] = value;
 		}
 
 		//logmsg("Blanked frequencies were %ld from %ld\n", blanked, monoSignalSize/2);
@@ -722,7 +792,7 @@ int commandline_wave(int argc , char *argv[], parameters *config)
 	CleanParameters(config);
 
 	config->maxBlanked = 0;
-	config->invert = 0;
+	config->discardMDW = 0;
 	config->chunks = 0;
 	config->useCompProfile = 0;
 	config->executefft = 1;
@@ -917,7 +987,7 @@ int commandline_wave(int argc , char *argv[], parameters *config)
 		logmsg("\tFFT bins will be aligned to 1Hz, this is slower\n");
 	if(config->ignoreFloor)
 		logmsg("\tIgnoring Silence block noise floor\n");
-	if(config->invert)
+	if(config->discardMDW)
 		logmsg("\tSaving Discarded part fo the signal to WAV file\n");
 	if(config->chunks)
 		logmsg("\tSaving WAV chunks to individual files\n");
@@ -941,6 +1011,7 @@ void PrintUsage_wave()
 	logmsg("	 -B: Do not do stereo channel audio <B>alancing\n");
 	logmsg("	 -C: Use <C>omparison framerate profile in 'No-Sync' compare mode\n");
 	logmsg("	 -Y: Define the Video Format from the profile\n");
+	logmsg("	 -n: Just cut the wav file without performing DFFT\n");
 	logmsg("   Output options:\n");
 	logmsg("	 -v: Enable <v>erbose mode, spits all the FFTW results\n");
 	logmsg("	 -l: Do not <l>og output to file [reference]_vs_[compare].txt\n");
@@ -950,7 +1021,7 @@ void PrintUsage_wave()
 
 void Header_wave(int log)
 {
-	char title1[] = " MDWave " MDWVERSION " (MDFourier Companion)\n [240p Test Suite Fourier Audio compare tool]\n";
+	char title1[] = " MDWave " MDWVERSION " (MDFourier Companion) [240p Test Suite Fourier Audio compare tool]\n";
 	char title2[] = "Artemio Urbina 2019-2020 free software under GPL - http://junkerhq.net/MDFourier\n";
 
 	if(log)

@@ -87,17 +87,30 @@ int LoadProfile(parameters *config)
 
 void FlattenProfile(parameters *config)
 {
+	int last = 0, total = 0;
+
 	if(!config)
 		return;
 
+	// Match Stereo Balance block
 	for(int i = 0; i < config->types.typeCount; i++)
 	{
-		int total = 0;
+		total += config->types.typeArray[i].elementCount;
+		if(total >= config->stereoBalanceBlock && last <= config->stereoBalanceBlock)
+		{
+			config->stereoBalanceBlock = i;
+			break;
+		}
+		last = total;
+	}
 
+	for(int i = 0; i < config->types.typeCount; i++)
+	{
 		total = config->types.typeArray[i].elementCount * config->types.typeArray[i].frames;
 		config->types.typeArray[i].elementCount = 1;
 		config->types.typeArray[i].frames = total;
 	}
+
 	config->types.regularBlocks = GetActiveAudioBlocks(config);
 	config->types.totalBlocks = GetTotalAudioBlocks(config);
 	logmsg("Audio Blocks flattened\n");
@@ -366,7 +379,7 @@ int LoadAudioBlockStructure(FILE *file, parameters *config)
 				break;
 			case TYPE_SYNC_C:
 				config->types.typeArray[i].type = TYPE_SYNC;
-				if(config->debugSync)
+				if(config->timeDomainSync)
 					config->hasTimeDomain++;
 				syncCount++;
 				break;

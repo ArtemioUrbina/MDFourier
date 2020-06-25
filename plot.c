@@ -693,14 +693,14 @@ void DrawGridZeroDBCentered(PlotFile *plot, double dBFS, double dbIncrement, dou
 			dbIncrement = 1.0;
 	}
 
-	if(config->maxDbPlotZC == DB_HEIGHT)
+	if(!config->maxDbPlotZCChanged)
 		pl_pencolor_r(plot->plotter, 0, 0xaaaa, 0);
 	else
 		pl_pencolor_r(plot->plotter, 0xaaaa, 0xaaaa, 0);
 	pl_fline_r(plot->plotter, 0, 0, hz, 0);
 	pl_endpath_r(plot->plotter);
 
-	if(config->maxDbPlotZC == DB_HEIGHT)
+	if(!config->maxDbPlotZCChanged)
 		pl_pencolor_r(plot->plotter, 0, 0x5555, 0);
 	else
 		pl_pencolor_r(plot->plotter, 0x5555, 0x5555, 0);
@@ -772,7 +772,7 @@ void DrawLabelsZeroDBCentered(PlotFile *plot, double dBFS, double dbIncrement, d
 	pl_ffontname_r(plot->plotter, PLOT_FONT);
 	pl_ffontsize_r(plot->plotter, FONT_SIZE_1);
 
-	if(config->maxDbPlotZC == DB_HEIGHT)
+	if(!config->maxDbPlotZCChanged)
 		pl_pencolor_r(plot->plotter, 0, 0xffff, 0);
 	else
 		pl_pencolor_r(plot->plotter, 0xffff, 0xffff, 0);
@@ -869,6 +869,7 @@ void enableTestWarnings(parameters *config)
 	config->channelWithLowFundamentals = 1;
 
 	config->maxDbPlotZC = DB_HEIGHT+3;
+	config->maxDbPlotZCChanged = 1;
 	config->notVisible = 20.75;
 
 	config->clkMeasure = 1;
@@ -1022,13 +1023,14 @@ void DrawFileInfo(PlotFile *plot, AudioSignal *Signal, char *msg, int type, int 
 	{
 		if(Signal)
 		{
-			sprintf(msg, "%s %5.5s %4dkHz %s %.92s%s",
+			sprintf(msg, "%s %5.5s %4dkHz %dbit %s %.92s%s",
 				Signal->role == ROLE_REF ? "Reference:  " : "Comparison:",
 				config->types.SyncFormat[format].syncName,
 				Signal->originalSR ? Signal->originalSR/1000 : Signal->header.fmt.SamplesPerSec/1000,
+				Signal->bytesPerSample*8,
 				Signal->AudioChannels == 2 ? "Stereo" : "Mono ",
 				name,
-				strlen(name) > 92 ? "\\.." : " ");
+				strlen(name) > 86 ? "\\.." : " ");
 			pl_fmove_r(plot->plotter, x, y+config->plotResY/(ypos*40));
 			pl_alabel_r(plot->plotter, 'l', 'l', msg);
 	
@@ -1084,12 +1086,13 @@ void DrawFileInfo(PlotFile *plot, AudioSignal *Signal, char *msg, int type, int 
 	{
 		y += config->plotResY/60;
 
-		sprintf(msg, "File: %5.5s %4dkHz %s %.92s%s",
+		sprintf(msg, "File: %5.5s %4dkHz %dbit %s %.92s%s",
 			config->types.SyncFormat[format].syncName,
 			Signal->originalSR ? Signal->originalSR/1000 : Signal->header.fmt.SamplesPerSec/1000,
+			Signal->bytesPerSample*8,
 			Signal->AudioChannels == 2 ? "Stereo" : "Mono  ",
 			name,
-			strlen(name) > 92 ? "\\.." : " ");
+			strlen(name) > 86 ? "\\.." : " ");
 
 		pl_fmove_r(plot->plotter, x, y);
 		pl_alabel_r(plot->plotter, 'l', 'l', msg);
@@ -1358,6 +1361,17 @@ void DrawLabelsMDF(PlotFile *plot, char *Gname, char *GType, int type, parameter
 		pl_alabel_r(plot->plotter, 'l', 'l', msg);
 	}
 
+	if(config->warningRatioTooHigh != 0)
+	{
+		PLOT_WARN(1, warning++);
+		sprintf(msg, "         Please read MDFourier text output for details.");
+		pl_alabel_r(plot->plotter, 'l', 'l', msg);
+
+		PLOT_WARN(1, warning++);
+		sprintf(msg, "WARNING: Average signal difference too high. (%g to 1)", config->warningRatioTooHigh);
+		pl_alabel_r(plot->plotter, 'l', 'l', msg);
+	}
+
 	if(config->normType == none)
 	{
 		PLOT_WARN(1, warning++);
@@ -1382,7 +1396,7 @@ void DrawLabelsMDF(PlotFile *plot, char *Gname, char *GType, int type, parameter
 	if(config->warningStereoReversed)
 	{
 		PLOT_WARN(1, warning++);
-		pl_alabel_r(plot->plotter, 'l', 'l', "WARNING: L/R Channels might be reversed, or mono");
+		pl_alabel_r(plot->plotter, 'l', 'l', "WARNING: L/R Channels might be reversed (or mono)");
 	}
 
 	if(config->SRNoMatch && !config->doSamplerateAdjust)
@@ -1539,7 +1553,7 @@ void DrawLabelsMDF(PlotFile *plot, char *Gname, char *GType, int type, parameter
 		pl_alabel_r(plot->plotter, 'l', 'l', msg);
 	}
 	
-	if(config->maxDbPlotZC != DB_HEIGHT && type == PLOT_COMPARE)
+	if(config->maxDbPlotZCChanged && type == PLOT_COMPARE)
 	{
 		PLOT_COLUMN(4, 2);
 		pl_pencolor_r(plot->plotter, 0xeeee, 0xeeee, 0);
@@ -4355,7 +4369,7 @@ void PlotTimeDomainGraphs(AudioSignal *Signal, parameters *config)
 	plots = 0;
 	for(i = 0; i < config->types.totalBlocks; i++)
 	{
-		if(config->plotAllNotes || Signal->Blocks[i].type == TYPE_TIMEDOMAIN || (config->debugSync && Signal->Blocks[i].type == TYPE_SYNC))
+		if(config->plotAllNotes || Signal->Blocks[i].type == TYPE_TIMEDOMAIN || (config->timeDomainSync && Signal->Blocks[i].type == TYPE_SYNC))
 		{
 			sprintf(name, "TD_%05ld_%s_%s_%05d_%s", 
 				i, Signal->role == ROLE_REF ? "1" : "2",
@@ -4503,12 +4517,12 @@ void PlotTimeDomainHighDifferenceGraphs(AudioSignal *Signal, parameters *config)
 void DrawVerticalFrameGrid(PlotFile *plot, AudioSignal *Signal, double frames, double frameIncrement, double MaxSamples, int forceDrawMS, parameters *config)
 {
 	int		drawMS = 0;
-	double	x = 0, xfactor = 0, segment = 0, MaxY = MAXINT16, MinY = MININT16;
+	double	x = 0, xfactor = 0, segment = 0, MaxY = config->lowestValueBitDepth, MinY = config->highestValueBitDepth;
 
 	if(config->zoomWaveForm != 0)
 	{
-		MaxY = CalculatePCMMagnitude(config->zoomWaveForm, MAXINT16);
-		MinY = CalculatePCMMagnitude(config->zoomWaveForm, MININT16);
+		MaxY = CalculatePCMMagnitude(config->zoomWaveForm, config->highestValueBitDepth);
+		MinY = CalculatePCMMagnitude(config->zoomWaveForm, config->lowestValueBitDepth);
 	}
 
 	if(frames <= 10 || forceDrawMS)
@@ -4584,17 +4598,17 @@ void DrawVerticalFrameGrid(PlotFile *plot, AudioSignal *Signal, double frames, d
 	pl_restorestate_r(plot->plotter);
 }
 
-void DrawINT16DBFSLines(PlotFile *plot, double resx, int AudioChannels, parameters *config)
+void DrawINTXXDBFSLines(PlotFile *plot, AudioSignal *Signal, double resx, int AudioChannels, parameters *config)
 {
 	char 	label[20];
-	double	factor = 0, MaxY = MAXINT16, MinY = MININT16;
-	double	startDB = 3, endDB = 36, dbstep = 3;
+	double	factor = 0, MaxY = config->highestValueBitDepth, MinY = config->lowestValueBitDepth;
+	double	startDB = 3, endDB = 27, dbstep = 3;
 	int		channel = 0;
 
 	if(config->zoomWaveForm != 0)
 	{
-		MaxY = CalculatePCMMagnitude(config->zoomWaveForm, MAXINT16);
-		MinY = CalculatePCMMagnitude(config->zoomWaveForm, MININT16);
+		MaxY = CalculatePCMMagnitude(config->zoomWaveForm, config->highestValueBitDepth);
+		MinY = CalculatePCMMagnitude(config->zoomWaveForm, config->lowestValueBitDepth);
 
 		startDB = fabs(config->zoomWaveForm)+3;
 		endDB = fabs(config->zoomWaveForm)+30;
@@ -4627,10 +4641,10 @@ void DrawINT16DBFSLines(PlotFile *plot, double resx, int AudioChannels, paramete
 		{
 			double height = 0;
 
-			height = CalculatePCMMagnitude(-1*db, MAXINT16);
+			height = CalculatePCMMagnitude(-1*db, config->highestValueBitDepth);
 			pl_fline_r(plot->plotter, 0, height, resx, height);
 
-			height = CalculatePCMMagnitude(-1*db, MININT16);
+			height = CalculatePCMMagnitude(-1*db, config->lowestValueBitDepth);
 			pl_fline_r(plot->plotter, 0, height, resx, height);
 		}
 
@@ -4673,14 +4687,14 @@ void DrawINT16DBFSLines(PlotFile *plot, double resx, int AudioChannels, paramete
 		{
 			double height;
 	
-			height = CalculatePCMMagnitude(-1*db, MAXINT16);
+			height = CalculatePCMMagnitude(-1*db, config->highestValueBitDepth);
 			sprintf(label, "%ddBFS", (int)(-1*db));
 			pl_fmove_r(plot->plotter, config->plotResX+PLOT_SPACER, height*factor);
 			pl_alabel_r(plot->plotter, 'l', 'c', label);
 			pl_fmove_r(plot->plotter, config->plotResX+PLOT_SPACER, -1*height*factor);
 			pl_alabel_r(plot->plotter, 'l', 'c', label);
 	
-			height = CalculatePCMMagnitude(-1*db, MININT16);
+			height = CalculatePCMMagnitude(-1*db, config->lowestValueBitDepth);
 			sprintf(label, "%ddBFS", (int)(-1*db));
 			pl_fmove_r(plot->plotter, config->plotResX+PLOT_SPACER, height*factor);
 			pl_alabel_r(plot->plotter, 'l', 'c', label);
@@ -4727,14 +4741,14 @@ void PlotBlockTimeDomainGraph(AudioSignal *Signal, int block, char *name, int wa
 	int			forceMS = 0;
 	char		title[BUFFER_SIZE/2], buffer[BUFFER_SIZE];
 	PlotFile	plot;
-	long int	color = 0, sample = 0, numSamples = 0, difference = 0, plotSize = 0;
-	int16_t		*samples = NULL;
-	double		margin1 = 0, margin2 = 0, MaxY = MAXINT16, MinY = MININT16;
+	long int	color = 0, sample = 0, numSamples = 0, difference = 0, plotSize = 0, sampleOffset = 0;
+	double		*samples = NULL;
+	double		margin1 = 0, margin2 = 0, MaxY = config->highestValueBitDepth, MinY = config->lowestValueBitDepth;
 
 	if(config->zoomWaveForm != 0)
 	{
-		MaxY = CalculatePCMMagnitude(config->zoomWaveForm, MAXINT16);
-		MinY = CalculatePCMMagnitude(config->zoomWaveForm, MININT16);
+		MaxY = CalculatePCMMagnitude(config->zoomWaveForm, config->highestValueBitDepth);
+		MinY = CalculatePCMMagnitude(config->zoomWaveForm, config->lowestValueBitDepth);
 	}
 
 	// for plots
@@ -4762,13 +4776,16 @@ void PlotBlockTimeDomainGraph(AudioSignal *Signal, int block, char *name, int wa
 	else
 		plotSize = numSamples;
 
-	if(config->debugSync && Signal->Blocks[block].type == TYPE_SYNC)
+	sampleOffset = Signal->Blocks[block].audio.sampleOffset;
+	/*
+	if(config->timeDomainSync && Signal->Blocks[block].type == TYPE_SYNC)
 	{
 		FillPlotExtra(&plot, name, SYNC_DEBUG_SCALE*config->plotResX, config->plotResY, 0, MinY, plotSize, MaxY, 1, 0.2, config);
 		forceMS = 1;
 	}
 	else
-		FillPlot(&plot, name, 0, MinY, plotSize, MaxY, 1, 0.2, config);
+	*/
+	FillPlot(&plot, name, 0, MinY, plotSize, MaxY, 1, 0.2, config);
 
 	if(!CreatePlotFile(&plot, config))
 		return;
@@ -4784,7 +4801,7 @@ void PlotBlockTimeDomainGraph(AudioSignal *Signal, int block, char *name, int wa
 	}
 
 	DrawVerticalFrameGrid(&plot, Signal, Signal->Blocks[block].frames, 1, plotSize, forceMS, config);
-	DrawINT16DBFSLines(&plot, numSamples, Signal->AudioChannels, config);
+	DrawINTXXDBFSLines(&plot, Signal, numSamples, Signal->AudioChannels, config);
 
 	color = MatchColor(GetBlockColor(config, block));
 
@@ -4861,8 +4878,10 @@ void PlotBlockTimeDomainGraph(AudioSignal *Signal, int block, char *name, int wa
 		pl_restorestate_r(plot.plotter);
 	}
 	
-	sprintf(title, "%s# %d%s", GetBlockName(config, block), GetBlockSubIndex(config, block),
-			GetWFMTypeText(wavetype, buffer, data, Signal->role));
+	sprintf(title, "%s# %d%s samples %ld-%ld", GetBlockName(config, block), GetBlockSubIndex(config, block),
+			GetWFMTypeText(wavetype, buffer, data, Signal->role), 
+			SamplesForDisplay(sampleOffset, Signal->AudioChannels),
+			SamplesForDisplay(sampleOffset+numSamples*Signal->AudioChannels, Signal->AudioChannels));
 	DrawLabelsMDF(&plot, Signal->role == ROLE_REF ? WAVEFORM_TITLE_REF : WAVEFORM_TITLE_COM, title, Signal->role == ROLE_REF ? PLOT_SINGLE_REF : PLOT_SINGLE_COM, config);
 
 	ClosePlot(&plot);
@@ -4872,9 +4891,9 @@ void PlotBlockTimeDomainInternalSyncGraph(AudioSignal *Signal, int block, char *
 {
 	char		title[1024];
 	PlotFile	plot;
-	long int	color = 0, sample = 0, numSamples = 0, difference = 0, plotSize = 0;
-	int16_t		*samples = NULL, forceMS = 0;
-	double		frames = 0;
+	long int	color = 0, sample = 0, numSamples = 0, difference = 0, plotSize = 0, frames = 0, sampleOffset = 0;
+	double		*samples = NULL;
+	int			forceMS = 0;
 
 	if(!Signal || !config)
 		return;
@@ -4894,21 +4913,23 @@ void PlotBlockTimeDomainInternalSyncGraph(AudioSignal *Signal, int block, char *
 		return;
 
 	numSamples = Signal->Blocks[block].internalSync[slot].size;
-	frames = SamplesToFrames(numSamples, Signal->header.fmt.SamplesPerSec, Signal->framerate);
+	frames = SamplesToFrames(numSamples, Signal->header.fmt.SamplesPerSec, Signal->framerate, Signal->AudioChannels);
 
 	difference = Signal->Blocks[block].internalSync[slot].difference;
 	if(difference < 0)
 		plotSize += numSamples - difference;
 	else
 		plotSize = numSamples;
-
-	if(config->debugSync && Signal->Blocks[block].type == TYPE_SYNC)
+	sampleOffset = Signal->Blocks[block].audio.sampleOffset;
+	/*
+	if(config->timeDomainSync && Signal->Blocks[block].type == TYPE_SYNC)
 	{
-		FillPlotExtra(&plot, name, SYNC_DEBUG_SCALE*config->plotResX, config->plotResY, 0, MININT16, plotSize, MAXINT16, 1, 0.2, config);
+		FillPlotExtra(&plot, name, SYNC_DEBUG_SCALE*config->plotResX, config->plotResY, 0, config->lowestValueBitDepth, plotSize, config->highestValueBitDepth, 1, 0.2, config);
 		forceMS = 1;
 	}
 	else
-		FillPlot(&plot, name, 0, MININT16, plotSize, MAXINT16, 1, 0.2, config);
+	*/
+	FillPlot(&plot, name, 0, config->lowestValueBitDepth, plotSize, config->highestValueBitDepth, 1, 0.2, config);
 
 	if(!CreatePlotFile(&plot, config))
 		return;
@@ -4919,12 +4940,12 @@ void PlotBlockTimeDomainInternalSyncGraph(AudioSignal *Signal, int block, char *
 		pl_filltype_r(plot.plotter, 1);
 		pl_pencolor_r(plot.plotter, 0x6666, 0, 0);
 		pl_fillcolor_r(plot.plotter, 0x6666, 0, 0);
-		pl_fbox_r(plot.plotter, numSamples-difference, MININT16, numSamples-1, MAXINT16);
+		pl_fbox_r(plot.plotter, numSamples-difference, config->lowestValueBitDepth, numSamples-1, config->highestValueBitDepth);
 		pl_filltype_r(plot.plotter, 0);
 	}
 
 	DrawVerticalFrameGrid(&plot, Signal, frames, 1, plotSize, forceMS, config);
-	DrawINT16DBFSLines(&plot, numSamples, Signal->AudioChannels, config);
+	DrawINTXXDBFSLines(&plot, Signal, numSamples, Signal->AudioChannels, config);
 
 	color = MatchColor(GetBlockColor(config, block));
 
@@ -4934,8 +4955,10 @@ void PlotBlockTimeDomainInternalSyncGraph(AudioSignal *Signal, int block, char *
 		pl_fline_r(plot.plotter, sample, samples[sample], sample+1, samples[sample+1]);
 	pl_endpath_r(plot.plotter);
 
-	sprintf(title, "%s# %d-%d at %g", GetBlockName(config, block), GetBlockSubIndex(config, block),
-			slot+1, Signal->framerate);
+	sprintf(title, "%s# %d-%d at %g (samples: %ld-%ld)", GetBlockName(config, block), GetBlockSubIndex(config, block),
+			slot+1, Signal->framerate, 
+			SamplesForDisplay(sampleOffset, Signal->AudioChannels),
+			SamplesForDisplay(sampleOffset+numSamples*Signal->AudioChannels, Signal->AudioChannels));
 	DrawLabelsMDF(&plot, Signal->role == ROLE_REF ? WAVEFORM_TITLE_REF : WAVEFORM_TITLE_COM, title, Signal->role == ROLE_REF ? PLOT_SINGLE_REF : PLOT_SINGLE_COM, config);
 
 	ClosePlot(&plot);

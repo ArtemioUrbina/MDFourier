@@ -48,7 +48,7 @@
 
 #include "incbeta.h"
 
-#define MDVERSION "1.02"
+#define MDVERSION "1.03"
 
 #if INTPTR_MAX == INT64_MAX
 #define	BITS_MDF "64-bit"
@@ -65,7 +65,7 @@
 #define NS_LOWEST_AMPLITUDE			-200
 #define	PCM_16BIT_MIN_AMPLITUDE		-96.0
 #define LOWEST_NOISEFLOOR_ALLOWED	-40.0
-#define STEREO_TOLERANCE_REPORT		6.0
+#define STEREO_TOLERANCE_REPORT		8.5
 
 #define TYPE_NOTYPE				-1000
 #define TYPE_SILENCE			-1
@@ -107,8 +107,14 @@
 #define DB_HEIGHT	18.0
 #define DB_DIFF		DB_HEIGHT/2.0
 
-#define	MAXINT16		 32768.0
-#define	MININT16		-32767.0
+#define	MAXINT16		 32767.0
+#define	MININT16		-32768.0
+
+#define MAXINT24		 8388607.0
+#define MININT24		-8388608.0
+
+#define MAXINT32		 2147483647.0
+#define MININT32		-2147483648.0
 
 #define SIG_CENTS_DIFF 0.15
 
@@ -190,7 +196,7 @@ enum normalize
 
 
 typedef struct max_vol {
-	int16_t		maxSample;
+	double		maxSample;
 	uint32_t	offset;
 	uint32_t	samplerate;
 	double		framerate;
@@ -267,9 +273,19 @@ typedef struct	SYB_CHUNK
 #define	WAVE_FORMAT_MULAW		0x0007
 #define WAVE_FORMAT_EXTENSIBLE	0xFFFE
 
+#define	FMT_TYPE_1	16
+#define	FMT_TYPE_2	18
+#define	FMT_TYPE_3	40
+
+#define	FMT_TYPE_1_SIZE	0
+#define	FMT_TYPE_2_SIZE	2
+#define	FMT_TYPE_3_SIZE	24
+
+#define	FMT_EXTRA_SIZE 24
+
 typedef struct	FMT_HEADER
 {
-	/* "fmt" sub-chunk */
+	/* "fmt" sub-chunk*/
 	uint8_t 		fmt[4]; 		/* FMT header */
 	uint32_t		Subchunk1Size;	/* Size of the fmt chunk */
 	uint16_t		AudioFormat;	/* Audio format 1=PCM,6=mulaw,7=alaw,	  257=IBM Mu-Law, 258=IBM A-Law, 259=ADPCM */
@@ -280,12 +296,37 @@ typedef struct	FMT_HEADER
 	uint16_t		bitsPerSample;	/* Number of bits per sample */
 } fmt_hdr;
 
+typedef struct	FMT_HEADER_EXT1
+{
+	/* "fmt" sub-chunk */
+	uint16_t		extSize;		/* Size of the extension: 18 */
+} fmt_hdr_ext1;
+
+typedef struct	FMT_HEADER_EXT2
+{
+	/* "fmt" sub-chunk */
+	uint16_t		extSize;		/* Size of the extension: 22 */
+	uint16_t		wValidBitsPerSample; /* at most 8*M */
+	uint32_t		dwChannelMask;	/* Speaker position mask */
+	/*  GUID (16 bytes, first two bytes are the data format code) */
+	uint16_t		formatCode; /* formatcode */
+	uint8_t			SubFormat[14];  
+} fmt_hdr_ext2;
+
 typedef struct	DATA_HEADER
 {
 	/* "data" sub-chunk */
 	uint8_t 		DataID[4]; /* "data"  string */
 	uint32_t		DataSize;	/* Sampled data length */
 } data_hdr;
+
+typedef struct	FACT_CK
+{
+	/* "fact" sub-chunk for WAVE_FORMAT_EXTENSIBLE */
+	uint8_t 		DataID[4]; /* "fact"  string */
+	uint32_t		DataSize;	/* Chunk size: minimum 4 */
+	uint32_t		dwSampleLength;  /* Number of samples (per channel) */
+} fact_ck;
 
 typedef struct	WAV_HEADER
 {
@@ -310,10 +351,11 @@ typedef struct fftw_spectrum_st {
 } FFTWSpectrum;
 
 typedef struct samples_st {
-	int16_t			*samples;
-	int16_t			*window_samples;
+	double			*samples;
+	double			*window_samples;
 	long int		size;
 	long int		difference;
+	long int		sampleOffset;
 } BlockSamples;
 
 typedef struct AudioBlock_st {
@@ -348,12 +390,18 @@ typedef struct AudioSt {
 	double		floorFreq;
 	double		floorAmplitude;
 
-	char 		*Samples;
+	double		*Samples;
+	int			bytesPerSample;
+	long int	numSamples;
 	long int	SamplesStart;
 	long int	samplesPosFLAC;
 	int			errorFLAC;
 	double		framerate;
 	wav_hdr		header;
+	uint8_t		fmtExtra[24];
+	int			fmtType;
+	fact_ck		fact;
+	int			factExists;
 
 	long int	startOffset;
 	long int	endOffset;
@@ -475,6 +523,7 @@ typedef struct parameters_st {
 	double			startHz, endHz;
 	double			startHzPlot, endHzPlot;
 	double			maxDbPlotZC;
+	int				maxDbPlotZCChanged;
 	int				showAll;
 	int				extendedResults;
 	int				verbose;
@@ -482,7 +531,6 @@ typedef struct parameters_st {
 	int				MaxFreq;
 	int				clock;
 	int				ignoreFloor;
-	int				useOutputFilter;
 	int				outputFilterFunction;
 	AudioBlockDef	types;
 	AudioDifference	Differences;
@@ -494,6 +542,7 @@ typedef struct parameters_st {
 	int				logScale;
 	int				logScaleTS;
 	int				debugSync;
+	int				timeDomainSync;
 	int				ZeroPad;
 	enum normalize	normType;
 	int				channelBalance;
@@ -551,8 +600,11 @@ typedef struct parameters_st {
 	double			ComCentsDifferenceSR;
 	int				pErrorReport;
 	int				noBalance;
+	double			highestValueBitDepth;
+	double			lowestValueBitDepth;
 	int				stereoBalanceBlock;
 	int				warningStereoReversed;
+	double			warningRatioTooHigh;
 
 	double 			plotResX;
 	double			plotResY;
@@ -587,7 +639,7 @@ typedef struct parameters_st {
 
 // MDWave stuff
 	int				maxBlanked;
-	int				invert;
+	int				discardMDW;
 	int				chunks;
 	int				useCompProfile;
 	int				executefft;
