@@ -111,6 +111,9 @@ int main(int argc , char *argv[])
 		elapsedSeconds = TimeSpecToSeconds(&end) - TimeSpecToSeconds(&start);
 		logmsg(" - clk: MDWave took %0.2fs\n", elapsedSeconds);
 	}
+	fftw_cleanup();
+
+	return 0;
 }
 
 int ExecuteMDWave(parameters *config, int discardMDW)

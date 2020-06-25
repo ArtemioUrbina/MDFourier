@@ -463,13 +463,13 @@ void ReleaseFFTW(AudioBlocks * AudioArray)
 
 	if(AudioArray->fftwValues.spectrum)
 	{
-		free(AudioArray->fftwValues.spectrum);
+		fftw_free(AudioArray->fftwValues.spectrum);
 		AudioArray->fftwValues.spectrum = NULL;
 	}
 
 	if(AudioArray->fftwValuesRight.spectrum)
 	{
-		free(AudioArray->fftwValuesRight.spectrum);
+		fftw_free(AudioArray->fftwValuesRight.spectrum);
 		AudioArray->fftwValuesRight.spectrum = NULL;
 	}
 }

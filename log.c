@@ -65,9 +65,11 @@ void logmsg(char *fmt, ... )
 
 	if(do_log && logfile)
 	{
-		va_start(arguments, fmt);
-		vfprintf(logfile, fmt, arguments);
-		va_end(arguments);
+		va_list arguments_f;
+
+		va_start(arguments_f, fmt);
+		vfprintf(logfile, fmt, arguments_f);
+		va_end(arguments_f);
 #ifdef DEBUG
 		fflush(logfile);
 #endif
@@ -82,10 +84,10 @@ void logmsgFileOnly(char *fmt, ... )
 
 		va_start(arguments, fmt);
 		vfprintf(logfile, fmt, arguments);
+		va_end(arguments);
 #ifdef DEBUG
 		fflush(logfile);
 #endif
-		va_end(arguments);
 	}
 }
 
