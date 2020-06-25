@@ -835,8 +835,7 @@ void PrintAudioBlocks(parameters *config)
 		seconds *= config->types.typeArray[i].elementCount;
 		TotalSeconds += seconds;
 
-		//logmsgFileOnly("%s%s %s %d %d %d %s %c %s | Frames: %ld | Seconds: %g [%g to %g]\n", 
-		logmsg("%c%s %s %d %d %d %s %c %s | Frames: %ld | Seconds: %g [%g to %g]\n", 
+		logmsgFileOnly("%c%s %s %d %d %d %s %c %s | Frames: %ld | Seconds: %g [%g to %g]\n", 
 			config->types.typeArray[i].type == TYPE_SKIP ? '\t' : ' ',
 			config->types.typeArray[i].typeDisplayName,
 			type,
