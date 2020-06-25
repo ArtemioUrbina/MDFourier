@@ -2862,10 +2862,9 @@ double CalculateFrameRateAndCheckSamplerate(AudioSignal *Signal, parameters *con
 				double tDiff = 0;
 
 				tDiff = fabs(expectedFR*LastSyncFrameOffset) - fabs(framerate*LastSyncFrameOffset);
-				logmsg(" - Expected %gms and got %gms (Difference is %gms/%ld samples/%g frames of %gms)\n", 
+				logmsg(" - Expected %gms and got %gms (Difference is %gms/%g frames of %gms)\n", 
 					expectedFR*LastSyncFrameOffset, framerate*LastSyncFrameOffset,
-					tDiff, 
-					SamplesForDisplay(tDiff*(samplerate/1000.0), Signal->AudioChannels),
+					tDiff,
 					tDiff/expectedFR, expectedFR);
 			}
 
@@ -2918,7 +2917,7 @@ double CalculateFrameRateNS(AudioSignal *Signal, double Frames, parameters *conf
 	expectedFR = GetMSPerFrame(Signal, config);
 
 	framerate = (endOffset-startOffset)/(samplerate*Frames);
-	framerate = framerate*1000.0/Signal->AudioChannels;  // 1000 ms and 2/4 bytes per stereo sample
+	framerate = framerate*1000.0/Signal->AudioChannels;  // 1000 ms
 	framerate = roundFloat(framerate);
 
 	diff = roundFloat(fabs(expectedFR - framerate));

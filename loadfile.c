@@ -261,7 +261,7 @@ int LoadWAVFile(FILE *file, AudioSignal *Signal, parameters *config, char *fileN
 	Signal->numSamples = Signal->header.data.DataSize/Signal->bytesPerSample;
 
 	byteOffset = ftell(file);
-	Signal->SamplesStart = byteOffset/Signal->bytesPerSample;
+	Signal->SamplesStart = byteOffset;
 
 	fileBytes = (uint8_t*)malloc(sizeof(uint8_t)*Signal->header.data.DataSize);
 	if(!fileBytes)
@@ -429,10 +429,14 @@ int DetectSync(AudioSignal *Signal, parameters *config)
 		}
 		
 		if(config->verbose) {
-			logmsg("\n\t   %gs [%ld samples|%ld bytes|%ld bytes/head]\n\t", 
+			logmsg("\n\t   %gs [%ld samples", 
 				SamplesToSeconds(Signal->header.fmt.SamplesPerSec, Signal->startOffset, Signal->AudioChannels),
-				SamplesForDisplay(Signal->startOffset, Signal->AudioChannels), SamplesToBytes(Signal->startOffset, Signal->bytesPerSample),
-				SamplesToBytes(Signal->startOffset + Signal->SamplesStart, Signal->bytesPerSample));
+				SamplesForDisplay(Signal->startOffset, Signal->AudioChannels));
+			if(!IsFlac(Signal->SourceFile))
+				logmsg("|%ld bytes|%ld bytes/head", 
+					SamplesToBytes(Signal->startOffset, Signal->bytesPerSample),
+					SamplesToBytes(Signal->startOffset, Signal->bytesPerSample)+Signal->SamplesStart);
+			logmsg("]\n");
 		}
 
 		if(GetLastSyncIndex(config) != NO_INDEX)
@@ -440,7 +444,7 @@ int DetectSync(AudioSignal *Signal, parameters *config)
 			double diff = 0, expected = 0;
 
 			if(config->verbose) { 
-				logmsg(" to");
+				logmsg("\t to");
 			}
 			Signal->endOffset = DetectEndPulse(Signal->Samples, Signal->startOffset, Signal->header, Signal->role, config);
 			if(Signal->endOffset == -1)
@@ -461,10 +465,14 @@ int DetectSync(AudioSignal *Signal, parameters *config)
 			}
 
 			if(config->verbose) {
-				logmsg(" %gs [%ld samples|%ld bytes|%ld bytes/head]\n", 
+				logmsg(" %gs [%ld samples", 
 					SamplesToSeconds(Signal->header.fmt.SamplesPerSec, Signal->endOffset, Signal->AudioChannels),
-					SamplesForDisplay(Signal->endOffset, Signal->AudioChannels), SamplesToBytes(Signal->endOffset, Signal->bytesPerSample),
-					SamplesToBytes(Signal->endOffset + Signal->SamplesStart, Signal->bytesPerSample));
+					SamplesForDisplay(Signal->endOffset, Signal->AudioChannels));
+				if(!IsFlac(Signal->SourceFile))
+					logmsg("|%ld bytes|%ld bytes/head", 
+						SamplesToBytes(Signal->endOffset, Signal->bytesPerSample),
+						SamplesToBytes(Signal->endOffset, Signal->bytesPerSample)+Signal->SamplesStart);
+				logmsg("]\n");
 			}
 
 			Signal->framerate = CalculateFrameRateAndCheckSamplerate(Signal, config);
@@ -523,10 +531,14 @@ int DetectSync(AudioSignal *Signal, parameters *config)
 					return 0;
 				}
 		
-				logmsg(" %gs [%ld samples|%ld bytes|%ld bytes/head]", 
+				logmsg("\n\t   %gs [%ld samples", 
 					SamplesToSeconds(Signal->header.fmt.SamplesPerSec, Signal->startOffset, Signal->AudioChannels),
-					SamplesForDisplay(Signal->startOffset, Signal->AudioChannels), SamplesToBytes(Signal->startOffset, Signal->bytesPerSample),
-					SamplesToBytes(Signal->startOffset + Signal->SamplesStart, Signal->bytesPerSample));
+					SamplesForDisplay(Signal->startOffset, Signal->AudioChannels));
+				if(!IsFlac(Signal->SourceFile))
+					logmsg("|%ld bytes|%ld bytes/head", 
+						SamplesToBytes(Signal->startOffset, Signal->bytesPerSample),
+						SamplesToBytes(Signal->startOffset, Signal->bytesPerSample)+Signal->SamplesStart);
+				logmsg("]\n");
 
 				Signal->endOffset = SecondsToSamples(Signal->header.fmt.SamplesPerSec, 
 										GetSignalTotalDuration(Signal->framerate, config), 

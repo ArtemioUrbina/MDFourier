@@ -1925,7 +1925,7 @@ void ProcessWaveformsByBlock(AudioSignal *SignalToModify, AudioSignal *FixedSign
 	if(MaxSampleToModify && MaxSampleFixed)
 	{
 		if(config->verbose) {
-			logmsg(" - Found Sample values. Modify(%s/%dbits): %d at %s# %d (%d) and Fixed(%s/%dbits): %d at %s# %d (%d)\n",
+			logmsg(" - Found Sample values. Modify(%s/%dbits): %g at %s# %d (%d) and Fixed(%s/%dbits): %g at %s# %d (%d)\n",
 				SignalToModify->role == ROLE_REF ? "Reference" : "Comparison", SignalToModify->bytesPerSample*8,
 				MaxSampleToModify, GetBlockName(config, blockMod), GetBlockSubIndex(config, blockMod), blockMod,
 				getRoleText(FixedSignal), FixedSignal->bytesPerSample*8,

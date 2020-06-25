@@ -4878,7 +4878,7 @@ void PlotBlockTimeDomainGraph(AudioSignal *Signal, int block, char *name, int wa
 		pl_restorestate_r(plot.plotter);
 	}
 	
-	sprintf(title, "%s# %d%s samples %ld-%ld", GetBlockName(config, block), GetBlockSubIndex(config, block),
+	sprintf(title, "%s# %d%s | samples %ld-%ld", GetBlockName(config, block), GetBlockSubIndex(config, block),
 			GetWFMTypeText(wavetype, buffer, data, Signal->role), 
 			SamplesForDisplay(sampleOffset, Signal->AudioChannels),
 			SamplesForDisplay(sampleOffset+numSamples*Signal->AudioChannels, Signal->AudioChannels));
