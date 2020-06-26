@@ -179,7 +179,7 @@
 #define	MAX_SYNC		10
 
 #define	FREQDOMTRIES	10
-#define	FREQDOMRATIO	-30.0  // dBFS
+#define	FREQDOMRATIO	-20.0  // dBFS
 
 #define	DELAYCOUNT		10
 

@@ -381,7 +381,7 @@ int FrequencyDomainNormalize(AudioSignal **ReferenceSignal, AudioSignal **Compar
 	double				ratioRef = 0, ratiodBFS = 0;
 	double				RefAvg = 0;
 	double				CompAvg = 0;
-	double				ratio = 0;
+	double				ratio = 0, maxRatiodBFS = fabs(FREQDOMRATIO);
 
 	// Find Normalization factors
 	MaxRef = FindMaxMagnitudeBlock(*ReferenceSignal, config);
@@ -416,8 +416,18 @@ int FrequencyDomainNormalize(AudioSignal **ReferenceSignal, AudioSignal **Compar
 		config->warningStereoReversed = 1;
 	}
 	
+	// Check if we are comparing different bitdepths
+	if(GetSignalMaxInt(*ReferenceSignal) != GetSignalMaxInt(*ComparisonSignal)) // it is 256 or 65536...
+	{
+		double MaxRef = 0, MaxComp = 0;
+
+		MaxRef = CalculateAmplitude(GetSignalMaxInt(*ReferenceSignal), config->highestValueBitDepth);
+		MaxComp = CalculateAmplitude(GetSignalMaxInt(*ComparisonSignal), config->highestValueBitDepth);
+		maxRatiodBFS = fabs(fabs(MaxRef)-fabs(MaxComp)) + maxRatiodBFS;
+		//logmsg("ratio dbfs %g\n", maxRatiodBFS);
+	}
 	if(config->verbose) { logmsg(" - Amplitude ratio is %gdBFS\n", ratiodBFS); }
-	if(ComparisonLocalMaximum == 0 || fabs(ratiodBFS) > fabs(FREQDOMRATIO))
+	if(ComparisonLocalMaximum == 0 || fabs(ratiodBFS) > maxRatiodBFS)
 	{
 		int		found = 0, pos = 1, allowDifference = 0, tries = 0;
 		MaxMagn	MaxRefArray[FREQDOMTRIES];
