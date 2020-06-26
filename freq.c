@@ -1112,16 +1112,21 @@ long int GetSecondSilenceSampleOffset(double framerate, wav_hdr header, int fram
 
 long int GetSecondSyncSilenceSampleOffset(double framerate, wav_hdr header, int frameAdjust, double silenceOffset, parameters *config)
 {
-	int silence_count = 0, i = 0;
+	int silence_count = 0, i = 0, firstsyncfound = 0;
 
 	if(!config)
 		return NO_INDEX;
 
 	for(i = 0; i < config->types.typeCount; i++)
 	{
+		if(config->types.typeArray[i].type == TYPE_SYNC)
+		{
+			if(!firstsyncfound)
+				firstsyncfound = 1;
+		}
 		if(config->types.typeArray[i].type == TYPE_SILENCE)
 		{
-			if(!silence_count && i > 0 && config->types.typeArray[i-1].type == TYPE_SYNC)
+			if(!silence_count && firstsyncfound)  // first sync
 				silence_count ++;
 			else
 			{
@@ -2725,6 +2730,9 @@ inline double SamplesToFrames(long int samplerate, long int samples, double fram
 	return(roundFloat(((double)samples*1000.0)/((double)samplerate*(double)AudioChannels*framerate)));
 }
 
+/* This function compensates for sub sample frame rate inconsistencies between signals */
+/* compensation value sare stored in leftover discard left Decimals after adjusting the */
+/* return value to the closest floored sample requested */
 long int RoundToNbytes(double src, int AudioChannels, int bytesPerSample, int *leftover, int *discard, double *leftDecimals)
 {
 	int extra = 0, roundValue = 0;
@@ -2821,9 +2829,17 @@ double CalculateFrameRateAndCheckSamplerate(AudioSignal *Signal, parameters *con
 	LastSyncFrameOffset = GetLastSyncFrameOffset(Signal->header, config);
 
 	if(startOffset == endOffset)
+	{
+		if(config->verbose)
+			logmsg("Start Offset is equal to End Offset, no signal detected.\n");
 		return 0;
+	}
 	if(!LastSyncFrameOffset)
+	{
+		if(config->verbose)
+			logmsg("Could not get last sync offset in frames.\n");
 		return 0;
+	}
 
 	framerate = CalculateFrameRate(Signal, config);
 

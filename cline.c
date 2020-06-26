@@ -278,12 +278,17 @@ int commandline(int argc , char *argv[], parameters *config)
 		break;
 	  case 'a':
 		config->zoomWaveForm = atof(optarg);
-		if(config->zoomWaveForm > 0 || config->zoomWaveForm < -112)
+		if(config->zoomWaveForm > 0)
+			config->zoomWaveForm *= -1;
+		if(config->zoomWaveForm < -200)
 		{
-			logmsg(" - ERROR: Wave form Zoom Range must be between %d and %d\n", 0, -112);
+			logmsg(" - ERROR: Wave form Zoom Range must be between %d and %d\n", 0, -200);
 			return 0;
 		}
-		logmsg("\tZooming waveform to %dbfs\n", config->zoomWaveForm);
+		if(config->zoomWaveForm)
+			logmsg("\tZooming waveform from 0dbfs to %dbfs\n", config->zoomWaveForm);
+		else
+			logmsg("\tZooming waveform kept at 0dbfs\n");
 		break;
 	  case 'B':
 		config->channelBalance = 0;

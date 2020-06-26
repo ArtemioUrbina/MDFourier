@@ -4519,7 +4519,7 @@ void DrawVerticalFrameGrid(PlotFile *plot, AudioSignal *Signal, double frames, d
 	int		drawMS = 0;
 	double	x = 0, xfactor = 0, segment = 0, MaxY = config->lowestValueBitDepth, MinY = config->highestValueBitDepth;
 
-	if(config->zoomWaveForm != 0)
+	if(config->zoomWaveForm != 0.0)
 	{
 		MaxY = CalculatePCMMagnitude(config->zoomWaveForm, config->highestValueBitDepth);
 		MinY = CalculatePCMMagnitude(config->zoomWaveForm, config->lowestValueBitDepth);
