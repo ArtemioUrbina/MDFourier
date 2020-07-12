@@ -276,7 +276,7 @@ int ReportClockResults(AudioSignal *ReferenceSignal, AudioSignal *ComparisonSign
 	PrintSignalCLKData(ComparisonSignal, config);
 
 	config->centsDifferenceCLK = 1200*log2(refClk/compClk);
-	if(fabs(config->centsDifferenceCLK) >= SIG_CENTS_DIFF)
+	if(fabs(config->centsDifferenceCLK) >= MIN_CENTS_DIFF)
 	{
 		logmsg(" - Pitch difference in cents: %g\n", config->centsDifferenceCLK);
 		if(!config->doClkAdjust)
@@ -303,7 +303,7 @@ int ReportClockResults(AudioSignal *ReferenceSignal, AudioSignal *ComparisonSign
 	else
 	{
 		if(config->doClkAdjust)
-			logmsg(" - Pitch difference in cents: %g, ignoring -j\n", config->centsDifferenceCLK);
+			logmsg(" - WARNING: Ignoring -j since pitch difference in cents is: %g, \n", config->centsDifferenceCLK);
 	}
 	return 1;
 }

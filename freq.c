@@ -2847,9 +2847,10 @@ double CalculateFrameRateAndCheckSamplerate(AudioSignal *Signal, parameters *con
 
 	calculatedSamplerate = (endOffset-startOffset)/(expectedFR*LastSyncFrameOffset);
 	calculatedSamplerate = calculatedSamplerate*1000.0/Signal->AudioChannels;
-	centsDifferenceSR = 1200*log2(calculatedSamplerate/Signal->header.fmt.SamplesPerSec);
+	centsDifferenceSR = 1200.0*log2(calculatedSamplerate/Signal->header.fmt.SamplesPerSec);
 
-	if(fabs(centsDifferenceSR) >= SIG_CENTS_DIFF)
+	if((fabs(centsDifferenceSR) >= MAX_CENTS_DIFF) ||
+		 (fabs(centsDifferenceSR) && config->verbose && fabs(centsDifferenceSR) >= MIN_CENTS_DIFF))
 	{
 		if(config->doSamplerateAdjust)
 		{
@@ -2870,7 +2871,8 @@ double CalculateFrameRateAndCheckSamplerate(AudioSignal *Signal, parameters *con
 		}
 		else
 		{
-			logmsg(" - WARNING: %s file framerate difference is %g ms per frame.\n",
+			logmsg(" - %s: %s file framerate difference is %g ms per frame.\n",
+					fabs(centsDifferenceSR) >= MAX_CENTS_DIFF ? "WARNING" : "INFO",
 					getRoleText(Signal), diff);
 			logmsg(" - Estimated sample rate is off: %fhz calculated from signal length\n  The source might have a timing difference.\n", calculatedSamplerate);
 			if(config->verbose)
@@ -2878,23 +2880,30 @@ double CalculateFrameRateAndCheckSamplerate(AudioSignal *Signal, parameters *con
 				double tDiff = 0;
 
 				tDiff = fabs(expectedFR*LastSyncFrameOffset) - fabs(framerate*LastSyncFrameOffset);
-				logmsg(" - Expected %gms and got %gms (Difference is %gms/%g frames of %gms)\n", 
+				logmsg(" - Expected %gms and got %gms (Difference is %gms/%g frames of %gms/%g samples)\n", 
 					expectedFR*LastSyncFrameOffset, framerate*LastSyncFrameOffset,
 					tDiff,
-					tDiff/expectedFR, expectedFR);
+					tDiff/expectedFR, expectedFR,
+					samplerate/1000.0*tDiff);
 			}
 
-			Signal->EstimatedSR = calculatedSamplerate;
-			Signal->originalSR = Signal->header.fmt.SamplesPerSec;
+			if(fabs(centsDifferenceSR) >= MAX_CENTS_DIFF)
+			{
+				Signal->EstimatedSR = calculatedSamplerate;
+				Signal->originalSR = Signal->header.fmt.SamplesPerSec;
+			}
 		}
 		
 		logmsg(" - Pitch difference in cents: %g\n", centsDifferenceSR);
-		if(Signal->role == ROLE_REF)
-			config->RefCentsDifferenceSR = centsDifferenceSR;
-		else
-			config->ComCentsDifferenceSR = centsDifferenceSR;
-		
-		config->SRNoMatch |= Signal->role;
+		if(fabs(centsDifferenceSR) >= MAX_CENTS_DIFF)
+		{
+			if(Signal->role == ROLE_REF)
+				config->RefCentsDifferenceSR = centsDifferenceSR;
+			else
+				config->ComCentsDifferenceSR = centsDifferenceSR;
+			
+			config->SRNoMatch |= Signal->role;
+		}
 	}
 
 	return framerate;

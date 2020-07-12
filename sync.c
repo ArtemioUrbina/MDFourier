@@ -46,7 +46,8 @@
 long int DetectPulse(double *AllSamples, wav_hdr header, int role, parameters *config)
 {
 	int			maxdetected = 0, AudioChannels = 0;
-	long int	sampleOffset = 0;
+	long int	sampleOffset = 0, searchOffset = 0;
+	double		seconds = 0;
 
 	if(config->debugSync)
 		logmsgFileOnly("\nStarting Detect start pulse\n");
@@ -61,6 +62,26 @@ long int DetectPulse(double *AllSamples, wav_hdr header, int role, parameters *c
 
 		return DetectPulseSecondTry(AllSamples, header, role, config);
 	}
+
+	// Tight detect, in case of longer files
+	// start search close to the sync pulses in order to reduce
+	// false amplitude detection
+	seconds = SamplesToSeconds(header.fmt.SamplesPerSec, sampleOffset, AudioChannels);
+	if(seconds > 0.1)
+		searchOffset = sampleOffset - SecondsToSamples(header.fmt.SamplesPerSec, 0.1, AudioChannels, header.fmt.bitsPerSample/8, NULL, NULL, NULL);
+	else
+		searchOffset = sampleOffset/2;
+	searchOffset = DetectPulseInternal(AllSamples, header, FACTOR_EXPLORE, searchOffset, &maxdetected, role, AudioChannels, config);
+	if(searchOffset == -1)
+	{
+		if(config->debugSync)
+			logmsgFileOnly("First round start pulse failed\n");
+
+		return DetectPulseSecondTry(AllSamples, header, role, config);
+	}
+
+	if(config->debugSync && searchOffset != sampleOffset)
+		logmsg("WARNING: Adjusted sync offset start from %ld to %ld\n", sampleOffset/AudioChannels, searchOffset/AudioChannels);
 
 	sampleOffset = AdjustPulseSampleStart(AllSamples, header, sampleOffset, role, AudioChannels, config);
 	if(sampleOffset != -1)

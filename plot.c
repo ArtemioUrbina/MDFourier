@@ -943,7 +943,7 @@ void DrawClockData(PlotFile *plot, AudioSignal *Signal, char *msg, parameters *c
 	if(!config->clkMeasure)
 		return;
 
-	if(fabs(config->centsDifferenceCLK) >= SIG_CENTS_DIFF)
+	if(fabs(config->centsDifferenceCLK) >= MAX_CENTS_DIFF)
 		pl_pencolor_r(plot->plotter, 0xcccc, 0xcccc, 0);
 	else
 		pl_pencolor_r(plot->plotter, 0, 0xcccc, 0xcccc);
@@ -1287,22 +1287,23 @@ void DrawLabelsMDF(PlotFile *plot, char *Gname, char *GType, int type, parameter
 	if(config->doSamplerateAdjust &&
 		(config->referenceSignal->originalSR || config->comparisonSignal->originalSR))
 	{
-		if(config->referenceSignal->originalSR)
-		{
-			PLOT_WARN(1, warning++);
-			sprintf(msg, "NOTE: RF sample rate adjusted to match duration \\!=%0.2f\\ct (-R)", config->RefCentsDifferenceSR);
-			pl_alabel_r(plot->plotter, 'l', 'l', msg);
-		}
-
 		if(config->comparisonSignal->originalSR)
 		{
 			PLOT_WARN(1, warning++);
 			sprintf(msg, "NOTE: CM sample rate adjusted to match duration \\!=%0.2f\\ct (-R)", config->ComCentsDifferenceSR);
 			pl_alabel_r(plot->plotter, 'l', 'l', msg);
 		}
+
+		if(config->referenceSignal->originalSR)
+		{
+			PLOT_WARN(1, warning++);
+			sprintf(msg, "NOTE: RF sample rate adjusted to match duration \\!=%0.2f\\ct (-R)", config->RefCentsDifferenceSR);
+			pl_alabel_r(plot->plotter, 'l', 'l', msg);
+		}
 	}
 
-	if(config->clkMeasure && config->doClkAdjust && config->comparisonSignal->originalCLK)
+	if(config->clkMeasure && config->doClkAdjust && 
+		(config->referenceSignal->originalCLK || config->comparisonSignal->originalCLK))
 	{
 		PLOT_WARN(1, warning++);
 		sprintf(msg, "NOTE: %s %s clock adjusted by: %0.2f\\ct (-j)", 
@@ -1310,7 +1311,7 @@ void DrawLabelsMDF(PlotFile *plot, char *Gname, char *GType, int type, parameter
 				config->clkName, config->centsDifferenceCLK);
 		pl_alabel_r(plot->plotter, 'l', 'l', msg);
 	}
-	else if(config->clkMeasure && config->doClkAdjust && fabs(config->centsDifferenceCLK) <= SIG_CENTS_DIFF)
+	else if(config->clkMeasure && config->doClkAdjust && fabs(config->centsDifferenceCLK) <= MAX_CENTS_DIFF)
 	{
 		PLOT_WARN(1, warning++);
 		sprintf(msg, "NOTE: %s %s clock adjust ignored: %0.2f\\ct (-j)", 

@@ -116,7 +116,11 @@
 #define MAXINT32		 2147483647.0
 #define MININT32		-2147483648.0
 
-#define SIG_CENTS_DIFF 0.15
+// This value is the pitch difference at which it will be reported
+// 0.25 cents is around 7hz in a 48khz signal
+// 0.05 cents is around 2hz in a 48khz signal
+#define MAX_CENTS_DIFF 0.25  
+#define MIN_CENTS_DIFF 0.08
 
 #define BUFFER_SIZE		4096
 #define T_BUFFER_SIZE	BUFFER_SIZE*2+256

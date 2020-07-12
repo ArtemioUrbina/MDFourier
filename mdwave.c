@@ -146,26 +146,48 @@ int ExecuteMDWave(parameters *config, int discardMDW)
 	config->referenceFramerate = ReferenceSignal->framerate;
 	config->smallerFramerate = ReferenceSignal->framerate;
 
-	if(ReferenceSignal->AudioChannels == 2)
+	/* Balance check */
+	if(config->channelBalance && !config->noSyncProfile)
 	{
-		int block = NO_INDEX;
-
-		block = GetFirstMonoIndex(config);
-		if(block != NO_INDEX)
+		if(ReferenceSignal->AudioChannels == 2)
 		{
-			logmsg("\n* Comparing Stereo channel amplitude\n");
-			if(config->verbose)
-				logmsg(" - Mono block used for balance: %s# %d\n", 
-					GetBlockName(config, block), GetBlockSubIndex(config, block));
-			CheckBalance(ReferenceSignal, block, config);
-		}
-		else
-		{
-			logmsg(" - No mono block for stereo balance check\n");
+			int block = NO_INDEX;
+			char *name = NULL;
+	
+			if(config->stereoBalanceBlock)
+			{
+				block = config->stereoBalanceBlock;
+				name = GetBlockName(config, block);
+				if(!name)
+				{
+					logmsg("ERROR: Invalid Mono Balance Block %d\n", block);
+					return 0;
+				}
+			}
+			else
+			{
+				block = GetFirstMonoIndex(config);
+				logmsg("- WARNING: MonoBalanceBlock was 0, Using first Mono Block\n");
+			}
+			if(block != NO_INDEX)
+			{
+				logmsg("\n* Comparing Stereo channel amplitude\n");
+				if(config->verbose) {
+					logmsg(" - Mono block used for balance: %s# %d\n", 
+						name, GetBlockSubIndex(config, block));
+				}
+				if(CheckBalance(ReferenceSignal, block, config) == 0)
+					return 0;
+			}
+			else
+			{
+				logmsg(" - WARNING: No mono block for stereo balance check\n");
+				config->channelBalance = -1;
+			}
 		}
 	}
 
-	logmsg("* Processing Audio\n");
+	logmsg("\n* Processing Audio\n");
 	MainPath = PushMainPath(config);
 	if(!ProcessSignalMDW(ReferenceSignal, config))
 	{
