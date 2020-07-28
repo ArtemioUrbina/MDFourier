@@ -184,6 +184,7 @@ double *getWindowByLength(windowManager *wm, long int frames, long int cutFrames
 		}
 	}
 
+	//logmsg("Creating window %ld zero:%ld (%ld frames %ld cut frames %g fr)\n", size, sizePadding, frames, cutFrames, framerate);
 	return CreateWindow(wm, frames, cutFrames, framerate, config);
 }
 

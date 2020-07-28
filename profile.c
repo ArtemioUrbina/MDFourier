@@ -121,7 +121,7 @@ int CheckSyncFormats(parameters *config)
 	if(config->noSyncProfile && !config->types.syncCount)
 		return 1;
 
-	if(config->videoFormatRef < 0|| config->videoFormatRef >= config->types.syncCount)
+	if(config->videoFormatRef < 0 || config->videoFormatRef >= config->types.syncCount)
 	{
 		logmsg("\tERROR: Invalid format '%d' for Reference, profile defines %d types\n\t[", 
 				config->videoFormatRef, config->types.syncCount);
@@ -630,6 +630,9 @@ int LoadAudioNoSyncProfile(FILE *file, parameters *config)
 		case NO_SYNC_MANUAL_C:
 			config->noSyncProfileType = NO_SYNC_MANUAL;
 			break;
+		case NO_SYNC_DIGITAL_C:
+			config->noSyncProfileType = NO_SYNC_DIGITAL;
+			break;
 		default:
 			logmsg("ERROR: Invalid Free profile type '%c'. Use '%c' or '%c'\n", 
 				type, NO_SYNC_AUTO_C, NO_SYNC_MANUAL_C);
@@ -658,6 +661,8 @@ int LoadAudioNoSyncProfile(FILE *file, parameters *config)
 
 	for(int i = 0; i < config->types.typeCount; i++)
 	{
+		char type = 0;
+
 		readLine(lineBuffer, file);
 		if(sscanf(lineBuffer, "%128s ", config->types.typeArray[i].typeName) != 1)
 		{
@@ -667,22 +672,76 @@ int LoadAudioNoSyncProfile(FILE *file, parameters *config)
 		}
 		CleanName(config->types.typeArray[i].typeName, config->types.typeArray[i].typeDisplayName);
 
-		if(sscanf(lineBuffer, "%*s %d ", &config->types.typeArray[i].type) != 1)
+		if(sscanf(lineBuffer, "%*s %c ", &type) != 1)
 		{
-			logmsg("ERROR: Invalid MD Fourier Block ID\n", config->types.typeArray[i].type);
+			logmsg("ERROR: Invalid Block Type %s\n", lineBuffer);
 			fclose(file);
 			return 0;
 		}
-	
-		if(sscanf(lineBuffer, "%*s %*s %d %d %s %c\n", 
-			&config->types.typeArray[i].elementCount,
-			&config->types.typeArray[i].frames,
-			&config->types.typeArray[i].color [0],
-			&config->types.typeArray[i].channel) != 4)
+
+		switch(type)
 		{
-			logmsg("ERROR: Invalid MD Fourier Audio Blocks File (Element Count, frames, color, channel): %s\n", lineBuffer);
-			fclose(file);
-			return 0;
+			case TYPE_SILENCE_C:
+				config->types.typeArray[i].type = TYPE_SILENCE;
+				break;
+			case TYPE_SKIP_C:
+				config->types.typeArray[i].type = TYPE_SKIP;
+				break;
+			case TYPE_TIMEDOMAIN_C:
+				config->types.typeArray[i].type = TYPE_TIMEDOMAIN;
+				config->hasTimeDomain++;
+				break;
+			case TYPE_SILENCE_OVER_C:
+				config->types.typeArray[i].type = TYPE_SILENCE_OVERRIDE;
+				break;
+			case TYPE_WATERMARK_C:
+				config->types.typeArray[i].type = TYPE_WATERMARK;
+				config->types.useWatermark = 1;
+				break;
+			default:
+				if(sscanf(lineBuffer, "%*s %d ", &config->types.typeArray[i].type) != 1)
+				{
+					logmsg("ERROR: Invalid MD Fourier Block ID %d\n%s", config->types.typeArray[i].type, lineBuffer);
+					fclose(file);
+					return 0;
+				}
+				break;
+		}
+		
+		if(config->types.typeArray[i].type == TYPE_WATERMARK)
+		{
+			if(sscanf(lineBuffer, "%*s %*s %d %d %20s %c %d %d %128s\n", 
+				&config->types.typeArray[i].elementCount,
+				&config->types.typeArray[i].frames,
+				&config->types.typeArray[i].color[0],
+				&config->types.typeArray[i].channel,
+				&config->types.watermarkValidFreq,
+				&config->types.watermarkInvalidFreq,
+				config->types.watermarkDisplayName) != 7)
+			{
+				logmsg("ERROR: Invalid MD Fourier Audio Blocks File (Element Count, frames, color, channel, WMValid, WMFail, Name): %s\n", lineBuffer);
+				fclose(file);
+				return 0;
+			}
+
+			if(!config->types.watermarkValidFreq || !config->types.watermarkInvalidFreq)
+			{
+				logmsg("ERROR: Invalid Watermark values: %s\n", lineBuffer);
+				return 0;
+			}
+		}
+		else
+		{
+			if(sscanf(lineBuffer, "%*s %*s %d %d %s %c\n", 
+				&config->types.typeArray[i].elementCount,
+				&config->types.typeArray[i].frames,
+				&config->types.typeArray[i].color [0],
+				&config->types.typeArray[i].channel) != 4)
+			{
+				logmsg("ERROR: Invalid MD Fourier Audio Blocks File (Element Count, frames, color, channel): %s\n", lineBuffer);
+				fclose(file);
+				return 0;
+			}
 		}
 
 		if(!config->types.typeArray[i].elementCount)

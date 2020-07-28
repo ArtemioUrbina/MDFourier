@@ -1332,7 +1332,7 @@ void DrawLabelsMDF(PlotFile *plot, char *Gname, char *GType, int type, parameter
 	{
 		PLOT_WARN(1, warning++);
 		sprintf(msg, "WARNING: No sync profile [%s], PLEASE DISREGARD", 
-					config->noSyncProfileType == NO_SYNC_AUTO ? "Auto" : "Manual");
+					config->noSyncProfileType == NO_SYNC_AUTO ? "Auto" : config->noSyncProfileType == NO_SYNC_MANUAL ? "Manual" : "Digital Zero");
 		pl_alabel_r(plot->plotter, 'l', 'l', msg);
 	}
 

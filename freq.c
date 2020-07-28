@@ -1115,7 +1115,7 @@ long int GetSecondSyncSilenceSampleOffset(double framerate, wav_hdr header, int 
 	int silence_count = 0, i = 0, firstsyncfound = 0;
 
 	if(!config)
-		return NO_INDEX;
+		return 0;
 
 	for(i = 0; i < config->types.typeCount; i++)
 	{

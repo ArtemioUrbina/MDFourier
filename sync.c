@@ -165,7 +165,13 @@ long int DetectEndPulse(double *AllSamples, long int startpulse, wav_hdr header,
 	else
 		factor = FACTOR_EXPLORE;
 	/* Try a clean detection */
-	sampleOffset = GetSecondSyncSilenceSampleOffset(GetMSPerFrameRole(role, config), header, 0, 1, config) + startpulse;
+	sampleOffset = GetSecondSyncSilenceSampleOffset(GetMSPerFrameRole(role, config), header, 0, 1, config);
+	if(!sampleOffset)
+	{
+		logmsg("ERROR: Invalid profile, Closing sync has no pre-silence block\n");
+		return -1;
+	}
+	sampleOffset += startpulse;
 	if(config->debugSync)
 		logmsgFileOnly("\nStarting CLEAN Detect end pulse with sample offset %ld\n", SamplesForDisplay(sampleOffset, AudioChannels));
 	sampleOffset = DetectPulseInternal(AllSamples, header, factor, sampleOffset, &maxdetected, role, AudioChannels, config);
@@ -675,8 +681,8 @@ long int DetectPulseInternal(double *Samples, wav_hdr header, int factor, long i
 		TotalMS = i+syncLen;
 
 		if(config->debugSync)
-			logmsgFileOnly("changed to:\n\tSamplesBufferSize: %ld, Samples:%ld-%ld/ms:%ld-%ld]\n\tms len: %g Bytes: %g Factor: %d\n", 
-				sampleBufferSize, i*factor, TotalMS*factor, i, TotalMS,
+			logmsgFileOnly("Started detecting with offet %ld. Changed to:\n\tSamplesBufferSize: %ld, Samples:%ld-%ld/ms:%ld-%ld]\n\tms len: %g Bytes: %g Factor: %d\n", 
+				offset/AudioChannels, sampleBufferSize, i*factor, TotalMS*factor, i, TotalMS,
 				syncLen, syncLen/factor, factor);
 	}
 	else

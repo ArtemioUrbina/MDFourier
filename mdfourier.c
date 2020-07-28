@@ -409,7 +409,7 @@ int FrequencyDomainNormalize(AudioSignal **ReferenceSignal, AudioSignal **Compar
 		MaxRef.channel != MaxTar.channel && 
 		fabs(ratiodBFS) > STEREO_TOLERANCE_REPORT)
 	{
-		logmsg(" - WARNING: Left and right channels might be reversed or converted from mono to stereo");
+		//logmsg(" - WARNING: Left and right channels might be reversed or converted from mono to stereo");
 		if(config->verbose)
 			logmsg(" %g/%g", fabs(ratiodBFS), STEREO_TOLERANCE_REPORT);
 		logmsg("\n");

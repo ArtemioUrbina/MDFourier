@@ -48,7 +48,7 @@
 
 #include "incbeta.h"
 
-#define MDVERSION "1.03"
+#define MDVERSION "1.03rcb"
 
 #if INTPTR_MAX == INT64_MAX
 #define	BITS_MDF "64-bit"
@@ -140,9 +140,11 @@
 
 #define NO_SYNC_AUTO_C		'A'
 #define NO_SYNC_MANUAL_C	'M'
+#define NO_SYNC_DIGITAL_C	'D'
 
 #define NO_SYNC_AUTO		0
 #define NO_SYNC_MANUAL		1
+#define NO_SYNC_DIGITAL		2
 
 #define	INVALID_CHANNELS	-1
 

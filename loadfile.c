@@ -213,6 +213,37 @@ int LoadWAVFile(FILE *file, AudioSignal *Signal, parameters *config, char *fileN
 			fseek(file, -1*(long int)sizeof(sub_chunk), SEEK_CUR);
 			found = 1;
 		}
+
+		// Read Toal Fact if available
+		if(Signal->header.fmt.AudioFormat == WAVE_FORMAT_EXTENSIBLE)
+		{
+			if(strncmp((char*)schunk.chunkID, "fact", 4) == 0)
+			{
+				// rewind the block and read it later
+				fseek(file, -1*(long int)(sizeof(sub_chunk)+schunk.Size*sizeof(uint8_t)), SEEK_CUR);
+
+				// fact chunk read
+				bytesRead = fread(&Signal->fact, 1, sizeof(fact_ck), file);
+				if(bytesRead == sizeof(fact_ck))
+					Signal->factExists = 1;
+				else
+					logmsg("\tWARNING: Extensible wave requires a fact chunk. Using header data.\n");
+		
+				if(Signal->fmtType == FMT_TYPE_3_SIZE)  // cautious
+				{
+					fmt_hdr_ext2 *fmt_ext = NULL;
+		
+					fmt_ext = (fmt_hdr_ext2*)Signal->fmtExtra;
+					if(fmt_ext->wValidBitsPerSample != Signal->header.fmt.bitsPerSample)
+						logmsg("\tWARNING: Extensible wave bits per sample differ from header bits per sample.\n");
+					if(fmt_ext->formatCode != WAVE_FORMAT_PCM && fmt_ext->formatCode != WAVE_FORMAT_IEEE_FLOAT)
+					{
+						logmsg("\tERROR: Only 16/24/32bit PCM or 32 bit IEEE float supported.\n\tPlease convert file sample format.\n");
+						return 0;
+					}
+				}
+			}
+		}
 	}while(!found);
 
 	if(fread(&Signal->header.data, 1, sizeof(data_hdr), file) != sizeof(data_hdr))
@@ -260,6 +291,12 @@ int LoadWAVFile(FILE *file, AudioSignal *Signal, parameters *config, char *fileN
 	Signal->bytesPerSample = Signal->header.fmt.bitsPerSample/8;
 	Signal->numSamples = Signal->header.data.DataSize/Signal->bytesPerSample;
 
+	if(Signal->factExists) // cautious with IEEE float format
+	{
+		if(Signal->fact.dwSampleLength*Signal->AudioChannels != Signal->numSamples)
+			logmsg("\tWARNING: Header byte count and fact chunk sample count are not consistent\n");
+	}
+
 	byteOffset = ftell(file);
 	Signal->SamplesStart = byteOffset;
 
@@ -279,34 +316,6 @@ int LoadWAVFile(FILE *file, AudioSignal *Signal, parameters *config, char *fileN
 		logmsg("\tERROR: Corrupt RIFF Header\n\tCould not read the whole sample block from disk to RAM.\n\tBytes Read: %ld Expected: %ld\n",
 			bytesRead, sizeof(int8_t)*Signal->header.data.DataSize);
 		return(0);
-	}
-
-	// Read fact if available
-	if(Signal->header.fmt.AudioFormat == WAVE_FORMAT_EXTENSIBLE)
-	{
-		// fact chunk read fine
-		if(fread(&Signal->fact, 1, sizeof(fact_ck), file) == sizeof(fact_ck))
-		{
-			Signal->factExists = 1;
-			if(Signal->fact.dwSampleLength*Signal->AudioChannels != Signal->numSamples)
-				logmsg("\tWARNING: Header byte count and fact chunk sample count are not consistent\n");
-		}
-		else
-			logmsg("\tWARNING: Extensible wave requires a fact chunk. Using header data.\n");
-
-		if(Signal->fmtType == FMT_TYPE_3_SIZE)  // cautious
-		{
-			fmt_hdr_ext2 *fmt_ext = NULL;
-
-			fmt_ext = (fmt_hdr_ext2*)Signal->fmtExtra;
-			if(fmt_ext->wValidBitsPerSample != Signal->header.fmt.bitsPerSample)
-				logmsg("\tWARNING: Extensible wave bits per sample differ from header bits per sample.\n");
-			if(fmt_ext->formatCode != WAVE_FORMAT_PCM)
-			{
-				logmsg("\tERROR: Only 16/24/32bit PCM or 32 bit IEEE float supported.\n\tPlease convert file sample format.\n");
-				return 0;
-			}
-		}
 	}
 
 	// Convert samples to internal 32bit ones
@@ -420,7 +429,7 @@ int DetectSync(AudioSignal *Signal, parameters *config)
 				format = config->videoFormatCom;
 			if(!config->syncTolerance)
 				logmsg(" - You can try using -T for a frequency tolerant pulse detection algorithm\n");
-			if(format != 0 || config->smallFile)
+			if((format != 0 || config->smallFile) && config->types.syncCount != 1)
 				logmsg(" - This signal is configured as '%s'%s, check if that is not the issue.\n", 
 							config->types.SyncFormat[format].syncName, config->smallFile ? " and is smaller than expected" : "");
 			if(config->trimmingNeeded)
@@ -583,6 +592,53 @@ int DetectSync(AudioSignal *Signal, parameters *config)
 						return 0;
 				}
 			}
+			break;
+			case NO_SYNC_DIGITAL:
+			{
+				/* Find the start offset based on zeroes */
+				int					found = 0;
+				long int			i = 0, startOffset = -1;
+				
+				logmsg(" - Detecting audio signal from pure digital source recording: ");
+				
+				for(i = 0; i < Signal->numSamples; i += Signal->AudioChannels)
+				{
+					int ac =0;
+
+					for(ac = 0; ac < Signal->AudioChannels; ac++)
+					{
+						if(Signal->Samples[i+ac] != 0)
+						{
+							startOffset = i;
+							found = 1;
+							break;
+						}
+					}
+					if(found)
+						break;
+				}
+				Signal->startOffset = startOffset;
+				if(Signal->startOffset == -1)
+				{
+					logmsg("\nERROR: Starting position was not detected.\n");
+					return 0;
+				}
+		
+				logmsg("\n\t   %gs [%ld samples", 
+					SamplesToSeconds(Signal->header.fmt.SamplesPerSec, Signal->startOffset, Signal->AudioChannels),
+					SamplesForDisplay(Signal->startOffset, Signal->AudioChannels));
+				if(!IsFlac(Signal->SourceFile))
+					logmsg("|%ld bytes|%ld bytes/head", 
+						SamplesToBytes(Signal->startOffset, Signal->bytesPerSample),
+						SamplesToBytes(Signal->startOffset, Signal->bytesPerSample)+Signal->SamplesStart);
+				logmsg("]\n");
+
+				Signal->endOffset = SecondsToSamples(Signal->header.fmt.SamplesPerSec, 
+										GetSignalTotalDuration(Signal->framerate, config), 
+										Signal->AudioChannels, Signal->bytesPerSample,
+										NULL, NULL, NULL);
+			}
+			config->significantAmplitude = -90;
 			break;
 			default:
 			{
