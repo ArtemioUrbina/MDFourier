@@ -241,6 +241,8 @@ void CleanParameters(parameters *config)
 	config->clkBlock = NO_CLK;
 	config->clkFreq = 0;
 	config->clkRatio = 0;
+	config->clkNotFound = 0;
+	config->clkWarning = 0;
 
 	config->doSamplerateAdjust = 0;
 	config->doClkAdjust = 0;

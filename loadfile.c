@@ -108,6 +108,33 @@ void ConvertByteArrayToIEEESample(const void *buf, void *target)
 	t[3] = b[3];
 }
 
+int CheckFactChunk(FILE *file, AudioSignal *Signal)
+{
+	size_t				bytesRead = 0;
+
+	bytesRead = fread(&Signal->fact, 1, sizeof(fact_ck), file);
+	if(bytesRead == sizeof(fact_ck))
+		Signal->factExists = 1;
+	else
+		logmsg("\tWARNING: Extensible wave requires a fact chunk. Using header data.\n");
+
+	if(Signal->fmtType == FMT_TYPE_3_SIZE)  // cautious
+	{
+		fmt_hdr_ext2 *fmt_ext = NULL;
+
+		fmt_ext = (fmt_hdr_ext2*)Signal->fmtExtra;
+		if(fmt_ext->wValidBitsPerSample != Signal->header.fmt.bitsPerSample)
+			logmsg("\tWARNING: Extensible wave bits per sample differ from header bits per sample.\n");
+		if(fmt_ext->formatCode != WAVE_FORMAT_PCM && fmt_ext->formatCode != WAVE_FORMAT_IEEE_FLOAT)
+		{
+			logmsg("\tERROR: Only 16/24/32bit PCM or 32 bit IEEE float supported. (fact chunk)\n\tPlease convert file sample format.\n");
+			return 0;
+		}
+		Signal->header.fmt.AudioFormat = fmt_ext->formatCode;
+	}
+	return 1;
+}
+
 int LoadWAVFile(FILE *file, AudioSignal *Signal, parameters *config, char *fileName)
 {
 	int					found = 0, samplesLoaded = 0;
@@ -219,29 +246,12 @@ int LoadWAVFile(FILE *file, AudioSignal *Signal, parameters *config, char *fileN
 		{
 			if(strncmp((char*)schunk.chunkID, "fact", 4) == 0)
 			{
-				// rewind the block and read it later
+				// rewind the block and read it
 				fseek(file, -1*(long int)(sizeof(sub_chunk)+schunk.Size*sizeof(uint8_t)), SEEK_CUR);
 
 				// fact chunk read
-				bytesRead = fread(&Signal->fact, 1, sizeof(fact_ck), file);
-				if(bytesRead == sizeof(fact_ck))
-					Signal->factExists = 1;
-				else
-					logmsg("\tWARNING: Extensible wave requires a fact chunk. Using header data.\n");
-		
-				if(Signal->fmtType == FMT_TYPE_3_SIZE)  // cautious
-				{
-					fmt_hdr_ext2 *fmt_ext = NULL;
-		
-					fmt_ext = (fmt_hdr_ext2*)Signal->fmtExtra;
-					if(fmt_ext->wValidBitsPerSample != Signal->header.fmt.bitsPerSample)
-						logmsg("\tWARNING: Extensible wave bits per sample differ from header bits per sample.\n");
-					if(fmt_ext->formatCode != WAVE_FORMAT_PCM && fmt_ext->formatCode != WAVE_FORMAT_IEEE_FLOAT)
-					{
-						logmsg("\tERROR: Only 16/24/32bit PCM or 32 bit IEEE float supported.\n\tPlease convert file sample format.\n");
-						return 0;
-					}
-				}
+				if(!CheckFactChunk(file, Signal))
+					return 0;
 			}
 		}
 	}while(!found);
@@ -249,14 +259,6 @@ int LoadWAVFile(FILE *file, AudioSignal *Signal, parameters *config, char *fileN
 	if(fread(&Signal->header.data, 1, sizeof(data_hdr), file) != sizeof(data_hdr))
 	{
 		logmsg("\tERROR: Invalid Audio file. File too small. 5\n");
-		return(0);
-	}
-
-	if(Signal->header.fmt.AudioFormat != WAVE_FORMAT_PCM && /* Check for PCM */
-		Signal->header.fmt.AudioFormat != WAVE_FORMAT_EXTENSIBLE && 
-		Signal->header.fmt.AudioFormat != WAVE_FORMAT_IEEE_FLOAT)
-	{
-		logmsg("\tERROR: Only 16/24/32bit PCM or 32 bit IEEE float supported.\n\tPlease convert file sample format.\n");
 		return(0);
 	}
 
@@ -318,6 +320,19 @@ int LoadWAVFile(FILE *file, AudioSignal *Signal, parameters *config, char *fileN
 		return(0);
 	}
 
+	if(Signal->header.fmt.AudioFormat == WAVE_FORMAT_EXTENSIBLE)
+	{
+		if(!CheckFactChunk(file, Signal))
+			return 0;
+	}
+
+	if(Signal->header.fmt.AudioFormat != WAVE_FORMAT_PCM && /* If fact didn't remove EXTENSIBLE... */
+		Signal->header.fmt.AudioFormat != WAVE_FORMAT_IEEE_FLOAT)
+	{
+		logmsg("\tERROR: Only 16/24/32bit PCM or 32 bit IEEE float supported.\n\tPlease convert file sample format.\n");
+		return(0);
+	}
+
 	// Convert samples to internal 32bit ones
 	Signal->Samples = (double*)malloc(sizeof(double)*Signal->numSamples);
 	if(!Signal->Samples)
@@ -329,7 +344,7 @@ int LoadWAVFile(FILE *file, AudioSignal *Signal, parameters *config, char *fileN
 	memset(Signal->Samples, 0, sizeof(double)*Signal->numSamples);
 
 	// no endianess considerations, PCM in RIFF is little endian and this code is little endian
-	if(Signal->header.fmt.AudioFormat == WAVE_FORMAT_PCM || Signal->header.fmt.AudioFormat == WAVE_FORMAT_EXTENSIBLE)
+	if(Signal->header.fmt.AudioFormat == WAVE_FORMAT_PCM)
 	{
 		for(samplePos = 0; samplePos < Signal->numSamples; samplePos++)
 		{

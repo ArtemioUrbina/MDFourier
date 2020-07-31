@@ -1400,6 +1400,24 @@ void DrawLabelsMDF(PlotFile *plot, char *Gname, char *GType, int type, parameter
 		pl_alabel_r(plot->plotter, 'l', 'l', "WARNING: L/R Channels might be reversed (or mono)");
 	}
 
+	if(config->clkWarning)
+	{
+		PLOT_WARN(1, warning++);
+		sprintf(msg, "WARNING: %s %s noise/harmonics in the clk block", 
+			config->stereoNotFound == ROLE_REF ? "Reference" : config->stereoNotFound == ROLE_COMP ? "Comparison" : "Both files",
+			(config->stereoNotFound == ROLE_REF || config->stereoNotFound == ROLE_COMP) ? "has" : "have");
+		pl_alabel_r(plot->plotter, 'l', 'l', msg);
+	}
+
+	if(config->clkNotFound)
+	{
+		PLOT_WARN(1, warning++);
+		sprintf(msg, "WARNING: %s clk could not be detected", 
+			config->stereoNotFound == ROLE_REF ? "Reference" : config->stereoNotFound == ROLE_COMP ? "Comparison" : "Both files");
+		pl_alabel_r(plot->plotter, 'l', 'l', msg);
+	}
+
+
 	if(config->SRNoMatch && !config->doSamplerateAdjust)
 	{
 		double labelwidth = 0;

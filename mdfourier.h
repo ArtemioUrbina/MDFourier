@@ -185,7 +185,7 @@
 #define	MAX_SYNC		10
 
 #define	FREQDOMTRIES	10
-#define	FREQDOMRATIO	-20.0  // dBFS
+#define	FREQDOMRATIO	-30.0  // dBFS
 
 #define	DELAYCOUNT		10
 
@@ -636,6 +636,8 @@ typedef struct parameters_st {
 	int			clkBlock;
 	int			clkFreq;
 	int			clkRatio;
+	int			clkNotFound;
+	int			clkWarning;
 
 	int			doClkAdjust;
 	int			doSamplerateAdjust;

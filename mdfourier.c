@@ -242,18 +242,28 @@ void PrintSignalCLKData(AudioSignal *Signal, parameters *config)
 	if(Signal->EstimatedSR)
 	{
 		if(!config->doSamplerateAdjust)
-			logmsg(", WARNING: sample rate estimated at %gHz from signal length (can be auto matched with -R)",
+			logmsg(", WARNING: %s sample rate estimated at %gHz from signal length (can be auto matched with -R)",
+				Signal->role == ROLE_REF ? "Reference" : "Comparison",
 				Signal->EstimatedSR);
 		else
 		{
 			if(Signal->originalSR)
 			{
-				logmsg(" [adjusted from %dHz]", 
+				logmsg(" [Sample rate adjusted %dHz->%gHz with -R]", 
 					Signal->originalSR, Signal->EstimatedSR);
 			}
 		}
 	}
+
 	logmsg("\n");
+
+	if(config->clkWarning & Signal->role)
+		logmsg("WARNING: %s has noise or higher harmonics than the fundamental in the clock block.\n",
+			Signal->role == ROLE_REF ? "Reference" : "Comparison");
+
+	if(config->clkNotFound & Signal->role)
+		logmsg("WARNING: %s clock frequency not found within tolerance. Using highest value.\n",
+			Signal->role == ROLE_REF ? "Reference" : "Comparison");
 }
 
 int ReportClockResults(AudioSignal *ReferenceSignal, AudioSignal *ComparisonSignal, parameters *config)
@@ -281,6 +291,9 @@ int ReportClockResults(AudioSignal *ReferenceSignal, AudioSignal *ComparisonSign
 		logmsg(" - Pitch difference in cents: %g\n", config->centsDifferenceCLK);
 		if(!config->doClkAdjust)
 		{
+			/*
+			int reportOption = 0;
+
 			if(config->RefCentsDifferenceSR || config->ComCentsDifferenceSR)
 			{
 				double diff = 0;
@@ -290,20 +303,24 @@ int ReportClockResults(AudioSignal *ReferenceSignal, AudioSignal *ComparisonSign
 				else
 					diff = fabs(config->ComCentsDifferenceSR - config->centsDifferenceCLK);
 				if(diff >= 5) // Same issue between both, reported above
-					logmsg(" - WARNING: Clocks don't match, results may vary considerably. Can adjust with -j\n");
+					reportOption = 1;
 				else if(diff >= 1)
-					logmsg(" - WARNING: Clocks don't match, results will show differences. Can adjust with -j\n");
+					reportOption = 1;
 			}
 			else
-				logmsg(" - WARNING: Clocks don't match, results may vary considerably. Can adjust with -j\n");
+				reportOption = 1;
 			config->diffClkNoMatch = 1;
+
+			if(reportOption)
+			*/
+				logmsg(" - WARNING: Clocks don't match, results may vary considerably. Can adjust with -j\n");
 		}
 		return 0;
 	}
 	else
 	{
 		if(config->doClkAdjust)
-			logmsg(" - WARNING: Ignoring -j since pitch difference in cents is: %g, \n", config->centsDifferenceCLK);
+			logmsg(" - WARNING: Ignoring -j since pitch difference in cents is: %g\n", config->centsDifferenceCLK);
 	}
 	return 1;
 }
@@ -501,10 +518,10 @@ int FrequencyDomainNormalize(AudioSignal **ReferenceSignal, AudioSignal **Compar
 
 	if(!ComparisonLocalMaximum || !ratioRef)
 	{
+		logmsg("ERROR: Could not detect Local Maximum in 'Comparison' file for normalization\n");
+		logmsgFileOnly("ComparisonLocalMaximum %g ratioRef %g\n", ComparisonLocalMaximum, ratioRef);
 		PrintFrequenciesWMagnitudes(*ReferenceSignal, config);
 		PrintFrequenciesWMagnitudes(*ComparisonSignal, config);
-
-		logmsg("ERROR: Could not detect Local Maximum in 'Comparison' file for normalization\n");
 		return 0;
 	}
 
@@ -1131,7 +1148,7 @@ double RecalculateFrameRateAndSamplerateComp(AudioSignal *ReferenceSignal, Audio
 
 	refCLK = CalculateClk(ReferenceSignal, config);
 	compCLK = CalculateClk(ComparisonSignal, config);
-
+	
 	if(refCLK < compCLK)
 	{
 		changedSignal = ComparisonSignal;
@@ -1948,7 +1965,7 @@ void ProcessWaveformsByBlock(AudioSignal *SignalToModify, AudioSignal *FixedSign
 			scaleRatio = CalculatePCMMagnitude(-3.0, config->highestValueBitDepth)/MaxSampleFixed;
 		
 		if(config->verbose) {
-			logmsg(" - Scale factor to reach -3dBFS: %g\n", fabs(1.0 - scaleRatio) > 0.001 ? scaleRatio : 1.0);
+			logmsg(" - Scale factor to reach -3dBFS in waveforms: %g\n", fabs(1.0 - scaleRatio) > 0.001 ? scaleRatio : 1.0);
 		}
 
 		if(fabs(1.0 - scaleRatio) > 0.001)

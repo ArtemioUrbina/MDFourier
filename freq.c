@@ -3022,13 +3022,36 @@ double getMSPerFrameInternal(int role, parameters *config)
 
 double CalculateClk(AudioSignal *Signal, parameters *config)
 {
+	int i = 0, highestWithinRange = -1;
+	double target = 0;
+
 	if(!config->clkMeasure)
 		return 0;
 
 	if(!Signal || !Signal->clkFrequencies.freq)
 		return 0;
 
-	return Signal->clkFrequencies.freq[0].hertz * (double)config->clkRatio;
+	// Discard harmonics in the clock, we use 5% tolerance
+	target = config->clkFreq * config->clkRatio;
+	for(i = 0; i < config->MaxFreq; i++)
+	{
+		if(fabs(Signal->clkFrequencies.freq[i].hertz*config->clkRatio - target) < 0.05*target)
+		{
+			highestWithinRange = i;
+			break;
+		}
+	}
+
+	// Not found
+	if(highestWithinRange == -1)
+	{
+		config->clkNotFound |= Signal->role;
+		return Signal->clkFrequencies.freq[0].hertz * (double)config->clkRatio;
+	}
+	if(highestWithinRange != 0)
+		config->clkWarning |= Signal->role;
+
+	return Signal->clkFrequencies.freq[highestWithinRange].hertz * (double)config->clkRatio;
 }
 
 char GetTypeProfileName(int type)
