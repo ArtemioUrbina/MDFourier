@@ -36,7 +36,7 @@
 
 #define	PROFILE_VER		2.3
 
-#define readLine(buffer, file) if(fgets(buffer, LINE_BUFFER_SIZE, file) == NULL) { 	logmsg("Invalid Profile file (File ended prematurely)\n");	return 0;	} else { 	buffer[strcspn(buffer, "\r\n")] = '\0'; }
+#define readLine(buffer, file) if(fgets(buffer, LINE_BUFFER_SIZE, file) == NULL) { logmsg("Invalid Profile file (File ended prematurely)\n"); return 0; } else { int i = 0; for(i = 0; i < LINE_BUFFER_SIZE; i++) { if(buffer[i] == '\r' || buffer[i] == '\n' || buffer[i] == '\0') { buffer[i] = '\0'; break; } } }
 int LoadProfile(parameters *config);
 int EndProfileLoad(parameters *config);
 

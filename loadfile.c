@@ -305,7 +305,7 @@ int LoadWAVFile(FILE *file, AudioSignal *Signal, parameters *config, char *fileN
 	fileBytes = (uint8_t*)malloc(sizeof(uint8_t)*Signal->header.data.DataSize);
 	if(!fileBytes)
 	{
-		logmsg("\tERROR: All Chunks malloc failed!\n");
+		logmsg("\tERROR: All Chunks malloc failed! [Signal->header.data.DataSize]\n");
 		return(0);
 	}
 
@@ -333,12 +333,12 @@ int LoadWAVFile(FILE *file, AudioSignal *Signal, parameters *config, char *fileN
 		return(0);
 	}
 
-	// Convert samples to internal 32bit ones
+	// Convert samples to internal double ones
 	Signal->Samples = (double*)malloc(sizeof(double)*Signal->numSamples);
 	if(!Signal->Samples)
 	{
 		free(fileBytes);
-		logmsg("\tERROR: Internal sample array malloc failed!\n");
+		logmsg("\tERROR: Internal sample array malloc failed! [Signal->numSamples]\n");
 		return(0);
 	}
 	memset(Signal->Samples, 0, sizeof(double)*Signal->numSamples);
@@ -755,7 +755,7 @@ int MoveSampleBlockInternal(AudioSignal *Signal, long int element, long int pos,
 	sampleBuffer = (double*)malloc(sizeof(double)*signalLengthSamples);
 	if(!sampleBuffer)
 	{
-		logmsg("\tERROR: Out of memory.\n");
+		logmsg("\tERROR: Out of memory [signalLengthSamples]\n");
 		return 0;
 	}
 
@@ -818,7 +818,7 @@ int MoveSampleBlockExternal(AudioSignal *Signal, long int element, long int pos,
 	sampleBuffer = (double*)malloc(sizeof(double)*signalLengthSamples);
 	if(!sampleBuffer)
 	{
-		logmsg("\tERROR: Out of memory while performing internal Sync adjustments.\n");
+		logmsg("\tERROR: Out of memory while performing internal Sync adjustments. [signalLengthSamples]\n");
 		return 0;
 	}
 	memset(sampleBuffer, 0, sizeof(double)*signalLengthSamples);
@@ -1087,7 +1087,7 @@ int CopySamplesForTimeDomainPlotInternalSync(AudioBlocks *AudioArray, double *sa
 	signal = (double*)malloc(sizeof(double)*(monoSignalSize+1));
 	if(!signal)
 	{
-		logmsg("Not enough memory\n");
+		logmsg("Not enough memory [monoSignalSize]\n");
 		return(0);
 	}
 	memset(signal, 0, sizeof(double)*(monoSignalSize+1));
@@ -1097,7 +1097,7 @@ int CopySamplesForTimeDomainPlotInternalSync(AudioBlocks *AudioArray, double *sa
 		window_samples = (double*)malloc(sizeof(double)*(monoSignalSize+1));
 		if(!window_samples)
 		{
-			logmsg("Not enough memory\n");
+			logmsg("Not enough memory [window_samples]\n");
 			return(0);
 		}
 		memset(window_samples, 0, sizeof(double)*(monoSignalSize+1));
