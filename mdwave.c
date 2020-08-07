@@ -801,7 +801,7 @@ int ExecuteDFFTInternal(AudioBlocks *AudioArray, double *samples, long int size,
 				samples[i*AudioChannels+1] = value;
 		}
 
-		//logmsg("Blanked frequencies were %ld from %ld\n", blanked, monoSignalSize/2);
+		//logmsg("Blanked %ld frequencies from a total of %ld\n", blanked, monoSignalSize/2);
 		if(blanked > config->maxBlanked)
 			config->maxBlanked = blanked;
 		fftw_free(spectrum);
@@ -861,7 +861,7 @@ int commandline_wave(int argc , char *argv[], parameters *config)
 		break;
 	  case 's':
 		config->startHz = atof(optarg);
-		if(config->startHz < 1.0 || config->startHz > END_HZ-100.0)
+		if(config->startHz < 1.0 || config->startHz > MAX_HZ-100.0)
 		{
 			logmsg("-ERROR: Requested %g start frequency is out of range\n", atof(optarg));
 			return 0;
@@ -889,6 +889,7 @@ int commandline_wave(int argc , char *argv[], parameters *config)
 			logmsg("-ERROR: Number fo frequencies must be between %d and %d\n", 1, MAX_FREQ_COUNT);
 			return 0;
 		}
+		break;
 	  case 'p':
 		config->significantAmplitude = atof(optarg);
 		if(config->significantAmplitude == 0)

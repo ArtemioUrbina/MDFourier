@@ -498,7 +498,7 @@ int commandline(int argc , char *argv[], parameters *config)
 		break;
 	  case 's':
 		config->startHz = atof(optarg);
-		if(config->startHz < 1.0 || config->startHz > END_HZ-100.0)
+		if(config->startHz < 1.0 || config->startHz > MAX_HZ-100.0)
 		{
 			logmsg(" - ERROR: Requested %g start frequency is out of range\n", atof(optarg));
 			return 0;

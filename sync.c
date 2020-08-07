@@ -921,7 +921,8 @@ long int DetectSignalStart(double *AllSamples, wav_hdr header, long int offset, 
 	return position;
 }
 
-//#define DEBUG_SYNC_INTERNAL_TOLERANCE
+// amount of full length pulses to use
+#define MIN_LEN 4
 long int DetectSignalStartInternal(double *Samples, wav_hdr header, int factor, long int offset, int syncKnown, long int expectedSyncLen, int *maxdetected, long int *endPulse, int AudioChannels, int *toleranceIssue, parameters *config)
 {
 	int					bytesPerSample;
@@ -959,6 +960,9 @@ long int DetectSignalStartInternal(double *Samples, wav_hdr header, int factor, 
 		return(0);
 	}
 	memset(pulseArray, 0, sizeof(Pulses)*TotalMS);
+
+	if(config->verbose)
+		logmsg(" - Starting Internal Sync detection at %ld samples\n", SamplesForDisplay(offset, AudioChannels));
 
 	pos = offset;
 	if(offset)
@@ -1036,17 +1040,6 @@ long int DetectSignalStartInternal(double *Samples, wav_hdr header, int factor, 
 
 	for(i = start; i < TotalMS; i++)
 	{
-#ifdef DEBUG_SYNC_INTERNAL_TOLERANCE
-		/*
-		if(pulseArray[i].hertz)
-			logmsgFileOnly("Bytes: %ld Hz: %g Ampl: %g Avg: %g (%ld)\n", 
-				pulseArray[i].bytes, 
-				pulseArray[i].hertz, 
-				pulseArray[i].amplitude, 
-				averageAmplitude, i);
-		*/
-#endif
-
 		if(syncKnown)
 		{
 			if(pulseArray[i].amplitude > averageAmplitude &&
@@ -1057,10 +1050,14 @@ long int DetectSignalStartInternal(double *Samples, wav_hdr header, int factor, 
 				if(offset == -1)
 					offset = pulseArray[i].samples;
 				length++;
+
+				if(length == MIN_LEN && config->verbose)
+					logmsg(" - Start detected at %ld samples\n",
+						SamplesForDisplay(offset, AudioChannels));
 			}
 			else
 			{
-				if(offset != -1 && length > 4)
+				if(offset != -1 && length > MIN_LEN)
 				{
 					int endProcess = 0;
 
@@ -1069,11 +1066,11 @@ long int DetectSignalStartInternal(double *Samples, wav_hdr header, int factor, 
 					{
 						tolerance ++;
 
-#ifdef DEBUG_SYNC_INTERNAL_TOLERANCE
-						logmsg("- Tolerance %ld/%ld (samples %ld from expected %ld)\n",
+						if(config->verbose && tolerance <= MaxTolerance)
+							logmsg(" - Tolerance %ld/%ld (pulse active samples %ld from expected %ld) at %ld samples\n",
 								tolerance, MaxTolerance, SamplesForDisplay(pulseArray[i].samples-offset, AudioChannels),
-								SamplesForDisplay(expectedSyncLen, AudioChannels));
-#endif
+								SamplesForDisplay(expectedSyncLen, AudioChannels), SamplesForDisplay(pulseArray[i].samples, AudioChannels));
+
 						if(toleranceIssueOffset == -1)
 							toleranceIssueOffset = pulseArray[i].samples;
 						if(tolerance > MaxTolerance)
@@ -1084,11 +1081,19 @@ long int DetectSignalStartInternal(double *Samples, wav_hdr header, int factor, 
 					
 					if(endProcess)
 					{
+						long int pulseend = 0;
+
+						pulseend = pulseArray[i].samples;
+						if(toleranceIssueOffset != -1)
+						{
+							// If we had errors, check if they are consecutive at the end
+							if(pulseArray[i].samples - toleranceIssueOffset == (tolerance > MaxTolerance ? MaxTolerance : tolerance) * sampleBufferSize)
+								pulseend = toleranceIssueOffset;
+						}
 						if(endPulse)
-							*endPulse = pulseArray[i].samples;
-#ifdef DEBUG_SYNC_INTERNAL_TOLERANCE
-						logmsg("EndPulse Set %ld\n", SamplesForDisplay(pulseArray[i].samples, AudioChannels));
-#endif
+							*endPulse = pulseend;
+						if(config->verbose)
+							logmsg(" - EndPulse Set %ld\n", SamplesForDisplay(pulseend, AudioChannels));
 						break;
 					}
 				}
@@ -1124,9 +1129,9 @@ long int DetectSignalStartInternal(double *Samples, wav_hdr header, int factor, 
 
 	if(tolerance)
 	{
-		logmsg("\t- WARNING: Internal sync tone has anomalies at %g seconds (%ld bytes)\n", 
+		logmsg(" - WARNING: Internal sync tone has anomalies at %g seconds (%ld samples)\n", 
 				SamplesToSeconds(header.fmt.SamplesPerSec, toleranceIssueOffset, AudioChannels),
-				SamplesToBytes(toleranceIssueOffset, bytesPerSample));
+				SamplesForDisplay(toleranceIssueOffset, AudioChannels));
 		if(toleranceIssue)
 			*toleranceIssue = 1;
 	}
