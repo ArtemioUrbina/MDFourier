@@ -2731,7 +2731,7 @@ inline double SamplesToFrames(long int samplerate, long int samples, double fram
 }
 
 /* This function compensates for sub sample frame rate inconsistencies between signals */
-/* compensation value sare stored in leftover discard left Decimals after adjusting the */
+/* compensation values are stored in leftover discard left Decimals after adjusting the */
 /* return value to the closest floored sample requested */
 long int RoundToNbytes(double src, int AudioChannels, int bytesPerSample, int *leftover, int *discard, double *leftDecimals)
 {
@@ -2850,7 +2850,8 @@ double CalculateFrameRateAndCheckSamplerate(AudioSignal *Signal, parameters *con
 	centsDifferenceSR = 1200.0*log2(calculatedSamplerate/Signal->header.fmt.SamplesPerSec);
 
 	if((fabs(centsDifferenceSR) >= MAX_CENTS_DIFF) ||
-		 (fabs(centsDifferenceSR) && config->verbose && fabs(centsDifferenceSR) >= MIN_CENTS_DIFF))
+		 (fabs(centsDifferenceSR) && config->verbose && fabs(centsDifferenceSR) >= MIN_CENTS_DIFF) || 
+		 (config->doSamplerateAdjust && fabs(centsDifferenceSR)))
 	{
 		if(config->doSamplerateAdjust)
 		{
@@ -3052,6 +3053,70 @@ double CalculateClk(AudioSignal *Signal, parameters *config)
 		config->clkWarning |= Signal->role;
 
 	return Signal->clkFrequencies.freq[highestWithinRange].hertz * (double)config->clkRatio;
+}
+
+double FindMaxMagnitudeCLKSignal(AudioSignal *Signal, parameters *config)
+{
+	double		MaxMagnitude = -1;
+
+	// Find global peak
+	for(int i = 0; i < config->MaxFreq; i++)
+	{
+		if(!Signal->clkFrequencies.freq[i].hertz)
+			break;
+		if(Signal->clkFrequencies.freq[i].magnitude > MaxMagnitude)
+			MaxMagnitude = Signal->clkFrequencies.freq[i].magnitude;
+	}
+	
+	return MaxMagnitude;
+}
+
+void CalculateSignalCLKAmplitudes(AudioSignal *Signal, double ZeroMagCLK, parameters *config)
+{
+	if(config->clkMeasure && Signal->clkFrequencies.freq)
+	{
+		for(int i = 0; i < config->MaxFreq; i++)
+		{
+			if(!Signal->clkFrequencies.freq[i].hertz)
+				break;
+
+			Signal->clkFrequencies.freq[i].amplitude = 
+				CalculateAmplitude(Signal->clkFrequencies.freq[i].magnitude, ZeroMagCLK);
+		}
+	}
+
+	if(config->verbose)
+	{
+		logmsgFileOnly("==================== CLK-FREQ %s ===================\n", 
+				config->clkName);
+		PrintFrequenciesBlock(Signal, Signal->clkFrequencies.freq, TYPE_CLK_ANALYSIS, config);
+	}
+}
+
+int CalculateCLKAmplitudes(AudioSignal *ReferenceSignal, AudioSignal *ComparisonSignal, parameters *config)
+{
+	double ZeroMagCLK = 0, MaxRef = 0, MaxCom = 0;
+
+	if(!config->clkMeasure || !ReferenceSignal->clkFrequencies.freq || !ComparisonSignal->clkFrequencies.freq)
+		return 0;
+
+	MaxRef = FindMaxMagnitudeCLKSignal(ReferenceSignal, config);
+	MaxCom = FindMaxMagnitudeCLKSignal(ComparisonSignal, config);
+
+	if(MaxRef == -1 || MaxCom == -1)
+	{
+		logmsg("WARNING: Could not calculate CLK amplitudes\n");
+		return 0;
+	}
+
+	if(MaxRef > MaxCom)
+		ZeroMagCLK = MaxRef;
+	else
+		ZeroMagCLK = MaxCom;
+
+	CalculateSignalCLKAmplitudes(ReferenceSignal, ZeroMagCLK, config);
+	CalculateSignalCLKAmplitudes(ComparisonSignal, ZeroMagCLK, config);
+	return 1;
 }
 
 char GetTypeProfileName(int type)

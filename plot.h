@@ -49,6 +49,7 @@ typedef struct plot_st {
 	double			Rx0, Rx1, Ry0, Ry1;
 	double			penWidth;
 	double			leftmargin;
+	char			*SpecialWarning;
 } PlotFile;
 
 typedef struct averaged_freq{
@@ -241,5 +242,9 @@ void PlotPhaseDifferences(parameters *config);
 void DrawGridZeroAngleCentered(PlotFile *plot, double maxAngle, double angleIncrement, double hz, double hzIncrement, parameters *config);
 void DrawLabelsZeroAngleCentered(PlotFile *plot, double maxAngle, double angleIncrement, double hz, double hzIncrement,  parameters *config);
 void PlotDifferenceTimeSpectrogram(parameters *config);
+
+void PlotCLKSpectrogram(AudioSignal *Signal, parameters *config);
+FlatFrequency *CreateFlatFrequenciesCLK(AudioSignal *Signal, long int *size, parameters *config);
+void PlotCLKSpectrogramInternal(FlatFrequency *freqs, long int size, char *filename, int signal, parameters *config, AudioSignal *Signal);
 
 #endif

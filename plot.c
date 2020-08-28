@@ -100,6 +100,8 @@
 #define PHASE_SIG_TITLE_COM_LEFT	"Comparison - PHASE LEFT CHANNEL [%s]"
 #define PHASE_SIG_TITLE_COM_RIGHT	"Comparison - PHASE RIGHT CHANNEL [%s]"
 #define TS_DIFFERENCE_TITLE			"DIFFERENT AMPLITUDES - TIME SPECTROGRAM [%s]"
+#define SPECTROGRAM_CLK_REF			"Reference CLK - Spectrogram [%s]"
+#define SPECTROGRAM_CLK_COM			"Comparison CLK - Spectrogram [%s]"
 
 #define BAR_HEADER					"Matched frequencies"
 #define BAR_DIFF					"w/any amplitude difference"
@@ -127,6 +129,7 @@
 #define	WAVEFORMDIR_MISS	"Missing"
 #define	WAVEFORMDIR_EXTRA	"Extra"
 #define	T_SPECTR_FOLDER		"TimeSpectrograms"
+#define	CLK_FOLDER			"CLK"
 
 //#define TESTWARNINGS
 #define SYNC_DEBUG_SCALE	2
@@ -293,6 +296,24 @@ void PlotResults(AudioSignal *ReferenceSignal, AudioSignal *ComparisonSignal, pa
 		PlotSpectrograms(ComparisonSignal, config);
 
 		EndPlot("Spectrogram", &lstart, &lend, config);
+	}
+
+	if(config->clkMeasure)
+	{
+		struct	timespec lstart, lend;
+		char	*returnFolder = NULL;
+
+		StartPlot(" - Clocks", &lstart, config);
+	
+		returnFolder = PushFolder(CLK_FOLDER);
+		if(!returnFolder)
+			return;
+		PlotCLKSpectrogram(ReferenceSignal, config);
+		PlotCLKSpectrogram(ComparisonSignal, config);
+
+		ReturnToMainPath(&returnFolder);
+
+		EndPlot("Clocks", &lstart, &lend, config);
 	}
 
 	if(config->plotTimeSpectrogram)
@@ -580,6 +601,7 @@ int FillPlot(PlotFile *plot, char *name, double x0, double y0, double x1, double
 	plot->y1 = y1+dY;
 
 	plot->penWidth = penWidth;
+	plot->SpecialWarning = NULL;
 
 	return 1;
 }
@@ -929,12 +951,12 @@ void DrawSRData(PlotFile *plot, AudioSignal *Signal, char *msg, parameters *conf
 
 	pl_pencolor_r(plot->plotter, 0xcccc, 0xcccc, 0);
 	if(config->doSamplerateAdjust)
-		sprintf(str, "SR %%s: %%d\\->%%gHz");
+		sprintf(str, "SR %%s: %%d\\->%%gkHz");
 	else
-		sprintf(str, "SR %%s: %%d(%%g)Hz");
+		sprintf(str, "SR %%s: %%d(%%g)kHz");
 	sprintf(msg, str,
 		Signal->role == ROLE_REF ? "RF" : "CM",
-		Signal->originalSR, Signal->EstimatedSR);
+		Signal->originalSR/1000, Signal->EstimatedSR/1000.0);
 }
 
 void DrawClockData(PlotFile *plot, AudioSignal *Signal, char *msg, parameters *config)
@@ -952,7 +974,7 @@ void DrawClockData(PlotFile *plot, AudioSignal *Signal, char *msg, parameters *c
 		sprintf(msg, "%s %s: %gHz",
 			config->clkName,
 			Signal->role == ROLE_REF ? "RF" : "CM",
-			CalculateClk(Signal, config));
+			Signal->role == ROLE_REF ? config->clkRef : config->clkCom);
 	else
 	{
 		char str[100];
@@ -965,7 +987,7 @@ void DrawClockData(PlotFile *plot, AudioSignal *Signal, char *msg, parameters *c
 		sprintf(msg, str,
 			Signal->role == ROLE_REF ? "RF" : "CM",
 			Signal->originalCLK,
-			CalculateClk(Signal, config));
+			Signal->role == ROLE_REF ? config->clkRef : config->clkCom);
 	}
 }
 
@@ -1219,6 +1241,13 @@ void DrawLabelsMDF(PlotFile *plot, char *Gname, char *GType, int type, parameter
 
 	/* Notes */
 	pl_pencolor_r(plot->plotter, 0, 0xeeee, 0);
+
+	if(plot->SpecialWarning)
+	{
+		PLOT_WARN(1, warning++);
+		pl_alabel_r(plot->plotter, 'l', 'l', plot->SpecialWarning);
+	}
+
 	if(config->ignoreFrameRateDiff)
 	{
 		PLOT_WARN(1, warning++);
@@ -1404,8 +1433,8 @@ void DrawLabelsMDF(PlotFile *plot, char *Gname, char *GType, int type, parameter
 	{
 		PLOT_WARN(1, warning++);
 		sprintf(msg, "WARNING: %s %s noise/harmonics in the clk block", 
-			config->stereoNotFound == ROLE_REF ? "Reference" : config->stereoNotFound == ROLE_COMP ? "Comparison" : "Both files",
-			(config->stereoNotFound == ROLE_REF || config->stereoNotFound == ROLE_COMP) ? "has" : "have");
+			config->clkWarning == ROLE_REF ? "Reference" : config->clkWarning == ROLE_COMP ? "Comparison" : "Both files",
+			(config->clkWarning == ROLE_REF || config->clkWarning == ROLE_COMP) ? "has" : "have");
 		pl_alabel_r(plot->plotter, 'l', 'l', msg);
 	}
 
@@ -1413,7 +1442,7 @@ void DrawLabelsMDF(PlotFile *plot, char *Gname, char *GType, int type, parameter
 	{
 		PLOT_WARN(1, warning++);
 		sprintf(msg, "WARNING: %s clk could not be detected", 
-			config->stereoNotFound == ROLE_REF ? "Reference" : config->stereoNotFound == ROLE_COMP ? "Comparison" : "Both files");
+			config->clkNotFound == ROLE_REF ? "Reference" : config->clkNotFound == ROLE_COMP ? "Comparison" : "Both files");
 		pl_alabel_r(plot->plotter, 'l', 'l', msg);
 	}
 
@@ -1785,7 +1814,10 @@ void DrawColorScale(PlotFile *plot, int type, int mode, double x, double y, doub
 	double		labelwidth = 0, maxlabel = 0;
 
 	label = GetTypeDisplayName(config, type);
-	colorName = MatchColor(GetTypeColor(config, type));
+	if(type == TYPE_CLK_ANALYSIS)
+		colorName = MatchColor("green");
+	else
+		colorName = MatchColor(GetTypeColor(config, type));
 
 	pl_savestate_r(plot->plotter);
 	pl_fspace_r(plot->plotter, 0, 0, config->plotResX, config->plotResY);
@@ -5304,6 +5336,123 @@ void DrawLabelsZeroAngleCentered(PlotFile *plot, double maxAngle, double angleIn
 	}
 
 	pl_restorestate_r(plot->plotter);
+}
+
+void PlotCLKSpectrogram(AudioSignal *Signal, parameters *config)
+{
+	char 				tmpName[BUFFER_SIZE/2], name[BUFFER_SIZE];
+	long int			size = 0;
+	FlatFrequency		*frequencies = NULL;
+	
+	ShortenFileName(basename(Signal->SourceFile), tmpName);
+	frequencies = CreateFlatFrequenciesCLK(Signal, &size, config);
+	sprintf(name, "SP_%c_%s_CLK_%s", Signal->role == ROLE_REF ? 'A' : 'B', tmpName, config->clkName);
+	PlotCLKSpectrogramInternal(frequencies, size, name, Signal->role, config, Signal);
+
+	free(frequencies);
+	frequencies = NULL;
+}
+
+FlatFrequency *CreateFlatFrequenciesCLK(AudioSignal *Signal, long int *size, parameters *config)
+{
+	long int		i = 0;
+	long int		count = 0, counter = 0;
+	FlatFrequency	*Freqs = NULL;
+
+	if(!size || !Signal || !config)
+		return NULL;
+
+	*size = 0;
+
+	for(i = 0; i < config->MaxFreq; i++)
+	{
+		if(Signal->clkFrequencies.freq[i].hertz != 0)
+			count ++;
+		else
+			break;
+	}
+
+	Freqs = (FlatFrequency*)malloc(sizeof(FlatFrequency)*count);
+	if(!Freqs)
+		return NULL;
+	memset(Freqs, 0, sizeof(FlatFrequency)*count);
+
+	for(i = 0; i < count; i++)
+	{
+		FlatFrequency tmp;
+
+		tmp.hertz = Signal->clkFrequencies.freq[i].hertz;
+		tmp.amplitude = Signal->clkFrequencies.freq[i].amplitude;
+		tmp.type = TYPE_CLK_ANALYSIS;
+		tmp.color = COLOR_GREEN;
+		tmp.channel = CHANNEL_LEFT;
+
+		if(InsertElementInPlace(Freqs, tmp, counter))
+			counter ++;
+	}
+	
+	logmsg(PLOT_PROCESS_CHAR);
+	FlatFrequenciesByAmplitude_tim_sort(Freqs, counter);
+	logmsg(PLOT_PROCESS_CHAR);
+
+	*size = counter;
+	return(Freqs);
+}
+
+void PlotCLKSpectrogramInternal(FlatFrequency *freqs, long int size, char *filename, int signal, parameters *config, AudioSignal *Signal)
+{
+	PlotFile	plot;
+	double		startAmplitude = config->significantAmplitude, endAmplitude = PCM_16BIT_MIN_AMPLITUDE;
+
+	if(!config)
+		return;
+
+	// Find limits
+	for(int f = 0; f < size; f++)
+	{
+		if(freqs[f].amplitude > startAmplitude)
+			startAmplitude = freqs[f].amplitude;
+		if(freqs[f].amplitude < endAmplitude)
+			endAmplitude = freqs[f].amplitude;
+	}
+
+	if(endAmplitude < NS_LOWEST_AMPLITUDE)
+		endAmplitude = NS_LOWEST_AMPLITUDE;
+
+	FillPlot(&plot, filename, config->startHzPlot, endAmplitude, config->endHzPlot, 0.0, 1, 1, config);
+
+	if(!CreatePlotFile(&plot, config))
+		return;
+
+	DrawGridZeroToLimit(&plot, endAmplitude, VERT_SCALE_STEP, config->endHzPlot, 1000, 0, config);
+	DrawLabelsZeroToLimit(&plot, endAmplitude, VERT_SCALE_STEP, config->endHzPlot, 1000, 0, config);
+
+	//DrawNoiseLines(&plot, 0, endAmplitude, Signal, config);
+	//DrawLabelsNoise(&plot, config->endHzPlot, Signal, config);
+
+	for(int f = 0; f < size; f++)
+	{
+		if(freqs[f].amplitude >= endAmplitude)
+		{ 
+			long int intensity;
+			double x, y;
+
+			x = transformtoLog(freqs[f].hertz, config);
+			y = freqs[f].amplitude;
+			intensity = CalculateWeightedError(((fabs(endAmplitude) - fabs(startAmplitude)) - (fabs(freqs[f].amplitude)- fabs(startAmplitude)))/(fabs(endAmplitude)-fabs(startAmplitude)), config)*0xffff;
+			
+			//pl_flinewidth_r(plot.plotter, 100*range_0_1);
+			SetPenColor(freqs[f].color, intensity, &plot);
+			pl_fline_r(plot.plotter, x, y, x, endAmplitude);
+			pl_endpath_r(plot.plotter);
+		}
+	}
+
+	plot.SpecialWarning = "NOTE: dBFS scale relative between CLK signals";
+	DrawColorScale(&plot, TYPE_CLK_ANALYSIS, MODE_SPEC, LEFT_MARGIN, HEIGHT_MARGIN, config->plotResX/COLOR_BARS_WIDTH_SCALE, config->plotResY/1.15, (int)startAmplitude, (int)(endAmplitude-startAmplitude), VERT_SCALE_STEP,config);
+	DrawLabelsMDF(&plot, signal == ROLE_REF ? SPECTROGRAM_CLK_REF : SPECTROGRAM_CLK_COM, config->clkName, signal == ROLE_REF ? PLOT_SINGLE_REF : PLOT_SINGLE_COM, config);
+
+	ClosePlot(&plot);
 }
 
 /*

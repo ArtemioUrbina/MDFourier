@@ -1,4 +1,4 @@
-/* 
+/*
  * MDFourier
  * A Fourier Transform analysis tool to compare game console audio
  * http://junkerhq.net/MDFourier/
@@ -21,9 +21,9 @@
  * along with this software; if not, write to the Free Software
  * Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA	02111-1307	USA
  *
- * Requires the FFTW library: 
+ * Requires the FFTW library:
  *	  http://www.fftw.org/
- * 
+ *
  */
 
 #include "mdfourier.h"
@@ -119,8 +119,8 @@ int main(int argc , char *argv[])
 	{
 		logmsg("Aborting\n");
 		if(config.debugSync)
-			printf("\nResults stored in %s%s\n", 
-				config.outputPath, 
+			printf("\nResults stored in %s%s\n",
+				config.outputPath,
 				config.folderName);
 		CleanUp(&ReferenceSignal, &ComparisonSignal, &config);
 		return 1;
@@ -146,7 +146,7 @@ int main(int argc , char *argv[])
 	}
 
 	FindViewPort(&config);
-	
+
 	logmsg("* Plotting results to PNGs:\n");
 	PlotResults(ReferenceSignal, ComparisonSignal, &config);
 
@@ -172,10 +172,10 @@ int main(int argc , char *argv[])
 		logmsg("\n");
 	}
 
-	printf("\nResults stored in %s%s\n", 
+	printf("\nResults stored in %s%s\n",
 			config.outputPath,
 			config.folderName);
-	
+
 	return(0);
 }
 
@@ -188,7 +188,7 @@ void FindViewPort(parameters *config)
 	average = FindDifferenceAverage(config);
 	logmsg("Average difference is %g dBFS\n", average);
 
-	outside = FindDifferencePercentOutsideViewPort(&maxDiff, &type, fabs(config->maxDbPlotZC), config);		
+	outside = FindDifferencePercentOutsideViewPort(&maxDiff, &type, fabs(config->maxDbPlotZC), config);
 	if(outside)
 	{
 		name = GetTypeDisplayName(config, type);
@@ -200,7 +200,7 @@ void FindViewPort(parameters *config)
 			config->notVisible = outside;
 			return;
 		}
-		logmsg(" - Differences outside +/-%gdBFS in [%s]: %g%%\n", 
+		logmsg(" - Differences outside +/-%gdBFS in [%s]: %g%%\n",
 				config->maxDbPlotZC, name, outside);
 		if(outside > 8 && !config->maxDbPlotZCChanged)  // if the user has not changed it
 		{
@@ -215,20 +215,20 @@ void FindViewPort(parameters *config)
 				if(value != -1)
 					config->maxDbPlotZC = value;
 				// swap above for this to expand fully if needed
-				/*  
+				/*
 				value = ceil(FindVisibleInViewPortWithinStandardDeviation(&maxDiff, &outside, type, 2, config));
 				if(value != -1 && outside < 5)
 					config->maxDbPlotZC = value;
 				else
 				{
 					config->maxDbPlotZC = ceil(maxDiff);
-					outside = FindDifferencePercentOutsideViewPort(&maxDiff, &type, fabs(config->maxDbPlotZC), config);		
+					outside = FindDifferencePercentOutsideViewPort(&maxDiff, &type, fabs(config->maxDbPlotZC), config);
 				}
 				*/
 			}
 			logmsg(" - Auto adjusting viewport to %gdBFS for graphs\n", config->maxDbPlotZC);
 			if(outside >= 1)
-				logmsg(" - The %g%% of differences in [%s] will not be visible within the %gdBFS for graphs\n - If needed you can graph them all with \"-d %g\" for this particular case\n\n", 
+				logmsg(" - The %g%% of differences in [%s] will not be visible within the %gdBFS for graphs\n - If needed you can graph them all with \"-d %g\" for this particular case\n\n",
 					outside, name, config->maxDbPlotZC, ceil(maxDiff));
 		}
 	}
@@ -249,8 +249,12 @@ void PrintSignalCLKData(AudioSignal *Signal, parameters *config)
 		{
 			if(Signal->originalSR)
 			{
-				logmsg(" [Sample rate adjusted %dHz->%gHz with -R]", 
-					Signal->originalSR, Signal->EstimatedSR);
+				if(Signal->EstimatedSR != (int)Signal->EstimatedSR)
+					logmsg(" [Sample rate adjusted %dHz->%0.4fHz with -R]",
+						Signal->originalSR, Signal->EstimatedSR);
+				else
+					logmsg(" [Sample rate adjusted %dHz->%dHz with -R]",
+						Signal->originalSR, (int)Signal->EstimatedSR);
 			}
 		}
 	}
@@ -273,11 +277,16 @@ int ReportClockResults(AudioSignal *ReferenceSignal, AudioSignal *ComparisonSign
 	if(!config->clkMeasure)
 		return 1;
 
+	CalculateCLKAmplitudes(ReferenceSignal, ComparisonSignal, config);
+
 	refClk = CalculateClk(ReferenceSignal, config);
 	compClk = CalculateClk(ComparisonSignal, config);
 
-	logmsg("\n* Estimated %s Clocks based on expected %d Hz on note %s# %d:\n", 
-		config->clkName, config->clkFreq, GetBlockName(config, config->clkBlock), 
+	config->clkRef = refClk;
+	config->clkCom = compClk;
+
+	logmsg("\n* Estimated %s Clocks based on expected %d Hz on note %s# %d:\n",
+		config->clkName, config->clkFreq, GetBlockName(config, config->clkBlock),
 		GetBlockSubIndex(config, config->clkBlock));
 	logmsg(" - Reference: %gHz", refClk);
 	PrintSignalCLKData(ReferenceSignal, config);
@@ -297,7 +306,7 @@ int ReportClockResults(AudioSignal *ReferenceSignal, AudioSignal *ComparisonSign
 			if(config->RefCentsDifferenceSR || config->ComCentsDifferenceSR)
 			{
 				double diff = 0;
-	
+
 				if(config->RefCentsDifferenceSR)
 					diff = fabs(config->RefCentsDifferenceSR - config->centsDifferenceCLK);
 				else
@@ -342,7 +351,7 @@ int LoadAudioFiles(AudioSignal **ReferenceSignal, AudioSignal **ComparisonSignal
 
 	config->highestValueBitDepth = GetSignalMaxInt(higher);;
 	config->lowestValueBitDepth = GetSignalMinInt(higher);;
-	
+
 	return 1;
 }
 
@@ -385,8 +394,8 @@ int TimeDomainNormalize(AudioSignal **ReferenceSignal, AudioSignal **ComparisonS
 	NormalizeAudioByRatio(*ReferenceSignal, ratioRef);
 
 	// Uncomment if you want to check the WAV files as normalized
-	//SaveWAVEChunk(NULL, *ReferenceSignal, (*ReferenceSignal)->Samples, 0, (*ReferenceSignal)->numSamples, config); 
-	//SaveWAVEChunk(NULL, *ComparisonSignal, (*ComparisonSignal)->Samples, 0, (*ComparisonSignal)->numSamples, config); 
+	//SaveWAVEChunk(NULL, *ReferenceSignal, (*ReferenceSignal)->Samples, 0, (*ReferenceSignal)->numSamples, config);
+	//SaveWAVEChunk(NULL, *ComparisonSignal, (*ComparisonSignal)->Samples, 0, (*ComparisonSignal)->numSamples, config);
 	return 1;
 }
 
@@ -422,8 +431,8 @@ int FrequencyDomainNormalize(AudioSignal **ReferenceSignal, AudioSignal **Compar
 	ratiodBFS = CalculateAmplitude(ComparisonLocalMaximum, MaxRef.magnitude);
 
 	if(!config->allowStereoVsMono &&
-		MaxRef.block == MaxTar.block && 
-		MaxRef.channel != MaxTar.channel && 
+		MaxRef.block == MaxTar.block &&
+		MaxRef.channel != MaxTar.channel &&
 		fabs(ratiodBFS) > STEREO_TOLERANCE_REPORT)
 	{
 		//logmsg(" - WARNING: Left and right channels might be reversed or converted from mono to stereo");
@@ -432,7 +441,7 @@ int FrequencyDomainNormalize(AudioSignal **ReferenceSignal, AudioSignal **Compar
 		logmsg("\n");
 		config->warningStereoReversed = 1;
 	}
-	
+
 	// Check if we are comparing different bitdepths
 	if(GetSignalMaxInt(*ReferenceSignal) != GetSignalMaxInt(*ComparisonSignal)) // it is 256 or 65536...
 	{
@@ -460,7 +469,7 @@ int FrequencyDomainNormalize(AudioSignal **ReferenceSignal, AudioSignal **Compar
 				while(MaxRefArray[pos].magnitude != 0 && pos < FREQDOMTRIES)
 				{
 					if(config->verbose) {
-						logmsg(" - Reference Max Magnitude[%d] found in %s# %d (%d) at %g Hz with %g\n", 
+						logmsg(" - Reference Max Magnitude[%d] found in %s# %d (%d) at %g Hz with %g\n",
 							pos,
 							GetBlockName(config, MaxRefArray[pos].block), GetBlockSubIndex(config, MaxRefArray[pos].block),
 							MaxRefArray[pos].block, MaxRefArray[pos].hertz, MaxRefArray[pos].magnitude);
@@ -529,7 +538,7 @@ int FrequencyDomainNormalize(AudioSignal **ReferenceSignal, AudioSignal **Compar
 
 	RefAvg = FindFundamentalMagnitudeAverage(*ReferenceSignal, config);
 	CompAvg = FindFundamentalMagnitudeAverage(*ComparisonSignal, config);
-	
+
 	if(RefAvg > CompAvg)
 		ratio = RefAvg/CompAvg;
 	else
@@ -663,16 +672,16 @@ int ProcessNoiseFloor(AudioSignal *ReferenceSignal, AudioSignal *ComparisonSigna
 
 	// If comparison is lower than the default and higher than reference, use that
 	if(config->noiseFloorAutoAdjust)
-	{ 
+	{
 		if(refHasFloor && comHasFloor &&
-			config->significantAmplitude < SIGNIFICANT_VOLUME && 
+			config->significantAmplitude < SIGNIFICANT_VOLUME &&
 			ComparisonSignal->floorAmplitude <= LOWEST_NOISEFLOOR_ALLOWED &&
 			ReferenceSignal->floorAmplitude < ComparisonSignal->floorAmplitude)
 		{
 			double diff = 0;
-	
+
 			config->significantAmplitude = ComparisonSignal->floorAmplitude;
-	
+
 			diff = fabs(ReferenceSignal->floorAmplitude - ComparisonSignal->floorAmplitude);
 			if(diff > 20)
 				config->noiseFloorBigDifference = 1;
@@ -682,7 +691,7 @@ int ProcessNoiseFloor(AudioSignal *ReferenceSignal, AudioSignal *ComparisonSigna
 	{
 		if(config->significantAmplitude < SIGNIFICANT_VOLUME)
 		{
-			logmsg(" - Limiting noise floor to %g from %g (from -p 0)\n", 
+			logmsg(" - Limiting noise floor to %g from %g (from -p 0)\n",
 				SIGNIFICANT_VOLUME, config->significantAmplitude);
 			config->significantAmplitude = SIGNIFICANT_VOLUME;
 		}
@@ -720,7 +729,7 @@ int LoadAndProcessAudioFiles(AudioSignal **ReferenceSignal, AudioSignal **Compar
 		{
 			int block = NO_INDEX;
 			char *name = NULL;
-	
+
 			if(config->stereoBalanceBlock)
 			{
 				block = config->stereoBalanceBlock;
@@ -740,7 +749,7 @@ int LoadAndProcessAudioFiles(AudioSignal **ReferenceSignal, AudioSignal **Compar
 			{
 				logmsg("\n* Comparing Stereo channel amplitude\n");
 				if(config->verbose) {
-					logmsg(" - Mono block used for balance: %s# %d\n", 
+					logmsg(" - Mono block used for balance: %s# %d\n",
 						name, GetBlockSubIndex(config, block));
 				}
 				if(CheckBalance(*ReferenceSignal, block, config) == 0)
@@ -877,7 +886,7 @@ void CleanUp(AudioSignal **ReferenceSignal, AudioSignal **ComparisonSignal, para
 		free(*ReferenceSignal);
 		*ReferenceSignal = NULL;
 	}
-	
+
 	if(*ComparisonSignal)
 	{
 		ReleaseAudio(*ComparisonSignal, config);
@@ -892,7 +901,7 @@ int CopySamplesForTimeDomainPlotWindowOnly(AudioBlocks *AudioArray, long sampler
 {
 	long			i = 0, monoSignalSize = 0, difference = 0;
 	double			*signal = NULL, *window_samples = NULL;
-	
+
 	if(!AudioArray)
 	{
 		logmsg("No Array for results\n");
@@ -940,17 +949,17 @@ int CopySamplesForTimeDomainPlotWindowOnly(AudioBlocks *AudioArray, long sampler
 			logmsg("ERROR: Window waveforms already stored\n");
 			return 0;
 		}
-	
+
 		if(!AudioArray->audioRight.samples)
 		{
 			logmsg("ERROR: Waveforms not stored\n");
 			return 0;
 		}
-	
+
 		signal = AudioArray->audioRight.samples;
 		monoSignalSize = AudioArray->audioRight.size;
 		difference = AudioArray->audioRight.difference;
-	
+
 		window_samples = (double*)malloc(sizeof(double)*(monoSignalSize+1));
 		if(!window_samples)
 		{
@@ -958,10 +967,10 @@ int CopySamplesForTimeDomainPlotWindowOnly(AudioBlocks *AudioArray, long sampler
 			return(0);
 		}
 		memset(window_samples, 0, sizeof(double)*(monoSignalSize+1));
-	
+
 		AudioArray->audioRight.size = monoSignalSize;
 		AudioArray->audioRight.difference = difference;
-	
+
 		for(i = 0; i < monoSignalSize - difference; i++)
 			window_samples[i] = signal[i]*window[i];
 		AudioArray->audioRight.window_samples = window_samples;
@@ -972,10 +981,10 @@ int CopySamplesForTimeDomainPlotWindowOnly(AudioBlocks *AudioArray, long sampler
 
 int CopySamplesForTimeDomainPlot(AudioBlocks *AudioArray, double *samples, size_t size, size_t diff, long samplerate, double *window, int AudioChannels, parameters *config)
 {
-	long			stereoSignalSize = 0;	
+	long			stereoSignalSize = 0;
 	long			i = 0, monoSignalSize = 0, diffSize = 0, difference = 0;
 	double			*signal = NULL, *signalRight = NULL, *window_samples = NULL;
-	
+
 	if(!AudioArray)
 	{
 		logmsg("No Array for results\n");
@@ -1014,7 +1023,7 @@ int CopySamplesForTimeDomainPlot(AudioBlocks *AudioArray, double *samples, size_
 
 	for(i = 0; i < monoSignalSize; i++)
 		signal[i] = samples[i*AudioChannels];
-	
+
 	AudioArray->audio.samples = signal;
 	AudioArray->audio.size = monoSignalSize;
 	AudioArray->audio.difference = difference;
@@ -1083,7 +1092,7 @@ int RecalculateFFTW(AudioSignal *Signal, parameters *config)
 
 			frames = GetBlockFrames(config, i);
 			cutFrames = GetBlockCutFrames(config, i);
-	
+
 			windowUsed = getWindowByLength(&windows, frames, cutFrames, config->smallerFramerate, config);
 
 			CleanFrequenciesInBlock(&Signal->Blocks[i], config);
@@ -1100,7 +1109,7 @@ int RecalculateFFTW(AudioSignal *Signal, parameters *config)
 				CleanFrequenciesInBlock(&Signal->clkFrequencies, config);
 				if(!ExecuteDFFT(&Signal->clkFrequencies, Signal->Blocks[i].audio.samples, Signal->Blocks[i].audio.size-Signal->Blocks[i].audio.difference, Signal->header.fmt.SamplesPerSec, windowUsed, Signal->AudioChannels, 1 /* zeropad on */, config))
 					return 0;
-	
+
 				if(!FillFrequencyStructures(Signal, &Signal->clkFrequencies, config))
 					return 0;
 			}
@@ -1130,7 +1139,7 @@ void RecalculateFrameRateAndSamplerate(AudioSignal *Signal, parameters *config)
 	Signal->originalSR_CLK = Signal->header.fmt.SamplesPerSec;
 	Signal->header.fmt.SamplesPerSec = estimatedSampleRate;
 	Signal->framerate = CalculateFrameRate(Signal, config);
-	logmsg("New frame rate: %g SR: %d->%d (%g)\n", 
+	logmsg("New frame rate: %g SR: %d->%d (%g)\n",
 		Signal->framerate,
 		Signal->originalSR_CLK, Signal->header.fmt.SamplesPerSec,
 		ratio);
@@ -1148,7 +1157,10 @@ double RecalculateFrameRateAndSamplerateComp(AudioSignal *ReferenceSignal, Audio
 
 	refCLK = CalculateClk(ReferenceSignal, config);
 	compCLK = CalculateClk(ComparisonSignal, config);
-	
+
+	config->clkRef = refCLK;
+	config->clkCom = compCLK	;
+
 	if(refCLK < compCLK)
 	{
 		changedSignal = ComparisonSignal;
@@ -1165,7 +1177,7 @@ double RecalculateFrameRateAndSamplerateComp(AudioSignal *ReferenceSignal, Audio
 	}
 
 	config->changedCLKFrom = changedSignal->role;
-	
+
 	estimatedSampleRate = ceil((double)changedSignal->header.fmt.SamplesPerSec*ratio);
 	changedSignal->EstimatedSR_CLK = estimatedSampleRate;
 
@@ -1174,7 +1186,7 @@ double RecalculateFrameRateAndSamplerateComp(AudioSignal *ReferenceSignal, Audio
 	changedSignal->originalFrameRate = changedSignal->framerate;
 	changedSignal->framerate = CalculateFrameRate(changedSignal, config);
 	if(config->verbose) {
-		logmsg(" - Adjusted frame rate to match same lengths with %s: %gms [SR: %d->%dHz]\n", 
+		logmsg(" - Adjusted frame rate to match same lengths with %s: %gms [SR: %d->%dHz]\n",
 			config->clkName,
 			changedSignal->framerate,
 			changedSignal->originalSR_CLK, changedSignal->header.fmt.SamplesPerSec);
@@ -1190,8 +1202,8 @@ int RecalculateFrequencyStructures(AudioSignal *ReferenceSignal, AudioSignal *Co
 	//RecalculateFrameRateAndSamplerate(ComparisonSignal, config);
 
 	adjusted = RecalculateFrameRateAndSamplerateComp(ReferenceSignal, ComparisonSignal, config);
-	logmsg(" - Adjusted %s %s to %gHz\n", 
-			config->changedCLKFrom == ROLE_REF? "Reference" : "Comparison", 
+	logmsg(" - Adjusted %s %s to %gHz\n",
+			config->changedCLKFrom == ROLE_REF? "Reference" : "Comparison",
 			config->clkName, adjusted);
 	CompareFrameRates(ReferenceSignal, ComparisonSignal, config);
 
@@ -1213,7 +1225,7 @@ int DuplicateSamplesForWavefromPlots(AudioSignal *Signal, long int element, long
 	if(config->timeDomainSync && Signal->Blocks[element].type == TYPE_SYNC)
 	{
 		long int oneFrameSamples = 0;
-		
+
 		oneFrameSamples = SecondsToSamples(Signal->header.fmt.SamplesPerSec, FramesToSeconds(framerate, 1), Signal->AudioChannels, Signal->bytesPerSample, NULL, NULL, NULL);
 		if(pos > oneFrameSamples) {
 			if(!CopySamplesForTimeDomainPlot(&Signal->Blocks[element], Signal->Samples + pos - oneFrameSamples, loadedBlockSize+oneFrameSamples, difference, Signal->header.fmt.SamplesPerSec, NULL, Signal->AudioChannels, config))
@@ -1232,7 +1244,7 @@ int DuplicateSamplesForWavefromPlots(AudioSignal *Signal, long int element, long
 	}
 	else
 	{
-		if(config->plotTimeDomainHiDiff || config->plotAllNotes || 
+		if(config->plotTimeDomainHiDiff || config->plotAllNotes ||
 				config->doClkAdjust || Signal->Blocks[element].type == TYPE_TIMEDOMAIN)
 		{
 			if(!CopySamplesForTimeDomainPlot(&Signal->Blocks[element], Signal->Samples + pos, loadedBlockSize, difference, Signal->header.fmt.SamplesPerSec, windowUsed, Signal->AudioChannels, config))
@@ -1242,7 +1254,7 @@ int DuplicateSamplesForWavefromPlots(AudioSignal *Signal, long int element, long
 				Signal->Blocks[element].audioRight.sampleOffset = pos + syncAdvance;
 		}
 	}
-	
+
 	return 1;
 }
 
@@ -1298,7 +1310,7 @@ int ProcessSignal(AudioSignal *Signal, parameters *config)
 		frames = GetBlockFrames(config, i);
 		cutFrames = GetBlockCutFrames(config, i);
 		duration = FramesToSeconds(framerate, frames);
-		
+
 		loadedBlockSize = SecondsToSamples(Signal->header.fmt.SamplesPerSec, duration, Signal->AudioChannels, Signal->bytesPerSample, &leftover, &discardSamples, &leftDecimals);
 
 		difference = GetSampleSizeDifferenceByFrameRate(framerate, frames, Signal->header.fmt.SamplesPerSec, Signal->AudioChannels, Signal->bytesPerSample, config);
@@ -1429,12 +1441,12 @@ int ExecuteDFFT(AudioBlocks *AudioArray, double *samples, size_t size, long samp
 int ExecuteDFFTInternal(AudioBlocks *AudioArray, double *samples, size_t size, long samplerate, double *window, char channel, int AudioChannels, int ZeroPad, parameters *config)
 {
 	fftw_plan		p = NULL;
-	long			stereoSignalSize = 0;	
+	long			stereoSignalSize = 0;
 	long			i = 0, monoSignalSize = 0, zeropadding = 0;
 	double			*signal = NULL;
 	fftw_complex	*spectrum = NULL;
 	double			seconds = 0;
-	
+
 	if(!AudioArray)
 	{
 		logmsg("No Array for results\n");
@@ -1505,7 +1517,7 @@ int ExecuteDFFTInternal(AudioBlocks *AudioArray, double *samples, size_t size, l
 		}
 	}
 
-	fftw_execute(p); 
+	fftw_execute(p);
 	fftw_destroy_plan(p);
 	p = NULL;
 
@@ -1592,7 +1604,7 @@ int CompareFrequencies(AudioSignal *ReferenceSignal, AudioSignal *ComparisonSign
 
 		for(int comp = 0; comp < testSize; comp++)
 		{
-			if(!freqRef[freq].matched && !freqComp[comp].matched && 
+			if(!freqRef[freq].matched && !freqComp[comp].matched &&
 				areDoublesEqual(freqRef[freq].hertz, freqComp[comp].hertz))
 			{
 				freqComp[comp].matched = freq + 1;
@@ -1683,7 +1695,7 @@ int CompareAudioBlocks(AudioSignal *ReferenceSignal, AudioSignal *ComparisonSign
 
 		if(config->verbose)
 		{
-			logmsgFileOnly("Comparing %s# %d (%d) %ld vs %ld\n", 
+			logmsgFileOnly("Comparing %s# %d (%d) %ld vs %ld\n",
 					GetBlockName(config, block), GetBlockSubIndex(config, block), block,
 					refSize, testSize);
 		}
@@ -1695,7 +1707,7 @@ int CompareAudioBlocks(AudioSignal *ReferenceSignal, AudioSignal *ComparisonSign
 		{
 			refSize = CalculateMaxCompare(block, ReferenceSignal, type != TYPE_SILENCE ? config->significantAmplitude : SILENCE_LIMIT, CHANNEL_RIGHT, config);
 			testSize = CalculateMaxCompare(block, ComparisonSignal, type != TYPE_SILENCE ? config->significantAmplitude : SILENCE_LIMIT, CHANNEL_RIGHT, config);
-	
+
 			if(!CompareFrequencies(ReferenceSignal, ComparisonSignal, CHANNEL_RIGHT, block, refSize, testSize, config))
 				return 0;
 		}
@@ -1714,7 +1726,7 @@ int CompareAudioBlocks(AudioSignal *ReferenceSignal, AudioSignal *ComparisonSign
 			if(config->showAll)
 			{
 				logmsgFileOnly("Matched Block Report for %s# %ld (%ld)\n", GetBlockName(config, block), GetBlockSubIndex(config, block), block);
-				PrintComparedBlocks(&ReferenceSignal->Blocks[block], &ComparisonSignal->Blocks[block], 
+				PrintComparedBlocks(&ReferenceSignal->Blocks[block], &ComparisonSignal->Blocks[block],
 					config, ReferenceSignal);
 			}
 		}
@@ -1722,7 +1734,7 @@ int CompareAudioBlocks(AudioSignal *ReferenceSignal, AudioSignal *ComparisonSign
 
 	if(config->extendedResults)
 		PrintDifferenceArray(config);
-	
+
 	if(config->clock)
 	{
 		double	elapsedSeconds;
@@ -1963,7 +1975,7 @@ void ProcessWaveformsByBlock(AudioSignal *SignalToModify, AudioSignal *FixedSign
 			scaleRatio = CalculatePCMMagnitude(-3.0, config->highestValueBitDepth)/MaxSampleToModify;
 		else
 			scaleRatio = CalculatePCMMagnitude(-3.0, config->highestValueBitDepth)/MaxSampleFixed;
-		
+
 		if(config->verbose) {
 			logmsg(" - Scale factor to reach -3dBFS in waveforms: %g\n", fabs(1.0 - scaleRatio) > 0.001 ? scaleRatio : 1.0);
 		}
@@ -2094,7 +2106,7 @@ double FindLocalMaximumAroundSample(AudioSignal *Signal, MaxSample refMax)
 	{
 		refSeconds = SamplesToSeconds(refMax.samplerate, refMax.offset, Signal->AudioChannels);
 		refFrames = refSeconds/(refMax.framerate/1000.0);
-	
+
 		tarSeconds = FramesToSeconds(refFrames, Signal->framerate);
 		pos = start + SecondsToSamples(Signal->header.fmt.SamplesPerSec, tarSeconds, Signal->AudioChannels, Signal->bytesPerSample, NULL, NULL, NULL);
 	}
@@ -2113,7 +2125,7 @@ double FindLocalMaximumAroundSample(AudioSignal *Signal, MaxSample refMax)
 	fraction = 60.0; // around 1 frame
 	if(pos - Signal->header.fmt.SamplesPerSec/fraction >= start)
 		start = pos - Signal->header.fmt.SamplesPerSec/fraction;
-	
+
 	if(end >= pos + Signal->header.fmt.SamplesPerSec/fraction)
 		end = pos + Signal->header.fmt.SamplesPerSec/fraction;
 
@@ -2152,7 +2164,7 @@ void NormalizeMagnitudesByRatio(AudioSignal *Signal, double ratio, parameters *c
 			{
 				if(!Signal->Blocks[block].freq[i].hertz)
 					break;
-	
+
 				Signal->Blocks[block].freq[i].magnitude *= ratio;
 			}
 
@@ -2162,7 +2174,7 @@ void NormalizeMagnitudesByRatio(AudioSignal *Signal, double ratio, parameters *c
 				{
 					if(!Signal->Blocks[block].freqRight[i].hertz)
 						break;
-		
+
 					Signal->Blocks[block].freqRight[i].magnitude *= ratio;
 				}
 			}
@@ -2238,7 +2250,7 @@ MaxMagn FindMaxMagnitudeBlock(AudioSignal *Signal, parameters *config)
 			offset = SecondsToSamples(Signal->header.fmt.SamplesPerSec, seconds, Signal->header.fmt.NumOfChan, Signal->bytesPerSample, NULL, NULL, NULL);
 			offset = SamplesForDisplay(offset, Signal->header.fmt.NumOfChan);
 
-			logmsg(" - %s Max Magnitude found in %s# %d (%d) [ %c ] at %g Hz with %g (%g seconds/%ld samples)\n", 
+			logmsg(" - %s Max Magnitude found in %s# %d (%d) [ %c ] at %g Hz with %g (%g seconds/%ld samples)\n",
 					getRoleText(Signal),
 					GetBlockName(config, MaxMag.block), GetBlockSubIndex(config, MaxMag.block),
 					MaxMag.block, MaxMag.channel, MaxMag.hertz, MaxMag.magnitude,
@@ -2298,7 +2310,7 @@ int FindMultiMaxMagnitudeBlock(AudioSignal *Signal, MaxMagn	*MaxMag, int size, p
 					{
 						for(int j = size - 1; j > 0; j--)
 							MaxMag[j] = MaxMag[j - 1];
-	
+
 						MaxMag[0].magnitude = Signal->Blocks[block].freqRight[i].magnitude;
 						MaxMag[0].hertz = Signal->Blocks[block].freqRight[i].hertz;
 						MaxMag[0].block = block;
@@ -2325,7 +2337,7 @@ int FindMultiMaxMagnitudeBlock(AudioSignal *Signal, MaxMagn	*MaxMag, int size, p
 			if(MaxMag[j].block != -1)
 			{
 				logmsg(" - %s Max Magnitude[%d] found in %s# %d (%d) at %g Hz with %g\n",
-						getRoleText(Signal), j, 
+						getRoleText(Signal), j,
 						GetBlockName(config, MaxMag[j].block), GetBlockSubIndex(config, MaxMag[j].block),
 						MaxMag[j].block, MaxMag[j].hertz, MaxMag[j].magnitude);
 			}
@@ -2350,18 +2362,18 @@ double FindLocalMaximumInBlock(AudioSignal *Signal, MaxMagn refMax, int allowDif
 		{
 			double diff = 0;
 			double magnitude = 0;
-	
+
 			if(!Signal->Blocks[refMax.block].freq[i].hertz)
 				break;
-	
+
 			magnitude = Signal->Blocks[refMax.block].freq[i].magnitude;
 			diff = fabs(refMax.hertz - Signal->Blocks[refMax.block].freq[i].hertz);
-	
+
 			if(diff == 0)
 			{
 				if(config->verbose) {
 					logmsg(" - Comparison Local Max magnitude for [R:%g->C:%g] Hz is %g at %s# %d (%d)\n",
-						refMax.hertz, Signal->Blocks[refMax.block].freq[i].hertz, 
+						refMax.hertz, Signal->Blocks[refMax.block].freq[i].hertz,
 						magnitude, GetBlockName(config, refMax.block), GetBlockSubIndex(config, refMax.block), refMax.block);
 				}
 				return (magnitude);
@@ -2377,18 +2389,18 @@ double FindLocalMaximumInBlock(AudioSignal *Signal, MaxMagn refMax, int allowDif
 			{
 				double diff = 0;
 				double magnitude = 0;
-		
+
 				if(!Signal->Blocks[refMax.block].freqRight[i].hertz)
 					break;
-		
+
 				magnitude = Signal->Blocks[refMax.block].freqRight[i].magnitude;
 				diff = fabs(refMax.hertz - Signal->Blocks[refMax.block].freqRight[i].hertz);
-		
+
 				if(diff == 0)
 				{
 					if(config->verbose) {
 						logmsg(" - Comparison Local Max magnitude for [R:%g->C:%g] Hz is %g at %s# %d (%d)\n",
-							refMax.hertz, Signal->Blocks[refMax.block].freqRight[i].hertz, 
+							refMax.hertz, Signal->Blocks[refMax.block].freqRight[i].hertz,
 							magnitude, GetBlockName(config, refMax.block), GetBlockSubIndex(config, refMax.block), refMax.block);
 					}
 					return (magnitude);
@@ -2405,7 +2417,7 @@ double FindLocalMaximumInBlock(AudioSignal *Signal, MaxMagn refMax, int allowDif
 	if(allowDifference)
 	{
 		// Now with the tolerance
-		// we regularly end in a case where the 
+		// we regularly end in a case where the
 		// peak is a few bins lower or higher
 		// and we don't want to normalize against
 		// the magnitude of a harmonic sine wave
@@ -2416,19 +2428,19 @@ double FindLocalMaximumInBlock(AudioSignal *Signal, MaxMagn refMax, int allowDif
 			{
 				double diff = 0, binSize = 0;
 				double magnitude = 0;
-		
+
 				if(!Signal->Blocks[refMax.block].freq[i].hertz)
 					break;
-		
+
 				magnitude = Signal->Blocks[refMax.block].freq[i].magnitude;
 				diff = fabs(refMax.hertz - Signal->Blocks[refMax.block].freq[i].hertz);
-		
+
 				binSize = FindFrequencyBinSizeForBlock(Signal, refMax.block);
 				if(diff < 5*binSize)
 				{
 					if(config->verbose) {
 						logmsg(" - Comparison Local Max magnitude with tolerance for [R:%g->C:%g] Hz is %g at %s# %d (%d)\n",
-							refMax.hertz, Signal->Blocks[refMax.block].freq[i].hertz, 
+							refMax.hertz, Signal->Blocks[refMax.block].freq[i].hertz,
 							magnitude, GetBlockName(config, refMax.block), GetBlockSubIndex(config, refMax.block), refMax.block);
 					}
 					config->frequencyNormalizationTolerant = diff/binSize;
@@ -2447,19 +2459,19 @@ double FindLocalMaximumInBlock(AudioSignal *Signal, MaxMagn refMax, int allowDif
 				{
 					double diff = 0, binSize = 0;
 					double magnitude = 0;
-			
+
 					if(!Signal->Blocks[refMax.block].freqRight[i].hertz)
 						break;
-			
+
 					magnitude = Signal->Blocks[refMax.block].freqRight[i].magnitude;
 					diff = fabs(refMax.hertz - Signal->Blocks[refMax.block].freqRight[i].hertz);
-			
+
 					binSize = FindFrequencyBinSizeForBlock(Signal, refMax.block);
 					if(diff < 5*binSize)
 					{
 						if(config->verbose) {
 							logmsg(" - Comparison Local Max magnitude with tolerance for [R:%g->C:%g] Hz is %g at %s# %d (%d)\n",
-								refMax.hertz, Signal->Blocks[refMax.block].freqRight[i].hertz, 
+								refMax.hertz, Signal->Blocks[refMax.block].freqRight[i].hertz,
 								magnitude, GetBlockName(config, refMax.block), GetBlockSubIndex(config, refMax.block), refMax.block);
 						}
 						config->frequencyNormalizationTolerant = diff/binSize;
@@ -2510,7 +2522,7 @@ double FindFundamentalMagnitudeAverage(AudioSignal *Signal, parameters *config)
 		if(Signal->Blocks[block].freqRight)
 		{
 			int type = TYPE_NOTYPE;
-	
+
 			type = GetBlockType(config, block);
 			if(type > TYPE_CONTROL && Signal->Blocks[block].freqRight[0].hertz != 0)
 			{
@@ -2524,7 +2536,7 @@ double FindFundamentalMagnitudeAverage(AudioSignal *Signal, parameters *config)
 		AvgFundMag /= count;
 
 	if(config->verbose) {
-		logmsg(" - %s signal Average Fundamental Magnitude %g from %ld elements\n", 
+		logmsg(" - %s signal Average Fundamental Magnitude %g from %ld elements\n",
 				getRoleText(Signal),
 				AvgFundMag, count);
 	}

@@ -1,4 +1,4 @@
-/* 
+/*
  * MDFourier
  * A Fourier Transform analysis tool to compare game console audio
  * http://junkerhq.net/MDFourier/
@@ -21,9 +21,9 @@
  * along with this software; if not, write to the Free Software
  * Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA	02111-1307	USA
  *
- * Requires the FFTW library: 
+ * Requires the FFTW library:
  *	  http://www.fftw.org/
- * 
+ *
  */
 
 #ifndef MDFOURIER_H
@@ -48,7 +48,7 @@
 
 #include "incbeta.h"
 
-#define MDVERSION "1.03rcb"
+#define MDVERSION "1.04b"
 
 #if INTPTR_MAX == INT64_MAX
 #define	BITS_MDF "64-bit"
@@ -76,6 +76,7 @@
 #define TYPE_TIMEDOMAIN			-7
 #define	TYPE_SILENCE_OVERRIDE	-8
 #define	TYPE_WATERMARK			-9
+#define TYPE_CLK_ANALYSIS       -10 // used internally
 #define TYPE_CONTROL			TYPE_SILENCE
 
 
@@ -119,7 +120,7 @@
 // This value is the pitch difference at which it will be reported
 // 0.25 cents is around 7hz in a 48khz signal
 // 0.05 cents is around 2hz in a 48khz signal
-#define MAX_CENTS_DIFF 0.25  
+#define MAX_CENTS_DIFF 0.25
 #define MIN_CENTS_DIFF 0.08
 
 #define BUFFER_SIZE		4096
@@ -166,7 +167,7 @@
 
 #if defined(WIN32) || defined(_WIN32) || defined(__WIN32__) || defined(__NT__)
 	#define FOLDERCHAR	'\\'
-#else 
+#else
 	#define FOLDERCHAR	'/'
 #endif
 
@@ -316,7 +317,7 @@ typedef struct	FMT_HEADER_EXT2
 	uint32_t		dwChannelMask;	/* Speaker position mask */
 	/*  GUID (16 bytes, first two bytes are the data format code) */
 	uint16_t		formatCode; /* formatcode */
-	uint8_t			SubFormat[14];  
+	uint8_t			SubFormat[14];
 } fmt_hdr_ext2;
 
 typedef struct	DATA_HEADER
@@ -638,6 +639,8 @@ typedef struct parameters_st {
 	int			clkRatio;
 	int			clkNotFound;
 	int			clkWarning;
+    double      clkRef;
+    double      clkCom;
 
 	int			doClkAdjust;
 	int			doSamplerateAdjust;

@@ -243,6 +243,8 @@ void CleanParameters(parameters *config)
 	config->clkRatio = 0;
 	config->clkNotFound = 0;
 	config->clkWarning = 0;
+	config->clkRef = 0;
+	config->clkCom = 0;
 
 	config->doSamplerateAdjust = 0;
 	config->doClkAdjust = 0;
