@@ -2619,6 +2619,79 @@ void PrintComparedBlocks(AudioBlocks *ReferenceArray, AudioBlocks *ComparedArray
 	logmsgFileOnly("\n\n");
 }
 
+void PrintThesholdDifferenceBlocks(AudioBlocks *ReferenceArray, AudioBlocks *ComparedArray, parameters *config, AudioSignal *Signal, double threshold)
+{
+	if(ReferenceArray->freqRight)
+		logmsgFileOnly("LEFT Channel\n");
+	
+	/* changed Magnitude->amplitude */
+	for(int j = 0; j < config->MaxFreq; j++)
+	{
+		if(config->significantAmplitude > ReferenceArray->freq[j].amplitude)
+			break;
+
+		if(ReferenceArray->freq[j].hertz)
+		{
+			int matchedto = 0;
+
+			matchedto = ReferenceArray->freq[j].matched - 1;
+			if(matchedto >= 0 && 
+					fabs(ReferenceArray->freq[j].amplitude - ComparedArray->freq[matchedto].amplitude) > threshold)
+			{
+				logmsgFileOnly("[%5d] Ref: %7g Hz %6.4f dBFS [%+0.3g dBFS]", 
+							j,
+							ReferenceArray->freq[j].hertz,
+							ReferenceArray->freq[j].amplitude,
+							ReferenceArray->freq[j].matched - 1 >= 0 ? ReferenceArray->freq[j].amplitude - ComparedArray->freq[ReferenceArray->freq[j].matched - 1].amplitude : -1000);
+	
+				if(ComparedArray->freq[matchedto].hertz)
+					logmsgFileOnly("\tComp: %7g Hz %6.4f dBFS", 
+							ComparedArray->freq[matchedto].hertz,
+							ComparedArray->freq[matchedto].amplitude);
+				else
+					logmsgFileOnly("\tCompared:\tNULL");
+				
+				logmsgFileOnly("\n");
+			}
+		}
+	}
+
+	if(ReferenceArray->freqRight)
+	{
+		logmsgFileOnly("RIGHT Channel\n");
+		for(int j = 0; j < config->MaxFreq; j++)
+		{
+			if(config->significantAmplitude > ReferenceArray->freqRight[j].amplitude)
+				break;
+	
+			if(ReferenceArray->freqRight[j].hertz)
+			{
+				int matchedto = 0;
+	
+				matchedto = ReferenceArray->freq[j].matched - 1;
+				if(matchedto >= 0 && 
+					fabs(ReferenceArray->freqRight[j].amplitude - ComparedArray->freqRight[matchedto].amplitude) > threshold)
+				{
+					logmsgFileOnly("[%5d] Ref: %7g Hz %6.4f dBFS [%+0.3g dBFS]", 
+								j,
+								ReferenceArray->freqRight[j].hertz,
+								ReferenceArray->freqRight[j].amplitude,
+								ReferenceArray->freqRight[j].matched - 1 >= 0 ? ReferenceArray->freqRight[j].amplitude - ComparedArray->freqRight[ReferenceArray->freqRight[j].matched - 1].amplitude : -1000);
+		
+					if(ComparedArray->freqRight[matchedto].hertz)
+						logmsgFileOnly("\tComp: %7g Hz %6.4f dBFS", 
+								ComparedArray->freqRight[matchedto].hertz,
+								ComparedArray->freqRight[matchedto].amplitude);
+					else
+						logmsgFileOnly("\tCompared:\tNULL");
+					logmsgFileOnly("\n");
+				}
+			}
+		}
+	}
+	logmsgFileOnly("\n\n");
+}
+
 double CalculateWeightedError(double pError, parameters *config)
 {
 	int option = 0;
@@ -3259,6 +3332,28 @@ inline double GetSignalMinInt(AudioSignal *Signal)
 			break;
 		case 4:
 			Min = MININT32;
+			break;
+		default:
+			logmsg("Invalid bit depth (%dbits)\n", Signal->bytesPerSample*8);
+			break;
+	}
+	return Min;
+}
+
+inline double GetSignalMinDBFS(AudioSignal *Signal)
+{
+	double Min = 0;
+
+	switch(Signal->bytesPerSample)
+	{
+		case 2:
+			Min = PCM_16BIT_MIN_AMPLITUDE;
+			break;
+		case 3:
+			Min = PCM_24BIT_MIN_AMPLITUDE;
+			break;
+		case 4:
+			Min = PCM_32BIT_MIN_AMPLITUDE;
 			break;
 		default:
 			logmsg("Invalid bit depth (%dbits)\n", Signal->bytesPerSample*8);

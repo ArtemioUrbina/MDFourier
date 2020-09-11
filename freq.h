@@ -120,6 +120,7 @@ int IsHRefreshNoiseCrossTalk(AudioSignal *Signal, double freq);
 int IsGridFrequencyNoise(AudioSignal *Signal, double freq);
 
 void PrintComparedBlocks(AudioBlocks *ReferenceArray, AudioBlocks *ComparedArray, parameters *config, AudioSignal *Signal);
+void PrintThesholdDifferenceBlocks(AudioBlocks *ReferenceArray, AudioBlocks *ComparedArray, parameters *config, AudioSignal *Signal, double threshold);
 
 int CalculateTimeDurations(AudioSignal *Signal, parameters *config);
 double CalculateWeightedError(double pError, parameters *config);
@@ -167,4 +168,6 @@ int CalculateCLKAmplitudes(AudioSignal *ReferenceSignal, AudioSignal *Comparison
 
 double GetSignalMaxInt(AudioSignal *Signal);
 double GetSignalMinInt(AudioSignal *Signal);
+
+double GetSignalMinDBFS(AudioSignal *Signal);
 #endif

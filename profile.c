@@ -175,6 +175,12 @@ int EndProfileLoad(parameters *config)
 	PrintAudioBlocks(config);
 	if(!CheckSyncFormats(config))
 		return 0;
+
+	/*
+	if(!CheckProfileBaseLength(config))
+		return 0;
+	*/
+
 	return 1;
 }
 
@@ -833,6 +839,51 @@ void PrintAudioBlocks(parameters *config)
 		frames += config->types.typeArray[i].elementCount*config->types.typeArray[i].frames;
 	}
 	logmsgFileOnly("Total frames: %ld\n================\n", frames);
+}
+
+int CheckProfileBaseLength(parameters *config)
+{
+	int first = 0, failed = 0;
+	//int framelength[100];
+
+	if(!config)
+		return 0;
+
+	for(int i = 0; i < config->types.typeCount; i++)
+	{
+		if(config->types.typeArray[i].type > TYPE_CONTROL)
+		{
+			double	seconds = 0;
+
+			if(!first)
+			{
+				first = config->types.typeArray[i].frames;
+				logmsg("Block %d OK [%d]\n", i, first);
+			}
+			else
+			{
+				if(first != config->types.typeArray[i].frames)
+				{
+					logmsg("Block %d fails [%d & %d]\n", i, first, config->types.typeArray[i].frames);
+					failed = 1;
+				}
+				else
+					logmsg("Block %d OK\n", i);
+			}
+
+			seconds = FramesToSeconds(config->types.typeArray[i].frames, config->types.SyncFormat[0].MSPerFrame);
+			if(seconds > 1.0)
+				logmsg("Block %d (%g seconds issue with Zero Pad)\n", i, seconds);
+
+			//framelength[i] = config->types.typeArray[i].elementCount*config->types.typeArray[i].frames;
+		}
+	}
+	if(failed)
+	{
+		logmsg("Invalid Profile\n");
+		return 0;
+	}
+	return 1;
 }
 
 // Must be called after sync has been detected

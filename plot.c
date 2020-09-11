@@ -39,9 +39,9 @@
 #define SORT_CMP(x, y)  ((x).refAmplitude < (y).refAmplitude ? -1 : ((x).refAmplitude == (y).refAmplitude ? 0 : 1))
 #include "sort.h"  // https://github.com/swenson/sort/
 
-#define SORT_NAME AmplitudeDifferencesByFrequencyAveraged
-#define SORT_TYPE FlatAmplDifference
-#define SORT_CMP(x, y)  ((x).hertz < (y).hertz ? -1 : ((x).hertz == (y).hertz ? 0 : 1))
+#define SORT_NAME AverageByFrequency
+#define SORT_TYPE AveragedFrequencies
+#define SORT_CMP(x, y)  ((x).avgfreq < (y).avgfreq ? -1 : ((x).avgfreq == (y).avgfreq ? 0 : 1))
 #include "sort.h"  // https://github.com/swenson/sort/
 
 #define SORT_NAME FlatFrequenciesByAmplitude
@@ -613,7 +613,7 @@ int CreatePlotFile(PlotFile *plot, parameters *config)
 	plot->file = fopen(plot->FileName, "wb");
 	if(!plot->file)
 	{
-		logmsg("Couldn't create graph file %s\n%s\n", plot->FileName, strerror(errno));
+		logmsg("WARNING: Couldn't create graph file %s\n%s\n", plot->FileName, strerror(errno));
 		return 0;
 	}
 
@@ -801,7 +801,7 @@ void DrawLabelsZeroDBCentered(PlotFile *plot, double dBFS, double dbIncrement, d
 	pl_fmove_r(plot->plotter, config->plotResX+PLOT_SPACER, config->plotResY/100);
 	pl_alabel_r(plot->plotter, 'l', 't', "0dBFS");
 
-	if(dBFS < PCM_16BIT_MIN_AMPLITUDE)
+	if(dBFS < config->lowestDBFS)
 		dbIncrement *= 2;
 
 	segments = fabs(dBFS/dbIncrement);
@@ -1744,7 +1744,7 @@ void DrawLabelsZeroToLimit(PlotFile *plot, double dBFS, double dbIncrement, doub
 	pl_pencolor_r(plot->plotter, 0, 0xaaaa, 0);
 	pl_ffontsize_r(plot->plotter, FONT_SIZE_1);
 
-	if(fabs(dBFS) < PCM_16BIT_MIN_AMPLITUDE)
+	if(fabs(dBFS) < config->lowestDBFS)
 		dbIncrement *= 2;
 
 	pl_ffontname_r(plot->plotter, PLOT_FONT);
@@ -2455,7 +2455,7 @@ void PlotSilenceBlockDifferentAmplitudes(FlatAmplDifference *amplDiff, long int 
 {
 	PlotFile	plot;
 	double		dBFS = config->maxDbPlotZC;
-	double		startAmplitude = config->referenceNoiseFloor, endAmplitude = PCM_16BIT_MIN_AMPLITUDE;
+	double		startAmplitude = config->referenceNoiseFloor, endAmplitude = config->lowestDBFS;
 
 	if(!config)
 		return;
@@ -2681,7 +2681,7 @@ void PlotSingleTypeSpectrogram(FlatFrequency *freqs, long int size, int type, ch
 void PlotNoiseSpectrogram(FlatFrequency *freqs, long int size, int type, char *filename, int signal, parameters *config, AudioSignal *Signal)
 {
 	PlotFile	plot;
-	double		startAmplitude = config->significantAmplitude, endAmplitude = PCM_16BIT_MIN_AMPLITUDE;
+	double		startAmplitude = config->significantAmplitude, endAmplitude = config->lowestDBFS;
 
 	if(!config)
 		return;
@@ -3310,17 +3310,95 @@ long int movingAverage(AveragedFrequencies *data, AveragedFrequencies *averages,
 	return pos;
 }
 
-// parameters for the Average plot
-
-#define	SMA_SIZE					4	// Size for the Simple Moving average period
-#define	AVERAGE_CHUNKS				200	// How many chunks across the frequency spectrum
-
-AveragedFrequencies *CreateFlatDifferencesAveraged(int matchType, char channel, long int *avgSize, int chunks, diffPlotType plotType, parameters *config)
+/*
+//This version is more strict, average out stuff that is within 1000 hz
+long int movingAverage(AveragedFrequencies *data, AveragedFrequencies *averages, long int size, long int period)
 {
-	long int			count = 0, interval = 0, realResults = 0;
-	FlatAmplDifference	*ADiff = NULL;
+	long int 			current_index = 0, i = 0, pos = 0, count = 0;
+	AveragedFrequencies *periodArray = NULL;
+
+	periodArray = (AveragedFrequencies*)malloc(sizeof(AveragedFrequencies)*period);
+	if(!periodArray)
+		return 0;
+	
+	memset(periodArray, 0, sizeof(AveragedFrequencies)*period);
+
+	for(i = 1; i < size; i++)
+	{
+		AveragedFrequencies	ma;
+
+		ma.avgfreq = 0;
+		ma.avgvol = 0;
+		// we only average out stuff that is within 1000 hz
+		if(fabs(data[i].avgfreq - data[i-1].avgfreq) < 1000.0)
+		{
+			periodArray[current_index].avgfreq = data[i].avgfreq/(double)period;
+			periodArray[current_index].avgvol = data[i].avgvol/(double)period;
+ 			for(long int j = 0; j < period; j++)
+			{
+				ma.avgfreq += periodArray[j].avgfreq;
+				ma.avgvol += periodArray[j].avgvol;
+			}
+			if(count >= period)
+				averages[pos++] = ma;
+			current_index = (current_index + 1) % period;
+			count ++;
+		}
+		else
+		{
+			count = 0;
+			memset(periodArray, 0, sizeof(AveragedFrequencies)*period);
+			//logmsg("Discarded %g to %g\n", data[i].avgfreq, data[i-1].avgfreq);
+		}
+	}
+
+	free(periodArray);
+	periodArray = NULL;
+	return pos;
+}
+*/
+
+long int AverageDuplicates(AveragedFrequencies *array, long int size)
+{
+	long int p = 0, finalCount = 0;
+
+	// detect same frequency, with or without different amplitue (for optimization)
+	// if they are different, the come form different blocks blocks
+	// We need to average these out
+	for(p = 1; p < size; p++)
+	{
+		if(areDoublesEqual(array[p-1].avgfreq, array[p].avgfreq))
+		{
+			long int	base = 0, elements = 0;
+			double		hz = 0, sum = 0, avg = 0;
+
+			base = p - 1;
+			hz = array[base].avgfreq;
+			while(p < size && areDoublesEqual(hz, array[p].avgfreq))
+			{
+				sum += array[p].avgvol;
+				elements++;
+				p++;
+			}
+
+			avg = roundFloat(sum/(double)elements);
+			array[base].avgvol = avg;
+
+			// move everything down
+			array[finalCount] = array[base];
+		}
+		else
+			array[finalCount] = array[p];
+		finalCount++;
+	}
+	return finalCount;
+}
+
+AveragedFrequencies *CreateFlatDifferencesAveraged(int matchType, char channel, long int *avgSize, diffPlotType plotType, parameters *config)
+{
+	long int			count = 0;
 	AveragedFrequencies	*averaged = NULL, *averagedSMA = NULL;
-	double				significant = 0, 	abs_significant = 0;
+	double				significant = 0;
 
 	if(!config)
 		return NULL;
@@ -3329,9 +3407,8 @@ AveragedFrequencies *CreateFlatDifferencesAveraged(int matchType, char channel, 
 		return NULL;
 
 	*avgSize = 0;
-
-	significant = config->significantAmplitude;
-	abs_significant = fabs(significant);
+	// this is very important, to remove outliers, we consider only data within 50% of the amplitude
+	significant = config->significantAmplitude*0.5;
 
 	// Count how many we have
 	for(int b = 0; b < config->types.totalBlocks; b++)
@@ -3352,12 +3429,10 @@ AveragedFrequencies *CreateFlatDifferencesAveraged(int matchType, char channel, 
 	if(!count)
 		return NULL;
 
-	if(config->weightedAveragePlot)
-		count *= 10;
-	ADiff = (FlatAmplDifference*)malloc(sizeof(FlatAmplDifference)*count);
-	if(!ADiff)
+	averaged = (AveragedFrequencies*)malloc(sizeof(AveragedFrequencies)*count);
+	if(!averaged)
 		return NULL;
-	memset(ADiff, 0, sizeof(FlatAmplDifference)*count);
+	memset(averaged, 0, sizeof(AveragedFrequencies)*count);
 
 	count = 0;
 	for(int b = 0; b < config->types.totalBlocks; b++)
@@ -3367,7 +3442,7 @@ AveragedFrequencies *CreateFlatDifferencesAveraged(int matchType, char channel, 
 		type = config->Differences.BlockDiffArray[b].type;
 		if(type == matchType)
 		{
-			double		startAmplitude = config->referenceNoiseFloor, endAmplitude = PCM_16BIT_MIN_AMPLITUDE;
+			double		startAmplitude = config->referenceNoiseFloor, endAmplitude = config->lowestDBFS;
 
 			if(plotType == floorPlot)
 			{
@@ -3394,30 +3469,9 @@ AveragedFrequencies *CreateFlatDifferencesAveraged(int matchType, char channel, 
 				if(config->Differences.BlockDiffArray[b].amplDiffArray[a].refAmplitude > significant
 					&& (channel == CHANNEL_STEREO || config->Differences.BlockDiffArray[b].amplDiffArray[a].channel == channel))
 				{
-					if(config->weightedAveragePlot)
-					{
-						double intensity = 0, value = 0;
-	
-						if(plotType == normalPlot)
-							value = (abs_significant - fabs(config->Differences.BlockDiffArray[b].amplDiffArray[a].refAmplitude))/
-										abs_significant;
-						else
-							value = 1.0  -(fabs(config->Differences.BlockDiffArray[b].amplDiffArray[a].refAmplitude)-fabs(startAmplitude))/
-										(fabs(endAmplitude)-fabs(startAmplitude));
-						intensity = CalculateWeightedError(value, config);
-						for(int i = 0; i < floor(intensity*10); i++)
-						{
-							ADiff[count].hertz = config->Differences.BlockDiffArray[b].amplDiffArray[a].hertz;
-							ADiff[count].diffAmplitude = config->Differences.BlockDiffArray[b].amplDiffArray[a].diffAmplitude;
-							count ++;
-						}
-					}
-					else
-					{
-						ADiff[count].hertz = config->Differences.BlockDiffArray[b].amplDiffArray[a].hertz;
-						ADiff[count].diffAmplitude = config->Differences.BlockDiffArray[b].amplDiffArray[a].diffAmplitude;
-						count ++;
-					}
+					averaged[count].avgfreq = config->Differences.BlockDiffArray[b].amplDiffArray[a].hertz;
+					averaged[count].avgvol = config->Differences.BlockDiffArray[b].amplDiffArray[a].diffAmplitude;
+					count ++;
 				}
 			}
 		}
@@ -3425,73 +3479,25 @@ AveragedFrequencies *CreateFlatDifferencesAveraged(int matchType, char channel, 
 
 	if(!count)
 	{
-		free(ADiff);
+		free(averaged);
 		return NULL;
 	}
-	logmsg(PLOT_PROCESS_CHAR);
 
-	averaged = (AveragedFrequencies*)malloc(sizeof(AveragedFrequencies)*count);
-	if(!averaged)
-	{
-		free(ADiff);
-		return NULL;
-	}
-	memset(averaged, 0, sizeof(AveragedFrequencies)*count);
+	AverageByFrequency_tim_sort(averaged, count);
+	count = AverageDuplicates(averaged, count);
 
-	AmplitudeDifferencesByFrequencyAveraged_tim_sort(ADiff, count);
-	logmsg(PLOT_PROCESS_CHAR);
-
-	interval = ceil((double)count/(double)chunks);
-	if(interval < 1)
-	{
-		interval = 1;
-		chunks = count;
-	}
-
-	for(long int a = 0; a < chunks; a++)
-	{
-		long int start, end, elements = 0;
-
-		start = a*interval;
-		end = start+interval;
-
-		for(long int c = start; c < end; c++)
-		{
-			if(c == count)
-				break;
-
-			averaged[realResults].avgfreq += ADiff[c].hertz;
-			averaged[realResults].avgvol += ADiff[c].diffAmplitude;
-			elements++;
-		}
-
-		if(elements)
-		{
-			averaged[realResults].avgfreq /= elements;
-			averaged[realResults].avgvol /= elements;
-
-			realResults++;
-		}
-
-		if(end >= count)
-			break;
-	}
-
-	free(ADiff);
-	ADiff = NULL;
-
-	averagedSMA = (AveragedFrequencies*)malloc(sizeof(AveragedFrequencies)*realResults);
+	averagedSMA = (AveragedFrequencies*)malloc(sizeof(AveragedFrequencies)*count);
 	if(!averagedSMA)
 	{
 		free(averaged);
 		return NULL;
 	}
 
-	memset(averagedSMA, 0, sizeof(AveragedFrequencies)*realResults);
+	memset(averagedSMA, 0, sizeof(AveragedFrequencies)*count);
 
 	logmsg(PLOT_PROCESS_CHAR);
 
-	*avgSize = movingAverage(averaged, averagedSMA, realResults, SMA_SIZE);
+	*avgSize = movingAverage(averaged, averagedSMA, count, plotType == floorPlot ? 50 : 4);
 
 	free(averaged);
 	averaged = NULL;
@@ -3526,15 +3532,13 @@ int PlotDifferentAmplitudesAveraged(FlatAmplDifference *amplDiff, long int size,
 
 		if(type > TYPE_CONTROL && !config->types.typeArray[i].IsaddOnData)
 		{
-			long int	chunks = AVERAGE_CHUNKS;
-
 			if(typeCount == 1)
 				sprintf(name, "DA__ALL_%s_AVG", filename);
 			else
 				sprintf(name, "DA_%s_%02d%s_AVG", filename, 
 					config->types.typeArray[i].type, config->types.typeArray[i].typeName);
 
-			averagedArray[types] = CreateFlatDifferencesAveraged(type, CHANNEL_STEREO, &averagedSizes[types], chunks, normalPlot, config);
+			averagedArray[types] = CreateFlatDifferencesAveraged(type, CHANNEL_STEREO, &averagedSizes[types], normalPlot, config);
 
 			if(averagedArray[types])
 			{
@@ -3555,7 +3559,7 @@ int PlotDifferentAmplitudesAveraged(FlatAmplDifference *amplDiff, long int size,
 					long int sizeLeft = 0, sizeRight = 0;
 					AveragedFrequencies	*averagedArrayLeft = NULL, *averagedArrayRight = NULL;
 
-					averagedArrayLeft = CreateFlatDifferencesAveraged(type, CHANNEL_LEFT, &sizeLeft, chunks, normalPlot, config);
+					averagedArrayLeft = CreateFlatDifferencesAveraged(type, CHANNEL_LEFT, &sizeLeft, normalPlot, config);
 					if(typeCount == 1)
 						sprintf(name, "DA__ALL_%s_%c_AVG", filename, CHANNEL_LEFT);
 					else
@@ -3565,7 +3569,7 @@ int PlotDifferentAmplitudesAveraged(FlatAmplDifference *amplDiff, long int size,
 					logmsg(PLOT_ADVANCE_CHAR);
 					free(averagedArrayLeft);
 
-					averagedArrayRight = CreateFlatDifferencesAveraged(type, CHANNEL_RIGHT, &sizeRight, chunks, normalPlot, config);
+					averagedArrayRight = CreateFlatDifferencesAveraged(type, CHANNEL_RIGHT, &sizeRight, normalPlot, config);
 					if(typeCount == 1)
 						sprintf(name, "DA__ALL_%s_%c_AVG", filename, CHANNEL_RIGHT);
 					else
@@ -3618,12 +3622,10 @@ int PlotNoiseDifferentAmplitudesAveraged(FlatAmplDifference *amplDiff, long int 
 		int type = config->types.typeArray[i].type;
 		if(type == TYPE_SILENCE)
 		{
-			long int chunks = AVERAGE_CHUNKS;
-
 			sprintf(name, "NF__%s_%02d%s_AVG_", filename, 
 					config->types.typeArray[i].type, config->types.typeArray[i].typeName);
 
-			averagedArray = CreateFlatDifferencesAveraged(type, CHANNEL_STEREO, &avgsize, chunks, floorPlot, config);
+			averagedArray = CreateFlatDifferencesAveraged(type, CHANNEL_STEREO, &avgsize, floorPlot, config);
 
 			if(averagedArray)
 			{
@@ -3644,7 +3646,7 @@ void PlotNoiseDifferentAmplitudesAveragedInternal(FlatAmplDifference *amplDiff, 
 	PlotFile	plot;
 	double		dbs = config->maxDbPlotZC, vertscale = VERT_SCALE_STEP;;
 	int			color = 0;
-	double		startAmplitude = config->referenceNoiseFloor, endAmplitude = PCM_16BIT_MIN_AMPLITUDE;
+	double		startAmplitude = config->referenceNoiseFloor, endAmplitude = config->lowestDBFS;
 
 	if(!config)
 		return;
@@ -3831,10 +3833,10 @@ void PlotSingleTypeDifferentAmplitudesAveraged(FlatAmplDifference *amplDiff, lon
 			}
 			else
 			{
-				if(fabs(averaged[a].avgvol) <= fabs(dbs))
+				//if(fabs(averaged[a].avgvol) <= fabs(dbs))
 					pl_fcont_r(plot.plotter, transformtoLog(averaged[a].avgfreq, config), averaged[a].avgvol);
-				else
-					break;
+				//else
+					//break;
 			}
 		}
 		pl_endpath_r(plot.plotter);
@@ -3852,10 +3854,10 @@ void PlotSingleTypeDifferentAmplitudesAveraged(FlatAmplDifference *amplDiff, lon
 			}
 			else
 			{
-				if(fabs(averaged[a].avgvol) <= fabs(dbs))
+				//if(fabs(averaged[a].avgvol) <= fabs(dbs))
 					pl_fcont_r(plot.plotter, transformtoLog(averaged[a].avgfreq, config), averaged[a].avgvol);
-				else
-					break;
+				//else
+					//break;
 			}
 		}
 		pl_endpath_r(plot.plotter);
@@ -3968,10 +3970,10 @@ void PlotAllDifferentAmplitudesAveraged(FlatAmplDifference *amplDiff, long int s
 				}
 				else
 				{
-					if(fabs(averaged[currType][a].avgvol) <= fabs(dBFS))
+					//if(fabs(averaged[currType][a].avgvol) <= fabs(dBFS))
 						pl_fcont_r(plot.plotter, transformtoLog(averaged[currType][a].avgfreq, config), averaged[currType][a].avgvol);
-					else
-						break;
+					//else
+						//break;
 				}
 			}
 			pl_endpath_r(plot.plotter);
@@ -3989,10 +3991,10 @@ void PlotAllDifferentAmplitudesAveraged(FlatAmplDifference *amplDiff, long int s
 				}
 				else
 				{
-					if(fabs(averaged[currType][a].avgvol) <= fabs(dBFS))
+					//if(fabs(averaged[currType][a].avgvol) <= fabs(dBFS))
 						pl_fcont_r(plot.plotter, transformtoLog(averaged[currType][a].avgfreq, config), averaged[currType][a].avgvol);
-					else
-						break;
+					//else
+						//break;
 				}
 			}
 			pl_endpath_r(plot.plotter);
@@ -4151,7 +4153,7 @@ void PlotTimeSpectrogram(AudioSignal *Signal, char channel, parameters *config)
 		return;
 
 	if(config->FullTimeSpectroScale)
-		significant = PCM_16BIT_MIN_AMPLITUDE;
+		significant = config->lowestDBFS;
 	else
 		significant = config->significantAmplitude;
 
@@ -4285,7 +4287,7 @@ void PlotTimeSpectrogramUnMatchedContent(AudioSignal *Signal, char channel, para
 		return;
 
 	if(config->FullTimeSpectroScale)
-		significant = PCM_16BIT_MIN_AMPLITUDE;
+		significant = config->lowestDBFS;
 	else
 		significant = config->significantAmplitude;
 	abs_significant = fabs(significant);
@@ -5402,7 +5404,7 @@ FlatFrequency *CreateFlatFrequenciesCLK(AudioSignal *Signal, long int *size, par
 void PlotCLKSpectrogramInternal(FlatFrequency *freqs, long int size, char *filename, int signal, parameters *config, AudioSignal *Signal)
 {
 	PlotFile	plot;
-	double		startAmplitude = config->significantAmplitude, endAmplitude = PCM_16BIT_MIN_AMPLITUDE;
+	double		startAmplitude = config->significantAmplitude, endAmplitude = config->lowestDBFS;
 
 	if(!config)
 		return;

@@ -48,7 +48,7 @@
 
 #include "incbeta.h"
 
-#define MDVERSION "1.04b"
+#define MDVERSION "1.05b"
 
 #if INTPTR_MAX == INT64_MAX
 #define	BITS_MDF "64-bit"
@@ -64,6 +64,8 @@
 #define SIGNIFICANT_VOLUME			-66.0
 #define NS_LOWEST_AMPLITUDE			-200
 #define	PCM_16BIT_MIN_AMPLITUDE		-96.0
+#define	PCM_24BIT_MIN_AMPLITUDE		-144.0
+#define	PCM_32BIT_MIN_AMPLITUDE		-192.0
 #define LOWEST_NOISEFLOOR_ALLOWED	-40.0
 #define STEREO_TOLERANCE_REPORT		8.5
 
@@ -609,6 +611,7 @@ typedef struct parameters_st {
 	int				noBalance;
 	double			highestValueBitDepth;
 	double			lowestValueBitDepth;
+    double          lowestDBFS;
 	int				stereoBalanceBlock;
 	int				warningStereoReversed;
 	double			warningRatioTooHigh;

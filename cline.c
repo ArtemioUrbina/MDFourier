@@ -176,6 +176,7 @@ void CleanParameters(parameters *config)
 	config->trimmingNeeded = 0;
 	config->highestValueBitDepth = 0;
 	config->lowestValueBitDepth = 0;
+	config->lowestDBFS = 0;
 
 	config->warningStereoReversed = 0;
 	config->warningRatioTooHigh = 0;

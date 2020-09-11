@@ -349,8 +349,10 @@ int LoadAudioFiles(AudioSignal **ReferenceSignal, AudioSignal **ComparisonSignal
 	else
 		higher= *ComparisonSignal;
 
-	config->highestValueBitDepth = GetSignalMaxInt(higher);;
-	config->lowestValueBitDepth = GetSignalMinInt(higher);;
+	config->highestValueBitDepth = GetSignalMaxInt(higher);
+	config->lowestValueBitDepth = GetSignalMinInt(higher);
+
+	config->lowestDBFS = GetSignalMinDBFS(higher);
 
 	return 1;
 }
@@ -1729,6 +1731,16 @@ int CompareAudioBlocks(AudioSignal *ReferenceSignal, AudioSignal *ComparisonSign
 				PrintComparedBlocks(&ReferenceSignal->Blocks[block], &ComparisonSignal->Blocks[block],
 					config, ReferenceSignal);
 			}
+		}
+	}
+
+	if(config->showAll)
+	{
+		for(block = 0; block < config->types.totalBlocks; block++)
+		{
+			logmsgFileOnly("Values above 3dBFS for %s# %ld (%ld)\n", GetBlockName(config, block), GetBlockSubIndex(config, block), block);
+			PrintThesholdDifferenceBlocks(&ReferenceSignal->Blocks[block], &ComparisonSignal->Blocks[block],
+				config, ReferenceSignal, 3.0);
 		}
 	}
 
