@@ -195,7 +195,7 @@ int SaveWAVEChunk(char *filename, AudioSignal *Signal, double *buffer, long int 
 		chunk = fopen(filename, "wb");
 	if(!chunk)
 	{
-		logmsg("\tCould not open chunk file %s\n", filename);
+		logmsg("\tERROR: Could not open chunk file %s\n", filename);
 		free(samples);
 		return 0;
 	}
@@ -230,7 +230,7 @@ int SaveWAVEChunk(char *filename, AudioSignal *Signal, double *buffer, long int 
 	if(fwrite(&cheader.riff, 1, sizeof(riff_hdr), chunk) != sizeof(riff_hdr))
 	{
 		fclose(chunk);
-		logmsg("\tCould not write RIFf header chunk to file %s\n", filename);
+		logmsg("\tERROR: Could not write RIFf header chunk to file %s\n", filename);
 		free(samples);
 		return(0);
 	}
@@ -238,7 +238,7 @@ int SaveWAVEChunk(char *filename, AudioSignal *Signal, double *buffer, long int 
 	if(fwrite(&cheader.fmt, 1, sizeof(fmt_hdr), chunk) != sizeof(fmt_hdr))
 	{
 		fclose(chunk);
-		logmsg("\tCould not write fmt header chunk to file %s\n", filename);
+		logmsg("\tERROR: Could not write fmt header chunk to file %s\n", filename);
 		free(samples);
 		return(0);
 	}
@@ -249,7 +249,7 @@ int SaveWAVEChunk(char *filename, AudioSignal *Signal, double *buffer, long int 
 		if(fwrite(Signal->fmtExtra, 1, sizeof(int8_t)*Signal->fmtType, chunk) != sizeof(int8_t)*Signal->fmtType)
 		{
 			fclose(chunk);
-			logmsg("\tCould not write fmt extended header chunk to file %s\n", filename);
+			logmsg("\tERROR: Could not write fmt extended header chunk to file %s\n", filename);
 			free(samples);
 			return(0);
 		}
@@ -259,7 +259,7 @@ int SaveWAVEChunk(char *filename, AudioSignal *Signal, double *buffer, long int 
 	if(fwrite(&cheader.data, 1, sizeof(data_hdr), chunk) != sizeof(data_hdr))
 	{
 		fclose(chunk);
-		logmsg("\tCould not write data header chunk to file %s\n", filename);
+		logmsg("\tERROR: Could not write data header chunk to file %s\n", filename);
 		free(samples);
 		return(0);
 	}
@@ -267,7 +267,7 @@ int SaveWAVEChunk(char *filename, AudioSignal *Signal, double *buffer, long int 
 	if(fwrite(samples, 1, sizeof(char)*loadedBlockSize*Signal->bytesPerSample, chunk) != sizeof(char)*loadedBlockSize*Signal->bytesPerSample)
 	{
 		fclose(chunk);
-		logmsg("\tCould not write samples to chunk file %s\n", filename);
+		logmsg("\tERROR: Could not write samples to chunk file %s\n", filename);
 		free(samples);
 		return (0);
 	}
@@ -287,7 +287,7 @@ int SaveWAVEChunk(char *filename, AudioSignal *Signal, double *buffer, long int 
 		if(fwrite(&Signal->fact, 1, sizeof(fact_ck), chunk) != sizeof(fact_ck))
 		{
 			fclose(chunk);
-			logmsg("\tCould not write fact header chunk to file %s\n", filename);
+			logmsg("\tERROR: Could not write fact header chunk to file %s\n", filename);
 			free(samples);
 			return(0);
 		}

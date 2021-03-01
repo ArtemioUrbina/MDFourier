@@ -499,7 +499,8 @@ int LoadAudioBlockStructure(FILE *file, parameters *config)
 			if(config->types.typeArray[i].channel == CHANNEL_STEREO)
 			{
 				if(config->types.typeArray[i].type <= TYPE_CONTROL && 
-					config->types.typeArray[i].type != TYPE_TIMEDOMAIN)
+					config->types.typeArray[i].type != TYPE_TIMEDOMAIN &&
+					config->types.typeArray[i].type != TYPE_SKIP)
 				{
 					logmsg("ERROR: Only regular blocks can be analyzed as stereo\n %s\n", lineBuffer);
 					fclose(file);

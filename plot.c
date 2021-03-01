@@ -239,6 +239,10 @@ void PlotResults(AudioSignal *ReferenceSignal, AudioSignal *ComparisonSignal, pa
 		PlotAmpDifferences(config);
 		//PlotDifferenceTimeSpectrogram(config);
 		EndPlot("Differences", &lstart, &lend, config);
+
+		printf(" - Preliminary results in %s%s\n",
+				config->outputPath,
+				config->folderName);
 	}
 
 	if(config->plotMissing)
@@ -715,14 +719,14 @@ void DrawGridZeroDBCentered(PlotFile *plot, double dBFS, double dbIncrement, dou
 			dbIncrement = 1.0;
 	}
 
-	if(!config->maxDbPlotZCChanged)
+	if(config->maxDbPlotZC != DB_HEIGHT)
 		pl_pencolor_r(plot->plotter, 0, 0xaaaa, 0);
 	else
 		pl_pencolor_r(plot->plotter, 0xaaaa, 0xaaaa, 0);
 	pl_fline_r(plot->plotter, 0, 0, hz, 0);
 	pl_endpath_r(plot->plotter);
 
-	if(!config->maxDbPlotZCChanged)
+	if(config->maxDbPlotZC != DB_HEIGHT)
 		pl_pencolor_r(plot->plotter, 0, 0x5555, 0);
 	else
 		pl_pencolor_r(plot->plotter, 0x5555, 0x5555, 0);
@@ -794,7 +798,7 @@ void DrawLabelsZeroDBCentered(PlotFile *plot, double dBFS, double dbIncrement, d
 	pl_ffontname_r(plot->plotter, PLOT_FONT);
 	pl_ffontsize_r(plot->plotter, FONT_SIZE_1);
 
-	if(!config->maxDbPlotZCChanged)
+	if(config->maxDbPlotZC != DB_HEIGHT)
 		pl_pencolor_r(plot->plotter, 0, 0xffff, 0);
 	else
 		pl_pencolor_r(plot->plotter, 0xffff, 0xffff, 0);
@@ -951,9 +955,9 @@ void DrawSRData(PlotFile *plot, AudioSignal *Signal, char *msg, parameters *conf
 
 	pl_pencolor_r(plot->plotter, 0xcccc, 0xcccc, 0);
 	if(config->doSamplerateAdjust)
-		sprintf(str, "SR %%s: %%d\\->%%gkHz");
+		sprintf(str, "\\ptSR %%s: %%d\\->%%gkHz");
 	else
-		sprintf(str, "SR %%s: %%d(%%g)kHz");
+		sprintf(str, "\\ptSR %%s: %%d(%%g)kHz");
 	sprintf(msg, str,
 		Signal->role == ROLE_REF ? "RF" : "CM",
 		Signal->originalSR/1000, Signal->EstimatedSR/1000.0);
@@ -1355,6 +1359,14 @@ void DrawLabelsMDF(PlotFile *plot, char *Gname, char *GType, int type, parameter
 		pl_alabel_r(plot->plotter, 'l', 'l', "NOTE: Sync tolerance enabled (-T)");
 	}
 
+	if(config->maxDbPlotZC != DB_HEIGHT && type == PLOT_COMPARE)
+	{
+		PLOT_WARN(1, warning++);
+		sprintf(msg, "NOTE: Vertical scale changed %s",
+					config->maxDbPlotZCChanged ? "(-d)" : "(kept within one Std Dev)"); 
+		pl_alabel_r(plot->plotter, 'l', 'l', msg);
+	}
+
 	/* Warnings */
 	pl_pencolor_r(plot->plotter, 0xeeee, 0xeeee, 0);
 	if(config->noSyncProfile && type < PLOT_SINGLE_REF)
@@ -1470,7 +1482,8 @@ void DrawLabelsMDF(PlotFile *plot, char *Gname, char *GType, int type, parameter
 		}
 
 		PLOT_WARN(1, warning++);
-		sprintf(msg, "WARNING: Sample rate%s match spec length. (can use -R)",
+		sprintf(msg, "WARNING: %s%s match expected duration (can use -R)",
+			config->SRNoMatch == (ROLE_REF | ROLE_COMP) ? "Signal" : config->SRNoMatch == ROLE_REF ? "RF" : "CM",
 			config->SRNoMatch == (ROLE_REF | ROLE_COMP) ? "s don't" : " doesn't");
 		pl_alabel_r(plot->plotter, 'l', 'l', msg);
 	}
@@ -1601,12 +1614,7 @@ void DrawLabelsMDF(PlotFile *plot, char *Gname, char *GType, int type, parameter
 		pl_alabel_r(plot->plotter, 'l', 'l', msg);
 	}
 	
-	if(config->maxDbPlotZCChanged && type == PLOT_COMPARE)
-	{
-		PLOT_COLUMN(4, 2);
-		pl_pencolor_r(plot->plotter, 0xeeee, 0xeeee, 0);
-		pl_alabel_r(plot->plotter, 'l', 'l', "Vertical scale changed");
-	}
+	// 4,2 is empty was vertical scale changed
 
 	if(config->channelWithLowFundamentals)
 	{
@@ -1648,7 +1656,8 @@ void DrawLabelsMDF(PlotFile *plot, char *Gname, char *GType, int type, parameter
 			pl_pencolor_r(plot->plotter, 0xeeee, 0xeeee, 0);
 		else
 			pl_pencolor_r(plot->plotter, 0, 0xcccc, 0xcccc);
-		sprintf(msg, "Data \\ua\\da %0.2fdBFS: %0.2f%%", config->maxDbPlotZC, config->notVisible);
+		sprintf(msg, "Data \\ua\\da %0.2fdBFS: %0.2f%%", 
+			config->maxDbPlotZC, config->notVisible);
 		pl_alabel_r(plot->plotter, 'l', 'l', msg);
 	}
 
@@ -4130,6 +4139,7 @@ void PlotTimeSpectrogram(AudioSignal *Signal, char channel, parameters *config)
 {
 	PlotFile	plot;
 	double		significant = 0, x = 0, framewidth = 0, framecount = 0, tc = 0, abs_significant = 0;
+	double		frameOffset = 0;
 	long int	block = 0, i = 0;
 	int			lastType = TYPE_NOTYPE;
 	char		filename[BUFFER_SIZE], name[BUFFER_SIZE/2], *title = NULL;
@@ -4166,6 +4176,11 @@ void PlotTimeSpectrogram(AudioSignal *Signal, char channel, parameters *config)
 
 	DrawFrequencyHorizontalGrid(&plot, config->endHzPlot, 1000, config);
 	DrawLabelsTimeSpectrogram(&plot, floor(config->endHzPlot/1000), 1, config);
+
+	frameOffset = SamplesToFrames(Signal->header.fmt.SamplesPerSec, Signal->startOffset, Signal->framerate, Signal->AudioChannels);
+	//logmsg("\nSync Samples: %ld start->Frames %g Seconds %g\n", Signal->startOffset, frameOffset, FramesToSeconds(frameOffset, Signal->framerate));
+	frameOffset += GetFirstElementFrameOffset(config);
+	//logmsg("Signal Start->Frames %g Seconds %g\n", frameOffset, FramesToSeconds(frameOffset, Signal->framerate));
 
 	framewidth = config->plotResX / framecount;
 	for(block = 0; block < config->types.totalBlocks; block++)
@@ -4237,7 +4252,7 @@ void PlotTimeSpectrogram(AudioSignal *Signal, char channel, parameters *config)
 				pl_fline_r(plot.plotter, x, 0, x, config->endHzPlot);
 
 				spaceAvailable = noteWidth*GetBlockElements(config, block);
-				DrawTimeCode(&plot, tc, x, Signal->framerate, color, spaceAvailable, config);
+				DrawTimeCode(&plot, tc+frameOffset, x, Signal->framerate, color, spaceAvailable, config);
 				lastType = type;
 			}
 			x += noteWidth;
@@ -4264,6 +4279,7 @@ void PlotTimeSpectrogramUnMatchedContent(AudioSignal *Signal, char channel, para
 {
 	PlotFile	plot;
 	double		significant = 0, x = 0, framewidth = 0, framecount = 0, tc = 0, abs_significant = 0;
+	double		frameOffset = 0;
 	long int	block = 0, i = 0;
 	int			lastType = TYPE_NOTYPE;
 	char		filename[BUFFER_SIZE], name[BUFFER_SIZE/2], *title = NULL;
@@ -4301,6 +4317,7 @@ void PlotTimeSpectrogramUnMatchedContent(AudioSignal *Signal, char channel, para
 	DrawLabelsTimeSpectrogram(&plot, floor(config->endHzPlot/1000), 1, config);
 
 	framewidth = config->plotResX / framecount;
+	frameOffset = SamplesToFrames(Signal->header.fmt.SamplesPerSec, Signal->startOffset, Signal->framerate, Signal->AudioChannels);
 	for(block = 0; block < config->types.totalBlocks; block++)
 	{
 		int		type = 0;
@@ -4372,7 +4389,7 @@ void PlotTimeSpectrogramUnMatchedContent(AudioSignal *Signal, char channel, para
 				pl_fline_r(plot.plotter, x, 0, x, config->endHzPlot);
 
 				spaceAvailable = noteWidth*GetBlockElements(config, block);
-				DrawTimeCode(&plot, tc, x, Signal->framerate, color, spaceAvailable, config);
+				DrawTimeCode(&plot, tc+frameOffset, x, Signal->framerate, color, spaceAvailable, config);
 				lastType = type;
 			}
 			x += noteWidth;
@@ -4966,7 +4983,7 @@ void PlotBlockTimeDomainInternalSyncGraph(AudioSignal *Signal, int block, char *
 		return;
 
 	numSamples = Signal->Blocks[block].internalSync[slot].size;
-	frames = SamplesToFrames(numSamples, Signal->header.fmt.SamplesPerSec, Signal->framerate, Signal->AudioChannels);
+	frames = SamplesToFrames(Signal->header.fmt.SamplesPerSec, numSamples, Signal->framerate, Signal->AudioChannels);
 
 	difference = Signal->Blocks[block].internalSync[slot].difference;
 	if(difference < 0)
@@ -5462,7 +5479,7 @@ void PlotDifferenceTimeSpectrogram(parameters *config)
 {
 	PlotFile	plot;
 	double		x = 0, framewidth = 0, framecount = 0, tc = 0, abs_significant = 0, steps = 0;
-	double		outside = 0, maxDiff = 0;
+	double		outside = 0, maxDiff = 0, frameOffset = 0;
 	long int	block = 0, i = 0;
 	int			lastType = TYPE_NOTYPE, type = 0;
 	char		filename[2*BUFFER_SIZE];
@@ -5513,6 +5530,7 @@ void PlotDifferenceTimeSpectrogram(parameters *config)
 	DrawLabelsTimeSpectrogram(&plot, floor(config->endHzPlot/1000), 1, config);
 
 	framewidth = config->plotResX / framecount;
+	frameOffset = SamplesToFrames(Signal->header.fmt.SamplesPerSec, Signal->startOffset, Signal->framerate, Signal->AudioChannels);
 	for(block = 0; block < config->types.totalBlocks; block++)
 	{
 		int		type = 0;
@@ -5581,7 +5599,7 @@ void PlotDifferenceTimeSpectrogram(parameters *config)
 				pl_fline_r(plot.plotter, x, 0, x, config->endHzPlot);
 
 				spaceAvailable = noteWidth*GetBlockElements(config, block);
-				DrawTimeCode(&plot, tc, x, config->smallerFramerate, color, spaceAvailable, config);
+				DrawTimeCode(&plot, tc, x+frameOffset, config->smallerFramerate, color, spaceAvailable, config);
 				lastType = type;
 			}
 			x += noteWidth;

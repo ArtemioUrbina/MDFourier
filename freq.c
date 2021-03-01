@@ -975,6 +975,24 @@ double GetFirstSyncDuration(double framerate, parameters *config)
 	return(FramesToSeconds(frames, framerate));
 }
 
+double GetFirstElementFrameOffset(parameters *config)
+{
+	double 	frames = 0;
+
+	if(!config)
+		return 0;
+
+	for(int i = 0; i < config->types.typeCount; i++)
+	{
+		if(config->types.typeArray[i].type > TYPE_CONTROL)
+			break;
+		else
+			frames += config->types.typeArray[i].elementCount * config->types.typeArray[i].frames;
+	}
+	
+	return(frames);
+}
+
 double GetLastSyncDuration(double framerate, parameters *config)
 {
 	int		first = 0;
@@ -2803,6 +2821,11 @@ inline double SamplesToFrames(long int samplerate, long int samples, double fram
 	return(roundFloat(((double)samples*1000.0)/((double)samplerate*(double)AudioChannels*framerate)));
 }
 
+inline double BytesToSamples(long int samples, int bytesPerSample)
+{
+	return(samples/bytesPerSample);
+}
+
 /* This function compensates for sub sample frame rate inconsistencies between signals */
 /* compensation values are stored in leftover discard left Decimals after adjusting the */
 /* return value to the closest floored sample requested */
@@ -2948,7 +2971,7 @@ double CalculateFrameRateAndCheckSamplerate(AudioSignal *Signal, parameters *con
 			logmsg(" - %s: %s file framerate difference is %g ms per frame.\n",
 					fabs(centsDifferenceSR) >= MAX_CENTS_DIFF ? "WARNING" : "INFO",
 					getRoleText(Signal), diff);
-			logmsg(" - Estimated sample rate is off: %fhz calculated from signal length\n  The source might have a timing difference.\n", calculatedSamplerate);
+			logmsg(" - Estimated sample rate is off: %fhz calculated from signal duration\n\tThe source might have a timing difference.\n", calculatedSamplerate);
 			if(config->verbose)
 			{
 				double tDiff = 0;
@@ -2956,9 +2979,9 @@ double CalculateFrameRateAndCheckSamplerate(AudioSignal *Signal, parameters *con
 				tDiff = fabs(expectedFR*LastSyncFrameOffset) - fabs(framerate*LastSyncFrameOffset);
 				logmsg(" - Expected %gms and got %gms (Difference is %gms/%g frames of %gms/%g samples)\n", 
 					expectedFR*LastSyncFrameOffset, framerate*LastSyncFrameOffset,
-					tDiff,
-					tDiff/expectedFR, expectedFR,
-					samplerate/1000.0*tDiff);
+					-1*tDiff,
+					-1*tDiff/expectedFR, expectedFR,
+					-1*samplerate/1000.0*tDiff);
 			}
 
 			if(fabs(centsDifferenceSR) >= MAX_CENTS_DIFF)
@@ -2968,7 +2991,7 @@ double CalculateFrameRateAndCheckSamplerate(AudioSignal *Signal, parameters *con
 			}
 		}
 		
-		logmsg(" - Pitch difference in cents: %g\n", centsDifferenceSR);
+		logmsg(" - There might be a pitch difference of %g cents\n", centsDifferenceSR);
 		if(fabs(centsDifferenceSR) >= MAX_CENTS_DIFF)
 		{
 			if(Signal->role == ROLE_REF)

@@ -157,7 +157,9 @@ int LoadWAVFile(FILE *file, AudioSignal *Signal, parameters *config, char *fileN
 
 	if(strncmp((char*)Signal->header.riff.RIFF, "RIFF", 4) != 0)
 	{
-		logmsg("\tERROR: Invalid Audio file. RIFF header not found.\n");
+		logmsg("\tERROR: Invalid Audio file. Probably not a WAV file (RIFF header not found).\n");
+		if(strncmp((char*)Signal->header.riff.RIFF, "fLaC", 4) == 0)
+			logmsg("\tWARNING: File has a WAV file extension, but has a FLAC header. Please rename the file.\n");
 		return(0);
 	}
 
