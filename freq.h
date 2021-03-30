@@ -68,6 +68,7 @@ long int GetLastSyncFrameOffset(wav_hdr header, parameters *config);
 long int GetBlockFrameOffset(int block, parameters *config);
 long int GetElementFrameOffset(int block, parameters *config);
 long int GetSampleSizeDifferenceByFrameRate(double framerate, long int frames, long int samplerate, int AudioChannels, int bytesPerSample, parameters *config);
+double GetFirstElementFrameOffset(parameters* config);
 int GetFirstSyncIndex(parameters *config);
 int GetLastSyncIndex(parameters *config);
 int GetLastSyncElementIndex(parameters *config);
