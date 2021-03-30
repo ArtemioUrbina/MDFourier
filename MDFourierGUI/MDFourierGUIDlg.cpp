@@ -431,6 +431,40 @@ void CMDFourierGUIDlg::ReadAndDisplayResults(CString &newText)
 	newText = ntext;
 }
 
+void CMDFourierGUIDlg::CheckForDifferenceplots(CString ntext)
+{
+	int pos, end, length;
+	CString searchFor = L" - Preliminary results in ";
+
+	if (m_OpenResultsBttn.IsWindowEnabled())
+		return;
+
+	// Check is we enable the results button
+	pos = ntext.Find(searchFor, 0);
+	if (pos != -1)
+	{
+		CString extraCmd;
+
+		pos += searchFor.GetLength();
+		end = ntext.Find(L"\n", pos);
+		length = end - pos;
+		if (m_EnableExtraCommandCheckBox.GetCheck() == BST_CHECKED)
+			m_ExtraParamsEditBox.GetWindowText(extraCmd);
+		if (extraCmd.Find(L"-0") == -1)
+		{
+			TCHAR	pwd[MAX_PATH];
+
+			GetCurrentDirectory(MAX_PATH, pwd);
+			m_ResultsFolderText.Format(L"%s\\%s", pwd, ntext.Mid(pos, length));
+			
+		}
+		else
+			m_ResultsFolderText.Format(L"%s", ntext.Mid(pos, length));
+		m_ResultsFolderText = m_ResultsFolderText.Left(m_ResultsFolderText.GetLength() - 1);
+
+		m_OpenResultsBttn.EnableWindow(TRUE);
+	}
+}
 
 void CMDFourierGUIDlg::OnTimer(UINT_PTR nIDEvent)
 {
@@ -438,6 +472,7 @@ void CMDFourierGUIDlg::OnTimer(UINT_PTR nIDEvent)
 	
 	ReadAndDisplayResults(ntext);
 
+	CheckForDifferenceplots(ntext);
 	if(cDos.m_fAbortNow)
 	{
 		if(DosWaitCount >= 20 || cDos.m_fDone)

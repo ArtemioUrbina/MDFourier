@@ -719,14 +719,14 @@ void DrawGridZeroDBCentered(PlotFile *plot, double dBFS, double dbIncrement, dou
 			dbIncrement = 1.0;
 	}
 
-	if(config->maxDbPlotZC != DB_HEIGHT)
+	if(config->maxDbPlotZC == DB_HEIGHT)
 		pl_pencolor_r(plot->plotter, 0, 0xaaaa, 0);
 	else
 		pl_pencolor_r(plot->plotter, 0xaaaa, 0xaaaa, 0);
 	pl_fline_r(plot->plotter, 0, 0, hz, 0);
 	pl_endpath_r(plot->plotter);
 
-	if(config->maxDbPlotZC != DB_HEIGHT)
+	if(config->maxDbPlotZC == DB_HEIGHT)
 		pl_pencolor_r(plot->plotter, 0, 0x5555, 0);
 	else
 		pl_pencolor_r(plot->plotter, 0x5555, 0x5555, 0);
@@ -798,7 +798,7 @@ void DrawLabelsZeroDBCentered(PlotFile *plot, double dBFS, double dbIncrement, d
 	pl_ffontname_r(plot->plotter, PLOT_FONT);
 	pl_ffontsize_r(plot->plotter, FONT_SIZE_1);
 
-	if(config->maxDbPlotZC != DB_HEIGHT)
+	if(config->maxDbPlotZC == DB_HEIGHT)
 		pl_pencolor_r(plot->plotter, 0, 0xffff, 0);
 	else
 		pl_pencolor_r(plot->plotter, 0xffff, 0xffff, 0);

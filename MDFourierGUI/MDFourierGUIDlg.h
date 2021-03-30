@@ -6,7 +6,7 @@
 #include "afxwin.h"
 #include "DOSExecute.h"
 
-#define MDFVERSION			L"1.03"
+#define MDFVERSION			L"1.06c"
 #define	IDT_DOS				1000
 
 #define	COUNT_CURVES		6
@@ -103,6 +103,7 @@ protected:
 	int		syncTypes;
 
 	void ReadAndDisplayResults(CString &newText);
+	void CheckForDifferenceplots(CString ntext);
 	void FillComboBoxes();
 	int CheckDependencies();
 	void ManageWindows(BOOL Enable);
