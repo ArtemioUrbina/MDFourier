@@ -170,12 +170,12 @@ void SetPenColor(int colorIndex, long int color, PlotFile *plot);
 void SetFillColor(int colorIndex, long int color, PlotFile *plot);
 int MatchColor(char *color);
 
-void PlotAllDifferentAmplitudes(FlatAmplDifference *amplDiff, long int size, char *filename, parameters *config);
+void PlotAllDifferentAmplitudes(FlatAmplDifference *amplDiff, long int size, char channel, char *filename, parameters *config);
 int PlotEachTypeDifferentAmplitudes(FlatAmplDifference *amplDiff, long int size, char *filename, parameters *config);
 void PlotSingleTypeDifferentAmplitudes(FlatAmplDifference *amplDiff, long int size, int type, char *filename, char channel, parameters *config);
 
-int PlotNoiseDifferentAmplitudes(FlatAmplDifference *amplDiff, long int size, char *filename, parameters *config, AudioSignal *Signal);
-void PlotSilenceBlockDifferentAmplitudes(FlatAmplDifference *amplDiff, long int size, int type, char *filename, parameters *config, AudioSignal *Signal);
+//int PlotNoiseDifferentAmplitudes(FlatAmplDifference *amplDiff, long int size, char *filename, parameters *config, AudioSignal *Signal);
+//void PlotSilenceBlockDifferentAmplitudes(FlatAmplDifference *amplDiff, long int size, int type, char *filename, parameters *config, AudioSignal *Signal);
 
 //int PlotEachTypeMissingFrequencies(FlatFrequency *freqDiff, long int size, char *filename, parameters *config);
 //void PlotSingleTypeMissingFrequencies(FlatFrequency *freqDiff, long int size, int type, char *filename, parameters *config);
@@ -215,7 +215,7 @@ void ReturnToMainPath(char **CurrentPath);
 
 int PlotNoiseDifferentAmplitudesAveraged(FlatAmplDifference *amplDiff, long int size, char *filename, parameters *config, AudioSignal *Signal);
 void PlotNoiseDifferentAmplitudesAveragedInternal(FlatAmplDifference *amplDiff, long int size, int type, char *filename, AveragedFrequencies *averaged, long int avgsize, parameters *config, AudioSignal *Signal);
-void PlotNoiseSpectrogram(FlatFrequency *freqs, long int size, int type, char *filename, int signal, parameters *config, AudioSignal *Signal);
+void PlotNoiseSpectrogram(FlatFrequency *freqs, long int size, int type, char channel, char *filename, int signal, parameters *config, AudioSignal *Signal);
 void SaveCSVAmpDiff(FlatAmplDifference *amplDiff, long int size, char *filename, parameters *config);
 
 void DrawFrequencyHorizontal(PlotFile *plot, double vertical, double hz, double hzIncrement, parameters *config);

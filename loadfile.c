@@ -508,7 +508,11 @@ int DetectSync(AudioSignal *Signal, parameters *config)
 				return 0;
 			}
 
-			logmsg(" - Detected %g Hz video signal (%gms per frame) from Audio file\n", 
+			if(Signal->originalSR != 0.0)
+				logmsg(" - Using adjusted %g Hz signal (%gms per frame) from Audio signal duration\n",
+					roundFloat(CalculateScanRate(Signal)), Signal->framerate);
+			else
+				logmsg(" - Detected %g Hz signal (%gms per frame) from Audio file\n", 
 						roundFloat(CalculateScanRate(Signal)), Signal->framerate);
 
 			expected = GetMSPerFrame(Signal, config);
@@ -696,7 +700,7 @@ int AdjustSignalValues(AudioSignal *Signal, parameters *config)
 	}
 
 	seconds = (double)Signal->numSamples/(double)Signal->header.fmt.SamplesPerSec/Signal->AudioChannels;
-	logmsg(" - Audio file is %dHz %dbits %s %s and %g seconds long\n", 
+	logmsg(" - Audio file header reports %dHz %dbits %s %s and %g seconds long\n", 
 		Signal->header.fmt.SamplesPerSec, 
 		Signal->header.fmt.bitsPerSample,
 		Signal->header.fmt.AudioFormat == WAVE_FORMAT_IEEE_FLOAT ? "IEEE float" : "PCM", 

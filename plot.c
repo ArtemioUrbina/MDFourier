@@ -87,7 +87,11 @@
 #define NOISE_TITLE					"NOISE FLOOR AVERAGED"
 #define NOISE_AVG_TITLE				"NOISE FLOOR AVERAGED"
 #define SPECTROGRAM_NOISE_REF		"Reference NOISE FLOOR - Spectrogram [%s]"
+#define SPECTROGRAM_NOISE_REF_LEFT	"Reference NOISE FLOOR LEFT - Spectrogram [%s]"
+#define SPECTROGRAM_NOISE_REF_RIGHT	"Reference NOISE FLOOR RIGHT - Spectrogram [%s]"
 #define SPECTROGRAM_NOISE_COM		"Comparison NOISE FLOOR - Spectrogram [%s]"
+#define SPECTROGRAM_NOISE_COM_LEFT	"Comparison NOISE FLOOR LEFT - Spectrogram [%s]"
+#define SPECTROGRAM_NOISE_COM_RIGHT	"Comparison NOISE FLOOR RIGHT - Spectrogram [%s]"
 #define WAVEFORM_TITLE_REF			"Reference - WAVEFORM [%s]"
 #define WAVEFORM_TITLE_COM			"Comparison - WAVEFORM [%s]"
 #define PHASE_DIFF_TITLE			"PHASE DIFFERENCE [%s]"
@@ -129,6 +133,7 @@
 #define	WAVEFORMDIR_MISS	"Missing"
 #define	WAVEFORMDIR_EXTRA	"Extra"
 #define	T_SPECTR_FOLDER		"TimeSpectrograms"
+#define	NOISEFLOOR_FOLDER	"NoiseFloor"
 #define	CLK_FOLDER			"CLK"
 
 //#define TESTWARNINGS
@@ -454,19 +459,35 @@ void PlotAmpDifferences(parameters *config)
 
 	if(config->plotDifferences)
 	{
-		int typeCount = 0;
+		int typeCount = 0, plotAll = 0;
 
 		typeCount = GetActiveBlockTypesNoRepeat(config);
-		if(typeCount > 1)
+		if (typeCount > 1)
 		{
-			if(PlotEachTypeDifferentAmplitudes(amplDiff, size, config->compareName, config) > 1)
-			{
-				PlotAllDifferentAmplitudes(amplDiff, size, config->compareName, config);
-				logmsg(PLOT_ADVANCE_CHAR);
-			}
+			if (PlotEachTypeDifferentAmplitudes(amplDiff, size, config->compareName, config) > 1)
+				plotAll = 1;
 		}
 		else
-			PlotAllDifferentAmplitudes(amplDiff, size, config->compareName, config);
+			plotAll = 1;
+
+		if (plotAll)
+		{
+			PlotAllDifferentAmplitudes(amplDiff, size, CHANNEL_STEREO, config->compareName, config);
+			if(config->channelBalance == 0 && config->referenceSignal->AudioChannels == 2 && config->comparisonSignal->AudioChannels == 2)
+			{
+				char		name[BUFFER_SIZE];
+
+				sprintf(name, "%s_%c", config->compareName, CHANNEL_LEFT);
+				PlotAllDifferentAmplitudes(amplDiff, size, CHANNEL_LEFT, name, config);
+				logmsg(PLOT_ADVANCE_CHAR);
+
+				sprintf(name, "%s_%c", config->compareName, CHANNEL_RIGHT);
+				PlotAllDifferentAmplitudes(amplDiff, size, CHANNEL_RIGHT, name, config);
+				logmsg(PLOT_ADVANCE_CHAR);
+			}
+
+			logmsg(PLOT_ADVANCE_CHAR);
+		}
 	}
 
 	if(config->averagePlot)
@@ -491,7 +512,7 @@ void PlotDifferentAmplitudesWithBetaFunctions(parameters *config)
 	for(int o = 0; o < 6; o++)
 	{
 		config->outputFilterFunction = o;
-		PlotAllDifferentAmplitudes(amplDiff, size, config->compareName, config);
+		PlotAllDifferentAmplitudes(amplDiff, size, CHANNEL_STEREO, config->compareName, config);
 	}
 
 	free(amplDiff);
@@ -1323,14 +1344,14 @@ void DrawLabelsMDF(PlotFile *plot, char *Gname, char *GType, int type, parameter
 		if(config->comparisonSignal->originalSR)
 		{
 			PLOT_WARN(1, warning++);
-			sprintf(msg, "NOTE: CM sample rate adjusted to match duration \\!=%0.2f\\ct (-R)", config->ComCentsDifferenceSR);
+			sprintf(msg, "NOTE: CM sample rate adj. to match duration \\!=%0.3f\\ct (-R)", config->ComCentsDifferenceSR);
 			pl_alabel_r(plot->plotter, 'l', 'l', msg);
 		}
 
 		if(config->referenceSignal->originalSR)
 		{
 			PLOT_WARN(1, warning++);
-			sprintf(msg, "NOTE: RF sample rate adjusted to match duration \\!=%0.2f\\ct (-R)", config->RefCentsDifferenceSR);
+			sprintf(msg, "NOTE: RF sample rate adj. to match duration \\!=%0.3f\\ct (-R)", config->RefCentsDifferenceSR);
 			pl_alabel_r(plot->plotter, 'l', 'l', msg);
 		}
 	}
@@ -2301,10 +2322,11 @@ void SaveCSVAmpDiff(FlatAmplDifference *amplDiff, long int size, char *filename,
 	fclose(csv);
 }
 
-void PlotAllDifferentAmplitudes(FlatAmplDifference *amplDiff, long int size, char *filename, parameters *config)
+void PlotAllDifferentAmplitudes(FlatAmplDifference *amplDiff, long int size, char channel, char *filename, parameters *config)
 {
 	PlotFile	plot;
 	char		name[BUFFER_SIZE];
+	char*		title = NULL;
 	double		dBFS = config->maxDbPlotZC;
 
 	if(!config)
@@ -2324,7 +2346,8 @@ void PlotAllDifferentAmplitudes(FlatAmplDifference *amplDiff, long int size, cha
 
 	for(int a = 0; a < size; a++)
 	{
-		if(amplDiff[a].type > TYPE_CONTROL && fabs(amplDiff[a].diffAmplitude) <= fabs(dBFS))
+		if((channel == CHANNEL_STEREO || channel == amplDiff[a].channel) &&
+			amplDiff[a].type > TYPE_CONTROL && fabs(amplDiff[a].diffAmplitude) <= fabs(dBFS))
 		{ 
 			long int intensity;
 
@@ -2339,18 +2362,22 @@ void PlotAllDifferentAmplitudes(FlatAmplDifference *amplDiff, long int size, cha
 		}
 	}
 
+	if (channel == CHANNEL_STEREO)
+		title = DIFFERENCE_TITLE;
+	else
+		title = channel == CHANNEL_LEFT ? DIFFERENCE_TITLE_LEFT : DIFFERENCE_TITLE_RIGHT;
 	DrawColorAllTypeScale(&plot, MODE_DIFF, LEFT_MARGIN, HEIGHT_MARGIN, config->plotResX/COLOR_BARS_WIDTH_SCALE, config->plotResY/1.15, config->significantAmplitude, VERT_SCALE_STEP_BAR, DRAW_BARS, config);
-	DrawLabelsMDF(&plot, DIFFERENCE_TITLE, ALL_LABEL, PLOT_COMPARE, config);
+	DrawLabelsMDF(&plot, title, ALL_LABEL, PLOT_COMPARE, config);
 
 	ClosePlot(&plot);
 }
 
 int PlotEachTypeDifferentAmplitudes(FlatAmplDifference *amplDiff, long int size, char *filename, parameters *config)
 {
-	int 		i = 0, type = 0, types = 0, typeCount = 0, bothStereo = 0;
+	int 		i = 0, type = 0, types = 0, typeCount = 0, areBothStereo = 0;
 	char		name[BUFFER_SIZE];
 
-	bothStereo = config->referenceSignal->AudioChannels == 2 && config->comparisonSignal->AudioChannels == 2;
+	areBothStereo = config->referenceSignal->AudioChannels == 2 && config->comparisonSignal->AudioChannels == 2;
 	typeCount = GetActiveBlockTypesNoRepeat(config);
 	for(i = 0; i < config->types.typeCount; i++)
 	{
@@ -2372,7 +2399,7 @@ int PlotEachTypeDifferentAmplitudes(FlatAmplDifference *amplDiff, long int size,
 			PlotSingleTypeDifferentAmplitudes(amplDiff, size, type, name, CHANNEL_STEREO, config);
 			logmsg(PLOT_ADVANCE_CHAR);
 
-			if(config->types.typeArray[i].channel == CHANNEL_STEREO && bothStereo)
+			if(config->types.typeArray[i].channel == CHANNEL_STEREO && areBothStereo)
 			{
 				sprintf(name, "DA_%s_%02d%s_%c", filename, 
 					type, config->types.typeArray[i].typeName, CHANNEL_LEFT);
@@ -2440,6 +2467,7 @@ void PlotSingleTypeDifferentAmplitudes(FlatAmplDifference *amplDiff, long int si
 	ClosePlot(&plot);
 }
 
+/*
 int PlotNoiseDifferentAmplitudes(FlatAmplDifference *amplDiff, long int size, char *filename, parameters *config, AudioSignal *Signal)
 {
 	int 		i = 0, type = 0;
@@ -2525,6 +2553,7 @@ void PlotSilenceBlockDifferentAmplitudes(FlatAmplDifference *amplDiff, long int 
 	DrawLabelsMDF(&plot, NOISE_TITLE, GetTypeDisplayName(config, type), PLOT_COMPARE, config);
 	ClosePlot(&plot);
 }
+*/
 
 void PlotAllSpectrogram(FlatFrequency *freqs, long int size, char *filename, int signal, parameters *config)
 {
@@ -2621,8 +2650,31 @@ int PlotEachTypeSpectrogram(FlatFrequency *freqs, long int size, char *filename,
 		{
 			sprintf(name, "NF_SP_%c_%s_%02d%s", signal == ROLE_REF ? 'A' : 'B', filename, 
 					config->types.typeArray[i].type, config->types.typeArray[i].typeName);
-			PlotNoiseSpectrogram(freqs, size, type, name, signal, config, Signal);
+			PlotNoiseSpectrogram(freqs, size, type, CHANNEL_STEREO, name, signal, config, Signal);
 			logmsg(PLOT_ADVANCE_CHAR);
+
+			if (config->types.typeArray[i].channel == CHANNEL_STEREO && Signal->AudioChannels == 2)
+			{
+				char* returnFolder = NULL;
+
+				returnFolder = PushFolder(NOISEFLOOR_FOLDER);
+				if (!returnFolder)
+					return 0;
+
+				sprintf(name, "NF_SP_%c_%s_%02d%s_%c", signal == ROLE_REF ? 'A' : 'B', filename,
+					config->types.typeArray[i].type, config->types.typeArray[i].typeName,
+					CHANNEL_LEFT);
+				PlotNoiseSpectrogram(freqs, size, type, CHANNEL_LEFT, name, signal, config, Signal);
+				logmsg(PLOT_ADVANCE_CHAR);
+
+				sprintf(name, "NF_SP_%c_%s_%02d%s_%c", signal == ROLE_REF ? 'A' : 'B', filename,
+					config->types.typeArray[i].type, config->types.typeArray[i].typeName,
+					CHANNEL_RIGHT);
+				PlotNoiseSpectrogram(freqs, size, type, CHANNEL_RIGHT, name, signal, config, Signal);
+				logmsg(PLOT_ADVANCE_CHAR);
+
+				ReturnToMainPath(&returnFolder);
+			}
 			silence = 1;
 		}
 	}
@@ -2687,9 +2739,10 @@ void PlotSingleTypeSpectrogram(FlatFrequency *freqs, long int size, int type, ch
 	ClosePlot(&plot);
 }
 
-void PlotNoiseSpectrogram(FlatFrequency *freqs, long int size, int type, char *filename, int signal, parameters *config, AudioSignal *Signal)
+void PlotNoiseSpectrogram(FlatFrequency *freqs, long int size, int type, char channel, char *filename, int signal, parameters *config, AudioSignal *Signal)
 {
 	PlotFile	plot;
+	char*		title = NULL;
 	double		startAmplitude = config->significantAmplitude, endAmplitude = config->lowestDBFS;
 
 	if(!config)
@@ -2740,7 +2793,8 @@ void PlotNoiseSpectrogram(FlatFrequency *freqs, long int size, int type, char *f
 
 	for(int f = 0; f < size; f++)
 	{
-		if(freqs[f].type == type && freqs[f].amplitude >= endAmplitude)
+		if((channel == CHANNEL_STEREO || freqs[f].channel == channel) && 
+			freqs[f].type == type && freqs[f].amplitude >= endAmplitude)
 		{ 
 			long int intensity;
 			double x, y;
@@ -2756,8 +2810,22 @@ void PlotNoiseSpectrogram(FlatFrequency *freqs, long int size, int type, char *f
 		}
 	}
 	
+	if (signal == ROLE_REF)
+	{
+		if (channel == CHANNEL_STEREO)
+			title = SPECTROGRAM_NOISE_REF;
+		else
+			title = channel == CHANNEL_LEFT ? SPECTROGRAM_NOISE_REF_LEFT : SPECTROGRAM_NOISE_REF_RIGHT;
+	}
+	else
+	{
+		if (channel == CHANNEL_STEREO)
+			title = SPECTROGRAM_NOISE_COM;
+		else
+			title = channel == CHANNEL_LEFT ? SPECTROGRAM_NOISE_COM_LEFT : SPECTROGRAM_NOISE_COM_RIGHT;
+	}
 	DrawColorScale(&plot, type, MODE_SPEC, LEFT_MARGIN, HEIGHT_MARGIN, config->plotResX/COLOR_BARS_WIDTH_SCALE, config->plotResY/1.15, (int)startAmplitude, (int)(endAmplitude-startAmplitude), VERT_SCALE_STEP,config);
-	DrawLabelsMDF(&plot, signal == ROLE_REF ? SPECTROGRAM_NOISE_REF : SPECTROGRAM_NOISE_COM, GetTypeDisplayName(config, type), signal == ROLE_REF ? PLOT_SINGLE_REF : PLOT_SINGLE_COM, config);
+	DrawLabelsMDF(&plot, title, GetTypeDisplayName(config, type), signal == ROLE_REF ? PLOT_SINGLE_REF : PLOT_SINGLE_COM, config);
 	ClosePlot(&plot);
 }
 

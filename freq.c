@@ -1969,7 +1969,7 @@ void FindFloor(AudioSignal *Signal, parameters *config)
 			logmsg("[Horizontal scan rate: %0.2f Hz %0.2f dBFS] ", horizontalFreq.hertz, horizontalFreq.amplitude);
 
 		if(foundGrid)
-			logmsg("[Electrical grid: %0.2f Hz %0.2f dBFS] ", gridFreq.hertz, gridFreq.amplitude);
+			logmsg("[Signal clock noise: %0.2f Hz %0.2f dBFS] ", gridFreq.hertz, gridFreq.amplitude);
 
 		if(foundCross)
 			logmsg("[Crosstalk: %0.2f Hz %0.2f dBFS]", crossFreq.hertz, crossFreq.amplitude);
@@ -2913,14 +2913,13 @@ long int GetZeroPadValues(long int *monoSignalSize, double *seconds, long int sa
 
 double CalculateFrameRateAndCheckSamplerate(AudioSignal *Signal, parameters *config)
 {
-	double framerate = 0, endOffset = 0, startOffset = 0, samplerate = 0;
-	double expectedFR = 0, diff = 0;
+	double framerate = 0, endOffset = 0, startOffset = 0;
+	double expectedFR = 0, diff = 0, SRDifference = 0;
 	double calculatedSamplerate = 0, LastSyncFrameOffset = 0;
 	double centsDifferenceSR = 0;
 
 	startOffset = Signal->startOffset;
 	endOffset = Signal->endOffset;
-	samplerate = Signal->header.fmt.SamplesPerSec;
 	expectedFR = GetMSPerFrame(Signal, config);
 	LastSyncFrameOffset = GetLastSyncFrameOffset(Signal->header, config);
 
@@ -2942,27 +2941,45 @@ double CalculateFrameRateAndCheckSamplerate(AudioSignal *Signal, parameters *con
 	diff = roundFloat(fabs(expectedFR - framerate));
 
 	calculatedSamplerate = (endOffset-startOffset)/(expectedFR*LastSyncFrameOffset);
-	calculatedSamplerate = calculatedSamplerate*1000.0/Signal->AudioChannels;
-	centsDifferenceSR = 1200.0*log2(calculatedSamplerate/Signal->header.fmt.SamplesPerSec);
+	calculatedSamplerate = calculatedSamplerate*1000.0/(double)Signal->AudioChannels;
+	centsDifferenceSR = 1200.0*log2(calculatedSamplerate/(double)Signal->header.fmt.SamplesPerSec);
 
-	if((fabs(centsDifferenceSR) >= MAX_CENTS_DIFF) ||
-		 (fabs(centsDifferenceSR) && config->verbose && fabs(centsDifferenceSR) >= MIN_CENTS_DIFF) || 
+	calculatedSamplerate = RoundFloat(calculatedSamplerate, 5);  // the estimation has demonstrated to be very precise, but
+	SRDifference = fabs(calculatedSamplerate) - fabs(Signal->header.fmt.SamplesPerSec);
+	if(fabs(SRDifference) < 0.2)  // do not make adjustments if they make no change at all (< 1hz)
+	{
+		if(config->doSamplerateAdjust && fabs(SRDifference) != 0.0)
+			logmsg("    NOTE: Ignoring samplerate adjustment: detected %fHz (%gHz difference) sample rate from audio duration\n", calculatedSamplerate, SRDifference);
+		return framerate;
+	}
+
+	if((SRDifference >= 0.1) ||
+		 //(fabs(centsDifferenceSR) && config->verbose && fabs(centsDifferenceSR) >= MIN_CENTS_DIFF) || 
 		 (config->doSamplerateAdjust && fabs(centsDifferenceSR)))
 	{
 		if(config->doSamplerateAdjust)
 		{
 			logmsg(" - NOTE: Auto adjustment of samplerate and frame rate applied\n");
-			logmsg("    Original framerate: %gms (%g difference)\n", framerate, diff);
+			logmsg("    Original framerate: %gms (%g difference) detected %fHz (%gHz difference) sample rate from audio duration\n", framerate, diff, calculatedSamplerate, SRDifference);
 
 			Signal->originalSR = Signal->header.fmt.SamplesPerSec;
 			Signal->originalFrameRate = framerate;
+;
+			framerate = (endOffset-startOffset)/(calculatedSamplerate *LastSyncFrameOffset);
+			framerate = framerate*1000.0/(double)Signal->AudioChannels;  // 1000 ms
 
+			// A sample rate difference > 0.5 is rouded up and used, lower is ignored. This is done
+			// because sample rate is an integer variable. Differences lower than 0.5 could probably 
+			// be adjusted by the algorithm, would need to test if possible.
+			if(SRDifference > 0.05 && SRDifference < 0.5)  // adjust if higher than above, for 192khz
+				calculatedSamplerate += 0.5;
+			else
+			{
+				if(fabs(SRDifference) > 0.05 && fabs(SRDifference) < 0.5)  // adjust if lower than above, for 192khz
+					calculatedSamplerate -= 0.5;
+			}
 			Signal->header.fmt.SamplesPerSec = round(calculatedSamplerate);
-			samplerate = Signal->header.fmt.SamplesPerSec;
-			framerate = (endOffset-startOffset)/(samplerate*LastSyncFrameOffset); // 1000 ms 
-			framerate = framerate*1000.0/Signal->AudioChannels;  // 1000 ms
-
-			logmsg("    Adjusted sample rate to: %dHz\n", Signal->header.fmt.SamplesPerSec);
+			logmsg("    Adjusted sample rate to %dHz, compensating for a pitch difference of %g cents\n", Signal->header.fmt.SamplesPerSec, centsDifferenceSR);
 
 			Signal->EstimatedSR = Signal->header.fmt.SamplesPerSec;
 		}
@@ -2971,7 +2988,7 @@ double CalculateFrameRateAndCheckSamplerate(AudioSignal *Signal, parameters *con
 			logmsg(" - %s: %s file framerate difference is %g ms per frame.\n",
 					fabs(centsDifferenceSR) >= MAX_CENTS_DIFF ? "WARNING" : "INFO",
 					getRoleText(Signal), diff);
-			logmsg(" - Estimated sample rate is off: %fhz calculated from signal duration\n\tThe source might have a timing difference.\n", calculatedSamplerate);
+			logmsg(" - Estimated sample rate seems off: %fhz calculated from signal duration\n\tThe source might have a timing difference.\n", calculatedSamplerate);
 			if(config->verbose)
 			{
 				double tDiff = 0;
@@ -2981,7 +2998,7 @@ double CalculateFrameRateAndCheckSamplerate(AudioSignal *Signal, parameters *con
 					expectedFR*LastSyncFrameOffset, framerate*LastSyncFrameOffset,
 					-1*tDiff,
 					-1*tDiff/expectedFR, expectedFR,
-					-1*samplerate/1000.0*tDiff);
+					-1*calculatedSamplerate/1000.0*tDiff);
 			}
 
 			if(fabs(centsDifferenceSR) >= MAX_CENTS_DIFF)
@@ -2989,10 +3006,11 @@ double CalculateFrameRateAndCheckSamplerate(AudioSignal *Signal, parameters *con
 				Signal->EstimatedSR = calculatedSamplerate;
 				Signal->originalSR = Signal->header.fmt.SamplesPerSec;
 			}
+
+			logmsg(" - There might be a pitch difference of %g cents\n", centsDifferenceSR);
 		}
 		
-		logmsg(" - There might be a pitch difference of %g cents\n", centsDifferenceSR);
-		if(fabs(centsDifferenceSR) >= MAX_CENTS_DIFF)
+		if(fabs(centsDifferenceSR) >= MAX_CENTS_DIFF || config->doSamplerateAdjust)
 		{
 			if(Signal->role == ROLE_REF)
 				config->RefCentsDifferenceSR = centsDifferenceSR;

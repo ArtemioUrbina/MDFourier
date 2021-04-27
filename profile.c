@@ -498,7 +498,7 @@ int LoadAudioBlockStructure(FILE *file, parameters *config)
 
 			if(config->types.typeArray[i].channel == CHANNEL_STEREO)
 			{
-				if(config->types.typeArray[i].type <= TYPE_CONTROL && 
+				if(config->types.typeArray[i].type < TYPE_CONTROL &&   // Allow Silence blocks to be stereo
 					config->types.typeArray[i].type != TYPE_TIMEDOMAIN &&
 					config->types.typeArray[i].type != TYPE_SKIP)
 				{
