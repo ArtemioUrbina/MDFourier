@@ -476,6 +476,11 @@ void PlotAmpDifferences(parameters *config)
 			if(config->channelBalance == 0 && config->referenceSignal->AudioChannels == 2 && config->comparisonSignal->AudioChannels == 2)
 			{
 				char		name[BUFFER_SIZE];
+				char		*returnFolder = NULL;
+
+				returnFolder = PushFolder(DIFFERENCE_FOLDER);
+				if (!returnFolder)
+					return;
 
 				sprintf(name, "%s_%c", config->compareName, CHANNEL_LEFT);
 				PlotAllDifferentAmplitudes(amplDiff, size, CHANNEL_LEFT, name, config);
@@ -484,6 +489,8 @@ void PlotAmpDifferences(parameters *config)
 				sprintf(name, "%s_%c", config->compareName, CHANNEL_RIGHT);
 				PlotAllDifferentAmplitudes(amplDiff, size, CHANNEL_RIGHT, name, config);
 				logmsg(PLOT_ADVANCE_CHAR);
+
+				ReturnToMainPath(&returnFolder);
 			}
 
 			logmsg(PLOT_ADVANCE_CHAR);
