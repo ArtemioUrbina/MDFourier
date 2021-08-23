@@ -58,7 +58,7 @@
 #error Unknown pointer size or missing size macros!
 #endif
 
-#define MAX_FREQ_COUNT		40000 	/* Number of frequencies to compare(MAX) */
+#define MAX_FREQ_COUNT		96000 	/* Number of frequencies to compare(MAX) */
 #define FREQ_COUNT			2000	/* Number of frequencies to compare(default) */
 
 #define SIGNIFICANT_VOLUME			-66.0
@@ -144,10 +144,12 @@
 #define NO_SYNC_AUTO_C		'A'
 #define NO_SYNC_MANUAL_C	'M'
 #define NO_SYNC_DIGITAL_C	'D'
+#define NO_SYNC_LENGTH_C	'L'
 
 #define NO_SYNC_AUTO		0
 #define NO_SYNC_MANUAL		1
 #define NO_SYNC_DIGITAL		2
+#define NO_SYNC_LENGTH		3
 
 #define	INVALID_CHANNELS	-1
 

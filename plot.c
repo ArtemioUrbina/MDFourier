@@ -266,29 +266,43 @@ void PlotResults(AudioSignal *ReferenceSignal, AudioSignal *ComparisonSignal, pa
 				if(!returnFolder)
 					return;
 
-				if(ReferenceSignal->AudioChannels == 2)
+#pragma omp parallel for
+				for (int i = 0; i < 2; i++)
 				{
-					PlotTimeSpectrogramUnMatchedContent(ReferenceSignal, CHANNEL_LEFT, config);
-					logmsg(PLOT_ADVANCE_CHAR);
-					PlotTimeSpectrogramUnMatchedContent(ReferenceSignal, CHANNEL_RIGHT, config);
-					logmsg(PLOT_ADVANCE_CHAR);
-				}
+					if (i == 0 && ReferenceSignal->AudioChannels == 2)
+					{
+						PlotTimeSpectrogramUnMatchedContent(ReferenceSignal, CHANNEL_LEFT, config);
+						logmsg(PLOT_ADVANCE_CHAR);
+						PlotTimeSpectrogramUnMatchedContent(ReferenceSignal, CHANNEL_RIGHT, config);
+						logmsg(PLOT_ADVANCE_CHAR);
+					}
 
-				if(ComparisonSignal->AudioChannels == 2)
-				{
-					PlotTimeSpectrogramUnMatchedContent(ComparisonSignal, CHANNEL_LEFT, config);
-					logmsg(PLOT_ADVANCE_CHAR);
-					PlotTimeSpectrogramUnMatchedContent(ComparisonSignal, CHANNEL_RIGHT, config);
-					logmsg(PLOT_ADVANCE_CHAR);
+					if (i == 1 && ComparisonSignal->AudioChannels == 2)
+					{
+						PlotTimeSpectrogramUnMatchedContent(ComparisonSignal, CHANNEL_LEFT, config);
+						logmsg(PLOT_ADVANCE_CHAR);
+						PlotTimeSpectrogramUnMatchedContent(ComparisonSignal, CHANNEL_RIGHT, config);
+						logmsg(PLOT_ADVANCE_CHAR);
+					}
 				}
 
 				ReturnToMainPath(&returnFolder);
 			}
 
-			PlotTimeSpectrogramUnMatchedContent(ReferenceSignal, CHANNEL_STEREO, config);
-			logmsg(PLOT_ADVANCE_CHAR);
-			PlotTimeSpectrogramUnMatchedContent(ComparisonSignal, CHANNEL_STEREO, config);
-			logmsg(PLOT_ADVANCE_CHAR);
+#pragma omp parallel for
+			for (int i = 0; i < 2; i++)
+			{
+				if (i == 0)
+				{
+					PlotTimeSpectrogramUnMatchedContent(ReferenceSignal, CHANNEL_STEREO, config);
+					logmsg(PLOT_ADVANCE_CHAR);
+				}
+				else
+				{
+					PlotTimeSpectrogramUnMatchedContent(ComparisonSignal, CHANNEL_STEREO, config);
+					logmsg(PLOT_ADVANCE_CHAR);
+				}
+			}
 	
 			EndPlot("Missing and Extra", &lstart, &lend, config);
 		}
@@ -301,8 +315,14 @@ void PlotResults(AudioSignal *ReferenceSignal, AudioSignal *ComparisonSignal, pa
 		struct	timespec	lstart, lend;
 
 		StartPlot(" - Spectrograms", &lstart, config);
-		PlotSpectrograms(ReferenceSignal, config);
-		PlotSpectrograms(ComparisonSignal, config);
+#pragma omp parallel for ordered
+		for (int i = 0; i < 2; i++)
+		{
+			if (i == 0)
+				PlotSpectrograms(ReferenceSignal, config);
+			else
+				PlotSpectrograms(ComparisonSignal, config);
+		}
 
 		EndPlot("Spectrogram", &lstart, &lend, config);
 	}
@@ -317,8 +337,15 @@ void PlotResults(AudioSignal *ReferenceSignal, AudioSignal *ComparisonSignal, pa
 		returnFolder = PushFolder(CLK_FOLDER);
 		if(!returnFolder)
 			return;
-		PlotCLKSpectrogram(ReferenceSignal, config);
-		PlotCLKSpectrogram(ComparisonSignal, config);
+
+#pragma omp parallel for
+		for (int i = 0; i < 2; i++)
+		{
+			if (i == 0)
+				PlotCLKSpectrogram(ReferenceSignal, config);
+			else
+				PlotCLKSpectrogram(ComparisonSignal, config);
+		}
 
 		ReturnToMainPath(&returnFolder);
 
@@ -339,27 +366,72 @@ void PlotResults(AudioSignal *ReferenceSignal, AudioSignal *ComparisonSignal, pa
 			if(!returnFolder)
 				return;
 
-			if(ReferenceSignal->AudioChannels == 2)
+#pragma omp parallel for
+			for (int i = 0; i < 2; i++)
 			{
-				PlotTimeSpectrogram(ReferenceSignal, CHANNEL_LEFT, config);
-				logmsg(PLOT_ADVANCE_CHAR);
-				PlotTimeSpectrogram(ReferenceSignal, CHANNEL_RIGHT, config);
-				logmsg(PLOT_ADVANCE_CHAR);
+				if (i == 0)
+				{
+					if (ReferenceSignal->AudioChannels == 2)
+					{
+						PlotTimeSpectrogram(ReferenceSignal, CHANNEL_LEFT, config);
+						logmsg(PLOT_ADVANCE_CHAR);
+						PlotTimeSpectrogram(ReferenceSignal, CHANNEL_RIGHT, config);
+						logmsg(PLOT_ADVANCE_CHAR);
+					}
+				}
+				else
+				{
+					if (ComparisonSignal->AudioChannels == 2)
+					{
+						PlotTimeSpectrogram(ComparisonSignal, CHANNEL_LEFT, config);
+						logmsg(PLOT_ADVANCE_CHAR);
+						PlotTimeSpectrogram(ComparisonSignal, CHANNEL_RIGHT, config);
+						logmsg(PLOT_ADVANCE_CHAR);
+					}
+				}
 			}
-			if(ComparisonSignal->AudioChannels == 2)
-			{
-				PlotTimeSpectrogram(ComparisonSignal, CHANNEL_LEFT, config);
-				logmsg(PLOT_ADVANCE_CHAR);
-				PlotTimeSpectrogram(ComparisonSignal, CHANNEL_RIGHT, config);
-				logmsg(PLOT_ADVANCE_CHAR);
-			}
-
 			ReturnToMainPath(&returnFolder);
 		}
-		PlotTimeSpectrogram(ReferenceSignal, CHANNEL_STEREO, config);
-		logmsg(PLOT_ADVANCE_CHAR);
-		PlotTimeSpectrogram(ComparisonSignal, CHANNEL_STEREO, config);
-		logmsg(PLOT_ADVANCE_CHAR);
+
+		if (1)
+		{
+			char* returnFolder = NULL;
+
+			returnFolder = PushFolder(T_SPECTR_FOLDER);
+			if (!returnFolder)
+				return;
+#pragma omp parallel for
+			for (int i = 0; i < config->types.typeCount; i++)
+			{
+				int type = 0;
+				
+				type = config->types.typeArray[i].type;
+				if (type > TYPE_CONTROL && !config->types.typeArray[i].IsaddOnData)
+				{
+					PlotSingleTypeTimeSpectrogram(ReferenceSignal, CHANNEL_STEREO, type, config);
+					logmsg(PLOT_ADVANCE_CHAR);
+					
+					PlotSingleTypeTimeSpectrogram(ComparisonSignal, CHANNEL_STEREO, type, config);
+					logmsg(PLOT_ADVANCE_CHAR);
+				}
+			}
+			ReturnToMainPath(&returnFolder);
+		}
+
+#pragma omp parallel for
+		for (int i = 0; i < 2; i++)
+		{
+			if (i == 0)
+			{
+				PlotTimeSpectrogram(ReferenceSignal, CHANNEL_STEREO, config);
+				logmsg(PLOT_ADVANCE_CHAR);
+			}
+			else
+			{
+				PlotTimeSpectrogram(ComparisonSignal, CHANNEL_STEREO, config);
+				logmsg(PLOT_ADVANCE_CHAR);
+			}
+		}
 		EndPlot("Time Spectrogram", &lstart, &lend, config);
 	}
 
@@ -410,8 +482,14 @@ void PlotResults(AudioSignal *ReferenceSignal, AudioSignal *ComparisonSignal, pa
 		}
 
 		StartPlot(" - Waveform Graphs\n  ", &lstart, config);
-		PlotTimeDomainGraphs(ReferenceSignal, config);
-		PlotTimeDomainGraphs(ComparisonSignal, config);
+#pragma omp parallel for
+		for (int i = 0; i < 2; i++)
+		{
+			if (i == 0)
+				PlotTimeDomainGraphs(ReferenceSignal, config);
+			else
+				PlotTimeDomainGraphs(ComparisonSignal, config);
+		}
 		EndPlot("Waveform", &lstart, &lend, config);
 
 		ReturnToMainPath(&returnFolder);
@@ -424,8 +502,14 @@ void PlotResults(AudioSignal *ReferenceSignal, AudioSignal *ComparisonSignal, pa
 			struct	timespec	lstart, lend;
 
 			StartPlot(" - Time Domain Graphs from highly different notes\n  ", &lstart, config);
-			PlotTimeDomainHighDifferenceGraphs(ReferenceSignal, config);
-			PlotTimeDomainHighDifferenceGraphs(ComparisonSignal, config);
+#pragma omp parallel for
+			for (int i = 0; i < 2; i++)
+			{
+				if (i == 0)
+					PlotTimeDomainHighDifferenceGraphs(ReferenceSignal, config);
+				else
+					PlotTimeDomainHighDifferenceGraphs(ComparisonSignal, config);
+			}
 			EndPlot("Time Domain Graphs", &lstart, &lend, config);
 		}
 	}
@@ -551,7 +635,19 @@ void PlotSpectrograms(AudioSignal *Signal, parameters *config)
 	FlatFrequency		*frequencies = NULL;
 	
 	ShortenFileName(basename(Signal->SourceFile), tmpName);
-	frequencies = CreateFlatFrequencies(Signal, &size, config);
+	if (config->clock)
+	{
+		struct timespec start, end;
+		double	elapsedSeconds;
+
+		clock_gettime(CLOCK_MONOTONIC, &start);
+		frequencies = CreateFlatFrequencies(Signal, &size, config);
+		clock_gettime(CLOCK_MONOTONIC, &end);
+		elapsedSeconds = TimeSpecToSeconds(&end) - TimeSpecToSeconds(&start);
+		logmsg(" - clk: %s took %0.2fs\n", "CreateFlatFrequencies", elapsedSeconds);
+	}
+	else
+		frequencies = CreateFlatFrequencies(Signal, &size, config);
 	if(PlotEachTypeSpectrogram(frequencies, size, tmpName, Signal->role, config, Signal) > 1)
 	{
 		PlotAllSpectrogram(frequencies, size, tmpName, Signal->role, config);
@@ -964,7 +1060,7 @@ void enableTestWarnings(parameters *config)
 }
 #endif
 
-#define XPOSWARN	3.7
+#define XPOSWARN	3.5
 
 #define PLOT_COLUMN(x,y) pl_fmove_r(plot->plotter, config->plotResX-(x)*config->plotResX/10, config->plotResY/2-(y)*BAR_HEIGHT)
 #define PLOT_COLUMN_DISP(x,x1,y) pl_fmove_r(plot->plotter, config->plotResX-(x)*config->plotResX/10-config->plotResX/40+x1, config->plotResY/2-(y)*BAR_HEIGHT)
@@ -1390,8 +1486,10 @@ void DrawLabelsMDF(PlotFile *plot, char *Gname, char *GType, int type, parameter
 	if(config->maxDbPlotZC != DB_HEIGHT && type == PLOT_COMPARE)
 	{
 		PLOT_WARN(1, warning++);
-		sprintf(msg, "NOTE: Vertical scale changed %s",
-					config->maxDbPlotZCChanged ? "(-d)" : "(kept within one Std Dev)"); 
+		if (config->maxDbPlotZCChanged)
+			sprintf(msg, "NOTE: Vertical scale changed (-d %g)", config->maxDbPlotZC);
+		else
+			sprintf(msg, "NOTE: Vertical scale auto-adjusted within one Std Dev");
 		pl_alabel_r(plot->plotter, 'l', 'l', msg);
 	}
 
@@ -1448,7 +1546,13 @@ void DrawLabelsMDF(PlotFile *plot, char *Gname, char *GType, int type, parameter
 		pl_alabel_r(plot->plotter, 'l', 'l', "WARNING: No Normalization, PLEASE DISREGARD (-n n)");
 	}
 
-	if(config->types.useWatermark && DetectWatermarkIssue(msg, config))
+	if (config->types.useWatermark && DetectWatermarkIssue(msg, config->comparisonSignal, config))
+	{
+		PLOT_WARN(1, warning++);
+		pl_alabel_r(plot->plotter, 'l', 'l', msg);
+	}
+
+	if(config->types.useWatermark && DetectWatermarkIssue(msg, config->referenceSignal, config))
 	{
 		PLOT_WARN(1, warning++);
 		pl_alabel_r(plot->plotter, 'l', 'l', msg);
@@ -1465,8 +1569,8 @@ void DrawLabelsMDF(PlotFile *plot, char *Gname, char *GType, int type, parameter
 
 	if(config->warningStereoReversed)
 	{
-		PLOT_WARN(1, warning++);
-		pl_alabel_r(plot->plotter, 'l', 'l', "WARNING: L/R Channels might be reversed (or mono)");
+		//PLOT_WARN(1, warning++);
+		//pl_alabel_r(plot->plotter, 'l', 'l', "WARNING: L/R Channels might be reversed (or mono)");
 	}
 
 	if(config->clkWarning)
@@ -2408,15 +2512,24 @@ int PlotEachTypeDifferentAmplitudes(FlatAmplDifference *amplDiff, long int size,
 
 			if(config->types.typeArray[i].channel == CHANNEL_STEREO && areBothStereo)
 			{
-				sprintf(name, "DA_%s_%02d%s_%c", filename, 
-					type, config->types.typeArray[i].typeName, CHANNEL_LEFT);
-				PlotSingleTypeDifferentAmplitudes(amplDiff, size, type, name, CHANNEL_LEFT, config);
-				logmsg(PLOT_ADVANCE_CHAR);
-
-				sprintf(name, "DA_%s_%02d%s_%c", filename, 
-						type, config->types.typeArray[i].typeName, CHANNEL_RIGHT);
-				PlotSingleTypeDifferentAmplitudes(amplDiff, size, type, name, CHANNEL_RIGHT, config);
-				logmsg(PLOT_ADVANCE_CHAR);
+#pragma omp parallel for
+				for (int i = 0; i < 2; i++)
+				{
+					if (i == 0)
+					{
+						sprintf(name, "DA_%s_%02d%s_%c", filename,
+							type, config->types.typeArray[i].typeName, CHANNEL_LEFT);
+						PlotSingleTypeDifferentAmplitudes(amplDiff, size, type, name, CHANNEL_LEFT, config);
+						logmsg(PLOT_ADVANCE_CHAR);
+					}
+					else
+					{
+						sprintf(name, "DA_%s_%02d%s_%c", filename,
+							type, config->types.typeArray[i].typeName, CHANNEL_RIGHT);
+						PlotSingleTypeDifferentAmplitudes(amplDiff, size, type, name, CHANNEL_RIGHT, config);
+						logmsg(PLOT_ADVANCE_CHAR);
+					}
+				}
 			}
 			if(typeCount > 1)
 				ReturnToMainPath(&returnFolder);
@@ -2770,18 +2883,19 @@ void PlotNoiseSpectrogram(FlatFrequency *freqs, long int size, int type, char ch
 	if(endAmplitude < NS_LOWEST_AMPLITUDE)
 		endAmplitude = NS_LOWEST_AMPLITUDE;
 
+	if (Signal->role == ROLE_REF)
+	{
+		config->refNoiseMin = startAmplitude;
+		config->refNoiseMax = endAmplitude;
+	}
+
+#pragma omp ordered
 	if(Signal->role == ROLE_COMP)
 	{
 		if(config->refNoiseMax != 0)
 			endAmplitude = config->refNoiseMax;
 		else
 			logmsg("WARNING: Noise Floor Reference values were not set\n");
-	}
-
-	if(Signal->role == ROLE_REF)
-	{
-		config->refNoiseMin = startAmplitude;
-		config->refNoiseMax = endAmplitude;
 	}
 
 	if(config->significantAmplitude < endAmplitude)
@@ -3139,11 +3253,9 @@ int InsertElementInPlace(FlatFrequency *Freqs, FlatFrequency Element, long int c
 
 	for(long int j = 0; j < currentsize; j++)
 	{
-		if(Element.type == Freqs[j].type && Element.hertz == Freqs[j].hertz && Element.channel == Freqs[j].channel)
+		if(Element.type == Freqs[j].type && Element.channel == Freqs[j].channel && Element.hertz == Freqs[j].hertz)
 		{
-			if(Freqs[j].amplitude > Element.amplitude)
-				return 0;
-			else
+			if(Element.amplitude > Freqs[j].amplitude)
 				Freqs[j].amplitude = Element.amplitude;
 			return 0;
 		}
@@ -4213,7 +4325,7 @@ void DrawTimeCode(PlotFile *plot, double timecode, double x, double framerate, i
 void PlotTimeSpectrogram(AudioSignal *Signal, char channel, parameters *config)
 {
 	PlotFile	plot;
-	double		significant = 0, x = 0, framewidth = 0, framecount = 0, tc = 0, abs_significant = 0;
+	double		significant = 0, x = 0, framewidth = 0, framecount = 0, timecode = 0, abs_significant = 0;
 	double		frameOffset = 0;
 	long int	block = 0, i = 0;
 	int			lastType = TYPE_NOTYPE;
@@ -4222,12 +4334,14 @@ void PlotTimeSpectrogram(AudioSignal *Signal, char channel, parameters *config)
 	if(!Signal || !config)
 		return;
 
+	// Name the plot
 	ShortenFileName(basename(Signal->SourceFile), name);
 	if(channel == CHANNEL_STEREO)
 		sprintf(filename, "T_SP_%c_%s", Signal->role == ROLE_REF ? 'A' : 'B', name);
 	else
 		sprintf(filename, "T_SP_%c_%c_%s", channel, Signal->role == ROLE_REF ? 'A' : 'B', name);
 
+	// total frame count minus silence
 	for(int i = 0; i < config->types.typeCount; i++)
 	{
 		if(config->types.typeArray[i].type > TYPE_SILENCE)
@@ -4252,12 +4366,16 @@ void PlotTimeSpectrogram(AudioSignal *Signal, char channel, parameters *config)
 	DrawFrequencyHorizontalGrid(&plot, config->endHzPlot, 1000, config);
 	DrawLabelsTimeSpectrogram(&plot, floor(config->endHzPlot/1000), 1, config);
 
+	// Point to first valid frame
 	frameOffset = SamplesToFrames(Signal->header.fmt.SamplesPerSec, Signal->startOffset, Signal->framerate, Signal->AudioChannels);
 	//logmsg("\nSync Samples: %ld start->Frames %g Seconds %g\n", Signal->startOffset, frameOffset, FramesToSeconds(frameOffset, Signal->framerate));
 	frameOffset += GetFirstElementFrameOffset(config);
 	//logmsg("Signal Start->Frames %g Seconds %g\n", frameOffset, FramesToSeconds(frameOffset, Signal->framerate));
 
+	// Determine how wide each frame is against plot resolution
 	framewidth = config->plotResX / framecount;
+
+	// Draw
 	for(block = 0; block < config->types.totalBlocks; block++)
 	{
 		int		type = 0;
@@ -4274,6 +4392,7 @@ void PlotTimeSpectrogram(AudioSignal *Signal, char channel, parameters *config)
 			xpos = x+noteWidth;
 			color = MatchColor(GetBlockColor(config, block));
 
+			// lowest amplitude first, so highest amplitude isn't drawn over
 			for(i = config->MaxFreq-1; i >= 0; i--)
 			{
 				if(channel == CHANNEL_LEFT || channel == CHANNEL_STEREO
@@ -4327,12 +4446,12 @@ void PlotTimeSpectrogram(AudioSignal *Signal, char channel, parameters *config)
 				pl_fline_r(plot.plotter, x, 0, x, config->endHzPlot);
 
 				spaceAvailable = noteWidth*GetBlockElements(config, block);
-				DrawTimeCode(&plot, tc+frameOffset, x, Signal->framerate, color, spaceAvailable, config);
+				DrawTimeCode(&plot, timecode+frameOffset, x, Signal->framerate, color, spaceAvailable, config);
 				lastType = type;
 			}
 			x += noteWidth;
-			tc += frames;
 		}
+		timecode += frames;
 	}
 
 	if(channel == CHANNEL_STEREO)
@@ -4345,6 +4464,155 @@ void PlotTimeSpectrogram(AudioSignal *Signal, char channel, parameters *config)
 			title = channel == CHANNEL_LEFT ? TSPECTROGRAM_TITLE_COM_LFT : TSPECTROGRAM_TITLE_COM_RGHT;
 	}
 	DrawColorAllTypeScale(&plot, MODE_SPEC, LEFT_MARGIN, HEIGHT_MARGIN, config->plotResX/COLOR_BARS_WIDTH_SCALE, config->plotResY/1.15, significant, VERT_SCALE_STEP_BAR, DRAW_BARS, config);
+	DrawLabelsMDF(&plot, title, ALL_LABEL, Signal->role == ROLE_REF ? PLOT_SINGLE_REF : PLOT_SINGLE_COM, config);
+
+	ClosePlot(&plot);
+}
+
+void PlotSingleTypeTimeSpectrogram(AudioSignal* Signal, char channel, int plotType, parameters* config)
+{
+	PlotFile	plot;
+	double		significant = 0, x = 0, framewidth = 0, framecount = 0, timecode = 0, abs_significant = 0;
+	double		frameOffset = 0;
+	long int	block = 0, i = 0;
+	int			lastType = TYPE_NOTYPE;
+	char		filename[BUFFER_SIZE], name[BUFFER_SIZE / 2], * title = NULL;
+
+	if (!Signal || !config)
+		return;
+
+	// Name the plot
+	ShortenFileName(basename(Signal->SourceFile), name);
+	if (channel == CHANNEL_STEREO)
+		sprintf(filename, "T_SP_%02d_%s_%c_%s", 
+				plotType, GetTypeName(config, plotType), Signal->role == ROLE_REF ? 'A' : 'B', name);
+	else
+		sprintf(filename, "T_SP_%02d_%s_%c_%c_%s", 
+			plotType, GetTypeName(config, plotType), channel, Signal->role == ROLE_REF ? 'A' : 'B', name);
+
+	// total frame count minus silence
+	for (int i = 0; i < config->types.typeCount; i++)
+	{
+		if (config->types.typeArray[i].type == plotType)
+			framecount += config->types.typeArray[i].elementCount * config->types.typeArray[i].frames;
+	}
+
+	if (!framecount)
+		return;
+
+	if (config->FullTimeSpectroScale)
+		significant = config->lowestDBFS;
+	else
+		significant = config->significantAmplitude;
+
+	abs_significant = fabs(significant);
+
+	FillPlot(&plot, filename, 0, 0, config->plotResX, config->endHzPlot, 1, 1, config);
+
+	if (!CreatePlotFile(&plot, config))
+		return;
+
+	DrawFrequencyHorizontalGrid(&plot, config->endHzPlot, 1000, config);
+	DrawLabelsTimeSpectrogram(&plot, floor(config->endHzPlot / 1000), 1, config);
+
+	// Point to first valid frame
+	frameOffset = SamplesToFrames(Signal->header.fmt.SamplesPerSec, Signal->startOffset, Signal->framerate, Signal->AudioChannels);
+	//logmsg("\nSync Samples: %ld start->Frames %g Seconds %g\n", Signal->startOffset, frameOffset, FramesToSeconds(frameOffset, Signal->framerate));
+	frameOffset += GetFirstElementFrameOffset(config);
+	//logmsg("Signal Start->Frames %g Seconds %g\n", frameOffset, FramesToSeconds(frameOffset, Signal->framerate));
+
+	// Determine how wide each frame is against plot resolution
+	framewidth = config->plotResX / framecount;
+
+	// Draw
+	for (block = 0; block < config->types.totalBlocks; block++)
+	{
+		int		type = 0;
+		double	frames = 0;
+
+		type = GetBlockType(config, block);
+		frames = GetBlockFrames(config, block);
+		if (type == plotType && config->MaxFreq > 0)
+		{
+			int		color = 0;
+			double	noteWidth = 0, xpos = 0;
+
+			noteWidth = framewidth * frames;
+			xpos = x + noteWidth;
+			color = MatchColor(GetBlockColor(config, block));
+
+			// lowest amplitude first, so highest amplitude isn't drawn over
+			for (i = config->MaxFreq - 1; i >= 0; i--)
+			{
+				if (channel == CHANNEL_LEFT || channel == CHANNEL_STEREO
+					|| Signal->Blocks[block].channel == CHANNEL_MONO
+					|| Signal->Blocks[block].channel == CHANNEL_NOISE)
+				{
+					if (Signal->Blocks[block].freq[i].hertz && Signal->Blocks[block].freq[i].amplitude > significant)
+					{
+						long int intensity;
+						double y, amplitude;
+
+						// x is fixed by block division
+						y = Signal->Blocks[block].freq[i].hertz;
+						if (config->logScaleTS)
+							y = transformtoLog(y, config);
+						amplitude = Signal->Blocks[block].freq[i].amplitude;
+
+						intensity = CalculateWeightedError(fabs(abs_significant - fabs(amplitude)) / abs_significant, config) * 0xffff;
+						SetPenColor(color, intensity, &plot);
+						pl_fline_r(plot.plotter, x, y, xpos, y);
+						pl_endpath_r(plot.plotter);
+					}
+				}
+
+				if (channel == CHANNEL_RIGHT || channel == CHANNEL_STEREO)
+				{
+					if (Signal->Blocks[block].freqRight && Signal->Blocks[block].freqRight[i].hertz && Signal->Blocks[block].freqRight[i].amplitude > significant)
+					{
+						long int intensity;
+						double y, amplitude;
+
+						// x is fixed by block division
+						y = Signal->Blocks[block].freqRight[i].hertz;
+						if (config->logScaleTS)
+							y = transformtoLog(y, config);
+						amplitude = Signal->Blocks[block].freqRight[i].amplitude;
+
+						intensity = CalculateWeightedError(fabs(abs_significant - fabs(amplitude)) / abs_significant, config) * 0xffff;
+						SetPenColor(color, intensity, &plot);
+						pl_fline_r(plot.plotter, x, y, xpos, y);
+						pl_endpath_r(plot.plotter);
+					}
+				}
+			}
+
+			if (lastType != type)
+			{
+				double	spaceAvailable = 0;
+
+				SetPenColor(color, 0x9999, &plot);
+				pl_fline_r(plot.plotter, x, 0, x, config->endHzPlot);
+
+				spaceAvailable = noteWidth * GetBlockElements(config, block);
+				DrawTimeCode(&plot, timecode + frameOffset, x, Signal->framerate, color, spaceAvailable, config);
+				lastType = type;
+			}
+			x += noteWidth;
+		}
+		timecode += frames;
+	}
+
+	if (channel == CHANNEL_STEREO)
+		title = Signal->role == ROLE_REF ? TSPECTROGRAM_TITLE_REF : TSPECTROGRAM_TITLE_COM;
+	else
+	{
+		if (Signal->role == ROLE_REF)
+			title = channel == CHANNEL_LEFT ? TSPECTROGRAM_TITLE_REF_LFT : TSPECTROGRAM_TITLE_REF_RGHT;
+		else
+			title = channel == CHANNEL_LEFT ? TSPECTROGRAM_TITLE_COM_LFT : TSPECTROGRAM_TITLE_COM_RGHT;
+	}
+	DrawColorAllTypeScale(&plot, MODE_SPEC, LEFT_MARGIN, HEIGHT_MARGIN, config->plotResX / COLOR_BARS_WIDTH_SCALE, config->plotResY / 1.15, significant, VERT_SCALE_STEP_BAR, DRAW_BARS, config);
 	DrawLabelsMDF(&plot, title, ALL_LABEL, Signal->role == ROLE_REF ? PLOT_SINGLE_REF : PLOT_SINGLE_COM, config);
 
 	ClosePlot(&plot);

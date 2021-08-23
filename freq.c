@@ -150,7 +150,7 @@ double FindFrequencyBracket(double frequency, size_t size, int AudioChannels, lo
 	return targetFreq;
 }
 
-void CalcuateFrequencyBrackets(AudioSignal *Signal, parameters *config)
+void CalculateFrequencyBrackets(AudioSignal *Signal, parameters *config)
 {
 	long int index = 0;
 
@@ -891,36 +891,36 @@ int DetectWatermark(AudioSignal *Signal, parameters *config)
 	return 1;
 }
 
-int DetectWatermarkIssue(char *msg, parameters *config)
+int DetectWatermarkIssue(char *msg, AudioSignal* Signal, parameters *config)
 {
-	int wmRef = WATERMARK_NONE, wmComp = WATERMARK_NONE;
-
-	if(!config || !config->referenceSignal || !config->comparisonSignal)
+	if(!Signal)
 	{
 		sprintf(msg, "ERROR: Invalid watermark parameters!");
 		return 1;
 	}
 
-	wmRef = config->referenceSignal->watermarkStatus;
-	wmComp = config->comparisonSignal->watermarkStatus;
-	if(wmRef == WATERMARK_NONE && wmComp == WATERMARK_NONE)
-		return 0;
-	if(wmRef == WATERMARK_VALID && wmComp == WATERMARK_VALID)
-		return 0;
-
-	if(wmRef == WATERMARK_INVALID || wmComp == WATERMARK_INVALID)
+	switch (Signal->watermarkStatus)
 	{
-		sprintf(msg, "WARNING: Invalid %s. Results are probably incorrect", config->types.watermarkDisplayName);
-		return 1;
-	}
-
-	if(wmRef == WATERMARK_INDETERMINATE || wmComp == WATERMARK_INDETERMINATE)
-	{
-		sprintf(msg, "WARNING: %s state unknown. Results might be incorrect", config->types.watermarkDisplayName);
-		return 1;
+		case WATERMARK_NONE:
+		case WATERMARK_VALID:
+			return 0;
+			break;
+		case WATERMARK_INVALID:
+			sprintf(msg, "WARNING: Invalid %s in %s. Results are probably incorrect",
+				config->types.watermarkDisplayName,
+				Signal->role == ROLE_REF ? "Ref" : "Comp");
+			return 1;
+			break;
+		case WATERMARK_INDETERMINATE:
+			sprintf(msg, "WARNING: %s state unknown in %s. Results might be incorrect",
+				config->types.watermarkDisplayName,
+				Signal->role == ROLE_REF ? "Ref" : "Comp");
+			return 1;
+			break;
 	}
 		
-	return 0;
+	sprintf(msg, "ERROR: Invalid watermark status!");
+	return 1;
 }
 
 int GetLastSyncIndex(parameters *config)

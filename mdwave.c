@@ -377,7 +377,7 @@ int ProcessSignalMDW(AudioSignal *Signal, parameters *config)
 	if(config->executefft)
 	{
 		GlobalNormalize(Signal, config);
-		CalcuateFrequencyBrackets(Signal, config);
+		CalculateFrequencyBrackets(Signal, config);
 	
 		if(Signal->hasSilenceBlock && !config->ignoreFloor) // analyze noise floor if available
 		{

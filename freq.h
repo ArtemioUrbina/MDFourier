@@ -137,7 +137,7 @@ double SamplesToFrames(long int samplerate, long int samples, double framerate, 
 long int SamplesToBytes(long int samples, int bytesPerSample);
 long int SamplesForDisplay(long int samples, int AudioChannels);
 int DetectWatermark(AudioSignal *Signal, parameters *config);
-int DetectWatermarkIssue(char *msg, parameters *config);
+int DetectWatermarkIssue(char* msg, AudioSignal* Signal, parameters* config);
 
 double CalculateMagnitude(fftw_complex value, long int size);
 double CalculateAmplitude(double magnitude, double MaxMagnitude);
@@ -151,7 +151,7 @@ double CalculateScanRateOriginalFramerate(AudioSignal *Signal);
 
 double FindFrequencyBinSizeForBlock(AudioSignal *Signal, long int block);
 long int GetZeroPadValues(long int *monoSignalSize, double *seconds, long int samplerate);
-void CalcuateFrequencyBrackets(AudioSignal *signal, parameters *config);
+void CalculateFrequencyBrackets(AudioSignal *signal, parameters *config);
 double FindFrequencyBracket(double frequency, size_t size, int AudioChannels, long samplerate, parameters *config);
 double FindFrequencyBracketForSync(double frequency, size_t size, int AudioChannels, long samplerate, parameters *config);
 double FindFundamentalAmplitudeAverage(AudioSignal *Signal, parameters *config);

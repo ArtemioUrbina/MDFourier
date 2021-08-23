@@ -438,10 +438,10 @@ int FrequencyDomainNormalize(AudioSignal **ReferenceSignal, AudioSignal **Compar
 		fabs(ratiodBFS) > STEREO_TOLERANCE_REPORT)
 	{
 		//logmsg(" - WARNING: Left and right channels might be reversed or converted from mono to stereo");
-		if(config->verbose)
-			logmsg(" %g/%g", fabs(ratiodBFS), STEREO_TOLERANCE_REPORT);
-		logmsg("\n");
-		config->warningStereoReversed = 1;
+		//if(config->verbose)
+			//logmsg(" %g/%g", fabs(ratiodBFS), STEREO_TOLERANCE_REPORT);
+		//logmsg("\n");
+		//config->warningStereoReversed = 1;
 	}
 
 	// Check if we are comparing different bitdepths
@@ -784,8 +784,8 @@ int LoadAndProcessAudioFiles(AudioSignal **ReferenceSignal, AudioSignal **Compar
 	ReleasePCM(*ReferenceSignal);
 	ReleasePCM(*ComparisonSignal);
 
-	CalcuateFrequencyBrackets(*ReferenceSignal, config);
-	CalcuateFrequencyBrackets(*ComparisonSignal, config);
+	CalculateFrequencyBrackets(*ReferenceSignal, config);
+	CalculateFrequencyBrackets(*ComparisonSignal, config);
 
 	if(!NormalizeAndFinishProcess(ReferenceSignal, ComparisonSignal, config))
 		return 0;
@@ -834,11 +834,11 @@ int NormalizeAndFinishProcess(AudioSignal **ReferenceSignal, AudioSignal **Compa
 	}
 	*/
 
-	logmsg("\n* Processing Signal Frequencies and Amplitudes\n");
-	if((*ReferenceSignal)->MaxMagnitude.magnitude < (*ComparisonSignal)->MaxMagnitude.magnitude)
+	logmsg("\n* Processing Signal Frequencies and Amplitudes\n");	
+	if ((*ReferenceSignal)->MaxMagnitude.magnitude < (*ComparisonSignal)->MaxMagnitude.magnitude)
 	{
 		ZeroDbMagnitudeRef = (*ComparisonSignal)->MaxMagnitude.magnitude;
-		if(config->verbose) {
+		if (config->verbose) {
 			logmsg(" - Comparison file has the highest peak at %g vs %g\n",
 				ZeroDbMagnitudeRef, (*ReferenceSignal)->MaxMagnitude.magnitude);
 		}
@@ -846,7 +846,7 @@ int NormalizeAndFinishProcess(AudioSignal **ReferenceSignal, AudioSignal **Compa
 	else
 	{
 		ZeroDbMagnitudeRef = (*ReferenceSignal)->MaxMagnitude.magnitude;
-		if(config->verbose) {
+		if (config->verbose) {
 			logmsg(" - Reference file has the highest peak at %g vs %g\n",
 				ZeroDbMagnitudeRef, (*ComparisonSignal)->MaxMagnitude.magnitude);
 		}

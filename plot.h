@@ -221,6 +221,7 @@ void SaveCSVAmpDiff(FlatAmplDifference *amplDiff, long int size, char *filename,
 void DrawFrequencyHorizontal(PlotFile *plot, double vertical, double hz, double hzIncrement, parameters *config);
 void DrawFrequencyHorizontalGrid(PlotFile *plot, double hz, double hzIncrement, parameters *config);
 void PlotTimeSpectrogram(AudioSignal *Signal, char channel, parameters *config);
+void PlotSingleTypeTimeSpectrogram(AudioSignal* Signal, char channel, int plotType, parameters* config);
 void PlotTimeSpectrogramUnMatchedContent(AudioSignal *Signal, char channel, parameters *config);
 
 void DrawLabelsTimeSpectrogram(PlotFile *plot, int khz, int khzIncrement, parameters *config);

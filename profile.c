@@ -637,12 +637,17 @@ int LoadAudioNoSyncProfile(FILE *file, parameters *config)
 		case NO_SYNC_MANUAL_C:
 			config->noSyncProfileType = NO_SYNC_MANUAL;
 			break;
+		case NO_SYNC_LENGTH_C:
+			config->noSyncProfileType = NO_SYNC_LENGTH;
+			config->normType = none;
+			break;
+			break;
 		case NO_SYNC_DIGITAL_C:
 			config->noSyncProfileType = NO_SYNC_DIGITAL;
 			break;
 		default:
-			logmsg("ERROR: Invalid Free profile type '%c'. Use '%c' or '%c'\n", 
-				type, NO_SYNC_AUTO_C, NO_SYNC_MANUAL_C);
+			logmsg("ERROR: Invalid Free profile type '%c'. Use '%c', '%c', '%c' or '%c'\n", 
+				type, NO_SYNC_AUTO_C, NO_SYNC_MANUAL_C, NO_SYNC_LENGTH_C, NO_SYNC_DIGITAL_C);
 			fclose(file);
 			return 0;
 			break;
@@ -792,7 +797,15 @@ int LoadAudioNoSyncProfile(FILE *file, parameters *config)
 		return 0;
 	}
 
-	config->significantAmplitude = SIGNIFICANT_VOLUME;
+	if (config->significantAmplitude != SIGNIFICANT_VOLUME)
+	{
+		if(config->noSyncProfileType != NO_SYNC_LENGTH)
+		{
+			config->significantAmplitude = SIGNIFICANT_VOLUME;
+			logmsg(" - Free sync profiles ignore -p. \n");
+		}
+	}
+	
 	fclose(file);
 	
 	return 1;

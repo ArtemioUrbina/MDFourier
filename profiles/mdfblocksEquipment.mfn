@@ -1,7 +1,7 @@
 MDFourierAudioBlockFile 2.3
-MDF: Equipment Test 48/44.1khz
+MDF: Equipment Test [1] 44.1/48khz
 [VideoModes] 1
-Audio 13.33333 0 8000 11 13
+Audio 13.33333333333 0 8000 11 13
 CLK n
 [MonoBalanceBlock] 366      ;Use Fade# 0
 [ToneLines] 13

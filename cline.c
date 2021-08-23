@@ -325,11 +325,8 @@ int commandline(int argc , char *argv[], parameters *config)
 			logmsg("-ERROR: Range must be between %d and %d\n", 0, 120);
 			return 0;
 		}
-		if(config->maxDbPlotZC != DB_HEIGHT)
-		{
-			config->maxDbPlotZCChanged = 1;
-			logmsg("\t -Plot range set to %g\n", config->maxDbPlotZC);
-		}
+		config->maxDbPlotZCChanged = 1;
+		logmsg("\t -Plot range set to %g\n", config->maxDbPlotZC);
 		break;
 	  case 'E':
 		config->FullTimeSpectroScale = 1;

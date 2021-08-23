@@ -614,6 +614,21 @@ int DetectSync(AudioSignal *Signal, parameters *config)
 				}
 			}
 			break;
+			case NO_SYNC_LENGTH:
+			{
+				Signal->startOffset = 0;
+				Signal->endOffset = SecondsToSamples(Signal->header.fmt.SamplesPerSec,
+					GetSignalTotalDuration(Signal->framerate, config),
+					Signal->AudioChannels, Signal->bytesPerSample,
+					NULL, NULL, NULL);
+				if (Signal->endOffset > Signal->numSamples)
+				{
+					logmsg(" - ERROR: Files must be at least %g seconds long\n", 
+							SamplesToSeconds(Signal->header.fmt.SamplesPerSec, Signal->endOffset, Signal->AudioChannels));
+					return 0;
+				}
+			}
+			break;
 			case NO_SYNC_DIGITAL:
 			{
 				/* Find the start offset based on zeroes */
