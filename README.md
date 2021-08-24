@@ -4,7 +4,7 @@ MDFourier is an open source software solution created to compare audio signature
 
 The information gathered from the comparison results can be used in a variety of ways: to identify how audio signatures vary between systems, to detect if the audio signals are modified by audio equipment, to find if modifications resulted in audible changes, to help tune emulators, FPGA implementations or mods, etc.
 
-## COmpiling the source 
+## Compiling the source 
 MDFourier needs a few libraries to be compiled. In Linux, UN*X based systems and MinGW2; you can link it against the latest versions of the libraries.
 
 - Fastest Fourier Transform in the West. (fftw)
