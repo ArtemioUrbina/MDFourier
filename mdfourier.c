@@ -186,7 +186,7 @@ void FindViewPort(parameters *config)
 	double	average = 0, outside = 0, maxDiff = 0;
 
 	average = FindDifferenceAverage(config);
-	logmsg("Average difference is %g dBFS\n", average);
+	logmsg("Average difference is %g dB\n", average);
 
 	outside = FindDifferencePercentOutsideViewPort(&maxDiff, &type, fabs(config->maxDbPlotZC), config);
 	if(outside)
@@ -195,12 +195,12 @@ void FindViewPort(parameters *config)
 
 		if(config->maxDbPlotZCChanged)
 		{
-			logmsg("- Not auto adjusting vertical, using requested +/-%gdBFS. Missing [%s]: %g%%\n",
+			logmsg("- Not auto adjusting vertical, using requested +/-%gdB. Missing [%s]: %g%%\n",
 					config->maxDbPlotZC, name, outside);
 			config->notVisible = outside;
 			return;
 		}
-		logmsg(" - Differences outside +/-%gdBFS in [%s]: %g%%\n",
+		logmsg(" - Differences outside +/-%gdB in [%s]: %g%%\n",
 				config->maxDbPlotZC, name, outside);
 		if(outside > 8 && !config->maxDbPlotZCChanged)  // if the user has not changed it
 		{
@@ -226,9 +226,9 @@ void FindViewPort(parameters *config)
 				}
 				*/
 			}
-			logmsg(" - Auto adjusting viewport to %gdBFS for graphs\n", config->maxDbPlotZC);
+			logmsg(" - Auto adjusting viewport to %gdB for graphs\n", config->maxDbPlotZC);
 			if(outside >= 1)
-				logmsg(" - The %g%% of differences in [%s] will not be visible within the %gdBFS for graphs\n - If needed you can graph them all with \"-d %g\" for this particular case\n\n",
+				logmsg(" - The %g%% of differences in [%s] will not be visible within the %gdB for graphs\n - If needed you can graph them all with \"-d %g\" for this particular case\n\n",
 					outside, name, config->maxDbPlotZC, ceil(maxDiff));
 		}
 	}
@@ -454,7 +454,7 @@ int FrequencyDomainNormalize(AudioSignal **ReferenceSignal, AudioSignal **Compar
 		maxRatiodBFS = fabs(fabs(MaxRef)-fabs(MaxComp)) + maxRatiodBFS;
 		//logmsg("ratio dbfs %g\n", maxRatiodBFS);
 	}
-	if(config->verbose) { logmsg(" - Amplitude ratio is %gdBFS\n", ratiodBFS); }
+	if(config->verbose) { logmsg(" - Amplitude ratio is %gdB\n", ratiodBFS); }
 	if(ComparisonLocalMaximum == 0 || fabs(ratiodBFS) > maxRatiodBFS)
 	{
 		int		found = 0, pos = 1, allowDifference = 0, tries = 0;
@@ -485,7 +485,7 @@ int FrequencyDomainNormalize(AudioSignal **ReferenceSignal, AudioSignal **Compar
 
 						dbfsratioArray = CalculateAmplitude(ComparisonLocalMaximumArray, MaxRefArray[pos].magnitude);
 						ratioRefArray = ComparisonLocalMaximumArray/MaxRefArray[pos].magnitude;
-						if(config->verbose) { logmsg(" - Comparision ratio is %gdBFS\n", dbfsratioArray); }
+						if(config->verbose) { logmsg(" - Comparision ratio is %gdB\n", dbfsratioArray); }
 						if(fabs(dbfsratioArray) <= fabs(FREQDOMRATIO)) {
 							found = 1;
 							break;
@@ -1738,7 +1738,7 @@ int CompareAudioBlocks(AudioSignal *ReferenceSignal, AudioSignal *ComparisonSign
 	{
 		for(block = 0; block < config->types.totalBlocks; block++)
 		{
-			logmsgFileOnly("Values above 3dBFS for %s# %ld (%ld)\n", GetBlockName(config, block), GetBlockSubIndex(config, block), block);
+			logmsgFileOnly("Values above 3dB for %s# %ld (%ld)\n", GetBlockName(config, block), GetBlockSubIndex(config, block), block);
 			PrintThesholdDifferenceBlocks(&ReferenceSignal->Blocks[block], &ComparisonSignal->Blocks[block],
 				config, ReferenceSignal, 3.0);
 		}

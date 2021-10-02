@@ -109,8 +109,8 @@
 
 #define BAR_HEADER					"Matched frequencies"
 #define BAR_DIFF					"w/any amplitude difference"
-#define BAR_WITHIN					"within [0 to \\+-%gdBFS]"
-#define BAR_WITHIN_PERFECT			"within (0 to \\+-%gdBFS]"
+#define BAR_WITHIN					"within [0 to \\+-%gdB]"
+#define BAR_WITHIN_PERFECT			"within (0 to \\+-%gdB]"
 #define BAR_PERFECT					"Perfect Matches"
 
 #define ALL_LABEL					"ALL"
@@ -355,13 +355,12 @@ void PlotResults(AudioSignal *ReferenceSignal, AudioSignal *ComparisonSignal, pa
 	if(config->plotTimeSpectrogram)
 	{
 		struct	timespec	lstart, lend;
+		char*	returnFolder = NULL;
 
 		StartPlot(" - Time Spectrogram", &lstart, config);
 
 		if(config->usesStereo)
 		{
-			char	*returnFolder = NULL;
-		
 			returnFolder = PushFolder(T_SPECTR_FOLDER);
 			if(!returnFolder)
 				return;
@@ -393,10 +392,8 @@ void PlotResults(AudioSignal *ReferenceSignal, AudioSignal *ComparisonSignal, pa
 			ReturnToMainPath(&returnFolder);
 		}
 
-		if (1)
+		if (GetActiveBlockTypesNoRepeat(config))
 		{
-			char* returnFolder = NULL;
-
 			returnFolder = PushFolder(T_SPECTR_FOLDER);
 			if (!returnFolder)
 				return;
@@ -927,7 +924,7 @@ void DrawLabelsZeroDBCentered(PlotFile *plot, double dBFS, double dbIncrement, d
 	else
 		pl_pencolor_r(plot->plotter, 0xffff, 0xffff, 0);
 	pl_fmove_r(plot->plotter, config->plotResX+PLOT_SPACER, config->plotResY/100);
-	pl_alabel_r(plot->plotter, 'l', 't', "0dBFS");
+	pl_alabel_r(plot->plotter, 'l', 't', "0dB");
 
 	if(dBFS < config->lowestDBFS)
 		dbIncrement *= 2;
@@ -936,11 +933,11 @@ void DrawLabelsZeroDBCentered(PlotFile *plot, double dBFS, double dbIncrement, d
 	for(int i = 1; i <= segments; i ++)
 	{
 		pl_fmove_r(plot->plotter, config->plotResX+PLOT_SPACER, i*config->plotResY/segments/2+config->plotResY/100);
-		sprintf(label, " %gdBFS", i*dbIncrement);
+		sprintf(label, " %gdB", i*dbIncrement);
 		pl_alabel_r(plot->plotter, 'l', 't', label);
 
 		pl_fmove_r(plot->plotter, config->plotResX+PLOT_SPACER, -1*i*config->plotResY/segments/2+config->plotResY/100);
-		sprintf(label, "-%gdBFS", i*dbIncrement);
+		sprintf(label, "-%gdB", i*dbIncrement);
 		pl_alabel_r(plot->plotter, 'l', 't', label);
 	}
 
@@ -1985,7 +1982,7 @@ void DrawColorScale(PlotFile *plot, int type, int mode, double x, double y, doub
 	pl_ffontsize_r(plot->plotter, FONT_SIZE_2);
 	pl_ffontname_r(plot->plotter, PLOT_FONT);
 
-	/* dBFS label */
+	/* dB label */
 
 	pl_fmove_r(plot->plotter, x+width/2, y-FONT_SIZE_2);
 	pl_alabel_r(plot->plotter, 'c', 'c', "dBFS");
@@ -2154,7 +2151,7 @@ void DrawColorAllTypeScale(PlotFile *plot, int mode, double x, double y, double 
 	
 		SetPenColor(COLOR_GRAY, 0xaaaa, plot);
 
-		/* dBFS label */
+		/* dB label */
 	
 		pl_fmove_r(plot->plotter, x+width/2, y-FONT_SIZE_2);
 		pl_alabel_r(plot->plotter, 'c', 'c', "dBFS");
@@ -2512,24 +2509,15 @@ int PlotEachTypeDifferentAmplitudes(FlatAmplDifference *amplDiff, long int size,
 
 			if(config->types.typeArray[i].channel == CHANNEL_STEREO && areBothStereo)
 			{
-#pragma omp parallel for
-				for (int i = 0; i < 2; i++)
-				{
-					if (i == 0)
-					{
-						sprintf(name, "DA_%s_%02d%s_%c", filename,
-							type, config->types.typeArray[i].typeName, CHANNEL_LEFT);
-						PlotSingleTypeDifferentAmplitudes(amplDiff, size, type, name, CHANNEL_LEFT, config);
-						logmsg(PLOT_ADVANCE_CHAR);
-					}
-					else
-					{
-						sprintf(name, "DA_%s_%02d%s_%c", filename,
-							type, config->types.typeArray[i].typeName, CHANNEL_RIGHT);
-						PlotSingleTypeDifferentAmplitudes(amplDiff, size, type, name, CHANNEL_RIGHT, config);
-						logmsg(PLOT_ADVANCE_CHAR);
-					}
-				}
+				sprintf(name, "DA_%s_%02d%s_%c", filename,
+					type, config->types.typeArray[i].typeName, CHANNEL_LEFT);
+				PlotSingleTypeDifferentAmplitudes(amplDiff, size, type, name, CHANNEL_LEFT, config);
+				logmsg(PLOT_ADVANCE_CHAR);
+
+				sprintf(name, "DA_%s_%02d%s_%c", filename,
+					type, config->types.typeArray[i].typeName, CHANNEL_RIGHT);
+				PlotSingleTypeDifferentAmplitudes(amplDiff, size, type, name, CHANNEL_RIGHT, config);
+				logmsg(PLOT_ADVANCE_CHAR);
 			}
 			if(typeCount > 1)
 				ReturnToMainPath(&returnFolder);

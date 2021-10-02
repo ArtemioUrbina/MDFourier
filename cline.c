@@ -65,11 +65,11 @@ void PrintUsage()
 	logmsg("	 -l: Do not <l>og output to file [reference]_vs_[compare].txt\n");
 	logmsg("	 -v: Enable <v>erbose mode, spits all the FFTW results\n");
 	logmsg("	 -C: Create <C>SV file with plot values.\n");
-	logmsg("	 -b: Change <b>ar value for frequency match, default is 1.0dBFS.\n");
+	logmsg("	 -b: Change <b>ar value for frequency match, default is 1.0dB.\n");
 	logmsg("	 -A: Do not weight values in <A>veraged Plot (implies -g)\n");
 	logmsg("	 -W: Use <W>hite background for plots.\n");
 	logmsg("	 -d: Max <d>BFS for plots vertically\n");
-	logmsg("	 -a: Zoom in to dBFS in waveform plots\n");
+	logmsg("	 -a: Zoom in to dB in waveform plots\n");
 	logmsg("	 -L: Plot resolution:\n");
 	logmsg("		1: %gx%g  2: %gx%g 3: %gx%g\n",
 			PLOT_RES_X_LOW, PLOT_RES_Y_LOW, PLOT_RES_X, PLOT_RES_Y, PLOT_RES_X_1K, PLOT_RES_Y_1K);

@@ -162,16 +162,12 @@ void CalculateFrequencyBrackets(AudioSignal *Signal, parameters *config)
 	index = GetFirstSilenceIndex(config);
 	if(index != NO_INDEX)
 	{
-		double gridNoise = 0, scanNoise = 0, crossNoise = 0, ntsc = 0, pal = 0;
+		double vertNoise = 0, scanNoise = 0, crossNoise = 0;
 
 		Signal->SilenceBinSize = FindFrequencyBinSizeForBlock(Signal, index);
 
-		// NTSC or PAL
-		ntsc = fabs(60.0 - 1000.0/Signal->framerate);
-		pal = fabs(50.0 - 1000.0/Signal->framerate);
-
-		gridNoise = ntsc < pal ? 60.0 : 50.0;
-		Signal->gridFrequency = FindFrequencyBracket(gridNoise, Signal->Blocks[index].fftwValues.size, Signal->AudioChannels, Signal->header.fmt.SamplesPerSec, config);
+		vertNoise = CalculateScanRate(Signal);
+		Signal->gridFrequency = FindFrequencyBracket(vertNoise, Signal->Blocks[index].fftwValues.size, Signal->AudioChannels, Signal->header.fmt.SamplesPerSec, config);
 
 		scanNoise = CalculateScanRate(Signal)*(double)GetLineCount(Signal->role, config);
 		Signal->scanrateFrequency = FindFrequencyBracket(scanNoise, Signal->Blocks[index].fftwValues.size, Signal->AudioChannels, Signal->header.fmt.SamplesPerSec, config);
@@ -179,11 +175,9 @@ void CalculateFrequencyBrackets(AudioSignal *Signal, parameters *config)
 		crossNoise = scanNoise/2;
 		Signal->crossFrequency = FindFrequencyBracket(crossNoise, Signal->Blocks[index].fftwValues.size, Signal->AudioChannels, Signal->header.fmt.SamplesPerSec, config);
 
-		if(config->verbose) {
-			logmsg(" - Searching for noise frequencies [%s]: Power grid %g Hz Scan Rate: %g Hz Crossnoise %g Hz\n", 
-				getRoleText(Signal),
-				Signal->gridFrequency, Signal->scanrateFrequency, Signal->crossFrequency);
-		}
+		logmsg(" - Expected noise [%s Predict/DFT]:\n  Vertical Rate %g/%g Hz Scan Rate: %g/%g Hz Cross %g/%g Hz\n",
+			getRoleText(Signal),
+			vertNoise, Signal->gridFrequency, scanNoise, Signal->scanrateFrequency, crossNoise, Signal->crossFrequency);
 	}
 	else
 	{
@@ -1969,7 +1963,7 @@ void FindFloor(AudioSignal *Signal, parameters *config)
 			logmsg("[Horizontal scan rate: %0.2f Hz %0.2f dBFS] ", horizontalFreq.hertz, horizontalFreq.amplitude);
 
 		if(foundGrid)
-			logmsg("[Signal clock noise: %0.2f Hz %0.2f dBFS] ", gridFreq.hertz, gridFreq.amplitude);
+			logmsg("[Vertical scan noise: %0.2f Hz %0.2f dBFS] ", gridFreq.hertz, gridFreq.amplitude);
 
 		if(foundCross)
 			logmsg("[Crosstalk: %0.2f Hz %0.2f dBFS]", crossFreq.hertz, crossFreq.amplitude);
@@ -2656,7 +2650,7 @@ void PrintThesholdDifferenceBlocks(AudioBlocks *ReferenceArray, AudioBlocks *Com
 			if(matchedto >= 0 && 
 					fabs(ReferenceArray->freq[j].amplitude - ComparedArray->freq[matchedto].amplitude) > threshold)
 			{
-				logmsgFileOnly("[%5d] Ref: %7g Hz %6.4f dBFS [%+0.3g dBFS]", 
+				logmsgFileOnly("[%5d] Ref: %7g Hz %6.4f dB [%+0.3g dBFS]", 
 							j,
 							ReferenceArray->freq[j].hertz,
 							ReferenceArray->freq[j].amplitude,
