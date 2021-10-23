@@ -36,6 +36,7 @@
 	The higher, the less precise in frequency but more in position and vice versa 
 */
 
+#define SYNC_LPF		24000   // Sync Low pass filter
 #define	FACTOR_LFEXPL	4
 #define	FACTOR_EXPLORE	8
 #define	FACTOR_DETECT	8
@@ -522,7 +523,7 @@ long int DetectPulseTrainSequence(Pulses *pulseArray, double targetFrequency, do
 				if(pulse_count)
 				{
 					if(config->debugSync)
-						logmsgFileOnly("Resets the sequence (silence too long)\n");
+						logmsgFileOnly("Resets the sequence (silence too long > %d)\n", lookingfor * 2);
 					sequence_start = 0;
 					pulse_count = 0;
 				}
@@ -701,7 +702,9 @@ long int DetectPulseInternal(double *Samples, wav_hdr header, int factor, long i
 		silenceLen = SecondsToSamples(header.fmt.SamplesPerSec, silenceLenSeconds, header.fmt.NumOfChan, bytesPerSample, NULL, NULL, NULL);
 		silenceLen = floor(silenceLen/sampleBufferSize) - 1;
 
-		TotalMS = TotalMS - expectedlen + syncLen + silenceLen/2;
+		// check if it is long enough
+		if(expectedlen + syncLen + silenceLen / 2 < TotalMS)
+			TotalMS = TotalMS - expectedlen + syncLen + silenceLen/2;
 
 		if(expectedlen*1.5 < TotalMS)  // long file
 			config->trimmingNeeded = 1;
@@ -776,7 +779,7 @@ long int DetectPulseInternal(double *Samples, wav_hdr header, int factor, long i
 	/*
 	if(config->debugSync)
 	{
-		//logmsgFileOnly("===== Searching for %gHz =======\n", targetFrequency);
+		logmsgFileOnly("===== Searching for %gHz =======\n", targetFrequency);
 		for(i = startPos; i < 40; i++)
 		{
 			//if(pulseArray[i].hertz == targetFrequency)
@@ -786,7 +789,7 @@ long int DetectPulseInternal(double *Samples, wav_hdr header, int factor, long i
 					pulseArray[i].amplitude,
 					pulseArray[i].magnitude);
 		}
-		//logmsgFileOnly("========  End listing =========\n");
+		logmsgFileOnly("========  End listing =========\n");
 	}
 	*/
 
@@ -879,9 +882,15 @@ double ProcessChunkForSyncPulse(double *samples, size_t size, long samplerate, P
 		magnitude = CalculateMagnitude(spectrum[i], size);
 		if(magnitude > maxMag)
 		{
-			maxMag = magnitude;
-			maxHertz = CalculateFrequency(i, boxsize);
-			maxPhase = CalculatePhase(spectrum[i]);
+			double hertz = 0;
+
+			hertz = CalculateFrequency(i, boxsize);
+			if(hertz < SYNC_LPF)  // LPF
+			{
+				maxHertz = hertz;
+				maxMag = magnitude;
+				maxPhase = CalculatePhase(spectrum[i]);
+			}
 		}
 	}
 
@@ -1008,15 +1017,15 @@ long int DetectSignalStartInternal(double *Samples, wav_hdr header, int factor, 
 	/*
 	if(config->debugSync)
 	{
-		//logmsgFileOnly("===== Searching for %gHz  =======\n", targetFrequency);
+		logmsgFileOnly("===== Searching for %gHz  =======\n", targetFrequency);
 		for(i = 0; i < TotalMS; i++)
 		{
-				logmsgFileOnly("B: %ld Hz: %g A: %g\n", 
-					pulseArray[i].bytes, 
+				logmsgFileOnly("S: %ld Hz: %g A: %g\n", 
+					pulseArray[i].samples, 
 					pulseArray[i].hertz, 
 					pulseArray[i].amplitude);
 		}
-		//logmsgFileOnly("========  End listing =========\n");
+		logmsgFileOnly("========  End listing =========\n");
 	}
 	*/
 
