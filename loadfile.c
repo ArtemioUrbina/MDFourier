@@ -454,7 +454,7 @@ int DetectSync(AudioSignal *Signal, parameters *config)
 			return 0;
 		}
 		
-		if(config->verbose) {
+		if(config->verbose || config->debugSync) {
 			logmsg("\n\t   %gs [%ld samples", 
 				SamplesToSeconds(Signal->header.fmt.SamplesPerSec, Signal->startOffset, Signal->AudioChannels),
 				SamplesForDisplay(Signal->startOffset, Signal->AudioChannels));

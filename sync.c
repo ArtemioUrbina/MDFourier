@@ -59,9 +59,21 @@ long int DetectPulse(double *AllSamples, wav_hdr header, int role, parameters *c
 	if(sampleOffset == -1)
 	{
 		if(config->debugSync)
-			logmsgFileOnly("First round start pulse failed\n");
+			logmsgFileOnly("WARNING SYNC: First round start pulse failed\n");
 
-		return DetectPulseSecondTry(AllSamples, header, role, config);
+		sampleOffset = DetectSignalStart(AllSamples, header, 0, 0, 0, NULL, NULL, config);
+		if (sampleOffset > 0)
+		{
+			int bytesPerSample = 0;
+			long int MS_Samples = 0;
+
+			bytesPerSample = header.fmt.bitsPerSample / 8;
+			MS_Samples = SecondsToSamples(header.fmt.SamplesPerSec, 0.015, AudioChannels, bytesPerSample, NULL, NULL, NULL);
+			if (sampleOffset >= MS_Samples)
+				sampleOffset -= MS_Samples;
+		}
+		else
+			return -1;
 	}
 
 	// Tight detect, in case of longer files
@@ -73,66 +85,25 @@ long int DetectPulse(double *AllSamples, wav_hdr header, int role, parameters *c
 	else
 		searchOffset = sampleOffset/2;
 	searchOffset = DetectPulseInternal(AllSamples, header, FACTOR_EXPLORE, searchOffset, &maxdetected, role, AudioChannels, config);
-	if(searchOffset == -1)
+	if(searchOffset != -1 && searchOffset != sampleOffset)
 	{
 		if(config->debugSync)
-			logmsgFileOnly("First round start pulse failed\n");
-
-		return DetectPulseSecondTry(AllSamples, header, role, config);
+			logmsg("   SYNC: Adjusted sync offset start from %ld to %ld",
+				SamplesForDisplay(sampleOffset, AudioChannels), SamplesForDisplay(searchOffset, AudioChannels));
+		sampleOffset = searchOffset;
 	}
 
-	if(config->debugSync && searchOffset != sampleOffset)
-		logmsg("WARNING: Adjusted sync offset start from %ld to %ld\n", sampleOffset/AudioChannels, searchOffset/AudioChannels);
-
-	sampleOffset = AdjustPulseSampleStart(AllSamples, header, sampleOffset, role, AudioChannels, config);
-	if(sampleOffset != -1)
-		return sampleOffset;
-
-	if(config->debugSync)
-		logmsgFileOnly("Start pulse return value %ld\n", SamplesForDisplay(sampleOffset, AudioChannels));
-
-	return sampleOffset;
-}
-
-/* only difference is that it auto detects the start first, helps in some cases with long silence and high noise floor */
-long int DetectPulseSecondTry(double *AllSamples, wav_hdr header, int role, parameters *config)
-{
-	int			maxdetected = 0, AudioChannels = 0, bytesPerSample = 0;
-	long int	sampleOffset = 0;
-
-	if(config->debugSync)
-		logmsgFileOnly("\nStarting Detect start pulse\n");
-
-	AudioChannels = header.fmt.NumOfChan;
-	bytesPerSample = header.fmt.bitsPerSample/8;
-
-	sampleOffset = DetectSignalStart(AllSamples, header, 0, 0, 0, NULL, NULL, config);
-	if(sampleOffset > 0)
+	searchOffset = AdjustPulseSampleStart(AllSamples, header, sampleOffset, role, AudioChannels, config);
+	if (searchOffset != -1 && searchOffset != sampleOffset)
 	{
-		long int MS_Samples = 0;
-			
-		MS_Samples = SecondsToSamples(header.fmt.SamplesPerSec, 0.015, AudioChannels, bytesPerSample, NULL, NULL, NULL);
-		if(sampleOffset >= MS_Samples)
-			sampleOffset -= MS_Samples;
+		if (config->debugSync)
+			logmsg("    SYNC: Adjusted pulse sample start from %ld to %ld",
+				SamplesForDisplay(sampleOffset, AudioChannels), SamplesForDisplay(searchOffset, AudioChannels));
+		sampleOffset = searchOffset;
 	}
-	else
-		sampleOffset = 0;
-
-	sampleOffset = DetectPulseInternal(AllSamples, header, FACTOR_LFEXPL, sampleOffset, &maxdetected, role, AudioChannels, config);
-	if(sampleOffset == -1)
-	{
-		if(config->debugSync)
-			logmsgFileOnly("First round start pulse failed\n");
-
-		return -1;
-	}
-
-	sampleOffset = AdjustPulseSampleStart(AllSamples, header, sampleOffset, role, AudioChannels, config);
-	if(sampleOffset != -1)
-		return sampleOffset;
 
 	if(config->debugSync)
-		logmsgFileOnly("Start pulse return value %ld\n", SamplesForDisplay(sampleOffset, AudioChannels));
+		logmsgFileOnly("    Start pulse return value %ld\n", SamplesForDisplay(sampleOffset, AudioChannels));
 
 	return sampleOffset;
 }
@@ -433,7 +404,7 @@ long int DetectPulseTrainSequence(Pulses *pulseArray, double targetFrequency, do
 				|| pulseArray[i].hertz == targetFrequencyHarmonic[0] || pulseArray[i].hertz == targetFrequencyHarmonic[1])))
 			{
 				if(config->debugSync)
-					logmsgFileOnly("[i:%ld] Sample:%7ld [%5gHz %0.2f dBFS] Silence Frame found due to AVG but skipped due to Hz%d\n", 
+					logmsgFileOnly("[i:%ld] Sample:%7ld [%5gHz %0.2f dBFS] Silence Frame found due to AVG but skipped due to Hz SC: %d\n", 
 						i, SamplesForDisplay(pulseArray[i].samples, AudioChannels),
 						pulseArray[i].hertz, pulseArray[i].amplitude, 
 						frame_silence_count);
@@ -483,7 +454,7 @@ long int DetectPulseTrainSequence(Pulses *pulseArray, double targetFrequency, do
 					logmsgFileOnly("\n");
 			}
 
-			if(frame_pulse_count >= lookingfor)
+			if(frame_pulse_count >= lookingfor && pulseArray[i].hertz != targetFrequency)
 			{
 				pulse_count++;
 
@@ -496,13 +467,13 @@ long int DetectPulseTrainSequence(Pulses *pulseArray, double targetFrequency, do
 				if(pulse_count == getPulseCount(role, config) && silence_count >= pulse_count/2) /* silence_count == pulse_count - 1 */
 				{
 					if(config->debugSync)
-						logmsgFileOnly("Completed the sequence %ld\n", SamplesForDisplay(sequence_start, AudioChannels));
+						logmsgFileOnly("Completed the sequence that started at sample %ld\n", SamplesForDisplay(sequence_start, AudioChannels));
 					return sequence_start;
 				}
 				lastcountedWasPulse = 0;
 			}
 
-			if(frame_pulse_count > 0)
+			if(frame_pulse_count > 0 && pulseArray[i].hertz != targetFrequency)
 			{
 				if(!pulse_count && sequence_start)
 				{
@@ -556,7 +527,7 @@ long int AdjustPulseSampleStart(double *Samples, wav_hdr header, long int offset
 	targetFrequency = FindFrequencyBracketForSync(frequency,
 						samplesNeeded, AudioChannels, header.fmt.SamplesPerSec, config);
 	if(config->debugSync)
-		logmsgFileOnly("\nSearcing at %ld, looking for %ghz samples needed: %d\n",
+		logmsgFileOnly("\nSearching at %ld, looking for %ghz samples needed: %d\n",
 				SamplesForDisplay(offset, AudioChannels), targetFrequency, 
 				SamplesForDisplay(samplesNeeded, AudioChannels));
 	buffer = (double*)malloc(samplesNeeded*sizeof(double));
@@ -682,7 +653,7 @@ long int DetectPulseInternal(double *Samples, wav_hdr header, int factor, long i
 		TotalMS = i+syncLen;
 
 		if(config->debugSync)
-			logmsgFileOnly("Started detecting with offet %ld. Changed to:\n\tSamplesBufferSize: %ld, Samples:%ld-%ld/ms:%ld-%ld]\n\tms len: %g Bytes: %g Factor: %d\n", 
+			logmsgFileOnly("Started detecting with offset %ld. Changed to:\n\tSamplesBufferSize: %ld, Samples:%ld-%ld/ms:%ld-%ld]\n\tms len: %g Bytes: %g Factor: %d\n", 
 				offset/AudioChannels, sampleBufferSize, i*factor, TotalMS*factor, i, TotalMS,
 				syncLen, syncLen/factor, factor);
 	}
