@@ -617,6 +617,9 @@ typedef struct parameters_st {
 	int				stereoBalanceBlock;
 	int				warningStereoReversed;
 	double			warningRatioTooHigh;
+	double			syncAlignPct[4];
+	int				syncAlignTolerance[4];
+	int				syncAlignIterator;
 
 	double 			plotResX;
 	double			plotResY;

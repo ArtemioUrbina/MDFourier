@@ -437,11 +437,11 @@ int FrequencyDomainNormalize(AudioSignal **ReferenceSignal, AudioSignal **Compar
 		MaxRef.channel != MaxTar.channel &&
 		fabs(ratiodBFS) > STEREO_TOLERANCE_REPORT)
 	{
-		//logmsg(" - WARNING: Left and right channels might be reversed or converted from mono to stereo");
-		//if(config->verbose)
-			//logmsg(" %g/%g", fabs(ratiodBFS), STEREO_TOLERANCE_REPORT);
-		//logmsg("\n");
-		//config->warningStereoReversed = 1;
+		logmsg(" - WARNING: Left and right channels might be reversed or converted from mono to stereo");
+		if(config->verbose)
+			logmsg(" %g/%g", fabs(ratiodBFS), STEREO_TOLERANCE_REPORT);
+		logmsg("\n");
+		config->warningStereoReversed = 1;
 	}
 
 	// Check if we are comparing different bitdepths
@@ -454,8 +454,8 @@ int FrequencyDomainNormalize(AudioSignal **ReferenceSignal, AudioSignal **Compar
 		maxRatiodBFS = fabs(fabs(MaxRef)-fabs(MaxComp)) + maxRatiodBFS;
 		//logmsg("ratio dbfs %g\n", maxRatiodBFS);
 	}
-	if(config->verbose) { logmsg(" - Amplitude ratio is %gdB\n", ratiodBFS); }
-	if(ComparisonLocalMaximum == 0 || fabs(ratiodBFS) > maxRatiodBFS)
+	if(config->verbose) { logmsg(" - Amplitude ratio is %gdB\n", ratiodBFS == NO_AMPLITUDE ? 0 : ratiodBFS); }
+	if(ComparisonLocalMaximum == 0 || fabs(ratiodBFS) > maxRatiodBFS || ratiodBFS == NO_AMPLITUDE)
 	{
 		int		found = 0, pos = 1, allowDifference = 0, tries = 0;
 		MaxMagn	MaxRefArray[FREQDOMTRIES];

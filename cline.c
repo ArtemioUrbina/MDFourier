@@ -114,6 +114,8 @@ int Header(int log, int argc, char *argv[])
 
 void CleanParameters(parameters *config)
 {
+	int i = 0;
+
 	memset(config, 0, sizeof(parameters));
 
 	initLog();
@@ -180,6 +182,12 @@ void CleanParameters(parameters *config)
 
 	config->warningStereoReversed = 0;
 	config->warningRatioTooHigh = 0;
+	for (i = 0; i < 4; i++)
+	{
+		config->syncAlignPct[i] = 0;
+		config->syncAlignTolerance[i] = 0;
+	}
+	config->syncAlignIterator = 0;
 
 	config->logScale = 1;
 	config->logScaleTS = 0;

@@ -42,8 +42,7 @@ long int DetectEndPulse(double *AllSamples, long int startpulse, wav_hdr header,
 long int DetectPulseInternal(double *Samples, wav_hdr header, int factor, long int offset, int *maxDetected, int role, int AudioChannels, parameters *config);
 double ProcessChunkForSyncPulse(double *samples, size_t size, long samplerate, Pulses *pulse, char channel, int AudioChannels, parameters *config);
 long int DetectPulseTrainSequence(Pulses *pulseArray, double targetFrequency, double *targetFrequencyHarmonic, long int TotalMS, int factor, int *maxdetected, long int start, int role, int AudioChannels, parameters *config);
-long int DetectPulseSecondTry(double *AllSamples, wav_hdr header, int role, parameters *config);
-long int AdjustPulseSampleStart(double *Samples, wav_hdr header, long int offset, int role, int AudioChannels, parameters *config);
+long int AdjustPulseSampleStartByLength(double* Samples, wav_hdr header, long int offset, int role, int AudioChannels, parameters* config);
 
 double findAverageAmplitudeForTarget(Pulses *pulseArray, double targetFrequency, double *targetFrequencyHarmonic, long int TotalMS, long int start, int factor, int AudioChannels, parameters *config);
 long int DetectSignalStart(double *AllSamples, wav_hdr header, long int offset, int syncKnow, long int expectedSyncLen, long int *endPulse, int *toleranceIssue, parameters *config);

@@ -974,6 +974,7 @@ void DrawLabelsZeroDBCentered(PlotFile *plot, double dBFS, double dbIncrement, d
 #ifdef TESTWARNINGS
 void enableTestWarnings(parameters *config)
 {
+	int i = 0;
 	config->frequencyNormalizationTries = 5;
 	config->frequencyNormalizationTolerant = 1.5;
 
@@ -1053,6 +1054,10 @@ void enableTestWarnings(parameters *config)
 
 	config->internalSyncTolerance = ROLE_COMP;
 
+	for(i = 0; i < 4; i++)
+		syncAlignPct[i] = rand() % 100;
+	syncAlignTolerance[3] = 1;
+
 	logmsg("ERROR: enableTestWarnings Enabled\n");
 }
 #endif
@@ -1112,7 +1117,7 @@ void DrawClockData(PlotFile *plot, AudioSignal *Signal, char *msg, parameters *c
 		sprintf(msg, str,
 			Signal->role == ROLE_REF ? "RF" : "CM",
 			Signal->originalCLK,
-			Signal->role == ROLE_REF ? config->clkRef : config->clkCom);
+			config->changedCLKFrom == ROLE_REF ? config->clkCom : config->clkRef);
 	}
 }
 
@@ -1537,6 +1542,35 @@ void DrawLabelsMDF(PlotFile *plot, char *Gname, char *GType, int type, parameter
 		pl_alabel_r(plot->plotter, 'l', 'l', msg);
 	}
 
+	if (config->debugSync)
+	{
+		int i = 0;
+		char *names[4] = {
+							"Ref Start",
+							"Ref End",
+							"Com Start",
+							"Com End"
+						};
+
+		for (i = 3; i >= 0; i--)
+		{
+			if (config->syncAlignTolerance[i])
+			{
+				PLOT_WARN(1, warning++);
+				sprintf(msg, "WARNING: %s Sync was centered due to noise, pulse: %g%%", 
+					names[i], config->syncAlignPct[i]);
+				pl_alabel_r(plot->plotter, 'l', 'l', msg);
+			}
+			else
+			{
+				PLOT_WARN(1, warning++);
+				sprintf(msg, "NOTE: Pulse standard deviation type for %s: %g%%",
+					names[i], config->syncAlignPct[i]);
+				pl_alabel_r(plot->plotter, 'l', 'l', msg);
+			}
+		}
+	}
+
 	if(config->normType == none)
 	{
 		PLOT_WARN(1, warning++);
@@ -1566,8 +1600,8 @@ void DrawLabelsMDF(PlotFile *plot, char *Gname, char *GType, int type, parameter
 
 	if(config->warningStereoReversed)
 	{
-		//PLOT_WARN(1, warning++);
-		//pl_alabel_r(plot->plotter, 'l', 'l', "WARNING: L/R Channels might be reversed (or mono)");
+		PLOT_WARN(1, warning++);
+		pl_alabel_r(plot->plotter, 'l', 'l', "WARNING: L/R Channels might be reversed (or mono)");
 	}
 
 	if(config->clkWarning)

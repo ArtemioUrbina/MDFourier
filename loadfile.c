@@ -453,6 +453,7 @@ int DetectSync(AudioSignal *Signal, parameters *config)
 				logmsg(" - Leading/tailing silence too long, if sync detection fails please consider trimming\n");
 			return 0;
 		}
+		config->syncAlignIterator++;
 		
 		if(config->verbose || config->debugSync) {
 			logmsg("\n\t   %gs [%ld samples", 
@@ -489,6 +490,8 @@ int DetectSync(AudioSignal *Signal, parameters *config)
 							config->types.SyncFormat[format].syncName, config->smallFile ? " and is smaller than expected" : "");
 				return 0;
 			}
+
+			config->syncAlignIterator++;
 
 			if(config->verbose) {
 				logmsg(" %gs [%ld samples", 

@@ -1802,7 +1802,7 @@ void FindStandAloneFloor(AudioSignal *Signal, parameters *config)
 long int GatherAllSilenceData(AudioSignal *Signal, Frequency **allData, Frequency *loudest, int *silenceBlocks, parameters *config)
 {
 	long int	freqCount = 0, count = 0;
-	Frequency	*data = NULL;
+	Frequency* data = NULL;
 
 	if(!allData || !loudest || !silenceBlocks)
 		return 0;
@@ -1829,8 +1829,8 @@ long int GatherAllSilenceData(AudioSignal *Signal, Frequency **allData, Frequenc
 	data = (Frequency*)malloc(sizeof(Frequency)*freqCount);
 	if(!data)
 	{
-		logmsg("Insuffient memory for Silence data\n");
-		return 0;
+		logmsg("- ERROR: Insuffient memory for Silence data\n");
+		return -1;
 	}
 
 	for(int b = 0; b < config->types.totalBlocks; b++)
@@ -1874,8 +1874,28 @@ void FindFloor(AudioSignal *Signal, parameters *config)
 	CleanFrequency(&crossFreq);
 
 	size = GatherAllSilenceData(Signal, &silenceData, &loudestFreq, &silenceBlocks, config);
-	if(!size)
+	if (size == -1)
+	{
+		logmsg(" - %s signal FAILED GatherAllSilenceData\n", getRoleText(Signal));
 		return;
+	}
+
+	if (size == 0)  // Digitally generated file with perfect alignment and no noise
+	{
+		double selectedNoise = 0;
+
+		selectedNoise = -120.0;
+
+		logmsg(" - %s signal is a digitally generated file, no noise found. Using %g dBFS\n",
+			getRoleText(Signal), selectedNoise);
+
+		if (Signal->role == ROLE_REF)
+			config->referenceNoiseFloor = selectedNoise;
+
+		Signal->floorAmplitude = selectedNoise;
+		Signal->floorFreq = Signal->gridFrequency;  // we assign a default
+		return;
+	}
 
 	if(loudestFreq.hertz && loudestFreq.amplitude != NO_AMPLITUDE)
 	{
@@ -2182,6 +2202,7 @@ void FindMaxMagnitude(AudioSignal *Signal, parameters *config)
 		bytesPerSample = Signal->header.fmt.bitsPerSample/8;
 		seconds = FramesToSeconds(GetElementFrameOffset(MaxBlock, config), Signal->framerate);
 		offset = SecondsToSamples(Signal->header.fmt.SamplesPerSec, seconds, Signal->header.fmt.NumOfChan, bytesPerSample, NULL, NULL, NULL);
+		offset = SamplesForDisplay(offset, Signal->header.fmt.NumOfChan);
 
 		logmsg(" - %s Max Magnitude found in %s# %d (%d) [ %c ] at %g Hz with %g (%g seconds/%ld samples)\n", 
 					getRoleText(Signal),
@@ -2988,11 +3009,11 @@ double CalculateFrameRateAndCheckSamplerate(AudioSignal *Signal, parameters *con
 				double tDiff = 0;
 
 				tDiff = fabs(expectedFR*LastSyncFrameOffset) - fabs(framerate*LastSyncFrameOffset);
-				logmsg(" - Expected %gms and got %gms (Difference is %gms/%g frames of %gms/%g samples)\n", 
+				logmsg(" - Expected %gms and got %gms (Difference is %gms/%g samples/%g frames of %gms)\n", 
 					expectedFR*LastSyncFrameOffset, framerate*LastSyncFrameOffset,
-					-1*tDiff,
-					-1*tDiff/expectedFR, expectedFR,
-					-1*calculatedSamplerate/1000.0*tDiff);
+					-1*tDiff, -1 * calculatedSamplerate / 1000.0 * tDiff,
+					-1*tDiff/expectedFR,
+					expectedFR);
 			}
 
 			if(fabs(centsDifferenceSR) >= MAX_CENTS_DIFF)
