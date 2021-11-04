@@ -182,6 +182,8 @@ void PlotSingleTypeDifferentAmplitudes(FlatAmplDifference *amplDiff, long int si
 //void PlotAllMissingFrequencies(FlatFrequency *freqDiff, long int size, char *filename, parameters *config);
 
 int PlotEachTypeSpectrogram(FlatFrequency *freqs, long int size, char *filename, int signal, parameters *config, AudioSignal *Signal);
+int PlotNoiseFloorSpectrogram(FlatFrequency* freqs, long int size, char* filename, int signal, parameters* config, AudioSignal* Signal);
+
 void PlotSingleTypeSpectrogram(FlatFrequency *freqs, long int size, int type, char *filename, int signal, char channel, parameters *config);
 void PlotAllSpectrogram(FlatFrequency *freqs, long int size, char *filename, int signal, parameters *config);
 

@@ -36,7 +36,7 @@
 	The higher, the less precise in frequency but more in position and vice versa 
 */
 
-#define SYNC_LPF		24000   // Sync Low pass filter
+#define SYNC_LPF		22000   // Sync Low pass filter
 #define	FACTOR_LFEXPL	4
 #define	FACTOR_EXPLORE	8
 #define	FACTOR_DETECT	8
@@ -128,10 +128,11 @@ long int DetectEndPulse(double *AllSamples, long int startpulse, wav_hdr header,
 	sampleOffset += startpulse;
 	if(config->debugSync)
 		logmsgFileOnly("\nStarting CLEAN Detect end pulse with sample offset %ld\n", SamplesForDisplay(sampleOffset, AudioChannels));
-	sampleOffset = DetectPulseInternal(AllSamples, header, factor, sampleOffset, &maxdetected, role, AudioChannels, config);
-	if(sampleOffset != -1)
+	searchOffset = DetectPulseInternal(AllSamples, header, factor, sampleOffset, &maxdetected, role, AudioChannels, config);
+	if(searchOffset != -1)
 	{
-		searchOffset = AdjustPulseSampleStartByLength(AllSamples, header, sampleOffset, role, AudioChannels, config);
+		sampleOffset = searchOffset;
+		searchOffset = AdjustPulseSampleStartByLength(AllSamples, header, searchOffset, role, AudioChannels, config);
 		if (searchOffset != -1 && searchOffset != sampleOffset)
 		{
 			if (config->debugSync)
@@ -153,25 +154,27 @@ long int DetectEndPulse(double *AllSamples, long int startpulse, wav_hdr header,
 		sampleOffset = GetSecondSyncSilenceSampleOffset(GetMSPerFrameRole(role, config), header, frameAdjust, silenceOffset[tries], config) + startpulse;
 	
 		if(config->debugSync)
-			logmsgFileOnly("\nStarting Detect end pulse with sample offset %ld [%g silence]\n\tMaxDetected %d frameAdjust: %d\n",
-				SamplesForDisplay(sampleOffset, AudioChannels), silenceOffset[tries], maxdetected, frameAdjust);
+			logmsgFileOnly("\nStarting Detect end pulse #%d with sample offset %ld [%g silence]\n\tMaxDetected %d frameAdjust: %d\n",
+				tries + 1, SamplesForDisplay(sampleOffset, AudioChannels), silenceOffset[tries], maxdetected, frameAdjust);
 	
 		frameAdjust = 0;
 		maxdetected = 0;
 
-		sampleOffset = DetectPulseInternal(AllSamples, header, factor, sampleOffset, &maxdetected, role, AudioChannels, config);
-		if(sampleOffset == -1 && !maxdetected)
+		searchOffset = DetectPulseInternal(AllSamples, header, factor, sampleOffset, &maxdetected, role, AudioChannels, config);
+		if(searchOffset == -1 && !maxdetected)
 		{
 			if(config->debugSync)
-				logmsgFileOnly("End pulse failed try %d, started search at %ld samples [%g silence]\n",
+				logmsgFileOnly("End pulse failed try #%d, started search at %ld samples [%g silence]\n",
 				tries+1, SamplesForDisplay(sampleOffset, AudioChannels), silenceOffset[tries]);
 		}
 
 		tries ++;
-	}while(sampleOffset == -1 && tries < maxtries);
+	}while(searchOffset == -1 && tries < maxtries);
 
 	if(tries == maxtries)
 		return -1;
+
+	sampleOffset = searchOffset;
 
 	searchOffset = AdjustPulseSampleStartByLength(AllSamples, header, sampleOffset, role, AudioChannels, config);
 	if (searchOffset != -1 && searchOffset != sampleOffset)
@@ -320,6 +323,9 @@ long int DetectPulseTrainSequence(Pulses *pulseArray, double targetFrequency, do
 	*maxdetected = 0;
 
 	lookingfor = getPulseFrameLen(role, config)*factor-factor/2;
+	if (config->syncTolerance)
+		lookingfor = lookingfor * 0.8;
+
 	//smoothAmplitudes(pulseArray, targetFrequency, TotalMS, start);
 	averageAmplitude = findAverageAmplitudeForTarget(pulseArray, targetFrequency, targetFrequencyHarmonic, TotalMS, start, factor, AudioChannels, config);
 	if(averageAmplitude == 0)
@@ -336,8 +342,8 @@ long int DetectPulseTrainSequence(Pulses *pulseArray, double targetFrequency, do
 
 		if(pulseArray[i].hertz)
 		{
-			if(config->syncTolerance)
-				targetFrequency = pulseArray[i].hertz;
+			//if(config->syncTolerance)
+				//targetFrequency = pulseArray[i].hertz;
 			if(pulseArray[i].amplitude >= averageAmplitude
 				&& (pulseArray[i].hertz == targetFrequency || pulseArray[i].hertz == targetFrequencyHarmonic[0] || pulseArray[i].hertz == targetFrequencyHarmonic[1]))
 			{
@@ -627,10 +633,7 @@ long int AdjustPulseSampleStartByLength(double* Samples, wav_hdr header, long in
 		if (targetFrequency == pulseArray[pos].hertz && pulseArray[pos].magnitude >= compareMag)
 		{
 			if (startDetectPos == -1)
-			{
 				startDetectPos = pos;
-				logmsgFileOnly("== match start ==\n");
-			}
 		}
 		else
 		{
@@ -643,7 +646,7 @@ long int AdjustPulseSampleStartByLength(double* Samples, wav_hdr header, long in
 		}
 	}
 	
-	if (startDetectPos != -1)
+	if (startDetectPos != -1 && endDetectPos != -1)
 	{
 		double		percent = 0;
 		long int	foundPulseLength = 0;
@@ -960,10 +963,14 @@ double ProcessChunkForSyncPulse(double *samples, size_t size, long samplerate, P
 		magnitude = CalculateMagnitude(spectrum[i], size);
 		if(magnitude > maxMag)
 		{
-			double hertz = 0;
+			int		pass = 0;
+			double	hertz = 0;
 
 			hertz = CalculateFrequency(i, boxsize);
-			if(hertz < SYNC_LPF)  // LPF
+			if (hertz < SYNC_LPF || (config->syncTolerance && hertz < SYNC_LPF/2))  // LPF
+				pass = 1;
+			
+			if(pass)
 			{
 				maxHertz = hertz;
 				maxMag = magnitude;

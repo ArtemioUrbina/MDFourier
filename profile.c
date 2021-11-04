@@ -440,7 +440,7 @@ int LoadAudioBlockStructure(FILE *file, parameters *config)
 				&config->types.typeArray[i].syncTone,
 				&config->types.typeArray[i].syncLen) != 6)
 			{
-				logmsg("ERROR: Invalid MD Fourier Audio Blocks File (line %d)\n(Element Count, frames, color, channel): %s\n", lineCount, lineBuffer);
+				logmsg("ERROR: Invalid MD Fourier Audio Blocks File (line %d)\n(Display_name, id, element count, frames, color, channel): %s\n", lineCount, lineBuffer);
 				fclose(file);
 				return 0;
 			}
@@ -456,7 +456,7 @@ int LoadAudioBlockStructure(FILE *file, parameters *config)
 				&config->types.watermarkInvalidFreq,
 				config->types.watermarkDisplayName) != 7)
 			{
-				logmsg("ERROR: Invalid MD Fourier Audio Blocks File (line %d)\n(Element Count, frames, color, channel, WMValid, WMFail, Name): %s\n", lineCount, lineBuffer);
+				logmsg("ERROR: Invalid MD Fourier Audio Blocks File (line %d)\n(Display_name, id, element count, frames, color, channel, WMValid, WMFail, Name): %s\n", lineCount, lineBuffer);
 				fclose(file);
 				return 0;
 			}
@@ -813,8 +813,8 @@ int LoadAudioNoSyncProfile(FILE *file, parameters *config)
 
 void PrintAudioBlocks(parameters *config)
 {
-	long int frames = 0;
-	double TotalSeconds = 0;
+	long int frames = 0, count = 0, MinFrame = 10000, MaxFrame = 0;
+	double TotalSeconds = 0, averageFrameAnalisis = 0;
 
 	if(!config)
 		return;
@@ -835,8 +835,9 @@ void PrintAudioBlocks(parameters *config)
 		seconds = FramesToSeconds(config->types.typeArray[i].frames, config->types.SyncFormat[0].MSPerFrame);
 		seconds *= config->types.typeArray[i].elementCount;
 		TotalSeconds += seconds;
+		frames += config->types.typeArray[i].elementCount * config->types.typeArray[i].frames;
 
-		logmsgFileOnly("%c%s %s %d %d %d %s %c %s | Frames: %ld | Seconds: %g [%g to %g]\n", 
+		logmsgFileOnly("%c%s %s %d %d %d %s %c %s | Frames: %ld/%d | Seconds: %g [%g to %g]\n", 
 			config->types.typeArray[i].type == TYPE_SKIP ? '\t' : ' ',
 			config->types.typeArray[i].typeDisplayName,
 			type,
@@ -847,12 +848,74 @@ void PrintAudioBlocks(parameters *config)
 			config->types.typeArray[i].channel,
 			config->types.typeArray[i].IsaddOnData ? "(ExtraData)" : " ",
 			(long int)config->types.typeArray[i].elementCount*config->types.typeArray[i].frames,
+			frames,
 			seconds, 
 			StartSeconds,
 			TotalSeconds);
-		frames += config->types.typeArray[i].elementCount*config->types.typeArray[i].frames;
+
+		if(config->types.typeArray[i].type >= TYPE_SILENCE && config->types.typeArray[i].type != TYPE_SKIP)
+		{
+			averageFrameAnalisis += config->types.typeArray[i].frames;
+			count++;
+
+			if (config->types.typeArray[i].frames < MinFrame)
+				MinFrame = config->types.typeArray[i].frames;
+			if (config->types.typeArray[i].frames > MaxFrame)
+				MaxFrame = config->types.typeArray[i].frames;
+		}
 	}
-	logmsgFileOnly("Total frames: %ld\n================\n", frames);
+	logmsgFileOnly("Total frames: %ld\n", frames);
+	if (count)
+	{
+		double standardDeviation = 0;
+
+		averageFrameAnalisis = averageFrameAnalisis / count;
+		count = 0;
+
+		logmsgFileOnly("Average frame length analysis: %g\n", averageFrameAnalisis);
+		logmsgFileOnly("Minimum frame count for analysis: %ld\n", MinFrame);
+		logmsgFileOnly("Maximum frame count for analysis: %ld\n", MaxFrame);
+		for (int i = 0; i < config->types.typeCount; i++)
+		{
+			if (config->types.typeArray[i].type >= TYPE_SILENCE && config->types.typeArray[i].type != TYPE_SKIP)
+			{
+				standardDeviation += pow((double)config->types.typeArray[i].frames - averageFrameAnalisis, 2);
+				count++;
+			}
+		}
+		if (count)
+		{
+			standardDeviation = sqrt(standardDeviation / (count - 1));
+			logmsgFileOnly("Frame length standard deviation: %g\n", standardDeviation);
+		}
+	}
+
+	/*
+	for (int i = 0; i < config->types.typeCount; i++)
+	{
+		if (config->types.typeArray[i].type >= TYPE_SILENCE && config->types.typeArray[i].type != TYPE_SKIP)
+		{
+			char	type[20], t;
+
+			t = GetTypeProfileName(config->types.typeArray[i].type);
+			if (t == TYPE_NULLTYPE_C)
+				sprintf(type, "%d", config->types.typeArray[i].type);
+			else
+				sprintf(type, "%c", t);
+
+			logmsgFileOnly("%c%s %s %d %d %d %s %c %s\n",
+				config->types.typeArray[i].frames == averageFrameAnalisis ? ' ' : '*',
+				config->types.typeArray[i].typeDisplayName,
+				type,
+				config->types.typeArray[i].elementCount,
+				config->types.typeArray[i].frames,
+				config->types.typeArray[i].cutFrames * -1,
+				config->types.typeArray[i].color,
+				config->types.typeArray[i].channel);
+		}
+	}
+	*/
+	logmsgFileOnly("================\n");
 }
 
 int CheckProfileBaseLength(parameters *config)

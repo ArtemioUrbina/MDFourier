@@ -1371,6 +1371,23 @@ char *GetBlockName(parameters *config, int pos)
 	return NULL;
 }
 
+char* GetBlockDisplayName(parameters* config, int pos)
+{
+	int elementsCounted = 0;
+
+	if (!config)
+		return NULL;
+
+	for (int i = 0; i < config->types.typeCount; i++)
+	{
+		elementsCounted += config->types.typeArray[i].elementCount;
+		if (elementsCounted > pos)
+			return(config->types.typeArray[i].typeDisplayName);
+	}
+
+	return NULL;
+}
+
 int GetBlockSubIndex(parameters *config, int pos)
 {
 	int elementsCounted = 0, last = 0;
@@ -1805,7 +1822,7 @@ long int GatherAllSilenceData(AudioSignal *Signal, Frequency **allData, Frequenc
 	Frequency* data = NULL;
 
 	if(!allData || !loudest || !silenceBlocks)
-		return 0;
+		return -1;
 
 	*allData = NULL;
 	*silenceBlocks = 0;
@@ -2232,8 +2249,9 @@ void CalculateAmplitudes(AudioSignal *Signal, double ZeroDbMagReference, paramet
 				if(!Signal->Blocks[block].freq[i].hertz)
 					break;
 	
-				Signal->Blocks[block].freq[i].amplitude = 
-					CalculateAmplitude(Signal->Blocks[block].freq[i].magnitude, ZeroDbMagReference);
+				if(Signal->Blocks[block].freq[i].magnitude)
+					Signal->Blocks[block].freq[i].amplitude = 
+						CalculateAmplitude(Signal->Blocks[block].freq[i].magnitude, ZeroDbMagReference);
 	
 				if(Signal->Blocks[block].freq[i].amplitude != NO_AMPLITUDE)
 				{
@@ -2249,8 +2267,9 @@ void CalculateAmplitudes(AudioSignal *Signal, double ZeroDbMagReference, paramet
 					if(!Signal->Blocks[block].freqRight[i].hertz)
 						break;
 		
-					Signal->Blocks[block].freqRight[i].amplitude = 
-						CalculateAmplitude(Signal->Blocks[block].freqRight[i].magnitude, ZeroDbMagReference);
+					if (Signal->Blocks[block].freq[i].magnitude)
+						Signal->Blocks[block].freqRight[i].amplitude = 
+							CalculateAmplitude(Signal->Blocks[block].freqRight[i].magnitude, ZeroDbMagReference);
 
 					if(Signal->Blocks[block].freqRight[i].amplitude != NO_AMPLITUDE)
 					{
@@ -2732,14 +2751,14 @@ double CalculateWeightedError(double pError, parameters *config)
 	if(pError < 0.0)  // this should never happen
 	{
 		if(!config->pErrorReport)
-			logmsg("pERROR < 0! (%g)\n", pError);
+			logmsg("WARNING: pERROR < 0! (%g)\n", pError);
 		config->pErrorReport++;
 
 		pError = fabs(pError);
 		if(pError > 1)
 		{
 			if(!config->pErrorReport)
-				logmsg("pERROR > 1! (%g)\n", pError);
+				logmsg("WARNING: pERROR > 1! (%g)\n", pError);
 			return 1;
 		}
 	}
@@ -2773,12 +2792,12 @@ double CalculateWeightedError(double pError, parameters *config)
 			break;
 		default:
 			/* This is unexpected behaviour, log it */
-			logmsg("CalculateWeightedError, out of range value %d\n", option);
+			logmsg("WARNING: CalculateWeightedError, out of range value %d\n", option);
 			//pError = pError;
 			break;
 	}
 
-	//map to a sub range so tyhat we always have color when within renge
+	//map to a sub range so that we always have color when within range
 	pError = pError * 0.85 + 0.15;
 	return pError;
 }
@@ -3016,11 +3035,13 @@ double CalculateFrameRateAndCheckSamplerate(AudioSignal *Signal, parameters *con
 					expectedFR);
 			}
 
+			/*
 			if(fabs(centsDifferenceSR) >= MAX_CENTS_DIFF)
 			{
 				Signal->EstimatedSR = calculatedSamplerate;
 				Signal->originalSR = Signal->header.fmt.SamplesPerSec;
 			}
+			*/
 
 			logmsg(" - There might be a pitch difference of %g cents\n", centsDifferenceSR);
 		}

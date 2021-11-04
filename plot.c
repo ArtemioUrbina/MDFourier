@@ -206,20 +206,20 @@ char *PushFolder(char *name)
 	if(!GetCurrentDir(CurrentPath, sizeof(char)*FILENAME_MAX))
 	{
 		free(CurrentPath);
-		logmsg("Could not get current path\n");
+		logmsg("ERROR: Could not get current path\n");
 		return NULL;
 	}
 
 	if(!CreateFolder(name))
 	{
 		free(CurrentPath);
-		logmsg("Could not create %s subfolder\n", name);
+		logmsg("ERROR: Could not create %s subfolder\n", name);
 		return NULL;
 	}
 	if(chdir(name) == -1)
 	{
 		free(CurrentPath);
-		logmsg("Could not open folder %s for results\n", name);
+		logmsg("ERROR: Could not open folder %s for results\n", name);
 		return NULL;
 	}
 	return CurrentPath;
@@ -315,14 +315,8 @@ void PlotResults(AudioSignal *ReferenceSignal, AudioSignal *ComparisonSignal, pa
 		struct	timespec	lstart, lend;
 
 		StartPlot(" - Spectrograms", &lstart, config);
-#pragma omp parallel for ordered
-		for (int i = 0; i < 2; i++)
-		{
-			if (i == 0)
-				PlotSpectrograms(ReferenceSignal, config);
-			else
-				PlotSpectrograms(ComparisonSignal, config);
-		}
+		PlotSpectrograms(ReferenceSignal, config);
+		PlotSpectrograms(ComparisonSignal, config);
 
 		EndPlot("Spectrogram", &lstart, &lend, config);
 	}
@@ -651,6 +645,9 @@ void PlotSpectrograms(AudioSignal *Signal, parameters *config)
 		logmsg(PLOT_ADVANCE_CHAR);
 	}
 
+	if(config->plotNoiseFloor)
+		PlotNoiseFloorSpectrogram(frequencies, size, tmpName, Signal->role, config, Signal);
+	
 	free(frequencies);
 	frequencies = NULL;
 }
@@ -2722,7 +2719,7 @@ void PlotAllSpectrogram(FlatFrequency *freqs, long int size, char *filename, int
 	{
 		for(int f = size-1; f >= 0; f--)
 		{
-			if(freqs[f].type > TYPE_CONTROL)
+			if(freqs[f].type > TYPE_CONTROL && freqs[f].amplitude != NO_AMPLITUDE && freqs[f].hertz)
 			{ 
 				long int intensity;
 				double x, y;
@@ -2743,52 +2740,65 @@ void PlotAllSpectrogram(FlatFrequency *freqs, long int size, char *filename, int
 	ClosePlot(&plot);
 }
 
-int PlotEachTypeSpectrogram(FlatFrequency *freqs, long int size, char *filename, int signal, parameters *config, AudioSignal *Signal)
+int PlotEachTypeSpectrogram(FlatFrequency* freqs, long int size, char* filename, int signal, parameters* config, AudioSignal* Signal)
 {
-	int 		i = 0, type = 0, types = 0, silence = 0, typeCount = 0;
+	int 		i = 0, type = 0, types = 0, typeCount = 0;
 	char		name[BUFFER_SIZE];
+	char		*returnFolder = NULL;
 
 	typeCount = GetActiveBlockTypesNoRepeat(config);
-	for(i = 0; i < config->types.typeCount; i++)
+	if (typeCount > 1)
+	{
+		returnFolder = PushFolder(SPECTROGRAM_FOLDER);
+		if (!returnFolder)
+			return 0;
+	}
+
+#pragma omp parallel for
+	for (i = 0; i < config->types.typeCount; i++)
 	{
 		type = config->types.typeArray[i].type;
-		if(type > TYPE_CONTROL && !config->types.typeArray[i].IsaddOnData)
+		if (type > TYPE_CONTROL && !config->types.typeArray[i].IsaddOnData)
 		{
-			char	*returnFolder = NULL;
-
-			if(typeCount > 1)
-			{
-				returnFolder = PushFolder(SPECTROGRAM_FOLDER);
-				if(!returnFolder)
-					return 0;
-			}
-
-			sprintf(name, "SP_%c_%s_%02d%s", signal == ROLE_REF ? 'A' : 'B', filename, 
-					config->types.typeArray[i].type, config->types.typeArray[i].typeName);
-			PlotSingleTypeSpectrogram(freqs, size, type, name, signal, CHANNEL_STEREO, config);			
+			sprintf(name, "SP_%c_%s_%02d%s", signal == ROLE_REF ? 'A' : 'B', filename,
+				config->types.typeArray[i].type, config->types.typeArray[i].typeName);
+			PlotSingleTypeSpectrogram(freqs, size, type, name, signal, CHANNEL_STEREO, config);
 			logmsg(PLOT_ADVANCE_CHAR);
 
-			if(config->types.typeArray[i].channel == CHANNEL_STEREO && Signal->AudioChannels == 2)
+			if (config->types.typeArray[i].channel == CHANNEL_STEREO && Signal->AudioChannels == 2)
 			{
-				sprintf(name, "SP_%c_%s_%02d%s_%c", signal == ROLE_REF ? 'A' : 'B', filename, 
-						config->types.typeArray[i].type, config->types.typeArray[i].typeName, 
-						CHANNEL_LEFT);
+				sprintf(name, "SP_%c_%s_%02d%s_%c", signal == ROLE_REF ? 'A' : 'B', filename,
+					config->types.typeArray[i].type, config->types.typeArray[i].typeName,
+					CHANNEL_LEFT);
 				PlotSingleTypeSpectrogram(freqs, size, type, name, signal, CHANNEL_LEFT, config);
 				logmsg(PLOT_ADVANCE_CHAR);
 
-				sprintf(name, "SP_%c_%s_%02d%s_%c", signal == ROLE_REF ? 'A' : 'B', filename, 
-						config->types.typeArray[i].type, config->types.typeArray[i].typeName, 
-						CHANNEL_RIGHT);
+				sprintf(name, "SP_%c_%s_%02d%s_%c", signal == ROLE_REF ? 'A' : 'B', filename,
+					config->types.typeArray[i].type, config->types.typeArray[i].typeName,
+					CHANNEL_RIGHT);
 				PlotSingleTypeSpectrogram(freqs, size, type, name, signal, CHANNEL_RIGHT, config);
 				logmsg(PLOT_ADVANCE_CHAR);
 			}
-
-			if(typeCount > 1)
-				ReturnToMainPath(&returnFolder);
-			types ++;
+			types++;
 		}
+	}
 
-		if(config->plotNoiseFloor && !silence && type == TYPE_SILENCE)
+	if (typeCount > 1)
+		ReturnToMainPath(&returnFolder);
+	returnFolder = NULL;
+
+	return types;
+}
+
+int PlotNoiseFloorSpectrogram(FlatFrequency * freqs, long int size, char* filename, int signal, parameters * config, AudioSignal * Signal)
+{
+	int		i = 0, type = 0;
+	char	name[BUFFER_SIZE];
+
+	for (i = 0; i < config->types.typeCount; i++)
+	{
+		type = config->types.typeArray[i].type;
+		if(type == TYPE_SILENCE)
 		{
 			sprintf(name, "NF_SP_%c_%s_%02d%s", signal == ROLE_REF ? 'A' : 'B', filename, 
 					config->types.typeArray[i].type, config->types.typeArray[i].typeName);
@@ -2797,12 +2807,6 @@ int PlotEachTypeSpectrogram(FlatFrequency *freqs, long int size, char *filename,
 
 			if (config->types.typeArray[i].channel == CHANNEL_STEREO && Signal->AudioChannels == 2)
 			{
-				char* returnFolder = NULL;
-
-				returnFolder = PushFolder(NOISEFLOOR_FOLDER);
-				if (!returnFolder)
-					return 0;
-
 				sprintf(name, "NF_SP_%c_%s_%02d%s_%c", signal == ROLE_REF ? 'A' : 'B', filename,
 					config->types.typeArray[i].type, config->types.typeArray[i].typeName,
 					CHANNEL_LEFT);
@@ -2814,14 +2818,11 @@ int PlotEachTypeSpectrogram(FlatFrequency *freqs, long int size, char *filename,
 					CHANNEL_RIGHT);
 				PlotNoiseSpectrogram(freqs, size, type, CHANNEL_RIGHT, name, signal, config, Signal);
 				logmsg(PLOT_ADVANCE_CHAR);
-
-				ReturnToMainPath(&returnFolder);
 			}
-			silence = 1;
+			return 1;
 		}
 	}
-
-	return types;
+	return 0;
 }
 
 void PlotSingleTypeSpectrogram(FlatFrequency *freqs, long int size, int type, char *filename, int signal, char channel, parameters *config)
@@ -2846,7 +2847,8 @@ void PlotSingleTypeSpectrogram(FlatFrequency *freqs, long int size, int type, ch
 
 	for(int f = 0; f < size; f++)
 	{
-		if(freqs[f].type == type && (channel == CHANNEL_STEREO || freqs[f].channel == channel))
+		if(freqs[f].type == type && (channel == CHANNEL_STEREO || freqs[f].channel == channel) && 
+			freqs[f].amplitude != NO_AMPLITUDE && freqs[f].hertz)
 		{ 
 			long int intensity;
 			double x, y;
@@ -2911,7 +2913,6 @@ void PlotNoiseSpectrogram(FlatFrequency *freqs, long int size, int type, char ch
 		config->refNoiseMax = endAmplitude;
 	}
 
-#pragma omp ordered
 	if(Signal->role == ROLE_COMP)
 	{
 		if(config->refNoiseMax != 0)
@@ -2937,7 +2938,8 @@ void PlotNoiseSpectrogram(FlatFrequency *freqs, long int size, int type, char ch
 	for(int f = 0; f < size; f++)
 	{
 		if((channel == CHANNEL_STEREO || freqs[f].channel == channel) && 
-			freqs[f].type == type && freqs[f].amplitude >= endAmplitude)
+			freqs[f].type == type && freqs[f].amplitude >= endAmplitude &&
+			freqs[f].amplitude != NO_AMPLITUDE && freqs[f].hertz)
 		{ 
 			long int intensity;
 			double x, y;
@@ -4590,7 +4592,8 @@ void PlotSingleTypeTimeSpectrogram(AudioSignal* Signal, char channel, int plotTy
 
 				if (channel == CHANNEL_RIGHT || channel == CHANNEL_STEREO)
 				{
-					if (Signal->Blocks[block].freqRight && Signal->Blocks[block].freqRight[i].hertz && Signal->Blocks[block].freqRight[i].amplitude > significant)
+					if (Signal->Blocks[block].freqRight && Signal->Blocks[block].freqRight[i].hertz && 
+						Signal->Blocks[block].freqRight[i].amplitude > significant)
 					{
 						long int intensity;
 						double y, amplitude;
@@ -5313,7 +5316,7 @@ void PlotBlockTimeDomainGraph(AudioSignal *Signal, int block, char *name, int wa
 		pl_restorestate_r(plot.plotter);
 	}
 	
-	sprintf(title, "%s# %d%s | samples %ld-%ld", GetBlockName(config, block), GetBlockSubIndex(config, block),
+	sprintf(title, "%s# %d%s | samples %ld-%ld", GetBlockDisplayName(config, block), GetBlockSubIndex(config, block),
 			GetWFMTypeText(wavetype, buffer, data, Signal->role), 
 			SamplesForDisplay(sampleOffset, Signal->AudioChannels),
 			SamplesForDisplay(sampleOffset+numSamples*Signal->AudioChannels, Signal->AudioChannels));
@@ -5816,7 +5819,7 @@ void PlotCLKSpectrogramInternal(FlatFrequency *freqs, long int size, char *filen
 
 	for(int f = 0; f < size; f++)
 	{
-		if(freqs[f].amplitude >= endAmplitude)
+		if(freqs[f].amplitude >= endAmplitude && freqs[f].hertz)
 		{ 
 			long int intensity;
 			double x, y;

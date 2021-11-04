@@ -54,6 +54,7 @@ double GetFirstSilenceDuration(double framerate, parameters *config);
 long int GetBlockFrames(parameters *config, int pos);
 long int GetBlockCutFrames(parameters *config, int pos);
 char *GetBlockName(parameters *config, int pos);
+char *GetBlockDisplayName(parameters* config, int pos);
 int GetBlockSubIndex(parameters *config, int pos);
 int GetBlockType(parameters *config, int pos);
 char *GetBlockColor(parameters *config, int pos);
