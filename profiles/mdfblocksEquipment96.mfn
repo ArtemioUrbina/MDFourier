@@ -3,7 +3,7 @@ MDF: Equipment Test [2] 96khz
 [VideoModes] 1
 Audio 13.33333333333 0 8000 11 13
 CLK n
-[MonoBalanceBlock] 398      ;Use Fade# 0
+[MonoBalanceBlock] 368      ;Use Fade# 0
 [ToneLines] 15
 Sync s 1 26 0 red m
 _buffer_ k 1 4 0 red m
