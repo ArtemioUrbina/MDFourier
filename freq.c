@@ -1201,7 +1201,7 @@ long int GetElementFrameOffset(int block, parameters *config)
 	return 0;
 }
 
-long int GetLastSyncFrameOffset(wav_hdr header, parameters *config)
+long int GetLastSyncFrameOffset(parameters *config)
 {
 	int first = 0;
 
@@ -2028,26 +2028,30 @@ void FindFloor(AudioSignal *Signal, parameters *config)
 	}
 	*/
 
-	if(loudestFreq.hertz && loudestFreq.amplitude != NO_AMPLITUDE && loudestFreq.hertz)
-	{
-		if(noiseFreq.amplitude > loudestFreq.amplitude)
-		{
-			Signal->floorAmplitude = loudestFreq.amplitude;
-			Signal->floorFreq = loudestFreq.hertz;
-			return;
-		}
-	}
-
 	if(noiseFreq.hertz)
 	{
-		Signal->floorAmplitude = noiseFreq.amplitude;
-		Signal->floorFreq = noiseFreq.hertz;
-
-		logmsg("  - %s Noise Channel relative floor: %g Hz %g dBFS\n", 
+		logmsg("  - %s Noise Channel relative floor: %g Hz %g dBFS\n",
 			getRoleText(Signal),
 			noiseFreq.hertz,
 			noiseFreq.amplitude);
 		config->channelWithLowFundamentals = 1;
+		if(noiseFreq.amplitude > loudestFreq.amplitude)
+		{
+			Signal->floorAmplitude = loudestFreq.amplitude;
+			Signal->floorFreq = loudestFreq.hertz;
+		}
+		else
+		{
+			Signal->floorAmplitude = noiseFreq.amplitude;
+			Signal->floorFreq = noiseFreq.hertz;
+		}
+		return;
+	}
+
+	if(loudestFreq.hertz && loudestFreq.amplitude != NO_AMPLITUDE)
+	{
+		Signal->floorAmplitude = loudestFreq.amplitude;
+		Signal->floorFreq = loudestFreq.hertz;
 		return;
 	}
 
@@ -2327,7 +2331,7 @@ void CleanMatched(AudioSignal *ReferenceSignal, AudioSignal *TestSignal, paramet
 	}
 }
 
-void PrintFrequenciesBlockMagnitude(AudioSignal *Signal, Frequency *freq, int type, parameters *config)
+void PrintFrequenciesBlockMagnitude(AudioSignal *Signal, Frequency *freq, parameters *config)
 {
 	if(!freq)
 		return;
@@ -2390,19 +2394,16 @@ void PrintFrequenciesWMagnitudes(AudioSignal *Signal, parameters *config)
 {
 	for(int block = 0; block < config->types.totalBlocks; block++)
 	{
-		int type = TYPE_NOTYPE;
-
 		logmsgFileOnly("==================== %s %s# %d (%d) ===================\n", 
 				getRoleText(Signal), GetBlockName(config, block), GetBlockSubIndex(config, block), block);
 
-		type = GetBlockType(config, block);
 		if(Signal->Blocks[block].freqRight)
 			logmsgFileOnly("Left Channel:\n");
-		PrintFrequenciesBlockMagnitude(Signal, Signal->Blocks[block].freq, type, config);
+		PrintFrequenciesBlockMagnitude(Signal, Signal->Blocks[block].freq, config);
 		if(Signal->Blocks[block].freqRight)
 		{
 			logmsgFileOnly("Right Channel:\n");
-			PrintFrequenciesBlockMagnitude(Signal, Signal->Blocks[block].freqRight, type, config);
+			PrintFrequenciesBlockMagnitude(Signal, Signal->Blocks[block].freqRight, config);
 		}
 	}
 }
@@ -2589,7 +2590,7 @@ int FillFrequencyStructuresInternal(AudioSignal *Signal, AudioBlocks *AudioArray
 	return 1;
 }
 
-void PrintComparedBlocks(AudioBlocks *ReferenceArray, AudioBlocks *ComparedArray, parameters *config, AudioSignal *Signal)
+void PrintComparedBlocks(AudioBlocks *ReferenceArray, AudioBlocks *ComparedArray, parameters *config)
 {
 	if(ReferenceArray->freqRight)
 		logmsgFileOnly("LEFT Channel\n");
@@ -2671,7 +2672,7 @@ void PrintComparedBlocks(AudioBlocks *ReferenceArray, AudioBlocks *ComparedArray
 	logmsgFileOnly("\n\n");
 }
 
-void PrintThesholdDifferenceBlocks(AudioBlocks *ReferenceArray, AudioBlocks *ComparedArray, parameters *config, AudioSignal *Signal, double threshold)
+void PrintThesholdDifferenceBlocks(AudioBlocks *ReferenceArray, AudioBlocks *ComparedArray, parameters *config, double threshold)
 {
 	if(ReferenceArray->freqRight)
 		logmsgFileOnly("LEFT Channel\n");
@@ -3062,21 +3063,22 @@ double CalculateFrameRateAndCheckSamplerate(AudioSignal *Signal, parameters *con
 
 double CalculateFrameRate(AudioSignal *Signal, parameters *config)
 {
-	double framerate = 0, endOffset = 0, startOffset = 0, samplerate = 0;
-	double LastSyncFrameOffset = 0;
+	double		framerate = 0;
+	long int	endOffset = 0, startOffset = 0, samplerate = 0;
+	long int	LastSyncFrameOffset = 0;
 
 	startOffset = Signal->startOffset;
 	endOffset = Signal->endOffset;
 	samplerate = Signal->header.fmt.SamplesPerSec;
-	LastSyncFrameOffset = GetLastSyncFrameOffset(Signal->header, config);
+	LastSyncFrameOffset = GetLastSyncFrameOffset(config);
 
 	if(startOffset == endOffset)
 		return 0;
 	if(!LastSyncFrameOffset)
 		return 0;
 
-	framerate = (endOffset-startOffset)/(samplerate*LastSyncFrameOffset); // 1000 ms 
-	framerate = framerate*1000.0/Signal->AudioChannels;  // 1000 ms
+	framerate = (double)(endOffset-startOffset)/(double)(samplerate*LastSyncFrameOffset); // 1000 ms 
+	framerate = framerate*1000.0/(double)Signal->AudioChannels;  // 1000 ms
 	//framerate = roundFloat(framerate);
 
 	return framerate;
@@ -3169,6 +3171,14 @@ double getMSPerFrameInternal(int role, parameters *config)
 		return(config->types.SyncFormat[config->videoFormatRef].MSPerFrame);
 	else
 		return(config->types.SyncFormat[config->videoFormatCom].MSPerFrame);
+}
+
+char *GetFileName(int role, parameters *config)
+{
+	if(role == ROLE_REF)
+		return(config->referenceFile);
+	else
+		return(config->comparisonFile);
 }
 
 double CalculateClk(AudioSignal *Signal, parameters *config)
@@ -3373,9 +3383,9 @@ double FindFundamentalAmplitudeAverage(AudioSignal *Signal, parameters *config)
 	return AvgFundAmp;
 }
 
-inline double GetSignalMaxInt(AudioSignal *Signal)
+inline long int GetSignalMaxInt(AudioSignal *Signal)
 {
-	double Max = 0;
+	long int Max = 0;
 
 	switch(Signal->bytesPerSample)
 	{
@@ -3395,9 +3405,9 @@ inline double GetSignalMaxInt(AudioSignal *Signal)
 	return Max;
 }
 
-inline double GetSignalMinInt(AudioSignal *Signal)
+inline long int GetSignalMinInt(AudioSignal *Signal)
 {
-	double Min = 0;
+	long int Min = 0;
 
 	switch(Signal->bytesPerSample)
 	{

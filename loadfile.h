@@ -29,14 +29,14 @@
 #define MDFLOADFILE_H
 
 int LoadFile(AudioSignal **Signal, char *fileName, int role, parameters *config);
-int LoadWAVFile(FILE *file, AudioSignal *Signal, parameters *config, char *fileName);
+int LoadWAVFile(FILE *file, AudioSignal *Signal, parameters *config);
 int DetectSync(AudioSignal *Signal, parameters *config);
 int AdjustSignalValues(AudioSignal *Signal, parameters *config);
 
 /* Functions that deal with samples */
 int MoveSampleBlockInternal(AudioSignal *Signal, long int element, long int pos, long int signalStartOffset, parameters *config);
-int MoveSampleBlockExternal(AudioSignal *Signal, long int element, long int pos, long int signalStartOffset, long int internalSyncToneSize, parameters *config);
+int MoveSampleBlockExternal(AudioSignal *Signal, long int element, long int pos, long int signalStartOffset, parameters *config);
 int ProcessInternalSync(AudioSignal *Signal, long int element, long int pos, int *syncinternal, long int *advanceBytes, int knownLength, parameters *config);
-int CopySamplesForTimeDomainPlotInternalSync(AudioBlocks *AudioArray, double *samples, size_t size, int slotForSamples, long samplerate, double *window, int AudioChannels, parameters *config);
+int CopySamplesForTimeDomainPlotInternalSync(AudioBlocks *AudioArray, double *samples, size_t size, int slotForSamples, double *window, int AudioChannels, parameters *config);
 
 #endif

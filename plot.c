@@ -312,12 +312,87 @@ void PlotResults(AudioSignal *ReferenceSignal, AudioSignal *ComparisonSignal, pa
 
 	if(config->plotSpectrogram)
 	{
+		int					typeCount = 0, doRefAll = 0, doCompAll = 0;
 		struct	timespec	lstart, lend;
+		char				*returnFolder = NULL;
+		char				tmpNameRef[BUFFER_SIZE/2], tmpNameComp[BUFFER_SIZE/2];
+		long int			sizeRef = 0, sizeComp = 0;
+		FlatFrequency		*freqsRef = NULL, *freqsComp = NULL;
 
 		StartPlot(" - Spectrograms", &lstart, config);
-		PlotSpectrograms(ReferenceSignal, config);
-		PlotSpectrograms(ComparisonSignal, config);
+#pragma omp parallel for
+		for(int i = 0; i < 2; i++)
+		{
+			if(i == 0)
+				freqsRef = CreateSpectrogramFrequencies(ReferenceSignal, &sizeRef, config);
+			else
+				freqsComp = CreateSpectrogramFrequencies(ComparisonSignal, &sizeComp, config);
+		}
 
+		//Create subfolder if needed
+		typeCount = GetActiveBlockTypesNoRepeat(config);
+		if (typeCount > 1)
+		{
+			returnFolder = PushFolder(SPECTROGRAM_FOLDER);
+			if (!returnFolder)
+				return;
+		}
+
+		ShortenFileName(basename(ReferenceSignal->SourceFile), tmpNameRef);
+		ShortenFileName(basename(ComparisonSignal->SourceFile), tmpNameComp);
+#pragma omp parallel for
+		for(int i = 0; i < 2; i++)
+		{
+			if(i == 0)
+			{
+				if(PlotEachTypeSpectrogram(freqsRef, sizeRef, tmpNameRef, ReferenceSignal->role, config, ReferenceSignal) > 1)
+					doRefAll = 1;
+			}
+			else
+			{
+				if(PlotEachTypeSpectrogram(freqsComp, sizeComp, tmpNameComp, ComparisonSignal->role, config, ComparisonSignal) > 1)
+					doCompAll = 1;
+			}
+		}
+
+		if(typeCount > 1)
+		{
+			ReturnToMainPath(&returnFolder);
+			returnFolder = NULL;
+		}
+
+		if(doRefAll && doCompAll)
+		{
+#pragma omp parallel for
+			for(int i = 0; i < 2; i++)
+			{
+				if(i == 0)
+				{
+					PlotAllSpectrogram(freqsRef, sizeRef, tmpNameRef, ReferenceSignal->role, config);
+					logmsg(PLOT_ADVANCE_CHAR);
+				}
+				else
+				{
+					PlotAllSpectrogram(freqsComp, sizeComp, tmpNameComp, ComparisonSignal->role, config);
+					logmsg(PLOT_ADVANCE_CHAR);				
+				}
+			}
+		}
+
+		if(config->plotNoiseFloor)
+		{
+			PlotNoiseFloorSpectrogram(freqsRef, sizeRef, tmpNameRef, ReferenceSignal->role, config, ReferenceSignal);
+			logmsg(PLOT_ADVANCE_CHAR);
+			PlotNoiseFloorSpectrogram(freqsComp, sizeComp, tmpNameComp, ComparisonSignal->role, config, ComparisonSignal);
+			logmsg(PLOT_ADVANCE_CHAR);
+		}
+
+		if(freqsRef)
+			free(freqsRef);
+
+		if(freqsComp)
+			free(freqsComp);
+		
 		EndPlot("Spectrogram", &lstart, &lend, config);
 	}
 
@@ -619,37 +694,29 @@ void PlotFreqMissing(parameters *config)
 }
 */
 
-void PlotSpectrograms(AudioSignal *Signal, parameters *config)
+FlatFrequency *CreateSpectrogramFrequencies(AudioSignal *Signal, long int *size, parameters *config)
 {
-	char 				tmpName[BUFFER_SIZE/2];
-	long int			size = 0;
 	FlatFrequency		*frequencies = NULL;
-	
-	ShortenFileName(basename(Signal->SourceFile), tmpName);
+
+	if(!size)
+		return NULL;
+
+	*size = 0;
 	if (config->clock)
 	{
 		struct timespec start, end;
 		double	elapsedSeconds;
 
 		clock_gettime(CLOCK_MONOTONIC, &start);
-		frequencies = CreateFlatFrequencies(Signal, &size, config);
+		frequencies = CreateFlatFrequencies(Signal, size, config);
 		clock_gettime(CLOCK_MONOTONIC, &end);
 		elapsedSeconds = TimeSpecToSeconds(&end) - TimeSpecToSeconds(&start);
 		logmsg(" - clk: %s took %0.2fs\n", "CreateFlatFrequencies", elapsedSeconds);
 	}
 	else
-		frequencies = CreateFlatFrequencies(Signal, &size, config);
-	if(PlotEachTypeSpectrogram(frequencies, size, tmpName, Signal->role, config, Signal) > 1)
-	{
-		PlotAllSpectrogram(frequencies, size, tmpName, Signal->role, config);
-		logmsg(PLOT_ADVANCE_CHAR);
-	}
+		frequencies = CreateFlatFrequencies(Signal, size, config);
 
-	if(config->plotNoiseFloor)
-		PlotNoiseFloorSpectrogram(frequencies, size, tmpName, Signal->role, config, Signal);
-	
-	free(frequencies);
-	frequencies = NULL;
+	return(frequencies);
 }
 
 void PlotNoiseFloor(AudioSignal *Signal, parameters *config)
@@ -897,7 +964,7 @@ void DrawGridZeroToLimit(PlotFile *plot, double dBFS, double dbIncrement, double
 	pl_endpath_r(plot->plotter);
 }
 
-void DrawLabelsZeroDBCentered(PlotFile *plot, double dBFS, double dbIncrement, double hz, double hzIncrement,  parameters *config)
+void DrawLabelsZeroDBCentered(PlotFile *plot, double dBFS, double dbIncrement, double hz, parameters *config)
 {
 	double segments = 0;
 	char label[20];
@@ -1175,7 +1242,7 @@ void DrawFileInfo(PlotFile *plot, AudioSignal *Signal, char *msg, int type, int 
 			sprintf(msg, "%s %5.5s %4dkHz %dbit %s %.92s%s",
 				Signal->role == ROLE_REF ? "Reference:  " : "Comparison:",
 				config->types.SyncFormat[format].syncName,
-				Signal->originalSR ? Signal->originalSR/1000 : Signal->header.fmt.SamplesPerSec/1000,
+				Signal->originalSR ? Signal->originalSR/1000 : (int)Signal->header.fmt.SamplesPerSec/1000,
 				Signal->bytesPerSample*8,
 				Signal->AudioChannels == 2 ? "Stereo" : "Mono ",
 				name,
@@ -1237,7 +1304,7 @@ void DrawFileInfo(PlotFile *plot, AudioSignal *Signal, char *msg, int type, int 
 
 		sprintf(msg, "File: %5.5s %4dkHz %dbit %s %.92s%s",
 			config->types.SyncFormat[format].syncName,
-			Signal->originalSR ? Signal->originalSR/1000 : Signal->header.fmt.SamplesPerSec/1000,
+			Signal->originalSR ? Signal->originalSR/1000 : (int)Signal->header.fmt.SamplesPerSec/1000,
 			Signal->bytesPerSample*8,
 			Signal->AudioChannels == 2 ? "Stereo" : "Mono  ",
 			name,
@@ -1903,7 +1970,7 @@ void DrawLabelsMDF(PlotFile *plot, char *Gname, char *GType, int type, parameter
 #endif
 }
 
-void DrawLabelsZeroToLimit(PlotFile *plot, double dBFS, double dbIncrement, double hz, double hzIncrement, int drawSignificant, parameters *config)
+void DrawLabelsZeroToLimit(PlotFile *plot, double dBFS, double dbIncrement, double hz, int drawSignificant, parameters *config)
 {
 	double segments = 0;
 	char label[100];
@@ -2481,7 +2548,7 @@ void PlotAllDifferentAmplitudes(FlatAmplDifference *amplDiff, long int size, cha
 		return;
 
 	DrawGridZeroDBCentered(&plot, dBFS, VERT_SCALE_STEP, config->endHzPlot, 1000, config);
-	DrawLabelsZeroDBCentered(&plot, dBFS, VERT_SCALE_STEP, config->endHzPlot, 1000, config);
+	DrawLabelsZeroDBCentered(&plot, dBFS, VERT_SCALE_STEP, config->endHzPlot, config);
 
 	for(int a = 0; a < size; a++)
 	{
@@ -2577,13 +2644,13 @@ void PlotSingleTypeDifferentAmplitudes(FlatAmplDifference *amplDiff, long int si
 		return;
 
 	DrawGridZeroDBCentered(&plot, dBFS, VERT_SCALE_STEP, config->endHzPlot, 1000, config);
-	DrawLabelsZeroDBCentered(&plot, dBFS, VERT_SCALE_STEP, config->endHzPlot, 1000, config);
+	DrawLabelsZeroDBCentered(&plot, dBFS, VERT_SCALE_STEP, config->endHzPlot, config);
 
 	for(int a = 0; a < size; a++)
 	{
 		if((channel == CHANNEL_STEREO || channel == amplDiff[a].channel) &&
-			amplDiff[a].hertz && amplDiff[a].type == type && fabs(amplDiff[a].diffAmplitude) <= fabs(dBFS))
-			//&& fabs(amplDiff[a].refAmplitude) <= fabs(config->significantAmplitude))  // should not be needed if data is correct
+			amplDiff[a].hertz && amplDiff[a].type == type && fabs(amplDiff[a].diffAmplitude) <= fabs(dBFS) &&
+			fabs(amplDiff[a].refAmplitude) <= fabs(config->significantAmplitude))  // should not be needed if data is correct
 		{ 
 			long int intensity;
 
@@ -2662,7 +2729,7 @@ void PlotSilenceBlockDifferentAmplitudes(FlatAmplDifference *amplDiff, long int 
 		return;
 
 	DrawGridZeroDBCentered(&plot, dBFS, VERT_SCALE_STEP, config->endHzPlot, 1000, config);
-	DrawLabelsZeroDBCentered(&plot, dBFS, VERT_SCALE_STEP, config->endHzPlot, 1000, config);
+	DrawLabelsZeroDBCentered(&plot, dBFS, VERT_SCALE_STEP, config->endHzPlot, config);
 
 	DrawNoiseLines(&plot, 0, endAmplitude, Signal, config);
 	DrawLabelsNoise(&plot, config->endHzPlot, Signal, config);
@@ -2713,13 +2780,13 @@ void PlotAllSpectrogram(FlatFrequency *freqs, long int size, char *filename, int
 		return;
 
 	DrawGridZeroToLimit(&plot, significant, VERT_SCALE_STEP, config->endHzPlot, 1000, 0, config);
-	DrawLabelsZeroToLimit(&plot, significant, VERT_SCALE_STEP, config->endHzPlot, 1000, 0, config);
+	DrawLabelsZeroToLimit(&plot, significant, VERT_SCALE_STEP, config->endHzPlot, 0, config);
 
 	if(size)
 	{
 		for(int f = size-1; f >= 0; f--)
 		{
-			if(freqs[f].type > TYPE_CONTROL && freqs[f].amplitude != NO_AMPLITUDE && freqs[f].hertz)
+			if(freqs[f].type > TYPE_CONTROL && freqs[f].amplitude > significant && freqs[f].hertz)
 			{ 
 				long int intensity;
 				double x, y;
@@ -2742,27 +2809,16 @@ void PlotAllSpectrogram(FlatFrequency *freqs, long int size, char *filename, int
 
 int PlotEachTypeSpectrogram(FlatFrequency* freqs, long int size, char* filename, int signal, parameters* config, AudioSignal* Signal)
 {
-	int 		i = 0, type = 0, types = 0, typeCount = 0;
+	int 		i = 0, types = 0;
 	char		name[BUFFER_SIZE];
-	char		*returnFolder = NULL;
 
-	typeCount = GetActiveBlockTypesNoRepeat(config);
-	if (typeCount > 1)
-	{
-		returnFolder = PushFolder(SPECTROGRAM_FOLDER);
-		if (!returnFolder)
-			return 0;
-	}
-
-#pragma omp parallel for
 	for (i = 0; i < config->types.typeCount; i++)
 	{
-		type = config->types.typeArray[i].type;
-		if (type > TYPE_CONTROL && !config->types.typeArray[i].IsaddOnData)
+		if (config->types.typeArray[i].type > TYPE_CONTROL && !config->types.typeArray[i].IsaddOnData)
 		{
 			sprintf(name, "SP_%c_%s_%02d%s", signal == ROLE_REF ? 'A' : 'B', filename,
 				config->types.typeArray[i].type, config->types.typeArray[i].typeName);
-			PlotSingleTypeSpectrogram(freqs, size, type, name, signal, CHANNEL_STEREO, config);
+			PlotSingleTypeSpectrogram(freqs, size, config->types.typeArray[i].type, name, signal, CHANNEL_STEREO, config);
 			logmsg(PLOT_ADVANCE_CHAR);
 
 			if (config->types.typeArray[i].channel == CHANNEL_STEREO && Signal->AudioChannels == 2)
@@ -2770,22 +2826,18 @@ int PlotEachTypeSpectrogram(FlatFrequency* freqs, long int size, char* filename,
 				sprintf(name, "SP_%c_%s_%02d%s_%c", signal == ROLE_REF ? 'A' : 'B', filename,
 					config->types.typeArray[i].type, config->types.typeArray[i].typeName,
 					CHANNEL_LEFT);
-				PlotSingleTypeSpectrogram(freqs, size, type, name, signal, CHANNEL_LEFT, config);
+				PlotSingleTypeSpectrogram(freqs, size, config->types.typeArray[i].type, name, signal, CHANNEL_LEFT, config);
 				logmsg(PLOT_ADVANCE_CHAR);
 
 				sprintf(name, "SP_%c_%s_%02d%s_%c", signal == ROLE_REF ? 'A' : 'B', filename,
 					config->types.typeArray[i].type, config->types.typeArray[i].typeName,
 					CHANNEL_RIGHT);
-				PlotSingleTypeSpectrogram(freqs, size, type, name, signal, CHANNEL_RIGHT, config);
+				PlotSingleTypeSpectrogram(freqs, size, config->types.typeArray[i].type, name, signal, CHANNEL_RIGHT, config);
 				logmsg(PLOT_ADVANCE_CHAR);
 			}
 			types++;
 		}
 	}
-
-	if (typeCount > 1)
-		ReturnToMainPath(&returnFolder);
-	returnFolder = NULL;
 
 	return types;
 }
@@ -2843,23 +2895,23 @@ void PlotSingleTypeSpectrogram(FlatFrequency *freqs, long int size, int type, ch
 		return;
 
 	DrawGridZeroToLimit(&plot, significant, VERT_SCALE_STEP,config->endHzPlot, 1000, 0, config);
-	DrawLabelsZeroToLimit(&plot, significant, VERT_SCALE_STEP,config->endHzPlot, 1000, 0, config);
+	DrawLabelsZeroToLimit(&plot, significant, VERT_SCALE_STEP,config->endHzPlot, 0, config);
 
 	for(int f = 0; f < size; f++)
 	{
 		if(freqs[f].type == type && (channel == CHANNEL_STEREO || freqs[f].channel == channel) && 
-			freqs[f].amplitude != NO_AMPLITUDE && freqs[f].hertz)
+			freqs[f].amplitude > significant && freqs[f].hertz)
 		{ 
 			long int intensity;
 			double x, y;
 
 			x = transformtoLog(freqs[f].hertz, config);
 			y = freqs[f].amplitude;
-			intensity = CalculateWeightedError((abs_significant - fabs(y))/abs_significant, config)*0xffff;
-	
+			intensity = CalculateWeightedError((abs_significant - fabs(y)) / abs_significant, config) * 0xffff;
+
 			//pl_flinewidth_r(plot.plotter, 100*range_0_1);
 			SetPenColor(freqs[f].color, intensity, &plot);
-			pl_fline_r(plot.plotter, x,	y, x, significant);
+			pl_fline_r(plot.plotter, x, y, x, significant);
 			pl_endpath_r(plot.plotter);
 		}
 	}
@@ -2897,9 +2949,9 @@ void PlotNoiseSpectrogram(FlatFrequency *freqs, long int size, int type, char ch
 	{
 		if(freqs[f].type == type)
 		{
-			if(freqs[f].amplitude > startAmplitude)
+			if (freqs[f].amplitude > startAmplitude)
 				startAmplitude = freqs[f].amplitude;
-			if(freqs[f].amplitude < endAmplitude)
+			if (freqs[f].amplitude < endAmplitude)
 				endAmplitude = freqs[f].amplitude;
 		}
 	}
@@ -2930,7 +2982,7 @@ void PlotNoiseSpectrogram(FlatFrequency *freqs, long int size, int type, char ch
 		return;
 
 	DrawGridZeroToLimit(&plot, endAmplitude, VERT_SCALE_STEP, config->endHzPlot, 1000, 1, config);
-	DrawLabelsZeroToLimit(&plot, endAmplitude, VERT_SCALE_STEP, config->endHzPlot, 1000, 1, config);
+	DrawLabelsZeroToLimit(&plot, endAmplitude, VERT_SCALE_STEP, config->endHzPlot, 1, config);
 
 	DrawNoiseLines(&plot, 0, endAmplitude, Signal, config);
 	DrawLabelsNoise(&plot, config->endHzPlot, Signal, config);
@@ -2939,7 +2991,7 @@ void PlotNoiseSpectrogram(FlatFrequency *freqs, long int size, int type, char ch
 	{
 		if((channel == CHANNEL_STEREO || freqs[f].channel == channel) && 
 			freqs[f].type == type && freqs[f].amplitude >= endAmplitude &&
-			freqs[f].amplitude != NO_AMPLITUDE && freqs[f].hertz)
+			freqs[f].hertz)
 		{ 
 			long int intensity;
 			double x, y;
@@ -3084,12 +3136,13 @@ void PlotBetaFunctions(parameters *config)
 
 int MatchColor(char *color)
 {
-	int		i = 0;
-	char	colorcopy[640];
+	unsigned int	i = 0, len = 0;
+	char			colorcopy[640];
 
 	strncpy(colorcopy, color, 512);
 
-	for(i = 0; i < strlen(colorcopy); i++)
+	len = strlen(colorcopy);
+	for(i = 0; i < len; i++)
 		colorcopy[i] = tolower(colorcopy[i]);
 
 	if(strcmp(colorcopy, "red") == 0)
@@ -3277,7 +3330,7 @@ int InsertElementInPlace(FlatFrequency *Freqs, FlatFrequency Element, long int c
 
 	for(long int j = 0; j < currentsize; j++)
 	{
-		if(Element.type == Freqs[j].type && Element.channel == Freqs[j].channel && Element.hertz == Freqs[j].hertz)
+		if(Element.type == Freqs[j].type && Element.channel == Freqs[j].channel && areDoublesEqual(Element.hertz, Freqs[j].hertz))
 		{
 			if(Element.amplitude > Freqs[j].amplitude)
 				Freqs[j].amplitude = Element.amplitude;
@@ -3448,7 +3501,7 @@ void PlotTest(char *filename, parameters *config)
 		return;
 
 	DrawGridZeroDBCentered(&plot, dBFS, VERT_SCALE_STEP, config->endHzPlot, 1000, config);
-	DrawLabelsZeroDBCentered(&plot, dBFS, VERT_SCALE_STEP, config->endHzPlot, 1000, config);
+	DrawLabelsZeroDBCentered(&plot, dBFS, VERT_SCALE_STEP, config->endHzPlot, config);
 
 	srand(time(NULL));
 
@@ -3473,7 +3526,7 @@ void PlotTestZL(char *filename, parameters *config)
 		return;
 
 	DrawGridZeroToLimit(&plot, config->significantAmplitude, VERT_SCALE_STEP, config->endHzPlot, 1000, 0, config);
-	DrawLabelsZeroToLimit(&plot, config->significantAmplitude, VERT_SCALE_STEP, config->endHzPlot, 1000, 0, config);
+	DrawLabelsZeroToLimit(&plot, config->significantAmplitude, VERT_SCALE_STEP, config->endHzPlot, 0, config);
 
 	DrawColorScale(&plot, 1, MODE_SPEC, LEFT_MARGIN, HEIGHT_MARGIN, config->plotResX/COLOR_BARS_WIDTH_SCALE, config->plotResY/1.15, 0, SIGNIFICANT_VOLUME, VERT_SCALE_STEP_BAR, config);
 	
@@ -3904,7 +3957,7 @@ void PlotNoiseDifferentAmplitudesAveragedInternal(FlatAmplDifference *amplDiff, 
 	if(dbs > 200)
 		vertscale *= 10;
 	DrawGridZeroDBCentered(&plot, dbs, vertscale, config->endHzPlot, 1000, config);
-	DrawLabelsZeroDBCentered(&plot, dbs, vertscale, config->endHzPlot, 1000, config);
+	DrawLabelsZeroDBCentered(&plot, dbs, vertscale, config->endHzPlot, config);
 
 	DrawNoiseLines(&plot, dbs, -1*dbs, Signal, config);
 	DrawLabelsNoise(&plot, config->endHzPlot, Signal, config);
@@ -3993,7 +4046,7 @@ void PlotSingleTypeDifferentAmplitudesAveraged(FlatAmplDifference *amplDiff, lon
 		return;
 
 	DrawGridZeroDBCentered(&plot, dbs, VERT_SCALE_STEP, config->endHzPlot, 1000, config);
-	DrawLabelsZeroDBCentered(&plot, dbs, VERT_SCALE_STEP, config->endHzPlot, 1000, config);
+	DrawLabelsZeroDBCentered(&plot, dbs, VERT_SCALE_STEP, config->endHzPlot, config);
 
 	if(channel == CHANNEL_MONO)
 	{
@@ -4130,7 +4183,7 @@ void PlotAllDifferentAmplitudesAveraged(FlatAmplDifference *amplDiff, long int s
 		return;
 
 	DrawGridZeroDBCentered(&plot, dBFS, VERT_SCALE_STEP, config->endHzPlot, 1000, config);
-	DrawLabelsZeroDBCentered(&plot, dBFS, VERT_SCALE_STEP, config->endHzPlot, 1000, config);
+	DrawLabelsZeroDBCentered(&plot, dBFS, VERT_SCALE_STEP, config->endHzPlot, config);
 
 	for(long int a = 0; a < size; a++)
 	{
@@ -5036,7 +5089,7 @@ void DrawVerticalFrameGrid(PlotFile *plot, AudioSignal *Signal, double frames, d
 	pl_restorestate_r(plot->plotter);
 }
 
-void DrawINTXXDBFSLines(PlotFile *plot, AudioSignal *Signal, double resx, int AudioChannels, parameters *config)
+void DrawINTXXDBFSLines(PlotFile *plot, double resx, int AudioChannels, parameters *config)
 {
 	char 	label[20];
 	double	factor = 0, MaxY = config->highestValueBitDepth, MinY = config->lowestValueBitDepth;
@@ -5239,7 +5292,7 @@ void PlotBlockTimeDomainGraph(AudioSignal *Signal, int block, char *name, int wa
 	}
 
 	DrawVerticalFrameGrid(&plot, Signal, Signal->Blocks[block].frames, 1, plotSize, forceMS, config);
-	DrawINTXXDBFSLines(&plot, Signal, numSamples, Signal->AudioChannels, config);
+	DrawINTXXDBFSLines(&plot, numSamples, Signal->AudioChannels, config);
 
 	color = MatchColor(GetBlockColor(config, block));
 
@@ -5383,7 +5436,7 @@ void PlotBlockTimeDomainInternalSyncGraph(AudioSignal *Signal, int block, char *
 	}
 
 	DrawVerticalFrameGrid(&plot, Signal, frames, 1, plotSize, forceMS, config);
-	DrawINTXXDBFSLines(&plot, Signal, numSamples, Signal->AudioChannels, config);
+	DrawINTXXDBFSLines(&plot, numSamples, Signal->AudioChannels, config);
 
 	color = MatchColor(GetBlockColor(config, block));
 
@@ -5511,8 +5564,8 @@ void PlotAllPhase(FlatPhase *phaseDiff, long int size, char *filename, int pType
 	if(!CreatePlotFile(&plot, config))
 		return;
 
-	DrawGridZeroAngleCentered(&plot, PHASE_ANGLE, 90, config->endHzPlot, 1000, config);
-	DrawLabelsZeroAngleCentered(&plot, PHASE_ANGLE, 90, config->endHzPlot, 1000, config);
+	DrawGridZeroAngleCentered(&plot, PHASE_ANGLE, 90, config->endHzPlot, config);
+	DrawLabelsZeroAngleCentered(&plot, PHASE_ANGLE, 90, config->endHzPlot, config);
 
 	for(int p = 0; p < size; p++)
 	{
@@ -5612,8 +5665,8 @@ void PlotSingleTypePhase(FlatPhase *phaseDiff, long int size, int type, char *fi
 	if(!CreatePlotFile(&plot, config))
 		return;
 
-	DrawGridZeroAngleCentered(&plot, PHASE_ANGLE, 90, config->endHzPlot, 1000, config);
-	DrawLabelsZeroAngleCentered(&plot, PHASE_ANGLE, 90, config->endHzPlot, 1000, config);
+	DrawGridZeroAngleCentered(&plot, PHASE_ANGLE, 90, config->endHzPlot, config);
+	DrawLabelsZeroAngleCentered(&plot, PHASE_ANGLE, 90, config->endHzPlot, config);
 
 	for(int p = 0; p < size; p++)
 	{
@@ -5649,7 +5702,7 @@ void PlotSingleTypePhase(FlatPhase *phaseDiff, long int size, int type, char *fi
 	ClosePlot(&plot);
 }
 
-void DrawGridZeroAngleCentered(PlotFile *plot, double maxAngle, double angleIncrement, double hz, double hzIncrement, parameters *config)
+void DrawGridZeroAngleCentered(PlotFile *plot, double maxAngle, double angleIncrement, double hz, parameters *config)
 {
 	pl_pencolor_r (plot->plotter, 0, 0xaaaa, 0);
 	pl_fline_r(plot->plotter, 0, 0, hz, 0);
@@ -5669,7 +5722,7 @@ void DrawGridZeroAngleCentered(PlotFile *plot, double maxAngle, double angleIncr
 	pl_pencolor_r (plot->plotter, 0, 0xFFFF, 0);
 }
 
-void DrawLabelsZeroAngleCentered(PlotFile *plot, double maxAngle, double angleIncrement, double hz, double hzIncrement,  parameters *config)
+void DrawLabelsZeroAngleCentered(PlotFile *plot, double maxAngle, double angleIncrement, double hz, parameters *config)
 {
 	double segments = 0;
 	char label[20];
@@ -5734,7 +5787,7 @@ void PlotCLKSpectrogram(AudioSignal *Signal, parameters *config)
 	ShortenFileName(basename(Signal->SourceFile), tmpName);
 	frequencies = CreateFlatFrequenciesCLK(Signal, &size, config);
 	sprintf(name, "SP_%c_%s_CLK_%s", Signal->role == ROLE_REF ? 'A' : 'B', tmpName, config->clkName);
-	PlotCLKSpectrogramInternal(frequencies, size, name, Signal->role, config, Signal);
+	PlotCLKSpectrogramInternal(frequencies, size, name, Signal->role, config);
 
 	free(frequencies);
 	frequencies = NULL;
@@ -5786,7 +5839,7 @@ FlatFrequency *CreateFlatFrequenciesCLK(AudioSignal *Signal, long int *size, par
 	return(Freqs);
 }
 
-void PlotCLKSpectrogramInternal(FlatFrequency *freqs, long int size, char *filename, int signal, parameters *config, AudioSignal *Signal)
+void PlotCLKSpectrogramInternal(FlatFrequency *freqs, long int size, char *filename, int signal, parameters *config)
 {
 	PlotFile	plot;
 	double		startAmplitude = config->significantAmplitude, endAmplitude = config->lowestDBFS;
@@ -5812,7 +5865,7 @@ void PlotCLKSpectrogramInternal(FlatFrequency *freqs, long int size, char *filen
 		return;
 
 	DrawGridZeroToLimit(&plot, endAmplitude, VERT_SCALE_STEP, config->endHzPlot, 1000, 0, config);
-	DrawLabelsZeroToLimit(&plot, endAmplitude, VERT_SCALE_STEP, config->endHzPlot, 1000, 0, config);
+	DrawLabelsZeroToLimit(&plot, endAmplitude, VERT_SCALE_STEP, config->endHzPlot, 0, config);
 
 	//DrawNoiseLines(&plot, 0, endAmplitude, Signal, config);
 	//DrawLabelsNoise(&plot, config->endHzPlot, Signal, config);

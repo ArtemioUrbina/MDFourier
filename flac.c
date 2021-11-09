@@ -65,7 +65,7 @@ char *strtoupper(char *str)
 	unsigned char *p = (unsigned char *)str;
 	
 	while (*p) {
-		*p = toupper((unsigned char)*p);
+		*p = (unsigned char)toupper((unsigned char)*p);
 		p++;
 	}
 	
@@ -117,7 +117,7 @@ int FillRIFFHeader(wav_hdr *header)
 	return 1;
 }
 
-int FLACtoSignal(char *input, AudioSignal *Signal, parameters *config)
+int FLACtoSignal(char *input, AudioSignal *Signal)
 {
 	FLAC__bool ok = true;
 	FLAC__StreamDecoder *decoder = 0;
@@ -157,13 +157,13 @@ int FLACtoSignal(char *input, AudioSignal *Signal, parameters *config)
 	{
 		if(Signal->samplesPosFLAC > Signal->header.data.DataSize)  // Buffer overflow!!!
 		{
-			logmsg("ERROR: FLAC decoder made a buffer overflow\n Got%ld bytes and expected %ld bytes\n",
+			logmsg("ERROR: FLAC decoder made a buffer overflow\n Got%lu bytes and expected %lu bytes\n",
 				Signal->samplesPosFLAC, Signal->header.data.DataSize);
 			return 0;
 		}
 		//if(config->verbose)
 		if(!flacInternalMDFErrors)
-			logmsg(" - WARNING: FLAC decoder got %ld bytes and expected %ld bytes (fixed internally)\n",
+			logmsg(" - WARNING: FLAC decoder got %lu bytes and expected %lu bytes (fixed internally)\n",
 				Signal->samplesPosFLAC*Signal->bytesPerSample, Signal->header.data.DataSize);
 		Signal->header.data.DataSize = Signal->samplesPosFLAC;
 	}
@@ -255,7 +255,7 @@ void metadata_callback(const FLAC__StreamDecoder *decoder, const FLAC__StreamMet
 
 	if(metadata->type == FLAC__METADATA_TYPE_STREAMINFO)
 	{
-		long int total_samples = 0;
+		uint64_t total_samples = 0;
 		unsigned sample_rate = 0;
 		unsigned channels = 0;
 		unsigned bps = 0;

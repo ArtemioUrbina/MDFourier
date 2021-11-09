@@ -43,13 +43,13 @@ int ProcessSignal(AudioSignal *Signal, parameters *config);
 int ExecuteDFFT(AudioBlocks *AudioArray, double *samples, size_t size, long samplerate, double *window, int AudioChannels, int ZeroPad, parameters *config);
 int ExecuteDFFTInternal(AudioBlocks *AudioArray, double *samples, size_t size, long samplerate, double *window, char channel, int AudioChannels, int ZeroPad, parameters *config);
 int CompareAudioBlocks(AudioSignal *ReferenceSignal, AudioSignal *ComparisonSignal, parameters *config);
-int CopySamplesForTimeDomainPlot(AudioBlocks *AudioArray, double *samples, size_t size, size_t diff, long samplerate, double *window, int AudioChannels, parameters *config);
+int CopySamplesForTimeDomainPlot(AudioBlocks *AudioArray, double *samples, size_t size, size_t diff, double *window, int AudioChannels, parameters *config);
 void CleanUp(AudioSignal **ReferenceSignal, AudioSignal **ComparisonSignal, parameters *config);
 void NormalizeAudio(AudioSignal *Signal);
 void NormalizeTimeDomainByFrequencyRatio(AudioSignal *Signal, double normalizationRatio, parameters *config);
 double FindRatio(AudioSignal *Signal, double normalizationRatio, parameters *config);
-double FindRatioForBlock(AudioBlocks *AudioArray, double ratio, AudioSignal *Signal);
-void NormalizeBlockByRatio(AudioBlocks *AudioArray, double ratio, AudioSignal *Signal);
+double FindRatioForBlock(AudioBlocks *AudioArray, double ratio);
+void NormalizeBlockByRatio(AudioBlocks *AudioArray, double ratio);
 void ProcessWaveformsByBlock(AudioSignal *ReferenceSignal, AudioSignal *ComparisonSignal, double ratioRef, parameters *config);
 double FindMaxSampleForWaveform(AudioSignal *Signal, int *block, parameters *config);
 double FindMaxSampleInBlock(AudioBlocks *AudioArray);
@@ -899,7 +899,7 @@ void CleanUp(AudioSignal **ReferenceSignal, AudioSignal **ComparisonSignal, para
 	ReleaseAudioBlockStructure(config);
 }
 
-int CopySamplesForTimeDomainPlotWindowOnly(AudioBlocks *AudioArray, long samplerate, double *window, int AudioChannels, parameters *config)
+int CopySamplesForTimeDomainPlotWindowOnly(AudioBlocks *AudioArray, double *window, int AudioChannels, parameters *config)
 {
 	long			i = 0, monoSignalSize = 0, difference = 0;
 	double			*signal = NULL, *window_samples = NULL;
@@ -981,7 +981,7 @@ int CopySamplesForTimeDomainPlotWindowOnly(AudioBlocks *AudioArray, long sampler
 	return(1);
 }
 
-int CopySamplesForTimeDomainPlot(AudioBlocks *AudioArray, double *samples, size_t size, size_t diff, long samplerate, double *window, int AudioChannels, parameters *config)
+int CopySamplesForTimeDomainPlot(AudioBlocks *AudioArray, double *samples, size_t size, size_t diff, double *window, int AudioChannels, parameters *config)
 {
 	long			stereoSignalSize = 0;
 	long			i = 0, monoSignalSize = 0, diffSize = 0, difference = 0;
@@ -1103,7 +1103,7 @@ int RecalculateFFTW(AudioSignal *Signal, parameters *config)
 			if(!FillFrequencyStructures(Signal, &Signal->Blocks[i], config))
 				return 0;
 
-			if(config->plotAllNotesWindowed && !CopySamplesForTimeDomainPlotWindowOnly(&Signal->Blocks[i], Signal->header.fmt.SamplesPerSec, windowUsed, Signal->AudioChannels, config))
+			if(config->plotAllNotesWindowed && !CopySamplesForTimeDomainPlotWindowOnly(&Signal->Blocks[i], windowUsed, Signal->AudioChannels, config))
 				return 0;
 
 			if(config->clkMeasure && config->clkBlock == i)
@@ -1230,14 +1230,14 @@ int DuplicateSamplesForWavefromPlots(AudioSignal *Signal, long int element, long
 
 		oneFrameSamples = SecondsToSamples(Signal->header.fmt.SamplesPerSec, FramesToSeconds(framerate, 1), Signal->AudioChannels, Signal->bytesPerSample, NULL, NULL, NULL);
 		if(pos > oneFrameSamples) {
-			if(!CopySamplesForTimeDomainPlot(&Signal->Blocks[element], Signal->Samples + pos - oneFrameSamples, loadedBlockSize+oneFrameSamples, difference, Signal->header.fmt.SamplesPerSec, NULL, Signal->AudioChannels, config))
+			if(!CopySamplesForTimeDomainPlot(&Signal->Blocks[element], Signal->Samples + pos - oneFrameSamples, loadedBlockSize+oneFrameSamples, difference, NULL, Signal->AudioChannels, config))
 				return 0;
 			Signal->Blocks[element].audio.sampleOffset = pos - oneFrameSamples + syncAdvance;
 			if(Signal->AudioChannels == 2)
 				Signal->Blocks[element].audioRight.sampleOffset = pos - oneFrameSamples + syncAdvance;
 		}
 		else {
-			if(!CopySamplesForTimeDomainPlot(&Signal->Blocks[element], Signal->Samples + pos, loadedBlockSize, difference, Signal->header.fmt.SamplesPerSec, NULL, Signal->AudioChannels, config))
+			if(!CopySamplesForTimeDomainPlot(&Signal->Blocks[element], Signal->Samples + pos, loadedBlockSize, difference, NULL, Signal->AudioChannels, config))
 				return 0;
 			Signal->Blocks[element].audio.sampleOffset = pos + syncAdvance;
 			if(Signal->AudioChannels == 2)
@@ -1249,7 +1249,7 @@ int DuplicateSamplesForWavefromPlots(AudioSignal *Signal, long int element, long
 		if(config->plotTimeDomainHiDiff || config->plotAllNotes ||
 				config->doClkAdjust || Signal->Blocks[element].type == TYPE_TIMEDOMAIN)
 		{
-			if(!CopySamplesForTimeDomainPlot(&Signal->Blocks[element], Signal->Samples + pos, loadedBlockSize, difference, Signal->header.fmt.SamplesPerSec, windowUsed, Signal->AudioChannels, config))
+			if(!CopySamplesForTimeDomainPlot(&Signal->Blocks[element], Signal->Samples + pos, loadedBlockSize, difference, windowUsed, Signal->AudioChannels, config))
 				return 0;
 			Signal->Blocks[element].audio.sampleOffset = pos + syncAdvance;
 			if(Signal->AudioChannels == 2)
@@ -1720,7 +1720,7 @@ int CompareAudioBlocks(AudioSignal *ReferenceSignal, AudioSignal *ComparisonSign
 			{
 				logmsgFileOnly("Unmatched Block Report for %s# %ld (%ld)\n", GetBlockName(config, block), GetBlockSubIndex(config, block), block);
 				PrintComparedBlocks(&ReferenceSignal->Blocks[block], &ComparisonSignal->Blocks[block],
-					config, ReferenceSignal);
+					config);
 			}
 		}
 		else
@@ -1729,7 +1729,7 @@ int CompareAudioBlocks(AudioSignal *ReferenceSignal, AudioSignal *ComparisonSign
 			{
 				logmsgFileOnly("Matched Block Report for %s# %ld (%ld)\n", GetBlockName(config, block), GetBlockSubIndex(config, block), block);
 				PrintComparedBlocks(&ReferenceSignal->Blocks[block], &ComparisonSignal->Blocks[block],
-					config, ReferenceSignal);
+					config);
 			}
 		}
 	}
@@ -1740,7 +1740,7 @@ int CompareAudioBlocks(AudioSignal *ReferenceSignal, AudioSignal *ComparisonSign
 		{
 			logmsgFileOnly("Values above 3dB for %s# %ld (%ld)\n", GetBlockName(config, block), GetBlockSubIndex(config, block), block);
 			PrintThesholdDifferenceBlocks(&ReferenceSignal->Blocks[block], &ComparisonSignal->Blocks[block],
-				config, ReferenceSignal, 3.0);
+				config, 3.0);
 		}
 	}
 
@@ -1832,7 +1832,7 @@ double FindRatio(AudioSignal *Signal, double normalizationRatio, parameters *con
 		{
 			double localMax = 0;
 
-			localMax = FindRatioForBlock(&Signal->Blocks[i], normalizationRatio, Signal);
+			localMax = FindRatioForBlock(&Signal->Blocks[i], normalizationRatio);
 			if(localMax > MaxSample)
 				MaxSample = localMax;
 		}
@@ -1843,7 +1843,7 @@ double FindRatio(AudioSignal *Signal, double normalizationRatio, parameters *con
 	return scaleRatio;
 }
 
-double FindRatioForBlock(AudioBlocks *AudioArray, double ratio, AudioSignal *Signal)
+double FindRatioForBlock(AudioBlocks *AudioArray, double ratio)
 {
 	long int 	i = 0;
 	double		MaxSample = 0;
@@ -1973,7 +1973,7 @@ void ProcessWaveformsByBlock(AudioSignal *SignalToModify, AudioSignal *FixedSign
 	MaxSampleToModify = FindMaxSampleForWaveform(SignalToModify, &blockMod, config);
 	MaxSampleFixed = FindMaxSampleForWaveform(FixedSignal, &blockFixed, config);
 
-	if(MaxSampleToModify && MaxSampleFixed)
+	if(MaxSampleToModify != 0 && MaxSampleFixed != 0)
 	{
 		if(config->verbose) {
 			logmsg(" - Visual wave values: Modify (%s/%dbits): %g at %s# %d (%d) and Fixed(%s/%dbits): %g at %s# %d (%d)\n",
@@ -2012,16 +2012,16 @@ void NormalizeTimeDomainByFrequencyRatio(AudioSignal *Signal, double normalizati
 	for(i = 0; i < config->types.totalBlocks; i++)
 	{
 		if(Signal->Blocks[i].audio.samples)
-			NormalizeBlockByRatio(&Signal->Blocks[i], normalizationRatio, Signal);
+			NormalizeBlockByRatio(&Signal->Blocks[i], normalizationRatio);
 	}
 }
 
-void NormalizeBlockByRatio(AudioBlocks *AudioArray, double ratio, AudioSignal *Signal)
+void NormalizeBlockByRatio(AudioBlocks *AudioArray, double ratio)
 {
 	long int 	i = 0;
 	double		*samples = NULL;
 
-	if(!AudioArray || !ratio)
+	if(!AudioArray || ratio != 0)
 		return;
 
 	samples = AudioArray->audio.samples;
@@ -2114,7 +2114,7 @@ double FindLocalMaximumAroundSample(AudioSignal *Signal, MaxSample refMax)
 	start = Signal->startOffset;
 	end = Signal->endOffset;
 
-	if(refMax.framerate != Signal->framerate)
+	if(!areDoublesEqual(refMax.framerate, Signal->framerate))
 	{
 		refSeconds = SamplesToSeconds(refMax.samplerate, refMax.offset, Signal->AudioChannels);
 		refFrames = refSeconds/(refMax.framerate/1000.0);

@@ -52,7 +52,7 @@ int LoadFile(AudioSignal **Signal, char *fileName, int role, parameters *config)
 			clock_gettime(CLOCK_MONOTONIC, &start);
 
 		if(config->verbose) { logmsg(" - Decoding FLAC\n"); }
-		if(!FLACtoSignal(fileName, *Signal, config))
+		if(!FLACtoSignal(fileName, *Signal))
 		{
 			if(!flacErrorReported())
 				logmsg("\nERROR: Invalid FLAC file %s\n", fileName);
@@ -77,7 +77,7 @@ int LoadFile(AudioSignal **Signal, char *fileName, int role, parameters *config)
 			return 0;
 		}
 
-		if(!LoadWAVFile(file, *Signal, config, fileName))
+		if(!LoadWAVFile(file, *Signal, config))
 		{
 			fclose(file);
 			return 0;
@@ -135,7 +135,7 @@ int CheckFactChunk(FILE *file, AudioSignal *Signal)
 	return 1;
 }
 
-int LoadWAVFile(FILE *file, AudioSignal *Signal, parameters *config, char *fileName)
+int LoadWAVFile(FILE *file, AudioSignal *Signal, parameters *config)
 {
 	int					found = 0, samplesLoaded = 0;
 	size_t				bytesRead = 0;
@@ -297,7 +297,7 @@ int LoadWAVFile(FILE *file, AudioSignal *Signal, parameters *config, char *fileN
 
 	if(Signal->factExists) // cautious with IEEE float format
 	{
-		if(Signal->fact.dwSampleLength*Signal->AudioChannels != Signal->numSamples)
+		if(Signal->fact.dwSampleLength*Signal->AudioChannels != (unsigned int)Signal->numSamples)
 			logmsg("\tWARNING: Header byte count and fact chunk sample count are not consistent\n");
 	}
 
@@ -809,7 +809,7 @@ int MoveSampleBlockInternal(AudioSignal *Signal, long int element, long int pos,
 	return 1;
 }
 
-int MoveSampleBlockExternal(AudioSignal *Signal, long int element, long int pos, long int signalStartOffset, long int internalSyncToneSize, parameters *config)
+int MoveSampleBlockExternal(AudioSignal *Signal, long int element, long int pos, long int signalStartOffset, parameters *config)
 {
 	double		*sampleBuffer = NULL;
 	double		signalLengthSeconds = 0;
@@ -918,10 +918,16 @@ int ProcessInternalSync(AudioSignal *Signal, long int element, long int pos, int
 		got = SamplesToSeconds(Signal->header.fmt.SamplesPerSec, pulseLengthSamples, Signal->AudioChannels);
 		expected = SamplesToSeconds(Signal->header.fmt.SamplesPerSec, syncLengthSamples, Signal->AudioChannels);
 
-		logmsg(" - ERROR: Internal Sync %dhz tone starting at %gs was shorter than expected. Found %gms instead of %gms\n",
+		if(!config->syncTolerance)
+		{
+			logmsg(" - ERROR: Internal Sync %dhz tone starting at %gs was shorter than expected. Found %gms instead of %gms (can ignore with -T)\n",
 				syncToneFreq, SamplesToSeconds(Signal->header.fmt.SamplesPerSec, pos + internalSyncOffset, Signal->AudioChannels),
 				got, expected);
-		return 0;
+			return 0;
+		}
+		logmsg(" - NOTE: (Ignored by -T) Internal Sync %dhz tone starting at %gs was shorter than expected. Found %gms instead of %gms\n",
+				syncToneFreq, SamplesToSeconds(Signal->header.fmt.SamplesPerSec, pos + internalSyncOffset, Signal->AudioChannels),
+				got, expected);
 	}
 
 	if(knownLength == TYPE_INTERNAL_KNOWN)
@@ -950,19 +956,19 @@ int ProcessInternalSync(AudioSignal *Signal, long int element, long int pos, int
 			if(!CopySamplesForTimeDomainPlotInternalSync(&Signal->Blocks[element], 
 					(Signal->Samples + pos), 
 					internalSyncOffset, 0, 
-					Signal->header.fmt.SamplesPerSec, NULL, Signal->AudioChannels, config))
+					NULL, Signal->AudioChannels, config))
 				return 0;
 
 			if(!CopySamplesForTimeDomainPlotInternalSync(&Signal->Blocks[element], 
 					(Signal->Samples + pos + internalSyncOffset), 
 					pulseLengthSamples, 1, 
-					Signal->header.fmt.SamplesPerSec, NULL, Signal->AudioChannels, config))
+					NULL, Signal->AudioChannels, config))
 				return 0;
 
 			if(!CopySamplesForTimeDomainPlotInternalSync(&Signal->Blocks[element], 
 					(Signal->Samples + pos + internalSyncOffset + pulseLengthSamples), 
 					syncLengthSamples/2, 2, 
-					Signal->header.fmt.SamplesPerSec, NULL, Signal->AudioChannels, config))
+					NULL, Signal->AudioChannels, config))
 				return 0;
 		}
 
@@ -1035,19 +1041,19 @@ int ProcessInternalSync(AudioSignal *Signal, long int element, long int pos, int
 			if(!CopySamplesForTimeDomainPlotInternalSync(&Signal->Blocks[element], 
 					(Signal->Samples + pos), 
 					internalSyncOffset, 0, 
-					Signal->header.fmt.SamplesPerSec, NULL, Signal->AudioChannels, config))
+					NULL, Signal->AudioChannels, config))
 				return 0;
 
 			if(!CopySamplesForTimeDomainPlotInternalSync(&Signal->Blocks[element], 
 					(Signal->Samples + pos + internalSyncOffset), 
 					pulseLengthSamples, 1, 
-					Signal->header.fmt.SamplesPerSec, NULL, Signal->AudioChannels, config))
+					NULL, Signal->AudioChannels, config))
 				return 0;
 
 			if(!CopySamplesForTimeDomainPlotInternalSync(&Signal->Blocks[element], 
 					(Signal->Samples + pos + internalSyncOffset + pulseLengthSamples), 
 					silenceLengthSamples/2, 2, 
-					Signal->header.fmt.SamplesPerSec, NULL, Signal->AudioChannels, config))
+					NULL, Signal->AudioChannels, config))
 				return 0;
 
 			/*
@@ -1055,13 +1061,13 @@ int ProcessInternalSync(AudioSignal *Signal, long int element, long int pos, int
 			if(!CopySamplesForTimeDomainPlotInternalSync(&Signal->Blocks[element], 
 					(Signal->Samples + pos + signalStart), 
 					(oneframe*2), 3, 
-					Signal->header.fmt.SamplesPerSec, NULL, Signal->AudioChannels, config))
+					NULL, Signal->AudioChannels, config))
 				return 0;
 			*/
 		}
 
 		/* Do the real processing */
-		if(!MoveSampleBlockExternal(Signal, element, pos, signalStart, pulseLengthSamples + silenceLengthSamples, config))
+		if(!MoveSampleBlockExternal(Signal, element, pos, signalStart, config))
 			return 0;
 
 		// Adjust for MDWave with syncAdvance
@@ -1074,7 +1080,7 @@ int ProcessInternalSync(AudioSignal *Signal, long int element, long int pos, int
 	return 1;
 }
 
-int CopySamplesForTimeDomainPlotInternalSync(AudioBlocks *AudioArray, double *samples, size_t size, int slotForSamples, long samplerate, double *window, int AudioChannels, parameters *config)
+int CopySamplesForTimeDomainPlotInternalSync(AudioBlocks *AudioArray, double *samples, size_t size, int slotForSamples, double *window, int AudioChannels, parameters *config)
 {
 	char			channel = 0;
 	long			stereoSignalSize = 0;	

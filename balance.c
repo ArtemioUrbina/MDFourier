@@ -117,7 +117,7 @@ int CheckBalance(AudioSignal *Signal, int block, parameters *config)
 			Channels[1].seconds = 0;
 
 			memset(buffer, 0, buffersize);
-			if(pos + loadedBlockSize > Signal->header.data.DataSize)
+			if((uint32_t)(pos + loadedBlockSize) > Signal->header.data.DataSize)
 			{
 				logmsg("\tunexpected end of File, please record the full Audio Test from the 240p Test Suite\n");
 				break;
@@ -179,10 +179,10 @@ int CheckBalance(AudioSignal *Signal, int block, parameters *config)
 		return 0;
 	}
 
-	if(Channels[0].freq[0].hertz != Channels[1].freq[matchIndex].hertz)
+	if(!areDoublesEqual(Channels[0].freq[0].hertz, Channels[1].freq[matchIndex].hertz))
 		matchIndex = 1; // Allow one bin difference
 
-	if(Channels[0].freq[0].hertz != Channels[1].freq[matchIndex].hertz)
+	if(!areDoublesEqual(Channels[0].freq[0].hertz, Channels[1].freq[matchIndex].hertz))
 	{
 		logmsg("\nERROR: Channel balance block has different frequency content. (use -B to ignore)\n");
 		logmsg("\tNot a MONO signal for balance check. [%s# %d (%d) at %g Hz / %g vs %g Hz / %g]\n",
@@ -193,9 +193,9 @@ int CheckBalance(AudioSignal *Signal, int block, parameters *config)
 		if(config->verbose)
 		{
 			logmsgFileOnly("Left Channel:\n");
-			PrintFrequenciesBlockMagnitude(NULL, Channels[0].freq, GetBlockType(config, block), config);
+			PrintFrequenciesBlockMagnitude(NULL, Channels[0].freq, config);
 			logmsgFileOnly("Right Channel:\n");
-			PrintFrequenciesBlockMagnitude(NULL, Channels[1].freq, GetBlockType(config, block), config);
+			PrintFrequenciesBlockMagnitude(NULL, Channels[1].freq, config);
 		}
 		ReleaseBlock(&Channels[0]);
 		ReleaseBlock(&Channels[1]);

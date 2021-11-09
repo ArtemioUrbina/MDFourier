@@ -65,7 +65,7 @@ char *GetTypeDisplayName(parameters *config, int type);
 void ReleaseAudioBlockStructure(parameters *config);
 void PrintAudioBlocks(parameters *config);
 void ReleasePCM(AudioSignal *Signal);
-long int GetLastSyncFrameOffset(wav_hdr header, parameters *config);
+long int GetLastSyncFrameOffset(parameters *config);
 long int GetBlockFrameOffset(int block, parameters *config);
 long int GetElementFrameOffset(int block, parameters *config);
 long int GetSampleSizeDifferenceByFrameRate(double framerate, long int frames, long int samplerate, int AudioChannels, int bytesPerSample, parameters *config);
@@ -106,7 +106,7 @@ int FillFrequencyStructuresInternal(AudioSignal *Signal, AudioBlocks *AudioArray
 void PrintFrequencies(AudioSignal *Signal, parameters *config);
 void PrintFrequenciesWMagnitudes(AudioSignal *Signal, parameters *config);
 void PrintFrequenciesBlock(AudioSignal *Signal, Frequency *freq, int type, parameters *config);
-void PrintFrequenciesBlockMagnitude(AudioSignal *Signal, Frequency *freq, int type, parameters *config);
+void PrintFrequenciesBlockMagnitude(AudioSignal *Signal, Frequency *freq, parameters *config);
 void GlobalNormalize(AudioSignal *Signal, parameters *config);
 void FindMaxMagnitude(AudioSignal *Signal, parameters *config);
 void CalculateAmplitudes(AudioSignal *Signal, double ZeroDbMagReference, parameters *config);
@@ -121,8 +121,8 @@ int IsHRefreshNoise(AudioSignal *Signal, double freq);
 int IsHRefreshNoiseCrossTalk(AudioSignal *Signal, double freq);
 int IsGridFrequencyNoise(AudioSignal *Signal, double freq);
 
-void PrintComparedBlocks(AudioBlocks *ReferenceArray, AudioBlocks *ComparedArray, parameters *config, AudioSignal *Signal);
-void PrintThesholdDifferenceBlocks(AudioBlocks *ReferenceArray, AudioBlocks *ComparedArray, parameters *config, AudioSignal *Signal, double threshold);
+void PrintComparedBlocks(AudioBlocks *ReferenceArray, AudioBlocks *ComparedArray, parameters *config);
+void PrintThesholdDifferenceBlocks(AudioBlocks *ReferenceArray, AudioBlocks *ComparedArray, parameters *config, double threshold);
 
 int CalculateTimeDurations(AudioSignal *Signal, parameters *config);
 double CalculateWeightedError(double pError, parameters *config);
@@ -165,11 +165,12 @@ double getMSPerFrameInternal(int role, parameters *config);
 int GetLineCount(int role, parameters *config);
 double GetMSPerFrame(AudioSignal *Signal, parameters *config);
 double GetMSPerFrameRole(int role, parameters *config);
+char *GetFileName(int role, parameters *config);
 double CalculateClk(AudioSignal *Signal, parameters *config);
 int CalculateCLKAmplitudes(AudioSignal *ReferenceSignal, AudioSignal *ComparisonSignal, parameters *config);
 
-double GetSignalMaxInt(AudioSignal *Signal);
-double GetSignalMinInt(AudioSignal *Signal);
+long int GetSignalMaxInt(AudioSignal *Signal);
+long int GetSignalMinInt(AudioSignal *Signal);
 
 double GetSignalMinDBFS(AudioSignal *Signal);
 #endif

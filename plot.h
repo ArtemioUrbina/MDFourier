@@ -157,7 +157,7 @@ void PlotResults(AudioSignal *ReferenceSignal, AudioSignal *ComparisonSignal, pa
 void PlotAmpDifferences(parameters *config);
 void PlotAllWeightedAmpDifferences(parameters *config);
 //void PlotFreqMissing(parameters *config);
-void PlotSpectrograms(AudioSignal *Signal, parameters *config);
+FlatFrequency *CreateSpectrogramFrequencies(AudioSignal *Signal, long int *size, parameters *config);
 void PlotDifferentAmplitudesWithBetaFunctions(parameters *config);
 void PlotNoiseFloor(AudioSignal *Signal, parameters *config);
 
@@ -196,9 +196,9 @@ FlatFrequency *CreateFlatFrequencies(AudioSignal *Signal, long int *size, parame
 
 double transformtoLog(double coord, parameters *config);
 void DrawGridZeroDBCentered(PlotFile *plot, double dbs, double dbIncrement, double hz, double hzIncrement, parameters *config);
-void DrawLabelsZeroDBCentered(PlotFile *plot, double dbs, double dbIncrement, double hz, double hzIncrement,  parameters *config);
+void DrawLabelsZeroDBCentered(PlotFile *plot, double dbs, double dbIncrement, double hz, parameters *config);
 void DrawGridZeroToLimit(PlotFile *plot, double dBFS, double dbIncrement, double hz, double hzIncrement, int drawSignificant, parameters *config);
-void DrawLabelsZeroToLimit(PlotFile *plot, double dbs, double dbIncrement, double hz, double hzIncrement, int drawSignificant, parameters *config);
+void DrawLabelsZeroToLimit(PlotFile *plot, double dbs, double dbIncrement, double hz, int drawSignificant, parameters *config);
 void DrawColorScale(PlotFile *plot, int type, int mode, double x, double y, double width, double height, double startDbs, double endDbs, double dbIncrement, parameters *config);
 void DrawColorAllTypeScale(PlotFile *plot, int mode, double x, double y, double width, double height, double endDbs, double dbIncrement, int drawBars, parameters *config);
 
@@ -242,12 +242,12 @@ void PlotPhaseDifferences(parameters *config);
 //FlatPhase *CreatePhaseFlatFromSignal(AudioSignal *Signal, long int *size, parameters *config);
 //void PlotPhaseFromSignal(AudioSignal *Signal, parameters *config);
 
-void DrawGridZeroAngleCentered(PlotFile *plot, double maxAngle, double angleIncrement, double hz, double hzIncrement, parameters *config);
-void DrawLabelsZeroAngleCentered(PlotFile *plot, double maxAngle, double angleIncrement, double hz, double hzIncrement,  parameters *config);
+void DrawGridZeroAngleCentered(PlotFile *plot, double maxAngle, double angleIncrement, double hz, parameters *config);
+void DrawLabelsZeroAngleCentered(PlotFile *plot, double maxAngle, double angleIncrement, double hz, parameters *config);
 void PlotDifferenceTimeSpectrogram(parameters *config);
 
 void PlotCLKSpectrogram(AudioSignal *Signal, parameters *config);
 FlatFrequency *CreateFlatFrequenciesCLK(AudioSignal *Signal, long int *size, parameters *config);
-void PlotCLKSpectrogramInternal(FlatFrequency *freqs, long int size, char *filename, int signal, parameters *config, AudioSignal *Signal);
+void PlotCLKSpectrogramInternal(FlatFrequency *freqs, long int size, char *filename, int signal, parameters *config);
 
 #endif

@@ -1,7 +1,7 @@
 CC = gcc
 OPT = -O3
 
-BASE_CCFLAGS = -Wfatal-errors -Wpedantic -Wall -std=gnu99 -fopenmp
+BASE_CCFLAGS = -Wfatal-errors -Wpedantic -Wall -Wextra -std=gnu99 -fopenmp
 BASE_LFLAGS = -lm -lfftw3 -lplot -lpng -lz -lFLAC
 
 #For local builds
