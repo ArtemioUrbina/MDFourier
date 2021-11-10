@@ -2956,12 +2956,18 @@ double CalculateFrameRateAndCheckSamplerate(AudioSignal *Signal, parameters *con
 	startOffset = Signal->startOffset;
 	endOffset = Signal->endOffset;
 	expectedFR = GetMSPerFrame(Signal, config);
-	LastSyncFrameOffset = GetLastSyncFrameOffset(Signal->header, config);
+	LastSyncFrameOffset = GetLastSyncFrameOffset(config);
 
 	if(startOffset == endOffset)
 	{
 		if(config->verbose)
 			logmsg("Start Offset is equal to End Offset, no signal detected.\n");
+		return 0;
+	}
+	if(startOffset > endOffset)
+	{
+		if(config->verbose)
+			logmsg("Start Offset bigger than End Offset, how did that happen.\n");
 		return 0;
 	}
 	if(!LastSyncFrameOffset)

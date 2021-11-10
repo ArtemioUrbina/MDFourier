@@ -153,9 +153,9 @@ int FLACtoSignal(char *input, AudioSignal *Signal)
 
 	FLAC__stream_decoder_delete(decoder);
 
-	if(Signal->header.data.DataSize != Signal->samplesPosFLAC*Signal->bytesPerSample)
+	if(Signal->header.data.DataSize != (uint32_t)Signal->samplesPosFLAC*Signal->bytesPerSample)
 	{
-		if(Signal->samplesPosFLAC > Signal->header.data.DataSize)  // Buffer overflow!!!
+		if((uint32_t)Signal->samplesPosFLAC > Signal->header.data.DataSize)  // Buffer overflow!!!
 		{
 			logmsg("ERROR: FLAC decoder made a buffer overflow\n Got%lu bytes and expected %lu bytes\n",
 				Signal->samplesPosFLAC, Signal->header.data.DataSize);
