@@ -625,7 +625,7 @@ void PlotAmpDifferences(parameters *config)
 			PlotAllDifferentAmplitudes(amplDiff, size, CHANNEL_STEREO, config->compareName, config);
 			if(config->channelBalance == 0 && config->referenceSignal->AudioChannels == 2 && config->comparisonSignal->AudioChannels == 2)
 			{
-				char		name[BUFFER_SIZE];
+				char		name[2*BUFFER_SIZE];
 				char		*returnFolder = NULL;
 
 				returnFolder = PushFolder(DIFFERENCE_FOLDER);

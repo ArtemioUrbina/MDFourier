@@ -15,17 +15,22 @@ static: CCFLAGS = $(EXTRA_MINGW_CFLAGS) $(OPT) $(EXTRA_CFLAGS_STATIC) $(BASE_CCF
 static: LFLAGS = $(EXTRA_MINGW_LFLAGS) $(EXTRA_LFLAGS_STATIC) $(BASE_LFLAGS)
 static: executable
 
-#extra flags for release
+#generic release
 all: CCFLAGS = $(BASE_CCFLAGS) $(OPT)
 all: LFLAGS = $(BASE_LFLAGS)
 all: executable
 
-#extra flags for mac
+#Linux/Un*x release
+linux: CCFLAGS = $(BASE_CCFLAGS) $(OPT)
+linux: LFLAGS = $(BASE_LFLAGS)
+linux: executable
+
+#flags for mac
 mac: CCFLAGS = $(BASE_CCFLAGS) $(OPT)
 mac: LFLAGS = $(BASE_LFLAGS) -Wl,-no_compact_unwind -logg
 mac: executable
 
-#extra flags for debug
+#flags for debug
 debug: CCFLAGS = $(EXTRA_MINGW_CFLAGS) -g $(BASE_CCFLAGS)
 debug: LFLAGS = $(EXTRA_MINGW_LFLAGS) $(BASE_LFLAGS)
 debug: executable
@@ -49,5 +54,5 @@ mdwave: profile.o sync.o freq.o windows.o log.o diff.o cline.o plot.o incbeta.o 
 clean:
 	rm -f *.o
 	rm -f *.exe
-	rm mdfourier
-	rm mdwave
+	rm -f mdfourier
+	rm -f mdwave
