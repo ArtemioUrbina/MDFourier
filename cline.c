@@ -517,7 +517,9 @@ int commandline(int argc , char *argv[], parameters *config)
 		logmsg("\t -Frequency start range for FFTW is now %g (default %g)\n", config->startHz, START_HZ);
 		break;
 	  case 'T':
-		config->syncTolerance = 1;
+		config->syncTolerance++;
+		if(config->syncTolerance > 3)
+			config->syncTolerance = 3;
 		break;
 	  case 't':
 		config->plotTimeSpectrogram = 0;

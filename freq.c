@@ -2271,7 +2271,7 @@ void CalculateAmplitudes(AudioSignal *Signal, double ZeroDbMagReference, paramet
 					if(!Signal->Blocks[block].freqRight[i].hertz)
 						break;
 		
-					if (Signal->Blocks[block].freq[i].magnitude)
+					if (Signal->Blocks[block].freqRight[i].magnitude)
 						Signal->Blocks[block].freqRight[i].amplitude = 
 							CalculateAmplitude(Signal->Blocks[block].freqRight[i].magnitude, ZeroDbMagReference);
 

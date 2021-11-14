@@ -33,6 +33,9 @@
 #include "cline.h"
 #include "windows.h"
 #include "profile.h"
+#ifdef OPENMP_ENABLE
+	#include <omp.h>
+#endif
 
 #define SORT_NAME AmplitudeDifferences
 #define SORT_TYPE FlatAmplDifference
@@ -265,8 +268,9 @@ void PlotResults(AudioSignal *ReferenceSignal, AudioSignal *ComparisonSignal, pa
 				returnFolder = PushFolder(MISSING_FOLDER);
 				if(!returnFolder)
 					return;
-
-#pragma omp parallel for
+#ifdef OPENMP_ENABLE
+	#pragma omp parallel for
+#endif
 				for (int i = 0; i < 2; i++)
 				{
 					if (i == 0 && ReferenceSignal->AudioChannels == 2)
@@ -288,8 +292,9 @@ void PlotResults(AudioSignal *ReferenceSignal, AudioSignal *ComparisonSignal, pa
 
 				ReturnToMainPath(&returnFolder);
 			}
-
-#pragma omp parallel for
+#ifdef OPENMP_ENABLE
+	#pragma omp parallel for
+#endif
 			for (int i = 0; i < 2; i++)
 			{
 				if (i == 0)
@@ -320,7 +325,9 @@ void PlotResults(AudioSignal *ReferenceSignal, AudioSignal *ComparisonSignal, pa
 		FlatFrequency		*freqsRef = NULL, *freqsComp = NULL;
 
 		StartPlot(" - Spectrograms", &lstart, config);
-#pragma omp parallel for
+#ifdef OPENMP_ENABLE
+	#pragma omp parallel for
+#endif
 		for(int i = 0; i < 2; i++)
 		{
 			if(i == 0)
@@ -340,7 +347,9 @@ void PlotResults(AudioSignal *ReferenceSignal, AudioSignal *ComparisonSignal, pa
 
 		ShortenFileName(basename(ReferenceSignal->SourceFile), tmpNameRef);
 		ShortenFileName(basename(ComparisonSignal->SourceFile), tmpNameComp);
-#pragma omp parallel for
+#ifdef OPENMP_ENABLE
+	#pragma omp parallel for
+#endif
 		for(int i = 0; i < 2; i++)
 		{
 			if(i == 0)
@@ -363,7 +372,9 @@ void PlotResults(AudioSignal *ReferenceSignal, AudioSignal *ComparisonSignal, pa
 
 		if(doRefAll && doCompAll)
 		{
-#pragma omp parallel for
+#ifdef OPENMP_ENABLE
+	#pragma omp parallel for
+#endif
 			for(int i = 0; i < 2; i++)
 			{
 				if(i == 0)
@@ -406,8 +417,9 @@ void PlotResults(AudioSignal *ReferenceSignal, AudioSignal *ComparisonSignal, pa
 		returnFolder = PushFolder(CLK_FOLDER);
 		if(!returnFolder)
 			return;
-
-#pragma omp parallel for
+#ifdef OPENMP_ENABLE
+	#pragma omp parallel for
+#endif
 		for (int i = 0; i < 2; i++)
 		{
 			if (i == 0)
@@ -433,8 +445,9 @@ void PlotResults(AudioSignal *ReferenceSignal, AudioSignal *ComparisonSignal, pa
 			returnFolder = PushFolder(T_SPECTR_FOLDER);
 			if(!returnFolder)
 				return;
-
-#pragma omp parallel for
+#ifdef OPENMP_ENABLE
+	#pragma omp parallel for
+#endif
 			for (int i = 0; i < 2; i++)
 			{
 				if (i == 0)
@@ -466,7 +479,9 @@ void PlotResults(AudioSignal *ReferenceSignal, AudioSignal *ComparisonSignal, pa
 			returnFolder = PushFolder(T_SPECTR_FOLDER);
 			if (!returnFolder)
 				return;
-#pragma omp parallel for
+#ifdef OPENMP_ENABLE
+	#pragma omp parallel for
+#endif
 			for (int i = 0; i < config->types.typeCount; i++)
 			{
 				int type = 0;
@@ -483,8 +498,9 @@ void PlotResults(AudioSignal *ReferenceSignal, AudioSignal *ComparisonSignal, pa
 			}
 			ReturnToMainPath(&returnFolder);
 		}
-
-#pragma omp parallel for
+#ifdef OPENMP_ENABLE
+	#pragma omp parallel for
+#endif
 		for (int i = 0; i < 2; i++)
 		{
 			if (i == 0)
@@ -548,7 +564,9 @@ void PlotResults(AudioSignal *ReferenceSignal, AudioSignal *ComparisonSignal, pa
 		}
 
 		StartPlot(" - Waveform Graphs\n  ", &lstart, config);
-#pragma omp parallel for
+#ifdef OPENMP_ENABLE
+	#pragma omp parallel for
+#endif
 		for (int i = 0; i < 2; i++)
 		{
 			if (i == 0)
@@ -568,7 +586,9 @@ void PlotResults(AudioSignal *ReferenceSignal, AudioSignal *ComparisonSignal, pa
 			struct	timespec	lstart, lend;
 
 			StartPlot(" - Time Domain Graphs from highly different notes\n  ", &lstart, config);
-#pragma omp parallel for
+#ifdef OPENMP_ENABLE
+	#pragma omp parallel for
+#endif
 			for (int i = 0; i < 2; i++)
 			{
 				if (i == 0)
@@ -1545,8 +1565,15 @@ void DrawLabelsMDF(PlotFile *plot, char *Gname, char *GType, int type, parameter
 
 	if(config->syncTolerance)
 	{
+		int		i = 0;
+		char	buffer[10], msg[256];
+
 		PLOT_WARN(1, warning++);
-		pl_alabel_r(plot->plotter, 'l', 'l', "NOTE: Sync tolerance enabled (-T)");
+		for(i = 0; i < config->syncTolerance; i++)
+			buffer[i] = 'T';
+		buffer[i] = '\0';
+		sprintf(msg, "NOTE: Sync tolerance enabled (-%s)", buffer);
+		pl_alabel_r(plot->plotter, 'l', 'l', msg);
 	}
 
 	if(config->maxDbPlotZC != DB_HEIGHT && type == PLOT_COMPARE)
@@ -4404,7 +4431,7 @@ void PlotTimeSpectrogram(AudioSignal *Signal, char channel, parameters *config)
 	PlotFile	plot;
 	double		significant = 0, x = 0, framewidth = 0, framecount = 0, timecode = 0, abs_significant = 0;
 	double		frameOffset = 0;
-	long int	block = 0, i = 0;
+	long int	block = 0;
 	int			lastType = TYPE_NOTYPE;
 	char		filename[BUFFER_SIZE], name[BUFFER_SIZE/2], *title = NULL;
 
@@ -4470,48 +4497,62 @@ void PlotTimeSpectrogram(AudioSignal *Signal, char channel, parameters *config)
 			color = MatchColor(GetBlockColor(config, block));
 
 			// lowest amplitude first, so highest amplitude isn't drawn over
-			for(i = config->MaxFreq-1; i >= 0; i--)
+			for(int i = config->MaxFreq-1; i >= 0; i--)
 			{
+				int doleft = 0, doright = 0;
+
 				if(channel == CHANNEL_LEFT || channel == CHANNEL_STEREO
 					|| Signal->Blocks[block].channel == CHANNEL_MONO
 					|| Signal->Blocks[block].channel == CHANNEL_NOISE)
 				{
 					if(Signal->Blocks[block].freq[i].hertz && Signal->Blocks[block].freq[i].amplitude > significant)
-					{
-						long int intensity;
-						double y, amplitude;
-	
-						// x is fixed by block division
-						y = Signal->Blocks[block].freq[i].hertz;
-						if(config->logScaleTS)
-							y = transformtoLog(y, config);
-						amplitude = Signal->Blocks[block].freq[i].amplitude;
-						
-						intensity = CalculateWeightedError(fabs(abs_significant - fabs(amplitude))/abs_significant, config)*0xffff;
-						SetPenColor(color, intensity, &plot);
-						pl_fline_r(plot.plotter, x,	y, xpos, y);
-						pl_endpath_r(plot.plotter);
-					}
+						doleft = 1;
 				}
 
 				if(channel == CHANNEL_RIGHT || channel == CHANNEL_STEREO)
 				{
 					if(Signal->Blocks[block].freqRight && Signal->Blocks[block].freqRight[i].hertz && Signal->Blocks[block].freqRight[i].amplitude > significant)
-					{
-						long int intensity;
-						double y, amplitude;
+						doright = 1;
+				}
+
+				// if both are to be drawn on top of each other, don't draw right on top if it is lower than left
+				//Unfortunately, this only works for same cycle matches...
+				if(doleft && doright && areDoublesEqual(Signal->Blocks[block].freq[i].hertz, Signal->Blocks[block].freqRight[i].hertz) &&
+					Signal->Blocks[block].freq[i].amplitude > Signal->Blocks[block].freqRight[i].amplitude)
+					doright = 0;
+
+				if(doleft)
+				{
+					long int intensity;
+					double y, amplitude;
 	
-						// x is fixed by block division
-						y = Signal->Blocks[block].freqRight[i].hertz;
-						if(config->logScaleTS)
-							y = transformtoLog(y, config);
-						amplitude = Signal->Blocks[block].freqRight[i].amplitude;
+					// x is fixed by block division
+					y = Signal->Blocks[block].freq[i].hertz;
+					if(config->logScaleTS)
+						y = transformtoLog(y, config);
+					amplitude = Signal->Blocks[block].freq[i].amplitude;
 						
-						intensity = CalculateWeightedError(fabs(abs_significant - fabs(amplitude))/abs_significant, config)*0xffff;
-						SetPenColor(color, intensity, &plot);
-						pl_fline_r(plot.plotter, x,	y, xpos, y);
-						pl_endpath_r(plot.plotter);
-					}
+					intensity = CalculateWeightedError(fabs(abs_significant - fabs(amplitude))/abs_significant, config)*0xffff;
+					SetPenColor(color, intensity, &plot);
+					pl_fline_r(plot.plotter, x,	y, xpos, y);
+					pl_endpath_r(plot.plotter);
+				}
+
+				if(doright)
+				{
+					long int intensity;
+					double y, amplitude;
+	
+					// x is fixed by block division
+					y = Signal->Blocks[block].freqRight[i].hertz;
+					if(config->logScaleTS)
+						y = transformtoLog(y, config);
+					amplitude = Signal->Blocks[block].freqRight[i].amplitude;
+						
+					intensity = CalculateWeightedError(fabs(abs_significant - fabs(amplitude))/abs_significant, config)*0xffff;
+					SetPenColor(color, intensity, &plot);
+					pl_fline_r(plot.plotter, x,	y, xpos, y);
+					pl_endpath_r(plot.plotter);
 				}
 			}
 

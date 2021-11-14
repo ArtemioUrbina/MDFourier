@@ -445,7 +445,11 @@ int DetectSync(AudioSignal *Signal, parameters *config)
 			else
 				format = config->videoFormatCom;
 			if(!config->syncTolerance)
-				logmsg(" - You can try using -T for a frequency tolerant pulse detection algorithm\n");
+				logmsg(" - You can try using -T for a more tolerant pulse detection algorithm\n");
+			if(config->syncTolerance == 1)
+				logmsg(" - You can try using -TT for an even more tolerant pulse detection algorithm\n");
+			if(config->syncTolerance == 2)
+				logmsg(" - You can try using -TTT for the most tolerant pulse detection algorithm\n");
 			if((format != 0 || config->smallFile) && config->types.syncCount != 1)
 				logmsg(" - This signal is configured as '%s'%s, check if that is not the issue.\n", 
 							config->types.SyncFormat[format].syncName, config->smallFile ? " and is smaller than expected" : "");

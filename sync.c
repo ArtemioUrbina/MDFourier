@@ -251,7 +251,7 @@ double findAverageAmplitudeForTarget(Pulses *pulseArray, double targetFrequency,
 		if(averageAmplitude <= 40) { //this is the regular case for the above
 			if(averageAmplitude >= 10) {
 				if(standardDeviation < averageAmplitude) {
-					if(percent > 5)
+					if(percent > 5 && !(config->syncTolerance >= 2))
 						LOGCASE(useAmplitude = -1*averageAmplitude, 0)
 					else
 						LOGCASE(useAmplitude = -1*(averageAmplitude + standardDeviation/2), 1)
@@ -346,8 +346,8 @@ long int DetectPulseTrainSequence(Pulses *pulseArray, double targetFrequency, do
 
 		if(pulseArray[i].hertz)
 		{
-			//if(config->syncTolerance)
-				//targetFrequency = pulseArray[i].hertz;
+			if(config->syncTolerance >= 3)
+				targetFrequency = pulseArray[i].hertz;
 			if(pulseArray[i].amplitude >= averageAmplitude
 				&& (pulseArray[i].hertz == targetFrequency || pulseArray[i].hertz == targetFrequencyHarmonic[0] || pulseArray[i].hertz == targetFrequencyHarmonic[1]))
 			{
@@ -410,7 +410,8 @@ long int DetectPulseTrainSequence(Pulses *pulseArray, double targetFrequency, do
 					i, SamplesForDisplay(pulseArray[i].samples, AudioChannels),
 					pulseArray[i].hertz, pulseArray[i].amplitude, 
 					frame_pulse_count, frame_silence_count);
-			frame_pulse_count = 0;
+			if(config->syncTolerance >= 2)
+				frame_pulse_count = 0;
 			checkSilence = 0;
 		}
 
@@ -548,11 +549,12 @@ long int AdjustPulseSampleStartByLength(double* Samples, wav_hdr header, long in
 	}
 	
 	frequency = GetPulseSyncFreq(role, config);
-	samplesNeeded = (double)header.fmt.SamplesPerSec/frequency*AudioChannels;
-	synLenInSamples = RoundToNbytes(((double)header.fmt.SamplesPerSec*syncLen*AudioChannels) / 1000.0, AudioChannels, bytesPerSample, NULL, NULL, NULL);
-
 	targetFrequency = FindFrequencyBracketForSync(frequency,
 		samplesNeeded, AudioChannels, header.fmt.SamplesPerSec, config);
+
+	samplesNeeded = (double)header.fmt.SamplesPerSec/targetFrequency*AudioChannels;
+	synLenInSamples = RoundToNbytes(((double)header.fmt.SamplesPerSec*syncLen*AudioChannels) / 1000.0, AudioChannels, bytesPerSample, NULL, NULL, NULL);
+
 	buffer = (double*)malloc(samplesNeeded * sizeof(double));
 	if (!buffer)
 	{
