@@ -472,7 +472,8 @@ long int DetectPulseTrainSequence(Pulses *pulseArray, double targetFrequency, do
 					logmsgFileOnly("\n");
 			}
 
-			if(frame_pulse_count >= lookingfor && pulseArray[i].hertz != targetFrequency)
+			if(frame_pulse_count >= lookingfor && (pulseArray[i].hertz != targetFrequency
+				|| (config->syncTolerance && pulseArray[i].amplitude < averageAmplitude && frame_silence_count > lookingfor*1.5)))
 			{
 				pulse_count++;
 
@@ -549,10 +550,10 @@ long int AdjustPulseSampleStartByLength(double* Samples, wav_hdr header, long in
 	}
 	
 	frequency = GetPulseSyncFreq(role, config);
+	samplesNeeded = (double)header.fmt.SamplesPerSec/frequency*AudioChannels;
 	targetFrequency = FindFrequencyBracketForSync(frequency,
 		samplesNeeded, AudioChannels, header.fmt.SamplesPerSec, config);
 
-	samplesNeeded = (double)header.fmt.SamplesPerSec/targetFrequency*AudioChannels;
 	synLenInSamples = RoundToNbytes(((double)header.fmt.SamplesPerSec*syncLen*AudioChannels) / 1000.0, AudioChannels, bytesPerSample, NULL, NULL, NULL);
 
 	buffer = (double*)malloc(samplesNeeded * sizeof(double));
@@ -569,8 +570,9 @@ long int AdjustPulseSampleStartByLength(double* Samples, wav_hdr header, long in
 	endSearch = offset + RoundToNbytes((double)synLenInSamples*1.5, AudioChannels, bytesPerSample, NULL, NULL, NULL);
 
 	if (config->debugSync)
-		logmsgFileOnly("\nSearching at %ld End At: %ld, looking for %ghz samples needed: %d\n",
-			SamplesForDisplay(startSearch, AudioChannels), SamplesForDisplay(endSearch, AudioChannels), targetFrequency,
+		logmsgFileOnly("\nSearching at %ld End At: %ld, looking for %g->%ghz samples needed: %d\n",
+			SamplesForDisplay(startSearch, AudioChannels), SamplesForDisplay(endSearch, AudioChannels), 
+			frequency, targetFrequency,
 			SamplesForDisplay(samplesNeeded, AudioChannels));
 
 	pulseArray = (Pulses*)malloc(sizeof(Pulses) * (endSearch - startSearch));

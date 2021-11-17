@@ -317,7 +317,7 @@ void PlotResults(AudioSignal *ReferenceSignal, AudioSignal *ComparisonSignal, pa
 
 	if(config->plotSpectrogram)
 	{
-		int					typeCount = 0, doRefAll = 0, doCompAll = 0;
+		int					typeCount = 0, someStereo = 0, doRefAll = 0, doCompAll = 0;
 		struct	timespec	lstart, lend;
 		char				*returnFolder = NULL;
 		char				tmpNameRef[BUFFER_SIZE/2], tmpNameComp[BUFFER_SIZE/2];
@@ -331,14 +331,15 @@ void PlotResults(AudioSignal *ReferenceSignal, AudioSignal *ComparisonSignal, pa
 		for(int i = 0; i < 2; i++)
 		{
 			if(i == 0)
-				freqsRef = CreateSpectrogramFrequencies(ReferenceSignal, &sizeRef, config);
+				freqsRef = CreateSpectrogramFrequencies(ReferenceSignal, &sizeRef, 0, config);
 			else
-				freqsComp = CreateSpectrogramFrequencies(ComparisonSignal, &sizeComp, config);
+				freqsComp = CreateSpectrogramFrequencies(ComparisonSignal, &sizeComp, 0, config);
 		}
 
 		//Create subfolder if needed
 		typeCount = GetActiveBlockTypesNoRepeat(config);
-		if (typeCount > 1)
+		someStereo = config->referenceSignal->AudioChannels == 2 || config->comparisonSignal->AudioChannels == 2;
+		if (typeCount > 1 || someStereo)
 		{
 			returnFolder = PushFolder(SPECTROGRAM_FOLDER);
 			if (!returnFolder)
@@ -364,7 +365,7 @@ void PlotResults(AudioSignal *ReferenceSignal, AudioSignal *ComparisonSignal, pa
 			}
 		}
 
-		if(typeCount > 1)
+		if (typeCount > 1 || someStereo)
 		{
 			ReturnToMainPath(&returnFolder);
 			returnFolder = NULL;
@@ -390,21 +391,47 @@ void PlotResults(AudioSignal *ReferenceSignal, AudioSignal *ComparisonSignal, pa
 			}
 		}
 
-		if(config->plotNoiseFloor)
+		if(freqsRef)
 		{
-			PlotNoiseFloorSpectrogram(freqsRef, sizeRef, tmpNameRef, ReferenceSignal->role, config, ReferenceSignal);
-			logmsg(PLOT_ADVANCE_CHAR);
-			PlotNoiseFloorSpectrogram(freqsComp, sizeComp, tmpNameComp, ComparisonSignal->role, config, ComparisonSignal);
-			logmsg(PLOT_ADVANCE_CHAR);
+			free(freqsRef);
+			freqsRef = NULL;
 		}
 
-		if(freqsRef)
-			free(freqsRef);
-
 		if(freqsComp)
+		{
 			free(freqsComp);
-		
+			freqsComp = NULL;
+		}
 		EndPlot("Spectrogram", &lstart, &lend, config);
+
+		if(config->plotNoiseFloor)
+		{
+			StartPlot(" - Noise Floor Spectrograms", &lstart, config);
+#ifdef OPENMP_ENABLE
+			#pragma omp parallel for
+#endif
+			for(int i = 0; i < 2; i++)
+			{
+				if(i == 0)
+					freqsRef = CreateSpectrogramFrequencies(ReferenceSignal, &sizeRef, 1, config);
+				else
+					freqsComp = CreateSpectrogramFrequencies(ComparisonSignal, &sizeComp, 1, config);
+			}
+			if(freqsRef)
+			{
+				PlotNoiseFloorSpectrogram(freqsRef, sizeRef, tmpNameRef, ReferenceSignal->role, config, ReferenceSignal);
+				logmsg(PLOT_ADVANCE_CHAR);
+				free(freqsRef);
+			}
+			if(freqsComp)
+			{
+				PlotNoiseFloorSpectrogram(freqsComp, sizeComp, tmpNameComp, ComparisonSignal->role, config, ComparisonSignal);
+				logmsg(PLOT_ADVANCE_CHAR);
+				free(freqsComp);
+			}
+
+			EndPlot("Noise Floor Spectrogram", &lstart, &lend, config);
+		}
 	}
 
 	if(config->clkMeasure)
@@ -714,7 +741,7 @@ void PlotFreqMissing(parameters *config)
 }
 */
 
-FlatFrequency *CreateSpectrogramFrequencies(AudioSignal *Signal, long int *size, parameters *config)
+FlatFrequency *CreateSpectrogramFrequencies(AudioSignal *Signal, long int *size, int NoiseFloor, parameters *config)
 {
 	FlatFrequency		*frequencies = NULL;
 
@@ -728,13 +755,13 @@ FlatFrequency *CreateSpectrogramFrequencies(AudioSignal *Signal, long int *size,
 		double	elapsedSeconds;
 
 		clock_gettime(CLOCK_MONOTONIC, &start);
-		frequencies = CreateFlatFrequencies(Signal, size, config);
+		frequencies = CreateFlatFrequencies(Signal, size, NoiseFloor, config);
 		clock_gettime(CLOCK_MONOTONIC, &end);
 		elapsedSeconds = TimeSpecToSeconds(&end) - TimeSpecToSeconds(&start);
 		logmsg(" - clk: %s took %0.2fs\n", "CreateFlatFrequencies", elapsedSeconds);
 	}
 	else
-		frequencies = CreateFlatFrequencies(Signal, size, config);
+		frequencies = CreateFlatFrequencies(Signal, size, NoiseFloor, config);
 
 	return(frequencies);
 }
@@ -2469,6 +2496,7 @@ double DrawMatchBar(PlotFile *plot, int colorName, double x, double y, double wi
 void DrawNoiseLines(PlotFile *plot, double start, double end, AudioSignal *Signal, parameters *config)
 {
 	int harmonic = 0;
+	double ScanRate = 0;
 
 	pl_pencolor_r (plot->plotter, 0xAAAA, 0xAAAA, 0);
 	pl_linemod_r(plot->plotter, "dotdashed");
@@ -2480,14 +2508,24 @@ void DrawNoiseLines(PlotFile *plot, double start, double end, AudioSignal *Signa
 			pl_fline_r(plot->plotter, transformtoLog(Signal->gridFrequency*harmonic, config), start, transformtoLog(Signal->gridFrequency*harmonic, config), end);
 		}
 	}
-	if(Signal->scanrateFrequency)
+	
+	ScanRate = Signal->scanrateFrequency;
+	if(!ScanRate)
+		ScanRate = Signal->crossFrequency;
+	if(ScanRate)
 	{
 		// Scanrate
 		pl_pencolor_r (plot->plotter, 0xAAAA, 0xAAAA, 0);
-		pl_fline_r(plot->plotter, transformtoLog(Signal->scanrateFrequency, config), start, transformtoLog(Signal->scanrateFrequency, config), end);
+		pl_fline_r(plot->plotter, transformtoLog(ScanRate, config), start, transformtoLog(ScanRate, config), end);
 		// Crosstalk
 		pl_pencolor_r (plot->plotter, 0xAAAA, 0x8888, 0);
-		pl_fline_r(plot->plotter, transformtoLog(Signal->scanrateFrequency/2, config), start, transformtoLog(Signal->scanrateFrequency/2, config), end);
+		pl_fline_r(plot->plotter, transformtoLog(ScanRate/2, config), start, transformtoLog(ScanRate/2, config), end);
+		if(ScanRate > 30000)
+		{
+			// Half Crosstalk
+			pl_pencolor_r (plot->plotter, 0xAAAA, 0x6666, 0);
+			pl_fline_r(plot->plotter, transformtoLog(ScanRate/4, config), start, transformtoLog(ScanRate/4, config), end);
+		}
 	}
 	pl_linemod_r(plot->plotter, "solid");
 }
@@ -2495,6 +2533,7 @@ void DrawNoiseLines(PlotFile *plot, double start, double end, AudioSignal *Signa
 void DrawLabelsNoise(PlotFile *plot, double hz, AudioSignal *Signal, parameters *config)
 {
 	char label[20];
+	double ScanRate = 0;
 
 	pl_savestate_r(plot->plotter);
 	pl_fspace_r(plot->plotter, 0-X0BORDER*config->plotResX*plot->leftmargin, -1*config->plotResY/2-Y0BORDER*config->plotResY, config->plotResX+X1BORDER*config->plotResX, config->plotResY/2+Y1BORDER*config->plotResY);
@@ -2513,15 +2552,25 @@ void DrawLabelsNoise(PlotFile *plot, double hz, AudioSignal *Signal, parameters 
 		pl_alabel_r(plot->plotter, 'c', 'b', label);
 	}
 
-	if(Signal->scanrateFrequency)
+	ScanRate = Signal->scanrateFrequency;
+	if(!ScanRate)
+		ScanRate = Signal->crossFrequency;
+	if(ScanRate)
 	{
-		pl_fmove_r(plot->plotter, config->plotResX/hz*transformtoLog(Signal->scanrateFrequency, config), config->plotResY/2+FONT_SIZE_1);
-		sprintf(label, "  %0.2fkHz", Signal->scanrateFrequency/1000);
+		pl_fmove_r(plot->plotter, config->plotResX/hz*transformtoLog(ScanRate, config), config->plotResY/2+FONT_SIZE_1);
+		sprintf(label, "  %0.2fkHz", ScanRate/1000);
 		pl_alabel_r(plot->plotter, 'c', 'b', label);
 
-		pl_fmove_r(plot->plotter, config->plotResX/hz*transformtoLog(Signal->scanrateFrequency/2, config), config->plotResY/2+FONT_SIZE_1);
-		sprintf(label, "  %0.2fkHz", Signal->scanrateFrequency/2000);
+		pl_fmove_r(plot->plotter, config->plotResX/hz*transformtoLog(ScanRate/2, config), config->plotResY/2+FONT_SIZE_1);
+		sprintf(label, "  %0.2fkHz", ScanRate/2000);
 		pl_alabel_r(plot->plotter, 'c', 'b', label);
+
+		if(ScanRate > 30000)
+		{
+			pl_fmove_r(plot->plotter, config->plotResX/hz*transformtoLog(ScanRate/4, config), config->plotResY/2+FONT_SIZE_1);
+			sprintf(label, "  %0.2fkHz", ScanRate/4000);
+			pl_alabel_r(plot->plotter, 'c', 'b', label);
+		}
 	}
 
 	pl_restorestate_r(plot->plotter);
@@ -2607,10 +2656,10 @@ void PlotAllDifferentAmplitudes(FlatAmplDifference *amplDiff, long int size, cha
 
 int PlotEachTypeDifferentAmplitudes(FlatAmplDifference *amplDiff, long int size, char *filename, parameters *config)
 {
-	int 		i = 0, type = 0, types = 0, typeCount = 0, areBothStereo = 0;
+	int 		i = 0, type = 0, types = 0, typeCount = 0, someStereo = 0;
 	char		name[BUFFER_SIZE];
 
-	areBothStereo = config->referenceSignal->AudioChannels == 2 && config->comparisonSignal->AudioChannels == 2;
+	someStereo = config->referenceSignal->AudioChannels == 2 || config->comparisonSignal->AudioChannels == 2;
 	typeCount = GetActiveBlockTypesNoRepeat(config);
 	for(i = 0; i < config->types.typeCount; i++)
 	{
@@ -2620,7 +2669,7 @@ int PlotEachTypeDifferentAmplitudes(FlatAmplDifference *amplDiff, long int size,
 		{
 			char	*returnFolder = NULL;
 		
-			if(typeCount > 1)
+			if(typeCount > 1 || someStereo)
 			{
 				returnFolder = PushFolder(DIFFERENCE_FOLDER);
 				if(!returnFolder)
@@ -2632,7 +2681,7 @@ int PlotEachTypeDifferentAmplitudes(FlatAmplDifference *amplDiff, long int size,
 			PlotSingleTypeDifferentAmplitudes(amplDiff, size, type, name, CHANNEL_STEREO, config);
 			logmsg(PLOT_ADVANCE_CHAR);
 
-			if(config->types.typeArray[i].channel == CHANNEL_STEREO && areBothStereo)
+			if(config->types.typeArray[i].channel == CHANNEL_STEREO && someStereo)
 			{
 				sprintf(name, "DA_%s_%02d%s_%c", filename,
 					type, config->types.typeArray[i].typeName, CHANNEL_LEFT);
@@ -2644,7 +2693,7 @@ int PlotEachTypeDifferentAmplitudes(FlatAmplDifference *amplDiff, long int size,
 				PlotSingleTypeDifferentAmplitudes(amplDiff, size, type, name, CHANNEL_RIGHT, config);
 				logmsg(PLOT_ADVANCE_CHAR);
 			}
-			if(typeCount > 1)
+			if(typeCount > 1 || someStereo)
 				ReturnToMainPath(&returnFolder);
 
 			types ++;
@@ -2881,7 +2930,7 @@ int PlotNoiseFloorSpectrogram(FlatFrequency * freqs, long int size, char* filena
 		{
 			sprintf(name, "NF_SP_%c_%s_%02d%s", signal == ROLE_REF ? 'A' : 'B', filename, 
 					config->types.typeArray[i].type, config->types.typeArray[i].typeName);
-			PlotNoiseSpectrogram(freqs, size, type, CHANNEL_STEREO, name, signal, config, Signal);
+			PlotNoiseSpectrogram(freqs, size, CHANNEL_STEREO, name, signal, config, Signal);
 			logmsg(PLOT_ADVANCE_CHAR);
 
 			if (config->types.typeArray[i].channel == CHANNEL_STEREO && Signal->AudioChannels == 2)
@@ -2889,13 +2938,13 @@ int PlotNoiseFloorSpectrogram(FlatFrequency * freqs, long int size, char* filena
 				sprintf(name, "NF_SP_%c_%s_%02d%s_%c", signal == ROLE_REF ? 'A' : 'B', filename,
 					config->types.typeArray[i].type, config->types.typeArray[i].typeName,
 					CHANNEL_LEFT);
-				PlotNoiseSpectrogram(freqs, size, type, CHANNEL_LEFT, name, signal, config, Signal);
+				PlotNoiseSpectrogram(freqs, size, CHANNEL_LEFT, name, signal, config, Signal);
 				logmsg(PLOT_ADVANCE_CHAR);
 
 				sprintf(name, "NF_SP_%c_%s_%02d%s_%c", signal == ROLE_REF ? 'A' : 'B', filename,
 					config->types.typeArray[i].type, config->types.typeArray[i].typeName,
 					CHANNEL_RIGHT);
-				PlotNoiseSpectrogram(freqs, size, type, CHANNEL_RIGHT, name, signal, config, Signal);
+				PlotNoiseSpectrogram(freqs, size, CHANNEL_RIGHT, name, signal, config, Signal);
 				logmsg(PLOT_ADVANCE_CHAR);
 			}
 			return 1;
@@ -2962,7 +3011,7 @@ void PlotSingleTypeSpectrogram(FlatFrequency *freqs, long int size, int type, ch
 	ClosePlot(&plot);
 }
 
-void PlotNoiseSpectrogram(FlatFrequency *freqs, long int size, int type, char channel, char *filename, int signal, parameters *config, AudioSignal *Signal)
+void PlotNoiseSpectrogram(FlatFrequency *freqs, long int size, char channel, char *filename, int signal, parameters *config, AudioSignal *Signal)
 {
 	PlotFile	plot;
 	char*		title = NULL;
@@ -2974,7 +3023,7 @@ void PlotNoiseSpectrogram(FlatFrequency *freqs, long int size, int type, char ch
 	// Find limits
 	for(int f = 0; f < size; f++)
 	{
-		if(freqs[f].type == type)
+		if(freqs[f].type == TYPE_SILENCE)
 		{
 			if (freqs[f].amplitude > startAmplitude)
 				startAmplitude = freqs[f].amplitude;
@@ -3017,7 +3066,7 @@ void PlotNoiseSpectrogram(FlatFrequency *freqs, long int size, int type, char ch
 	for(int f = 0; f < size; f++)
 	{
 		if((channel == CHANNEL_STEREO || freqs[f].channel == channel) && 
-			freqs[f].type == type && freqs[f].amplitude >= endAmplitude &&
+			freqs[f].type == TYPE_SILENCE && freqs[f].amplitude >= endAmplitude &&
 			freqs[f].hertz)
 		{ 
 			long int intensity;
@@ -3048,8 +3097,8 @@ void PlotNoiseSpectrogram(FlatFrequency *freqs, long int size, int type, char ch
 		else
 			title = channel == CHANNEL_LEFT ? SPECTROGRAM_NOISE_COM_LEFT : SPECTROGRAM_NOISE_COM_RIGHT;
 	}
-	DrawColorScale(&plot, type, MODE_SPEC, LEFT_MARGIN, HEIGHT_MARGIN, config->plotResX/COLOR_BARS_WIDTH_SCALE, config->plotResY/1.15, (int)startAmplitude, (int)(endAmplitude-startAmplitude), VERT_SCALE_STEP,config);
-	DrawLabelsMDF(&plot, title, GetTypeDisplayName(config, type), signal == ROLE_REF ? PLOT_SINGLE_REF : PLOT_SINGLE_COM, config);
+	DrawColorScale(&plot, TYPE_SILENCE, MODE_SPEC, LEFT_MARGIN, HEIGHT_MARGIN, config->plotResX/COLOR_BARS_WIDTH_SCALE, config->plotResY/1.15, (int)startAmplitude, (int)(endAmplitude-startAmplitude), VERT_SCALE_STEP,config);
+	DrawLabelsMDF(&plot, title, "Noise", signal==ROLE_REF ? PLOT_SINGLE_REF : PLOT_SINGLE_COM, config);
 	ClosePlot(&plot);
 }
 
@@ -3369,7 +3418,7 @@ int InsertElementInPlace(FlatFrequency *Freqs, FlatFrequency Element, long int c
 	return 1;
 }
 
-FlatFrequency *CreateFlatFrequencies(AudioSignal *Signal, long int *size, parameters *config)
+FlatFrequency *CreateFlatFrequencies(AudioSignal *Signal, long int *size, int NoiseFloor, parameters *config)
 {
 	long int		block = 0, i = 0;
 	long int		count = 0, counter = 0;
@@ -3388,19 +3437,24 @@ FlatFrequency *CreateFlatFrequencies(AudioSignal *Signal, long int *size, parame
 		int 	type = TYPE_NOTYPE;
 
 		type = GetBlockType(config, block);
-
-		if(type >= TYPE_SILENCE)
+		if((!NoiseFloor && type > TYPE_SILENCE) ||
+			(NoiseFloor && type == TYPE_SILENCE))
 		{
-			for(i = 0; i < config->MaxFreq; i++)
+			long int size = config->MaxFreq;
+
+			if(NoiseFloor && type == TYPE_SILENCE)
+				size = Signal->Blocks[block].SilenceSizeLeft;
+			
+			for(i = 0; i < size; i++)
 			{
 				int insert = 0;
 
 				if(Signal->Blocks[block].freq[i].hertz == 0)
 					break;
 
-				if(type > TYPE_SILENCE && Signal->Blocks[block].freq[i].hertz && Signal->Blocks[block].freq[i].amplitude > significant)
+				if(!NoiseFloor && type > TYPE_SILENCE && Signal->Blocks[block].freq[i].hertz && Signal->Blocks[block].freq[i].amplitude > significant)
 					insert = 1;
-				if(type == TYPE_SILENCE && Signal->Blocks[block].freq[i].hertz)
+				if(NoiseFloor && type == TYPE_SILENCE && Signal->Blocks[block].freq[i].hertz)
 					insert = 1;
 
 				if(insert)
@@ -3411,16 +3465,21 @@ FlatFrequency *CreateFlatFrequencies(AudioSignal *Signal, long int *size, parame
 
 			if(Signal->Blocks[block].freqRight)
 			{
-				for(i = 0; i < config->MaxFreq; i++)
+				long int size = config->MaxFreq;
+
+				if(NoiseFloor && type == TYPE_SILENCE)
+					size = Signal->Blocks[block].SilenceSizeRight;
+				
+				for(i = 0; i < size; i++)
 				{
 					int insert = 0;
 	
 					if(Signal->Blocks[block].freqRight[i].hertz == 0)
 						break;
 	
-					if(type > TYPE_SILENCE && Signal->Blocks[block].freqRight[i].hertz && Signal->Blocks[block].freqRight[i].amplitude > significant)
+					if(!NoiseFloor && type > TYPE_SILENCE && Signal->Blocks[block].freqRight[i].hertz && Signal->Blocks[block].freqRight[i].amplitude > significant)
 						insert = 1;
-					if(type == TYPE_SILENCE && Signal->Blocks[block].freqRight[i].hertz)
+					if(NoiseFloor && type == TYPE_SILENCE && Signal->Blocks[block].freqRight[i].hertz)
 						insert = 1;
 	
 					if(insert)
@@ -3442,17 +3501,21 @@ FlatFrequency *CreateFlatFrequencies(AudioSignal *Signal, long int *size, parame
 		int type = 0, color = 0;
 
 		type = GetBlockType(config, block);
-		if(type >= TYPE_SILENCE)
+		if((!NoiseFloor && type > TYPE_SILENCE) ||
+			(NoiseFloor && type == TYPE_SILENCE))
 		{
+			long int size = config->MaxFreq;
+
+			if(NoiseFloor && type == TYPE_SILENCE)
+				size = Signal->Blocks[block].SilenceSizeLeft;
 			color = MatchColor(GetBlockColor(config, block));
-	
-			for(i = 0; i < config->MaxFreq; i++)
+			for(i = 0; i < size; i++)
 			{
 				int insert = 0;
 
-				if(type > TYPE_SILENCE && Signal->Blocks[block].freq[i].hertz && Signal->Blocks[block].freq[i].amplitude > significant)
+				if(!NoiseFloor && type > TYPE_SILENCE && Signal->Blocks[block].freq[i].hertz && Signal->Blocks[block].freq[i].amplitude > significant)
 					insert = 1;
-				if(type == TYPE_SILENCE && Signal->Blocks[block].freq[i].hertz)
+				if(NoiseFloor && type == TYPE_SILENCE && Signal->Blocks[block].freq[i].hertz)
 					insert = 1;
 
 				if(insert)
@@ -3474,13 +3537,18 @@ FlatFrequency *CreateFlatFrequencies(AudioSignal *Signal, long int *size, parame
 
 			if(Signal->Blocks[block].freqRight)
 			{
-				for(i = 0; i < config->MaxFreq; i++)
+				long int size = config->MaxFreq;
+
+				if(NoiseFloor && type == TYPE_SILENCE)
+					size = Signal->Blocks[block].SilenceSizeRight;
+
+				for(i = 0; i < size; i++)
 				{
 					int insert = 0;
 	
-					if(type > TYPE_SILENCE && Signal->Blocks[block].freqRight[i].hertz && Signal->Blocks[block].freqRight[i].amplitude > significant)
+					if(!NoiseFloor && type > TYPE_SILENCE && Signal->Blocks[block].freqRight[i].hertz && Signal->Blocks[block].freqRight[i].amplitude > significant)
 						insert = 1;
-					if(type == TYPE_SILENCE && Signal->Blocks[block].freqRight[i].hertz)
+					if(NoiseFloor && type == TYPE_SILENCE && Signal->Blocks[block].freqRight[i].hertz)
 						insert = 1;
 	
 					if(insert)
@@ -3807,13 +3875,13 @@ AveragedFrequencies *CreateFlatDifferencesAveraged(int matchType, char channel, 
 
 int PlotDifferentAmplitudesAveraged(FlatAmplDifference *amplDiff, long int size, char *filename, parameters *config)
 {
-	int 				i = 0, type = 0, typeCount = 0, types = 0, bothStereo = 0;
+	int 				i = 0, type = 0, typeCount = 0, types = 0, someStereo = 0;
 	char				name[BUFFER_SIZE];
 	long int			*averagedSizes = NULL;
 	AveragedFrequencies	**averagedArray = NULL;
 
 	typeCount = GetActiveBlockTypesNoRepeat(config);
-	bothStereo = config->referenceSignal->AudioChannels == 2 && config->comparisonSignal->AudioChannels == 2;
+	someStereo = config->referenceSignal->AudioChannels == 2 || config->comparisonSignal->AudioChannels == 2;
 
 	averagedArray = (AveragedFrequencies**)malloc(sizeof(AveragedFrequencies*)*typeCount);
 	if(!averagedArray)
@@ -3844,7 +3912,7 @@ int PlotDifferentAmplitudesAveraged(FlatAmplDifference *amplDiff, long int size,
 			{
 				char	*returnFolder = NULL;
 
-				if(typeCount > 1)
+				if(typeCount > 1 || someStereo)
 				{
 					returnFolder = PushFolder(DIFFERENCE_FOLDER);
 					if(!returnFolder)
@@ -3854,7 +3922,7 @@ int PlotDifferentAmplitudesAveraged(FlatAmplDifference *amplDiff, long int size,
 				PlotSingleTypeDifferentAmplitudesAveraged(amplDiff, size, type, name, averagedArray[types], averagedSizes[types], config->types.typeArray[i].channel == CHANNEL_STEREO ? CHANNEL_STEREO : CHANNEL_MONO, config);
 				logmsg(PLOT_ADVANCE_CHAR);
 
-				if(config->types.typeArray[i].channel == CHANNEL_STEREO && bothStereo)
+				if(config->types.typeArray[i].channel == CHANNEL_STEREO && someStereo)
 				{
 					long int sizeLeft = 0, sizeRight = 0;
 					AveragedFrequencies	*averagedArrayLeft = NULL, *averagedArrayRight = NULL;
@@ -3881,7 +3949,7 @@ int PlotDifferentAmplitudesAveraged(FlatAmplDifference *amplDiff, long int size,
 					free(averagedArrayRight);
 				}
 
-				if(typeCount > 1)
+				if(typeCount > 1 || someStereo)
 					ReturnToMainPath(&returnFolder);
 			}
 
@@ -5641,7 +5709,7 @@ int PlotEachTypePhase(FlatPhase *phaseDiff, long int size, char *filename, int p
 		{
 			char	*returnFolder = NULL;
 
-			if(typeCount > 1)
+			if(typeCount > 1 || bothStereo)
 			{
 				returnFolder = PushFolder(PHASE_FOLDER);
 				if(!returnFolder)
@@ -5678,7 +5746,7 @@ int PlotEachTypePhase(FlatPhase *phaseDiff, long int size, char *filename, int p
 			PlotSingleTypePhase(phaseDiff, size, type, name, pType, CHANNEL_STEREO, config);
 			logmsg(PLOT_ADVANCE_CHAR);
 
-			if(typeCount > 1)
+			if(typeCount > 1 || bothStereo)
 				ReturnToMainPath(&returnFolder);
 
 			types ++;

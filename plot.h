@@ -157,7 +157,7 @@ void PlotResults(AudioSignal *ReferenceSignal, AudioSignal *ComparisonSignal, pa
 void PlotAmpDifferences(parameters *config);
 void PlotAllWeightedAmpDifferences(parameters *config);
 //void PlotFreqMissing(parameters *config);
-FlatFrequency *CreateSpectrogramFrequencies(AudioSignal *Signal, long int *size, parameters *config);
+FlatFrequency *CreateSpectrogramFrequencies(AudioSignal *Signal, long int *size, int NoiseFloor, parameters *config);
 void PlotDifferentAmplitudesWithBetaFunctions(parameters *config);
 void PlotNoiseFloor(AudioSignal *Signal, parameters *config);
 
@@ -192,7 +192,7 @@ void PlotBetaFunctions(parameters *config);
 
 FlatAmplDifference *CreateFlatDifferences(parameters *config, long int *size, diffPlotType plotType);
 //FlatFrequency *CreateFlatMissing(parameters *config, long int *size);
-FlatFrequency *CreateFlatFrequencies(AudioSignal *Signal, long int *size, parameters *config);
+FlatFrequency *CreateFlatFrequencies(AudioSignal *Signal, long int *size, int NoiseFloor, parameters *config);
 
 double transformtoLog(double coord, parameters *config);
 void DrawGridZeroDBCentered(PlotFile *plot, double dbs, double dbIncrement, double hz, double hzIncrement, parameters *config);
@@ -217,7 +217,7 @@ void ReturnToMainPath(char **CurrentPath);
 
 int PlotNoiseDifferentAmplitudesAveraged(FlatAmplDifference *amplDiff, long int size, char *filename, parameters *config, AudioSignal *Signal);
 void PlotNoiseDifferentAmplitudesAveragedInternal(FlatAmplDifference *amplDiff, long int size, int type, char *filename, AveragedFrequencies *averaged, long int avgsize, parameters *config, AudioSignal *Signal);
-void PlotNoiseSpectrogram(FlatFrequency *freqs, long int size, int type, char channel, char *filename, int signal, parameters *config, AudioSignal *Signal);
+void PlotNoiseSpectrogram(FlatFrequency *freqs, long int size, char channel, char *filename, int signal, parameters *config, AudioSignal *Signal);
 void SaveCSVAmpDiff(FlatAmplDifference *amplDiff, long int size, char *filename, parameters *config);
 
 void DrawFrequencyHorizontal(PlotFile *plot, double vertical, double hz, double hzIncrement, parameters *config);

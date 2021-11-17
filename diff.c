@@ -33,15 +33,33 @@
 #define STEREO_DIFF_SIZE	2*config->MaxFreq
 #define MONO_DIFF_SIZE		config->MaxFreq
 
+long int GetSilenceBlockSize(int block, parameters *config)
+{
+	long int s1, s2, size = 0;
+
+	s1 = config->referenceSignal->Blocks[block].SilenceSizeLeft + config->referenceSignal->Blocks[block].SilenceSizeRight;
+	s2 = config->comparisonSignal->Blocks[block].SilenceSizeLeft + config->comparisonSignal->Blocks[block].SilenceSizeRight;
+	if(s1 > s2)
+		size = s1;
+	else
+		size = s2;
+	return size;
+}
+
 AmplDifference *CreateAmplDifferences(int block, parameters *config)
 {
 	AmplDifference	*ad = NULL;
 	long int		size = 0;
 
-	if(GetBlockChannel(config, block) == CHANNEL_STEREO)
-		size = STEREO_DIFF_SIZE;
+	if(GetBlockType(config, block) == TYPE_SILENCE)
+		size = GetSilenceBlockSize(block, config);
 	else
-		size = MONO_DIFF_SIZE;
+	{
+		if(GetBlockChannel(config, block) == CHANNEL_STEREO)
+			size = STEREO_DIFF_SIZE;
+		else
+			size = MONO_DIFF_SIZE;
+	}
 	ad = (AmplDifference*)malloc(sizeof(AmplDifference)*size);
 	if(!ad)
 	{
@@ -57,10 +75,15 @@ FreqDifference *CreateFreqDifferences(int block, parameters *config)
 	FreqDifference *fd = NULL;
 	long int		size = 0;
 
-	if(GetBlockChannel(config, block) == CHANNEL_STEREO)
-		size = STEREO_DIFF_SIZE;
+	if(GetBlockType(config, block) == TYPE_SILENCE)
+		size = GetSilenceBlockSize(block, config);
 	else
-		size = MONO_DIFF_SIZE;
+	{
+		if(GetBlockChannel(config, block) == CHANNEL_STEREO)
+			size = STEREO_DIFF_SIZE;
+		else
+			size = MONO_DIFF_SIZE;
+	}
 	fd = (FreqDifference*)malloc(sizeof(FreqDifference)*size);
 	if(!fd)
 	{
@@ -76,10 +99,15 @@ PhaseDifference *CreatePhaseDifferences(int block, parameters *config)
 	PhaseDifference *pd = NULL;
 	long int		size = 0;
 
-	if(GetBlockChannel(config, block) == CHANNEL_STEREO)
-		size = STEREO_DIFF_SIZE;
+	if(GetBlockType(config, block) == TYPE_SILENCE)
+		size = GetSilenceBlockSize(block, config);
 	else
-		size = MONO_DIFF_SIZE;
+	{
+		if(GetBlockChannel(config, block) == CHANNEL_STEREO)
+			size = STEREO_DIFF_SIZE;
+		else
+			size = MONO_DIFF_SIZE;
+	}
 	pd = (PhaseDifference*)malloc(sizeof(PhaseDifference)*size);
 	if(!pd)
 	{
@@ -243,8 +271,8 @@ int IncrementCmpPhaseDifference(int block, parameters *config)
 
 int InsertAmplDifference(int block, Frequency ref, Frequency comp, char channel, parameters *config)
 {
-	int		position = 0;
-	double	diffAmpl = 0;
+	long int	position = 0;
+	double		diffAmpl = 0;
 
 	if(!config)
 		return 0;
@@ -267,14 +295,22 @@ int InsertAmplDifference(int block, Frequency ref, Frequency comp, char channel,
 	diffAmpl = fabs(ref.amplitude) - fabs(comp.amplitude);
 	position = config->Differences.BlockDiffArray[block].cntAmplBlkDiff;
 
-	if(GetBlockChannel(config, block) == CHANNEL_STEREO)
+	if(GetBlockType(config, block) != TYPE_SILENCE)
 	{
-		if(position >= STEREO_DIFF_SIZE)
-			return 0;
+		if(GetBlockChannel(config, block) == CHANNEL_STEREO)
+		{
+			if(position >= STEREO_DIFF_SIZE)
+				return 0;
+		}
+		else
+		{
+			if(position >= MONO_DIFF_SIZE)
+				return 0;
+		}
 	}
 	else
 	{
-		if(position >= MONO_DIFF_SIZE)
+		if(position >= GetSilenceBlockSize(block, config))
 			return 0;
 	}
 
@@ -323,14 +359,22 @@ int InsertPhaseDifference(int block, Frequency ref, Frequency comp, char channel
 
 	position = config->Differences.BlockDiffArray[block].cntPhaseBlkDiff;
 
-	if(GetBlockChannel(config, block) == CHANNEL_STEREO)
+	if(GetBlockType(config, block) != TYPE_SILENCE)
 	{
-		if(position >= STEREO_DIFF_SIZE)
-			return 0;
+		if(GetBlockChannel(config, block) == CHANNEL_STEREO)
+		{
+			if(position >= STEREO_DIFF_SIZE)
+				return 0;
+		}
+		else
+		{
+			if(position >= MONO_DIFF_SIZE)
+				return 0;
+		}
 	}
 	else
 	{
-		if(position >= MONO_DIFF_SIZE)
+		if(position >= GetSilenceBlockSize(block, config))
 			return 0;
 	}
 
@@ -789,7 +833,7 @@ long int FindDifferenceAveragesperBlock(double thresholdAmplitude, double thresh
 		}
 
 		/* Missing & Extra */
-		for(int i = config->MaxFreq-1; i >= 0; i--)
+		for(long int i = config->MaxFreq-1; i >= 0; i--)
 		{
 			AudioSignal *Signal	= NULL;
 

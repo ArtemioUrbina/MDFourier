@@ -261,6 +261,31 @@ int InitAudioBlock(AudioBlocks* block, char channel, parameters *config)
 	return(InitFreqStruc(&block->freq, config));
 }
 
+long int GetBlockFreqSize(AudioSignal *Signal, int block, char channel, parameters *config)
+{
+	long int	size = 0;
+
+	if(GetBlockType(config, block) == TYPE_SILENCE)
+	{
+		switch(channel)
+		{ 
+			case CHANNEL_LEFT:
+				size = Signal->Blocks[block].SilenceSizeLeft;
+				break;
+			case CHANNEL_RIGHT:
+				size = Signal->Blocks[block].SilenceSizeRight;
+				break;
+			default:
+				logmsg("ERROR: Invalid Channel for GetBlockFreqSize '%c'\n", channel);
+				size = 0;
+				break;
+		}
+	}
+	else
+		size = config->MaxFreq;
+	return size;
+}
+
 AudioSignal *CreateAudioSignal(parameters *config)
 {
 	AudioSignal *Signal = NULL;
@@ -354,6 +379,9 @@ void InitAudio(AudioSignal *Signal, parameters *config)
 			Signal->Blocks[n].audioRight.difference = 0;
 			Signal->Blocks[n].audioRight.sampleOffset = 0;
 
+			Signal->Blocks[n].SilenceSizeLeft = 0;
+			Signal->Blocks[n].SilenceSizeRight = 0;
+
 			Signal->Blocks[n].internalSync = NULL;
 			Signal->Blocks[n].internalSyncCount = 0;
 	
@@ -382,7 +410,6 @@ void InitAudio(AudioSignal *Signal, parameters *config)
 	Signal->endOffset = 0;
 
 	memset(&Signal->MaxMagnitude, 0, sizeof(MaxMagn));
-	Signal->MinAmplitude = 0;
 
 	Signal->gridFrequency = 0;
 	Signal->gridAmplitude = 0;
@@ -1829,10 +1856,19 @@ long int GatherAllSilenceData(AudioSignal *Signal, Frequency **allData, Frequenc
 		if(GetBlockType(config, b) == TYPE_SILENCE)
 		{
 			(*silenceBlocks)++;
-			for(int i = 0; i < config->MaxFreq; i++)
+			for(int i = 0; i < Signal->Blocks[b].SilenceSizeLeft; i++)
 			{
 				if(Signal->Blocks[b].freq[i].hertz && Signal->Blocks[b].freq[i].amplitude != NO_AMPLITUDE)
 					freqCount++;
+			}
+
+			if(Signal->Blocks[b].freqRight)
+			{
+				for(int i = 0; i < Signal->Blocks[b].SilenceSizeRight; i++)
+				{
+					if(Signal->Blocks[b].freqRight[i].hertz && Signal->Blocks[b].freqRight[i].amplitude != NO_AMPLITUDE)
+						freqCount++;
+				}
 			}
 		}
 	}
@@ -1851,7 +1887,7 @@ long int GatherAllSilenceData(AudioSignal *Signal, Frequency **allData, Frequenc
 	{
 		if(GetBlockType(config, b) == TYPE_SILENCE)
 		{
-			for(int i = 0; i < config->MaxFreq; i++)
+			for(int i = 0; i < Signal->Blocks[b].SilenceSizeLeft; i++)
 			{
 				if(Signal->Blocks[b].freq[i].hertz && Signal->Blocks[b].freq[i].amplitude != NO_AMPLITUDE)
 				{
@@ -1859,6 +1895,20 @@ long int GatherAllSilenceData(AudioSignal *Signal, Frequency **allData, Frequenc
 					if(data[count].amplitude > loudest->amplitude)
 						*loudest = data[count];
 					count++;
+				}
+			}
+
+			if(Signal->Blocks[b].freqRight)
+			{
+				for(int i = 0; i < Signal->Blocks[b].SilenceSizeRight; i++)
+				{
+					if(Signal->Blocks[b].freqRight[i].hertz && Signal->Blocks[b].freqRight[i].amplitude != NO_AMPLITUDE)
+					{
+						data[count] = Signal->Blocks[b].freqRight[i];
+						if(data[count].amplitude > loudest->amplitude)
+							*loudest = data[count];
+						count++;
+					}
 				}
 			}
 		}
@@ -1898,7 +1948,7 @@ void FindFloor(AudioSignal *Signal, parameters *config)
 	{
 		double selectedNoise = 0;
 
-		selectedNoise = -120.0;
+		selectedNoise = floor(GetSignalMinDBFS(Signal)*1.20);
 
 		logmsg(" - %s signal is a digitally generated file, no noise found. Using %g dBFS\n",
 			getRoleText(Signal), selectedNoise);
@@ -2031,7 +2081,6 @@ void FindFloor(AudioSignal *Signal, parameters *config)
 			getRoleText(Signal),
 			noiseFreq.hertz,
 			noiseFreq.amplitude);
-		config->channelWithLowFundamentals = 1;
 		if(noiseFreq.amplitude > loudestFreq.amplitude)
 		{
 			Signal->floorAmplitude = loudestFreq.amplitude;
@@ -2041,6 +2090,7 @@ void FindFloor(AudioSignal *Signal, parameters *config)
 		{
 			Signal->floorAmplitude = noiseFreq.amplitude;
 			Signal->floorFreq = noiseFreq.hertz;
+			config->channelWithLowFundamentals = 1;
 		}
 		return;
 	}
@@ -2059,9 +2109,9 @@ void FindFloor(AudioSignal *Signal, parameters *config)
 void GlobalNormalize(AudioSignal *Signal, parameters *config)
 {
 	double		MaxMagnitude = 0;
-	double		MinAmplitude = 0;
 	double		MaxFreq = 0;
 	int			MaxBlock = -1;
+	long int	size = 0;
 
 	if(!Signal)
 		return;
@@ -2074,7 +2124,8 @@ void GlobalNormalize(AudioSignal *Signal, parameters *config)
 		type = GetBlockType(config, block);
 		if(type >= TYPE_SILENCE)
 		{
-			for(int i = 0; i < config->MaxFreq; i++)
+			size = GetBlockFreqSize(Signal, block, CHANNEL_LEFT, config);
+			for(long int i = 0; i < size; i++)
 			{
 				if(!Signal->Blocks[block].freq[i].hertz)
 					break;
@@ -2088,7 +2139,8 @@ void GlobalNormalize(AudioSignal *Signal, parameters *config)
 
 			if(Signal->Blocks[block].freqRight)
 			{
-				for(int i = 0; i < config->MaxFreq; i++)
+				size = GetBlockFreqSize(Signal, block, CHANNEL_RIGHT, config);
+				for(long int i = 0; i < size; i++)
 				{
 					if(!Signal->Blocks[block].freqRight[i].hertz)
 						break;
@@ -2119,41 +2171,30 @@ void GlobalNormalize(AudioSignal *Signal, parameters *config)
 		type = GetBlockType(config, block);
 		if(type >= TYPE_SILENCE)
 		{
-			for(int i = 0; i < config->MaxFreq; i++)
+			size = GetBlockFreqSize(Signal, block, CHANNEL_LEFT, config);
+			for(long int i = 0; i < size; i++)
 			{
 				if(!Signal->Blocks[block].freq[i].hertz)
 					break;
 	
 				Signal->Blocks[block].freq[i].amplitude = 
 					CalculateAmplitude(Signal->Blocks[block].freq[i].magnitude, MaxMagnitude);
-				
-				if(Signal->Blocks[block].freq[i].amplitude != NO_AMPLITUDE)
-				{
-					if(Signal->Blocks[block].freq[i].amplitude < MinAmplitude)
-						MinAmplitude = Signal->Blocks[block].freq[i].amplitude;
-				}
 			}
 
 			if(Signal->Blocks[block].freqRight)
 			{
-				for(int i = 0; i < config->MaxFreq; i++)
+				size = GetBlockFreqSize(Signal, block, CHANNEL_RIGHT, config);
+				for(long int i = 0; i < size; i++)
 				{
 					if(!Signal->Blocks[block].freqRight[i].hertz)
 						break;
 		
 					Signal->Blocks[block].freqRight[i].amplitude = 
 						CalculateAmplitude(Signal->Blocks[block].freqRight[i].magnitude, MaxMagnitude);
-					
-					if(Signal->Blocks[block].freqRight[i].amplitude != NO_AMPLITUDE)
-					{
-						if(Signal->Blocks[block].freqRight[i].amplitude < MinAmplitude)
-							MinAmplitude = Signal->Blocks[block].freqRight[i].amplitude;
-					}
 				}
 			}
 		}
 	}
-	Signal->MinAmplitude = MinAmplitude;
 }
 
 void FindMaxMagnitude(AudioSignal *Signal, parameters *config)
@@ -2174,7 +2215,7 @@ void FindMaxMagnitude(AudioSignal *Signal, parameters *config)
 		type = GetBlockType(config, block);
 		if(type > TYPE_SILENCE)
 		{
-			for(int i = 0; i < config->MaxFreq; i++)
+			for(long int i = 0; i < config->MaxFreq; i++)
 			{
 				if(!Signal->Blocks[block].freq[i].hertz)
 					break;
@@ -2189,7 +2230,7 @@ void FindMaxMagnitude(AudioSignal *Signal, parameters *config)
 
 			if(Signal->Blocks[block].freqRight)
 			{
-				for(int i = 0; i < config->MaxFreq; i++)
+				for(long int i = 0; i < config->MaxFreq; i++)
 				{
 					if(!Signal->Blocks[block].freqRight[i].hertz)
 						break;
@@ -2232,20 +2273,21 @@ void FindMaxMagnitude(AudioSignal *Signal, parameters *config)
 
 void CalculateAmplitudes(AudioSignal *Signal, double ZeroDbMagReference, parameters *config)
 {
-	double MinAmplitude = 0;
-
 	if(!Signal)
 		return;
 
 	//Calculate Amplitude in dBFS 
 	for(int block = 0; block < config->types.totalBlocks; block++)
 	{
-		int type = TYPE_NOTYPE;
+		int			type = TYPE_NOTYPE;
 
 		type = GetBlockType(config, block);
 		if(type >= TYPE_SILENCE || type == TYPE_WATERMARK)
 		{
-			for(int i = 0; i < config->MaxFreq; i++)
+			long int	size = 0;
+
+			size = GetBlockFreqSize(Signal, block, CHANNEL_LEFT, config);
+			for(long int i = 0; i < size; i++)
 			{
 				if(!Signal->Blocks[block].freq[i].hertz)
 					break;
@@ -2253,17 +2295,14 @@ void CalculateAmplitudes(AudioSignal *Signal, double ZeroDbMagReference, paramet
 				if(Signal->Blocks[block].freq[i].magnitude)
 					Signal->Blocks[block].freq[i].amplitude = 
 						CalculateAmplitude(Signal->Blocks[block].freq[i].magnitude, ZeroDbMagReference);
-	
-				if(Signal->Blocks[block].freq[i].amplitude != NO_AMPLITUDE)
-				{
-					if(Signal->Blocks[block].freq[i].amplitude < MinAmplitude)
-						MinAmplitude = Signal->Blocks[block].freq[i].amplitude;
-				}
+				else
+						Signal->Blocks[block].freq[i].amplitude = NO_AMPLITUDE;
 			}
 
 			if(Signal->Blocks[block].freqRight)
 			{
-				for(int i = 0; i < config->MaxFreq; i++)
+				size = GetBlockFreqSize(Signal, block, CHANNEL_RIGHT, config);
+				for(long int i = 0; i < size; i++)
 				{
 					if(!Signal->Blocks[block].freqRight[i].hertz)
 						break;
@@ -2271,25 +2310,22 @@ void CalculateAmplitudes(AudioSignal *Signal, double ZeroDbMagReference, paramet
 					if (Signal->Blocks[block].freqRight[i].magnitude)
 						Signal->Blocks[block].freqRight[i].amplitude = 
 							CalculateAmplitude(Signal->Blocks[block].freqRight[i].magnitude, ZeroDbMagReference);
-
-					if(Signal->Blocks[block].freqRight[i].amplitude != NO_AMPLITUDE)
-					{
-						if(Signal->Blocks[block].freqRight[i].amplitude < MinAmplitude)
-							MinAmplitude = Signal->Blocks[block].freqRight[i].amplitude;
-					}
+					else
+						Signal->Blocks[block].freqRight[i].amplitude = NO_AMPLITUDE;
 				}
 			}
 		}
 	}
-
-	Signal->MinAmplitude = MinAmplitude;
 }
 
 void CleanMatched(AudioSignal *ReferenceSignal, AudioSignal *TestSignal, parameters *config)
 {
+	long int size = 0;
+
 	for(int block = 0; block < config->types.totalBlocks; block++)
 	{
-		for(int i = 0; i < config->MaxFreq; i++)
+		size = GetBlockFreqSize(ReferenceSignal, block, CHANNEL_LEFT, config);
+		for(long int i = 0; i < size; i++)
 		{
 			if(!ReferenceSignal->Blocks[block].freq[i].hertz)
 				break;
@@ -2298,7 +2334,8 @@ void CleanMatched(AudioSignal *ReferenceSignal, AudioSignal *TestSignal, paramet
 
 		if(ReferenceSignal->Blocks[block].freqRight)
 		{
-			for(int i = 0; i < config->MaxFreq; i++)
+			size = GetBlockFreqSize(ReferenceSignal, block, CHANNEL_RIGHT, config);
+			for(long int i = 0; i < size; i++)
 			{
 				if(!ReferenceSignal->Blocks[block].freqRight[i].hertz)
 					break;
@@ -2309,7 +2346,8 @@ void CleanMatched(AudioSignal *ReferenceSignal, AudioSignal *TestSignal, paramet
 
 	for(int block = 0; block < config->types.totalBlocks; block++)
 	{
-		for(int i = 0; i < config->MaxFreq; i++)
+		size = GetBlockFreqSize(TestSignal, block, CHANNEL_LEFT, config);
+		for(int i = 0; i < size; i++)
 		{
 			if(!TestSignal->Blocks[block].freq[i].hertz)
 				break;
@@ -2318,7 +2356,8 @@ void CleanMatched(AudioSignal *ReferenceSignal, AudioSignal *TestSignal, paramet
 
 		if(TestSignal->Blocks[block].freqRight)
 		{
-			for(int i = 0; i < config->MaxFreq; i++)
+			size = GetBlockFreqSize(TestSignal, block, CHANNEL_RIGHT, config);
+			for(int i = 0; i < size; i++)
 			{
 				if(!TestSignal->Blocks[block].freqRight[i].hertz)
 					break;
@@ -2350,7 +2389,7 @@ void PrintFrequenciesBlockMagnitude(AudioSignal *Signal, Frequency *freq, parame
 	}
 }
 
-void PrintFrequenciesBlock(AudioSignal *Signal, Frequency *freq, int type, parameters *config)
+void PrintFrequenciesBlock(AudioSignal *Signal, Frequency *freq, long int size, int type, parameters *config)
 {
 	double	 significant = 0;
 
@@ -2364,12 +2403,9 @@ void PrintFrequenciesBlock(AudioSignal *Signal, Frequency *freq, int type, param
 			significant = SIGNIFICANT_VOLUME;
 	}
 
-	for(int j = 0; j < config->MaxFreq; j++)
+	for(long int j = 0; j < size; j++)
 	{
 		if(type != TYPE_SILENCE && significant > freq[j].amplitude)
-			break;
-
-		if(type == TYPE_SILENCE && significant > freq[j].amplitude && j > 200)
 			break;
 
 		if(freq[j].hertz && freq[j].amplitude != NO_AMPLITUDE)
@@ -2409,7 +2445,8 @@ void PrintFrequencies(AudioSignal *Signal, parameters *config)
 {
 	for(int block = 0; block < config->types.totalBlocks; block++)
 	{
-		int type = TYPE_NOTYPE;
+		int			type = TYPE_NOTYPE;
+		long int	size = 0;
 
 		logmsgFileOnly("==================== %s %s# %d (%d) ===================\n", 
 				getRoleText(Signal), GetBlockName(config, block), GetBlockSubIndex(config, block), block);
@@ -2417,11 +2454,13 @@ void PrintFrequencies(AudioSignal *Signal, parameters *config)
 		type = GetBlockType(config, block);
 		if(Signal->Blocks[block].freqRight)
 			logmsgFileOnly("Left Channel:\n");
-		PrintFrequenciesBlock(Signal, Signal->Blocks[block].freq, type, config);
+		size = GetBlockFreqSize(Signal, block, CHANNEL_LEFT, config);
+		PrintFrequenciesBlock(Signal, Signal->Blocks[block].freq, size, type, config);
 		if(Signal->Blocks[block].freqRight)
 		{
 			logmsgFileOnly("Right Channel:\n");
-			PrintFrequenciesBlock(Signal, Signal->Blocks[block].freqRight, type, config);
+			size = GetBlockFreqSize(Signal, block, CHANNEL_RIGHT, config);
+			PrintFrequenciesBlock(Signal, Signal->Blocks[block].freqRight, size, type, config);
 		}
 	}
 }
@@ -2508,21 +2547,24 @@ int FillFrequencyStructuresInternal(AudioSignal *Signal, AudioBlocks *AudioArray
 	long int 		i = 0, startBin= 0, endBin = 0, count = 0, size = 0, amount = 0;
 	double 			boxsize = 0;
 	int				nyquistLimit = 0;
-	Frequency		*f_array = NULL, *targetFreq = NULL;
+	long int		*SilenceSize = NULL;
+	Frequency		*f_array = NULL, **targetFreq = NULL;
 	FFTWSpectrum	*fftw = NULL;
 
 	if(channel == CHANNEL_LEFT)
 	{
 		fftw = &AudioArray->fftwValues;
-		targetFreq = AudioArray->freq;
+		targetFreq = &AudioArray->freq;
+		SilenceSize = &AudioArray->SilenceSizeLeft;
 	}
 	else
 	{
 		fftw = &AudioArray->fftwValuesRight;
-		targetFreq = AudioArray->freqRight;
+		targetFreq = &AudioArray->freqRight;
+		SilenceSize = &AudioArray->SilenceSizeRight;
 	}
 	size = fftw->size;
-	if(!size || !fftw->spectrum || !targetFreq)
+	if(!size || !fftw->spectrum || !targetFreq || !(*targetFreq))
 	{
 		logmsg("FillFrequencyStructures size == 0\n");
 		return 0;
@@ -2577,12 +2619,23 @@ int FillFrequencyStructuresInternal(AudioSignal *Signal, AudioBlocks *AudioArray
 
 	// Sort the array by top magnitudes
 	FFT_Frequency_Magnitude_tim_sort(f_array, count);
-	// Only copy Top amount frequencies
-	memcpy(targetFreq, f_array, sizeof(Frequency)*amount);
 
-	// release temporal storage
-	free(f_array);
-	f_array = NULL;
+	if(AudioArray->type != TYPE_SILENCE)
+	{
+		// Only copy Top amount frequencies
+		memcpy(*targetFreq, f_array, sizeof(Frequency)*amount);
+
+		// release temporal storage
+		free(f_array);
+		f_array = NULL;
+	}
+	else
+	{
+		// We use the whole frequency range for Noise floor analysis
+		free(*targetFreq);
+		*targetFreq = f_array;
+		*SilenceSize = count;	
+	}
 
 	return 1;
 }
@@ -3253,7 +3306,7 @@ void CalculateSignalCLKAmplitudes(AudioSignal *Signal, double ZeroMagCLK, parame
 	{
 		logmsgFileOnly("==================== CLK-FREQ %s ===================\n", 
 				config->clkName);
-		PrintFrequenciesBlock(Signal, Signal->clkFrequencies.freq, TYPE_CLK_ANALYSIS, config);
+		PrintFrequenciesBlock(Signal, Signal->clkFrequencies.freq, config->MaxFreq, TYPE_CLK_ANALYSIS, config);
 	}
 }
 

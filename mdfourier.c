@@ -1543,9 +1543,11 @@ int ExecuteDFFTInternal(AudioBlocks *AudioArray, double *samples, size_t size, l
 
 int CalculateMaxCompare(int block, AudioSignal *Signal, double significant, char channel, parameters *config)
 {
+	long int	size = 0;
 	double		limit = 0;
 	Frequency	*freqCheck = NULL;
 
+	size = GetBlockFreqSize(Signal, block, channel, config);
 	if(channel == CHANNEL_LEFT)
 		freqCheck = Signal->Blocks[block].freq;
 	else
@@ -1559,7 +1561,7 @@ int CalculateMaxCompare(int block, AudioSignal *Signal, double significant, char
 	if(Signal->role == ROLE_COMP)
 		limit += -20;	// Allow going 20 dbfs "deeper"
 
-	for(int freq = 0; freq < config->MaxFreq; freq++)
+	for(int freq = 0; freq < size; freq++)
 	{
 		/* Out of valid frequencies */
 		if(!freqCheck[freq].hertz)
@@ -1570,7 +1572,7 @@ int CalculateMaxCompare(int block, AudioSignal *Signal, double significant, char
 			return(freq);
 	}
 
-	return config->MaxFreq;
+	return size;
 }
 
 int CompareFrequencies(AudioSignal *ReferenceSignal, AudioSignal *ComparisonSignal, char channel, int block, int refSize, int testSize, parameters *config)
@@ -2167,12 +2169,14 @@ void NormalizeMagnitudesByRatio(AudioSignal *Signal, double ratio, parameters *c
 
 	for(int block = 0; block < config->types.totalBlocks; block++)
 	{
-		int type = TYPE_NOTYPE;
+		int			type = TYPE_NOTYPE;
+		long int	size = 0;
 
 		type = GetBlockType(config, block);
 		if(type >= TYPE_SILENCE)
 		{
-			for(int i = 0; i < config->MaxFreq; i++)
+			size = GetBlockFreqSize(Signal, block, CHANNEL_LEFT, config);
+			for(long int i = 0; i < size; i++)
 			{
 				if(!Signal->Blocks[block].freq[i].hertz)
 					break;
@@ -2182,7 +2186,8 @@ void NormalizeMagnitudesByRatio(AudioSignal *Signal, double ratio, parameters *c
 
 			if(Signal->Blocks[block].freqRight)
 			{
-				for(int i = 0; i < config->MaxFreq; i++)
+				size = GetBlockFreqSize(Signal, block, CHANNEL_RIGHT, config);
+				for(long int i = 0; i < size; i++)
 				{
 					if(!Signal->Blocks[block].freqRight[i].hertz)
 						break;
@@ -2197,6 +2202,8 @@ void NormalizeMagnitudesByRatio(AudioSignal *Signal, double ratio, parameters *c
 
 MaxMagn FindMaxMagnitudeBlock(AudioSignal *Signal, parameters *config)
 {
+	long int size = 0;
+
 	MaxMagn	MaxMag;
 
 	MaxMag.magnitude = 0;
@@ -2215,7 +2222,8 @@ MaxMagn FindMaxMagnitudeBlock(AudioSignal *Signal, parameters *config)
 		type = GetBlockType(config, block);
 		if(type > TYPE_CONTROL)
 		{
-			for(int i = 0; i < config->MaxFreq; i++)
+			size = GetBlockFreqSize(Signal, block, CHANNEL_LEFT, config);
+			for(long int i = 0; i < size; i++)
 			{
 				if(!Signal->Blocks[block].freq[i].hertz)
 					break;
@@ -2230,7 +2238,8 @@ MaxMagn FindMaxMagnitudeBlock(AudioSignal *Signal, parameters *config)
 
 			if(Signal->Blocks[block].freqRight)
 			{
-				for(int i = 0; i < config->MaxFreq; i++)
+				size = GetBlockFreqSize(Signal, block, CHANNEL_RIGHT, config);
+				for(long int i = 0; i < size; i++)
 				{
 					if(!Signal->Blocks[block].freqRight[i].hertz)
 						break;
@@ -2274,6 +2283,8 @@ MaxMagn FindMaxMagnitudeBlock(AudioSignal *Signal, parameters *config)
 
 int FindMultiMaxMagnitudeBlock(AudioSignal *Signal, MaxMagn	*MaxMag, int size, parameters *config)
 {
+	long int silencesize = 0;
+
 	if(!MaxMag)
 		return 0;
 
@@ -2296,13 +2307,14 @@ int FindMultiMaxMagnitudeBlock(AudioSignal *Signal, MaxMagn	*MaxMag, int size, p
 		type = GetBlockType(config, block);
 		if(type > TYPE_CONTROL)
 		{
-			for(int i = 0; i < config->MaxFreq; i++)
+			silencesize = GetBlockFreqSize(Signal, block, CHANNEL_LEFT, config);
+			for(long int i = 0; i < silencesize; i++)
 			{
 				if(!Signal->Blocks[block].freq[i].hertz)
 					break;
 				if(Signal->Blocks[block].freq[i].magnitude > MaxMag[0].magnitude)
 				{
-					for(int j = size - 1; j > 0; j--)
+					for(long int j = size - 1; j > 0; j--)
 						MaxMag[j] = MaxMag[j - 1];
 
 					MaxMag[0].magnitude = Signal->Blocks[block].freq[i].magnitude;
@@ -2314,7 +2326,8 @@ int FindMultiMaxMagnitudeBlock(AudioSignal *Signal, MaxMagn	*MaxMag, int size, p
 
 			if(Signal->Blocks[block].freqRight)
 			{
-				for(int i = 0; i < config->MaxFreq; i++)
+				silencesize = GetBlockFreqSize(Signal, block, CHANNEL_RIGHT, config);
+				for(long int i = 0; i < silencesize; i++)
 				{
 					if(!Signal->Blocks[block].freqRight[i].hertz)
 						break;

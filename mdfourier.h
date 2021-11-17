@@ -48,7 +48,7 @@
 
 #include "incbeta.h"
 
-#define MDVERSION "1.07a"
+#define MDVERSION "1.07b"
 
 #if INTPTR_MAX == INT64_MAX
 #define	BITS_MDF "64-bit"
@@ -378,6 +378,9 @@ typedef struct AudioBlock_st {
 	FFTWSpectrum	fftwValuesRight;
 	BlockSamples	audioRight;
 
+	long int		SilenceSizeLeft;
+	long int		SilenceSizeRight;
+
 	BlockSamples	*internalSync;
 	int				internalSyncCount;
 
@@ -418,7 +421,6 @@ typedef struct AudioSt {
 	long int	endOffset;
 
 	MaxMagn		MaxMagnitude;
-	double		MinAmplitude;
 
 	double		gridFrequency;
 	double		gridAmplitude;

@@ -86,6 +86,7 @@ void CleanName(char *name, char *display);
 int MatchesPreviousType(int pos, int type, parameters *config);
 void CheckSilenceOverride(parameters *config);
 int ConvertAudioTypeForProcessing(int type, parameters *config);
+long int GetBlockFreqSize(AudioSignal *Signal, int block, char channel, parameters *config);
 
 AudioSignal *CreateAudioSignal(parameters *config);
 void CleanFrequency(Frequency *freq);
@@ -105,7 +106,7 @@ int FillFrequencyStructures(AudioSignal *Signal, AudioBlocks *AudioArray, parame
 int FillFrequencyStructuresInternal(AudioSignal *Signal, AudioBlocks *AudioArray, char channel, parameters *config);
 void PrintFrequencies(AudioSignal *Signal, parameters *config);
 void PrintFrequenciesWMagnitudes(AudioSignal *Signal, parameters *config);
-void PrintFrequenciesBlock(AudioSignal *Signal, Frequency *freq, int type, parameters *config);
+void PrintFrequenciesBlock(AudioSignal *Signal, Frequency *freq, long int size, int type, parameters *config);
 void PrintFrequenciesBlockMagnitude(AudioSignal *Signal, Frequency *freq, parameters *config);
 void GlobalNormalize(AudioSignal *Signal, parameters *config);
 void FindMaxMagnitude(AudioSignal *Signal, parameters *config);
