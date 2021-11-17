@@ -1810,10 +1810,7 @@ void FindStandAloneFloor(AudioSignal *Signal, parameters *config)
 			loudest.hertz);
 	}
 	else
-	{
 		logmsg(" - Could not determine Noise floor\n");
-		return;
-	}
 }
 
 long int GatherAllSilenceData(AudioSignal *Signal, Frequency **allData, Frequency *loudest, int *silenceBlocks, parameters *config)

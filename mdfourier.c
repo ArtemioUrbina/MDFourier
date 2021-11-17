@@ -2021,7 +2021,7 @@ void NormalizeBlockByRatio(AudioBlocks *AudioArray, double ratio)
 	long int 	i = 0;
 	double		*samples = NULL;
 
-	if(!AudioArray || ratio != 0)
+	if(!AudioArray || !ratio)
 		return;
 
 	samples = AudioArray->audio.samples;
