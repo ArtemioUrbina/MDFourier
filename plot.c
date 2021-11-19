@@ -590,7 +590,7 @@ void PlotResults(AudioSignal *ReferenceSignal, AudioSignal *ComparisonSignal, pa
 			return;
 		}
 
-		StartPlot(" - Waveform Graphs\n  ", &lstart, config);
+		StartPlot(" -Waveform Graphs ", &lstart, config);
 #ifdef OPENMP_ENABLE
 	#pragma omp parallel for
 #endif
@@ -4945,6 +4945,7 @@ void PlotTimeSpectrogramUnMatchedContent(AudioSignal *Signal, char channel, para
 void PlotTimeDomainGraphs(AudioSignal *Signal, parameters *config)
 {
 	long int	plots = 0, i = 0;
+	double		output = 0;
 	char		name[BUFFER_SIZE*2];
 
 	if(config->plotAllNotes)
@@ -4954,18 +4955,33 @@ void PlotTimeDomainGraphs(AudioSignal *Signal, parameters *config)
 			if(config->plotAllNotes || Signal->Blocks[i].type == TYPE_TIMEDOMAIN)
 			{
 				plots++;
-				/*
-				if(config->plotPhase)
-					plots++;
-				*/
 				if(config->plotAllNotesWindowed && Signal->Blocks[i].audio.window_samples)
 					plots++;
 				if(Signal->Blocks[i].internalSyncCount)
 					plots += Signal->Blocks[i].internalSyncCount;
 			}
 		}
-		logmsg("\n  Creating %ld plots for %s:\n  ", plots, getRoleText(Signal));
+#ifdef OPENMP_ENABLE
+		if(plots && Signal->role == ROLE_REF)
+			logmsg("%ld plots:\n", plots*2);
+#else
+		if(plots)
+			logmsg("%ld plots for %s:\n  ", plots, getRoleText(Signal));
+#endif
 	}
+
+	if(!plots)
+		return;
+
+#ifdef OPENMP_ENABLE
+	output = plots/40;
+#else
+	output = plots/80;
+#endif
+
+	if(output < 1)
+		output = 1;
+
 	plots = 0;
 	for(i = 0; i < config->types.totalBlocks; i++)
 	{
@@ -4976,12 +4992,10 @@ void PlotTimeDomainGraphs(AudioSignal *Signal, parameters *config)
 				GetBlockName(config, i), GetBlockSubIndex(config, i), config->compareName);
 
 			PlotBlockTimeDomainGraph(Signal, i, name, WAVEFORM_GENERAL, 0, config);
-			logmsg(PLOT_ADVANCE_CHAR);
-			plots++;
-			if(plots == 80)
+			if(++plots >= output)
 			{
+				logmsg(PLOT_ADVANCE_CHAR);
 				plots = 0;
-				logmsg("\n  ");
 			}
 
 			if(Signal->Blocks[i].internalSyncCount)
@@ -5004,18 +5018,14 @@ void PlotTimeDomainGraphs(AudioSignal *Signal, parameters *config)
 
 				PlotBlockTimeDomainGraph(Signal, i, name, WAVEFORM_WINDOW, 0, config);
 
-				logmsg(PLOT_ADVANCE_CHAR);
-				plots++;
-				if(plots == 80)
+				if(++plots >= output)
 				{
+					logmsg(PLOT_ADVANCE_CHAR);
 					plots = 0;
-					logmsg("\n  ");
 				}
 			}
 		}
 	}
-	if(!config->plotAllNotes && plots > 40)
-		logmsg("\n  ");
 }
 
 int ExecutePlotBlockTimeDomainGraph(int waveType, AudioSignal *Signal, long int block, double data, char *folder, parameters *config)
@@ -5377,15 +5387,13 @@ void PlotBlockTimeDomainGraph(AudioSignal *Signal, int block, char *name, int wa
 		plotSize = numSamples;
 
 	sampleOffset = Signal->Blocks[block].audio.sampleOffset;
-	/*
-	if(config->timeDomainSync && Signal->Blocks[block].type == TYPE_SYNC)
+	if(config->debugSync && Signal->Blocks[block].type == TYPE_SYNC)
 	{
 		FillPlotExtra(&plot, name, SYNC_DEBUG_SCALE*config->plotResX, config->plotResY, 0, MinY, plotSize, MaxY, 1, 0.2, config);
 		forceMS = 1;
 	}
 	else
-	*/
-	FillPlot(&plot, name, 0, MinY, plotSize, MaxY, 1, 0.2, config);
+		FillPlot(&plot, name, 0, MinY, plotSize, MaxY, 1, 0.2, config);
 
 	if(!CreatePlotFile(&plot, config))
 		return;

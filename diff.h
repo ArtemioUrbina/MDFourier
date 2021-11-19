@@ -49,6 +49,7 @@ void ReleaseDifferenceArray(parameters *config);
 
 long int FindDifferenceAveragesperBlock(double thresholdAmplitude, double thresholdMissing, double thresholdExtra, parameters *config);
 double FindDifferenceAverage(parameters *config);
+void SubstractDifferenceAverageFromResults(parameters *config);
 double FindDifferencePercentOutsideViewPort(double *maxAmpl, int *type, double threshold, parameters *config);
 double FindVisibleInViewPortWithinStandardDeviation(double *maxAmpl, double *outside, int type, int numstd, parameters *config);
 int FindDifferenceTypeTotals(int type, long int *cntAmplBlkDiff, long int *cmpAmplBlkDiff, parameters *config);

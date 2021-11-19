@@ -145,6 +145,15 @@ int main(int argc , char *argv[])
 		return 1;
 	}
 
+	config.averageDifference = FindDifferenceAverage(&config);
+	logmsg("Average difference is %g dB\n", config.averageDifference);
+	if(config.substractAveragePlot)
+	{
+		SubstractDifferenceAverageFromResults(&config);
+		config.averageDifference = FindDifferenceAverage(&config);
+		logmsg(" - Adjusted plots around average, the new average is %g dB\n", config.averageDifference);
+	}
+
 	FindViewPort(&config);
 
 	logmsg("* Plotting results to PNGs:\n");
@@ -183,10 +192,7 @@ void FindViewPort(parameters *config)
 {
 	int		type = 0;
 	char	*name = NULL;
-	double	average = 0, outside = 0, maxDiff = 0;
-
-	average = FindDifferenceAverage(config);
-	logmsg("Average difference is %g dB\n", average);
+	double	outside = 0, maxDiff = 0;
 
 	outside = FindDifferencePercentOutsideViewPort(&maxDiff, &type, fabs(config->maxDbPlotZC), config);
 	if(outside)

@@ -67,6 +67,7 @@ void PrintUsage()
 	logmsg("	 -C: Create <C>SV file with plot values.\n");
 	logmsg("	 -b: Change <b>ar value for frequency match, default is 1.0dB.\n");
 	logmsg("	 -A: Do not weight values in <A>veraged Plot (implies -g)\n");
+	logmsg("	 -G: Adjust difference plots around avera<G>e difference.\n");
 	logmsg("	 -W: Use <W>hite background for plots.\n");
 	logmsg("	 -d: Max <d>BFS for plots vertically\n");
 	logmsg("	 -a: Zoom in to dB in waveform plots\n");
@@ -179,6 +180,8 @@ void CleanParameters(parameters *config)
 	config->highestValueBitDepth = 0;
 	config->lowestValueBitDepth = 0;
 	config->lowestDBFS = 0;
+	config->averageDifference = 0;
+	config->substractAveragePlot = 0;
 
 	config->warningStereoReversed = 0;
 	config->warningRatioTooHigh = 0;
@@ -281,8 +284,8 @@ int commandline(int argc , char *argv[], parameters *config)
 	
 	CleanParameters(config);
 
-	// Available: GJKmq1234567
-	while ((c = getopt (argc, argv, "Aa:Bb:Cc:Dd:Ee:Ff:gHhIijkL:lMNn:Oo:P:p:QRr:Ss:TtUuVvWw:XxY:yZ:z0:89")) != -1)
+	// Available: JKmq1234567
+	while ((c = getopt (argc, argv, "Aa:Bb:Cc:Dd:Ee:Ff:GgHhIijkL:lMNn:Oo:P:p:QRr:Ss:TtUuVvWw:XxY:yZ:z0:89")) != -1)
 	switch (c)
 	  {
 	  case 'A':
@@ -367,6 +370,9 @@ int commandline(int argc , char *argv[], parameters *config)
 			return 0;
 		}
 		logmsg("\t -Max frequencies to use from FFTW are %d (default %d)\n", config->MaxFreq, FREQ_COUNT);
+		break;
+	  case 'G':
+		config->substractAveragePlot = 1;
 		break;
 	  case 'g':
 		config->averagePlot = 0;

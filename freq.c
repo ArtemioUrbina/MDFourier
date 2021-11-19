@@ -175,7 +175,7 @@ void CalculateFrequencyBrackets(AudioSignal *Signal, parameters *config)
 		crossNoise = scanNoise/2;
 		Signal->crossFrequency = FindFrequencyBracket(crossNoise, Signal->Blocks[index].fftwValues.size, Signal->AudioChannels, Signal->header.fmt.SamplesPerSec, config);
 
-		logmsg(" - Expected noise [%s Predict/DFT]:\n  Vertical Rate %g/%g Hz Scan Rate: %g/%g Hz Cross %g/%g Hz\n",
+		logmsg(" - Expected noise [%s Predict/DFT]: Vertical: %g/%g Hz Scan: %g/%g Hz Cross: %g/%g Hz\n",
 			getRoleText(Signal),
 			vertNoise, Signal->gridFrequency, scanNoise, Signal->scanrateFrequency, crossNoise, Signal->crossFrequency);
 	}
@@ -2077,7 +2077,7 @@ void FindFloor(AudioSignal *Signal, parameters *config)
 
 	if(noiseFreq.hertz)
 	{
-		logmsg("  - %s Noise Channel relative floor: %g Hz %g dBFS\n",
+		logmsg(" - %s Noise Channel relative floor: %g Hz %g dBFS\n",
 			getRoleText(Signal),
 			noiseFreq.hertz,
 			noiseFreq.amplitude);

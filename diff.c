@@ -607,6 +607,24 @@ double FindDifferenceAverage(parameters *config)
 	return AvgDifAmp;
 }
 
+void SubstractDifferenceAverageFromResults(parameters *config)
+{
+	if(!config)
+		return;
+
+	if(!config->Differences.BlockDiffArray)
+		return;
+
+	for(int b = 0; b < config->types.totalBlocks; b++)
+	{
+		if(config->Differences.BlockDiffArray[b].type <= TYPE_CONTROL)
+			continue;
+
+		for(int a = 0; a < config->Differences.BlockDiffArray[b].cntAmplBlkDiff; a++)
+			config->Differences.BlockDiffArray[b].amplDiffArray[a].diffAmplitude -= config->averageDifference;
+	}
+}
+
 double FindDifferencePercentOutsideViewPort(double *maxAmpl, int *type, double threshold, parameters *config)
 {
 	int		typeMax = 0, currentType = TYPE_NOTYPE;
