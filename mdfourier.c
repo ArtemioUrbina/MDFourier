@@ -149,6 +149,7 @@ int main(int argc , char *argv[])
 	logmsg("Average difference is %g dB\n", config.averageDifference);
 	if(config.substractAveragePlot)
 	{
+		config.averageDifferenceOrig = config.averageDifference;
 		SubstractDifferenceAverageFromResults(&config);
 		config.averageDifference = FindDifferenceAverage(&config);
 		logmsg(" - Adjusted plots around average, the new average is %g dB\n", config.averageDifference);

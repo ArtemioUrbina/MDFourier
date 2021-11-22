@@ -590,7 +590,7 @@ void PlotResults(AudioSignal *ReferenceSignal, AudioSignal *ComparisonSignal, pa
 			return;
 		}
 
-		StartPlot(" -Waveform Graphs ", &lstart, config);
+		StartPlot(" - Waveform Graphs ", &lstart, config);
 #ifdef OPENMP_ENABLE
 	#pragma omp parallel for
 #endif
@@ -1165,6 +1165,10 @@ void enableTestWarnings(parameters *config)
 
 	config->internalSyncTolerance = ROLE_COMP;
 
+	config->substractAveragePlot = 1;
+	config->averageDifference = 0.01737;
+	config->averageDifferenceOrig = 9.86;
+
 	for(i = 0; i < 4; i++)
 		syncAlignPct[i] = rand() % 100;
 	syncAlignTolerance[3] = 1;
@@ -1736,6 +1740,14 @@ void DrawLabelsMDF(PlotFile *plot, char *Gname, char *GType, int type, parameter
 		PLOT_WARN(1, warning++);
 		sprintf(msg, "WARNING: %s clk could not be detected", 
 			config->clkNotFound == ROLE_REF ? "Reference" : config->clkNotFound == ROLE_COMP ? "Comparison" : "Both files");
+		pl_alabel_r(plot->plotter, 'l', 'l', msg);
+	}
+
+	if(config->substractAveragePlot)
+	{
+		PLOT_WARN(1, warning++);
+		sprintf(msg, "WARNING: Average substracted %0.4f->%0.4f (-G)", 
+			config->averageDifferenceOrig, config->averageDifference);
 		pl_alabel_r(plot->plotter, 'l', 'l', msg);
 	}
 

@@ -622,8 +622,10 @@ typedef struct parameters_st {
 	double			syncAlignPct[4];
 	int				syncAlignTolerance[4];
 	int				syncAlignIterator;
-	double			averageDifference;
+
 	int				substractAveragePlot;
+	double			averageDifference;
+	double			averageDifferenceOrig;
 
 	double 			plotResX;
 	double			plotResY;

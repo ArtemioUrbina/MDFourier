@@ -180,7 +180,9 @@ void CleanParameters(parameters *config)
 	config->highestValueBitDepth = 0;
 	config->lowestValueBitDepth = 0;
 	config->lowestDBFS = 0;
+
 	config->averageDifference = 0;
+	config->averageDifferenceOrig = 0;
 	config->substractAveragePlot = 0;
 
 	config->warningStereoReversed = 0;
