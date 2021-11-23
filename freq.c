@@ -1244,34 +1244,70 @@ long int GetLastSyncFrameOffset(parameters *config)
 	return 0;
 }
 
-int GetActiveBlockTypes(parameters *config)
+int getArrayIndexforType(int type, int *typeArray, int typeCount)
 {
-	int count = 0;
-
-	if(!config)
-		return 0;
-
-	for(int i = 0; i < config->types.typeCount; i++)
+	for(int i = 0; i < typeCount; i++)
 	{
-		if(config->types.typeArray[i].type > TYPE_CONTROL)
-			count ++;
+		if(typeArray[i] == type)
+			return i;
 	}
-	return count;
+#ifdef DEBUG
+	logmsg("WARNING: getArrayIndexforType failed to match (%d/%d)\n", type, typeCount);
+#endif
+	return -1;
 }
 
-int GetActiveBlockTypesNoRepeat(parameters *config)
+int isInArray(int element, int *elemArray, int elemCount)
 {
-	int count = 0;
+	for(int i = 0; i < elemCount; i++)
+	{
+		if(elemArray[i] == element)
+			return 1;
+	}
+	return 0;
+}
 
-	if(!config)
+// Returns amount of block types excluding control and silence
+int GetActiveBlockTypesNoRepeatArray(int **types, parameters *config)
+{
+	int count = 0, norepeat = 0;
+
+	if(!config || !types)
 		return 0;
 
+	*types = NULL;
 	for(int i = 0; i < config->types.typeCount; i++)
 	{
 		if(config->types.typeArray[i].type > TYPE_CONTROL && !config->types.typeArray[i].IsaddOnData)
 			count ++;
 	}
-	return count;
+
+	*types = (int*)malloc(sizeof(int)*count);
+	if(!(*types))
+		return 0;
+
+	memset(*types, 0, sizeof(int)*count);
+	for(int i = 0; i < config->types.typeCount; i++)
+	{
+		int type = config->types.typeArray[i].type;
+		if(type > TYPE_CONTROL && !config->types.typeArray[i].IsaddOnData)
+		{
+			if(!isInArray(type, *types, norepeat))
+				(*types)[norepeat++] = type;
+		}
+	}
+
+	return norepeat;
+}
+
+int GetActiveBlockTypesNoRepeat(parameters *config)
+{
+	int numTypes = 0, *types = NULL;
+
+	numTypes = GetActiveBlockTypesNoRepeatArray(&types, config);
+	if(numTypes)
+		free(types);
+	return numTypes;
 }
 
 int GetActiveAudioBlocks(parameters *config)

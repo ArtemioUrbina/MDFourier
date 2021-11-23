@@ -3430,11 +3430,14 @@ int InsertElementInPlace(FlatFrequency *Freqs, FlatFrequency Element, long int c
 	return 1;
 }
 
+// Generates the flat frequency array, either for all blocks but Noise floor or just noise floor
 FlatFrequency *CreateFlatFrequencies(AudioSignal *Signal, long int *size, int NoiseFloor, parameters *config)
 {
 	long int		block = 0, i = 0;
-	long int		count = 0, counter = 0;
+	long int		count = 0, counter = 0, offset = 0;
+	int				numTypes = 0, *types = NULL;
 	FlatFrequency	*Freqs = NULL;
+	FlatFreqArray	*splitFreqArray = NULL;
 	double			significant = 0;
 
 	if(!size || !Signal || !config)
@@ -3443,20 +3446,49 @@ FlatFrequency *CreateFlatFrequencies(AudioSignal *Signal, long int *size, int No
 	*size = 0;
 
 	significant = config->significantAmplitude;
+	if(!NoiseFloor)
+	{
+		numTypes = GetActiveBlockTypesNoRepeatArray(&types, config);
+		if(!numTypes)
+			return NULL;
+	}
+	else
+		numTypes = 1;
+
+	splitFreqArray = (FlatFreqArray*)malloc(sizeof(FlatFreqArray)*numTypes);
+	if(!splitFreqArray)
+	{
+		if(types)
+			free(types);
+		return NULL;
+	}
+
+	for(i = 0; i < numTypes; i++)
+	{
+		splitFreqArray[i].data = NULL;
+		splitFreqArray[i].size = 0;
+		splitFreqArray[i].pos = 0;
+	}
 
 	for(block = 0; block < config->types.totalBlocks; block++)
 	{
 		int 	type = TYPE_NOTYPE;
 
 		type = GetBlockType(config, block);
+
 		if((!NoiseFloor && type > TYPE_SILENCE) ||
 			(NoiseFloor && type == TYPE_SILENCE))
 		{
-			long int size = config->MaxFreq;
+			long int size = 0, typeIndex = 0;
 
-			if(NoiseFloor && type == TYPE_SILENCE)
+			if(NoiseFloor)
 				size = Signal->Blocks[block].SilenceSizeLeft;
-			
+			else
+			{
+				typeIndex = getArrayIndexforType(type, types, numTypes);
+				size = config->MaxFreq;
+			}
+
 			for(i = 0; i < size; i++)
 			{
 				int insert = 0;
@@ -3470,18 +3502,26 @@ FlatFrequency *CreateFlatFrequencies(AudioSignal *Signal, long int *size, int No
 					insert = 1;
 
 				if(insert)
+				{
+					splitFreqArray[typeIndex].size++;
 					count ++;
+				}
 				else
 					break;
 			}
 
 			if(Signal->Blocks[block].freqRight)
 			{
-				long int size = config->MaxFreq;
+				long int size = 0, typeIndex = 0;
 
-				if(NoiseFloor && type == TYPE_SILENCE)
+				if(NoiseFloor)
 					size = Signal->Blocks[block].SilenceSizeRight;
-				
+				else
+				{
+					typeIndex = getArrayIndexforType(type, types, numTypes);
+					size = config->MaxFreq;
+				}
+
 				for(i = 0; i < size; i++)
 				{
 					int insert = 0;
@@ -3495,7 +3535,10 @@ FlatFrequency *CreateFlatFrequencies(AudioSignal *Signal, long int *size, int No
 						insert = 1;
 	
 					if(insert)
+					{
+						splitFreqArray[typeIndex].size++;
 						count ++;
+					}
 					else
 						break;
 				}
@@ -3503,23 +3546,43 @@ FlatFrequency *CreateFlatFrequencies(AudioSignal *Signal, long int *size, int No
 		}
 	}
 
-	Freqs = (FlatFrequency*)malloc(sizeof(FlatFrequency)*count);
-	if(!Freqs)
+	if(!count)
+	{
+		free(types);
+		free(splitFreqArray);
 		return NULL;
-	memset(Freqs, 0, sizeof(FlatFrequency)*count);
+	}
+
+	for(i = 0; i < numTypes; i++)
+	{
+		splitFreqArray[i].data = (FlatFrequency*)malloc(splitFreqArray[i].size*sizeof(FlatFrequency));
+		if(!splitFreqArray[i].data)
+		{
+			free(types);
+			free(splitFreqArray);
+			return NULL;
+		}
+		memset(splitFreqArray[i].data, 0, splitFreqArray[i].size*sizeof(FlatFrequency));
+	}
 
 	for(block = 0; block < config->types.totalBlocks; block++)
 	{
 		int type = 0, color = 0;
 
 		type = GetBlockType(config, block);
+
 		if((!NoiseFloor && type > TYPE_SILENCE) ||
 			(NoiseFloor && type == TYPE_SILENCE))
 		{
-			long int size = config->MaxFreq;
+			long int size = 0, typeIndex = 0;
 
-			if(NoiseFloor && type == TYPE_SILENCE)
+			if(NoiseFloor)
 				size = Signal->Blocks[block].SilenceSizeLeft;
+			else
+			{
+				typeIndex = getArrayIndexforType(type, types, numTypes);
+				size = config->MaxFreq;
+			}
 			color = MatchColor(GetBlockColor(config, block));
 			for(i = 0; i < size; i++)
 			{
@@ -3540,8 +3603,11 @@ FlatFrequency *CreateFlatFrequencies(AudioSignal *Signal, long int *size, int No
 					tmp.color = color;
 					tmp.channel = CHANNEL_LEFT;
 	
-					if(InsertElementInPlace(Freqs, tmp, counter))
+					if(InsertElementInPlace(splitFreqArray[typeIndex].data, tmp, splitFreqArray[typeIndex].pos))
+					{
+						splitFreqArray[typeIndex].pos++;
 						counter ++;
+					}
 				}
 				else
 					break;
@@ -3549,11 +3615,15 @@ FlatFrequency *CreateFlatFrequencies(AudioSignal *Signal, long int *size, int No
 
 			if(Signal->Blocks[block].freqRight)
 			{
-				long int size = config->MaxFreq;
+				long int size = 0, typeIndex = 0;
 
-				if(NoiseFloor && type == TYPE_SILENCE)
+				if(NoiseFloor)
 					size = Signal->Blocks[block].SilenceSizeRight;
-
+				else
+				{
+					typeIndex = getArrayIndexforType(type, types, numTypes);
+					size = config->MaxFreq;
+				}
 				for(i = 0; i < size; i++)
 				{
 					int insert = 0;
@@ -3573,16 +3643,55 @@ FlatFrequency *CreateFlatFrequencies(AudioSignal *Signal, long int *size, int No
 						tmp.color = color;
 						tmp.channel = CHANNEL_RIGHT;
 		
-						if(InsertElementInPlace(Freqs, tmp, counter))
+						if(InsertElementInPlace(splitFreqArray[typeIndex].data, tmp, splitFreqArray[typeIndex].pos))
+						{
+							splitFreqArray[typeIndex].pos++;
 							counter ++;
+						}
 					}
 					else
 						break;
 				}
 			}
 		}
+
+		if(block == (long int)(config->types.totalBlocks/2))
+			logmsg(PLOT_PROCESS_CHAR);
 	}
-	
+
+	if(types)
+	{
+		free(types);
+		types = NULL;
+	}
+
+	Freqs = (FlatFrequency*)malloc(sizeof(FlatFrequency)*counter);
+	if(!Freqs)
+	{
+		for(i = 0; i < numTypes; i++)
+		{
+			if(splitFreqArray[i].data)
+				free(splitFreqArray[i].data);
+		}
+		free(splitFreqArray);
+		return NULL;
+	}
+	memset(Freqs, 0, sizeof(FlatFrequency)*counter);
+
+	for(i = 0; i < numTypes; i++)
+	{
+		if(splitFreqArray[i].data)
+		{
+			memcpy(Freqs+offset, splitFreqArray[i].data, sizeof(FlatFrequency)*splitFreqArray[i].pos);
+			free(splitFreqArray[i].data);
+			splitFreqArray[i].data = NULL;
+			offset += splitFreqArray[i].pos;
+		}
+	}
+
+	free(splitFreqArray);
+	splitFreqArray = NULL;
+
 	logmsg(PLOT_PROCESS_CHAR);
 	FlatFrequenciesByAmplitude_tim_sort(Freqs, counter);
 	logmsg(PLOT_PROCESS_CHAR);
@@ -4960,11 +5069,11 @@ void PlotTimeDomainGraphs(AudioSignal *Signal, parameters *config)
 	double		output = 0;
 	char		name[BUFFER_SIZE*2];
 
-	if(config->plotAllNotes)
+	if(config->plotAllNotes || config->timeDomainSync)
 	{
 		for(i = 0; i < config->types.totalBlocks; i++)
 		{
-			if(config->plotAllNotes || Signal->Blocks[i].type == TYPE_TIMEDOMAIN)
+			if(config->plotAllNotes || Signal->Blocks[i].type == TYPE_TIMEDOMAIN || (config->timeDomainSync && Signal->Blocks[i].type == TYPE_SYNC))
 			{
 				plots++;
 				if(config->plotAllNotesWindowed && Signal->Blocks[i].audio.window_samples)

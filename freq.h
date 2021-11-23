@@ -73,8 +73,8 @@ double GetFirstElementFrameOffset(parameters* config);
 int GetFirstSyncIndex(parameters *config);
 int GetLastSyncIndex(parameters *config);
 int GetLastSyncElementIndex(parameters *config);
-int GetActiveBlockTypes(parameters *config);
 int GetActiveBlockTypesNoRepeat(parameters *config);
+int GetActiveBlockTypesNoRepeatArray(int **types, parameters *config);
 int GetInternalSyncTotalLength(int pos, parameters *config);
 int GetRemainingLengthFromElement(int pos, parameters *config);
 int GetInternalSyncTone(int pos, parameters *config);
@@ -86,6 +86,7 @@ void CleanName(char *name, char *display);
 int MatchesPreviousType(int pos, int type, parameters *config);
 void CheckSilenceOverride(parameters *config);
 int ConvertAudioTypeForProcessing(int type, parameters *config);
+int getArrayIndexforType(int type, int *typeArray, int typeCount);
 long int GetBlockFreqSize(AudioSignal *Signal, int block, char channel, parameters *config);
 
 AudioSignal *CreateAudioSignal(parameters *config);

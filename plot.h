@@ -145,6 +145,12 @@ typedef struct flat_FrequencySt {
 	char	channel;
 } FlatFrequency;
 
+typedef struct flat_freq_array {
+	FlatFrequency	*data;
+	long int		pos;
+	long int		size;
+} FlatFreqArray;
+
 typedef struct flat_phase_St {
 	double	hertz;
 	double	phase;
