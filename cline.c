@@ -300,13 +300,13 @@ int commandline(int argc , char *argv[], parameters *config)
 			config->zoomWaveForm *= -1;
 		if(config->zoomWaveForm < -200)
 		{
-			logmsg(" - ERROR: Wave form Zoom Range must be between %d and %d\n", 0, -200);
+			logmsg(" -ERROR: Waveform Zoom Range must be between %d and %d\n", 0, -200);
 			return 0;
 		}
 		if(config->zoomWaveForm)
-			logmsg("\tZooming waveform from 0dbfs to %dbfs\n", config->zoomWaveForm);
+			logmsg("\t-Zooming waveform from 0dbfs to %dbfs\n", config->zoomWaveForm);
 		else
-			logmsg("\tZooming waveform kept at 0dbfs\n");
+			logmsg("\t-Zooming waveform kept at 0dbfs\n");
 		break;
 	  case 'B':
 		config->channelBalance = 0;
@@ -316,10 +316,10 @@ int commandline(int argc , char *argv[], parameters *config)
 		config->AmpBarRange = atof(optarg);
 		if(config->AmpBarRange < 0 || config->AmpBarRange > 16)
 		{
-			logmsg("- ERROR: Range must be between %d and %d\n", 0, 16);
+			logmsg("-ERROR: Range must be between %d and %d\n", 0, 16);
 			return 0;
 		}
-		logmsg("\tChanging Bar range to %dbfs\n", config->AmpBarRange);
+		logmsg("\t-Changing Bar range to %dbfs\n", config->AmpBarRange);
 		break;
 	  case 'C':
 		config->outputCSV = 1;
@@ -339,17 +339,17 @@ int commandline(int argc , char *argv[], parameters *config)
 			return 0;
 		}
 		config->maxDbPlotZCChanged = 1;
-		logmsg("\t -Plot range set to %g\n", config->maxDbPlotZC);
+		logmsg("\t-Plot range set to %g\n", config->maxDbPlotZC);
 		break;
 	  case 'E':
 		config->FullTimeSpectroScale = 1;
-		logmsg("\t -Full Time spectrogram selected, this is slower\n");
+		logmsg("\t-Full Time spectrogram selected, this is slower\n");
 		break;
 	  case 'e':
 		config->endHz = atof(optarg);
 		if(config->endHz < START_HZ*2.0)
 		{
-			logmsg("- ERROR: Requested %g end frequency is lower than possible\n", atof(optarg));
+			logmsg("-ERROR: Requested %g end frequency is lower than possible\n", atof(optarg));
 			return 0;
 		}
 		if(config->endHz > MAX_HZ)
@@ -359,7 +359,7 @@ int commandline(int argc , char *argv[], parameters *config)
 		}
 		if(config->endHz > END_HZ)
 			config->endHzPlot = config->endHz;
-		logmsg("\t -Frequency end range for FFTW is now %g (default %g)\n", config->endHz, END_HZ);
+		logmsg("\t-Frequency end range for FFTW is now %g (default %g)\n", config->endHz, END_HZ);
 		break;
 	  case 'F':
 		config->plotNoiseFloor = 0;
@@ -371,7 +371,7 @@ int commandline(int argc , char *argv[], parameters *config)
 			logmsg("-ERROR: Number fo frequencies must be between %d and %d\n", 1, MAX_FREQ_COUNT);
 			return 0;
 		}
-		logmsg("\t -Max frequencies to use from FFTW are %d (default %d)\n", config->MaxFreq, FREQ_COUNT);
+		logmsg("\t-Max frequencies to use from FFTW are %d (default %d)\n", config->MaxFreq, FREQ_COUNT);
 		break;
 	  case 'G':
 		config->substractAveragePlot = 1;
@@ -388,15 +388,15 @@ int commandline(int argc , char *argv[], parameters *config)
 		break;
 	  case 'I':
 		config->ignoreFrameRateDiff = 1;
-		logmsg("\tIgnoring frame rate differences\n");
+		logmsg("\t-Ignoring frame rate differences\n");
 		break;
 	  case 'i':
 		config->ignoreFloor = 1;
-		logmsg("\t -Ignoring Silence block noise floor\n");
+		logmsg("\t-Ignoring Silence block noise floor\n");
 		break;
 	  case 'j':
 		config->doClkAdjust = 1;
-		logmsg("\tAdjusting Clock\n");
+		logmsg("\t-Adjusting Clock\n");
 		break;
 	  case 'k':
 		config->clock = 1;
@@ -443,26 +443,26 @@ int commandline(int argc , char *argv[], parameters *config)
 		break;
 	  case 'N':
 		config->logScale = 0;
-		logmsg("\tPlots will not be adjusted to log scale\n");
+		logmsg("\t-Plots will not be adjusted to log scale\n");
 		break;
 	  case 'n':
 		switch(optarg[0])
 		{
 			case 't':
 				config->normType = max_time;
-				logmsg("\tUsing Time Domain Normalization\n");
+				logmsg("\t-Using Time Domain Normalization\n");
 				break;
 			case 'f':
 				config->normType = max_frequency;
-				logmsg("\tUsing Frequency Domain Normalization\n");
+				logmsg("\t-Using Frequency Domain Normalization\n");
 				break;
 			case 'a':
 				config->normType = average;
-				logmsg("\tUsing Average Fundamental Frequency Normalization\n");
+				logmsg("\t-Using Average Fundamental Frequency Normalization\n");
 				break;
 			case 'n':
 				config->normType = none;
-				logmsg("\tNot using Normalization\n");
+				logmsg("\t-Not using Normalization\n");
 				break;
 			default:
 				logmsg("-ERROR: Invalid Normalization option '%c'\n", optarg[0]);
@@ -506,7 +506,7 @@ int commandline(int argc , char *argv[], parameters *config)
 		break;
 	  case 'R':
 		config->doSamplerateAdjust = 1;
-		logmsg("\t- Adjusting sample rate if inconsistency found\n");
+		logmsg("\t-Adjusting sample rate if inconsistency found\n");
 		break;
 	  case 'r':
 		sprintf(config->referenceFile, "%s", optarg);
@@ -522,7 +522,7 @@ int commandline(int argc , char *argv[], parameters *config)
 			logmsg(" - ERROR: Requested %g start frequency is out of range\n", atof(optarg));
 			return 0;
 		}
-		logmsg("\t -Frequency start range for FFTW is now %g (default %g)\n", config->startHz, START_HZ);
+		logmsg("\t-Frequency start range for FFTW is now %g (default %g)\n", config->startHz, START_HZ);
 		break;
 	  case 'T':
 		config->syncTolerance++;
@@ -533,12 +533,12 @@ int commandline(int argc , char *argv[], parameters *config)
 		config->plotTimeSpectrogram = 0;
 		break;
 	  case 'U':
-		logmsg(" - Creating waveform plots for all notes with window for FFT\n");
+		logmsg("\t-Creating waveform plots for all notes with window for FFT\n");
 		config->plotAllNotes = 1;
 		config->plotAllNotesWindowed = 1;
 		break;
 	  case 'u':
-		logmsg(" - Creating waveform plots for all notes\n");
+		logmsg("\t-Creating waveform plots for all notes\n");
 		config->plotAllNotes = 1;
 		break;
 	  case 'V':  // reserved
@@ -577,7 +577,7 @@ int commandline(int argc , char *argv[], parameters *config)
 		config->videoFormatRef = atoi(optarg);
 		if(config->videoFormatRef < 0 || config->videoFormatRef > MAX_SYNC)  // We'll confirm this later
 		{
-			logmsg("- ERROR: Profile can have up to %d types\n", MAX_SYNC);
+			logmsg("-ERROR: Profile can have up to %d types\n", MAX_SYNC);
 			return 0;
 		}
 		break;
@@ -595,14 +595,14 @@ int commandline(int argc , char *argv[], parameters *config)
 		break;
 	  case 'z':
 		config->ZeroPad = 1;
-		logmsg("\t -FFT bins will be aligned to 1Hz, this is slower\n");
+		logmsg("\t-FFT bins will be aligned to 1Hz, this is slower\n");
 		break;
 	  case '0':
 		sprintf(config->outputPath, "%s", optarg);
 		break;
 	  case '8':
 		config->logScaleTS = 1;
-		logmsg("\t - Using linear scale for Time Spectrogram plots\n");
+		logmsg("\t-Using linear scale for Time Spectrogram plots\n");
 		break;
 	  case '9':
 		config->compressToBlocks = 1;

@@ -140,7 +140,7 @@
 #define	CLK_FOLDER			"CLK"
 
 //#define TESTWARNINGS
-#define SYNC_DEBUG_SCALE	2
+#define SYNC_DEBUG_SCALE	8
 
 char *GetCurrentPathAndChangeToResultsFolder(parameters *config)
 {
@@ -1308,34 +1308,39 @@ void DrawFileInfo(PlotFile *plot, AudioSignal *Signal, char *msg, int type, int 
 				if(!config->doClkAdjust)
 				{
 					pl_pencolor_r(plot->plotter, 0xeeee, 0xeeee, 0);
-					sprintf(msg, "[%0.4fms %0.4fHz]\\->", 
-							Signal->originalFrameRate, roundFloat(CalculateScanRateOriginalFramerate(Signal)));
+					sprintf(msg, "[%.7gms %.7gHz]\\->", 
+							Signal->originalFrameRate, CalculateScanRateOriginalFramerate(Signal));
 					labelwidth = pl_flabelwidth_r(plot->plotter, msg);
 	
-					sprintf(msg, "[%0.4fms %0.4fHz]\\->[%0.4fms %0.4fHz]", 
-							Signal->originalFrameRate, roundFloat(CalculateScanRateOriginalFramerate(Signal)),
-							Signal->framerate, roundFloat(CalculateScanRate(Signal)));
+					sprintf(msg, "[%.7gms %.7gHz]\\->[%.7gms %.7gHz]", 
+							Signal->originalFrameRate, CalculateScanRateOriginalFramerate(Signal),
+							Signal->framerate, CalculateScanRate(Signal));
 					pl_fmove_r(plot->plotter, config->plotResX/20*17-labelwidth, y+config->plotResY/(ypos*40));
 				}
 				else
 				{
 					pl_pencolor_r(plot->plotter, 0, 0xeeee, 0xeeee);
-					sprintf(msg, "(%0.4fms %0.4fHz) ", 
-						Signal->framerate, roundFloat(CalculateScanRate(Signal)));
+					sprintf(msg, "(%.7gms %.7gHz) ", 
+						Signal->framerate, CalculateScanRate(Signal));
 					labelwidth = pl_flabelwidth_r(plot->plotter, msg);
 					pl_fmove_r(plot->plotter, config->plotResX/20*17-labelwidth, y+config->plotResY/(ypos*40));
 					pl_alabel_r(plot->plotter, 'l', 'l', msg);
 
 					pl_pencolor_r(plot->plotter, 0, 0xeeee, 0);
-					sprintf(msg, "[%0.4fms %0.4fHz]", 
-						Signal->originalFrameRate, roundFloat(CalculateScanRateOriginalFramerate(Signal)));
+					sprintf(msg, "[%.7gms %.7gHz]", 
+						Signal->originalFrameRate, CalculateScanRateOriginalFramerate(Signal));
 					pl_fmove_r(plot->plotter, config->plotResX/20*17, y+config->plotResY/(ypos*40));
 				}
 			}
 			else
 			{
-				sprintf(msg, "[%0.4fms %0.4fHz]", 
-						Signal->framerate, roundFloat(CalculateScanRate(Signal)));
+				double expectedFR = GetMSPerFrame(Signal, config);
+
+				if(fabs(expectedFR - Signal->framerate) >= 0.00001)
+					pl_pencolor_r(plot->plotter, 0xeeee, 0xeeee, 0);
+
+				sprintf(msg, "[%.7gms %.7gHz]", 
+						Signal->framerate, CalculateScanRate(Signal));
 				pl_fmove_r(plot->plotter, config->plotResX/20*17, y+config->plotResY/(ypos*40));
 			}
 			pl_alabel_r(plot->plotter, 'l', 'l', msg);
@@ -1369,18 +1374,22 @@ void DrawFileInfo(PlotFile *plot, AudioSignal *Signal, char *msg, int type, int 
 			double labelwidth = 0;
 
 			pl_pencolor_r(plot->plotter, 0xeeee, 0xeeee, 0);
-			sprintf(msg, "[%0.4fms %0.4fHz]\\->", 
+			sprintf(msg, "[%.7gms %.7gHz]\\->", 
 					Signal->originalFrameRate, roundFloat(CalculateScanRateOriginalFramerate(Signal)));
 			labelwidth = pl_flabelwidth_r(plot->plotter, msg);
 
-			sprintf(msg, "[%0.4fms %0.4fHz]\\->[%0.4fms %0.4fHz]", 
+			sprintf(msg, "[%.7gms %.7gHz]\\->[%.7gms %.7gHz]", 
 					Signal->originalFrameRate, roundFloat(CalculateScanRateOriginalFramerate(Signal)),
 					Signal->framerate, roundFloat(CalculateScanRate(Signal)));
 			pl_fmove_r(plot->plotter, config->plotResX/20*17-labelwidth, y);
 		}
 		else
 		{
-			sprintf(msg, "[%0.4fms %0.4fHz]", Signal->framerate, roundFloat(CalculateScanRate(Signal)));
+			double expectedFR = GetMSPerFrame(Signal, config);
+
+			if(fabs(expectedFR - Signal->framerate) >= 0.00001)
+					pl_pencolor_r(plot->plotter, 0xeeee, 0xeeee, 0);
+			sprintf(msg, "[%.7gfms %.7gHz]", Signal->framerate, roundFloat(CalculateScanRate(Signal)));
 			pl_fmove_r(plot->plotter, config->plotResX/20*17, y);
 		}
 		pl_alabel_r(plot->plotter, 'l', 'l', msg);

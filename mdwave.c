@@ -267,7 +267,7 @@ int ProcessSignalMDW(AudioSignal *Signal, parameters *config)
 		return 0;
 	}
 
-	sampleBufferSize = SecondsToSamples(Signal->header.fmt.SamplesPerSec, longest, Signal->AudioChannels, Signal->bytesPerSample, NULL, NULL, NULL);
+	sampleBufferSize = SecondsToSamples(Signal->header.fmt.SamplesPerSec, longest, Signal->AudioChannels, NULL, NULL, NULL);
 	sampleBuffer = (double*)malloc(sampleBufferSize*sizeof(double));
 	if(!sampleBuffer)
 	{
@@ -306,9 +306,9 @@ int ProcessSignalMDW(AudioSignal *Signal, parameters *config)
 		cutFrames = GetBlockCutFrames(config, i);
 		duration = FramesToSeconds(framerate, frames);
 				
-		loadedBlockSize = SecondsToSamples(Signal->header.fmt.SamplesPerSec, duration, Signal->AudioChannels, Signal->bytesPerSample, &leftover, &discardSamples, &leftDecimals);
+		loadedBlockSize = SecondsToSamples(Signal->header.fmt.SamplesPerSec, duration, Signal->AudioChannels, &leftover, &discardSamples, &leftDecimals);
 
-		difference = GetSampleSizeDifferenceByFrameRate(framerate, frames, Signal->header.fmt.SamplesPerSec, Signal->AudioChannels, Signal->bytesPerSample, config);
+		difference = GetSampleSizeDifferenceByFrameRate(framerate, frames, Signal->header.fmt.SamplesPerSec, Signal->AudioChannels, config);
 
 		windowUsed = NULL;
 		if(Signal->Blocks[i].type >= TYPE_SILENCE || Signal->Blocks[i].type == TYPE_WATERMARK)
@@ -429,9 +429,9 @@ int ProcessSignalMDW(AudioSignal *Signal, parameters *config)
 			cutFrames = GetBlockCutFrames(config, i);
 			duration = FramesToSeconds(framerate, frames);
 
-			loadedBlockSize = SecondsToSamples(Signal->header.fmt.SamplesPerSec, duration, Signal->AudioChannels, Signal->bytesPerSample, &leftover, &discardSamples, &leftDecimals);
+			loadedBlockSize = SecondsToSamples(Signal->header.fmt.SamplesPerSec, duration, Signal->AudioChannels, &leftover, &discardSamples, &leftDecimals);
 	
-			difference = GetSampleSizeDifferenceByFrameRate(framerate, frames, Signal->header.fmt.SamplesPerSec, Signal->AudioChannels, Signal->bytesPerSample, config);
+			difference = GetSampleSizeDifferenceByFrameRate(framerate, frames, Signal->header.fmt.SamplesPerSec, Signal->AudioChannels, config);
 
 			windowUsed = NULL;
 			if(Signal->Blocks[i].type >= TYPE_SILENCE  || Signal->Blocks[i].type == TYPE_WATERMARK)

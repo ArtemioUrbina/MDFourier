@@ -519,7 +519,7 @@ int DetectSync(AudioSignal *Signal, parameters *config)
 				logmsg(" - Using adjusted %g Hz signal (%gms per frame) from Audio signal duration\n",
 					roundFloat(CalculateScanRate(Signal)), Signal->framerate);
 			else
-				logmsg(" - Detected %g Hz signal (%gms per frame) from Audio file\n", 
+				logmsg(" - Detected %.8g Hz signal (%gms per frame) from Audio file\n", 
 						roundFloat(CalculateScanRate(Signal)), Signal->framerate);
 
 			expected = GetMSPerFrame(Signal, config);
@@ -579,8 +579,7 @@ int DetectSync(AudioSignal *Signal, parameters *config)
 
 				Signal->endOffset = SecondsToSamples(Signal->header.fmt.SamplesPerSec, 
 										GetSignalTotalDuration(Signal->framerate, config), 
-										Signal->AudioChannels, Signal->bytesPerSample,
-										NULL, NULL, NULL);
+										Signal->AudioChannels, NULL, NULL, NULL);
 			}
 			break;
 			case NO_SYNC_MANUAL:
@@ -605,7 +604,7 @@ int DetectSync(AudioSignal *Signal, parameters *config)
 				else
 				{
 					Signal->framerate = CalculateFrameRateNS(Signal, config->NoSyncTotalFrames, config);
-					logmsg(" - Detected %g Hz video signal (%gms per frame) from Audio file\n", 
+					logmsg(" - Detected %.8g Hz video signal (%gms per frame) from Audio file\n", 
 								CalculateScanRate(Signal), Signal->framerate);
 				}
 		
@@ -626,8 +625,7 @@ int DetectSync(AudioSignal *Signal, parameters *config)
 				Signal->startOffset = 0;
 				Signal->endOffset = SecondsToSamples(Signal->header.fmt.SamplesPerSec,
 					GetSignalTotalDuration(Signal->framerate, config),
-					Signal->AudioChannels, Signal->bytesPerSample,
-					NULL, NULL, NULL);
+					Signal->AudioChannels, NULL, NULL, NULL);
 				if (Signal->endOffset > Signal->numSamples)
 				{
 					logmsg(" - ERROR: Files must be at least %g seconds long\n", 
@@ -678,8 +676,7 @@ int DetectSync(AudioSignal *Signal, parameters *config)
 
 				Signal->endOffset = SecondsToSamples(Signal->header.fmt.SamplesPerSec, 
 										GetSignalTotalDuration(Signal->framerate, config), 
-										Signal->AudioChannels, Signal->bytesPerSample,
-										NULL, NULL, NULL);
+										Signal->AudioChannels, NULL, NULL, NULL);
 			}
 			config->significantAmplitude = -90;
 			break;
@@ -763,7 +760,7 @@ int MoveSampleBlockInternal(AudioSignal *Signal, long int element, long int pos,
 	}
 
 	signalLengthSeconds = FramesToSeconds(signalLengthFrames, config->referenceFramerate);
-	signalLengthSamples = SecondsToSamples(Signal->header.fmt.SamplesPerSec, signalLengthSeconds, Signal->AudioChannels, Signal->bytesPerSample, NULL, NULL, NULL);
+	signalLengthSamples = SecondsToSamples(Signal->header.fmt.SamplesPerSec, signalLengthSeconds, Signal->AudioChannels, NULL, NULL, NULL);
 
 	if(pos + signalStartOffset + signalLengthSamples > Signal->numSamples)
 	{
@@ -827,7 +824,7 @@ int MoveSampleBlockExternal(AudioSignal *Signal, long int element, long int pos,
 	}
 
 	signalLengthSeconds = FramesToSeconds(signalLengthFrames, config->referenceFramerate);
-	signalLengthSamples = SecondsToSamples(Signal->header.fmt.SamplesPerSec, signalLengthSeconds, Signal->AudioChannels, Signal->bytesPerSample, NULL, NULL, NULL);
+	signalLengthSamples = SecondsToSamples(Signal->header.fmt.SamplesPerSec, signalLengthSeconds, Signal->AudioChannels, NULL, NULL, NULL);
 
 	if(pos + signalStartOffset + signalLengthSamples > Signal->numSamples)
 	{
@@ -897,7 +894,7 @@ int ProcessInternalSync(AudioSignal *Signal, long int element, long int pos, int
 
 	syncToneFreq = GetInternalSyncTone(element, config);
 	syncLenSeconds = GetInternalSyncLen(element, config);
-	syncLengthSamples = SecondsToSamples(Signal->header.fmt.SamplesPerSec, syncLenSeconds, Signal->AudioChannels, Signal->bytesPerSample, NULL, NULL, NULL);
+	syncLengthSamples = SecondsToSamples(Signal->header.fmt.SamplesPerSec, syncLenSeconds, Signal->AudioChannels, NULL, NULL, NULL);
 
 	// we send , syncLengthSamples/2 since it is half silence half pulse
 	internalSyncOffset = DetectSignalStart(Signal->Samples, Signal->header, pos, syncToneFreq, syncLengthSamples/2, &endPulseSamples, &toleranceIssue, config);

@@ -734,7 +734,7 @@ void CompareFrameRatesMDW(AudioSignal *Signal, double framerate, parameters *con
 	}
 }
 
-long int GetSampleSizeDifferenceByFrameRate(double framerate, long int frames, long int samplerate, int AudioChannels, int bytesPerSample, parameters *config)
+long int GetSampleSizeDifferenceByFrameRate(double framerate, long int frames, long int samplerate, int AudioChannels, parameters *config)
 {
 	long int difference = 0;
 
@@ -746,8 +746,8 @@ long int GetSampleSizeDifferenceByFrameRate(double framerate, long int frames, l
 		long int SmallerSamples = 0;
 		long int BiggerSamples = 0;
 
-		SmallerSamples = SecondsToSamples(samplerate, FramesToSeconds(config->smallerFramerate, frames), AudioChannels, bytesPerSample, NULL, NULL, NULL);
-		BiggerSamples = SecondsToSamples(samplerate, FramesToSeconds(framerate, frames), AudioChannels, bytesPerSample, NULL, NULL, NULL);
+		SmallerSamples = SecondsToSamples(samplerate, FramesToSeconds(config->smallerFramerate, frames), AudioChannels, NULL, NULL, NULL);
+		BiggerSamples = SecondsToSamples(samplerate, FramesToSeconds(framerate, frames), AudioChannels, NULL, NULL, NULL);
 	
 		difference = BiggerSamples - SmallerSamples;
 	}
@@ -1102,16 +1102,14 @@ long int GetLastSilenceSampleOffset(double framerate, wav_hdr header, int frameA
 	{
 		if(config->types.typeArray[i].type == TYPE_SILENCE)
 		{
-			int		 bytesPerSample = 0;
 			double	 seconds = 0;
 			long int offset = 0, length = 0;
 
-			bytesPerSample = header.fmt.bitsPerSample/8;
 			seconds = FramesToSeconds(GetBlockFrameOffset(i, config) - frameAdjust, framerate);
-			offset = SecondsToSamples(header.fmt.SamplesPerSec, seconds, header.fmt.NumOfChan, bytesPerSample, NULL, NULL, NULL);
+			offset = SecondsToSamples(header.fmt.SamplesPerSec, seconds, header.fmt.NumOfChan, NULL, NULL, NULL);
 
 			seconds = FramesToSeconds(config->types.typeArray[i].frames*silenceOffset, framerate);
-			length = SecondsToSamples(header.fmt.SamplesPerSec, seconds, header.fmt.NumOfChan, bytesPerSample, NULL, NULL, NULL);
+			length = SecondsToSamples(header.fmt.SamplesPerSec, seconds, header.fmt.NumOfChan, NULL, NULL, NULL);
 			offset += length;
 			return(offset);
 		}
@@ -1132,16 +1130,14 @@ long int GetSecondSilenceSampleOffset(double framerate, wav_hdr header, int fram
 			silence_count ++;
 		if(silence_count == 2)
 		{
-			int bytesPerSample = 0;
 			double seconds = 0;
 			long int offset = 0, length = 0;
 
-			bytesPerSample = header.fmt.bitsPerSample/8;
 			seconds = FramesToSeconds(GetBlockFrameOffset(i, config) - frameAdjust, framerate);
-			offset = SecondsToSamples(header.fmt.SamplesPerSec, seconds, header.fmt.NumOfChan, bytesPerSample, NULL, NULL, NULL);
+			offset = SecondsToSamples(header.fmt.SamplesPerSec, seconds, header.fmt.NumOfChan, NULL, NULL, NULL);
 
 			seconds = FramesToSeconds(config->types.typeArray[i].frames*silenceOffset, framerate);
-			length = SecondsToSamples(header.fmt.SamplesPerSec, seconds, header.fmt.NumOfChan, bytesPerSample, NULL, NULL, NULL);
+			length = SecondsToSamples(header.fmt.SamplesPerSec, seconds, header.fmt.NumOfChan, NULL, NULL, NULL);
 			offset += length;
 			return(offset);
 		}
@@ -1175,16 +1171,14 @@ long int GetSecondSyncSilenceSampleOffset(double framerate, wav_hdr header, int 
 		}
 		if(silence_count == 2)
 		{
-			int bytesPerSample = 0;
 			double seconds = 0;
 			long int offset = 0, length = 0;
 
-			bytesPerSample = header.fmt.bitsPerSample/8;
 			seconds = FramesToSeconds(GetBlockFrameOffset(i, config) - frameAdjust, framerate);
-			offset = SecondsToSamples(header.fmt.SamplesPerSec, seconds, header.fmt.NumOfChan, bytesPerSample, NULL, NULL, NULL);
+			offset = SecondsToSamples(header.fmt.SamplesPerSec, seconds, header.fmt.NumOfChan, NULL, NULL, NULL);
 
 			seconds = FramesToSeconds(config->types.typeArray[i].frames*silenceOffset, framerate);
-			length = SecondsToSamples(header.fmt.SamplesPerSec, seconds, header.fmt.NumOfChan, bytesPerSample, NULL, NULL, NULL);
+			length = SecondsToSamples(header.fmt.SamplesPerSec, seconds, header.fmt.NumOfChan, NULL, NULL, NULL);
 			offset += length;
 			return(offset);
 		}
@@ -2289,14 +2283,13 @@ void FindMaxMagnitude(AudioSignal *Signal, parameters *config)
 		Signal->MaxMagnitude.block = MaxBlock;
 	}
 
-	if(config->verbose && MaxBlock != -1) {
-		int bytesPerSample = 0;
+	if(config->verbose && MaxBlock != -1)
+	{
 		double seconds = 0;
 		long int offset = 0;
 
-		bytesPerSample = Signal->header.fmt.bitsPerSample/8;
 		seconds = FramesToSeconds(GetElementFrameOffset(MaxBlock, config), Signal->framerate);
-		offset = SecondsToSamples(Signal->header.fmt.SamplesPerSec, seconds, Signal->header.fmt.NumOfChan, bytesPerSample, NULL, NULL, NULL);
+		offset = SecondsToSamples(Signal->header.fmt.SamplesPerSec, seconds, Signal->header.fmt.NumOfChan, NULL, NULL, NULL);
 		offset = SamplesForDisplay(offset, Signal->header.fmt.NumOfChan);
 
 		logmsg(" - %s Max Magnitude found in %s# %d (%d) [ %c ] at %g Hz with %g (%g seconds/%ld samples)\n", 
@@ -2918,13 +2911,9 @@ inline double SecondsToFrames(double seconds, double framerate)
 	return((seconds*1000.0)/framerate);
 }
 
-inline long int SecondsToSamples(long int samplerate, double seconds, int AudioChannels, int bytesPerSample, int *leftover, int *discard, double *leftDecimals)
+inline long int SecondsToSamples(long int samplerate, double seconds, int AudioChannels, int *leftover, int *discard, double *leftDecimals)
 {
-	long int bytes = 0;
-	bytes = RoundToNbytes((double)samplerate*(double)bytesPerSample*(double)AudioChannels*seconds*sizeof(char), AudioChannels, bytesPerSample, leftover, discard, leftDecimals);
-	if(discard && *discard)
-		*discard = *discard/bytesPerSample;
-	return(bytes/bytesPerSample);
+	return(RoundToNbytes((double)samplerate*(double)AudioChannels*seconds, AudioChannels, leftover, discard, leftDecimals));
 }
 
 inline double SamplesToSeconds(long int samplerate, long int samples, int AudioChannels)
@@ -2950,7 +2939,7 @@ inline double BytesToSamples(long int samples, int bytesPerSample)
 /* This function compensates for sub sample frame rate inconsistencies between signals */
 /* compensation values are stored in leftover discard left Decimals after adjusting the */
 /* return value to the closest floored sample requested */
-long int RoundToNbytes(double src, int AudioChannels, int bytesPerSample, int *leftover, int *discard, double *leftDecimals)
+long int RoundToNbytes(double src, int AudioChannels, int *leftover, int *discard, double *leftDecimals)
 {
 	int extra = 0, roundValue = 0;
 
@@ -2958,7 +2947,7 @@ long int RoundToNbytes(double src, int AudioChannels, int bytesPerSample, int *l
 		*discard = 0;
 
 	if(!leftover)
-		src = ceil(src);
+		src = floor(src);
 	else
 	{
 		if(leftDecimals)
@@ -2966,7 +2955,7 @@ long int RoundToNbytes(double src, int AudioChannels, int bytesPerSample, int *l
 		src = floor(src);
 	}
 
-	roundValue = bytesPerSample*AudioChannels;
+	roundValue = AudioChannels;
 	extra = ((long int)src) % roundValue;
 	if(extra != 0)
 	{
@@ -3069,7 +3058,6 @@ double CalculateFrameRateAndCheckSamplerate(AudioSignal *Signal, parameters *con
 
 	calculatedSamplerate = (endOffset-startOffset)/(expectedFR*LastSyncFrameOffset);
 	calculatedSamplerate = calculatedSamplerate*1000.0/(double)Signal->AudioChannels;
-	calculatedSamplerate = RoundFloat(calculatedSamplerate, 5);  // the estimation has demonstrated to be very precise, but
 
 	centsDifferenceSR = 1200.0*log2(calculatedSamplerate/(double)Signal->header.fmt.SamplesPerSec);
 	SRDifference = calculatedSamplerate - (double)Signal->header.fmt.SamplesPerSec;
