@@ -1334,9 +1334,11 @@ void DrawFileInfo(PlotFile *plot, AudioSignal *Signal, char *msg, int type, int 
 			}
 			else
 			{
-				double expectedFR = GetMSPerFrame(Signal, config);
+				double expectedFR = 0, difference = 0;
 
-				if(fabs(expectedFR - Signal->framerate) >= 0.00001)
+				expectedFR = GetMSPerFrame(Signal, config);
+				difference = roundFloat(fabs(expectedFR - Signal->framerate));
+				if(difference >= 0.0001)
 					pl_pencolor_r(plot->plotter, 0xeeee, 0xeeee, 0);
 
 				sprintf(msg, "[%.7gms %.7gHz]", 
@@ -1385,11 +1387,13 @@ void DrawFileInfo(PlotFile *plot, AudioSignal *Signal, char *msg, int type, int 
 		}
 		else
 		{
-			double expectedFR = GetMSPerFrame(Signal, config);
+			double expectedFR = 0, difference = 0;
 
-			if(fabs(expectedFR - Signal->framerate) >= 0.00001)
-					pl_pencolor_r(plot->plotter, 0xeeee, 0xeeee, 0);
-			sprintf(msg, "[%.7gfms %.7gHz]", Signal->framerate, roundFloat(CalculateScanRate(Signal)));
+			expectedFR = GetMSPerFrame(Signal, config);
+			difference = roundFloat(fabs(expectedFR - Signal->framerate));
+			if(difference >= 0.0001)
+				pl_pencolor_r(plot->plotter, 0xeeee, 0xeeee, 0);
+			sprintf(msg, "[%.7gms %.7gHz]", Signal->framerate, roundFloat(CalculateScanRate(Signal)));
 			pl_fmove_r(plot->plotter, config->plotResX/20*17, y);
 		}
 		pl_alabel_r(plot->plotter, 'l', 'l', msg);
