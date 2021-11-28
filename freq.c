@@ -3065,11 +3065,10 @@ double CalculateFrameRateAndCheckSamplerate(AudioSignal *Signal, parameters *con
 	/* This code detects the exact numer of samples the signal is off, will enable later */
 	if(config->verbose)
 	{
-		double tDiff = 0, samples = 0, sign = 1;
+		double tDiff = 0, samples = 0;
 
 		tDiff = fabs(expectedFR*LastSyncFrameOffset) - fabs(framerate*LastSyncFrameOffset);
 		samples = -1 * calculatedSamplerate / 1000.0 * tDiff;
-		sign = samples > 0 ? -1 : 1;
 		samples = ceil(RoundFloat(fabs(samples), 2));
 
 		if(fabs(samples) > 0.70)
