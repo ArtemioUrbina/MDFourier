@@ -3062,6 +3062,63 @@ double CalculateFrameRateAndCheckSamplerate(AudioSignal *Signal, parameters *con
 	centsDifferenceSR = 1200.0*log2(calculatedSamplerate/(double)Signal->header.fmt.SamplesPerSec);
 	SRDifference = calculatedSamplerate - (double)Signal->header.fmt.SamplesPerSec;
 
+	/* This code detects the exact numer of samples the signal is off, will enable later */
+	if(config->verbose)
+	{
+		double tDiff = 0, samples = 0, sign = 1;
+
+		tDiff = fabs(expectedFR*LastSyncFrameOffset) - fabs(framerate*LastSyncFrameOffset);
+		samples = -1 * calculatedSamplerate / 1000.0 * tDiff;
+		sign = samples > 0 ? -1 : 1;
+		samples = ceil(RoundFloat(fabs(samples), 2));
+
+		if(fabs(samples) > 0.70)
+		{
+			logmsg(" - WARNING Expected %.12gms and got %.12gms (Difference %gms/%g samples/%g frames of %gms) [%ld-%ld]\n", 
+				expectedFR*LastSyncFrameOffset, framerate*LastSyncFrameOffset,
+				-1*tDiff, samples,
+				-1*tDiff/expectedFR,
+				expectedFR,
+				SamplesForDisplay(Signal->startOffset, Signal->AudioChannels),
+				SamplesForDisplay(Signal->endOffset, Signal->AudioChannels));
+		}
+
+		/*
+		if(1 && fabs(samples) > 0.70 && fabs(samples) < 10.0)
+		{
+			//logmsg("WARNING: Endoffset altered by %g %d channel samples from %ld samples\n", sign*samples, Signal->AudioChannels, SamplesForDisplay((long)endOffset, Signal->AudioChannels));
+			endOffset += sign*samples*Signal->AudioChannels;
+			
+			Signal->endOffset = (long int)endOffset;
+
+			framerate = CalculateFrameRate(Signal, config);
+			diffFR = roundFloat(fabs(expectedFR - framerate));
+
+			calculatedSamplerate = (endOffset-startOffset)/(expectedFR*LastSyncFrameOffset);
+			calculatedSamplerate = calculatedSamplerate*1000.0/(double)Signal->AudioChannels;
+			//calculatedSamplerate = RoundFloat(calculatedSamplerate, 5); 
+
+			centsDifferenceSR = 1200.0*log2(calculatedSamplerate/(double)Signal->header.fmt.SamplesPerSec);
+			SRDifference = calculatedSamplerate - (double)Signal->header.fmt.SamplesPerSec;
+
+			tDiff = fabs(expectedFR*LastSyncFrameOffset) - fabs(framerate*LastSyncFrameOffset);
+			samples = -1 * calculatedSamplerate / 1000.0 * tDiff;
+
+			tDiff = RoundFloat(tDiff, 5);
+			samples = RoundFloat(samples, 5);
+			expectedFR = RoundFloat(expectedFR, 5);
+
+			logmsg(" - WARNING RECALC start %ld end %ld, Expected %gms and got %gms (Difference is %gms/%g samples/%g frames of %gms)\n", 
+				SamplesForDisplay(Signal->startOffset, Signal->AudioChannels),
+				SamplesForDisplay(Signal->endOffset, Signal->AudioChannels),
+				expectedFR*LastSyncFrameOffset, framerate*LastSyncFrameOffset,
+				-1*tDiff, samples,
+				-1*tDiff/expectedFR,
+				expectedFR);
+		}
+		*/
+	}
+
 	if(fabs(SRDifference) < 0.5)  // do not make adjustments if they make no change at all (< 1hz)
 	{
 		if(config->doSamplerateAdjust && fabs(SRDifference) != 0.0)
@@ -3087,11 +3144,11 @@ double CalculateFrameRateAndCheckSamplerate(AudioSignal *Signal, parameters *con
 			// A sample rate difference > 0.5 is rouded up and used, lower is ignored. This is done
 			// because sample rate is an integer variable. Differences lower than 0.5 could probably 
 			// be adjusted by the algorithm, would need to test if possible.
-			if(fabs(SRDifference) > 0.05 && fabs(SRDifference) < 0.5)  // adjust if higher than above, for 192khz
+			if(fabs(SRDifference) > 0.02 && fabs(SRDifference) < 0.5)  // adjust if higher than above, for 192khz
 				calculatedSamplerate += 0.5;
 			else
 			{
-				if(fabs(SRDifference) > 0.05 && fabs(SRDifference) < 0.5)  // adjust if lower than above, for 192khz
+				if(fabs(SRDifference) > 0.02 && fabs(SRDifference) < 0.5)  // adjust if lower than above, for 192khz
 					calculatedSamplerate -= 0.5;
 			}
 			Signal->header.fmt.SamplesPerSec = round(calculatedSamplerate);

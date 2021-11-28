@@ -596,7 +596,7 @@ long int AdjustPulseSampleStartByLength(double* Samples, wav_hdr header, long in
 	}
 	memset(pulseArray, 0, sizeof(Pulses) * (endSearch - startSearch));
 
-	// we are counting in samples, not bytes
+	// we are counting inn samples, not bytes
 	for (pos = startSearch; pos < endSearch; pos += AudioChannels)
 	{
 		memset(buffer, 0, samplesNeeded * sizeof(double));

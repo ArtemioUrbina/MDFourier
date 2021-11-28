@@ -718,7 +718,7 @@ int AdjustSignalValues(AudioSignal *Signal, parameters *config)
 		logmsg(" - Changed to %gHz-%gHz for this file\n", config->startHz, Signal->endHz);
 	}
 
-	seconds = (double)Signal->numSamples/(double)Signal->header.fmt.SamplesPerSec/Signal->AudioChannels;
+	seconds = (double)Signal->numSamples/(double)Signal->header.fmt.SamplesPerSec/(double)Signal->AudioChannels;
 	logmsg(" - Audio file header reports %dHz %dbits %s %s and %g seconds long\n", 
 		Signal->header.fmt.SamplesPerSec, 
 		Signal->header.fmt.bitsPerSample,
