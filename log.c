@@ -208,13 +208,23 @@ int SaveWAVEChunk(char *filename, AudioSignal *Signal, double *buffer, long int 
 		convertedSamples = 1;
 	}
 
-	if(Signal->header.fmt.AudioFormat == WAVE_FORMAT_IEEE_FLOAT)
+	if(Signal->header.fmt.AudioFormat == WAVE_FORMAT_IEEE_FLOAT && Signal->header.fmt.bitsPerSample == 32)
 	{
 		float *samplesf = NULL;
 
 		samplesf = (float*)samples;
 		for(i = 0; i < loadedBlockSize; i++)
 			samplesf[i] = (float)buffer[i];
+		convertedSamples = 1;
+	}
+
+	if(Signal->header.fmt.AudioFormat == WAVE_FORMAT_IEEE_FLOAT && Signal->header.fmt.bitsPerSample == 64)
+	{
+		double *samplesf = NULL;
+
+		samplesf = (double*)samples;
+		for(i = 0; i < loadedBlockSize; i++)
+			samplesf[i] = (double)buffer[i];
 		convertedSamples = 1;
 	}
 
