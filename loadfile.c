@@ -97,7 +97,7 @@ int LoadFile(AudioSignal **Signal, char *fileName, int role, parameters *config)
 }
 
 // no endianess considerations, PCM in RIFF is little endian and this code is little endian
-void ConvertByteArrayToIEEESample(const void *buf, void *target)
+void ConvertByteArrayToIEEE32Sample(const void *buf, void *target)
 {
 	const unsigned char *b = (const unsigned char *)buf;
 	unsigned char *t = (unsigned char *)target;
@@ -106,6 +106,22 @@ void ConvertByteArrayToIEEESample(const void *buf, void *target)
 	t[1] = b[1];
 	t[2] = b[2];
 	t[3] = b[3];
+}
+
+// no endianess considerations, PCM in RIFF is little endian and this code is little endian
+void ConvertByteArrayToIEEE64Sample(const void *buf, void *target)
+{
+	const unsigned char *b = (const unsigned char *)buf;
+	unsigned char *t = (unsigned char *)target;
+
+	t[0] = b[0];
+	t[1] = b[1];
+	t[2] = b[2];
+	t[3] = b[3];
+	t[4] = b[4];
+	t[5] = b[5];
+	t[6] = b[6];
+	t[7] = b[7];
 }
 
 int CheckFactChunk(FILE *file, AudioSignal *Signal)
@@ -127,7 +143,7 @@ int CheckFactChunk(FILE *file, AudioSignal *Signal)
 			logmsg("\tWARNING: Extensible wave bits per sample differ from header bits per sample.\n");
 		if(fmt_ext->formatCode != WAVE_FORMAT_PCM && fmt_ext->formatCode != WAVE_FORMAT_IEEE_FLOAT)
 		{
-			logmsg("\tERROR: Only 16/24/32bit PCM or 32 bit IEEE float supported. (fact chunk)\n\tPlease convert file sample format.\n");
+			logmsg("\tERROR: Only 16/24/32bit PCM or 32/64 bit IEEE float supported. (fact chunk)\n\tPlease convert file sample format.\n");
 			return 0;
 		}
 		Signal->header.fmt.AudioFormat = fmt_ext->formatCode;
@@ -137,7 +153,7 @@ int CheckFactChunk(FILE *file, AudioSignal *Signal)
 
 int LoadWAVFile(FILE *file, AudioSignal *Signal, parameters *config)
 {
-	int					found = 0, samplesLoaded = 0;
+	int					found = 0, samplesLoaded = 0, validformat = 0;
 	size_t				bytesRead = 0;
 	struct timespec		start, end;
 	long int			samplePos = 0, srcPos = 0, byteOffset = 0;
@@ -220,7 +236,7 @@ int LoadWAVFile(FILE *file, AudioSignal *Signal, parameters *config)
 			if(Signal->header.fmt.Subchunk1Size + 8 > sizeof(fmt_hdr))  // Add the fmt and chunksize length: 8 bytes
 				fseek(file, Signal->header.fmt.Subchunk1Size + 8 - sizeof(fmt_hdr), SEEK_CUR);
 			if(config->verbose)
-				logmsg("- WARNING: Unknown fmt chunk size: %lu\n", Signal->header.fmt.Subchunk1Size);
+				logmsg("\t-WARNING: Unsupported fmt sub chunk size: %lu\n", Signal->header.fmt.Subchunk1Size);
 			break;
 	}
 
@@ -243,7 +259,7 @@ int LoadWAVFile(FILE *file, AudioSignal *Signal, parameters *config)
 			found = 1;
 		}
 
-		// Read Toal Fact if available
+		// Read Total Fact if available
 		if(Signal->header.fmt.AudioFormat == WAVE_FORMAT_EXTENSIBLE)
 		{
 			if(strncmp((char*)schunk.chunkID, "fact", 4) == 0)
@@ -273,22 +289,43 @@ int LoadWAVFile(FILE *file, AudioSignal *Signal, parameters *config)
 		return(0);
 	}
 
-	if(Signal->header.fmt.bitsPerSample != 16 &&  /* Check bit depth */
-		Signal->header.fmt.bitsPerSample != 24 && Signal->header.fmt.bitsPerSample != 32)
+	/* Check bit depth */
+	if(Signal->header.fmt.AudioFormat == WAVE_FORMAT_PCM)
 	{
-		logmsg("\tERROR: Only 16/24/32 bit formats are supported.");
+		if(Signal->header.fmt.bitsPerSample != 8 && Signal->header.fmt.bitsPerSample != 16 &&
+			Signal->header.fmt.bitsPerSample != 24 && Signal->header.fmt.bitsPerSample != 32)
+		{
+			logmsg("\tERROR: Only 8/16/24/32 bit PCM formats are supported. ");
+			return(0);
+		}
+		validformat = 1;
+	}
+
+	if(Signal->header.fmt.AudioFormat == WAVE_FORMAT_IEEE_FLOAT)
+	{
+		if(Signal->header.fmt.bitsPerSample != 32 && Signal->header.fmt.bitsPerSample != 64)
+		{
+			logmsg("\tERROR: Only 32/64 bit IEEE float are supported. ");
+			return(0);
+		}
+		validformat = 1;
+	}
+
+	if(!validformat && Signal->header.fmt.AudioFormat != WAVE_FORMAT_EXTENSIBLE)
+	{
+		logmsg("\tERROR: Only 8/16/24/32bit PCM or 32/64 bit IEEE float supported.\n\tPlease convert file sample format.\n");
 		return(0);
 	}
 
-	if(Signal->header.fmt.AudioFormat == WAVE_FORMAT_IEEE_FLOAT && Signal->header.fmt.bitsPerSample != 32)
-	{
-		logmsg("\tERROR: Only 32 bit IEEE float is supported");
-		return(0);
-	}
-
-	if(Signal->header.data.DataSize <= 0)
+	if(Signal->header.data.DataSize == 0)
 	{
 		logmsg("\tERROR: RIFF header has an invalid Data length %ld\n", Signal->header.data.DataSize);
+		return(0);
+	}
+
+	if(Signal->header.fmt.bitsPerSample == 0)
+	{
+		logmsg("\tERROR: RIFF header has bits per sample at 0 (AudioFormat: 0x%X)\n", Signal->header.fmt.AudioFormat);
 		return(0);
 	}
 
@@ -325,13 +362,18 @@ int LoadWAVFile(FILE *file, AudioSignal *Signal, parameters *config)
 	if(Signal->header.fmt.AudioFormat == WAVE_FORMAT_EXTENSIBLE)
 	{
 		if(!CheckFactChunk(file, Signal))
+		{
+			free(fileBytes);
 			return 0;
+		}
+		validformat = 1;
 	}
 
-	if(Signal->header.fmt.AudioFormat != WAVE_FORMAT_PCM && /* If fact didn't remove EXTENSIBLE... */
+	if(Signal->header.fmt.AudioFormat != WAVE_FORMAT_PCM && /* If fact chunk check didn't remove EXTENSIBLE... */
 		Signal->header.fmt.AudioFormat != WAVE_FORMAT_IEEE_FLOAT)
 	{
-		logmsg("\tERROR: Only 16/24/32bit PCM or 32 bit IEEE float supported.\n\tPlease convert file sample format.\n");
+		free(fileBytes);
+		logmsg("\tERROR: Only 8/16/24/32bit PCM or 32/64 bit IEEE float supported.\n\tPlease convert file sample format.\n");
 		return(0);
 	}
 
@@ -355,6 +397,9 @@ int LoadWAVFile(FILE *file, AudioSignal *Signal, parameters *config)
 	
 			switch(Signal->bytesPerSample)
 			{
+				case 1:
+					sample = fileBytes[srcPos];
+					break;
 				case 2:
 					signSample = fileBytes[srcPos+1];
 					if(signSample < 0)
@@ -371,7 +416,7 @@ int LoadWAVFile(FILE *file, AudioSignal *Signal, parameters *config)
 					sample = (fileBytes[srcPos+3] << 24) | (fileBytes[srcPos+2] << 16) | (fileBytes[srcPos+1] << 8) | fileBytes[srcPos];
 					break;
 				default:
-					logmsg("ERROR: Unsupported audio format (bits per sample)\n");
+					logmsg("ERROR: Unsupported audio format (bytes sample %d)\n", Signal->bytesPerSample);
 					free(fileBytes);
 					return 0;
 			}
@@ -383,15 +428,29 @@ int LoadWAVFile(FILE *file, AudioSignal *Signal, parameters *config)
 		samplesLoaded = 1;
 	}
 
-	if(Signal->header.fmt.AudioFormat == WAVE_FORMAT_IEEE_FLOAT)
+	if(Signal->header.fmt.AudioFormat == WAVE_FORMAT_IEEE_FLOAT && Signal->header.fmt.bitsPerSample == 32)
 	{
 		for(samplePos = 0; samplePos < Signal->numSamples; samplePos++)
 		{
 			float	sample = 0;
 	
-			ConvertByteArrayToIEEESample(fileBytes+srcPos, &sample);
+			ConvertByteArrayToIEEE32Sample(fileBytes+srcPos, &sample);
 			Signal->Samples[samplePos] = (double)sample;
 			srcPos += 4;
+		}
+
+		samplesLoaded = 1;
+	}
+
+	if(Signal->header.fmt.AudioFormat == WAVE_FORMAT_IEEE_FLOAT && Signal->header.fmt.bitsPerSample == 64)
+	{
+		for(samplePos = 0; samplePos < Signal->numSamples; samplePos++)
+		{
+			double	sample = 0;
+	
+			ConvertByteArrayToIEEE64Sample(fileBytes+srcPos, &sample);
+			Signal->Samples[samplePos] = (double)sample;
+			srcPos += 8;
 		}
 
 		samplesLoaded = 1;

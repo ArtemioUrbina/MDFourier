@@ -110,6 +110,9 @@
 #define DB_HEIGHT	18.0
 #define DB_DIFF		DB_HEIGHT/2.0
 
+#define	MAXINT8			 127
+#define	MININT8			-128.0
+
 #define	MAXINT16		 32767.0
 #define	MININT16		-32768.0
 

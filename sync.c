@@ -561,7 +561,7 @@ long int AdjustPulseSampleStartByLength(double* Samples, wav_hdr header, long in
 	targetFrequency = FindFrequencyBracketForSync(frequency,
 		samplesNeeded, AudioChannels, header.fmt.SamplesPerSec, config);
 
-	synLenInSamples = RoundToNbytes(((double)header.fmt.SamplesPerSec*syncLen*AudioChannels) / 1000.0, AudioChannels, NULL, NULL, NULL);
+	synLenInSamples = RoundToNsamples(((double)header.fmt.SamplesPerSec*syncLen*AudioChannels) / 1000.0, AudioChannels, NULL, NULL, NULL);
 
 	buffer = (double*)malloc(samplesNeeded * sizeof(double));
 	if (!buffer)
@@ -573,12 +573,12 @@ long int AdjustPulseSampleStartByLength(double* Samples, wav_hdr header, long in
 	if (offset >= synLenInSamples)
 	{
 		startSearch = offset - synLenInSamples;
-		startSearch = RoundToNbytes((double)startSearch, AudioChannels, NULL, NULL, NULL);
+		startSearch = RoundToNsamples((double)startSearch, AudioChannels, NULL, NULL, NULL);
 	}
 	else
 		startSearch = 0;
 	endSearch = offset + synLenInSamples*1.5;
-	endSearch = RoundToNbytes((double)endSearch, AudioChannels, NULL, NULL, NULL);
+	endSearch = RoundToNsamples((double)endSearch, AudioChannels, NULL, NULL, NULL);
 
 	if (config->debugSync)
 		logmsgFileOnly("\nSearching at %ld samples/%ld bytes End At: %ld samples/%ld bytes (%d bytes per sample), looking for %g->%ghz samples needed: %d\n",
@@ -684,7 +684,7 @@ long int AdjustPulseSampleStartByLength(double* Samples, wav_hdr header, long in
 			if (startDetectPos != -1 && (targetFrequency != pulseArray[pos].hertz ||
 				(targetFrequency == pulseArray[pos].hertz && pulseArray[pos].magnitude < compareMag*0.5)))
 			{
-				endDetectPos = pos + RoundToNbytes((double)samplesNeeded/4.0, AudioChannels, NULL, NULL, NULL);   // Add the tail since we are doing overlapped starts
+				endDetectPos = pos + RoundToNsamples((double)samplesNeeded/4.0, AudioChannels, NULL, NULL, NULL);   // Add the tail since we are doing overlapped starts
 				break;
 			}
 		}
@@ -734,15 +734,15 @@ long int AdjustPulseSampleStartByLength(double* Samples, wav_hdr header, long in
 						tolerance--;
 					else
 					{
-						endDetectPos = pos + RoundToNbytes((double)samplesNeeded / 4.0, AudioChannels, NULL, NULL, NULL);   // Add the tail since we are doing overlapped starts
+						endDetectPos = pos + RoundToNsamples((double)samplesNeeded / 4.0, AudioChannels, NULL, NULL, NULL);   // Add the tail since we are doing overlapped starts
 						break;
 					}
 				}
 			}
 
 			foundPulseLength = pulseArray[endDetectPos].samples - pulseArray[startDetectPos].samples;
-			foundPulseLength = RoundToNbytes((double)foundPulseLength, AudioChannels, NULL, NULL, NULL);
-			newFoundPos = RoundToNbytes((double)pulseArray[startDetectPos].samples + ((double)foundPulseLength/2.0 - (double)synLenInSamples/2.0), AudioChannels, NULL, NULL, NULL);
+			foundPulseLength = RoundToNsamples((double)foundPulseLength, AudioChannels, NULL, NULL, NULL);
+			newFoundPos = RoundToNsamples((double)pulseArray[startDetectPos].samples + ((double)foundPulseLength/2.0 - (double)synLenInSamples/2.0), AudioChannels, NULL, NULL, NULL);
 			if (newFoundPos != foundPos)
 			{
 				foundPos = newFoundPos;

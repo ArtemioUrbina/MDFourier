@@ -2913,7 +2913,7 @@ inline double SecondsToFrames(double seconds, double framerate)
 
 inline long int SecondsToSamples(long int samplerate, double seconds, int AudioChannels, int *leftover, int *discard, double *leftDecimals)
 {
-	return(RoundToNbytes((double)samplerate*(double)AudioChannels*seconds, AudioChannels, leftover, discard, leftDecimals));
+	return(RoundToNsamples((double)samplerate*(double)AudioChannels*seconds, AudioChannels, leftover, discard, leftDecimals));
 }
 
 inline double SamplesToSeconds(long int samplerate, long int samples, int AudioChannels)
@@ -2939,7 +2939,7 @@ inline double BytesToSamples(long int samples, int bytesPerSample)
 /* This function compensates for sub sample frame rate inconsistencies between signals */
 /* compensation values are stored in leftover discard left Decimals after adjusting the */
 /* return value to the closest floored sample requested */
-long int RoundToNbytes(double src, int AudioChannels, int *leftover, int *discard, double *leftDecimals)
+long int RoundToNsamples(double src, int AudioChannels, int *leftover, int *discard, double *leftDecimals)
 {
 	int extra = 0, roundValue = 0;
 
@@ -3065,10 +3065,11 @@ double CalculateFrameRateAndCheckSamplerate(AudioSignal *Signal, parameters *con
 	/* This code detects the exact numer of samples the signal is off, will enable later */
 	if(config->verbose)
 	{
-		double tDiff = 0, samples = 0;
+		double tDiff = 0, samples = 0; /*, sign = 1; */
 
 		tDiff = fabs(expectedFR*LastSyncFrameOffset) - fabs(framerate*LastSyncFrameOffset);
 		samples = -1 * calculatedSamplerate / 1000.0 * tDiff;
+		//sign = samples > 0 ? -1 : 1;
 		samples = ceil(RoundFloat(fabs(samples), 2));
 
 		if(fabs(samples) > 0.70)
@@ -3526,6 +3527,9 @@ inline long int GetSignalMaxInt(AudioSignal *Signal)
 
 	switch(Signal->bytesPerSample)
 	{
+		case 1:
+			Max = MAXINT8;
+			break;
 		case 2:
 			Max = MAXINT16;
 			break;
@@ -3533,10 +3537,11 @@ inline long int GetSignalMaxInt(AudioSignal *Signal)
 			Max = MAXINT24;
 			break;
 		case 4:
+		case 8: // this came from IEEE 64 bit
 			Max = MAXINT32;
 			break;
 		default:
-			logmsg("Invalid bit depth (%dbits)\n", Signal->bytesPerSample*8);
+			logmsg("Invalid bit depth (%dbits)\n", Signal->header.fmt.bitsPerSample);
 			break;
 	}
 	return Max;
@@ -3548,6 +3553,9 @@ inline long int GetSignalMinInt(AudioSignal *Signal)
 
 	switch(Signal->bytesPerSample)
 	{
+		case 1:
+			Min = MININT8;
+			break;
 		case 2:
 			Min = MININT16;
 			break;
@@ -3555,10 +3563,11 @@ inline long int GetSignalMinInt(AudioSignal *Signal)
 			Min = MININT24;
 			break;
 		case 4:
+		case 8: // this came from IEEE 64 bit
 			Min = MININT32;
 			break;
 		default:
-			logmsg("Invalid bit depth (%dbits)\n", Signal->bytesPerSample*8);
+			logmsg("Invalid bit depth (%dbits)\n", Signal->header.fmt.bitsPerSample);
 			break;
 	}
 	return Min;
@@ -3577,10 +3586,11 @@ inline double GetSignalMinDBFS(AudioSignal *Signal)
 			Min = PCM_24BIT_MIN_AMPLITUDE;
 			break;
 		case 4:
+		case 8: // this came from IEEE 64 bit
 			Min = PCM_32BIT_MIN_AMPLITUDE;
 			break;
 		default:
-			logmsg("Invalid bit depth (%dbits)\n", Signal->bytesPerSample*8);
+			logmsg("Invalid bit depth (%dbits)\n", Signal->header.fmt.bitsPerSample);
 			break;
 	}
 	return Min;

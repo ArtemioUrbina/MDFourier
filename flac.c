@@ -3,7 +3,7 @@
  * A Fourier Transform analysis tool to compare game console audio
  * http://junkerhq.net/MDFourier/
  *
- * Copyright (C)2019-2020 Artemio Urbina
+ * Copyright (C)2019-2021 Artemio Urbina
  *
  * This file is part of the 240p Test Suite
  *
@@ -28,7 +28,7 @@
 
 /*
  * This implements libFLAC to decode a FLAC file to a data structure in RAM
- * It only supports 16-bit stereo files.
+ * It only supports 16/24-bit mono/stereo files.
  *
  * Complete API documentation can be found at:
  *	 http://xiph.org/flac/api/
@@ -157,7 +157,7 @@ int FLACtoSignal(char *input, AudioSignal *Signal)
 	{
 		if((uint32_t)Signal->samplesPosFLAC > Signal->header.data.DataSize)  // Buffer overflow!!!
 		{
-			logmsg("ERROR: FLAC decoder made a buffer overflow\n Got%lu bytes and expected %lu bytes\n",
+			logmsg("ERROR: FLAC decoder had a buffer overflow\n Got%lu bytes and expected %lu bytes\n",
 				Signal->samplesPosFLAC, Signal->header.data.DataSize);
 			return 0;
 		}
