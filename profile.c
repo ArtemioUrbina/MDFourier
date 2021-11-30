@@ -797,11 +797,11 @@ int LoadAudioNoSyncProfile(FILE *file, parameters *config)
 		return 0;
 	}
 
-	if (config->significantAmplitude != SIGNIFICANT_VOLUME)
+	if (config->significantAmplitude != SIGNIFICANT_AMPLITUDE)
 	{
 		if(config->noSyncProfileType != NO_SYNC_LENGTH)
 		{
-			config->significantAmplitude = SIGNIFICANT_VOLUME;
+			config->significantAmplitude = SIGNIFICANT_AMPLITUDE;
 			logmsg(" - Free sync profiles ignore -p. \n");
 		}
 	}

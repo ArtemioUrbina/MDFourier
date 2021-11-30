@@ -97,7 +97,11 @@ void PrintUsage()
 
 int Header(int log, int argc, char *argv[])
 {
+#ifdef DEBUG
+	char title1[] = "MDFourier DEBUG " MDVERSION " [240p Test Suite Fourier Audio compare tool] " BITS_MDF "\n";
+#else
 	char title1[] = "MDFourier " MDVERSION " [240p Test Suite Fourier Audio compare tool] " BITS_MDF "\n";
+#endif
 	char title2[] = "Artemio Urbina 2019-2021 free software under GPL - http://junkerhq.net/MDFourier\n";
 
 	if(argc == 2 && !strncmp(argv[1], "-V", 2))
@@ -138,8 +142,8 @@ void CleanParameters(parameters *config)
 	config->showAll = 0;
 	config->ignoreFloor = 0;
 	config->outputFilterFunction = 3;
-	config->origSignificantAmplitude = SIGNIFICANT_VOLUME;
-	config->significantAmplitude = SIGNIFICANT_VOLUME;
+	config->origSignificantAmplitude = SIGNIFICANT_AMPLITUDE;
+	config->significantAmplitude = SIGNIFICANT_AMPLITUDE;
 	config->referenceNoiseFloor = 0;
 	config->smallerFramerate = 0;
 	config->referenceFramerate = 0;
@@ -490,7 +494,7 @@ int commandline(int argc , char *argv[], parameters *config)
 		if(config->significantAmplitude == 0)
 		{
 			config->noiseFloorAutoAdjust = 0;
-			config->significantAmplitude = SIGNIFICANT_VOLUME;
+			config->significantAmplitude = SIGNIFICANT_AMPLITUDE;
 		}
 		else if(config->significantAmplitude < -250.0 || config->significantAmplitude > -1.0)
 		{

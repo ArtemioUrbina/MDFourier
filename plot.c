@@ -1822,8 +1822,8 @@ void DrawLabelsMDF(PlotFile *plot, char *Gname, char *GType, int type, parameter
 	pl_pencolor_r(plot->plotter, 0, 0xcccc, 0);
 	{
 		PLOT_COLUMN(1, 1);
-		if(config->significantAmplitude > LOWEST_NOISEFLOOR_ALLOWED || config->ignoreFloor
-		 || config->significantAmplitude < SIGNIFICANT_VOLUME)
+		if(config->significantAmplitude > HIGHEST_NOISEFLOOR_ALLOWED || config->ignoreFloor
+		 || config->significantAmplitude < SIGNIFICANT_AMPLITUDE)
 			pl_pencolor_r(plot->plotter, 0xcccc, 0xcccc, 0);
 		sprintf(msg, "Significant: %0.1f dBFS", config->significantAmplitude);
 		pl_alabel_r(plot->plotter, 'l', 'l', msg);
@@ -3757,7 +3757,7 @@ void PlotTestZL(char *filename, parameters *config)
 	DrawGridZeroToLimit(&plot, config->significantAmplitude, VERT_SCALE_STEP, config->endHzPlot, 1000, 0, config);
 	DrawLabelsZeroToLimit(&plot, config->significantAmplitude, VERT_SCALE_STEP, config->endHzPlot, 0, config);
 
-	DrawColorScale(&plot, 1, MODE_SPEC, LEFT_MARGIN, HEIGHT_MARGIN, config->plotResX/COLOR_BARS_WIDTH_SCALE, config->plotResY/1.15, 0, SIGNIFICANT_VOLUME, VERT_SCALE_STEP_BAR, config);
+	DrawColorScale(&plot, 1, MODE_SPEC, LEFT_MARGIN, HEIGHT_MARGIN, config->plotResX/COLOR_BARS_WIDTH_SCALE, config->plotResY/1.15, 0, SIGNIFICANT_AMPLITUDE, VERT_SCALE_STEP_BAR, config);
 	
 	DrawLabelsMDF(&plot, "PLOT TEST [%s]", "GZL", PLOT_COMPARE, config);
 	ClosePlot(&plot);
@@ -5664,7 +5664,7 @@ void PlotBlockTimeDomainInternalSyncGraph(AudioSignal *Signal, int block, char *
 		plotSize = numSamples;
 	sampleOffset = Signal->Blocks[block].audio.sampleOffset;
 	/*
-	if(config->timeDomainSync && Signal->Blocks[block].type == TYPE_SYNC)
+	if(config->debugSync && Signal->Blocks[block].type == TYPE_SYNC)
 	{
 		FillPlotExtra(&plot, name, SYNC_DEBUG_SCALE*config->plotResX, config->plotResY, 0, config->lowestValueBitDepth, plotSize, config->highestValueBitDepth, 1, 0.2, config);
 		forceMS = 1;

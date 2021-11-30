@@ -895,7 +895,7 @@ int commandline_wave(int argc , char *argv[], parameters *config)
 		if(config->significantAmplitude == 0)
 		{
 			config->noiseFloorAutoAdjust = 0;
-			config->significantAmplitude = SIGNIFICANT_VOLUME;
+			config->significantAmplitude = SIGNIFICANT_AMPLITUDE;
 		}
 		else if(config->significantAmplitude < -250.0 || config->significantAmplitude > -1.0)
 		{

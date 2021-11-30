@@ -18,6 +18,11 @@ static: CCFLAGS = $(EXTRA_MINGW_CFLAGS) $(OPT) $(EXTRA_CFLAGS_STATIC) $(BASE_CCF
 static: LFLAGS = $(EXTRA_MINGW_LFLAGS) $(EXTRA_LFLAGS_STATIC) $(BASE_LFLAGS)
 static: executable
 
+#extra flags for static with checks for testing
+check: CCFLAGS = $(EXTRA_MINGW_CFLAGS) $(OPT) $(EXTRA_CFLAGS_STATIC) $(BASE_CCFLAGS) $(OPENMP) -DDEBUG
+check: LFLAGS = $(EXTRA_MINGW_LFLAGS) $(EXTRA_LFLAGS_STATIC) $(BASE_LFLAGS)
+check: executable
+
 #generic release
 all: CCFLAGS = $(BASE_CCFLAGS) $(OPT)
 all: LFLAGS = $(BASE_LFLAGS)

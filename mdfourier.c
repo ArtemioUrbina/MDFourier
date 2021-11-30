@@ -437,7 +437,8 @@ int FrequencyDomainNormalize(AudioSignal **ReferenceSignal, AudioSignal **Compar
 		ratioRef = ComparisonLocalMaximum/MaxRef.magnitude;
 
 	/* Detect extreme cases, and try another approach */
-	ratiodBFS = CalculateAmplitude(ComparisonLocalMaximum, MaxRef.magnitude);
+	/* we don't use CalculateAmplitude due to safety warnings*/
+	ratiodBFS = 20*log10(ComparisonLocalMaximum/MaxRef.magnitude);
 
 	if(!config->allowStereoVsMono &&
 		MaxRef.block == MaxTar.block &&
@@ -459,7 +460,8 @@ int FrequencyDomainNormalize(AudioSignal **ReferenceSignal, AudioSignal **Compar
 		MaxRef = CalculateAmplitude(GetSignalMaxInt(*ReferenceSignal), config->highestValueBitDepth);
 		MaxComp = CalculateAmplitude(GetSignalMaxInt(*ComparisonSignal), config->highestValueBitDepth);
 		maxRatiodBFS = fabs(fabs(MaxRef)-fabs(MaxComp)) + maxRatiodBFS;
-		//logmsg("ratio dbfs %g\n", maxRatiodBFS);
+		if(config->verbose)
+			logmsg(" - Different bitdepths, ratio %g dbfs\n", maxRatiodBFS);
 	}
 	if(config->verbose) { logmsg(" - Amplitude ratio is %gdB\n", ratiodBFS == NO_AMPLITUDE ? 0 : ratiodBFS); }
 	if(ComparisonLocalMaximum == 0 || fabs(ratiodBFS) > maxRatiodBFS || ratiodBFS == NO_AMPLITUDE)
@@ -657,7 +659,7 @@ int ProcessNoiseFloor(AudioSignal *ReferenceSignal, AudioSignal *ComparisonSigna
 		config->noiseFloorTooHigh |= ReferenceSignal->role;
 		logmsg(" - Reference noise floor %g dBFS is louder than the average %g dBFS of the signal, ignoring\n",
 				ReferenceSignal->floorAmplitude, avgRef);
-		ReferenceSignal->floorAmplitude = SIGNIFICANT_VOLUME;
+		ReferenceSignal->floorAmplitude = SIGNIFICANT_AMPLITUDE;
 	}
 
 	if(comHasFloor && avgComp < ComparisonSignal->floorAmplitude)
@@ -665,17 +667,17 @@ int ProcessNoiseFloor(AudioSignal *ReferenceSignal, AudioSignal *ComparisonSigna
 		config->noiseFloorTooHigh |= ComparisonSignal->role;
 		logmsg(" - Comparison noise floor %g dBFS is louder than the average %g dBFS of the signal, ignoring\n",
 				ComparisonSignal->floorAmplitude, avgComp);
-		ComparisonSignal->floorAmplitude = SIGNIFICANT_VOLUME;
+		ComparisonSignal->floorAmplitude = SIGNIFICANT_AMPLITUDE;
 	}
 
 	/* Detect Signal Floor, default to Reference's*/
 	if(refHasFloor)
 		config->significantAmplitude = ReferenceSignal->floorAmplitude;
 
-	if(refHasFloor && ReferenceSignal->floorAmplitude > LOWEST_NOISEFLOOR_ALLOWED)
+	if(refHasFloor && ReferenceSignal->floorAmplitude > HIGHEST_NOISEFLOOR_ALLOWED)
 		config->noiseFloorTooHigh |= ReferenceSignal->role;
 
-	if(comHasFloor && ComparisonSignal->floorAmplitude > LOWEST_NOISEFLOOR_ALLOWED)
+	if(comHasFloor && ComparisonSignal->floorAmplitude > HIGHEST_NOISEFLOOR_ALLOWED)
 		config->noiseFloorTooHigh |= ComparisonSignal->role;
 
 
@@ -683,8 +685,8 @@ int ProcessNoiseFloor(AudioSignal *ReferenceSignal, AudioSignal *ComparisonSigna
 	if(config->noiseFloorAutoAdjust)
 	{
 		if(refHasFloor && comHasFloor &&
-			config->significantAmplitude < SIGNIFICANT_VOLUME &&
-			ComparisonSignal->floorAmplitude <= LOWEST_NOISEFLOOR_ALLOWED &&
+			config->significantAmplitude < SIGNIFICANT_AMPLITUDE &&
+			ComparisonSignal->floorAmplitude <= HIGHEST_NOISEFLOOR_ALLOWED &&
 			ReferenceSignal->floorAmplitude < ComparisonSignal->floorAmplitude)
 		{
 			double diff = 0;
@@ -698,18 +700,18 @@ int ProcessNoiseFloor(AudioSignal *ReferenceSignal, AudioSignal *ComparisonSigna
 	}
 	else
 	{
-		if(config->significantAmplitude < SIGNIFICANT_VOLUME)
+		if(config->significantAmplitude < SIGNIFICANT_AMPLITUDE)
 		{
 			logmsg(" - Limiting noise floor to %g from %g (from -p 0)\n",
-				SIGNIFICANT_VOLUME, config->significantAmplitude);
-			config->significantAmplitude = SIGNIFICANT_VOLUME;
+				SIGNIFICANT_AMPLITUDE, config->significantAmplitude);
+			config->significantAmplitude = SIGNIFICANT_AMPLITUDE;
 		}
 	}
 
-	if(config->significantAmplitude >= LOWEST_NOISEFLOOR_ALLOWED)
+	if(config->significantAmplitude >= HIGHEST_NOISEFLOOR_ALLOWED)
 	{
 		logmsg(" - WARNING: Noise floor %g dBFS is louder than the default %g dBFS. If differences are not visible, define a limit with -p <dbfs>\n",
-				config->significantAmplitude, LOWEST_NOISEFLOOR_ALLOWED);
+				config->significantAmplitude, HIGHEST_NOISEFLOOR_ALLOWED);
 		//if(!config->noiseFloorTooHigh)
 		//	config->noiseFloorTooHigh = ROLE_COMP;
 		// we rather not take action for now
@@ -1267,7 +1269,6 @@ int DuplicateSamplesForWavefromPlots(AudioSignal *Signal, long int element, long
 	return 1;
 }
 
-//#define DEBUG_DISCARD_SAMPLES
 int ProcessSignal(AudioSignal *Signal, parameters *config)
 {
 	long int		pos = 0;
@@ -1279,8 +1280,8 @@ int ProcessSignal(AudioSignal *Signal, parameters *config)
 	struct timespec	start, end;
 	int				leftover = 0, discardSamples = 0, syncinternal = 0;
 	double			leftDecimals = 0;
-#ifdef DEBUG_DISCARD_SAMPLES
-	long int		totalDiscarded = 0;
+#ifdef DEBUG
+	long int		totalDiscarded = 0, totalProcessed = 0;
 #endif
 
 	pos = Signal->startOffset;
@@ -1324,7 +1325,11 @@ int ProcessSignal(AudioSignal *Signal, parameters *config)
 		cutFrames = GetBlockCutFrames(config, i);
 		duration = FramesToSeconds(framerate, frames);
 
-		loadedBlockSize = SecondsToSamples(Signal->header.fmt.SamplesPerSec, duration, Signal->AudioChannels, &leftover, &discardSamples, &leftDecimals);
+		if(areDoublesEqual(framerate, config->smallerFramerate) && !syncinternal)  // this compensates for shorter durations
+			loadedBlockSize = SecondsToSamples(Signal->header.fmt.SamplesPerSec, duration, Signal->AudioChannels, NULL, NULL, NULL);
+		else
+			loadedBlockSize = SecondsToSamples(Signal->header.fmt.SamplesPerSec, duration, Signal->AudioChannels, &leftover, &discardSamples, &leftDecimals);
+			
 		difference = GetSampleSizeDifferenceByFrameRate(framerate, frames, Signal->header.fmt.SamplesPerSec, Signal->AudioChannels, config);
 
 		if(Signal->Blocks[i].type >= TYPE_SILENCE || Signal->Blocks[i].type == TYPE_WATERMARK) // We get the smaller window, since we'll truncate
@@ -1335,24 +1340,32 @@ int ProcessSignal(AudioSignal *Signal, parameters *config)
 				windowUsed = getWindowByLength(&windows, frames, cutFrames, framerate, config);
 		}
 
-#ifdef DEBUG_DISCARD_SAMPLES
-		logmsg("Pos: %ld loadedBlockSize %ld Diff %ld loadedBlockSize-diff %ld leftover %ld discardSamples %ld leftDecimals %g\n",
-			SamplesForDisplay(pos, Signal->AudioChannels), SamplesForDisplay(loadedBlockSize, Signal->AudioChannels),
-			SamplesForDisplay(difference, Signal->AudioChannels), SamplesForDisplay(loadedBlockSize - difference, Signal->AudioChannels),
-			leftover, SamplesForDisplay(discardSamples, Signal->AudioChannels), leftDecimals);
-#endif
-
 		if(pos + loadedBlockSize > Signal->numSamples)
 		{
+#ifdef DEBUG
+			logmsg("WARNING: End of File load: %ld size: %ld exceed: %ld pos: %ld limit: %ld\n", 
+				loadedBlockSize, sampleBufferSize, pos + loadedBlockSize, pos, Signal->numSamples);
+#endif
 			if(i != config->types.totalBlocks - 1)
 			{
 				config->smallFile |= Signal->role;
 				logmsg("\tUnexpected end of File, please record the full Audio Test from the 240p Test Suite.\n");
 				if(config->verbose)
-					logmsg("load: %ld size: %ld exceed: %ld pos: %ld limit: %ld\n", loadedBlockSize, sampleBufferSize, pos + loadedBlockSize, pos, Signal->numSamples);
+					logmsg("load: %ld size: %ld exceed: %ld pos: %ld limit: %ld\n",
+						loadedBlockSize, sampleBufferSize, pos + loadedBlockSize, pos, Signal->numSamples);
 			}
 			break;
 		}
+
+#ifdef DEBUG
+			logmsg("Pos: %ld (%s %gs) loaded %ld Diff %ld loaded-diff %ld leftover %ld discard %ld restDec %lg\n",
+				SamplesForDisplay(pos, Signal->AudioChannels), 
+				Signal->Blocks[i].type >= TYPE_SILENCE || Signal->Blocks[i].type == TYPE_WATERMARK ? "" : "NO DFT", duration,
+				SamplesForDisplay(loadedBlockSize, Signal->AudioChannels),
+				SamplesForDisplay(difference, Signal->AudioChannels), SamplesForDisplay(loadedBlockSize - difference, Signal->AudioChannels),
+				leftover, SamplesForDisplay(discardSamples, Signal->AudioChannels), leftDecimals);
+#endif
+
 		memset(sampleBuffer, 0, sampleBufferSize*sizeof(double));
 		memcpy(sampleBuffer, Signal->Samples + pos, (loadedBlockSize-difference)*sizeof(double));
 
@@ -1390,8 +1403,12 @@ int ProcessSignal(AudioSignal *Signal, parameters *config)
 
 		pos += loadedBlockSize;
 		pos += discardSamples;
-#ifdef DEBUG_DISCARD_SAMPLES
+
+#ifdef DEBUG
+		totalProcessed += loadedBlockSize;
 		totalDiscarded += discardSamples;
+		if(discardSamples)
+			logmsg("Skipped %d samples\n", SamplesForDisplay(discardSamples, Signal->AudioChannels));
 #endif
 
 		if(Signal->Blocks[i].type == TYPE_INTERNAL_KNOWN)
@@ -1409,9 +1426,17 @@ int ProcessSignal(AudioSignal *Signal, parameters *config)
 		i++;
 	}
 
-#ifdef DEBUG_DISCARD_SAMPLES
-	if(totalDiscarded)
-		logmsg("Total discarded samples: %ld\n",  SamplesForDisplay(totalDiscarded, Signal->AudioChannels));
+#ifdef DEBUG
+	logmsg("Total discarded %s samples: %ld of %d bytes each (%ld bytes total)\n", 
+		Signal->AudioChannels == 2 ? "stereo" : "mono",
+		SamplesForDisplay(totalDiscarded, Signal->AudioChannels),
+		Signal->bytesPerSample,
+		SamplesToBytes(totalDiscarded, Signal->bytesPerSample));
+	logmsg("Total processed %s samples: %ld of %d bytes each (%ld bytes total)\n", 
+		Signal->AudioChannels == 2 ? "stereo" : "mono",
+		SamplesForDisplay(totalProcessed, Signal->AudioChannels),
+		Signal->bytesPerSample,
+		SamplesToBytes(totalProcessed, Signal->bytesPerSample));
 #endif
 
 	if(config->normType != max_frequency)
@@ -1833,6 +1858,7 @@ void NormalizeAudioByRatio(AudioSignal *Signal, double ratio)
 	end = Signal->endOffset;
 
 	// improvement suggested by plgDavid
+	// Removed the * 0.5 since we chaned to internal double representation)
 	for(i = start; i < end; i++)
 		samples[i] = samples[i]*ratio;
 }

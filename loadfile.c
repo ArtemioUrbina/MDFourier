@@ -575,10 +575,10 @@ int DetectSync(AudioSignal *Signal, parameters *config)
 			}
 
 			if(Signal->originalSR != 0.0)
-				logmsg(" - Using adjusted %g Hz signal (%gms per frame) from Audio signal duration\n",
+				logmsg(" - Using adjusted %.8g Hz signal (%.8gms per frame) from Audio signal duration\n",
 					roundFloat(CalculateScanRate(Signal)), Signal->framerate);
 			else
-				logmsg(" - Detected %.8g Hz signal (%gms per frame) from Audio file\n", 
+				logmsg(" - Detected %.8g Hz signal (%.8gms per frame) from Audio file\n", 
 						roundFloat(CalculateScanRate(Signal)), Signal->framerate);
 
 			expected = GetMSPerFrame(Signal, config);
@@ -657,13 +657,13 @@ int DetectSync(AudioSignal *Signal, parameters *config)
 					seconds = SamplesToSeconds(Signal->header.fmt.SamplesPerSec, Signal->endOffset, Signal->AudioChannels);
 					config->NoSyncTotalFrames = (seconds*1000)/expected;
 					Signal->framerate = expected;
-					logmsg(" - Loaded %g Hz video signal (%gms per frame) from profile file\n", 
+					logmsg(" - Loaded %.8g Hz signal (%.8gms per frame) from profile file\n", 
 								CalculateScanRate(Signal), Signal->framerate);
 				}
 				else
 				{
 					Signal->framerate = CalculateFrameRateNS(Signal, config->NoSyncTotalFrames, config);
-					logmsg(" - Detected %.8g Hz video signal (%gms per frame) from Audio file\n", 
+					logmsg(" - Detected %.8g Hz signal (%.8gms per frame) from Audio file\n", 
 								CalculateScanRate(Signal), Signal->framerate);
 				}
 		

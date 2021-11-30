@@ -48,7 +48,7 @@
 
 #include "incbeta.h"
 
-#define MDVERSION "1.07c"
+#define MDVERSION "1.07d"
 
 #if INTPTR_MAX == INT64_MAX
 #define	BITS_MDF "64-bit"
@@ -61,12 +61,14 @@
 #define MAX_FREQ_COUNT		96000 	/* Number of frequencies to compare(MAX) */
 #define FREQ_COUNT			2000	/* Number of frequencies to compare(default) */
 
-#define SIGNIFICANT_VOLUME			-66.0
+#define SIGNIFICANT_AMPLITUDE			-66.0
 #define NS_LOWEST_AMPLITUDE			-200
-#define	PCM_16BIT_MIN_AMPLITUDE		-96.0
-#define	PCM_24BIT_MIN_AMPLITUDE		-144.0
-#define	PCM_32BIT_MIN_AMPLITUDE		-192.0
-#define LOWEST_NOISEFLOOR_ALLOWED	-40.0
+#define	PCM_8BIT_MIN_AMPLITUDE		-48.16
+#define	PCM_16BIT_MIN_AMPLITUDE		-96.33
+#define	PCM_24BIT_MIN_AMPLITUDE		-144.49
+#define	PCM_32BIT_MIN_AMPLITUDE		-192.66
+#define HIGHEST_NOISEFLOOR_ALLOWED	-40.0
+
 #define STEREO_TOLERANCE_REPORT		8.5
 
 #define TYPE_NOTYPE				-1000
@@ -121,6 +123,7 @@
 
 #define MAXINT32		 2147483647.0
 #define MININT32		-2147483648.0
+
 
 // This value is the pitch difference at which it will be reported
 // 0.25 cents is around 7hz in a 48khz signal

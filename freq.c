@@ -691,27 +691,11 @@ void CompareFrameRates(AudioSignal *Signal1, AudioSignal *Signal2, parameters *c
 		config->smallerFramerate = Signal1->framerate;
 	else
 	{
-		config->smallerFramerate =  GetLowerFrameRate(Signal1->framerate, Signal2->framerate);
+		config->smallerFramerate = GetLowerFrameRate(Signal1->framerate, Signal2->framerate);
 		if((config->verbose && diff > 0.001) || diff > 0.1) {
 			logmsg("\n= Different frame rates found (%g), compensating to %g =\n", 
 				diff, config->smallerFramerate);
 		}
-
-		/*
-		if(diff <= 0.0004) // this is probably a sync detection error
-		{
-			double expected = 0;
-
-			expected = GetMSPerFrame(Signal1, config);
-			diff = fabs(Signal1->framerate - expected);
-			if(diff <= 0.0005)
-				config->smallerFramerate = expected;
-
-			Signal1->framerate = config->smallerFramerate;
-			Signal2->framerate = config->smallerFramerate;
-			logmsg(" - Analysis will be done as %g ms per frame\n", config->smallerFramerate);
-		}
-		*/
 	}
 }
 
@@ -724,7 +708,7 @@ void CompareFrameRatesMDW(AudioSignal *Signal, double framerate, parameters *con
 		config->smallerFramerate = framerate;
 	else
 	{
-		config->smallerFramerate =  GetLowerFrameRate(Signal->framerate, framerate);
+		config->smallerFramerate = GetLowerFrameRate(Signal->framerate, framerate);
 		if(config->verbose && diff > 0.001) {
 			logmsg("\n= Different frame rates found (%g), compensating to %g =\n", 
 				diff, config->smallerFramerate);
@@ -2428,8 +2412,8 @@ void PrintFrequenciesBlock(AudioSignal *Signal, Frequency *freq, long int size, 
 	significant = config->significantAmplitude;
 	if(GetTypeChannel(config, type) == CHANNEL_NOISE)
 	{
-		if(significant > SIGNIFICANT_VOLUME)
-			significant = SIGNIFICANT_VOLUME;
+		if(significant > SIGNIFICANT_AMPLITUDE)
+			significant = SIGNIFICANT_AMPLITUDE;
 	}
 
 	for(long int j = 0; j < size; j++)
@@ -2525,6 +2509,14 @@ inline double CalculateAmplitude(double magnitude, double MaxMagnitude)
 	double amplitude = 0;
 
 	if(magnitude == 0.0 || MaxMagnitude == 0.0)
+	{
+#ifdef DEBUG
+		logmsg("WARNING: Invalid data for CalculateAmplitude (%g/%g)\n", magnitude, MaxMagnitude);
+#endif
+		return NO_AMPLITUDE;
+	}
+
+	if(magnitude > MaxMagnitude)
 	{
 #ifdef DEBUG
 		logmsg("WARNING: Invalid data for CalculateAmplitude (%g/%g)\n", magnitude, MaxMagnitude);
@@ -2977,7 +2969,8 @@ long int RoundToNsamples(double src, int AudioChannels, int *leftover, int *disc
 
 	if(leftDecimals)
 	{
-		if(*leftDecimals >= (double)roundValue)
+		if(*leftDecimals > (double)roundValue ||
+			areDoublesEqual(*leftDecimals, roundValue))  // this allows "negative" values when close enough
 		{
 			*discard += roundValue;
 			*leftDecimals -= (double)roundValue;
@@ -2998,6 +2991,9 @@ inline double GetDecimalValues(double value)
 long int GetZeroPadValues(long int *monoSignalSize, double *seconds, long int samplerate)
 {
 	long int zeropadding = 0;
+
+	if(!monoSignalSize || !seconds)
+		return zeropadding;
 
 	// Align frequency bins to 1Hz
 	if(*monoSignalSize != samplerate)
@@ -3070,7 +3066,7 @@ double CalculateFrameRateAndCheckSamplerate(AudioSignal *Signal, parameters *con
 		tDiff = fabs(expectedFR*LastSyncFrameOffset) - fabs(framerate*LastSyncFrameOffset);
 		samples = -1 * calculatedSamplerate / 1000.0 * tDiff;
 		//sign = samples > 0 ? -1 : 1;
-		samples = ceil(RoundFloat(fabs(samples), 2));
+		//samples = ceil(RoundFloat(fabs(samples), 2));
 
 		if(fabs(samples) > 0.70)
 		{
@@ -3525,24 +3521,28 @@ inline long int GetSignalMaxInt(AudioSignal *Signal)
 {
 	long int Max = 0;
 
-	switch(Signal->bytesPerSample)
+	if(Signal->header.fmt.AudioFormat == WAVE_FORMAT_IEEE_FLOAT)
+		Max = 1.0;	
+	else
 	{
-		case 1:
-			Max = MAXINT8;
-			break;
-		case 2:
-			Max = MAXINT16;
-			break;
-		case 3:
-			Max = MAXINT24;
-			break;
-		case 4:
-		case 8: // this came from IEEE 64 bit
-			Max = MAXINT32;
-			break;
-		default:
-			logmsg("Invalid bit depth (%dbits)\n", Signal->header.fmt.bitsPerSample);
-			break;
+		switch(Signal->bytesPerSample)
+		{
+			case 1:
+				Max = MAXINT8;
+				break;
+			case 2:
+				Max = MAXINT16;
+				break;
+			case 3:
+				Max = MAXINT24;
+				break;
+			case 4:
+				Max = MAXINT32;
+				break;
+			default:
+				logmsg("Invalid bit depth (%dbits)\n", Signal->header.fmt.bitsPerSample);
+				break;
+		}
 	}
 	return Max;
 }
@@ -3551,24 +3551,28 @@ inline long int GetSignalMinInt(AudioSignal *Signal)
 {
 	long int Min = 0;
 
-	switch(Signal->bytesPerSample)
+	if(Signal->header.fmt.AudioFormat == WAVE_FORMAT_IEEE_FLOAT)
+		Min = -1.0;	
+	else
 	{
-		case 1:
-			Min = MININT8;
-			break;
-		case 2:
-			Min = MININT16;
-			break;
-		case 3:
-			Min = MININT24;
-			break;
-		case 4:
-		case 8: // this came from IEEE 64 bit
-			Min = MININT32;
-			break;
-		default:
-			logmsg("Invalid bit depth (%dbits)\n", Signal->header.fmt.bitsPerSample);
-			break;
+		switch(Signal->bytesPerSample)
+		{
+			case 1:
+				Min = MININT8;
+				break;
+			case 2:
+				Min = MININT16;
+				break;
+			case 3:
+				Min = MININT24;
+				break;
+			case 4:
+				Min = MININT32;
+				break;
+			default:
+				logmsg("Invalid bit depth (%dbits)\n", Signal->header.fmt.bitsPerSample);
+				break;
+		}
 	}
 	return Min;
 }
@@ -3577,21 +3581,28 @@ inline double GetSignalMinDBFS(AudioSignal *Signal)
 {
 	double Min = 0;
 
-	switch(Signal->bytesPerSample)
+	if(Signal->header.fmt.AudioFormat == WAVE_FORMAT_IEEE_FLOAT)
+		Min = PCM_32BIT_MIN_AMPLITUDE;	
+	else
 	{
-		case 2:
-			Min = PCM_16BIT_MIN_AMPLITUDE;
-			break;
-		case 3:
-			Min = PCM_24BIT_MIN_AMPLITUDE;
-			break;
-		case 4:
-		case 8: // this came from IEEE 64 bit
-			Min = PCM_32BIT_MIN_AMPLITUDE;
-			break;
-		default:
-			logmsg("Invalid bit depth (%dbits)\n", Signal->header.fmt.bitsPerSample);
-			break;
+		switch(Signal->bytesPerSample)
+		{
+			case 1:
+				Min = PCM_8BIT_MIN_AMPLITUDE;
+				break;
+			case 2:
+				Min = PCM_16BIT_MIN_AMPLITUDE;
+				break;
+			case 3:
+				Min = PCM_24BIT_MIN_AMPLITUDE;
+				break;
+			case 4:
+				Min = PCM_32BIT_MIN_AMPLITUDE;
+				break;
+			default:
+				logmsg("Invalid bit depth (%dbits)\n", Signal->header.fmt.bitsPerSample);
+				break;
+		}
 	}
 	return Min;
 }

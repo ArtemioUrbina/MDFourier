@@ -110,6 +110,12 @@ double *CreateWindow(windowManager *wm, long int frames, long int cutFrames, dou
 	if(wm->winType == 'n')
 		return NULL;
 
+	if(cutFrames >= frames)
+	{
+		logmsg("ERROR: Cutframes %ld >= frames %ld\n", cutFrames, frames);
+		return NULL;
+	}
+
 	if(wm->windowCount == wm->MaxWindow)
 	{
 		logmsg("ERROR: Reached Max window limit %d\n", wm->MaxWindow);
