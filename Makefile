@@ -5,59 +5,69 @@ all:linux
 endif
 
 ifeq ($(UNAME_O),Msys)
-all:static
+all:msys-s
 endif
 
 ifeq ($(UNAME_O),Darwin)
 all:mac
 endif
 
-CC = gcc
-OPT = -O3
+ifeq ($(UNAME_O),Cygwin)
+all:cygwin
+endif
+
+CC     = gcc
+OPT    = -O3
 OPENMP = -DOPENMP_ENABLE -fopenmp
 
-BASE_CCFLAGS = -Wfatal-errors -Wpedantic -Wall -Wextra -std=gnu99
-BASE_LFLAGS = -lm -lfftw3 -lplot -lpng -lz -lFLAC
+BASE_CCFLAGS    = -Wfatal-errors -Wpedantic -Wall -Wextra -std=gnu99
+BASE_LIBS       = -lm -lfftw3 -lplot -lpng -lz -lFLAC
 
-#-Wstrict-prototypes -Wfloat-equal -Wconversion -Wfloat-equal
+#-Wstrict-prototypes -Wfloat-equal -Wconversion
 
 #For local builds
-EXTRA_MINGW_CFLAGS = -I/usr/local/include
-EXTRA_MINGW_LFLAGS = -L/usr/local/lib
-EXTRA_CFLAGS_STATIC = -fdata-sections -ffunction-sections
-EXTRA_LFLAGS_STATIC = -Wl,-Bstatic -Wl,--gc-sections -Wl,--strip-all
+LOCAL_INCLUDE         = -I/usr/local/include
+LOCAL_LINK            = -L/usr/local/lib
+EXTRA_CFLAGS_SYMBOLS  = -fdata-sections -ffunction-sections
+EXTRA_LFLAGS_SYMBOLS  = -Wl,--gc-sections -Wl,--strip-all
+EXTRA_LFLAGS_STATIC   = -Wl,-Bstatic
 
 #generic release
-all: CCFLAGS = $(BASE_CCFLAGS) $(OPT)
-all: LFLAGS = $(BASE_LFLAGS)
+all: CCFLAGS    = $(LOCAL_INCLUDE) $(BASE_CCFLAGS) $(OPT)
+all: LFLAGS     = $(LOCAL_LINK) $(BASE_LIBS)
 all: executable
 
 #extra flags for static release
-static: CCFLAGS = $(EXTRA_MINGW_CFLAGS) $(OPT) $(EXTRA_CFLAGS_STATIC) $(BASE_CCFLAGS) $(OPENMP)
-static: LFLAGS = $(EXTRA_MINGW_LFLAGS) $(EXTRA_LFLAGS_STATIC) $(BASE_LFLAGS)
-static: executable
+msys-s: CCFLAGS = $(LOCAL_INCLUDE) $(BASE_CCFLAGS) $(OPT) $(EXTRA_CFLAGS_SYMBOLS) $(OPENMP)
+msys-s: LFLAGS  = $(LOCAL_LINK) $(EXTRA_LFLAGS_STATIC) $(EXTRA_LFLAGS_SYMBOLS) $(BASE_LIBS) 
+msys-s: executable
 
-#extra flags for static with checks for testing
-check: CCFLAGS = $(EXTRA_MINGW_CFLAGS) $(OPT) $(EXTRA_CFLAGS_STATIC) $(BASE_CCFLAGS) $(OPENMP) -DDEBUG
-check: LFLAGS = $(EXTRA_MINGW_LFLAGS) $(EXTRA_LFLAGS_STATIC) $(BASE_LFLAGS)
+#extra flags for static with checks for testing in MSYS
+check: CCFLAGS  = $(LOCAL_INCLUDE) $(BASE_CCFLAGS) $(OPT) $(EXTRA_CFLAGS_SYMBOLS) $(OPENMP) -DDEBUG
+check: LFLAGS   = $(LOCAL_LINK) $(EXTRA_LFLAGS_STATIC) $(EXTRA_LFLAGS_SYMBOLS) $(BASE_LIBS) 
 check: executable
 
 #Linux/Un*x release
-linux: CCFLAGS = $(BASE_CCFLAGS) $(OPT) $(OPENMP)
-linux: LFLAGS = $(BASE_LFLAGS) -Wl,--strip-all
+linux: CCFLAGS  = $(BASE_CCFLAGS) $(OPT) $(EXTRA_CFLAGS_SYMBOLS) $(OPENMP)
+linux: LFLAGS   = $(EXTRA_LFLAGS_SYMBOLS) $(BASE_LIBS) 
 linux: executable
 
+#Cygwin release
+cygwin: CCFLAGS = $(LOCAL_INCLUDE) $(BASE_CCFLAGS) $(OPT) $(OPENMP)
+cygwin: LFLAGS = $(LOCAL_LINK) $(BASE_LIBS) -Wl,--strip-all
+cygwin: executable
+
 #flags for mac
-mac: CCFLAGS = $(BASE_CCFLAGS) $(OPT)
-mac: LFLAGS = $(BASE_LFLAGS) -Wl,-no_compact_unwind -logg
+mac: CCFLAGS    = $(BASE_CCFLAGS) $(OPT)
+mac: LFLAGS     = -Wl,-no_compact_unwind -logg $(BASE_LIBS) 
 mac: executable
 
 #flags for debug
-debug: CCFLAGS = $(EXTRA_MINGW_CFLAGS) $(BASE_CCFLAGS) -DDEBUG -g
-debug: LFLAGS = $(EXTRA_MINGW_LFLAGS) $(BASE_LFLAGS)
+debug: CCFLAGS  = $(LOCAL_INCLUDE) $(BASE_CCFLAGS) -DDEBUG -g
+debug: LFLAGS   = $(LOCAL_LINK) $(BASE_LIBS)
 debug: executable
 
-executable: mdfourier 
+executable: mdfourier
 executable: mdwave
 
 mdfourier: profile.o sync.o freq.o windows.o log.o diff.o cline.o plot.o balance.o incbeta.o loadfile.o flac.o mdfourier.o 

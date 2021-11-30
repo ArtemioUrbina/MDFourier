@@ -438,7 +438,7 @@ int FrequencyDomainNormalize(AudioSignal **ReferenceSignal, AudioSignal **Compar
 
 	/* Detect extreme cases, and try another approach */
 	/* we don't use CalculateAmplitude due to safety warnings*/
-	ratiodBFS = 20*log10(ComparisonLocalMaximum/MaxRef.magnitude);
+	ratiodBFS = 20*log10(ComparisonLocalMaximum/MaxRef.magnitude); //ratiodBFS = CalculateAmplitude(ComparisonLocalMaximum, MaxRef.magnitude);
 
 	if(!config->allowStereoVsMono &&
 		MaxRef.block == MaxTar.block &&
@@ -1392,15 +1392,6 @@ int ProcessSignal(AudioSignal *Signal, parameters *config)
 				return 0;
 		}
 
-#ifdef CHECKWAV
-		// MDWAVE exists for this, but just in case it is ever needed within MDFourier
-		if(config->verbose)
-		{
-			SaveWAVEChunk(NULL, Signal, sampleBuffer, i, loadedBlockSize-difference, 0, config);
-			SaveWAVEChunk(NULL, Signal, Signal->Samples + pos + loadedBlockSize, i, difference, 1, config);
-		}
-#endif
-
 		pos += loadedBlockSize;
 		pos += discardSamples;
 
@@ -1428,15 +1419,11 @@ int ProcessSignal(AudioSignal *Signal, parameters *config)
 
 #ifdef DEBUG
 	logmsg("Total discarded %s samples: %ld of %d bytes each (%ld bytes total)\n", 
-		Signal->AudioChannels == 2 ? "stereo" : "mono",
-		SamplesForDisplay(totalDiscarded, Signal->AudioChannels),
-		Signal->bytesPerSample,
-		SamplesToBytes(totalDiscarded, Signal->bytesPerSample));
+		Signal->AudioChannels == 2 ? "stereo" : "mono",	SamplesForDisplay(totalDiscarded, Signal->AudioChannels),
+		Signal->bytesPerSample, SamplesToBytes(totalDiscarded, Signal->bytesPerSample));
 	logmsg("Total processed %s samples: %ld of %d bytes each (%ld bytes total)\n", 
-		Signal->AudioChannels == 2 ? "stereo" : "mono",
-		SamplesForDisplay(totalProcessed, Signal->AudioChannels),
-		Signal->bytesPerSample,
-		SamplesToBytes(totalProcessed, Signal->bytesPerSample));
+		Signal->AudioChannels == 2 ? "stereo" : "mono",	SamplesForDisplay(totalProcessed, Signal->AudioChannels),
+		Signal->bytesPerSample,	SamplesToBytes(totalProcessed, Signal->bytesPerSample));
 #endif
 
 	if(config->normType != max_frequency)
@@ -1554,14 +1541,7 @@ int ExecuteDFFTInternal(AudioBlocks *AudioArray, double *samples, size_t size, l
 			signal[i] = (samples[i*AudioChannels]+samples[i*AudioChannels+1])/2.0;
 
 		if(window)
-		{
 			signal[i] *= window[i];
-#ifdef CHECKWAV
-			// for saving the wav with window
-			samples[i*AudioChannels] *= window[i];
-			samples[i*AudioChannels+1] *= window[i];
-#endif
-		}
 	}
 
 	fftw_execute(p);
@@ -1858,7 +1838,7 @@ void NormalizeAudioByRatio(AudioSignal *Signal, double ratio)
 	end = Signal->endOffset;
 
 	// improvement suggested by plgDavid
-	// Removed the * 0.5 since we chaned to internal double representation)
+	// Removed the * 0.5 since we changed to internal double representation)
 	for(i = start; i < end; i++)
 		samples[i] = samples[i]*ratio;
 }
