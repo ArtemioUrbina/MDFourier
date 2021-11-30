@@ -1,6 +1,6 @@
 UNAME_O := $(shell uname -o)
 
-ifeq ($(UNAME_O),Linux)
+ifeq ($(UNAME_O),GNU/Linux)
 all:linux
 endif
 
@@ -44,7 +44,7 @@ check: executable
 
 #Linux/Un*x release
 linux: CCFLAGS = $(BASE_CCFLAGS) $(OPT) $(OPENMP)
-linux: LFLAGS = $(BASE_LFLAGS)
+linux: LFLAGS = $(BASE_LFLAGS) -Wl,--strip-all
 linux: executable
 
 #flags for mac
