@@ -1,15 +1,15 @@
-UNAME_S := $(shell uname -s)
+UNAME_O := $(shell uname -o)
 
-ifeq ($(UNAME_S),Linux)
-	all:linux
+ifeq ($(UNAME_O),Linux)
+all:linux
 endif
 
-ifeq ($(UNAME_S),Msys)
-	all:static
+ifeq ($(UNAME_O),Msys)
+all:static
 endif
 
-ifeq ($(UNAME_S),Darwin)
-	all:mac
+ifeq ($(UNAME_O),Darwin)
+all:mac
 endif
 
 CC = gcc
@@ -27,6 +27,11 @@ EXTRA_MINGW_LFLAGS = -L/usr/local/lib
 EXTRA_CFLAGS_STATIC = -fdata-sections -ffunction-sections
 EXTRA_LFLAGS_STATIC = -Wl,-Bstatic -Wl,--gc-sections -Wl,--strip-all
 
+#generic release
+all: CCFLAGS = $(BASE_CCFLAGS) $(OPT)
+all: LFLAGS = $(BASE_LFLAGS)
+all: executable
+
 #extra flags for static release
 static: CCFLAGS = $(EXTRA_MINGW_CFLAGS) $(OPT) $(EXTRA_CFLAGS_STATIC) $(BASE_CCFLAGS) $(OPENMP)
 static: LFLAGS = $(EXTRA_MINGW_LFLAGS) $(EXTRA_LFLAGS_STATIC) $(BASE_LFLAGS)
@@ -36,11 +41,6 @@ static: executable
 check: CCFLAGS = $(EXTRA_MINGW_CFLAGS) $(OPT) $(EXTRA_CFLAGS_STATIC) $(BASE_CCFLAGS) $(OPENMP) -DDEBUG
 check: LFLAGS = $(EXTRA_MINGW_LFLAGS) $(EXTRA_LFLAGS_STATIC) $(BASE_LFLAGS)
 check: executable
-
-#generic release
-all: CCFLAGS = $(BASE_CCFLAGS) $(OPT)
-all: LFLAGS = $(BASE_LFLAGS)
-all: executable
 
 #Linux/Un*x release
 linux: CCFLAGS = $(BASE_CCFLAGS) $(OPT) $(OPENMP)
