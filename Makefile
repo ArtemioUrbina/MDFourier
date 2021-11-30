@@ -1,3 +1,17 @@
+UNAME_S := $(shell uname -s)
+
+ifeq ($(UNAME_S),Linux)
+	all:linux
+endif
+
+ifeq ($(UNAME_S),Msys)
+	all:static
+endif
+
+ifeq ($(UNAME_S),Darwin)
+	all:mac
+endif
+
 CC = gcc
 OPT = -O3
 OPENMP = -DOPENMP_ENABLE -fopenmp
