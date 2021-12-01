@@ -68,4 +68,5 @@ void PopMainPath(char **CurrentPath);
 #include <sys/time.h>
 #define CLOCK_MONOTONIC 0
 #define USE_GETTIME_INSTEAD
+int clock_gettime(int clk_id, struct timespec* t);
 #endif

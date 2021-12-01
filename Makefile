@@ -1,4 +1,5 @@
 UNAME_O := $(shell uname -o)
+UNAME_S := $(shell uname -s)
 
 ifeq ($(UNAME_O),GNU/Linux)
 all:linux
@@ -8,12 +9,12 @@ ifeq ($(UNAME_O),Msys)
 all:msys-s
 endif
 
-ifeq ($(UNAME_O),Darwin)
-all:mac
-endif
-
 ifeq ($(UNAME_O),Cygwin)
 all:cygwin
+endif
+
+ifeq ($(UNAME_S),Darwin)
+all:mac
 endif
 
 CC     = gcc
