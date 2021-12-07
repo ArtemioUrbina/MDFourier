@@ -1,6 +1,10 @@
 UNAME_O := $(shell uname -o)
 UNAME_S := $(shell uname -s)
 
+ifeq ($(UNAME_S),Darwin)
+all:mac
+endif
+
 ifeq ($(UNAME_O),GNU/Linux)
 all:linux
 endif
@@ -12,11 +16,6 @@ endif
 ifeq ($(UNAME_O),Cygwin)
 all:cygwin
 endif
-
-ifeq ($(UNAME_S),Darwin)
-all:mac
-endif
-
 CC     = gcc
 OPT    = -O3
 OPENMP = -DOPENMP_ENABLE -fopenmp
@@ -64,7 +63,7 @@ mac: LFLAGS     = -Wl,-no_compact_unwind -logg $(BASE_LIBS)
 mac: executable
 
 #flags for debug
-debug: CCFLAGS  = $(LOCAL_INCLUDE) $(BASE_CCFLAGS) -DDEBUG -g
+debug: CCFLAGS  = $(LOCAL_INCLUDE) $(BASE_CCFLAGS) -DDEBUG -Og -g
 debug: LFLAGS   = $(LOCAL_LINK) $(BASE_LIBS)
 debug: executable
 

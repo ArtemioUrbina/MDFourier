@@ -1146,9 +1146,9 @@ int getExtensionLength(char *filename)
 	return 0;
 }
 
-#ifdef USE_GETTIME_INSTEAD
 // clock_gettime is not implemented on older versions of OS X (< 10.12).
-// so this is only used for thsoe builds
+// so this is only used for those builds
+#ifdef USE_GETTIME_INSTEAD
 int clock_gettime(int clk_id, struct timespec* t)
 {
 	struct timeval now;
