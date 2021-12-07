@@ -301,14 +301,17 @@ double findAverageAmplitudeForTarget(Pulses *pulseArray, double targetFrequency,
 		useAmplitude = -1;
 	}
 
-	// clean noise at sync frequency
-	for(i = start; i < TotalMS; i++)
+	if(config->syncTolerance >= 2)
 	{
-		if((pulseArray[i].hertz == targetFrequency 
-			|| (targetFrequencyHarmonic[0] != NO_FREQ && pulseArray[i].hertz == targetFrequencyHarmonic[0])
-			|| (targetFrequencyHarmonic[1] != NO_FREQ && pulseArray[i].hertz == targetFrequencyHarmonic[1]))
-			&& pulseArray[i].amplitude != NO_AMPLITUDE && pulseArray[i].amplitude < floor(useAmplitude))
-				pulseArray[i].hertz = 0;
+		// clean noise at sync frequency
+		for(i = start; i < TotalMS; i++)
+		{
+			if((pulseArray[i].hertz == targetFrequency 
+				|| (targetFrequencyHarmonic[0] != NO_FREQ && pulseArray[i].hertz == targetFrequencyHarmonic[0])
+				|| (targetFrequencyHarmonic[1] != NO_FREQ && pulseArray[i].hertz == targetFrequencyHarmonic[1]))
+				&& pulseArray[i].amplitude != NO_AMPLITUDE && pulseArray[i].amplitude < floor(useAmplitude))
+					pulseArray[i].hertz = 0;
+		}
 	}
 	
 	if(config->debugSync)
