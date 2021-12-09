@@ -195,10 +195,13 @@
 
 #define	MAX_SYNC		10
 
-#define	FREQDOMTRIES	10
+#define	FREQDOMTRIES	500
 #define	FREQDOMRATIO	-30.0  // dBFS
 
 #define	DELAYCOUNT		10
+
+#define PCNT_VISIBLE_WRN	10.0
+#define PCNT_VISIBLE_ACT	25.0
 
 enum normalize
 {

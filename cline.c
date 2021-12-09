@@ -548,7 +548,9 @@ int commandline(int argc , char *argv[], parameters *config)
 	  case 'V':  // reserved
 		break;
 	  case 'v':
-		config->verbose = 1;
+		config->verbose++;
+		if(config->verbose > 3)
+			config->verbose = 3;
 		break;
 	  case 'W':
 		config->whiteBG = 1;

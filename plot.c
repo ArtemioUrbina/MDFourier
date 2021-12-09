@@ -5521,12 +5521,14 @@ void PlotBlockTimeDomainGraph(AudioSignal *Signal, int block, char *name, int wa
 		plotSize = numSamples;
 
 	sampleOffset = Signal->Blocks[block].audio.sampleOffset;
+	/*
 	if(config->debugSync && Signal->Blocks[block].type == TYPE_SYNC)
 	{
 		FillPlotExtra(&plot, name, SYNC_DEBUG_SCALE*config->plotResX, config->plotResY, 0, MinY, plotSize, MaxY, 1, 0.2, config);
 		forceMS = 1;
 	}
 	else
+	*/
 		FillPlot(&plot, name, 0, MinY, plotSize, MaxY, 1, 0.2, config);
 
 	if(!CreatePlotFile(&plot, config))

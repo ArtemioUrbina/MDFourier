@@ -63,7 +63,7 @@ mac: LFLAGS     = -Wl,-no_compact_unwind -logg $(BASE_LIBS)
 mac: executable
 
 #flags for debug
-debug: CCFLAGS  = $(LOCAL_INCLUDE) $(BASE_CCFLAGS) -DDEBUG -Og -g
+debug: CCFLAGS  = $(LOCAL_INCLUDE) $(BASE_CCFLAGS) -DDEBUG -g
 debug: LFLAGS   = $(LOCAL_LINK) $(BASE_LIBS)
 debug: executable
 
