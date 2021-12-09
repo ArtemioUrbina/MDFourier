@@ -129,12 +129,12 @@ void PrintThesholdDifferenceBlocks(AudioBlocks *ReferenceArray, AudioBlocks *Com
 int CalculateTimeDurations(AudioSignal *Signal, parameters *config);
 double CalculateWeightedError(double pError, parameters *config);
 double RoundFloat(double x, int p);
-long int RoundToNsamples(double src, int AudioChannels, int *leftover, int *discard, double *leftDecimals);
+long int RoundToNsamples(double src, int AudioChannels, int *discard, double *leftDecimals);
 double GetDecimalValues(double value);
 double SamplesToSeconds(long int samplerate, long int samples, int AudioChannels);
 double FramesToSeconds(double frames, double framerate);
 double SecondsToFrames(double seconds, double framerate);
-long int SecondsToSamples(long int samplerate, double seconds, int AudioChannels, int *leftover, int *discard, double *leftDecimals);
+long int SecondsToSamples(long int samplerate, double seconds, int AudioChannels, int *discard, double *leftDecimals);
 double FramesToSamples(double frames, long int samplerate, double framerate);
 double SamplesToFrames(long int samplerate, long int samples, double framerate, int AudioChannels);
 long int SamplesToBytes(long int samples, int bytesPerSample);

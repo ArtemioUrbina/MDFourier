@@ -44,7 +44,7 @@ int CheckBalance(AudioSignal *Signal, int block, parameters *config)
 	double			*windowUsed = NULL;
 	long int		loadedBlockSize = 0, i = 0, matchIndex = 0;
 	struct timespec	start, end;
-	int				leftover = 0, discardBytes = 0;
+	int				discardBytes = 0;
 	double			leftDecimals = 0, MaxMagLeft = 0, MaxMagRight = 0;
 	AudioBlocks		Channels[2];
 
@@ -76,7 +76,7 @@ int CheckBalance(AudioSignal *Signal, int block, parameters *config)
 		return 0;
 	}
 
-	buffersize = SecondsToSamples(Signal->header.fmt.SamplesPerSec, longest, Signal->AudioChannels, NULL, NULL, NULL);
+	buffersize = SecondsToSamples(Signal->header.fmt.SamplesPerSec, longest, Signal->AudioChannels, NULL, NULL);
 	buffer = (double*)malloc(sizeof(double)*buffersize);
 	if(!buffer)
 	{
@@ -100,7 +100,7 @@ int CheckBalance(AudioSignal *Signal, int block, parameters *config)
 		cutFrames = GetBlockCutFrames(config, i);
 		duration = FramesToSeconds(Signal->framerate, frames);
 		
-		loadedBlockSize = SecondsToSamples(Signal->header.fmt.SamplesPerSec, duration, Signal->AudioChannels, &leftover, &discardBytes, &leftDecimals);
+		loadedBlockSize = SecondsToSamples(Signal->header.fmt.SamplesPerSec, duration, Signal->AudioChannels, &discardBytes, &leftDecimals);
 
 		difference = GetSampleSizeDifferenceByFrameRate(Signal->framerate, frames, Signal->header.fmt.SamplesPerSec, Signal->AudioChannels, config);
 

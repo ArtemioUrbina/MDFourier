@@ -5626,7 +5626,7 @@ void PlotBlockTimeDomainGraph(AudioSignal *Signal, int block, char *name, int wa
 	{
 		long int oneFrameSamples = 0;
 
-		oneFrameSamples = SecondsToSamples(Signal->header.fmt.SamplesPerSec, FramesToSeconds(Signal->framerate, 1), Signal->AudioChannels, NULL, NULL, NULL);
+		oneFrameSamples = SecondsToSamples(Signal->header.fmt.SamplesPerSec, FramesToSeconds(Signal->framerate, 1), Signal->AudioChannels, NULL, NULL);
 		if(GetFirstSyncIndex(config) == block)
 			sprintf(title, "%s# %d%s | samples %ld-%ld | Start Sync: (used:%ld/measrd:%ld)-%ld", GetBlockDisplayName(config, block), GetBlockSubIndex(config, block),
 				GetWFMTypeText(wavetype, buffer, data, Signal->role), 

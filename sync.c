@@ -66,7 +66,7 @@ long int DetectPulse(double *AllSamples, wav_hdr header, int role, parameters *c
 		{
 			long int MS_Samples = 0;
 
-			MS_Samples = SecondsToSamples(header.fmt.SamplesPerSec, 0.015, AudioChannels, NULL, NULL, NULL);
+			MS_Samples = SecondsToSamples(header.fmt.SamplesPerSec, 0.015, AudioChannels, NULL, NULL);
 			if (searchOffset >= MS_Samples)
 				searchOffset -= MS_Samples;
 		}
@@ -564,7 +564,7 @@ long int AdjustPulseSampleStartByLength(double* Samples, wav_hdr header, long in
 	targetFrequency = FindFrequencyBracketForSync(frequency,
 		samplesNeeded, AudioChannels, header.fmt.SamplesPerSec, config);
 
-	synLenInSamples = RoundToNsamples(((double)header.fmt.SamplesPerSec*syncLen*AudioChannels) / 1000.0, AudioChannels, NULL, NULL, NULL);
+	synLenInSamples = RoundToNsamples(((double)header.fmt.SamplesPerSec*syncLen*AudioChannels) / 1000.0, AudioChannels, NULL, NULL);
 
 	buffer = (double*)malloc(samplesNeeded * sizeof(double));
 	if (!buffer)
@@ -576,12 +576,12 @@ long int AdjustPulseSampleStartByLength(double* Samples, wav_hdr header, long in
 	if (offset >= synLenInSamples)
 	{
 		startSearch = offset - synLenInSamples;
-		startSearch = RoundToNsamples((double)startSearch, AudioChannels, NULL, NULL, NULL);
+		startSearch = RoundToNsamples((double)startSearch, AudioChannels, NULL, NULL);
 	}
 	else
 		startSearch = 0;
 	endSearch = offset + synLenInSamples*1.5;
-	endSearch = RoundToNsamples((double)endSearch, AudioChannels, NULL, NULL, NULL);
+	endSearch = RoundToNsamples((double)endSearch, AudioChannels, NULL, NULL);
 
 	if (config->debugSync)
 		logmsgFileOnly("\nSearching at %ld samples/%ld bytes End At: %ld samples/%ld bytes (%d bytes per sample), looking for %g->%ghz samples needed: %d\n",
@@ -687,7 +687,7 @@ long int AdjustPulseSampleStartByLength(double* Samples, wav_hdr header, long in
 			if (startDetectPos != -1 && (targetFrequency != pulseArray[pos].hertz ||
 				(targetFrequency == pulseArray[pos].hertz && pulseArray[pos].magnitude < compareMag*0.5)))
 			{
-				endDetectPos = pos + RoundToNsamples((double)samplesNeeded/4.0, AudioChannels, NULL, NULL, NULL);   // Add the tail since we are doing overlapped starts
+				endDetectPos = pos + RoundToNsamples((double)samplesNeeded/4.0, AudioChannels, NULL, NULL);   // Add the tail since we are doing overlapped starts
 				break;
 			}
 		}
@@ -737,15 +737,15 @@ long int AdjustPulseSampleStartByLength(double* Samples, wav_hdr header, long in
 						tolerance--;
 					else
 					{
-						endDetectPos = pos + RoundToNsamples((double)samplesNeeded / 4.0, AudioChannels, NULL, NULL, NULL);   // Add the tail since we are doing overlapped starts
+						endDetectPos = pos + RoundToNsamples((double)samplesNeeded / 4.0, AudioChannels, NULL, NULL);   // Add the tail since we are doing overlapped starts
 						break;
 					}
 				}
 			}
 
 			foundPulseLength = pulseArray[endDetectPos].samples - pulseArray[startDetectPos].samples;
-			foundPulseLength = RoundToNsamples((double)foundPulseLength, AudioChannels, NULL, NULL, NULL);
-			newFoundPos = RoundToNsamples((double)pulseArray[startDetectPos].samples + ((double)foundPulseLength/2.0 - (double)synLenInSamples/2.0), AudioChannels, NULL, NULL, NULL);
+			foundPulseLength = RoundToNsamples((double)foundPulseLength, AudioChannels, NULL, NULL);
+			newFoundPos = RoundToNsamples((double)pulseArray[startDetectPos].samples + ((double)foundPulseLength/2.0 - (double)synLenInSamples/2.0), AudioChannels, NULL, NULL);
 			if (newFoundPos != foundPos)
 			{
 				foundPos = newFoundPos;
@@ -782,7 +782,7 @@ long int DetectPulseInternal(double *Samples, wav_hdr header, int factor, long i
 
 	bytesPerSample = header.fmt.bitsPerSample/8;
 	/* Not a real ms, just approximate */
-	sampleBufferSize = SecondsToSamples(header.fmt.SamplesPerSec, 1.0/((double)factor*1000.0), AudioChannels, NULL, NULL, NULL);
+	sampleBufferSize = SecondsToSamples(header.fmt.SamplesPerSec, 1.0/((double)factor*1000.0), AudioChannels, NULL, NULL);
 	if(sampleBufferSize < 4){
 		if(header.fmt.SamplesPerSec < 44100)
 			logmsg("ERROR: Invalid parameters for sync detection (sample rate too low)\n");
@@ -832,15 +832,15 @@ long int DetectPulseInternal(double *Samples, wav_hdr header, int factor, long i
 		double expectedlen = 0, seconds = 0, syncLenSeconds = 0, syncLen = 0, silenceLen = 0, silenceLenSeconds = 0;
 
 		seconds = GetSignalTotalDuration(GetMSPerFrameRole(role, config), config);
-		expectedlen = SecondsToSamples(header.fmt.SamplesPerSec, seconds, header.fmt.NumOfChan, NULL, NULL, NULL);
+		expectedlen = SecondsToSamples(header.fmt.SamplesPerSec, seconds, header.fmt.NumOfChan, NULL, NULL);
 		expectedlen = floor(expectedlen/sampleBufferSize) - 1;
 
 		syncLenSeconds = GetFirstSyncDuration(GetMSPerFrameRole(role, config), config);
-		syncLen = SecondsToSamples(header.fmt.SamplesPerSec, syncLenSeconds, header.fmt.NumOfChan, NULL, NULL, NULL);
+		syncLen = SecondsToSamples(header.fmt.SamplesPerSec, syncLenSeconds, header.fmt.NumOfChan, NULL, NULL);
 		syncLen = floor(syncLen/sampleBufferSize) - 1;
 
 		silenceLenSeconds = GetFirstSilenceDuration(GetMSPerFrameRole(role, config), config);
-		silenceLen = SecondsToSamples(header.fmt.SamplesPerSec, silenceLenSeconds, header.fmt.NumOfChan, NULL, NULL, NULL);
+		silenceLen = SecondsToSamples(header.fmt.SamplesPerSec, silenceLenSeconds, header.fmt.NumOfChan, NULL, NULL);
 		silenceLen = floor(silenceLen/sampleBufferSize) - 1;
 
 		// check if it is long enough
@@ -1092,7 +1092,7 @@ long int DetectSignalStartInternal(double *Samples, wav_hdr header, int factor, 
 
 	bytesPerSample = header.fmt.bitsPerSample/8;
 	/* Not a real ms, just approximate */
-	sampleBufferSize = SecondsToSamples(header.fmt.SamplesPerSec, 1.0/((double)factor*1000.0), AudioChannels, NULL, NULL, NULL);
+	sampleBufferSize = SecondsToSamples(header.fmt.SamplesPerSec, 1.0/((double)factor*1000.0), AudioChannels, NULL, NULL);
 	if(sampleBufferSize < 4){
 		if(header.fmt.SamplesPerSec < 44100)
 			logmsg("ERROR: Invalid parameters for sync detection (sample rate too low)\n");

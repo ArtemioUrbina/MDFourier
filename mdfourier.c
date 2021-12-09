@@ -1270,7 +1270,7 @@ int DuplicateSamplesForWavefromPlots(AudioSignal *Signal, long int element, long
 	{
 		long int oneFrameSamples = 0;
 
-		oneFrameSamples = SecondsToSamples(Signal->header.fmt.SamplesPerSec, FramesToSeconds(framerate, 1), Signal->AudioChannels, NULL, NULL, NULL);
+		oneFrameSamples = SecondsToSamples(Signal->header.fmt.SamplesPerSec, FramesToSeconds(framerate, 1), Signal->AudioChannels, NULL, NULL);
 		if(pos > oneFrameSamples) {
 			if(!CopySamplesForTimeDomainPlot(&Signal->Blocks[element], Signal->Samples + pos - oneFrameSamples, loadedBlockSize+oneFrameSamples, difference, NULL, Signal->AudioChannels, config))
 				return 0;
@@ -1311,7 +1311,7 @@ int ProcessSignal(AudioSignal *Signal, parameters *config)
 	windowManager	windows;
 	long int		loadedBlockSize = 0, i = 0, syncAdvance = 0;
 	struct timespec	start, end;
-	int				leftover = 0, discardSamples = 0, syncinternal = 0;
+	int				discardSamples = 0, syncinternal = 0;
 	double			leftDecimals = 0;
 #ifdef DEBUG
 	long int		totalDiscarded = 0, totalProcessed = 0, totalDifference = 0;
@@ -1327,7 +1327,7 @@ int ProcessSignal(AudioSignal *Signal, parameters *config)
 		return 0;
 	}
 
-	sampleBufferSize = SecondsToSamples(Signal->header.fmt.SamplesPerSec, longest, Signal->AudioChannels, NULL, NULL, NULL);
+	sampleBufferSize = SecondsToSamples(Signal->header.fmt.SamplesPerSec, longest, Signal->AudioChannels, NULL, NULL);
 	sampleBuffer = (double*)malloc(sampleBufferSize*sizeof(double));
 	if(!sampleBuffer)
 	{
@@ -1359,12 +1359,17 @@ int ProcessSignal(AudioSignal *Signal, parameters *config)
 		cutFrames = GetBlockCutFrames(config, i);
 		duration = FramesToSeconds(framerate, frames);
 
+/*
+		// This version looks better when -1hz difference, but is incorrect in frame alignment
 		if(areDoublesEqual(framerate, config->smallerFramerate) && !syncinternal)  // this compensates for shorter durations
 			loadedBlockSize = SecondsToSamples(Signal->header.fmt.SamplesPerSec, duration, Signal->AudioChannels, NULL, NULL, NULL);
 		else
 			loadedBlockSize = SecondsToSamples(Signal->header.fmt.SamplesPerSec, duration, Signal->AudioChannels, &leftover, &discardSamples, &leftDecimals);
-			
+*/
+		// This compensates framerate difference
 		difference = GetSampleSizeDifferenceByFrameRate(framerate, frames, Signal->header.fmt.SamplesPerSec, Signal->AudioChannels, config);
+		// This compensates for subsample time differences
+		loadedBlockSize = SecondsToSamples(Signal->header.fmt.SamplesPerSec, duration, Signal->AudioChannels, &discardSamples, &leftDecimals);
 
 		if(Signal->Blocks[i].type >= TYPE_SILENCE || Signal->Blocks[i].type == TYPE_WATERMARK) // We get the smaller window, since we'll truncate
 		{
@@ -1393,12 +1398,12 @@ int ProcessSignal(AudioSignal *Signal, parameters *config)
 
 #ifdef DEBUG
 		if(config->verbose >= 2)
-			logmsg("Pos: %ld (%s %gs) loaded %ld Diff %ld loaded-diff %ld leftover %g discard %ld restDec %lg\n",
+			logmsg("Pos: %ld (%s %gs) loaded %ld Diff %ld loaded-diff %ld discard %ld restDec %lg\n",
 				SamplesForDisplay(pos, Signal->AudioChannels), 
 				Signal->Blocks[i].type >= TYPE_SILENCE || Signal->Blocks[i].type == TYPE_WATERMARK ? "" : "NO DFT", duration,
 				SamplesForDisplay(loadedBlockSize, Signal->AudioChannels),
 				SamplesForDisplay(difference, Signal->AudioChannels), SamplesForDisplay(loadedBlockSize - difference, Signal->AudioChannels),
-				(double)leftover/Signal->AudioChannels, SamplesForDisplay(discardSamples, Signal->AudioChannels), leftDecimals);
+				SamplesForDisplay(discardSamples, Signal->AudioChannels), leftDecimals);
 #endif
 
 		memset(sampleBuffer, 0, sampleBufferSize*sizeof(double));
@@ -2195,7 +2200,7 @@ double FindLocalMaximumAroundSample(AudioSignal *Signal, MaxSample refMax)
 		refFrames = refSeconds/(refMax.framerate/1000.0);
 
 		tarSeconds = FramesToSeconds(refFrames, Signal->framerate);
-		pos = start + SecondsToSamples(Signal->header.fmt.SamplesPerSec, tarSeconds, Signal->AudioChannels, NULL, NULL, NULL);
+		pos = start + SecondsToSamples(Signal->header.fmt.SamplesPerSec, tarSeconds, Signal->AudioChannels, NULL, NULL);
 	}
 	else
 	{
@@ -2341,7 +2346,7 @@ MaxMagn FindMaxMagnitudeBlock(AudioSignal *Signal, parameters *config)
 			long int offset = 0;
 
 			seconds = FramesToSeconds(GetElementFrameOffset(MaxMag.block, config), Signal->framerate);
-			offset = SecondsToSamples(Signal->header.fmt.SamplesPerSec, seconds, Signal->header.fmt.NumOfChan, NULL, NULL, NULL);
+			offset = SecondsToSamples(Signal->header.fmt.SamplesPerSec, seconds, Signal->header.fmt.NumOfChan, NULL, NULL);
 			offset = SamplesForDisplay(offset, Signal->header.fmt.NumOfChan);
 
 			logmsg(" - %s Max Magnitude found in %s# %d (%d) [ %c ] at %g Hz with %g (%g seconds/%ld samples)\n",

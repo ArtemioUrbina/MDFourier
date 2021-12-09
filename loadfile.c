@@ -638,7 +638,7 @@ int DetectSync(AudioSignal *Signal, parameters *config)
 
 				Signal->endOffset = SecondsToSamples(Signal->header.fmt.SamplesPerSec, 
 										GetSignalTotalDuration(Signal->framerate, config), 
-										Signal->AudioChannels, NULL, NULL, NULL);
+										Signal->AudioChannels, NULL, NULL);
 			}
 			break;
 			case NO_SYNC_MANUAL:
@@ -684,7 +684,7 @@ int DetectSync(AudioSignal *Signal, parameters *config)
 				Signal->startOffset = 0;
 				Signal->endOffset = SecondsToSamples(Signal->header.fmt.SamplesPerSec,
 					GetSignalTotalDuration(Signal->framerate, config),
-					Signal->AudioChannels, NULL, NULL, NULL);
+					Signal->AudioChannels, NULL, NULL);
 				if (Signal->endOffset > Signal->numSamples)
 				{
 					logmsg(" - ERROR: Files must be at least %g seconds long\n", 
@@ -735,7 +735,7 @@ int DetectSync(AudioSignal *Signal, parameters *config)
 
 				Signal->endOffset = SecondsToSamples(Signal->header.fmt.SamplesPerSec, 
 										GetSignalTotalDuration(Signal->framerate, config), 
-										Signal->AudioChannels, NULL, NULL, NULL);
+										Signal->AudioChannels, NULL, NULL);
 			}
 			config->significantAmplitude = -90;
 			break;
@@ -819,7 +819,7 @@ int MoveSampleBlockInternal(AudioSignal *Signal, long int element, long int pos,
 	}
 
 	signalLengthSeconds = FramesToSeconds(signalLengthFrames, config->referenceFramerate);
-	signalLengthSamples = SecondsToSamples(Signal->header.fmt.SamplesPerSec, signalLengthSeconds, Signal->AudioChannels, NULL, NULL, NULL);
+	signalLengthSamples = SecondsToSamples(Signal->header.fmt.SamplesPerSec, signalLengthSeconds, Signal->AudioChannels, NULL, NULL);
 
 	if(pos + signalStartOffset + signalLengthSamples > Signal->numSamples)
 	{
@@ -883,7 +883,7 @@ int MoveSampleBlockExternal(AudioSignal *Signal, long int element, long int pos,
 	}
 
 	signalLengthSeconds = FramesToSeconds(signalLengthFrames, config->referenceFramerate);
-	signalLengthSamples = SecondsToSamples(Signal->header.fmt.SamplesPerSec, signalLengthSeconds, Signal->AudioChannels, NULL, NULL, NULL);
+	signalLengthSamples = SecondsToSamples(Signal->header.fmt.SamplesPerSec, signalLengthSeconds, Signal->AudioChannels, NULL, NULL);
 
 	if(pos + signalStartOffset + signalLengthSamples > Signal->numSamples)
 	{
@@ -953,7 +953,7 @@ int ProcessInternalSync(AudioSignal *Signal, long int element, long int pos, int
 
 	syncToneFreq = GetInternalSyncTone(element, config);
 	syncLenSeconds = GetInternalSyncLen(element, config);
-	syncLengthSamples = SecondsToSamples(Signal->header.fmt.SamplesPerSec, syncLenSeconds, Signal->AudioChannels, NULL, NULL, NULL);
+	syncLengthSamples = SecondsToSamples(Signal->header.fmt.SamplesPerSec, syncLenSeconds, Signal->AudioChannels, NULL, NULL);
 
 	// we send , syncLengthSamples/2 since it is half silence half pulse
 	internalSyncOffset = DetectSignalStart(Signal->Samples, Signal->header, pos, syncToneFreq, syncLengthSamples/2, &endPulseSamples, &toleranceIssue, config);
@@ -1117,7 +1117,7 @@ int ProcessInternalSync(AudioSignal *Signal, long int element, long int pos, int
 				return 0;
 
 			/*
-			oneframe = SecondsToBytes(Signal->header.fmt.SamplesPerSec, FramesToSeconds(1, config->referenceFramerate), Signal->AudioChannels, NULL, NULL, NULL);
+			oneframe = SecondsToBytes(Signal->header.fmt.SamplesPerSec, FramesToSeconds(1, config->referenceFramerate), Signal->AudioChannels, NULL, NULL);
 			if(!CopySamplesForTimeDomainPlotInternalSync(&Signal->Blocks[element], 
 					(Signal->Samples + pos + signalStart), 
 					(oneframe*2), 3, 

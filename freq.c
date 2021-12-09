@@ -730,8 +730,8 @@ long int GetSampleSizeDifferenceByFrameRate(double framerate, long int frames, l
 		long int SmallerSamples = 0;
 		long int BiggerSamples = 0;
 
-		SmallerSamples = SecondsToSamples(samplerate, FramesToSeconds(config->smallerFramerate, frames), AudioChannels, NULL, NULL, NULL);
-		BiggerSamples = SecondsToSamples(samplerate, FramesToSeconds(framerate, frames), AudioChannels, NULL, NULL, NULL);
+		SmallerSamples = SecondsToSamples(samplerate, FramesToSeconds(config->smallerFramerate, frames), AudioChannels, NULL, NULL);
+		BiggerSamples = SecondsToSamples(samplerate, FramesToSeconds(framerate, frames), AudioChannels, NULL, NULL);
 	
 		difference = BiggerSamples - SmallerSamples;
 	}
@@ -1090,10 +1090,10 @@ long int GetLastSilenceSampleOffset(double framerate, wav_hdr header, int frameA
 			long int offset = 0, length = 0;
 
 			seconds = FramesToSeconds(GetBlockFrameOffset(i, config) - frameAdjust, framerate);
-			offset = SecondsToSamples(header.fmt.SamplesPerSec, seconds, header.fmt.NumOfChan, NULL, NULL, NULL);
+			offset = SecondsToSamples(header.fmt.SamplesPerSec, seconds, header.fmt.NumOfChan, NULL, NULL);
 
 			seconds = FramesToSeconds(config->types.typeArray[i].frames*silenceOffset, framerate);
-			length = SecondsToSamples(header.fmt.SamplesPerSec, seconds, header.fmt.NumOfChan, NULL, NULL, NULL);
+			length = SecondsToSamples(header.fmt.SamplesPerSec, seconds, header.fmt.NumOfChan, NULL, NULL);
 			offset += length;
 			return(offset);
 		}
@@ -1118,10 +1118,10 @@ long int GetSecondSilenceSampleOffset(double framerate, wav_hdr header, int fram
 			long int offset = 0, length = 0;
 
 			seconds = FramesToSeconds(GetBlockFrameOffset(i, config) - frameAdjust, framerate);
-			offset = SecondsToSamples(header.fmt.SamplesPerSec, seconds, header.fmt.NumOfChan, NULL, NULL, NULL);
+			offset = SecondsToSamples(header.fmt.SamplesPerSec, seconds, header.fmt.NumOfChan, NULL, NULL);
 
 			seconds = FramesToSeconds(config->types.typeArray[i].frames*silenceOffset, framerate);
-			length = SecondsToSamples(header.fmt.SamplesPerSec, seconds, header.fmt.NumOfChan, NULL, NULL, NULL);
+			length = SecondsToSamples(header.fmt.SamplesPerSec, seconds, header.fmt.NumOfChan, NULL, NULL);
 			offset += length;
 			return(offset);
 		}
@@ -1159,10 +1159,10 @@ long int GetSecondSyncSilenceSampleOffset(double framerate, wav_hdr header, int 
 			long int offset = 0, length = 0;
 
 			seconds = FramesToSeconds(GetBlockFrameOffset(i, config) - frameAdjust, framerate);
-			offset = SecondsToSamples(header.fmt.SamplesPerSec, seconds, header.fmt.NumOfChan, NULL, NULL, NULL);
+			offset = SecondsToSamples(header.fmt.SamplesPerSec, seconds, header.fmt.NumOfChan, NULL, NULL);
 
 			seconds = FramesToSeconds(config->types.typeArray[i].frames*silenceOffset, framerate);
-			length = SecondsToSamples(header.fmt.SamplesPerSec, seconds, header.fmt.NumOfChan, NULL, NULL, NULL);
+			length = SecondsToSamples(header.fmt.SamplesPerSec, seconds, header.fmt.NumOfChan, NULL, NULL);
 			offset += length;
 			return(offset);
 		}
@@ -2273,7 +2273,7 @@ void FindMaxMagnitude(AudioSignal *Signal, parameters *config)
 		long int offset = 0;
 
 		seconds = FramesToSeconds(GetElementFrameOffset(MaxBlock, config), Signal->framerate);
-		offset = SecondsToSamples(Signal->header.fmt.SamplesPerSec, seconds, Signal->header.fmt.NumOfChan, NULL, NULL, NULL);
+		offset = SecondsToSamples(Signal->header.fmt.SamplesPerSec, seconds, Signal->header.fmt.NumOfChan, NULL, NULL);
 		offset = SamplesForDisplay(offset, Signal->header.fmt.NumOfChan);
 
 		logmsg(" - %s Max Magnitude found in %s# %d (%d) [ %c ] at %g Hz with %g (%g seconds/%ld samples)\n", 
@@ -2904,9 +2904,9 @@ inline double SecondsToFrames(double seconds, double framerate)
 	return((seconds*1000.0)/framerate);
 }
 
-inline long int SecondsToSamples(long int samplerate, double seconds, int AudioChannels, int *leftover, int *discard, double *leftDecimals)
+inline long int SecondsToSamples(long int samplerate, double seconds, int AudioChannels, int *discard, double *leftDecimals)
 {
-	return(RoundToNsamples((double)samplerate*(double)AudioChannels*seconds, AudioChannels, leftover, discard, leftDecimals));
+	return(RoundToNsamples((double)samplerate*(double)AudioChannels*seconds, AudioChannels, discard, leftDecimals));
 }
 
 inline double SamplesToSeconds(long int samplerate, long int samples, int AudioChannels)
@@ -2932,53 +2932,38 @@ inline double BytesToSamples(long int samples, int bytesPerSample)
 /* This function compensates for sub sample frame rate inconsistencies between signals */
 /* compensation values are stored in leftover discard left Decimals after adjusting the */
 /* return value to the closest floored sample requested */
-long int RoundToNsamples(double src, int AudioChannels, int *leftover, int *discard, double *leftDecimals)
+long int RoundToNsamples(double src, int AudioChannels, int *discard, double *leftDecimals)
 {
-	int extra = 0, roundValue = 0;
+	int extra = 0, roundSamples = 0;
 
 	if(discard)
 		*discard = 0;
 
-	if(!leftover)
-		src = floor(src);
+	if(leftDecimals)
+		*leftDecimals += GetDecimalValues(src);
+	
+	src = floor(src);
+
+	roundSamples = AudioChannels;
+	extra = ((long int)src) % roundSamples;
+	if(leftDecimals && discard)
+	{
+		src -= extra;
+		(*leftDecimals) += extra;
+		if(*leftDecimals > (double)roundSamples
+			|| areDoublesEqual(*leftDecimals, roundSamples))  // this allows "negative" values when close enough
+		{
+			*leftDecimals -= roundSamples;
+			*discard = roundSamples;
+		}
+	}
 	else
 	{
-		if(leftDecimals)
-			*leftDecimals += GetDecimalValues(src);
-		src = floor(src);
+		if(extra != 0)
+			src += roundSamples - extra;
 	}
 
-	roundValue = AudioChannels;
-	extra = ((long int)src) % roundValue;
-	if(extra != 0)
-	{
-		if(leftover && discard)
-		{
-			src -= extra;
-			(*leftover) += extra;
-			if(*leftover >= roundValue)
-			{
-				*leftover -= roundValue;
-				*discard = roundValue;
-			}
-			else
-				*discard = 0;
-		}
-		else
-			src += roundValue - extra;
-	}
-
-	if(leftDecimals)
-	{
-		if(*leftDecimals > (double)roundValue ||
-			areDoublesEqual(*leftDecimals, roundValue))  // this allows "negative" values when close enough
-		{
-			*discard += roundValue;
-			*leftDecimals -= (double)roundValue;
-		}
-	}
-
-	return (src);
+	return(src);
 }
 
 inline double GetDecimalValues(double value)
