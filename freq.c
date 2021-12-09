@@ -1573,7 +1573,7 @@ char *GetInternalSyncSequentialName(int sequence, parameters *config)
 	}
 	
 	logmsg("WARNING: sync tone request for invalid sequence %d\n", sequence);
-	return "";
+	return "NO NAME";
 }
 
 int GetInternalSyncTone(int pos, parameters *config)
@@ -2506,8 +2506,6 @@ inline double CalculatePhase(fftw_complex value)
 
 inline double CalculateAmplitude(double magnitude, double MaxMagnitude)
 {
-	double amplitude = 0;
-
 	if(magnitude == 0.0 || MaxMagnitude == 0.0)
 	{
 #ifdef DEBUG
@@ -2524,9 +2522,12 @@ inline double CalculateAmplitude(double magnitude, double MaxMagnitude)
 		return NO_AMPLITUDE;
 	}
 
-	amplitude = 20*log10(magnitude/MaxMagnitude);
-	
-	return amplitude;
+	return(CalculateAmplitudeInternal(magnitude, MaxMagnitude));
+}
+
+inline double CalculateAmplitudeInternal(double magnitude, double MaxMagnitude)
+{
+	return 20*log10(magnitude/MaxMagnitude);
 }
 
 inline double CalculatePCMMagnitude(double amplitude, double MaxMagnitude)

@@ -1170,10 +1170,10 @@ void enableTestWarnings(parameters *config)
 	config->averageDifferenceOrig = 9.86;
 
 	for(i = 0; i < 4; i++)
-		syncAlignPct[i] = rand() % 100;
-	syncAlignTolerance[3] = 1;
+		config->syncAlignPct[i] = rand() % 100;
+	config->syncAlignTolerance[3] = 1;
 
-	logmsg("ERROR: enableTestWarnings Enabled\n");
+	logmsg("WARNING: enableTestWarnings Enabled\n");
 }
 #endif
 
@@ -5622,7 +5622,30 @@ void PlotBlockTimeDomainGraph(AudioSignal *Signal, int block, char *name, int wa
 		pl_restorestate_r(plot.plotter);
 	}
 	
-	sprintf(title, "%s# %d%s | samples %ld-%ld", GetBlockDisplayName(config, block), GetBlockSubIndex(config, block),
+	if(Signal->Blocks[block].type == TYPE_SYNC)
+	{
+		long int oneFrameSamples = 0;
+
+		oneFrameSamples = SecondsToSamples(Signal->header.fmt.SamplesPerSec, FramesToSeconds(Signal->framerate, 1), Signal->AudioChannels, NULL, NULL, NULL);
+		if(GetFirstSyncIndex(config) == block)
+			sprintf(title, "%s# %d%s | samples %ld-%ld | Start Sync: (used:%ld/measrd:%ld)-%ld", GetBlockDisplayName(config, block), GetBlockSubIndex(config, block),
+				GetWFMTypeText(wavetype, buffer, data, Signal->role), 
+				SamplesForDisplay(sampleOffset, Signal->AudioChannels),
+				SamplesForDisplay(sampleOffset+numSamples*Signal->AudioChannels, Signal->AudioChannels),
+				SamplesForDisplay(sampleOffset+oneFrameSamples, Signal->AudioChannels),
+				SamplesForDisplay(Signal->startOffset, Signal->AudioChannels),
+				SamplesForDisplay(Signal->endOffset, Signal->AudioChannels));
+		else
+			sprintf(title, "%s# %d%s | samples %ld-%ld | End Sync: %ld-(used:%ld/measrd:%ld)", GetBlockDisplayName(config, block), GetBlockSubIndex(config, block),
+				GetWFMTypeText(wavetype, buffer, data, Signal->role), 
+				SamplesForDisplay(sampleOffset, Signal->AudioChannels),
+				SamplesForDisplay(sampleOffset+numSamples*Signal->AudioChannels, Signal->AudioChannels),
+				SamplesForDisplay(Signal->startOffset, Signal->AudioChannels),
+				SamplesForDisplay(sampleOffset+oneFrameSamples, Signal->AudioChannels),
+				SamplesForDisplay(Signal->endOffset, Signal->AudioChannels));
+	}
+	else
+		sprintf(title, "%s# %d%s | samples %ld-%ld", GetBlockDisplayName(config, block), GetBlockSubIndex(config, block),
 			GetWFMTypeText(wavetype, buffer, data, Signal->role), 
 			SamplesForDisplay(sampleOffset, Signal->AudioChannels),
 			SamplesForDisplay(sampleOffset+numSamples*Signal->AudioChannels, Signal->AudioChannels));

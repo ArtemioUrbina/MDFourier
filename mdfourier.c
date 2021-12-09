@@ -248,6 +248,9 @@ void FindViewPort(parameters *config)
 			if(outside >= 1)
 				logmsg(" - The %g%% of differences in [%s] will not be visible within the %gdB for graphs\n - If needed you can graph them all with \"-d %g\" for this particular case\n\n",
 					outside, name, config->maxDbPlotZC, ceil(maxDiff));
+#ifdef DEBUG
+			logmsg("WARNING: Viewport auto adjusted\n");
+#endif
 		}
 	}
 	else
@@ -448,7 +451,7 @@ int FrequencyDomainNormalize(AudioSignal **ReferenceSignal, AudioSignal **Compar
 		ratioRef = ComparisonLocalMaximum/MaxRef.magnitude;
 
 	/* Detect extreme cases, and try another approach */
-	ratiodBFS = CalculateAmplitude(ComparisonLocalMaximum, MaxRef.magnitude);
+	ratiodBFS = CalculateAmplitudeInternal(ComparisonLocalMaximum, MaxRef.magnitude);
 
 	if(!config->allowStereoVsMono &&
 		MaxRef.block == MaxTar.block &&
@@ -494,7 +497,7 @@ int FrequencyDomainNormalize(AudioSignal **ReferenceSignal, AudioSignal **Compar
 					{
 						double dbfsratioArray = 0;
 
-						dbfsratioArray = CalculateAmplitude(ComparisonLocalMaximumArray, MaxRefArray[pos].magnitude);
+						dbfsratioArray = CalculateAmplitudeInternal(ComparisonLocalMaximumArray, MaxRefArray[pos].magnitude);
 						ratioRefArray = ComparisonLocalMaximumArray/MaxRefArray[pos].magnitude;
 						if(dbfsratioArray > localRatiodBFS)
 						{
@@ -556,6 +559,11 @@ int FrequencyDomainNormalize(AudioSignal **ReferenceSignal, AudioSignal **Compar
 				tries ++;
 			}while(tries == 1 && allowDifference == 1);
 		}
+#ifdef DEBUG
+		if(found)
+			logmsg("WARNING: Frequency Domain Normalization at %d value\n", config->frequencyNormalizationTries);
+#endif
+
 	}
 	else
 		config->frequencyNormalizationTries = 0;
@@ -1034,9 +1042,9 @@ int CopySamplesForTimeDomainPlot(AudioBlocks *AudioArray, double *samples, size_
 	}
 
 	stereoSignalSize = (long)size;
-	monoSignalSize = stereoSignalSize/AudioChannels;	 /* 4 is 2 16 bit values */
+	monoSignalSize = stereoSignalSize/AudioChannels;
 	diffSize = (long)diff;
-	difference = diffSize/AudioChannels;	 /* 4 is 2 16 bit values */
+	difference = diffSize/AudioChannels;
 
 	signal = (double*)malloc(sizeof(double)*(monoSignalSize+1));
 	if(!signal)
@@ -1306,7 +1314,8 @@ int ProcessSignal(AudioSignal *Signal, parameters *config)
 	int				leftover = 0, discardSamples = 0, syncinternal = 0;
 	double			leftDecimals = 0;
 #ifdef DEBUG
-	long int		totalDiscarded = 0, totalProcessed = 0;
+	long int		totalDiscarded = 0, totalProcessed = 0, totalDifference = 0;
+	double			totalTimeEst = 0, totalTimeReal = 0;
 #endif
 
 	pos = Signal->startOffset;
@@ -1383,12 +1392,13 @@ int ProcessSignal(AudioSignal *Signal, parameters *config)
 		}
 
 #ifdef DEBUG
-			logmsg("Pos: %ld (%s %gs) loaded %ld Diff %ld loaded-diff %ld leftover %ld discard %ld restDec %lg\n",
+		if(config->verbose >= 2)
+			logmsg("Pos: %ld (%s %gs) loaded %ld Diff %ld loaded-diff %ld leftover %g discard %ld restDec %lg\n",
 				SamplesForDisplay(pos, Signal->AudioChannels), 
 				Signal->Blocks[i].type >= TYPE_SILENCE || Signal->Blocks[i].type == TYPE_WATERMARK ? "" : "NO DFT", duration,
 				SamplesForDisplay(loadedBlockSize, Signal->AudioChannels),
 				SamplesForDisplay(difference, Signal->AudioChannels), SamplesForDisplay(loadedBlockSize - difference, Signal->AudioChannels),
-				leftover, SamplesForDisplay(discardSamples, Signal->AudioChannels), leftDecimals);
+				(double)leftover/Signal->AudioChannels, SamplesForDisplay(discardSamples, Signal->AudioChannels), leftDecimals);
 #endif
 
 		memset(sampleBuffer, 0, sampleBufferSize*sizeof(double));
@@ -1423,8 +1433,9 @@ int ProcessSignal(AudioSignal *Signal, parameters *config)
 #ifdef DEBUG
 		totalProcessed += loadedBlockSize;
 		totalDiscarded += discardSamples;
-		if(discardSamples)
-			logmsg("Skipped %d samples\n", SamplesForDisplay(discardSamples, Signal->AudioChannels));
+		totalDifference += difference;
+		totalTimeEst += SamplesToSeconds(Signal->EstimatedSR, loadedBlockSize - difference, Signal->AudioChannels);
+		totalTimeReal += SamplesToSeconds(Signal->header.fmt.SamplesPerSec, loadedBlockSize - difference, Signal->AudioChannels);
 #endif
 
 		if(Signal->Blocks[i].type == TYPE_INTERNAL_KNOWN)
@@ -1446,9 +1457,20 @@ int ProcessSignal(AudioSignal *Signal, parameters *config)
 	logmsg("Total discarded %s samples: %ld of %d bytes each (%ld bytes total)\n", 
 		Signal->AudioChannels == 2 ? "stereo" : "mono",	SamplesForDisplay(totalDiscarded, Signal->AudioChannels),
 		Signal->bytesPerSample, SamplesToBytes(totalDiscarded, Signal->bytesPerSample));
+	logmsg("Total difference %s samples: %ld of %d bytes each (%ld bytes total)\n", 
+		Signal->AudioChannels == 2 ? "stereo" : "mono",	SamplesForDisplay(totalDifference, Signal->AudioChannels),
+		Signal->bytesPerSample,	SamplesToBytes(totalDifference, Signal->bytesPerSample));
 	logmsg("Total processed %s samples: %ld of %d bytes each (%ld bytes total)\n", 
 		Signal->AudioChannels == 2 ? "stereo" : "mono",	SamplesForDisplay(totalProcessed, Signal->AudioChannels),
 		Signal->bytesPerSample,	SamplesToBytes(totalProcessed, Signal->bytesPerSample));
+	totalProcessed -= totalDifference;
+	totalProcessed -= totalDiscarded;
+	logmsg("Final processed %s samples: %ld of %d bytes each (%ld bytes total)\n", 
+		Signal->AudioChannels == 2 ? "stereo" : "mono",	SamplesForDisplay(totalProcessed, Signal->AudioChannels),
+		Signal->bytesPerSample,	SamplesToBytes(totalProcessed, Signal->bytesPerSample));
+	logmsg("Total Time: %.10g @ %ld\n", totalTimeReal, Signal->header.fmt.SamplesPerSec);
+	if((double)Signal->header.fmt.SamplesPerSec != Signal->EstimatedSR)
+		logmsg("Total Time at Estimated SR: %.10g @ %g\n", totalTimeEst, Signal->EstimatedSR);
 #endif
 
 	if(config->normType != max_frequency)

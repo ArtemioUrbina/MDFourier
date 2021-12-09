@@ -144,6 +144,7 @@ int DetectWatermarkIssue(char* msg, AudioSignal* Signal, parameters* config);
 
 double CalculateMagnitude(fftw_complex value, long int size);
 double CalculateAmplitude(double magnitude, double MaxMagnitude);
+double CalculateAmplitudeInternal(double magnitude, double MaxMagnitude);
 double CalculatePhase(fftw_complex value);
 double CalculateFrequency(double boxindex, double boxsize);
 double CalculateFrameRate(AudioSignal *Signal, parameters *config);
