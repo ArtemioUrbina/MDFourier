@@ -1359,13 +1359,13 @@ int ProcessSignal(AudioSignal *Signal, parameters *config)
 		cutFrames = GetBlockCutFrames(config, i);
 		duration = FramesToSeconds(framerate, frames);
 
-/*
-		// This version looks better when -1hz difference, but is incorrect in frame alignment
+		/* This version looks better when -1hz difference, but is incorrect in frame alignment
 		if(areDoublesEqual(framerate, config->smallerFramerate) && !syncinternal)  // this compensates for shorter durations
-			loadedBlockSize = SecondsToSamples(Signal->header.fmt.SamplesPerSec, duration, Signal->AudioChannels, NULL, NULL, NULL);
+			loadedBlockSize = SecondsToSamples(Signal->header.fmt.SamplesPerSec, duration, Signal->AudioChannels, NULL, NULL);
 		else
-			loadedBlockSize = SecondsToSamples(Signal->header.fmt.SamplesPerSec, duration, Signal->AudioChannels, &leftover, &discardSamples, &leftDecimals);
-*/
+			loadedBlockSize = SecondsToSamples(Signal->header.fmt.SamplesPerSec, duration, Signal->AudioChannels, &discardSamples, &leftDecimals);
+		*/
+
 		// This compensates framerate difference
 		difference = GetSampleSizeDifferenceByFrameRate(framerate, frames, Signal->header.fmt.SamplesPerSec, Signal->AudioChannels, config);
 		// This compensates for subsample time differences

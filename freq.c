@@ -3044,6 +3044,9 @@ double CalculateFrameRateAndCheckSamplerate(AudioSignal *Signal, parameters *con
 	centsDifferenceSR = 1200.0*log2(calculatedSamplerate/(double)Signal->header.fmt.SamplesPerSec);
 	SRDifference = calculatedSamplerate - (double)Signal->header.fmt.SamplesPerSec;
 
+#ifdef DEBUG
+	Signal->EstimatedSR = RoundFloat(calculatedSamplerate, 0);
+#endif
 	/* This code detects the exact numer of samples the signal is off, will enable later */
 	if(config->verbose)
 	{
@@ -3184,8 +3187,8 @@ double CalculateFrameRateAndCheckSamplerate(AudioSignal *Signal, parameters *con
 double CalculateFrameRate(AudioSignal *Signal, parameters *config)
 {
 	double		framerate = 0;
-	long int	endOffset = 0, startOffset = 0, samplerate = 0;
-	long int	LastSyncFrameOffset = 0;
+	double		endOffset = 0, startOffset = 0, samplerate = 0;
+	double		LastSyncFrameOffset = 0;
 
 	startOffset = Signal->startOffset;
 	endOffset = Signal->endOffset;
@@ -3197,7 +3200,7 @@ double CalculateFrameRate(AudioSignal *Signal, parameters *config)
 	if(!LastSyncFrameOffset)
 		return 0;
 
-	framerate = (double)(endOffset-startOffset)/(double)(samplerate*LastSyncFrameOffset); // 1000 ms 
+	framerate = (endOffset-startOffset)/(samplerate*LastSyncFrameOffset); // 1000 ms 
 	framerate = framerate*1000.0/(double)Signal->AudioChannels;  // 1000 ms
 	//framerate = roundFloat(framerate);
 

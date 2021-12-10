@@ -656,10 +656,11 @@ void PlotAmpDifferences(parameters *config)
 
 	if(config->plotDifferences)
 	{
-		int typeCount = 0, plotAll = 0;
+		int typeCount = 0, plotAll = 0, someStereo = 0;
 
+		someStereo = config->referenceSignal->AudioChannels == 2 || config->comparisonSignal->AudioChannels == 2;
 		typeCount = GetActiveBlockTypesNoRepeat(config);
-		if (typeCount > 1)
+		if (typeCount > 1 || someStereo)
 		{
 			if (PlotEachTypeDifferentAmplitudes(amplDiff, size, config->compareName, config) > 1)
 				plotAll = 1;
@@ -2694,7 +2695,7 @@ int PlotEachTypeDifferentAmplitudes(FlatAmplDifference *amplDiff, long int size,
 		{
 			char	*returnFolder = NULL;
 		
-			if(typeCount > 1 || someStereo)
+			if(typeCount > 1)
 			{
 				returnFolder = PushFolder(DIFFERENCE_FOLDER);
 				if(!returnFolder)
@@ -2706,8 +2707,18 @@ int PlotEachTypeDifferentAmplitudes(FlatAmplDifference *amplDiff, long int size,
 			PlotSingleTypeDifferentAmplitudes(amplDiff, size, type, name, CHANNEL_STEREO, config);
 			logmsg(PLOT_ADVANCE_CHAR);
 
+			if(typeCount > 1)
+				ReturnToMainPath(&returnFolder);
+
 			if(config->types.typeArray[i].channel == CHANNEL_STEREO && someStereo)
 			{
+				if(typeCount > 1 || someStereo)
+				{
+					returnFolder = PushFolder(DIFFERENCE_FOLDER);
+					if(!returnFolder)
+						return 0;
+				}
+
 				sprintf(name, "DA_%s_%02d%s_%c", filename,
 					type, config->types.typeArray[i].typeName, CHANNEL_LEFT);
 				PlotSingleTypeDifferentAmplitudes(amplDiff, size, type, name, CHANNEL_LEFT, config);
@@ -2717,9 +2728,10 @@ int PlotEachTypeDifferentAmplitudes(FlatAmplDifference *amplDiff, long int size,
 					type, config->types.typeArray[i].typeName, CHANNEL_RIGHT);
 				PlotSingleTypeDifferentAmplitudes(amplDiff, size, type, name, CHANNEL_RIGHT, config);
 				logmsg(PLOT_ADVANCE_CHAR);
+
+				if(typeCount > 1 || someStereo)
+					ReturnToMainPath(&returnFolder);
 			}
-			if(typeCount > 1 || someStereo)
-				ReturnToMainPath(&returnFolder);
 
 			types ++;
 		}
@@ -4046,7 +4058,7 @@ int PlotDifferentAmplitudesAveraged(FlatAmplDifference *amplDiff, long int size,
 			{
 				char	*returnFolder = NULL;
 
-				if(typeCount > 1 || someStereo)
+				if(typeCount > 1)
 				{
 					returnFolder = PushFolder(DIFFERENCE_FOLDER);
 					if(!returnFolder)
@@ -4056,10 +4068,20 @@ int PlotDifferentAmplitudesAveraged(FlatAmplDifference *amplDiff, long int size,
 				PlotSingleTypeDifferentAmplitudesAveraged(amplDiff, size, type, name, averagedArray[types], averagedSizes[types], config->types.typeArray[i].channel == CHANNEL_STEREO ? CHANNEL_STEREO : CHANNEL_MONO, config);
 				logmsg(PLOT_ADVANCE_CHAR);
 
+				if(typeCount > 1)
+					ReturnToMainPath(&returnFolder);
+
 				if(config->types.typeArray[i].channel == CHANNEL_STEREO && someStereo)
 				{
 					long int sizeLeft = 0, sizeRight = 0;
 					AveragedFrequencies	*averagedArrayLeft = NULL, *averagedArrayRight = NULL;
+
+					if(typeCount > 1 || someStereo)
+					{
+						returnFolder = PushFolder(DIFFERENCE_FOLDER);
+						if(!returnFolder)
+							return 0;
+					}
 
 					averagedArrayLeft = CreateFlatDifferencesAveraged(type, CHANNEL_LEFT, &sizeLeft, normalPlot, config);
 					if(typeCount == 1)
@@ -4080,11 +4102,11 @@ int PlotDifferentAmplitudesAveraged(FlatAmplDifference *amplDiff, long int size,
 					PlotSingleTypeDifferentAmplitudesAveraged(amplDiff, size, type, name, averagedArrayRight, sizeRight, CHANNEL_RIGHT, config);
 					logmsg(PLOT_ADVANCE_CHAR);
 
+					if(typeCount > 1 || someStereo)
+						ReturnToMainPath(&returnFolder);
+
 					free(averagedArrayRight);
 				}
-
-				if(typeCount > 1 || someStereo)
-					ReturnToMainPath(&returnFolder);
 			}
 
 			types ++;
@@ -5876,15 +5898,34 @@ int PlotEachTypePhase(FlatPhase *phaseDiff, long int size, char *filename, int p
 		{
 			char	*returnFolder = NULL;
 
-			if(typeCount > 1 || bothStereo)
+			if(typeCount > 1)
 			{
 				returnFolder = PushFolder(PHASE_FOLDER);
 				if(!returnFolder)
 					return 0;
 			}
 
+			if(pType == PHASE_DIFF)
+				sprintf(name, "PHASE_DIFF_%s_%02d%s", filename, 
+					type, config->types.typeArray[i].typeName);
+			else
+				sprintf(name, "PHASE_%c_%s_%02d%s", pType == PHASE_REF ? 'A' : 'B', filename, 
+					type, config->types.typeArray[i].typeName);
+			PlotSingleTypePhase(phaseDiff, size, type, name, pType, CHANNEL_STEREO, config);
+			logmsg(PLOT_ADVANCE_CHAR);
+
+			if(typeCount > 1)
+				ReturnToMainPath(&returnFolder);
+
 			if(config->types.typeArray[i].channel == CHANNEL_STEREO && bothStereo)
 			{
+				if(typeCount > 1 || bothStereo)
+				{
+					returnFolder = PushFolder(PHASE_FOLDER);
+					if(!returnFolder)
+						return 0;
+				}
+
 				if(pType == PHASE_DIFF)
 					sprintf(name, "PHASE_DIFF_%s_%02d%s_%c", filename, 
 						type, config->types.typeArray[i].typeName, CHANNEL_LEFT);
@@ -5902,19 +5943,10 @@ int PlotEachTypePhase(FlatPhase *phaseDiff, long int size, char *filename, int p
 						type, config->types.typeArray[i].typeName, CHANNEL_RIGHT);
 				PlotSingleTypePhase(phaseDiff, size, type, name, pType, CHANNEL_RIGHT, config);
 				logmsg(PLOT_ADVANCE_CHAR);
-			}
-			
-			if(pType == PHASE_DIFF)
-				sprintf(name, "PHASE_DIFF_%s_%02d%s", filename, 
-					type, config->types.typeArray[i].typeName);
-			else
-				sprintf(name, "PHASE_%c_%s_%02d%s", pType == PHASE_REF ? 'A' : 'B', filename, 
-					type, config->types.typeArray[i].typeName);
-			PlotSingleTypePhase(phaseDiff, size, type, name, pType, CHANNEL_STEREO, config);
-			logmsg(PLOT_ADVANCE_CHAR);
 
-			if(typeCount > 1 || bothStereo)
-				ReturnToMainPath(&returnFolder);
+				if(typeCount > 1 || bothStereo)
+					ReturnToMainPath(&returnFolder);
+			}
 
 			types ++;
 		}
