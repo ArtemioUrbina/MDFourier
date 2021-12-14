@@ -87,7 +87,8 @@ void PrintUsage()
 	logmsg("	 -H: Output waveform plots for <H>ighly different notes\n");
 	logmsg("	 -o: Define the output filter function for color weights [0-5]\n");
 	logmsg("	 -u: Create waveform plots for all notes\n");
-	logmsg("	 -U: Create waveform plots for all notes, including FFT windows\n");
+	logmsg("	      -uu:  Create DFT windowed waveform plots for all notes\n");
+	logmsg("	      -uuu: Create waveform plots for all notes, including DFT windows\n");
 	logmsg("	 -E: Defines Full frequency rang<E> for Time Spectrogram plots\n");
 	logmsg("	 -N: Use li<N>ear scale instead of logaritmic scale for plots\n");
 	logmsg("	 -x: (text) Enables e<x>tended log results. Shows a table with matches\n");
@@ -290,8 +291,8 @@ int commandline(int argc , char *argv[], parameters *config)
 	
 	CleanParameters(config);
 
-	// Available: JKmq1234567
-	while ((c = getopt (argc, argv, "Aa:Bb:Cc:Dd:Ee:Ff:GgHhIijkL:lMNn:Oo:P:p:QRr:Ss:TtUuVvWw:XxY:yZ:z0:89")) != -1)
+	// Available: JKUmq1234567
+	while ((c = getopt (argc, argv, "Aa:Bb:Cc:Dd:Ee:Ff:GgHhIijkL:lMNn:Oo:P:p:QRr:Ss:TtuVvWw:XxY:yZ:z0:89")) != -1)
 	switch (c)
 	  {
 	  case 'A':
@@ -536,14 +537,10 @@ int commandline(int argc , char *argv[], parameters *config)
 	  case 't':
 		config->plotTimeSpectrogram = 0;
 		break;
-	  case 'U':
-		logmsg("\t-Creating waveform plots for all notes with window for FFT\n");
-		config->plotAllNotes = 1;
-		config->plotAllNotesWindowed = 1;
-		break;
 	  case 'u':
-		logmsg("\t-Creating waveform plots for all notes\n");
-		config->plotAllNotes = 1;
+		config->plotAllNotes++;
+		if(config->plotAllNotes > 3)
+			config->plotAllNotes = 3;
 		break;
 	  case 'V':  // reserved
 		break;
@@ -729,6 +726,24 @@ int commandline(int argc , char *argv[], parameters *config)
 
 	if(config->logScale && config->plotRatio == 0)
 		config->plotRatio = config->endHzPlot/log10(config->endHzPlot);
+
+	if(config->plotAllNotes)
+	{
+		switch(config->plotAllNotes)
+		{
+			case 1:
+				logmsg("\t-Creating waveform plots for all notes\n");
+				break;
+			case 2:
+				config->plotAllNotesWindowed = 1;
+				logmsg("\t-Creating DFT windowed waveform plots for all notes\n");
+				break;
+			case 3:
+				config->plotAllNotesWindowed = 1;
+				logmsg("\t-Creating waveform plots for all notes with window for DFFT\n");
+				break;
+		}
+	}
 
 	return 1;
 }

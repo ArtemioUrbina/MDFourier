@@ -1346,6 +1346,7 @@ int ProcessSignal(AudioSignal *Signal, parameters *config)
 
 	while(i < config->types.totalBlocks)
 	{
+		int			endProcess = 0;
 		double		*windowUsed = NULL;
 		double		duration = 0, framerate = 0;
 		long int	frames = 0, difference = 0, cutFrames = 0;
@@ -1381,6 +1382,15 @@ int ProcessSignal(AudioSignal *Signal, parameters *config)
 
 		if(pos + loadedBlockSize > Signal->numSamples)
 		{
+			loadedBlockSize = Signal->numSamples - pos;
+			endProcess = 1;
+		}
+
+		if(!DuplicateSamplesForWavefromPlots(Signal, i, pos, loadedBlockSize, difference, framerate, windowUsed, config, syncAdvance))
+			return 0;
+
+		if(endProcess || pos + loadedBlockSize > Signal->numSamples)
+		{
 #ifdef DEBUG
 			logmsg("WARNING: End of File load: %ld size: %ld exceed: %ld pos: %ld limit: %ld\n", 
 				loadedBlockSize, sampleBufferSize, pos + loadedBlockSize, pos, Signal->numSamples);
@@ -1398,19 +1408,17 @@ int ProcessSignal(AudioSignal *Signal, parameters *config)
 
 #ifdef DEBUG
 		if(config->verbose >= 2)
-			logmsg("Pos: %ld (%s %gs) loaded %ld Diff %ld loaded-diff %ld discard %ld restDec %lg\n",
+			logmsg("Pos: %ld (%s %gs) loaded %ld Diff %ld loaded-diff %ld (%.10g s) discard %ld restDec %lg\n",
 				SamplesForDisplay(pos, Signal->AudioChannels), 
 				Signal->Blocks[i].type >= TYPE_SILENCE || Signal->Blocks[i].type == TYPE_WATERMARK ? "" : "NO DFT", duration,
 				SamplesForDisplay(loadedBlockSize, Signal->AudioChannels),
-				SamplesForDisplay(difference, Signal->AudioChannels), SamplesForDisplay(loadedBlockSize - difference, Signal->AudioChannels),
-				SamplesForDisplay(discardSamples, Signal->AudioChannels), leftDecimals);
+				SamplesForDisplay(difference, Signal->AudioChannels),
+				SamplesForDisplay(loadedBlockSize - difference, Signal->AudioChannels), SamplesToSeconds(Signal->header.fmt.SamplesPerSec, loadedBlockSize - difference, Signal->AudioChannels),
+				SamplesForDisplay(discardSamples, Signal->AudioChannels), leftDecimals/(double)Signal->AudioChannels);
 #endif
 
 		memset(sampleBuffer, 0, sampleBufferSize*sizeof(double));
 		memcpy(sampleBuffer, Signal->Samples + pos, (loadedBlockSize-difference)*sizeof(double));
-
-		if(!DuplicateSamplesForWavefromPlots(Signal, i, pos, loadedBlockSize, difference, framerate, windowUsed, config, syncAdvance))
-			return 0;
 
 		if(Signal->Blocks[i].type >= TYPE_SILENCE || Signal->Blocks[i].type == TYPE_WATERMARK)
 		{

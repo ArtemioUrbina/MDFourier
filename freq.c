@@ -693,7 +693,7 @@ void CompareFrameRates(AudioSignal *Signal1, AudioSignal *Signal2, parameters *c
 	{
 		config->smallerFramerate = GetLowerFrameRate(Signal1->framerate, Signal2->framerate);
 		if((config->verbose && diff > 0.001) || diff > 0.1) {
-			logmsg("\n= Different frame rates found (%g), compensating to %g =\n", 
+			logmsg("\n= Different frame rates found (%.8g), compensating to %.8gms =\n", 
 				diff, config->smallerFramerate);
 		}
 	}
@@ -710,7 +710,7 @@ void CompareFrameRatesMDW(AudioSignal *Signal, double framerate, parameters *con
 	{
 		config->smallerFramerate = GetLowerFrameRate(Signal->framerate, framerate);
 		if(config->verbose && diff > 0.001) {
-			logmsg("\n= Different frame rates found (%g), compensating to %g =\n", 
+			logmsg("\n= Different frame rates found (%.8g), compensating to %.8gms =\n", 
 				diff, config->smallerFramerate);
 		}
 		if(diff <= 0.0005) // this is a sync detection error

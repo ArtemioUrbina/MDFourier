@@ -5108,9 +5108,13 @@ void PlotTimeDomainGraphs(AudioSignal *Signal, parameters *config)
 	{
 		for(i = 0; i < config->types.totalBlocks; i++)
 		{
-			if(config->plotAllNotes || Signal->Blocks[i].type == TYPE_TIMEDOMAIN || (config->timeDomainSync && Signal->Blocks[i].type == TYPE_SYNC))
+			int doPlot = 0;
+
+			doPlot = Signal->Blocks[i].type == TYPE_TIMEDOMAIN || (config->timeDomainSync && Signal->Blocks[i].type == TYPE_SYNC);
+			if(config->plotAllNotes || doPlot)
 			{
-				plots++;
+				if(config->plotAllNotes != 2 || doPlot)
+					plots++;
 				if(config->plotAllNotesWindowed && Signal->Blocks[i].audio.window_samples)
 					plots++;
 				if(Signal->Blocks[i].internalSyncCount)
@@ -5141,17 +5145,23 @@ void PlotTimeDomainGraphs(AudioSignal *Signal, parameters *config)
 	plots = 0;
 	for(i = 0; i < config->types.totalBlocks; i++)
 	{
-		if(config->plotAllNotes || Signal->Blocks[i].type == TYPE_TIMEDOMAIN || (config->timeDomainSync && Signal->Blocks[i].type == TYPE_SYNC))
-		{
-			sprintf(name, "TD_%05ld_%s_%s_%05d_%s", 
-				i, Signal->role == ROLE_REF ? "1" : "2",
-				GetBlockName(config, i), GetBlockSubIndex(config, i), config->compareName);
+		int doPlot = 0;
 
-			PlotBlockTimeDomainGraph(Signal, i, name, WAVEFORM_GENERAL, 0, config);
-			if(++plots >= output)
+		doPlot = Signal->Blocks[i].type == TYPE_TIMEDOMAIN || (config->timeDomainSync && Signal->Blocks[i].type == TYPE_SYNC);
+		if(config->plotAllNotes || doPlot)
+		{
+			if(config->plotAllNotes != 2 || doPlot)
 			{
-				logmsg(PLOT_ADVANCE_CHAR);
-				plots = 0;
+				sprintf(name, "TD_%05ld_%s_%s_%05d_%s", 
+					i, Signal->role == ROLE_REF ? "1" : "2",
+					GetBlockName(config, i), GetBlockSubIndex(config, i), config->compareName);
+
+				PlotBlockTimeDomainGraph(Signal, i, name, WAVEFORM_GENERAL, 0, config);
+				if(++plots >= output)
+				{
+					logmsg(PLOT_ADVANCE_CHAR);
+					plots = 0;
+				}
 			}
 
 			if(Signal->Blocks[i].internalSyncCount)
