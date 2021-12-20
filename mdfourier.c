@@ -40,8 +40,8 @@
 
 int LoadAndProcessAudioFiles(AudioSignal **ReferenceSignal, AudioSignal **ComparisonSignal, parameters *config);
 int ProcessSignal(AudioSignal *Signal, parameters *config);
-int ExecuteDFFT(AudioBlocks *AudioArray, double *samples, size_t size, long samplerate, double *window, int AudioChannels, int ZeroPad, parameters *config);
-int ExecuteDFFTInternal(AudioBlocks *AudioArray, double *samples, size_t size, long samplerate, double *window, char channel, int AudioChannels, int ZeroPad, parameters *config);
+int ExecuteDFFT(AudioBlocks *AudioArray, double *samples, size_t size, double samplerate, double *window, int AudioChannels, int ZeroPad, parameters *config);
+int ExecuteDFFTInternal(AudioBlocks *AudioArray, double *samples, size_t size, double samplerate, double *window, char channel, int AudioChannels, int ZeroPad, parameters *config);
 int CompareAudioBlocks(AudioSignal *ReferenceSignal, AudioSignal *ComparisonSignal, parameters *config);
 int CopySamplesForTimeDomainPlot(AudioBlocks *AudioArray, double *samples, size_t size, size_t diff, double *window, int AudioChannels, parameters *config);
 void CleanUp(AudioSignal **ReferenceSignal, AudioSignal **ComparisonSignal, parameters *config);
@@ -1125,7 +1125,7 @@ int RecalculateFFTW(AudioSignal *Signal, parameters *config)
 	if(!config->doClkAdjust)
 		return 0;
 
-	if(!initWindows(&windows, Signal->header.fmt.SamplesPerSec, config->window, config))
+	if(!initWindows(&windows, Signal->SampleRate, config->window, config))
 		return 0;
 
 	while(i < config->types.totalBlocks)
@@ -1140,7 +1140,7 @@ int RecalculateFFTW(AudioSignal *Signal, parameters *config)
 			windowUsed = getWindowByLength(&windows, frames, cutFrames, config->smallerFramerate, config);
 
 			CleanFrequenciesInBlock(&Signal->Blocks[i], config);
-			if(!ExecuteDFFT(&Signal->Blocks[i], Signal->Blocks[i].audio.samples, Signal->Blocks[i].audio.size-Signal->Blocks[i].audio.difference, Signal->header.fmt.SamplesPerSec, windowUsed, Signal->AudioChannels, config->ZeroPad, config))
+			if(!ExecuteDFFT(&Signal->Blocks[i], Signal->Blocks[i].audio.samples, Signal->Blocks[i].audio.size-Signal->Blocks[i].audio.difference, Signal->SampleRate, windowUsed, Signal->AudioChannels, config->ZeroPad, config))
 				return 0;
 			if(!FillFrequencyStructures(Signal, &Signal->Blocks[i], config))
 				return 0;
@@ -1151,7 +1151,7 @@ int RecalculateFFTW(AudioSignal *Signal, parameters *config)
 			if(config->clkMeasure && config->clkBlock == i)
 			{
 				CleanFrequenciesInBlock(&Signal->clkFrequencies, config);
-				if(!ExecuteDFFT(&Signal->clkFrequencies, Signal->Blocks[i].audio.samples, Signal->Blocks[i].audio.size-Signal->Blocks[i].audio.difference, Signal->header.fmt.SamplesPerSec, windowUsed, Signal->AudioChannels, 1 /* zeropad on */, config))
+				if(!ExecuteDFFT(&Signal->clkFrequencies, Signal->Blocks[i].audio.samples, Signal->Blocks[i].audio.size-Signal->Blocks[i].audio.difference, Signal->SampleRate, windowUsed, Signal->AudioChannels, 1 /* zeropad on */, config))
 					return 0;
 
 				if(!FillFrequencyStructures(Signal, &Signal->clkFrequencies, config))
@@ -1177,15 +1177,15 @@ void RecalculateFrameRateAndSamplerate(AudioSignal *Signal, parameters *config)
 	int		estimatedSampleRate = 0;
 
 	ratio = ((double)(config->clkFreq*config->clkRatio))/CalculateClk(Signal, config);
-	estimatedSampleRate = ceil((double)Signal->header.fmt.SamplesPerSec*ratio);
+	estimatedSampleRate = ceil(Signal->SampleRate*ratio);
 	Signal->EstimatedSR_CLK = estimatedSampleRate;
 
-	Signal->originalSR_CLK = Signal->header.fmt.SamplesPerSec;
-	Signal->header.fmt.SamplesPerSec = estimatedSampleRate;
+	Signal->originalSR_CLK = Signal->SampleRate;
+	Signal->SampleRate = estimatedSampleRate;
 	Signal->framerate = CalculateFrameRate(Signal, config);
-	logmsg("New frame rate: %g SR: %d->%d (%g)\n",
+	logmsg("New frame rate: %g SR: %g->%g (%g)\n",
 		Signal->framerate,
-		Signal->originalSR_CLK, Signal->header.fmt.SamplesPerSec,
+		Signal->originalSR_CLK, Signal->SampleRate,
 		ratio);
 }
 */
@@ -1222,18 +1222,19 @@ double RecalculateFrameRateAndSamplerateComp(AudioSignal *ReferenceSignal, Audio
 
 	config->changedCLKFrom = changedSignal->role;
 
-	estimatedSampleRate = ceil((double)changedSignal->header.fmt.SamplesPerSec*ratio);
+	// Samplerate CHECK (removed ceil here)
+	estimatedSampleRate = changedSignal->SampleRate*ratio;
 	changedSignal->EstimatedSR_CLK = estimatedSampleRate;
 
-	changedSignal->originalSR_CLK = changedSignal->header.fmt.SamplesPerSec;
-	changedSignal->header.fmt.SamplesPerSec = estimatedSampleRate;
+	changedSignal->originalSR_CLK = changedSignal->SampleRate;
+	changedSignal->SampleRate = estimatedSampleRate;
 	changedSignal->originalFrameRate = changedSignal->framerate;
 	changedSignal->framerate = CalculateFrameRate(changedSignal, config);
 	if(config->verbose) {
-		logmsg(" - Adjusted frame rate to match same lengths with %s: %gms [SR: %d->%dHz]\n",
+		logmsg(" - Adjusted frame rate to match same lengths with %s: %gms [SR: %g->%gHz]\n",
 			config->clkName,
 			changedSignal->framerate,
-			changedSignal->originalSR_CLK, changedSignal->header.fmt.SamplesPerSec);
+			changedSignal->originalSR_CLK, changedSignal->SampleRate);
 	}
 	return adjustedTo;
 }
@@ -1270,7 +1271,7 @@ int DuplicateSamplesForWavefromPlots(AudioSignal *Signal, long int element, long
 	{
 		long int oneFrameSamples = 0;
 
-		oneFrameSamples = SecondsToSamples(Signal->header.fmt.SamplesPerSec, FramesToSeconds(framerate, 1), Signal->AudioChannels, NULL, NULL);
+		oneFrameSamples = SecondsToSamples(Signal->SampleRate, FramesToSeconds(framerate, 1), Signal->AudioChannels, NULL, NULL);
 		if(pos > oneFrameSamples) {
 			if(!CopySamplesForTimeDomainPlot(&Signal->Blocks[element], Signal->Samples + pos - oneFrameSamples, loadedBlockSize+oneFrameSamples, difference, NULL, Signal->AudioChannels, config))
 				return 0;
@@ -1327,7 +1328,7 @@ int ProcessSignal(AudioSignal *Signal, parameters *config)
 		return 0;
 	}
 
-	sampleBufferSize = SecondsToSamples(Signal->header.fmt.SamplesPerSec, longest, Signal->AudioChannels, NULL, NULL);
+	sampleBufferSize = SecondsToSamples(Signal->SampleRate, longest, Signal->AudioChannels, NULL, NULL);
 	sampleBuffer = (double*)malloc(sampleBufferSize*sizeof(double));
 	if(!sampleBuffer)
 	{
@@ -1335,7 +1336,7 @@ int ProcessSignal(AudioSignal *Signal, parameters *config)
 		return(0);
 	}
 
-	if(!initWindows(&windows, Signal->header.fmt.SamplesPerSec, config->window, config))
+	if(!initWindows(&windows, Signal->SampleRate, config->window, config))
 	{
 		logmsg("\tERROR: Could not create FFTW windows.\n");
 		return 0;
@@ -1362,15 +1363,15 @@ int ProcessSignal(AudioSignal *Signal, parameters *config)
 
 		/* This version looks better when -1hz difference, but is incorrect in frame alignment
 		if(areDoublesEqual(framerate, config->smallerFramerate) && !syncinternal)  // this compensates for shorter durations
-			loadedBlockSize = SecondsToSamples(Signal->header.fmt.SamplesPerSec, duration, Signal->AudioChannels, NULL, NULL);
+			loadedBlockSize = SecondsToSamples(Signal->SampleRate, duration, Signal->AudioChannels, NULL, NULL);
 		else
-			loadedBlockSize = SecondsToSamples(Signal->header.fmt.SamplesPerSec, duration, Signal->AudioChannels, &discardSamples, &leftDecimals);
+			loadedBlockSize = SecondsToSamples(Signal->SampleRate, duration, Signal->AudioChannels, &discardSamples, &leftDecimals);
 		*/
 
 		// This compensates framerate difference
-		difference = GetSampleSizeDifferenceByFrameRate(framerate, frames, Signal->header.fmt.SamplesPerSec, Signal->AudioChannels, config);
+		difference = GetSampleSizeDifferenceByFrameRate(framerate, frames, Signal->SampleRate, Signal->AudioChannels, config);
 		// This compensates for subsample time differences
-		loadedBlockSize = SecondsToSamples(Signal->header.fmt.SamplesPerSec, duration, Signal->AudioChannels, &discardSamples, &leftDecimals);
+		loadedBlockSize = SecondsToSamples(Signal->SampleRate, duration, Signal->AudioChannels, &discardSamples, &leftDecimals);
 
 		if(Signal->Blocks[i].type >= TYPE_SILENCE || Signal->Blocks[i].type == TYPE_WATERMARK) // We get the smaller window, since we'll truncate
 		{
@@ -1413,7 +1414,7 @@ int ProcessSignal(AudioSignal *Signal, parameters *config)
 				Signal->Blocks[i].type >= TYPE_SILENCE || Signal->Blocks[i].type == TYPE_WATERMARK ? "" : "NO DFT", duration,
 				SamplesForDisplay(loadedBlockSize, Signal->AudioChannels),
 				SamplesForDisplay(difference, Signal->AudioChannels),
-				SamplesForDisplay(loadedBlockSize - difference, Signal->AudioChannels), SamplesToSeconds(Signal->header.fmt.SamplesPerSec, loadedBlockSize - difference, Signal->AudioChannels),
+				SamplesForDisplay(loadedBlockSize - difference, Signal->AudioChannels), SamplesToSeconds(Signal->SampleRate, loadedBlockSize - difference, Signal->AudioChannels),
 				SamplesForDisplay(discardSamples, Signal->AudioChannels), leftDecimals/(double)Signal->AudioChannels);
 #endif
 
@@ -1422,7 +1423,7 @@ int ProcessSignal(AudioSignal *Signal, parameters *config)
 
 		if(Signal->Blocks[i].type >= TYPE_SILENCE || Signal->Blocks[i].type == TYPE_WATERMARK)
 		{
-			if(!ExecuteDFFT(&Signal->Blocks[i], sampleBuffer, loadedBlockSize-difference, Signal->header.fmt.SamplesPerSec, windowUsed, Signal->AudioChannels, config->ZeroPad, config))
+			if(!ExecuteDFFT(&Signal->Blocks[i], sampleBuffer, loadedBlockSize-difference, Signal->SampleRate, windowUsed, Signal->AudioChannels, config->ZeroPad, config))
 				return 0;
 
 			//logmsg("estimated %g (difference %ld)\n", Signal->Blocks[i].frames*Signal->framerate/1000.0, difference);
@@ -1433,7 +1434,7 @@ int ProcessSignal(AudioSignal *Signal, parameters *config)
 
 		if(config->clkMeasure && config->clkBlock == i)
 		{
-			if(!ExecuteDFFT(&Signal->clkFrequencies, sampleBuffer, loadedBlockSize-difference, Signal->header.fmt.SamplesPerSec, windowUsed, Signal->AudioChannels, 1, config))
+			if(!ExecuteDFFT(&Signal->clkFrequencies, sampleBuffer, loadedBlockSize-difference, Signal->SampleRate, windowUsed, Signal->AudioChannels, 1, config))
 				return 0;
 
 			if(!FillFrequencyStructures(Signal, &Signal->clkFrequencies, config))
@@ -1448,7 +1449,7 @@ int ProcessSignal(AudioSignal *Signal, parameters *config)
 		totalDiscarded += discardSamples;
 		totalDifference += difference;
 		totalTimeEst += SamplesToSeconds(Signal->EstimatedSR, loadedBlockSize - difference, Signal->AudioChannels);
-		totalTimeReal += SamplesToSeconds(Signal->header.fmt.SamplesPerSec, loadedBlockSize - difference, Signal->AudioChannels);
+		totalTimeReal += SamplesToSeconds(Signal->SampleRate, loadedBlockSize - difference, Signal->AudioChannels);
 #endif
 
 		if(Signal->Blocks[i].type == TYPE_INTERNAL_KNOWN)
@@ -1481,8 +1482,8 @@ int ProcessSignal(AudioSignal *Signal, parameters *config)
 	logmsg("Final processed %s samples: %ld of %d bytes each (%ld bytes total)\n", 
 		Signal->AudioChannels == 2 ? "stereo" : "mono",	SamplesForDisplay(totalProcessed, Signal->AudioChannels),
 		Signal->bytesPerSample,	SamplesToBytes(totalProcessed, Signal->bytesPerSample));
-	logmsg("Total Time: %.10g @ %ld\n", totalTimeReal, Signal->header.fmt.SamplesPerSec);
-	if((double)Signal->header.fmt.SamplesPerSec != Signal->EstimatedSR)
+	logmsg("Total Time: %.10g @ %g\n", totalTimeReal, Signal->SampleRate);
+	if(Signal->SampleRate != Signal->EstimatedSR)
 		logmsg("Total Time at Estimated SR: %.10g @ %g\n", totalTimeEst, Signal->EstimatedSR);
 #endif
 
@@ -1509,7 +1510,7 @@ int ProcessSignal(AudioSignal *Signal, parameters *config)
 	return i;
 }
 
-int ExecuteDFFT(AudioBlocks *AudioArray, double *samples, size_t size, long samplerate, double *window, int AudioChannels, int ZeroPad, parameters *config)
+int ExecuteDFFT(AudioBlocks *AudioArray, double *samples, size_t size, double samplerate, double *window, int AudioChannels, int ZeroPad, parameters *config)
 {
 	char channel = CHANNEL_STEREO;
 
@@ -1532,7 +1533,7 @@ int ExecuteDFFT(AudioBlocks *AudioArray, double *samples, size_t size, long samp
 	return(ExecuteDFFTInternal(AudioArray, samples, size, samplerate, window, channel, AudioChannels, ZeroPad, config));
 }
 
-int ExecuteDFFTInternal(AudioBlocks *AudioArray, double *samples, size_t size, long samplerate, double *window, char channel, int AudioChannels, int ZeroPad, parameters *config)
+int ExecuteDFFTInternal(AudioBlocks *AudioArray, double *samples, size_t size, double samplerate, double *window, char channel, int AudioChannels, int ZeroPad, parameters *config)
 {
 	fftw_plan		p = NULL;
 	long			stereoSignalSize = 0;
@@ -1549,7 +1550,7 @@ int ExecuteDFFTInternal(AudioBlocks *AudioArray, double *samples, size_t size, l
 
 	stereoSignalSize = (long)size;
 	monoSignalSize = stereoSignalSize/AudioChannels;
-	seconds = (double)size/((double)samplerate*AudioChannels);
+	seconds = (double)size/(samplerate*(double)AudioChannels);
 
 	if(ZeroPad)  /* disabled by default */
 		zeropadding = GetZeroPadValues(&monoSignalSize, &seconds, samplerate);
@@ -2165,7 +2166,7 @@ MaxSample FindMaxSampleAmplitude(AudioSignal *Signal)
 
 	maxSampleValue.maxSample = 0;
 	maxSampleValue.offset = 0;
-	maxSampleValue.samplerate = Signal->header.fmt.SamplesPerSec;
+	maxSampleValue.samplerate = Signal->SampleRate;
 	maxSampleValue.framerate = Signal->framerate;
 
 	if(!Signal)
@@ -2208,26 +2209,26 @@ double FindLocalMaximumAroundSample(AudioSignal *Signal, MaxSample refMax)
 		refFrames = refSeconds/(refMax.framerate/1000.0);
 
 		tarSeconds = FramesToSeconds(refFrames, Signal->framerate);
-		pos = start + SecondsToSamples(Signal->header.fmt.SamplesPerSec, tarSeconds, Signal->AudioChannels, NULL, NULL);
+		pos = start + SecondsToSamples(Signal->SampleRate, tarSeconds, Signal->AudioChannels, NULL, NULL);
 	}
 	else
 	{
 		pos = start + refMax.offset;
-		pos = (double)pos*(double)Signal->header.fmt.SamplesPerSec/(double)refMax.samplerate;
+		pos = (double)pos*Signal->SampleRate/refMax.samplerate;
 	}
 
 	if(pos > end)
 		return 0;
 
-	// Search in 2/faction of Signal->header.fmt.SamplesPerSec
+	// Search in 2/faction of Signal->SampleRate
 	// around the position of the sample
 
 	fraction = 60.0; // around 1 frame
-	if(pos - Signal->header.fmt.SamplesPerSec/fraction >= start)
-		start = pos - Signal->header.fmt.SamplesPerSec/fraction;
+	if(pos - Signal->SampleRate/fraction >= start)
+		start = pos - Signal->SampleRate/fraction;
 
-	if(end >= pos + Signal->header.fmt.SamplesPerSec/fraction)
-		end = pos + Signal->header.fmt.SamplesPerSec/fraction;
+	if(end >= pos + Signal->SampleRate/fraction)
+		end = pos + Signal->SampleRate/fraction;
 
 	samples = Signal->Samples;
 	for(i = start; i < end; i++)
@@ -2354,7 +2355,7 @@ MaxMagn FindMaxMagnitudeBlock(AudioSignal *Signal, parameters *config)
 			long int offset = 0;
 
 			seconds = FramesToSeconds(GetElementFrameOffset(MaxMag.block, config), Signal->framerate);
-			offset = SecondsToSamples(Signal->header.fmt.SamplesPerSec, seconds, Signal->header.fmt.NumOfChan, NULL, NULL);
+			offset = SecondsToSamples(Signal->SampleRate, seconds, Signal->header.fmt.NumOfChan, NULL, NULL);
 			offset = SamplesForDisplay(offset, Signal->header.fmt.NumOfChan);
 
 			logmsg(" - %s Max Magnitude found in %s# %d (%d) [ %c ] at %g Hz with %g (%g seconds/%ld samples)\n",

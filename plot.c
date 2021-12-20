@@ -1197,9 +1197,9 @@ void DrawSRData(PlotFile *plot, AudioSignal *Signal, char *msg, parameters *conf
 
 	pl_pencolor_r(plot->plotter, 0xcccc, 0xcccc, 0);
 	if(config->doSamplerateAdjust)
-		sprintf(str, "\\ptSR %%s: %%d\\->%%gkHz");
+		sprintf(str, "\\ptSR %%s: %%g\\->%%gkHz");
 	else
-		sprintf(str, "\\ptSR %%s: %%d(%%g)kHz");
+		sprintf(str, "\\ptSR %%s: %%g(%%g)kHz");
 	sprintf(msg, str,
 		Signal->role == ROLE_REF ? "RF" : "CM",
 		Signal->originalSR/1000, Signal->EstimatedSR/1000.0);
@@ -1291,10 +1291,10 @@ void DrawFileInfo(PlotFile *plot, AudioSignal *Signal, char *msg, int type, int 
 	{
 		if(Signal)
 		{
-			sprintf(msg, "%s %5.5s %4dkHz %dbit %s %.92s%s",
+			sprintf(msg, "%s %5.5s %4gkHz %dbit %s %.92s%s",
 				Signal->role == ROLE_REF ? "Reference:  " : "Comparison:",
 				config->types.SyncFormat[format].syncName,
-				Signal->originalSR ? Signal->originalSR/1000 : (int)Signal->header.fmt.SamplesPerSec/1000,
+				Signal->originalSR ? Signal->originalSR/1000 : (int)(Signal->SampleRate/1000),
 				Signal->bytesPerSample*8,
 				Signal->AudioChannels == 2 ? "Stereo" : "Mono ",
 				name,
@@ -1361,9 +1361,9 @@ void DrawFileInfo(PlotFile *plot, AudioSignal *Signal, char *msg, int type, int 
 	{
 		y += config->plotResY/60;
 
-		sprintf(msg, "File: %5.5s %4dkHz %dbit %s %.92s%s",
+		sprintf(msg, "File: %5.5s %4gkHz %dbit %s %.92s%s",
 			config->types.SyncFormat[format].syncName,
-			Signal->originalSR ? Signal->originalSR/1000 : (int)Signal->header.fmt.SamplesPerSec/1000,
+			Signal->originalSR ? Signal->originalSR/1000 : (int)(Signal->SampleRate/1000),
 			Signal->bytesPerSample*8,
 			Signal->AudioChannels == 2 ? "Stereo" : "Mono  ",
 			name,
@@ -4695,7 +4695,7 @@ void PlotTimeSpectrogram(AudioSignal *Signal, char channel, parameters *config)
 	DrawLabelsTimeSpectrogram(&plot, floor(config->endHzPlot/1000), 1, config);
 
 	// Point to first valid frame
-	frameOffset = SamplesToFrames(Signal->header.fmt.SamplesPerSec, Signal->startOffset, Signal->framerate, Signal->AudioChannels);
+	frameOffset = SamplesToFrames(Signal->SampleRate, Signal->startOffset, Signal->framerate, Signal->AudioChannels);
 	//logmsg("\nSync Samples: %ld start->Frames %g Seconds %g\n", Signal->startOffset, frameOffset, FramesToSeconds(frameOffset, Signal->framerate));
 	frameOffset += GetFirstElementFrameOffset(config);
 	//logmsg("Signal Start->Frames %g Seconds %g\n", frameOffset, FramesToSeconds(frameOffset, Signal->framerate));
@@ -4858,7 +4858,7 @@ void PlotSingleTypeTimeSpectrogram(AudioSignal* Signal, char channel, int plotTy
 	DrawLabelsTimeSpectrogram(&plot, floor(config->endHzPlot / 1000), 1, config);
 
 	// Point to first valid frame
-	frameOffset = SamplesToFrames(Signal->header.fmt.SamplesPerSec, Signal->startOffset, Signal->framerate, Signal->AudioChannels);
+	frameOffset = SamplesToFrames(Signal->SampleRate, Signal->startOffset, Signal->framerate, Signal->AudioChannels);
 	//logmsg("\nSync Samples: %ld start->Frames %g Seconds %g\n", Signal->startOffset, frameOffset, FramesToSeconds(frameOffset, Signal->framerate));
 	frameOffset += GetFirstElementFrameOffset(config);
 	//logmsg("Signal Start->Frames %g Seconds %g\n", frameOffset, FramesToSeconds(frameOffset, Signal->framerate));
@@ -5003,7 +5003,7 @@ void PlotTimeSpectrogramUnMatchedContent(AudioSignal *Signal, char channel, para
 	DrawLabelsTimeSpectrogram(&plot, floor(config->endHzPlot/1000), 1, config);
 
 	framewidth = config->plotResX / framecount;
-	frameOffset = SamplesToFrames(Signal->header.fmt.SamplesPerSec, Signal->startOffset, Signal->framerate, Signal->AudioChannels);
+	frameOffset = SamplesToFrames(Signal->SampleRate, Signal->startOffset, Signal->framerate, Signal->AudioChannels);
 	for(block = 0; block < config->types.totalBlocks; block++)
 	{
 		int		type = 0;
@@ -5308,11 +5308,11 @@ void DrawVerticalFrameGrid(PlotFile *plot, AudioSignal *Signal, double frames, d
 	if(drawMS)
 	{
 		SetPenColor(COLOR_GRAY, 0x4444, plot);
-		for(int f = 0; f < frames; f++)
+		for(long int f = 0; f < frames; f++)
 		{
 			double offset, factor;
 
-			factor = (double)Signal->header.fmt.SamplesPerSec/1000.0;
+			factor = Signal->SampleRate/1000.0;
 			offset = (double)f*Signal->framerate*factor;
 			for(int i = 0; i <= Signal->framerate; i += 1)
 			{
@@ -5327,7 +5327,7 @@ void DrawVerticalFrameGrid(PlotFile *plot, AudioSignal *Signal, double frames, d
 	SetPenColor(COLOR_GREEN, 0x7777, plot);
 	for(int i = frameIncrement; i <= frames; i += frameIncrement)
 	{
-		x = FramesToSamples(i, Signal->header.fmt.SamplesPerSec, Signal->framerate);
+		x = FramesToSamples(i, Signal->SampleRate, Signal->framerate);
 		pl_fline_r(plot->plotter, x, MinY, x, MaxY);
 		pl_endpath_r(plot->plotter);
 	}
@@ -5348,7 +5348,7 @@ void DrawVerticalFrameGrid(PlotFile *plot, AudioSignal *Signal, double frames, d
 	SetPenColor(COLOR_GREEN, 0x9999, plot);
 	for(int i = 0; i <= frames; i += segment)
 	{
-		x = FramesToSamples(i, Signal->header.fmt.SamplesPerSec, Signal->framerate);
+		x = FramesToSamples(i, Signal->SampleRate, Signal->framerate);
 		pl_fline_r(plot->plotter, x, MinY, x, MaxY);
 		pl_endpath_r(plot->plotter);
 	}
@@ -5365,7 +5365,7 @@ void DrawVerticalFrameGrid(PlotFile *plot, AudioSignal *Signal, double frames, d
 	{
 		char label[40];
 
-		x = FramesToSamples(i, Signal->header.fmt.SamplesPerSec, Signal->framerate);
+		x = FramesToSamples(i, Signal->SampleRate, Signal->framerate);
 		sprintf(label, "Frame %d", i);
 		pl_fmove_r(plot->plotter, x*xfactor, config->plotResY/2);
 		pl_alabel_r(plot->plotter, 'c', 'b', label);
@@ -5658,7 +5658,7 @@ void PlotBlockTimeDomainGraph(AudioSignal *Signal, int block, char *name, int wa
 	{
 		long int oneFrameSamples = 0;
 
-		oneFrameSamples = SecondsToSamples(Signal->header.fmt.SamplesPerSec, FramesToSeconds(Signal->framerate, 1), Signal->AudioChannels, NULL, NULL);
+		oneFrameSamples = SecondsToSamples(Signal->SampleRate, FramesToSeconds(Signal->framerate, 1), Signal->AudioChannels, NULL, NULL);
 		if(GetFirstSyncIndex(config) == block)
 			sprintf(title, "%s# %d%s | samples %ld-%ld | Start Sync: (used:%ld/measrd:%ld)-%ld", GetBlockDisplayName(config, block), GetBlockSubIndex(config, block),
 				GetWFMTypeText(wavetype, buffer, data, Signal->role), 
@@ -5712,7 +5712,7 @@ void PlotBlockTimeDomainInternalSyncGraph(AudioSignal *Signal, int block, char *
 		return;
 
 	numSamples = Signal->Blocks[block].internalSync[slot].size;
-	frames = SamplesToFrames(Signal->header.fmt.SamplesPerSec, numSamples, Signal->framerate, Signal->AudioChannels);
+	frames = SamplesToFrames(Signal->SampleRate, numSamples, Signal->framerate, Signal->AudioChannels);
 
 	difference = Signal->Blocks[block].internalSync[slot].difference;
 	if(difference < 0)
@@ -6269,7 +6269,7 @@ void PlotDifferenceTimeSpectrogram(parameters *config)
 	DrawLabelsTimeSpectrogram(&plot, floor(config->endHzPlot/1000), 1, config);
 
 	framewidth = config->plotResX / framecount;
-	frameOffset = SamplesToFrames(Signal->header.fmt.SamplesPerSec, Signal->startOffset, Signal->framerate, Signal->AudioChannels);
+	frameOffset = SamplesToFrames(Signal->SampleRate, Signal->startOffset, Signal->framerate, Signal->AudioChannels);
 	for(block = 0; block < config->types.totalBlocks; block++)
 	{
 		int		type = 0;

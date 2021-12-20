@@ -218,7 +218,7 @@ enum normalize
 typedef struct max_vol {
 	double		maxSample;
 	uint32_t	offset;
-	uint32_t	samplerate;
+	double		samplerate;
 	double		framerate;
 } MaxSample;
 
@@ -414,6 +414,7 @@ typedef struct AudioSt {
 	double		floorAmplitude;
 
 	double		*Samples;
+	double		SampleRate;
 	int			bytesPerSample;
 	long int	numSamples;
 	long int	SamplesStart;
@@ -452,10 +453,10 @@ typedef struct AudioSt {
 	AudioBlocks	clkFrequencies;
 	double		originalCLK;
 	double		EstimatedSR_CLK;
-	int			originalSR_CLK;
+	double		originalSR_CLK;
 
 	double		EstimatedSR;
-	int			originalSR;
+	double		originalSR;
 	double		originalFrameRate;
 
 	AudioBlocks *Blocks;
@@ -475,7 +476,7 @@ typedef struct window_st {
 	windowUnit	*windowArray;
 	int windowCount;
 	int MaxWindow;
-	int SamplesPerSec;
+	double SampleRate;
 	char winType;
 } windowManager;
 

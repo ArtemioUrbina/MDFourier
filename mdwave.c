@@ -42,8 +42,8 @@
 #include "profile.h"
 
 int ProcessSignalMDW(AudioSignal *Signal, parameters *config);
-int ExecuteDFFT(AudioBlocks *AudioArray, double *samples, long int size, long samplerate, double *window, parameters *config, int fftw_direction, AudioSignal *Signal);
-int ExecuteDFFTInternal(AudioBlocks *AudioArray, double *samples, long int size, long samplerate, double *window, char channel, parameters *config, int fftw_direction, AudioSignal *Signal);
+int ExecuteDFFT(AudioBlocks *AudioArray, double *samples, long int size, double samplerate, double *window, parameters *config, int fftw_direction, AudioSignal *Signal);
+int ExecuteDFFTInternal(AudioBlocks *AudioArray, double *samples, long int size, double samplerate, double *window, char channel, parameters *config, int fftw_direction, AudioSignal *Signal);
 int commandline_wave(int argc , char *argv[], parameters *config);
 void PrintUsage_wave();
 void Header_wave(int log);
@@ -267,7 +267,7 @@ int ProcessSignalMDW(AudioSignal *Signal, parameters *config)
 		return 0;
 	}
 
-	sampleBufferSize = SecondsToSamples(Signal->header.fmt.SamplesPerSec, longest, Signal->AudioChannels, NULL, NULL);
+	sampleBufferSize = SecondsToSamples(Signal->SampleRate, longest, Signal->AudioChannels, NULL, NULL);
 	sampleBuffer = (double*)malloc(sampleBufferSize*sizeof(double));
 	if(!sampleBuffer)
 	{
@@ -275,7 +275,7 @@ int ProcessSignalMDW(AudioSignal *Signal, parameters *config)
 		return(0);
 	}
 
-	if(!initWindows(&windows, Signal->header.fmt.SamplesPerSec, config->window, config))
+	if(!initWindows(&windows, Signal->SampleRate, config->window, config))
 	{
 		logmsg("\tERROR: Could not create FFTW windows.\n");
 		return 0;
@@ -306,9 +306,9 @@ int ProcessSignalMDW(AudioSignal *Signal, parameters *config)
 		cutFrames = GetBlockCutFrames(config, i);
 		duration = FramesToSeconds(framerate, frames);
 				
-		loadedBlockSize = SecondsToSamples(Signal->header.fmt.SamplesPerSec, duration, Signal->AudioChannels, &discardSamples, &leftDecimals);
+		loadedBlockSize = SecondsToSamples(Signal->SampleRate, duration, Signal->AudioChannels, &discardSamples, &leftDecimals);
 
-		difference = GetSampleSizeDifferenceByFrameRate(framerate, frames, Signal->header.fmt.SamplesPerSec, Signal->AudioChannels, config);
+		difference = GetSampleSizeDifferenceByFrameRate(framerate, frames, Signal->SampleRate, Signal->AudioChannels, config);
 
 		windowUsed = NULL;
 		if(Signal->Blocks[i].type >= TYPE_SILENCE || Signal->Blocks[i].type == TYPE_WATERMARK)
@@ -333,7 +333,7 @@ int ProcessSignalMDW(AudioSignal *Signal, parameters *config)
 
 		if(Signal->Blocks[i].type >= TYPE_SILENCE && config->executefft)
 		{
-			if(!ExecuteDFFT(&Signal->Blocks[i], sampleBuffer, loadedBlockSize-difference, Signal->header.fmt.SamplesPerSec, windowUsed, config, FORWARD_FFTW, Signal))
+			if(!ExecuteDFFT(&Signal->Blocks[i], sampleBuffer, loadedBlockSize-difference, Signal->SampleRate, windowUsed, config, FORWARD_FFTW, Signal))
 				return 0;
 		}
 		
@@ -428,9 +428,9 @@ int ProcessSignalMDW(AudioSignal *Signal, parameters *config)
 			cutFrames = GetBlockCutFrames(config, i);
 			duration = FramesToSeconds(framerate, frames);
 
-			loadedBlockSize = SecondsToSamples(Signal->header.fmt.SamplesPerSec, duration, Signal->AudioChannels, &discardSamples, &leftDecimals);
+			loadedBlockSize = SecondsToSamples(Signal->SampleRate, duration, Signal->AudioChannels, &discardSamples, &leftDecimals);
 	
-			difference = GetSampleSizeDifferenceByFrameRate(framerate, frames, Signal->header.fmt.SamplesPerSec, Signal->AudioChannels, config);
+			difference = GetSampleSizeDifferenceByFrameRate(framerate, frames, Signal->SampleRate, Signal->AudioChannels, config);
 
 			windowUsed = NULL;
 			if(Signal->Blocks[i].type >= TYPE_SILENCE  || Signal->Blocks[i].type == TYPE_WATERMARK)
@@ -460,7 +460,7 @@ int ProcessSignalMDW(AudioSignal *Signal, parameters *config)
 		
 			if(Signal->Blocks[i].type >= TYPE_SILENCE)
 			{
-				if(!ExecuteDFFT(&Signal->Blocks[i], sampleBuffer, loadedBlockSize-difference, Signal->header.fmt.SamplesPerSec, windowUsed, config, REVERSE_FFTW, Signal))
+				if(!ExecuteDFFT(&Signal->Blocks[i], sampleBuffer, loadedBlockSize-difference, Signal->SampleRate, windowUsed, config, REVERSE_FFTW, Signal))
 					return 0;
 			}
 
@@ -544,7 +544,7 @@ int ProcessSignalMDW(AudioSignal *Signal, parameters *config)
 	return 1;
 }
 
-int ExecuteDFFT(AudioBlocks *AudioArray, double *samples, long int size, long samplerate, double *window, parameters *config, int fftw_direction, AudioSignal *Signal)
+int ExecuteDFFT(AudioBlocks *AudioArray, double *samples, long int size, double samplerate, double *window, parameters *config, int fftw_direction, AudioSignal *Signal)
 {
 	int AudioChannels = Signal->AudioChannels;
 	char channel = CHANNEL_STEREO;
@@ -578,7 +578,7 @@ int ExecuteDFFT(AudioBlocks *AudioArray, double *samples, long int size, long sa
 	return 1;
 }
 
-int ExecuteDFFTInternal(AudioBlocks *AudioArray, double *samples, long int size, long samplerate, double *window, char channel, parameters *config, int fftw_direction, AudioSignal *Signal)
+int ExecuteDFFTInternal(AudioBlocks *AudioArray, double *samples, long int size, double samplerate, double *window, char channel, parameters *config, int fftw_direction, AudioSignal *Signal)
 {
 	fftw_plan		p = NULL, pBack = NULL;
 	long int		stereoSignalSize = 0, blanked = 0;	
@@ -599,7 +599,7 @@ int ExecuteDFFTInternal(AudioBlocks *AudioArray, double *samples, long int size,
 	//logmsg("discardMDW %d fftw_direction %s\n", config->discardMDW, fftw_direction == FORWARD_FFTW ? "forward" : "reverse");
 	stereoSignalSize = (long)size;
 	monoSignalSize = stereoSignalSize/AudioChannels;
-	seconds = (double)size/((double)samplerate*AudioChannels);
+	seconds = (double)size/(samplerate*(double)AudioChannels);
 
 	if(config->ZeroPad)  /* disabled by default */
 		zeropadding = GetZeroPadValues(&monoSignalSize, &seconds, samplerate);

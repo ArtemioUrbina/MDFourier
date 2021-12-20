@@ -349,8 +349,8 @@ int InsertPhaseDifference(int block, Frequency ref, Frequency comp, char channel
 		return 0;
 	}
 	
-	diffPhase =  comp.phase - ref.phase;
-	diffPhase = roundFloat(diffPhase);
+	diffPhase = comp.phase - ref.phase;
+	//diffPhase = roundFloat(diffPhase);
 	if(diffPhase > 180.0)
 		diffPhase -= 360;
 	if(diffPhase <= -180.0)  // -180 is the same as 180, hence the =
