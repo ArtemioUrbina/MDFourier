@@ -2,7 +2,7 @@ MDFourierAudioBlockFile 2.3
 SEGA: Mega Drive/Sega Genesis
 [VideoModes] 2
 NTSC 16.6884 262 8820 14 10
-PAL 20.12 313 8820 17 10
+PAL 20.1196 313 8820 17 10
 CLK n
 [MonoBalanceBlock] 99      ;Use 1khz-ish, SPSG# 1
 [ToneLines] 8
