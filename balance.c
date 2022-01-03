@@ -76,7 +76,7 @@ int CheckBalance(AudioSignal *Signal, int block, parameters *config)
 		return 0;
 	}
 
-	buffersize = SecondsToSamples(Signal->header.fmt.SamplesPerSec, longest, Signal->AudioChannels, NULL, NULL);
+	buffersize = SecondsToSamples(Signal->SampleRate, longest, Signal->AudioChannels, NULL, NULL);
 	buffer = (double*)malloc(sizeof(double)*buffersize);
 	if(!buffer)
 	{
@@ -85,7 +85,7 @@ int CheckBalance(AudioSignal *Signal, int block, parameters *config)
 	}
 
 	// Use flattop for Amplitude accuracy
-	if(!initWindows(&windows, Signal->header.fmt.SamplesPerSec, 'f', config))
+	if(!initWindows(&windows, Signal->SampleRate, 'f', config))
 		return 0;
 
 	if(config->clock)
@@ -100,9 +100,9 @@ int CheckBalance(AudioSignal *Signal, int block, parameters *config)
 		cutFrames = GetBlockCutFrames(config, i);
 		duration = FramesToSeconds(Signal->framerate, frames);
 		
-		loadedBlockSize = SecondsToSamples(Signal->header.fmt.SamplesPerSec, duration, Signal->AudioChannels, &discardBytes, &leftDecimals);
+		loadedBlockSize = SecondsToSamples(Signal->SampleRate, duration, Signal->AudioChannels, &discardBytes, &leftDecimals);
 
-		difference = GetSampleSizeDifferenceByFrameRate(Signal->framerate, frames, Signal->header.fmt.SamplesPerSec, Signal->AudioChannels, config);
+		difference = GetSampleSizeDifferenceByFrameRate(Signal->framerate, frames, Signal->SampleRate, Signal->AudioChannels, config);
 
 		windowUsed = getWindowByLength(&windows, frames, cutFrames, config->smallerFramerate, config);
 
@@ -125,10 +125,10 @@ int CheckBalance(AudioSignal *Signal, int block, parameters *config)
 			
 			memcpy(buffer, Signal->Samples + pos, sizeof(double)*(loadedBlockSize-difference));
 	
-			if(!ExecuteBalanceDFFT(&Channels[0], buffer, (loadedBlockSize-difference), Signal->header.fmt.SamplesPerSec, windowUsed, CHANNEL_LEFT, config))
+			if(!ExecuteBalanceDFFT(&Channels[0], buffer, (loadedBlockSize-difference), Signal->SampleRate, windowUsed, CHANNEL_LEFT, config))
 				return 0;
 
-			if(!ExecuteBalanceDFFT(&Channels[1], buffer, (loadedBlockSize-difference), Signal->header.fmt.SamplesPerSec, windowUsed, CHANNEL_RIGHT, config))
+			if(!ExecuteBalanceDFFT(&Channels[1], buffer, (loadedBlockSize-difference), Signal->SampleRate, windowUsed, CHANNEL_RIGHT, config))
 				return 0;
 
 			Channels[0].freq = (Frequency*)malloc(sizeof(Frequency)*config->MaxFreq);
@@ -295,7 +295,7 @@ int CheckBalance(AudioSignal *Signal, int block, parameters *config)
 	return 1;
 }
 
-int ExecuteBalanceDFFT(AudioBlocks *AudioArray, double *samples, size_t size, long samplerate, double *window, char channel, parameters *config)
+int ExecuteBalanceDFFT(AudioBlocks *AudioArray, double *samples, size_t size, double samplerate, double *window, char channel, parameters *config)
 {
 	fftw_plan		p = NULL;
 	long		  	stereoSignalSize = 0;	
@@ -312,7 +312,7 @@ int ExecuteBalanceDFFT(AudioBlocks *AudioArray, double *samples, size_t size, lo
 
 	stereoSignalSize = (long)size;
 	monoSignalSize = stereoSignalSize/2;
-	seconds = (double)size/((double)samplerate*2);
+	seconds = (double)size/(samplerate*2);
 
 	if(config->ZeroPad)  /* disabled by default */
 		zeropadding = GetZeroPadValues(&monoSignalSize, &seconds, samplerate);

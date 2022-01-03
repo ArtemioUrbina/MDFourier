@@ -30,7 +30,7 @@
 #define MDFBALANCE_H
 
 int CheckBalance(AudioSignal *Signal, int block, parameters *config);
-int ExecuteBalanceDFFT(AudioBlocks *AudioArray, double *samples, size_t size, long samplerate, double *window, char channel, parameters *config);
+int ExecuteBalanceDFFT(AudioBlocks *AudioArray, double *samples, size_t size, double samplerate, double *window, char channel, parameters *config);
 void BalanceAudioChannel(AudioSignal *Signal, char channel, double ratio);
 
 #endif

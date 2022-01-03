@@ -520,7 +520,7 @@ int DetectSync(AudioSignal *Signal, parameters *config)
 		
 		if(config->verbose || config->debugSync) {
 			logmsg("\n\t   %gs [%ld samples", 
-				SamplesToSeconds(Signal->header.fmt.SamplesPerSec, Signal->startOffset, Signal->AudioChannels),
+				SamplesToSeconds(Signal->SampleRate, Signal->startOffset, Signal->AudioChannels),
 				SamplesForDisplay(Signal->startOffset, Signal->AudioChannels));
 			if(!IsFlac(Signal->SourceFile))
 				logmsg("|%ld bytes|%ld bytes/head", 
@@ -558,7 +558,7 @@ int DetectSync(AudioSignal *Signal, parameters *config)
 
 			if(config->verbose) {
 				logmsg(" %gs [%ld samples", 
-					SamplesToSeconds(Signal->header.fmt.SamplesPerSec, Signal->endOffset, Signal->AudioChannels),
+					SamplesToSeconds(Signal->SampleRate, Signal->endOffset, Signal->AudioChannels),
 					SamplesForDisplay(Signal->endOffset, Signal->AudioChannels));
 				if(!IsFlac(Signal->SourceFile))
 					logmsg("|%ld bytes|%ld bytes/head", 
@@ -628,7 +628,7 @@ int DetectSync(AudioSignal *Signal, parameters *config)
 				}
 		
 				logmsg("\n\t   %gs [%ld samples", 
-					SamplesToSeconds(Signal->header.fmt.SamplesPerSec, Signal->startOffset, Signal->AudioChannels),
+					SamplesToSeconds(Signal->SampleRate, Signal->startOffset, Signal->AudioChannels),
 					SamplesForDisplay(Signal->startOffset, Signal->AudioChannels));
 				if(!IsFlac(Signal->SourceFile))
 					logmsg("|%ld bytes|%ld bytes/head", 
@@ -636,7 +636,7 @@ int DetectSync(AudioSignal *Signal, parameters *config)
 						SamplesToBytes(Signal->startOffset, Signal->bytesPerSample)+Signal->SamplesStart);
 				logmsg("]\n");
 
-				Signal->endOffset = SecondsToSamples(Signal->header.fmt.SamplesPerSec, 
+				Signal->endOffset = SecondsToSamples(Signal->SampleRate, 
 										GetSignalTotalDuration(Signal->framerate, config), 
 										Signal->AudioChannels, NULL, NULL);
 			}
@@ -654,7 +654,7 @@ int DetectSync(AudioSignal *Signal, parameters *config)
 				if(Signal->role == ROLE_REF)
 				{
 					double seconds = 0;
-					seconds = SamplesToSeconds(Signal->header.fmt.SamplesPerSec, Signal->endOffset, Signal->AudioChannels);
+					seconds = SamplesToSeconds(Signal->SampleRate, Signal->endOffset, Signal->AudioChannels);
 					config->NoSyncTotalFrames = (seconds*1000)/expected;
 					Signal->framerate = expected;
 					logmsg(" - Loaded %.8g Hz signal (%.8gms per frame) from profile file\n", 
@@ -682,13 +682,13 @@ int DetectSync(AudioSignal *Signal, parameters *config)
 			case NO_SYNC_LENGTH:
 			{
 				Signal->startOffset = 0;
-				Signal->endOffset = SecondsToSamples(Signal->header.fmt.SamplesPerSec,
+				Signal->endOffset = SecondsToSamples(Signal->SampleRate,
 					GetSignalTotalDuration(Signal->framerate, config),
 					Signal->AudioChannels, NULL, NULL);
 				if (Signal->endOffset > Signal->numSamples)
 				{
 					logmsg(" - ERROR: Files must be at least %g seconds long\n", 
-							SamplesToSeconds(Signal->header.fmt.SamplesPerSec, Signal->endOffset, Signal->AudioChannels));
+							SamplesToSeconds(Signal->SampleRate, Signal->endOffset, Signal->AudioChannels));
 					return 0;
 				}
 			}
@@ -725,7 +725,7 @@ int DetectSync(AudioSignal *Signal, parameters *config)
 				}
 		
 				logmsg("\n\t   %gs [%ld samples", 
-					SamplesToSeconds(Signal->header.fmt.SamplesPerSec, Signal->startOffset, Signal->AudioChannels),
+					SamplesToSeconds(Signal->SampleRate, Signal->startOffset, Signal->AudioChannels),
 					SamplesForDisplay(Signal->startOffset, Signal->AudioChannels));
 				if(!IsFlac(Signal->SourceFile))
 					logmsg("|%ld bytes|%ld bytes/head", 
@@ -733,7 +733,7 @@ int DetectSync(AudioSignal *Signal, parameters *config)
 						SamplesToBytes(Signal->startOffset, Signal->bytesPerSample)+Signal->SamplesStart);
 				logmsg("]\n");
 
-				Signal->endOffset = SecondsToSamples(Signal->header.fmt.SamplesPerSec, 
+				Signal->endOffset = SecondsToSamples(Signal->SampleRate, 
 										GetSignalTotalDuration(Signal->framerate, config), 
 										Signal->AudioChannels, NULL, NULL);
 			}
@@ -747,7 +747,7 @@ int DetectSync(AudioSignal *Signal, parameters *config)
 		}
 	}
 
-	seconds = (double)Signal->numSamples/(double)Signal->header.fmt.SamplesPerSec/Signal->AudioChannels;
+	seconds = (double)Signal->numSamples/Signal->SampleRate/(double)Signal->AudioChannels;
 	if(seconds < GetSignalTotalDuration(Signal->framerate, config))
 		logmsg(" - File length is smaller than the expected %gs\n",
 				GetSignalTotalDuration(Signal->framerate, config));
@@ -762,16 +762,19 @@ int AdjustSignalValues(AudioSignal *Signal, parameters *config)
 {
 	double seconds = 0;
 
+	// initial assignment as double
+	Signal->SampleRate = Signal->header.fmt.SamplesPerSec;
+
 	// Default if none is found
 	Signal->framerate = GetMSPerFrame(Signal, config);
 
 	Signal->AudioChannels = Signal->header.fmt.NumOfChan;
-	if(Signal->header.fmt.SamplesPerSec/2 < config->endHz)
+	if(Signal->SampleRate/2 < config->endHz)
 	{
 		logmsg(" - %d Hz sample rate was too low for %gHz-%gHz analysis\n",
 			 Signal->header.fmt.SamplesPerSec, config->startHz, config->endHz);
 
-		Signal->endHz = Signal->header.fmt.SamplesPerSec/2;
+		Signal->endHz = Signal->SampleRate/2;
 		Signal->nyquistLimit = 1;
 
 		logmsg(" - Changed to %gHz-%gHz for this file\n", config->startHz, Signal->endHz);
@@ -819,7 +822,7 @@ int MoveSampleBlockInternal(AudioSignal *Signal, long int element, long int pos,
 	}
 
 	signalLengthSeconds = FramesToSeconds(signalLengthFrames, config->referenceFramerate);
-	signalLengthSamples = SecondsToSamples(Signal->header.fmt.SamplesPerSec, signalLengthSeconds, Signal->AudioChannels, NULL, NULL);
+	signalLengthSamples = SecondsToSamples(Signal->SampleRate, signalLengthSeconds, Signal->AudioChannels, NULL, NULL);
 
 	if(pos + signalStartOffset + signalLengthSamples > Signal->numSamples)
 	{
@@ -883,7 +886,7 @@ int MoveSampleBlockExternal(AudioSignal *Signal, long int element, long int pos,
 	}
 
 	signalLengthSeconds = FramesToSeconds(signalLengthFrames, config->referenceFramerate);
-	signalLengthSamples = SecondsToSamples(Signal->header.fmt.SamplesPerSec, signalLengthSeconds, Signal->AudioChannels, NULL, NULL);
+	signalLengthSamples = SecondsToSamples(Signal->SampleRate, signalLengthSeconds, Signal->AudioChannels, NULL, NULL);
 
 	if(pos + signalStartOffset + signalLengthSamples > Signal->numSamples)
 	{
@@ -953,7 +956,7 @@ int ProcessInternalSync(AudioSignal *Signal, long int element, long int pos, int
 
 	syncToneFreq = GetInternalSyncTone(element, config);
 	syncLenSeconds = GetInternalSyncLen(element, config);
-	syncLengthSamples = SecondsToSamples(Signal->header.fmt.SamplesPerSec, syncLenSeconds, Signal->AudioChannels, NULL, NULL);
+	syncLengthSamples = SecondsToSamples(Signal->SampleRate, syncLenSeconds, Signal->AudioChannels, NULL, NULL);
 
 	// we send , syncLengthSamples/2 since it is half silence half pulse
 	internalSyncOffset = DetectSignalStart(Signal->Samples, Signal->header, pos, syncToneFreq, syncLengthSamples/2, &endPulseSamples, &toleranceIssue, config);
@@ -975,28 +978,28 @@ int ProcessInternalSync(AudioSignal *Signal, long int element, long int pos, int
 	{
 		double expected = 0, got = 0;
 
-		got = SamplesToSeconds(Signal->header.fmt.SamplesPerSec, pulseLengthSamples, Signal->AudioChannels);
-		expected = SamplesToSeconds(Signal->header.fmt.SamplesPerSec, syncLengthSamples, Signal->AudioChannels);
+		got = SamplesToSeconds(Signal->SampleRate, pulseLengthSamples, Signal->AudioChannels);
+		expected = SamplesToSeconds(Signal->SampleRate, syncLengthSamples, Signal->AudioChannels);
 
 		if(!config->syncTolerance)
 		{
 			logmsg(" - ERROR: Internal Sync %dhz tone starting at %gs was shorter than expected. Found %gms instead of %gms (can ignore with -T)\n",
-				syncToneFreq, SamplesToSeconds(Signal->header.fmt.SamplesPerSec, pos + internalSyncOffset, Signal->AudioChannels),
+				syncToneFreq, SamplesToSeconds(Signal->SampleRate, pos + internalSyncOffset, Signal->AudioChannels),
 				got, expected);
 			return 0;
 		}
 		logmsg(" - NOTE: (Ignored by -T) Internal Sync %dhz tone starting at %gs was shorter than expected. Found %gms instead of %gms\n",
-				syncToneFreq, SamplesToSeconds(Signal->header.fmt.SamplesPerSec, pos + internalSyncOffset, Signal->AudioChannels),
+				syncToneFreq, SamplesToSeconds(Signal->SampleRate, pos + internalSyncOffset, Signal->AudioChannels),
 				got, expected);
 	}
 
 	if(knownLength == TYPE_INTERNAL_KNOWN)
 	{
-		Signal->delayArray[Signal->delayElemCount++] = SamplesToSeconds(Signal->header.fmt.SamplesPerSec, internalSyncOffset, Signal->AudioChannels)*1000.0;
+		Signal->delayArray[Signal->delayElemCount++] = SamplesToSeconds(Signal->SampleRate, internalSyncOffset, Signal->AudioChannels)*1000.0;
 		logmsg(" - %s command delay: %g ms [%g frames]\n",
 			GetBlockName(config, element),
-			SamplesToSeconds(Signal->header.fmt.SamplesPerSec, internalSyncOffset, Signal->AudioChannels)*1000.0,
-			SamplesToFrames(Signal->header.fmt.SamplesPerSec, internalSyncOffset, config->referenceFramerate, Signal->AudioChannels));
+			SamplesToSeconds(Signal->SampleRate, internalSyncOffset, Signal->AudioChannels)*1000.0,
+			SamplesToFrames(Signal->SampleRate, internalSyncOffset, config->referenceFramerate, Signal->AudioChannels));
 
 		if(config->verbose) {
 				logmsg("  > Found at: %ld (%ld+%ld) smp\n\tPulse Length: %ld smp Silence Length: %ld smp\n", 
@@ -1063,8 +1066,8 @@ int ProcessInternalSync(AudioSignal *Signal, long int element, long int pos, int
 			{
 				double expected = 0, got = 0;
 
-				got = SamplesToSeconds(Signal->header.fmt.SamplesPerSec, pulseLengthSamples, Signal->AudioChannels);
-				expected = SamplesToSeconds(Signal->header.fmt.SamplesPerSec, silenceLengthSamples, Signal->AudioChannels);
+				got = SamplesToSeconds(Signal->SampleRate, pulseLengthSamples, Signal->AudioChannels);
+				expected = SamplesToSeconds(Signal->SampleRate, silenceLengthSamples, Signal->AudioChannels);
 
 				if(expected - got > 0.00015)  // This is the expected error in ms
 					logmsg(" - WARNING: Internal Sync was shorter than the expected %gms by %gms\n", expected, expected - got);
@@ -1072,11 +1075,11 @@ int ProcessInternalSync(AudioSignal *Signal, long int element, long int pos, int
 			//silenceLengthSamples = syncLengthSamples - pulseLengthSamples;
 		}
 
-		Signal->delayArray[Signal->delayElemCount++] = SamplesToSeconds(Signal->header.fmt.SamplesPerSec, internalSyncOffset, Signal->AudioChannels)*1000.0;
+		Signal->delayArray[Signal->delayElemCount++] = SamplesToSeconds(Signal->SampleRate, internalSyncOffset, Signal->AudioChannels)*1000.0;
 		logmsg(" - %s command delay: %g ms [%g frames]\n",
 			GetBlockName(config, element),
-			SamplesToSeconds(Signal->header.fmt.SamplesPerSec, internalSyncOffset, Signal->AudioChannels)*1000.0,
-			SamplesToFrames(Signal->header.fmt.SamplesPerSec, internalSyncOffset, config->referenceFramerate, Signal->AudioChannels));
+			SamplesToSeconds(Signal->SampleRate, internalSyncOffset, Signal->AudioChannels)*1000.0,
+			SamplesToFrames(Signal->SampleRate, internalSyncOffset, config->referenceFramerate, Signal->AudioChannels));
 
 		if(config->verbose) {
 			logmsg("  > Found at: %ld (%ld+%ld) smp\n\tPulse Length: %ld smp Silence Length: %ld smp\n", 
@@ -1117,7 +1120,7 @@ int ProcessInternalSync(AudioSignal *Signal, long int element, long int pos, int
 				return 0;
 
 			/*
-			oneframe = SecondsToBytes(Signal->header.fmt.SamplesPerSec, FramesToSeconds(1, config->referenceFramerate), Signal->AudioChannels, NULL, NULL);
+			oneframe = SecondsToSamples(Signal->SampleRate, FramesToSeconds(1, config->referenceFramerate), Signal->AudioChannels, NULL, NULL);
 			if(!CopySamplesForTimeDomainPlotInternalSync(&Signal->Blocks[element], 
 					(Signal->Samples + pos + signalStart), 
 					(oneframe*2), 3, 

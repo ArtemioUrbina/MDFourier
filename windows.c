@@ -33,13 +33,13 @@
 
 #define MAX_WINDOWS	100
 
-int initWindows(windowManager *wm, int SamplesPerSec, char winType, parameters *config)
+int initWindows(windowManager *wm, double SampleRate, char winType, parameters *config)
 {
 	if(!wm || !config)
 		return 0;
 
 	wm->MaxWindow = 0;
-	wm->SamplesPerSec = 0;
+	wm->SampleRate = 0;
 	wm->winType = 'n';
 	
 	if(winType == 'n')
@@ -58,7 +58,7 @@ int initWindows(windowManager *wm, int SamplesPerSec, char winType, parameters *
 	}
 	wm->windowCount = 0;
 	wm->MaxWindow = MAX_WINDOWS-1;
-	wm->SamplesPerSec = SamplesPerSec;
+	wm->SampleRate = SampleRate;
 	wm->winType = winType;
 
 	memset(wm->windowArray, 0, sizeof(windowUnit)*MAX_WINDOWS);
@@ -123,16 +123,16 @@ double *CreateWindow(windowManager *wm, long int frames, long int cutFrames, dou
 	}
 
 	seconds = FramesToSeconds(frames-cutFrames, framerate);
-	size = ceil(wm->SamplesPerSec*seconds);
+	size = ceil(wm->SampleRate*seconds);
 
 	secondsPadding = FramesToSeconds(cutFrames, framerate);
-	sizePadding = ceil(wm->SamplesPerSec*secondsPadding);
+	sizePadding = ceil(wm->SampleRate*secondsPadding);
 
 	/* Used for clk adjust, eventhough one frame is overkill */
 	if(config->doClkAdjust)
 	{
 		oneFramePadding = FramesToSeconds(1, framerate);
-		clkAdjustBufferSize = ceil(wm->SamplesPerSec*oneFramePadding);
+		clkAdjustBufferSize = ceil(wm->SampleRate*oneFramePadding);
 	}
 
 	if(!size)
@@ -175,10 +175,10 @@ double *getWindowByLength(windowManager *wm, long int frames, long int cutFrames
 		return 0;
 
 	seconds = FramesToSeconds(frames-cutFrames, framerate);
-	size = ceil(wm->SamplesPerSec*seconds);
+	size = ceil(wm->SampleRate*seconds);
 
 	secondsPadding = FramesToSeconds(cutFrames, framerate);
-	sizePadding = ceil(wm->SamplesPerSec*secondsPadding);
+	sizePadding = ceil(wm->SampleRate*secondsPadding);
 
 	for(int i = 0; i < wm->windowCount; i++)
 	{
@@ -215,7 +215,7 @@ void freeWindows(windowManager *wm)
 	}
 
 	wm->MaxWindow = 0;
-	wm->SamplesPerSec = 0;
+	wm->SampleRate = 0;
 	wm->winType = 'n';
 }
 
