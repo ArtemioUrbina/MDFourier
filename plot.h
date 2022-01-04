@@ -70,9 +70,8 @@ typedef struct averaged_freq{
 #define COLOR_NULL		-1
 
 #define	MODE_DIFF		1
-#define	MODE_MISS		2
-#define	MODE_SPEC		3
-#define	MODE_TSDIFF		4
+#define	MODE_SPEC		2
+#define	MODE_TSDIFF		3
 
 #define X0BORDER	0.125	// left border
 #define Y0BORDER 	0.06	// bottom border
@@ -212,7 +211,7 @@ int PlotDifferentAmplitudesAveraged(FlatAmplDifference *amplDiff, long int size,
 AveragedFrequencies *CreateFlatDifferencesAveraged(int matchType, char channel, long int *avgSize, diffPlotType plotType, parameters *config);
 void PlotSingleTypeDifferentAmplitudesAveraged(FlatAmplDifference *amplDiff, long int size, int type, char *filename, AveragedFrequencies *averaged, long int avgsize, char channel, parameters *config);
 void PlotAllDifferentAmplitudesAveraged(FlatAmplDifference *amplDiff, long int size, char *filename, AveragedFrequencies **averaged, long int *avgsize, parameters *config);
-double DrawMatchBar(PlotFile *plot, int colorName, double x, double y, double width, double height, double notFound, double total, parameters *config);
+double DrawMatchBar(PlotFile *plot, int colorName, double x, double y, double width, double height, double notFound, double total, int warnType, parameters *config);
 
 void PlotTest(char *filename, parameters *config);
 void PlotTestZL(char *filename, parameters *config);

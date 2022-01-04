@@ -48,7 +48,7 @@
 
 #include "incbeta.h"
 
-#define MDVERSION "1.07d"
+#define MDVERSION "1.07e"
 
 #if INTPTR_MAX == INT64_MAX
 #define	BITS_MDF "64-bit"
@@ -653,6 +653,7 @@ typedef struct parameters_st {
 	int				useExtraData;
 	int				compressToBlocks;
 	int				drawPerfect;
+	int				drawMissExtraFreq;
 	int				trimmingNeeded;
 
 /* Values only used for clock frequency */

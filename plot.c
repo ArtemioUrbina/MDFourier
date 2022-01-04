@@ -115,11 +115,18 @@
 #define BAR_WITHIN					"within [0 to \\+-%gdB]"
 #define BAR_WITHIN_PERFECT			"within (0 to \\+-%gdB]"
 #define BAR_PERFECT					"Perfect Matches"
+#define BAR_UNMATCHED				"Unmatched frequencies"
+#define BAR_MISSING					"Missing"
+#define BAR_EXTRA					"Extra"
 
 #define ALL_LABEL					"ALL"
 
 #define BAR_WIDTH		config->plotResX/40
 #define	BAR_HEIGHT		config->plotResY/60
+
+#define WARN_LOW		0
+#define WARN_HIGH		1
+#define WARN_NONE		2
 
 #define	VERT_SCALE_STEP			3
 #define	VERT_SCALE_STEP_BAR		3
@@ -2193,25 +2200,20 @@ void DrawColorScale(PlotFile *plot, int type, int mode, double x, double y, doub
 
 		if(mode == MODE_DIFF)
 		{
+			int 	x_offset = 0;
+			char	header[100];
+
 			FindDifferenceTypeTotals(type, &cnt, &cmp, config);
 
 			SetPenColor(COLOR_GRAY, 0xaaaa, plot);
 			pl_fmove_r(plot->plotter, x, y+1.5*BAR_HEIGHT);
 			pl_alabel_r(plot->plotter, 'l', 'l', BAR_DIFF);
-		}
-		if(mode == MODE_MISS)
-		{
-			FindMissingTypeTotals(type, &cnt, &cmp, config);
-		}
-		bar_text_width = DrawMatchBar(plot, colorName,
-			x+labelwidth+BAR_WIDTH*0.2, y,
-			BAR_WIDTH, BAR_HEIGHT, 
-			(double)cnt, (double)cmp, config);
-		if(mode == MODE_DIFF)
-		{
-			int 	x_offset = 0;
-			char	header[100];
 
+			bar_text_width = DrawMatchBar(plot, colorName,
+				x+labelwidth+BAR_WIDTH*0.2, y,
+				BAR_WIDTH, BAR_HEIGHT, 
+				(double)cnt, (double)cmp, WARN_LOW, config);
+		
 			x_offset = x+labelwidth+BAR_WIDTH + bar_text_width;
 
 			FindDifferenceWithinInterval(type, &cnt, &cmp, config->AmpBarRange, config);
@@ -2238,7 +2240,7 @@ void DrawColorScale(PlotFile *plot, int type, int mode, double x, double y, doub
 			bar_text_width = DrawMatchBar(plot, colorName,
 				1.1*x_offset, y,
 				BAR_WIDTH, BAR_HEIGHT, 
-				(double)cnt, (double)cmp, config);
+				(double)cnt, (double)cmp, WARN_NONE, config);
 
 			/* Perfect */
 			if(config->drawPerfect)
@@ -2255,7 +2257,41 @@ void DrawColorScale(PlotFile *plot, int type, int mode, double x, double y, doub
 				DrawMatchBar(plot, colorName,
 					1.1*x_offset, y,
 					BAR_WIDTH, BAR_HEIGHT, 
-					(double)cnt, (double)cmp, config);
+					(double)cnt, (double)cmp, WARN_NONE, config);
+			}
+
+			if(config->drawMissExtraFreq)
+			{
+				x_offset = x_offset + BAR_WIDTH + bar_text_width;
+
+				SetPenColor(COLOR_GRAY, 0x8888, plot);
+				pl_fmove_r(plot->plotter, 1.1*x_offset, y+config->plotResY/50+1.5*BAR_HEIGHT);
+				sprintf(header, "Missing Freq");
+				pl_alabel_r(plot->plotter, 'l', 'l', header);
+
+				FindMissingFrequenciesByType(type, &cnt, &cmp, config);
+				DrawMatchBar(plot, colorName,
+					1.1*x_offset, y+config->plotResY/50-config->plotResY/50,
+					BAR_WIDTH, BAR_HEIGHT, 
+					(double)cnt, (double)cmp, WARN_HIGH, config);
+
+				// Header
+				SetPenColor(COLOR_GRAY, 0x8888, plot);
+				pl_fmove_r(plot->plotter, 1.35*x_offset, y+config->plotResY/50+3*BAR_HEIGHT);
+				pl_alabel_r(plot->plotter, 'c', 'c', "Unmatched Frequencies");
+		
+				x_offset = x_offset + BAR_WIDTH + bar_text_width;
+
+				SetPenColor(COLOR_GRAY, 0x8888, plot);
+				pl_fmove_r(plot->plotter, 1.1*x_offset, y+config->plotResY/50+1.5*BAR_HEIGHT);
+				sprintf(header, "Extra Freq");
+				pl_alabel_r(plot->plotter, 'l', 'l', header);
+
+				FindExtraFrequenciesByType(type, &cnt, &cmp, config);
+				DrawMatchBar(plot, colorName,
+					1.1*x_offset, y+config->plotResY/50-config->plotResY/50,
+					BAR_WIDTH, BAR_HEIGHT, 
+					(double)cnt, (double)cmp, WARN_HIGH, config);
 			}
 		}
 	}
@@ -2386,13 +2422,13 @@ void DrawColorAllTypeScale(PlotFile *plot, int mode, double x, double y, double 
 			long int	cnt = 0, cmp = 0;
 	
 			if(mode == MODE_DIFF)
+			{
 				FindDifferenceTypeTotals(typeID[t], &cnt, &cmp, config);
-			if(mode == MODE_MISS)
-				FindMissingTypeTotals(typeID[t], &cnt, &cmp, config);
-			barwidth = DrawMatchBar(plot, colorName[t],
+				barwidth = DrawMatchBar(plot, colorName[t],
 					x+maxlabel+BAR_WIDTH*0.2, y+(numTypes-1)*config->plotResY/50-t*config->plotResY/50,
 					BAR_WIDTH, BAR_HEIGHT, 
-					(double)cnt, (double)cmp, config);
+					(double)cnt, (double)cmp, WARN_LOW, config);
+			}
 			if(barwidth > maxbarwidth)
 				maxbarwidth = barwidth;
 		}
@@ -2435,7 +2471,7 @@ void DrawColorAllTypeScale(PlotFile *plot, int mode, double x, double y, double 
 			localMax = DrawMatchBar(plot, colorName[t],
 				1.1*x_offset, y+(numTypes-1)*config->plotResY/50-t*config->plotResY/50,
 				BAR_WIDTH, BAR_HEIGHT, 
-				(double)cnt, (double)cmp, config);
+				(double)cnt, (double)cmp, WARN_NONE, config);
 			if(localMax > maxMatch)
 				maxMatch = localMax;
 		}
@@ -2455,7 +2491,47 @@ void DrawColorAllTypeScale(PlotFile *plot, int mode, double x, double y, double 
 				DrawMatchBar(plot, colorName[t],
 					1.1*x_offset, y+(numTypes-1)*config->plotResY/50-t*config->plotResY/50,
 					BAR_WIDTH, BAR_HEIGHT, 
-					(double)cnt, (double)cmp, config);
+					(double)cnt, (double)cmp, WARN_NONE, config);
+			}
+		}
+
+		if(config->drawMissExtraFreq)
+		{
+			x_offset = x_offset + BAR_WIDTH + maxMatch;
+
+			SetPenColor(COLOR_GRAY, 0x8888, plot);
+			pl_fmove_r(plot->plotter, 1.1*x_offset, y+(numTypes-1)*config->plotResY/50+1.5*BAR_HEIGHT);
+			sprintf(header, BAR_MISSING);
+			pl_alabel_r(plot->plotter, 'l', 'l', header);
+
+			for(int t = 0; t < numTypes; t++)
+			{
+				FindMissingFrequenciesByType(typeID[t], &cnt, &cmp, config);
+				DrawMatchBar(plot, colorName[t],
+					1.1*x_offset, y+(numTypes-1)*config->plotResY/50-t*config->plotResY/50,
+					BAR_WIDTH, BAR_HEIGHT, 
+					(double)cnt, (double)cmp, WARN_HIGH, config);
+			}
+
+			// Header
+			SetPenColor(COLOR_GRAY, 0x8888, plot);
+			pl_fmove_r(plot->plotter, 1.35*x_offset, y+(numTypes-1)*config->plotResY/50+3*BAR_HEIGHT);
+			pl_alabel_r(plot->plotter, 'c', 'c', BAR_UNMATCHED);
+		
+			x_offset = x_offset + BAR_WIDTH + maxMatch;
+
+			SetPenColor(COLOR_GRAY, 0x8888, plot);
+			pl_fmove_r(plot->plotter, 1.1*x_offset, y+(numTypes-1)*config->plotResY/50+1.5*BAR_HEIGHT);
+			sprintf(header, BAR_EXTRA);
+			pl_alabel_r(plot->plotter, 'l', 'l', header);
+
+			for(int t = 0; t < numTypes; t++)
+			{
+				FindExtraFrequenciesByType(typeID[t], &cnt, &cmp, config);
+				DrawMatchBar(plot, colorName[t],
+					1.1*x_offset, y+(numTypes-1)*config->plotResY/50-t*config->plotResY/50,
+					BAR_WIDTH, BAR_HEIGHT, 
+					(double)cnt, (double)cmp, WARN_HIGH, config);
 			}
 		}
 	}
@@ -2468,10 +2544,22 @@ void DrawColorAllTypeScale(PlotFile *plot, int mode, double x, double y, double 
 	pl_restorestate_r(plot->plotter);
 }
 
-double DrawMatchBar(PlotFile *plot, int colorName, double x, double y, double width, double height, double notFound, double total, parameters *config)
+double DrawMatchBar(PlotFile *plot, int colorName, double x, double y, double width, double height, double notFound, double total, int warnType, parameters *config)
 {
-	char percent[40];
-	double labelwidth = 0, maxlabel = 0;
+	int		doWarn = 0;
+	char	percent[40];
+	double	labelwidth = 0, maxlabel = 0, pcnt = 0;
+
+	if(total)
+	{
+		pcnt = notFound*100.0/total;
+		if(warnType == WARN_LOW && pcnt < 90)
+			doWarn = 1;
+		if(warnType == WARN_HIGH && pcnt > 10)
+			doWarn = 1;
+	}
+	else
+		doWarn = 1;
 
 	pl_savestate_r(plot->plotter);
 	pl_fspace_r(plot->plotter, 0, 0, config->plotResX, config->plotResY);
@@ -2491,7 +2579,10 @@ double DrawMatchBar(PlotFile *plot, int colorName, double x, double y, double wi
 
 	// Border
 	pl_filltype_r(plot->plotter, 0);
-	SetPenColor(COLOR_GRAY, 0x8888, plot);
+	if(!doWarn)
+		SetPenColor(COLOR_GRAY, 0x8888, plot);
+	else
+		SetPenColor(COLOR_YELLOW, 0xaaaa, plot);
 	pl_fbox_r(plot->plotter, x, y, x+width, y+height);
 
 	pl_filltype_r(plot->plotter, 0);
@@ -2503,7 +2594,7 @@ double DrawMatchBar(PlotFile *plot, int colorName, double x, double y, double wi
 		pl_ffontname_r(plot->plotter, PLOT_FONT);
 
 		if(total)
-			sprintf(percent, "%5.2f%% of %ld", notFound*100.0/total, (long int)total);
+			sprintf(percent, "%5.2f%% of %ld", pcnt, (long int)total);
 		else
 			sprintf(percent, "NONE FOUND IN RANGE");
 

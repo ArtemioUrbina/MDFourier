@@ -806,6 +806,116 @@ double FindVisibleInViewPortWithinStandardDeviation(double *maxAmpl, double *out
 	return(threshold);
 }
 
+int FindExtraFrequenciesByType(int type, long int *inside, long int *count, parameters *config)
+{
+	long int	extraCount = 0, extraTotal = 0;
+
+	if(!config || !inside || !count)
+		return 0;
+
+	if(!config->Differences.BlockDiffArray)
+		return 0;
+
+	*inside = 0;
+	*count = 0;
+	for(int b = 0; b < config->types.totalBlocks; b++)
+	{
+		if(config->Differences.BlockDiffArray[b].type != type)
+			continue;
+
+		/* Extra */
+		for(long int i = config->MaxFreq-1; i >= 0; i--)
+		{
+			AudioSignal *Signal	= NULL;
+
+			Signal = config->comparisonSignal;
+			if(Signal && Signal->Blocks[b].freq[i].hertz
+				&& Signal->Blocks[b].freq[i].amplitude > config->significantAmplitude)
+			{
+				extraTotal++;
+				if(!Signal->Blocks[b].freq[i].matched)
+					extraCount++;
+			}
+		}
+
+		if(config->referenceSignal && config->referenceSignal->Blocks[b].freqRight)
+		{
+			for(int i = config->MaxFreq-1; i >= 0; i--)
+			{
+				AudioSignal *Signal	= NULL;
+	
+				Signal = config->comparisonSignal;
+				if(Signal && Signal->Blocks[b].freqRight[i].hertz
+					&& Signal->Blocks[b].freqRight[i].amplitude > config->significantAmplitude)
+				{
+					extraTotal++;
+					if(!Signal->Blocks[b].freqRight[i].matched)
+						extraCount++;
+				}
+			}
+		}
+	}
+	
+	*inside = extraCount;
+	*count = extraTotal;
+	return 1;
+}
+
+int FindMissingFrequenciesByType(int type, long int *inside, long int *count, parameters *config)
+{
+	long int	extraCount = 0, extraTotal = 0;
+
+	if(!config || !inside || !count)
+		return 0;
+
+	if(!config->Differences.BlockDiffArray)
+		return 0;
+
+	*inside = 0;
+	*count = 0;
+	for(int b = 0; b < config->types.totalBlocks; b++)
+	{
+		if(config->Differences.BlockDiffArray[b].type != type)
+			continue;
+
+		/* Missing */
+		for(long int i = config->MaxFreq-1; i >= 0; i--)
+		{
+			AudioSignal *Signal	= NULL;
+
+			Signal = config->referenceSignal;
+			if(Signal && Signal->Blocks[b].freq[i].hertz
+				&& Signal->Blocks[b].freq[i].amplitude > config->significantAmplitude)
+			{
+				extraTotal++;
+				if(!Signal->Blocks[b].freq[i].matched)
+					extraCount++;
+			}
+		}
+
+		if(config->referenceSignal && config->referenceSignal->Blocks[b].freqRight)
+		{
+			for(int i = config->MaxFreq-1; i >= 0; i--)
+			{
+				AudioSignal *Signal	= NULL;
+	
+				Signal = config->referenceSignal;
+				if(Signal && Signal->Blocks[b].freqRight[i].hertz
+					&& Signal->Blocks[b].freqRight[i].amplitude > config->significantAmplitude)
+				{
+					extraTotal++;
+					if(!Signal->Blocks[b].freqRight[i].matched)
+						extraCount++;
+				}
+			}
+		}
+	}
+	
+	*inside = extraCount;
+	*count = extraTotal;
+	return 1;
+}
+
 long int FindDifferenceAveragesperBlock(double thresholdAmplitude, double thresholdMissing, double thresholdExtra, parameters *config)
 {
 	long int total = 0;
@@ -842,10 +952,8 @@ long int FindDifferenceAveragesperBlock(double thresholdAmplitude, double thresh
 			average = average/(double)count;
 			if(average >= thresholdAmplitude)
 			{
-				if(config->referenceSignal)
-					config->referenceSignal->Blocks[b].AverageDifference = average;
-				if(config->comparisonSignal)
-					config->comparisonSignal->Blocks[b].AverageDifference = average;
+				config->referenceSignal->Blocks[b].AverageDifference = average;
+				config->comparisonSignal->Blocks[b].AverageDifference = average;
 				total ++;
 			}
 		}
@@ -905,10 +1013,8 @@ long int FindDifferenceAveragesperBlock(double thresholdAmplitude, double thresh
 			missing = (double)missingCount/(double)missingTotal*100.0;
 			if(missing > thresholdMissing)
 			{
-				if(config->referenceSignal)
-					config->referenceSignal->Blocks[b].missingPercent = missing;
-				if(config->comparisonSignal)
-					config->comparisonSignal->Blocks[b].missingPercent = missing;
+				config->referenceSignal->Blocks[b].missingPercent = missing;
+				config->comparisonSignal->Blocks[b].missingPercent = 0;
 				total ++;
 			}
 		}
@@ -918,10 +1024,8 @@ long int FindDifferenceAveragesperBlock(double thresholdAmplitude, double thresh
 			extra = (double)extraCount/(double)extraTotal*100.0;
 			if(extra > thresholdExtra)
 			{
-				if(config->referenceSignal)
-					config->referenceSignal->Blocks[b].extraPercent = extra;
-				if(config->comparisonSignal)
-					config->comparisonSignal->Blocks[b].extraPercent = extra;
+				config->referenceSignal->Blocks[b].extraPercent = 0;
+				config->comparisonSignal->Blocks[b].extraPercent = extra;
 				total ++;
 			}
 		}
@@ -954,35 +1058,6 @@ int FindDifferenceTypeTotals(int type, long int *cntAmplBlkDiff, long int *cmpAm
 		{
 			*cntAmplBlkDiff += config->Differences.BlockDiffArray[b].cntAmplBlkDiff;
 			*cmpAmplBlkDiff += config->Differences.BlockDiffArray[b].cmpAmplBlkDiff;
-		}
-	}
-
-	return 1;
-}
-
-int FindMissingTypeTotals(int type, long int *cntFreqBlkDiff, long int *cmpFreqBlkDiff, parameters *config)
-{
-	if(!config)
-		return 0;
-
-	if(!config->Differences.BlockDiffArray)
-		return 0;
-
-	if(!cntFreqBlkDiff || !cmpFreqBlkDiff)
-		return 0;
-
-	*cntFreqBlkDiff = 0;
-	*cmpFreqBlkDiff = 0;
-
-	for(int b = 0; b < config->types.totalBlocks; b++)
-	{
-		if(config->Differences.BlockDiffArray[b].type <= TYPE_CONTROL)
-			continue;
-
-		if(type == config->Differences.BlockDiffArray[b].type)
-		{
-			*cntFreqBlkDiff += config->Differences.BlockDiffArray[b].cntFreqBlkDiff;
-			*cmpFreqBlkDiff += config->Differences.BlockDiffArray[b].cmpFreqBlkDiff;
 		}
 	}
 

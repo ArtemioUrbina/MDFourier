@@ -103,7 +103,7 @@ int Header(int log, int argc, char *argv[])
 #else
 	char title1[] = "MDFourier " MDVERSION " [240p Test Suite Fourier Audio compare tool] " BITS_MDF "\n";
 #endif
-	char title2[] = "Artemio Urbina 2019-2021 free software under GPL - http://junkerhq.net/MDFourier\n";
+	char title2[] = "Artemio Urbina 2019-2022 free software under GPL - http://junkerhq.net/MDFourier\n";
 
 	if(argc == 2 && !strncmp(argv[1], "-V", 2))
 	{
@@ -271,6 +271,7 @@ void CleanParameters(parameters *config)
 	config->useExtraData = 1;
 	config->compressToBlocks = 0;
 	config->drawPerfect = 1;
+	config->drawMissExtraFreq = 1;
 
 	config->SRNoMatch = 0;
 	config->diffClkNoMatch = 0;

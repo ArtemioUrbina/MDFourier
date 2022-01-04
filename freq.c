@@ -3077,7 +3077,7 @@ double CalculateFrameRateAndCheckSamplerate(AudioSignal *Signal, parameters *con
 
 			// Samplerate CHECK, removed all rounding here
 			Signal->SampleRate = calculatedSamplerate;
-			logmsg("    Adjusted sample rate to %fHz, compensating for a pitch difference of %g cents\n", Signal->SampleRate, centsDifferenceSR);
+			logmsg("    Adjusted sample rate to %.12gHz, compensating for a pitch difference of %g cents\n", Signal->SampleRate, centsDifferenceSR);
 
 			Signal->EstimatedSR = Signal->SampleRate;
 		}
