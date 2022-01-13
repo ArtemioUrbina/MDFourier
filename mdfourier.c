@@ -1686,7 +1686,7 @@ int CompareFrequencies(AudioSignal *ReferenceSignal, AudioSignal *ComparisonSign
 	{
 		int found = 0, index = 0;
 
-		if(!IncrementCompared(block, config))
+		if(!IncrementCompared(block, channel, config))
 		{
 			logmsg("Internal consistency failure, please send error log (compare)\n");
 			return 0;
@@ -1720,7 +1720,7 @@ int CompareFrequencies(AudioSignal *ReferenceSignal, AudioSignal *ComparisonSign
 			}
 			else /* perfect match */
 			{
-				if(!IncrementPerfectMatch(block, config))
+				if(!IncrementPerfectMatch(block, channel, config))
 				{
 					logmsg("Internal consistency failure, please send error log (perfect)\n");
 					return 0;

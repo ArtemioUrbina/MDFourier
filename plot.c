@@ -110,7 +110,7 @@
 #define SPECTROGRAM_CLK_REF			"Reference CLK - Spectrogram [%s]"
 #define SPECTROGRAM_CLK_COM			"Comparison CLK - Spectrogram [%s]"
 
-#define BAR_HEADER					"Matched frequencies"
+#define BAR_HEADER					"Matched frequencies w/diff amplitude"
 #define BAR_DIFF					"w/any amplitude difference"
 #define BAR_WITHIN					"within [0 to \\+-%gdB]"
 #define BAR_WITHIN_PERFECT			"within (0 to \\+-%gdB]"
@@ -2128,7 +2128,7 @@ void DrawLabelsZeroToLimit(PlotFile *plot, double dBFS, double dbIncrement, doub
 	pl_restorestate_r(plot->plotter);
 }
 
-void DrawColorScale(PlotFile *plot, int type, int mode, double x, double y, double width, double height, double startDbs, double endDbs, double dbIncrement, parameters *config)
+void DrawColorScale(PlotFile *plot, int type, int mode, double x, double y, double width, double height, double startDbs, double endDbs, double dbIncrement, char channel, parameters *config)
 {
 	double		segments = 0;
 	char 		*label = NULL;
@@ -2203,7 +2203,7 @@ void DrawColorScale(PlotFile *plot, int type, int mode, double x, double y, doub
 			int 	x_offset = 0;
 			char	header[100];
 
-			FindDifferenceTypeTotals(type, &cnt, &cmp, config);
+			FindDifferenceTypeTotals(type, &cnt, &cmp, channel, config);
 
 			SetPenColor(COLOR_GRAY, 0xaaaa, plot);
 			pl_fmove_r(plot->plotter, x, y+1.5*BAR_HEIGHT);
@@ -2212,11 +2212,11 @@ void DrawColorScale(PlotFile *plot, int type, int mode, double x, double y, doub
 			bar_text_width = DrawMatchBar(plot, colorName,
 				x+labelwidth+BAR_WIDTH*0.2, y,
 				BAR_WIDTH, BAR_HEIGHT, 
-				(double)cnt, (double)cmp, WARN_LOW, config);
+				(double)cnt, (double)cmp, WARN_NONE, config);
 		
 			x_offset = x+labelwidth+BAR_WIDTH + bar_text_width;
 
-			FindDifferenceWithinInterval(type, &cnt, &cmp, config->AmpBarRange, config);
+			FindDifferenceWithinInterval(type, &cnt, &cmp, config->AmpBarRange, channel, config);
 
 			if(config->AmpBarRange > BAR_DIFF_DB_TOLERANCE)
 				SetPenColor(COLOR_YELLOW, 0xaaaa, plot);
@@ -2247,7 +2247,7 @@ void DrawColorScale(PlotFile *plot, int type, int mode, double x, double y, doub
 			{
 				x_offset = x_offset + BAR_WIDTH + bar_text_width;
 	
-				FindPerfectMatches(type, &cnt, &cmp, config);
+				FindPerfectMatches(type, &cnt, &cmp, channel, config);
 	
 				SetPenColor(COLOR_GRAY, 0xaaaa, plot);
 				pl_fmove_r(plot->plotter, 1.1*x_offset, y+1.5*BAR_HEIGHT);
@@ -2262,14 +2262,14 @@ void DrawColorScale(PlotFile *plot, int type, int mode, double x, double y, doub
 
 			if(config->drawMissExtraFreq)
 			{
-				x_offset = x_offset + BAR_WIDTH + bar_text_width;
+				x_offset = x_offset + BAR_WIDTH*1.2 + bar_text_width;
 
 				SetPenColor(COLOR_GRAY, 0x8888, plot);
 				pl_fmove_r(plot->plotter, 1.1*x_offset, y+config->plotResY/50+1.5*BAR_HEIGHT);
-				sprintf(header, "Missing Freq");
+				sprintf(header, BAR_MISSING);
 				pl_alabel_r(plot->plotter, 'l', 'l', header);
 
-				FindMissingFrequenciesByType(type, &cnt, &cmp, config);
+				FindMissingFrequenciesByType(type, &cnt, &cmp, channel, config);
 				DrawMatchBar(plot, colorName,
 					1.1*x_offset, y+config->plotResY/50-config->plotResY/50,
 					BAR_WIDTH, BAR_HEIGHT, 
@@ -2284,10 +2284,10 @@ void DrawColorScale(PlotFile *plot, int type, int mode, double x, double y, doub
 
 				SetPenColor(COLOR_GRAY, 0x8888, plot);
 				pl_fmove_r(plot->plotter, 1.1*x_offset, y+config->plotResY/50+1.5*BAR_HEIGHT);
-				sprintf(header, "Extra Freq");
+				sprintf(header, BAR_EXTRA);
 				pl_alabel_r(plot->plotter, 'l', 'l', header);
 
-				FindExtraFrequenciesByType(type, &cnt, &cmp, config);
+				FindExtraFrequenciesByType(type, &cnt, &cmp, channel, config);
 				DrawMatchBar(plot, colorName,
 					1.1*x_offset, y+config->plotResY/50-config->plotResY/50,
 					BAR_WIDTH, BAR_HEIGHT, 
@@ -2298,7 +2298,7 @@ void DrawColorScale(PlotFile *plot, int type, int mode, double x, double y, doub
 	pl_restorestate_r(plot->plotter);
 }
 
-void DrawColorAllTypeScale(PlotFile *plot, int mode, double x, double y, double width, double height, double endDbs, double dbIncrement, int drawBars, parameters *config)
+void DrawColorAllTypeScale(PlotFile *plot, int mode, double x, double y, double width, double height, double endDbs, double dbIncrement, int drawBars, char channel, parameters *config)
 {
 	double 	segments = 0, maxlabel = 0, maxbarwidth = 0;
 	int		*colorName = NULL, *typeID = NULL;
@@ -2423,11 +2423,11 @@ void DrawColorAllTypeScale(PlotFile *plot, int mode, double x, double y, double 
 	
 			if(mode == MODE_DIFF)
 			{
-				FindDifferenceTypeTotals(typeID[t], &cnt, &cmp, config);
+				FindDifferenceTypeTotals(typeID[t], &cnt, &cmp, channel, config);
 				barwidth = DrawMatchBar(plot, colorName[t],
 					x+maxlabel+BAR_WIDTH*0.2, y+(numTypes-1)*config->plotResY/50-t*config->plotResY/50,
 					BAR_WIDTH, BAR_HEIGHT, 
-					(double)cnt, (double)cmp, WARN_LOW, config);
+					(double)cnt, (double)cmp, WARN_NONE, config);
 			}
 			if(barwidth > maxbarwidth)
 				maxbarwidth = barwidth;
@@ -2466,7 +2466,7 @@ void DrawColorAllTypeScale(PlotFile *plot, int mode, double x, double y, double 
 		{
 			int localMax = 0;
 
-			FindDifferenceWithinInterval(typeID[t], &cnt, &cmp, config->AmpBarRange, config);
+			FindDifferenceWithinInterval(typeID[t], &cnt, &cmp, config->AmpBarRange, channel, config);
 
 			localMax = DrawMatchBar(plot, colorName[t],
 				1.1*x_offset, y+(numTypes-1)*config->plotResY/50-t*config->plotResY/50,
@@ -2487,7 +2487,7 @@ void DrawColorAllTypeScale(PlotFile *plot, int mode, double x, double y, double 
 
 			for(int t = 0; t < numTypes; t++)
 			{
-				FindPerfectMatches(typeID[t], &cnt, &cmp, config);
+				FindPerfectMatches(typeID[t], &cnt, &cmp, channel, config);
 				DrawMatchBar(plot, colorName[t],
 					1.1*x_offset, y+(numTypes-1)*config->plotResY/50-t*config->plotResY/50,
 					BAR_WIDTH, BAR_HEIGHT, 
@@ -2497,7 +2497,7 @@ void DrawColorAllTypeScale(PlotFile *plot, int mode, double x, double y, double 
 
 		if(config->drawMissExtraFreq)
 		{
-			x_offset = x_offset + BAR_WIDTH + maxMatch;
+			x_offset = x_offset + BAR_WIDTH*1.2 + maxMatch;
 
 			SetPenColor(COLOR_GRAY, 0x8888, plot);
 			pl_fmove_r(plot->plotter, 1.1*x_offset, y+(numTypes-1)*config->plotResY/50+1.5*BAR_HEIGHT);
@@ -2506,7 +2506,7 @@ void DrawColorAllTypeScale(PlotFile *plot, int mode, double x, double y, double 
 
 			for(int t = 0; t < numTypes; t++)
 			{
-				FindMissingFrequenciesByType(typeID[t], &cnt, &cmp, config);
+				FindMissingFrequenciesByType(typeID[t], &cnt, &cmp, channel, config);
 				DrawMatchBar(plot, colorName[t],
 					1.1*x_offset, y+(numTypes-1)*config->plotResY/50-t*config->plotResY/50,
 					BAR_WIDTH, BAR_HEIGHT, 
@@ -2527,7 +2527,7 @@ void DrawColorAllTypeScale(PlotFile *plot, int mode, double x, double y, double 
 
 			for(int t = 0; t < numTypes; t++)
 			{
-				FindExtraFrequenciesByType(typeID[t], &cnt, &cmp, config);
+				FindExtraFrequenciesByType(typeID[t], &cnt, &cmp, channel, config);
 				DrawMatchBar(plot, colorName[t],
 					1.1*x_offset, y+(numTypes-1)*config->plotResY/50-t*config->plotResY/50,
 					BAR_WIDTH, BAR_HEIGHT, 
@@ -2559,7 +2559,10 @@ double DrawMatchBar(PlotFile *plot, int colorName, double x, double y, double wi
 			doWarn = 1;
 	}
 	else
-		doWarn = 1;
+	{
+		if(warnType == WARN_LOW)
+			doWarn = 1;
+	}
 
 	pl_savestate_r(plot->plotter);
 	pl_fspace_r(plot->plotter, 0, 0, config->plotResX, config->plotResY);
@@ -2596,7 +2599,12 @@ double DrawMatchBar(PlotFile *plot, int colorName, double x, double y, double wi
 		if(total)
 			sprintf(percent, "%5.2f%% of %ld", pcnt, (long int)total);
 		else
-			sprintf(percent, "NONE FOUND IN RANGE");
+		{
+			if(warnType == WARN_LOW)
+				sprintf(percent, "NONE FOUND IN RANGE");
+			else
+				sprintf(percent, "0 of 0");
+		}
 
 		SetPenColor(colorName, 0x8888, plot);
 		pl_fmove_r(plot->plotter, x+width*1.10, y);
@@ -2765,7 +2773,7 @@ void PlotAllDifferentAmplitudes(FlatAmplDifference *amplDiff, long int size, cha
 		title = DIFFERENCE_TITLE;
 	else
 		title = channel == CHANNEL_LEFT ? DIFFERENCE_TITLE_LEFT : DIFFERENCE_TITLE_RIGHT;
-	DrawColorAllTypeScale(&plot, MODE_DIFF, LEFT_MARGIN, HEIGHT_MARGIN, config->plotResX/COLOR_BARS_WIDTH_SCALE, config->plotResY/1.15, config->significantAmplitude, VERT_SCALE_STEP_BAR, DRAW_BARS, config);
+	DrawColorAllTypeScale(&plot, MODE_DIFF, LEFT_MARGIN, HEIGHT_MARGIN, config->plotResX/COLOR_BARS_WIDTH_SCALE, config->plotResY/1.15, config->significantAmplitude, VERT_SCALE_STEP_BAR, DRAW_BARS, channel, config);
 	DrawLabelsMDF(&plot, title, ALL_LABEL, PLOT_COMPARE, config);
 
 	ClosePlot(&plot);
@@ -2872,7 +2880,7 @@ void PlotSingleTypeDifferentAmplitudes(FlatAmplDifference *amplDiff, long int si
 	DrawColorScale(&plot, type, MODE_DIFF,
 		LEFT_MARGIN, HEIGHT_MARGIN, 
 		config->plotResX/COLOR_BARS_WIDTH_SCALE, config->plotResY/1.15,
-		0, config->significantAmplitude, VERT_SCALE_STEP_BAR, config);
+		0, config->significantAmplitude, VERT_SCALE_STEP_BAR, channel, config);
 	DrawLabelsMDF(&plot, title, GetTypeDisplayName(config, type), PLOT_COMPARE, config);
 	ClosePlot(&plot);
 }
@@ -2958,7 +2966,7 @@ void PlotSilenceBlockDifferentAmplitudes(FlatAmplDifference *amplDiff, long int 
 	DrawColorScale(&plot, type, MODE_DIFF,
 		LEFT_MARGIN, HEIGHT_MARGIN, 
 		config->plotResX/COLOR_BARS_WIDTH_SCALE, config->plotResY/1.15,
-		(int)startAmplitude, (int)(endAmplitude-startAmplitude), VERT_SCALE_STEP_BAR, config);
+		(int)startAmplitude, (int)(endAmplitude-startAmplitude), VERT_SCALE_STEP_BAR, CHANNEL_STEREO, config);
 
 	DrawLabelsMDF(&plot, NOISE_TITLE, GetTypeDisplayName(config, type), PLOT_COMPARE, config);
 	ClosePlot(&plot);
@@ -3006,7 +3014,7 @@ void PlotAllSpectrogram(FlatFrequency *freqs, long int size, char *filename, int
 		}
 	}
 
-	DrawColorAllTypeScale(&plot, MODE_SPEC, LEFT_MARGIN, HEIGHT_MARGIN, config->plotResX/COLOR_BARS_WIDTH_SCALE, config->plotResY/1.15, significant, VERT_SCALE_STEP_BAR, DRAW_BARS, config);
+	DrawColorAllTypeScale(&plot, MODE_SPEC, LEFT_MARGIN, HEIGHT_MARGIN, config->plotResX/COLOR_BARS_WIDTH_SCALE, config->plotResY/1.15, significant, VERT_SCALE_STEP_BAR, DRAW_BARS, CHANNEL_STEREO, config);
 	DrawLabelsMDF(&plot, signal == ROLE_REF ? SPECTROGRAM_TITLE_REF : SPECTROGRAM_TITLE_COM, ALL_LABEL, signal == ROLE_REF ? PLOT_SINGLE_REF : PLOT_SINGLE_COM, config);
 	ClosePlot(&plot);
 }
@@ -3134,7 +3142,7 @@ void PlotSingleTypeSpectrogram(FlatFrequency *freqs, long int size, int type, ch
 		else
 			title = channel == CHANNEL_LEFT ? SPECTROGRAM_TITLE_COM_LEFT : SPECTROGRAM_TITLE_COM_RIGHT;
 	}
-	DrawColorScale(&plot, type, MODE_SPEC, LEFT_MARGIN, HEIGHT_MARGIN, config->plotResX/COLOR_BARS_WIDTH_SCALE, config->plotResY/1.15, 0, significant, VERT_SCALE_STEP,config);
+	DrawColorScale(&plot, type, MODE_SPEC, LEFT_MARGIN, HEIGHT_MARGIN, config->plotResX/COLOR_BARS_WIDTH_SCALE, config->plotResY/1.15, 0, significant, VERT_SCALE_STEP, channel, config);
 	DrawLabelsMDF(&plot, title, GetTypeDisplayName(config, type), signal == ROLE_REF ? PLOT_SINGLE_REF : PLOT_SINGLE_COM, config);
 	ClosePlot(&plot);
 }
@@ -3225,7 +3233,7 @@ void PlotNoiseSpectrogram(FlatFrequency *freqs, long int size, char channel, cha
 		else
 			title = channel == CHANNEL_LEFT ? SPECTROGRAM_NOISE_COM_LEFT : SPECTROGRAM_NOISE_COM_RIGHT;
 	}
-	DrawColorScale(&plot, TYPE_SILENCE, MODE_SPEC, LEFT_MARGIN, HEIGHT_MARGIN, config->plotResX/COLOR_BARS_WIDTH_SCALE, config->plotResY/1.15, (int)startAmplitude, (int)(endAmplitude-startAmplitude), VERT_SCALE_STEP,config);
+	DrawColorScale(&plot, TYPE_SILENCE, MODE_SPEC, LEFT_MARGIN, HEIGHT_MARGIN, config->plotResX/COLOR_BARS_WIDTH_SCALE, config->plotResY/1.15, (int)startAmplitude, (int)(endAmplitude-startAmplitude), VERT_SCALE_STEP, channel, config);
 	DrawLabelsMDF(&plot, title, "Noise", signal==ROLE_REF ? PLOT_SINGLE_REF : PLOT_SINGLE_COM, config);
 	ClosePlot(&plot);
 }
@@ -3838,7 +3846,7 @@ void PlotTest(char *filename, parameters *config)
 	srand(time(NULL));
 
 	DrawLabelsMDF(&plot, "PLOT TEST [%s]", "ZDBC", PLOT_COMPARE, config);
-	DrawColorAllTypeScale(&plot, MODE_DIFF, LEFT_MARGIN, HEIGHT_MARGIN, config->plotResX/COLOR_BARS_WIDTH_SCALE, config->plotResY/1.15, config->significantAmplitude, VERT_SCALE_STEP_BAR, DRAW_BARS, config);
+	DrawColorAllTypeScale(&plot, MODE_DIFF, LEFT_MARGIN, HEIGHT_MARGIN, config->plotResX/COLOR_BARS_WIDTH_SCALE, config->plotResY/1.15, config->significantAmplitude, VERT_SCALE_STEP_BAR, DRAW_BARS, CHANNEL_STEREO, config);
 
 	ClosePlot(&plot);
 }
@@ -3860,7 +3868,7 @@ void PlotTestZL(char *filename, parameters *config)
 	DrawGridZeroToLimit(&plot, config->significantAmplitude, VERT_SCALE_STEP, config->endHzPlot, 1000, 0, config);
 	DrawLabelsZeroToLimit(&plot, config->significantAmplitude, VERT_SCALE_STEP, config->endHzPlot, 0, config);
 
-	DrawColorScale(&plot, 1, MODE_SPEC, LEFT_MARGIN, HEIGHT_MARGIN, config->plotResX/COLOR_BARS_WIDTH_SCALE, config->plotResY/1.15, 0, SIGNIFICANT_AMPLITUDE, VERT_SCALE_STEP_BAR, config);
+	DrawColorScale(&plot, 1, MODE_SPEC, LEFT_MARGIN, HEIGHT_MARGIN, config->plotResX/COLOR_BARS_WIDTH_SCALE, config->plotResY/1.15, 0, SIGNIFICANT_AMPLITUDE, VERT_SCALE_STEP_BAR, CHANNEL_STEREO, config);
 	
 	DrawLabelsMDF(&plot, "PLOT TEST [%s]", "GZL", PLOT_COMPARE, config);
 	ClosePlot(&plot);
@@ -4361,7 +4369,7 @@ void PlotNoiseDifferentAmplitudesAveragedInternal(FlatAmplDifference *amplDiff, 
 
 	DrawColorScale(&plot, type, MODE_DIFF, LEFT_MARGIN, HEIGHT_MARGIN, 
 		config->plotResX/COLOR_BARS_WIDTH_SCALE, config->plotResY/1.15,
-		(int)startAmplitude, (int)(endAmplitude-startAmplitude), VERT_SCALE_STEP_BAR, config);
+		(int)startAmplitude, (int)(endAmplitude-startAmplitude), VERT_SCALE_STEP_BAR, CHANNEL_STEREO, config);
 	DrawLabelsMDF(&plot, NOISE_AVG_TITLE, GetTypeDisplayName(config, type), PLOT_COMPARE, config);
 	ClosePlot(&plot);
 }
@@ -4499,7 +4507,7 @@ void PlotSingleTypeDifferentAmplitudesAveraged(FlatAmplDifference *amplDiff, lon
 			title = DIFFERENCE_AVG_TITLE;
 			break;
 	}
-	DrawColorScale(&plot, type, MODE_DIFF, LEFT_MARGIN, HEIGHT_MARGIN, config->plotResX/COLOR_BARS_WIDTH_SCALE, config->plotResY/1.15, 0, config->significantAmplitude, VERT_SCALE_STEP_BAR, config);
+	DrawColorScale(&plot, type, MODE_DIFF, LEFT_MARGIN, HEIGHT_MARGIN, config->plotResX/COLOR_BARS_WIDTH_SCALE, config->plotResY/1.15, 0, config->significantAmplitude, VERT_SCALE_STEP_BAR, channel, config);
 	DrawLabelsMDF(&plot, title, GetTypeDisplayName(config, type), PLOT_COMPARE, config);
 	ClosePlot(&plot);
 }
@@ -4617,7 +4625,7 @@ void PlotAllDifferentAmplitudesAveraged(FlatAmplDifference *amplDiff, long int s
 		currType++;
 	}
 
-	DrawColorAllTypeScale(&plot, MODE_DIFF, LEFT_MARGIN, HEIGHT_MARGIN, config->plotResX/COLOR_BARS_WIDTH_SCALE, config->plotResY/1.15, config->significantAmplitude, VERT_SCALE_STEP_BAR, DRAW_BARS, config);
+	DrawColorAllTypeScale(&plot, MODE_DIFF, LEFT_MARGIN, HEIGHT_MARGIN, config->plotResX/COLOR_BARS_WIDTH_SCALE, config->plotResY/1.15, config->significantAmplitude, VERT_SCALE_STEP_BAR, DRAW_BARS, CHANNEL_STEREO, config);
 	DrawLabelsMDF(&plot, DIFFERENCE_AVG_TITLE, ALL_LABEL, PLOT_COMPARE, config);
 
 	ClosePlot(&plot);
@@ -4896,7 +4904,7 @@ void PlotTimeSpectrogram(AudioSignal *Signal, char channel, parameters *config)
 		else
 			title = channel == CHANNEL_LEFT ? TSPECTROGRAM_TITLE_COM_LFT : TSPECTROGRAM_TITLE_COM_RGHT;
 	}
-	DrawColorAllTypeScale(&plot, MODE_SPEC, LEFT_MARGIN, HEIGHT_MARGIN, config->plotResX/COLOR_BARS_WIDTH_SCALE, config->plotResY/1.15, significant, VERT_SCALE_STEP_BAR, DRAW_BARS, config);
+	DrawColorAllTypeScale(&plot, MODE_SPEC, LEFT_MARGIN, HEIGHT_MARGIN, config->plotResX/COLOR_BARS_WIDTH_SCALE, config->plotResY/1.15, significant, VERT_SCALE_STEP_BAR, DRAW_BARS, channel, config);
 	DrawLabelsMDF(&plot, title, ALL_LABEL, Signal->role == ROLE_REF ? PLOT_SINGLE_REF : PLOT_SINGLE_COM, config);
 
 	ClosePlot(&plot);
@@ -5046,7 +5054,7 @@ void PlotSingleTypeTimeSpectrogram(AudioSignal* Signal, char channel, int plotTy
 		else
 			title = channel == CHANNEL_LEFT ? TSPECTROGRAM_TITLE_COM_LFT : TSPECTROGRAM_TITLE_COM_RGHT;
 	}
-	DrawColorAllTypeScale(&plot, MODE_SPEC, LEFT_MARGIN, HEIGHT_MARGIN, config->plotResX / COLOR_BARS_WIDTH_SCALE, config->plotResY / 1.15, significant, VERT_SCALE_STEP_BAR, DRAW_BARS, config);
+	DrawColorAllTypeScale(&plot, MODE_SPEC, LEFT_MARGIN, HEIGHT_MARGIN, config->plotResX / COLOR_BARS_WIDTH_SCALE, config->plotResY / 1.15, significant, VERT_SCALE_STEP_BAR, DRAW_BARS, channel, config);
 	DrawLabelsMDF(&plot, title, ALL_LABEL, Signal->role == ROLE_REF ? PLOT_SINGLE_REF : PLOT_SINGLE_COM, config);
 
 	ClosePlot(&plot);
@@ -5183,7 +5191,7 @@ void PlotTimeSpectrogramUnMatchedContent(AudioSignal *Signal, char channel, para
 		else
 			title = channel == CHANNEL_LEFT ? EXTRA_TITLE_TS_COM_LEFT : EXTRA_TITLE_TS_COM_RIGHT;
 	}
-	DrawColorAllTypeScale(&plot, MODE_SPEC, LEFT_MARGIN, HEIGHT_MARGIN, config->plotResX/COLOR_BARS_WIDTH_SCALE, config->plotResY/1.15, significant, VERT_SCALE_STEP_BAR, DRAW_BARS, config);
+	DrawColorAllTypeScale(&plot, MODE_SPEC, LEFT_MARGIN, HEIGHT_MARGIN, config->plotResX/COLOR_BARS_WIDTH_SCALE, config->plotResY/1.15, significant, VERT_SCALE_STEP_BAR, DRAW_BARS, channel, config);
 	DrawLabelsMDF(&plot, title, ALL_LABEL, PLOT_COMPARE, config);
 
 	ClosePlot(&plot);
@@ -5975,7 +5983,7 @@ void PlotAllPhase(FlatPhase *phaseDiff, long int size, char *filename, int pType
 		}
 	}
 
-	DrawColorAllTypeScale(&plot, MODE_SPEC, LEFT_MARGIN, HEIGHT_MARGIN, 0, 0, 0, VERT_SCALE_STEP_BAR, NO_DRAW_BARS, config);
+	DrawColorAllTypeScale(&plot, MODE_SPEC, LEFT_MARGIN, HEIGHT_MARGIN, 0, 0, 0, VERT_SCALE_STEP_BAR, NO_DRAW_BARS, CHANNEL_STEREO, config);
 	if(pType == PHASE_DIFF)
 		DrawLabelsMDF(&plot, PHASE_DIFF_TITLE, ALL_LABEL, PLOT_COMPARE, config);
 	else
@@ -6298,7 +6306,7 @@ void PlotCLKSpectrogramInternal(FlatFrequency *freqs, long int size, char *filen
 	}
 
 	plot.SpecialWarning = "NOTE: dBFS scale relative between CLK signals";
-	DrawColorScale(&plot, TYPE_CLK_ANALYSIS, MODE_SPEC, LEFT_MARGIN, HEIGHT_MARGIN, config->plotResX/COLOR_BARS_WIDTH_SCALE, config->plotResY/1.15, (int)startAmplitude, (int)(endAmplitude-startAmplitude), VERT_SCALE_STEP,config);
+	DrawColorScale(&plot, TYPE_CLK_ANALYSIS, MODE_SPEC, LEFT_MARGIN, HEIGHT_MARGIN, config->plotResX/COLOR_BARS_WIDTH_SCALE, config->plotResY/1.15, (int)startAmplitude, (int)(endAmplitude-startAmplitude), VERT_SCALE_STEP, CHANNEL_STEREO, config);
 	DrawLabelsMDF(&plot, signal == ROLE_REF ? SPECTROGRAM_CLK_REF : SPECTROGRAM_CLK_COM, config->clkName, signal == ROLE_REF ? PLOT_SINGLE_REF : PLOT_SINGLE_COM, config);
 
 	ClosePlot(&plot);
@@ -6437,7 +6445,7 @@ void PlotDifferenceTimeSpectrogram(parameters *config)
 		}
 	}
 
-	DrawColorAllTypeScale(&plot, MODE_TSDIFF, LEFT_MARGIN, HEIGHT_MARGIN, config->plotResX/COLOR_BARS_WIDTH_SCALE, config->plotResY/1.15, abs_significant, steps, DRAW_BARS, config);
+	DrawColorAllTypeScale(&plot, MODE_TSDIFF, LEFT_MARGIN, HEIGHT_MARGIN, config->plotResX/COLOR_BARS_WIDTH_SCALE, config->plotResY/1.15, abs_significant, steps, DRAW_BARS, CHANNEL_STEREO, config);
 	DrawLabelsMDF(&plot, TS_DIFFERENCE_TITLE, ALL_LABEL, PLOT_COMPARE, config);
 
 	ClosePlot(&plot);

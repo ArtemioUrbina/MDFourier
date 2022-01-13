@@ -204,8 +204,8 @@ void DrawGridZeroDBCentered(PlotFile *plot, double dbs, double dbIncrement, doub
 void DrawLabelsZeroDBCentered(PlotFile *plot, double dbs, double dbIncrement, double hz, parameters *config);
 void DrawGridZeroToLimit(PlotFile *plot, double dBFS, double dbIncrement, double hz, double hzIncrement, int drawSignificant, parameters *config);
 void DrawLabelsZeroToLimit(PlotFile *plot, double dbs, double dbIncrement, double hz, int drawSignificant, parameters *config);
-void DrawColorScale(PlotFile *plot, int type, int mode, double x, double y, double width, double height, double startDbs, double endDbs, double dbIncrement, parameters *config);
-void DrawColorAllTypeScale(PlotFile *plot, int mode, double x, double y, double width, double height, double endDbs, double dbIncrement, int drawBars, parameters *config);
+void DrawColorScale(PlotFile *plot, int type, int mode, double x, double y, double width, double height, double startDbs, double endDbs, double dbIncrement, char channel, parameters *config);
+void DrawColorAllTypeScale(PlotFile *plot, int mode, double x, double y, double width, double height, double endDbs, double dbIncrement, int drawBars, char channel, parameters *config);
 
 int PlotDifferentAmplitudesAveraged(FlatAmplDifference *amplDiff, long int size, char *filename, parameters *config);
 AveragedFrequencies *CreateFlatDifferencesAveraged(int matchType, char channel, long int *avgSize, diffPlotType plotType, parameters *config);

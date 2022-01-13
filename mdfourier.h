@@ -509,8 +509,17 @@ typedef struct blk_diff_st {
 	AmplDifference *amplDiffArray;
 	long int		cntAmplBlkDiff;
 	long int		cmpAmplBlkDiff;
-
 	long int		perfectAmplMatch;
+
+	// Left
+	long int		cntAmplBlkDiffLeft;
+	long int		cmpAmplBlkDiffLeft;
+	long int		perfectAmplMatchLeft;
+
+	// Right
+	long int		cntAmplBlkDiffRight;
+	long int		cmpAmplBlkDiffRight;
+	long int		perfectAmplMatchRight;
 
 	PhaseDifference *phaseDiffArray;
 	long int		cntPhaseBlkDiff;
@@ -531,6 +540,26 @@ typedef struct block_diff_st {
 
 	long int		cntTotalCompared;
 	long int		cntTotalAudioDiff;
+
+	// Left
+	long int		cntPerfectAmplMatchLeft;
+	long int 		cntFreqAudioDiffLeft;
+	long int		cntAmplAudioDiffLeft;
+	long int		cntPhaseAudioDiffLeft;
+	long int		cmpPhaseAudioDiffLeft;
+
+	long int		cntTotalComparedLeft;
+	long int		cntTotalAudioDiffLeft;
+
+	// Right
+	long int		cntPerfectAmplMatchRight;
+	long int 		cntFreqAudioDiffRight;
+	long int		cntAmplAudioDiffRight;
+	long int		cntPhaseAudioDiffRight;
+	long int		cmpPhaseAudioDiffRight;
+
+	long int		cntTotalComparedRight;
+	long int		cntTotalAudioDiffRight;
 } AudioDifference;
 
 /********************************************************/

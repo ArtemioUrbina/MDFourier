@@ -176,8 +176,17 @@ int CreateDifferenceArray(parameters *config)
 
 		BlockDiffArray[i].cntAmplBlkDiff = 0;
 		BlockDiffArray[i].cmpAmplBlkDiff = 0;
-
 		BlockDiffArray[i].perfectAmplMatch = 0;
+
+		// Left
+		BlockDiffArray[i].cntAmplBlkDiffLeft = 0;
+		BlockDiffArray[i].cmpAmplBlkDiffLeft = 0;
+		BlockDiffArray[i].perfectAmplMatchLeft = 0;
+
+		// Right
+		BlockDiffArray[i].cntAmplBlkDiffRight = 0;
+		BlockDiffArray[i].cmpAmplBlkDiffRight = 0;
+		BlockDiffArray[i].perfectAmplMatchRight = 0;
 
 		BlockDiffArray[i].cntPhaseBlkDiff = 0;
 		BlockDiffArray[i].cmpPhaseBlkDiff = 0;
@@ -195,6 +204,26 @@ int CreateDifferenceArray(parameters *config)
 	config->Differences.cntPerfectAmplMatch = 0;
 	config->Differences.cntTotalCompared = 0;
 	config->Differences.cntTotalAudioDiff = 0;
+
+	// Left
+	config->Differences.cntFreqAudioDiffLeft = 0;
+	config->Differences.cntAmplAudioDiffLeft = 0;
+	config->Differences.cntPhaseAudioDiffLeft = 0;
+	config->Differences.cmpPhaseAudioDiffLeft = 0;
+
+	config->Differences.cntPerfectAmplMatchLeft = 0;
+	config->Differences.cntTotalComparedLeft = 0;
+	config->Differences.cntTotalAudioDiffLeft = 0;
+
+	// Right
+	config->Differences.cntFreqAudioDiffRight = 0;
+	config->Differences.cntAmplAudioDiffRight = 0;
+	config->Differences.cntPhaseAudioDiffRight = 0;
+	config->Differences.cmpPhaseAudioDiffRight = 0;
+
+	config->Differences.cntPerfectAmplMatchRight = 0;
+	config->Differences.cntTotalComparedRight = 0;
+	config->Differences.cntTotalAudioDiffRight = 0;
 	return 1;
 }
 
@@ -238,7 +267,7 @@ void ReleaseDifferenceArray(parameters *config)
 	config->Differences.cntTotalAudioDiff = 0;
 }
 
-int IncrementCmpAmplDifference(int block, parameters *config)
+int IncrementCmpAmplDifference(int block, char channel, parameters *config)
 {
 	if(!config)
 		return 0;
@@ -250,6 +279,12 @@ int IncrementCmpAmplDifference(int block, parameters *config)
 		return 0;
 
 	config->Differences.BlockDiffArray[block].cmpAmplBlkDiff ++;
+
+	if(channel == CHANNEL_LEFT || channel == CHANNEL_MONO)
+		config->Differences.BlockDiffArray[block].cmpAmplBlkDiffLeft ++;
+
+	if(channel == CHANNEL_RIGHT)
+		config->Differences.BlockDiffArray[block].cmpAmplBlkDiffRight ++;
 	return 1;
 }
 
@@ -322,6 +357,20 @@ int InsertAmplDifference(int block, Frequency ref, Frequency comp, char channel,
 	config->Differences.BlockDiffArray[block].cntAmplBlkDiff ++;
 	config->Differences.cntAmplAudioDiff ++;
 	config->Differences.cntTotalAudioDiff ++;
+
+	if(channel == CHANNEL_LEFT || channel == CHANNEL_MONO)
+	{
+		config->Differences.BlockDiffArray[block].cntAmplBlkDiffLeft ++;
+		config->Differences.cntAmplAudioDiffLeft ++;
+		config->Differences.cntTotalAudioDiffLeft ++;
+	}
+
+	if(channel == CHANNEL_RIGHT)
+	{
+		config->Differences.BlockDiffArray[block].cntAmplBlkDiffRight ++;
+		config->Differences.cntAmplAudioDiffRight ++;
+		config->Differences.cntTotalAudioDiffRight ++;
+	}
 	
 	return 1;
 }
@@ -389,13 +438,13 @@ int InsertPhaseDifference(int block, Frequency ref, Frequency comp, char channel
 	return 1;
 }
 
-int IncrementCompared(int block, parameters *config)
+int IncrementCompared(int block, char channel, parameters *config)
 {
 	if(!config)
 		return 0;
 
 	config->Differences.cntTotalCompared ++;
-	if(!IncrementCmpAmplDifference(block, config))
+	if(!IncrementCmpAmplDifference(block, channel, config))
 		return 0;
 	if(!IncrementCmpFreqNotFound(block, config))
 		return 0;
@@ -404,7 +453,7 @@ int IncrementCompared(int block, parameters *config)
 	return 1;
 }
 
-int IncrementPerfectMatch(int block, parameters *config)
+int IncrementPerfectMatch(int block, char channel, parameters *config)
 {
 	if(!config)
 		return 0;
@@ -417,6 +466,18 @@ int IncrementPerfectMatch(int block, parameters *config)
 
 	config->Differences.BlockDiffArray[block].perfectAmplMatch ++;
 	config->Differences.cntPerfectAmplMatch ++;
+
+	if(channel == CHANNEL_LEFT || channel == CHANNEL_MONO)
+	{
+		config->Differences.BlockDiffArray[block].perfectAmplMatchLeft ++;
+		config->Differences.cntPerfectAmplMatchLeft ++;
+	}
+
+	if(channel == CHANNEL_RIGHT)
+	{
+		config->Differences.BlockDiffArray[block].perfectAmplMatchRight ++;
+		config->Differences.cntPerfectAmplMatchRight ++;
+	}
 	
 	return 1;
 }
@@ -806,7 +867,7 @@ double FindVisibleInViewPortWithinStandardDeviation(double *maxAmpl, double *out
 	return(threshold);
 }
 
-int FindExtraFrequenciesByType(int type, long int *inside, long int *count, parameters *config)
+int FindExtraFrequenciesByType(int type, long int *inside, long int *count, char channel, parameters *config)
 {
 	long int	extraCount = 0, extraTotal = 0;
 
@@ -820,37 +881,41 @@ int FindExtraFrequenciesByType(int type, long int *inside, long int *count, para
 	*count = 0;
 	for(int b = 0; b < config->types.totalBlocks; b++)
 	{
-		if(config->Differences.BlockDiffArray[b].type != type)
-			continue;
-
-		/* Extra */
-		for(long int i = config->MaxFreq-1; i >= 0; i--)
+		if(config->Differences.BlockDiffArray[b].type == type)
 		{
-			AudioSignal *Signal	= NULL;
-
-			Signal = config->comparisonSignal;
-			if(Signal && Signal->Blocks[b].freq[i].hertz
-				&& Signal->Blocks[b].freq[i].amplitude > config->significantAmplitude)
+			/* Extra */
+			if(channel == CHANNEL_LEFT || channel == CHANNEL_STEREO || channel == CHANNEL_MONO)
 			{
-				extraTotal++;
-				if(!Signal->Blocks[b].freq[i].matched)
-					extraCount++;
-			}
-		}
-
-		if(config->referenceSignal && config->referenceSignal->Blocks[b].freqRight)
-		{
-			for(int i = config->MaxFreq-1; i >= 0; i--)
-			{
-				AudioSignal *Signal	= NULL;
-	
-				Signal = config->comparisonSignal;
-				if(Signal && Signal->Blocks[b].freqRight[i].hertz
-					&& Signal->Blocks[b].freqRight[i].amplitude > config->significantAmplitude)
+				for(long int i = config->MaxFreq-1; i >= 0; i--)
 				{
-					extraTotal++;
-					if(!Signal->Blocks[b].freqRight[i].matched)
-						extraCount++;
+					AudioSignal *Signal	= NULL;
+
+					Signal = config->comparisonSignal;
+					if(Signal && Signal->Blocks[b].freq[i].hertz
+						&& Signal->Blocks[b].freq[i].amplitude > config->significantAmplitude)
+					{
+						extraTotal++;
+						if(!Signal->Blocks[b].freq[i].matched)
+							extraCount++;
+					}
+				}
+			}
+
+			if((channel == CHANNEL_RIGHT || channel == CHANNEL_STEREO)
+				&& config->referenceSignal && config->referenceSignal->Blocks[b].freqRight)
+			{
+				for(int i = config->MaxFreq-1; i >= 0; i--)
+				{
+					AudioSignal *Signal	= NULL;
+	
+					Signal = config->comparisonSignal;
+					if(Signal && Signal->Blocks[b].freqRight[i].hertz
+						&& Signal->Blocks[b].freqRight[i].amplitude > config->significantAmplitude)
+					{
+						extraTotal++;
+						if(!Signal->Blocks[b].freqRight[i].matched)
+							extraCount++;
+					}
 				}
 			}
 		}
@@ -861,7 +926,7 @@ int FindExtraFrequenciesByType(int type, long int *inside, long int *count, para
 	return 1;
 }
 
-int FindMissingFrequenciesByType(int type, long int *inside, long int *count, parameters *config)
+int FindMissingFrequenciesByType(int type, long int *inside, long int *count, char channel, parameters *config)
 {
 	long int	extraCount = 0, extraTotal = 0;
 
@@ -875,37 +940,41 @@ int FindMissingFrequenciesByType(int type, long int *inside, long int *count, pa
 	*count = 0;
 	for(int b = 0; b < config->types.totalBlocks; b++)
 	{
-		if(config->Differences.BlockDiffArray[b].type != type)
-			continue;
-
-		/* Missing */
-		for(long int i = config->MaxFreq-1; i >= 0; i--)
+		if(config->Differences.BlockDiffArray[b].type == type)
 		{
-			AudioSignal *Signal	= NULL;
-
-			Signal = config->referenceSignal;
-			if(Signal && Signal->Blocks[b].freq[i].hertz
-				&& Signal->Blocks[b].freq[i].amplitude > config->significantAmplitude)
+			/* Missing */
+			if(channel == CHANNEL_LEFT || channel == CHANNEL_STEREO || channel == CHANNEL_MONO)
 			{
-				extraTotal++;
-				if(!Signal->Blocks[b].freq[i].matched)
-					extraCount++;
-			}
-		}
-
-		if(config->referenceSignal && config->referenceSignal->Blocks[b].freqRight)
-		{
-			for(int i = config->MaxFreq-1; i >= 0; i--)
-			{
-				AudioSignal *Signal	= NULL;
-	
-				Signal = config->referenceSignal;
-				if(Signal && Signal->Blocks[b].freqRight[i].hertz
-					&& Signal->Blocks[b].freqRight[i].amplitude > config->significantAmplitude)
+				for(long int i = config->MaxFreq-1; i >= 0; i--)
 				{
-					extraTotal++;
-					if(!Signal->Blocks[b].freqRight[i].matched)
-						extraCount++;
+					AudioSignal *Signal	= NULL;
+
+					Signal = config->referenceSignal;
+					if(Signal && Signal->Blocks[b].freq[i].hertz
+						&& Signal->Blocks[b].freq[i].amplitude > config->significantAmplitude)
+					{
+						extraTotal++;
+						if(!Signal->Blocks[b].freq[i].matched)
+							extraCount++;
+					}
+				}
+			}
+
+			if((channel == CHANNEL_RIGHT || channel == CHANNEL_STEREO)
+				&& config->referenceSignal && config->referenceSignal->Blocks[b].freqRight)
+			{
+				for(int i = config->MaxFreq-1; i >= 0; i--)
+				{
+					AudioSignal *Signal	= NULL;
+	
+					Signal = config->referenceSignal;
+					if(Signal && Signal->Blocks[b].freqRight[i].hertz
+						&& Signal->Blocks[b].freqRight[i].amplitude > config->significantAmplitude)
+					{
+						extraTotal++;
+						if(!Signal->Blocks[b].freqRight[i].matched)
+							extraCount++;
+					}
 				}
 			}
 		}
@@ -1035,7 +1104,7 @@ long int FindDifferenceAveragesperBlock(double thresholdAmplitude, double thresh
 }
 
 
-int FindDifferenceTypeTotals(int type, long int *cntAmplBlkDiff, long int *cmpAmplBlkDiff, parameters *config)
+int FindDifferenceTypeTotals(int type, long int *cntAmplBlkDiff, long int *cmpAmplBlkDiff, char channel, parameters *config)
 {
 	if(!config)
 		return 0;
@@ -1056,51 +1125,30 @@ int FindDifferenceTypeTotals(int type, long int *cntAmplBlkDiff, long int *cmpAm
 
 		if(type == config->Differences.BlockDiffArray[b].type)
 		{
-			*cntAmplBlkDiff += config->Differences.BlockDiffArray[b].cntAmplBlkDiff;
-			*cmpAmplBlkDiff += config->Differences.BlockDiffArray[b].cmpAmplBlkDiff;
-		}
-	}
-
-	return 1;
-}
-
-int FindDifferenceWithinInterval(int type, long int *inside, long int *count, double MaxInterval, parameters *config)
-{
-	if(!config)
-		return 0;
-
-	if(!config->Differences.BlockDiffArray)
-		return 0;
-
-	if(!inside || !count)
-		return 0;
-
-	*inside = 0;
-	*count = 0;
-
-	for(int b = 0; b < config->types.totalBlocks; b++)
-	{
-		if(config->Differences.BlockDiffArray[b].type < TYPE_SILENCE)
-			continue;
-
-		if(type == config->Differences.BlockDiffArray[b].type)
-		{
-			for(int a = 0; a < config->Differences.BlockDiffArray[b].cntAmplBlkDiff; a++)
+			if(channel == CHANNEL_STEREO)
 			{
-				if(fabs(config->Differences.BlockDiffArray[b].amplDiffArray[a].diffAmplitude) <= MaxInterval)
-					(*inside)++;
-				
+				*cntAmplBlkDiff += config->Differences.BlockDiffArray[b].cntAmplBlkDiff;
+				*cmpAmplBlkDiff += config->Differences.BlockDiffArray[b].cmpAmplBlkDiff;
 			}
-			if(!config->drawPerfect)
-				(*inside) += config->Differences.BlockDiffArray[b].perfectAmplMatch;
-			(*count) += config->Differences.BlockDiffArray[b].cmpAmplBlkDiff;
+
+			if(channel == CHANNEL_LEFT || channel == CHANNEL_MONO)
+			{
+				*cntAmplBlkDiff += config->Differences.BlockDiffArray[b].cntAmplBlkDiffLeft;
+				*cmpAmplBlkDiff += config->Differences.BlockDiffArray[b].cmpAmplBlkDiffLeft;
+			}
+			
+			if(channel == CHANNEL_RIGHT)
+			{
+				*cntAmplBlkDiff += config->Differences.BlockDiffArray[b].cntAmplBlkDiffRight;
+				*cmpAmplBlkDiff += config->Differences.BlockDiffArray[b].cmpAmplBlkDiffRight;
+			}
 		}
 	}
 
 	return 1;
 }
 
-int FindPerfectMatches(int type, long int *inside, long int *count, parameters *config)
+int FindDifferenceWithinInterval(int type, long int *inside, long int *count, double MaxInterval, char channel, parameters *config)
 {
 	if(!config)
 		return 0;
@@ -1121,8 +1169,90 @@ int FindPerfectMatches(int type, long int *inside, long int *count, parameters *
 
 		if(type == config->Differences.BlockDiffArray[b].type)
 		{
-			(*inside) += config->Differences.BlockDiffArray[b].perfectAmplMatch;
-			(*count) += config->Differences.BlockDiffArray[b].cmpAmplBlkDiff;
+			if(channel == CHANNEL_STEREO)
+			{
+				for(int a = 0; a < config->Differences.BlockDiffArray[b].cntAmplBlkDiff; a++)
+				{
+					if(fabs(config->Differences.BlockDiffArray[b].amplDiffArray[a].diffAmplitude) <= MaxInterval)
+						(*inside)++;
+				
+				}
+				if(!config->drawPerfect)
+					(*inside) += config->Differences.BlockDiffArray[b].perfectAmplMatch;
+				(*count) += config->Differences.BlockDiffArray[b].cmpAmplBlkDiff;
+			}
+
+			if(channel == CHANNEL_LEFT || channel == CHANNEL_MONO)
+			{
+				for(int a = 0; a < config->Differences.BlockDiffArray[b].cntAmplBlkDiff; a++)
+				{
+					if(config->Differences.BlockDiffArray[b].amplDiffArray[a].channel == CHANNEL_LEFT &&
+						fabs(config->Differences.BlockDiffArray[b].amplDiffArray[a].diffAmplitude) <= MaxInterval)
+							(*inside)++;
+				
+				}
+				if(!config->drawPerfect)
+					(*inside) += config->Differences.BlockDiffArray[b].perfectAmplMatchLeft;
+				(*count) += config->Differences.BlockDiffArray[b].cmpAmplBlkDiffLeft;
+			}
+
+			if(channel == CHANNEL_RIGHT)
+			{
+				for(int a = 0; a < config->Differences.BlockDiffArray[b].cntAmplBlkDiff; a++)
+				{
+					if(config->Differences.BlockDiffArray[b].amplDiffArray[a].channel == CHANNEL_RIGHT &&
+						fabs(config->Differences.BlockDiffArray[b].amplDiffArray[a].diffAmplitude) <= MaxInterval)
+							(*inside)++;
+				
+				}
+				if(!config->drawPerfect)
+					(*inside) += config->Differences.BlockDiffArray[b].perfectAmplMatchRight;
+				(*count) += config->Differences.BlockDiffArray[b].cmpAmplBlkDiffRight;
+			}
+		}
+	}
+
+	return 1;
+}
+
+int FindPerfectMatches(int type, long int *inside, long int *count, char channel, parameters *config)
+{
+	if(!config)
+		return 0;
+
+	if(!config->Differences.BlockDiffArray)
+		return 0;
+
+	if(!inside || !count)
+		return 0;
+
+	*inside = 0;
+	*count = 0;
+
+	for(int b = 0; b < config->types.totalBlocks; b++)
+	{
+		if(config->Differences.BlockDiffArray[b].type < TYPE_SILENCE)
+			continue;
+
+		if(type == config->Differences.BlockDiffArray[b].type)
+		{
+			if(channel == CHANNEL_STEREO)
+			{
+				(*inside) += config->Differences.BlockDiffArray[b].perfectAmplMatch;
+				(*count) += config->Differences.BlockDiffArray[b].cmpAmplBlkDiff;
+			}
+
+			if(channel == CHANNEL_LEFT || channel == CHANNEL_MONO)
+			{
+				(*inside) += config->Differences.BlockDiffArray[b].perfectAmplMatchLeft;
+				(*count) += config->Differences.BlockDiffArray[b].cmpAmplBlkDiffLeft;
+			}
+
+			if(channel == CHANNEL_RIGHT)
+			{
+				(*inside) += config->Differences.BlockDiffArray[b].perfectAmplMatchRight;
+				(*count) += config->Differences.BlockDiffArray[b].cmpAmplBlkDiffRight;
+			}
 		}
 	}
 
