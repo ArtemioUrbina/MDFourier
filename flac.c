@@ -47,13 +47,24 @@
 
 #include <ctype.h>
 
+#define FLAC_ERR_STR 1024
+
 int flacInternalMDFErrors = 0;
+char flacInternalErrorStr[FLAC_ERR_STR];
 
 extern char *getFilenameExtension(char *filename);
 extern int getExtensionLength(char *filename);
 static FLAC__StreamDecoderWriteStatus write_callback(const FLAC__StreamDecoder *decoder, const FLAC__Frame *frame, const FLAC__int32 * const buffer[], void *client_data);
 static void metadata_callback(const FLAC__StreamDecoder *decoder, const FLAC__StreamMetadata *metadata, void *client_data);
 static void error_callback(const FLAC__StreamDecoder *decoder, FLAC__StreamDecoderErrorStatus status, void *client_data);
+
+char* getflacErrorStr()
+{
+	if(flacInternalErrorStr[0] != 0)
+		return(flacInternalErrorStr);
+	else
+		return NULL;
+}
 
 int flacErrorReported()
 {
@@ -122,6 +133,8 @@ int FLACtoSignal(char *input, AudioSignal *Signal)
 	FLAC__bool ok = true;
 	FLAC__StreamDecoder *decoder = 0;
 	FLAC__StreamDecoderInitStatus init_status;
+
+	memset(flacInternalErrorStr, 0, FLAC_ERR_STR);
 
 	if(!Signal) {
 		logmsg("ERROR: opening empty Data Structure\n");
@@ -285,7 +298,8 @@ void error_callback(const FLAC__StreamDecoder *decoder, FLAC__StreamDecoderError
 
 	(void)decoder;
 
-	logmsgFileOnly("Got error while decoding FLAC: %s\n", FLAC__StreamDecoderErrorStatusString[status]);
+	strncpy(flacInternalErrorStr, FLAC__StreamDecoderErrorStatusString[status], FLAC_ERR_STR - 1);
+	logmsgFileOnly("Got error while decoding FLAC: %s\n", flacInternalErrorStr);
 	if(Signal)
 		Signal->errorFLAC ++;
 }

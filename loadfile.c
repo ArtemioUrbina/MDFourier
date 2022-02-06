@@ -54,8 +54,16 @@ int LoadFile(AudioSignal **Signal, char *fileName, int role, parameters *config)
 		if(config->verbose) { logmsg(" - Decoding FLAC\n"); }
 		if(!FLACtoSignal(fileName, *Signal))
 		{
+			char *error  = NULL;
+
+			error = getflacErrorStr();
 			if(!flacErrorReported())
-				logmsg("\nERROR: Invalid FLAC file %s\n", fileName);
+			{
+				if(!error)
+					logmsg("\nERROR: Invalid FLAC file %s\n", fileName);
+				else
+					logmsg("\nERROR: Invalid FLAC (%s) file %s\n", error, fileName);
+			}
 			return 0;
 		}
 		if(config->clock)

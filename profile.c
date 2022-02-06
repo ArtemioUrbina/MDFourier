@@ -797,6 +797,7 @@ int LoadAudioNoSyncProfile(FILE *file, parameters *config)
 		return 0;
 	}
 
+	/*
 	if (config->significantAmplitude != SIGNIFICANT_AMPLITUDE)
 	{
 		if(config->noSyncProfileType != NO_SYNC_LENGTH)
@@ -805,6 +806,7 @@ int LoadAudioNoSyncProfile(FILE *file, parameters *config)
 			logmsg(" - Free sync profiles ignore -p. \n");
 		}
 	}
+	*/
 	
 	fclose(file);
 	
