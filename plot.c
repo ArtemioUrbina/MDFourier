@@ -1273,8 +1273,14 @@ void DrawImbalance(PlotFile *plot, AudioSignal *Signal, char *msg, parameters *c
 				Signal->balance > 0 ? "R" : "L", 
 				fabs(Signal->balance));
 	else
-		sprintf(msg, "%s Stereo balanced", 
+	{
+		if(config->channelBalance)
+			sprintf(msg, "%s Stereo balanced", 
 				Signal->role == ROLE_REF ? "RF" : "CM");
+		else
+			sprintf(msg, "%s Stereo ignored", 
+				Signal->role == ROLE_REF ? "RF" : "CM");
+	}
 	pl_alabel_r(plot->plotter, 'l', 'l', msg);
 }
 

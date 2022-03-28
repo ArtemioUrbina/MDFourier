@@ -827,7 +827,7 @@ int commandline_wave(int argc , char *argv[], parameters *config)
 	config->useCompProfile = 0;
 	config->executefft = 1;
 
-	while ((c = getopt (argc, argv, "qnhvzcklyCBis:e:f:t:p:w:r:P:IY:0:")) != -1)
+	while ((c = getopt (argc, argv, "qnhvzcklyCBis:e:f:t:p:w:r:P:IY:T0:")) != -1)
 	switch (c)
 	  {
 	  case 'h':
@@ -947,6 +947,11 @@ int commandline_wave(int argc , char *argv[], parameters *config)
 		break;
 	  case 'I':
 		config->ignoreFrameRateDiff = 1;
+		break;
+	  case 'T':
+		config->syncTolerance++;
+		if(config->syncTolerance > 3)
+			config->syncTolerance = 3;
 		break;
 	  case '0':
 		sprintf(config->outputPath, "%s", optarg);

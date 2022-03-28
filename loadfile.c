@@ -661,9 +661,9 @@ int DetectSync(AudioSignal *Signal, parameters *config)
 		
 				if(Signal->role == ROLE_REF)
 				{
-					double seconds = 0;
-					seconds = SamplesToSeconds(Signal->SampleRate, Signal->endOffset, Signal->AudioChannels);
-					config->NoSyncTotalFrames = (seconds*1000)/expected;
+					double secondsTmp = 0;
+					secondsTmp = SamplesToSeconds(Signal->SampleRate, Signal->endOffset, Signal->AudioChannels);
+					config->NoSyncTotalFrames = (secondsTmp*1000)/expected;
 					Signal->framerate = expected;
 					logmsg(" - Loaded %.8g Hz signal (%.8gms per frame) from profile file\n", 
 								CalculateScanRate(Signal), Signal->framerate);

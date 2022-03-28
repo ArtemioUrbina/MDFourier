@@ -356,18 +356,18 @@ int LoadAudioBlockStructure(FILE *file, parameters *config)
 	memset(config->types.typeArray, 0, sizeof(AudioBlockType)*config->types.typeCount);
 
 	/* types */
-	for(int i = 0; i < config->types.typeCount; i++)
+	for(int t = 0; t < config->types.typeCount; t++)
 	{
 		char 	type = 0;
 
 		readLine(lineBuffer, file);
-		if(sscanf(lineBuffer, "%128s ", config->types.typeArray[i].typeName) != 1)
+		if(sscanf(lineBuffer, "%128s ", config->types.typeArray[t].typeName) != 1)
 		{
-			logmsg("ERROR: Invalid Block Name %s\n", config->types.typeArray[i].typeName);
+			logmsg("ERROR: Invalid Block Name %s\n", config->types.typeArray[t].typeName);
 			fclose(file);
 			return 0;
 		}
-		CleanName(config->types.typeArray[i].typeName, config->types.typeArray[i].typeDisplayName);
+		CleanName(config->types.typeArray[t].typeName, config->types.typeArray[t].typeDisplayName);
 
 		if(sscanf(lineBuffer, "%*s %c ", &type) != 1)
 		{
@@ -382,37 +382,37 @@ int LoadAudioBlockStructure(FILE *file, parameters *config)
 		switch(type)
 		{
 			case TYPE_SILENCE_C:
-				config->types.typeArray[i].type = TYPE_SILENCE;
+				config->types.typeArray[t].type = TYPE_SILENCE;
 				break;
 			case TYPE_SYNC_C:
-				config->types.typeArray[i].type = TYPE_SYNC;
+				config->types.typeArray[t].type = TYPE_SYNC;
 				if(config->timeDomainSync)
 					config->hasTimeDomain++;
 				syncCount++;
 				break;
 			case TYPE_INTERNAL_KNOWN_C:
-				config->types.typeArray[i].type = TYPE_INTERNAL_KNOWN;
+				config->types.typeArray[t].type = TYPE_INTERNAL_KNOWN;
 				break;
 			case TYPE_INTERNAL_UNKNOWN_C:
-				config->types.typeArray[i].type = TYPE_INTERNAL_UNKNOWN;
+				config->types.typeArray[t].type = TYPE_INTERNAL_UNKNOWN;
 				break;
 			case TYPE_SKIP_C:
-				config->types.typeArray[i].type = TYPE_SKIP;
+				config->types.typeArray[t].type = TYPE_SKIP;
 				break;
 			case TYPE_TIMEDOMAIN_C:
-				config->types.typeArray[i].type = TYPE_TIMEDOMAIN;
+				config->types.typeArray[t].type = TYPE_TIMEDOMAIN;
 				config->hasTimeDomain++;
 				break;
 			case TYPE_SILENCE_OVER_C:
-				config->types.typeArray[i].type = TYPE_SILENCE_OVERRIDE;
+				config->types.typeArray[t].type = TYPE_SILENCE_OVERRIDE;
 				hadSilenceOverride = 1;
 				break;
 			case TYPE_WATERMARK_C:
-				config->types.typeArray[i].type = TYPE_WATERMARK;
+				config->types.typeArray[t].type = TYPE_WATERMARK;
 				config->types.useWatermark = 1;
 				break;
 			default:
-				if(sscanf(lineBuffer, "%*s %d ", &config->types.typeArray[i].type) != 1)
+				if(sscanf(lineBuffer, "%*s %d ", &config->types.typeArray[t].type) != 1)
 				{
 					logmsg("ERROR: Invalid MD Fourier Block ID\n%s\n", lineBuffer);
 					fclose(file);
@@ -421,8 +421,8 @@ int LoadAudioBlockStructure(FILE *file, parameters *config)
 				break;
 		}
 		
-		if(config->types.typeArray[i].type == TYPE_INTERNAL_KNOWN ||
-			config->types.typeArray[i].type == TYPE_INTERNAL_UNKNOWN)
+		if(config->types.typeArray[t].type == TYPE_INTERNAL_KNOWN ||
+			config->types.typeArray[t].type == TYPE_INTERNAL_UNKNOWN)
 		{
 			if(insideInternal)
 			{
@@ -433,25 +433,25 @@ int LoadAudioBlockStructure(FILE *file, parameters *config)
 				insideInternal = 1;
 
 			if(sscanf(lineBuffer, "%*s %*s %d %d %20s %c %d %lf\n", 
-				&config->types.typeArray[i].elementCount,
-				&config->types.typeArray[i].frames,
-				&config->types.typeArray[i].color[0],
-				&config->types.typeArray[i].channel,
-				&config->types.typeArray[i].syncTone,
-				&config->types.typeArray[i].syncLen) != 6)
+				&config->types.typeArray[t].elementCount,
+				&config->types.typeArray[t].frames,
+				&config->types.typeArray[t].color[0],
+				&config->types.typeArray[t].channel,
+				&config->types.typeArray[t].syncTone,
+				&config->types.typeArray[t].syncLen) != 6)
 			{
 				logmsg("ERROR: Invalid MD Fourier Audio Blocks File (line %d)\n(Display_name, id, element count, frames, color, channel): %s\n", lineCount, lineBuffer);
 				fclose(file);
 				return 0;
 			}
 		}
-		else if(config->types.typeArray[i].type == TYPE_WATERMARK)
+		else if(config->types.typeArray[t].type == TYPE_WATERMARK)
 		{
 			if(sscanf(lineBuffer, "%*s %*s %d %d %20s %c %d %d %128s\n", 
-				&config->types.typeArray[i].elementCount,
-				&config->types.typeArray[i].frames,
-				&config->types.typeArray[i].color[0],
-				&config->types.typeArray[i].channel,
+				&config->types.typeArray[t].elementCount,
+				&config->types.typeArray[t].frames,
+				&config->types.typeArray[t].color[0],
+				&config->types.typeArray[t].channel,
 				&config->types.watermarkValidFreq,
 				&config->types.watermarkInvalidFreq,
 				config->types.watermarkDisplayName) != 7)
@@ -470,37 +470,37 @@ int LoadAudioBlockStructure(FILE *file, parameters *config)
 		else
 		{
 			if(sscanf(lineBuffer, "%*s %*s %d %d %d %20s %c\n", 
-				&config->types.typeArray[i].elementCount,
-				&config->types.typeArray[i].frames,
-				&config->types.typeArray[i].cutFrames,
-				&config->types.typeArray[i].color[0],
-				&config->types.typeArray[i].channel) != 5)
+				&config->types.typeArray[t].elementCount,
+				&config->types.typeArray[t].frames,
+				&config->types.typeArray[t].cutFrames,
+				&config->types.typeArray[t].color[0],
+				&config->types.typeArray[t].channel) != 5)
 			{
 				logmsg("ERROR: Invalid MD Fourier Audio Blocks File (line %d)\n(Element Count, frames, skip, color, channel): %s\n", lineCount, lineBuffer);
 				fclose(file);
 				return 0;
 			}
 
-			if(config->types.typeArray[i].cutFrames != 0 && config->types.typeArray[i].frames - abs(config->types.typeArray[i].cutFrames) <= 0)
+			if(config->types.typeArray[t].cutFrames != 0 && config->types.typeArray[t].frames - abs(config->types.typeArray[t].cutFrames) <= 0)
 			{
 				logmsg("ERROR: Invalid MD Fourier Audio Blocks File (line %d): %s, Skip bigger than element\n", lineCount, lineBuffer);
 				fclose(file);
 				return 0;
 			}
-			config->types.typeArray[i].cutFrames = abs(config->types.typeArray[i].cutFrames);
+			config->types.typeArray[t].cutFrames = abs(config->types.typeArray[t].cutFrames);
 
-			if(!CheckChannel(&config->types.typeArray[i].channel, config))
+			if(!CheckChannel(&config->types.typeArray[t].channel, config))
 			{
 				logmsg("ERROR: Invalid MD Fourier Audio Blocks File\n(Element Count, frames, skip, color, *channel*): %s\n", lineBuffer);
 				fclose(file);
 				return 0;
 			}
 
-			if(config->types.typeArray[i].channel == CHANNEL_STEREO)
+			if(config->types.typeArray[t].channel == CHANNEL_STEREO)
 			{
-				if(config->types.typeArray[i].type < TYPE_CONTROL &&   // Allow Silence blocks to be stereo
-					config->types.typeArray[i].type != TYPE_TIMEDOMAIN &&
-					config->types.typeArray[i].type != TYPE_SKIP)
+				if(config->types.typeArray[t].type < TYPE_CONTROL &&   // Allow Silence blocks to be stereo
+					config->types.typeArray[t].type != TYPE_TIMEDOMAIN &&
+					config->types.typeArray[t].type != TYPE_SKIP)
 				{
 					logmsg("ERROR: Only regular blocks can be analyzed as stereo\n %s\n", lineBuffer);
 					fclose(file);
@@ -510,36 +510,36 @@ int LoadAudioBlockStructure(FILE *file, parameters *config)
 			}
 		}
 
-		if(!config->types.typeArray[i].elementCount)
+		if(!config->types.typeArray[t].elementCount)
 		{
 			logmsg("ERROR: Element Count must have a value > 0\n%s\n", lineBuffer);
 			fclose(file);
 			return 0;
 		}
 
-		if(!config->types.typeArray[i].frames)
+		if(!config->types.typeArray[t].frames)
 		{
 			logmsg("ERROR: Frames must have a value > 0\n%s\n", lineBuffer);
 			fclose(file);
 			return 0;
 		}
 	
-		if(MatchColor(config->types.typeArray[i].color) == COLOR_NONE)
+		if(MatchColor(config->types.typeArray[t].color) == COLOR_NONE)
 		{
 			logmsg("ERROR: Unrecognized color \"%s\" aborting\n", 
-				config->types.typeArray[i].color);
+				config->types.typeArray[t].color);
 			fclose(file);
 			return 0;
 		}
 
-		config->types.typeArray[i].IsaddOnData = MatchesPreviousType(i, config->types.typeArray[i].type, config);
+		config->types.typeArray[t].IsaddOnData = MatchesPreviousType(i, config->types.typeArray[t].type, config);
 		// make silent if duplicate and not silence block
-		if(!config->useExtraData && config->types.typeArray[i].IsaddOnData)
+		if(!config->useExtraData && config->types.typeArray[t].IsaddOnData)
 		{
-			if(config->types.typeArray[i].type != TYPE_SILENCE)
-				config->types.typeArray[i].type = TYPE_TIMEDOMAIN;  // TYPE_SKIP
+			if(config->types.typeArray[t].type != TYPE_SILENCE)
+				config->types.typeArray[t].type = TYPE_TIMEDOMAIN;  // TYPE_SKIP
 		}
-		if(config->useExtraData && config->types.typeArray[i].IsaddOnData)
+		if(config->useExtraData && config->types.typeArray[t].IsaddOnData)
 			config->hasAddOnData ++;
 
 		lineCount++;
@@ -671,62 +671,62 @@ int LoadAudioNoSyncProfile(FILE *file, parameters *config)
 	}
 	memset(config->types.typeArray, 0, sizeof(AudioBlockType));
 
-	for(int i = 0; i < config->types.typeCount; i++)
+	for(int t = 0; t < config->types.typeCount; t++)
 	{
-		char type = 0;
+		char typesc = 0;
 
 		readLine(lineBuffer, file);
-		if(sscanf(lineBuffer, "%128s ", config->types.typeArray[i].typeName) != 1)
+		if(sscanf(lineBuffer, "%128s ", config->types.typeArray[t].typeName) != 1)
 		{
 			logmsg("ERROR: Invalid Block Name\n%s\n", lineBuffer);
 			fclose(file);
 			return 0;
 		}
-		CleanName(config->types.typeArray[i].typeName, config->types.typeArray[i].typeDisplayName);
+		CleanName(config->types.typeArray[t].typeName, config->types.typeArray[t].typeDisplayName);
 
-		if(sscanf(lineBuffer, "%*s %c ", &type) != 1)
+		if(sscanf(lineBuffer, "%*s %c ", &typesc) != 1)
 		{
 			logmsg("ERROR: Invalid Block Type %s\n", lineBuffer);
 			fclose(file);
 			return 0;
 		}
 
-		switch(type)
+		switch(typesc)
 		{
 			case TYPE_SILENCE_C:
-				config->types.typeArray[i].type = TYPE_SILENCE;
+				config->types.typeArray[t].type = TYPE_SILENCE;
 				break;
 			case TYPE_SKIP_C:
-				config->types.typeArray[i].type = TYPE_SKIP;
+				config->types.typeArray[t].type = TYPE_SKIP;
 				break;
 			case TYPE_TIMEDOMAIN_C:
-				config->types.typeArray[i].type = TYPE_TIMEDOMAIN;
+				config->types.typeArray[t].type = TYPE_TIMEDOMAIN;
 				config->hasTimeDomain++;
 				break;
 			case TYPE_SILENCE_OVER_C:
-				config->types.typeArray[i].type = TYPE_SILENCE_OVERRIDE;
+				config->types.typeArray[t].type = TYPE_SILENCE_OVERRIDE;
 				break;
 			case TYPE_WATERMARK_C:
-				config->types.typeArray[i].type = TYPE_WATERMARK;
+				config->types.typeArray[t].type = TYPE_WATERMARK;
 				config->types.useWatermark = 1;
 				break;
 			default:
-				if(sscanf(lineBuffer, "%*s %d ", &config->types.typeArray[i].type) != 1)
+				if(sscanf(lineBuffer, "%*s %d ", &config->types.typeArray[t].type) != 1)
 				{
-					logmsg("ERROR: Invalid MD Fourier Block ID %d\n%s", config->types.typeArray[i].type, lineBuffer);
+					logmsg("ERROR: Invalid MD Fourier Block ID %d\n%s", config->types.typeArray[t].type, lineBuffer);
 					fclose(file);
 					return 0;
 				}
 				break;
 		}
 		
-		if(config->types.typeArray[i].type == TYPE_WATERMARK)
+		if(config->types.typeArray[t].type == TYPE_WATERMARK)
 		{
 			if(sscanf(lineBuffer, "%*s %*s %d %d %20s %c %d %d %128s\n", 
-				&config->types.typeArray[i].elementCount,
-				&config->types.typeArray[i].frames,
-				&config->types.typeArray[i].color[0],
-				&config->types.typeArray[i].channel,
+				&config->types.typeArray[t].elementCount,
+				&config->types.typeArray[t].frames,
+				&config->types.typeArray[t].color[0],
+				&config->types.typeArray[t].channel,
 				&config->types.watermarkValidFreq,
 				&config->types.watermarkInvalidFreq,
 				config->types.watermarkDisplayName) != 7)
@@ -745,10 +745,10 @@ int LoadAudioNoSyncProfile(FILE *file, parameters *config)
 		else
 		{
 			if(sscanf(lineBuffer, "%*s %*s %d %d %s %c\n", 
-				&config->types.typeArray[i].elementCount,
-				&config->types.typeArray[i].frames,
-				&config->types.typeArray[i].color [0],
-				&config->types.typeArray[i].channel) != 4)
+				&config->types.typeArray[t].elementCount,
+				&config->types.typeArray[t].frames,
+				&config->types.typeArray[t].color [0],
+				&config->types.typeArray[t].channel) != 4)
 			{
 				logmsg("ERROR: Invalid MD Fourier Audio Blocks File (Element Count, frames, color, channel): %s\n", lineBuffer);
 				fclose(file);
@@ -756,36 +756,36 @@ int LoadAudioNoSyncProfile(FILE *file, parameters *config)
 			}
 		}
 
-		if(!config->types.typeArray[i].elementCount)
+		if(!config->types.typeArray[t].elementCount)
 		{
 			logmsg("Element Count must have a value > 0\n");
 			fclose(file);
 			return 0;
 		}
 
-		if(!config->types.typeArray[i].frames)
+		if(!config->types.typeArray[t].frames)
 		{
 			logmsg("Frames must have a value > 0\n");
 			fclose(file);
 			return 0;
 		}
 	
-		if(MatchColor(config->types.typeArray[i].color) == COLOR_NONE)
+		if(MatchColor(config->types.typeArray[t].color) == COLOR_NONE)
 		{
 			logmsg("Unrecognized color \"%s\" aborting\n", 
-				config->types.typeArray[i].color);
+				config->types.typeArray[t].color);
 			fclose(file);
 			return 0;
 		}
 
-		config->types.typeArray[i].IsaddOnData = MatchesPreviousType(i, config->types.typeArray[i].type, config);
+		config->types.typeArray[t].IsaddOnData = MatchesPreviousType(t, config->types.typeArray[t].type, config);
 		// make silent if duplicate and not silence block
-		if(!config->useExtraData && config->types.typeArray[i].IsaddOnData)
+		if(!config->useExtraData && config->types.typeArray[t].IsaddOnData)
 		{
-			if(config->types.typeArray[i].type != TYPE_SILENCE)
-				config->types.typeArray[i].type = TYPE_TIMEDOMAIN;  // TYPE_SKIP
+			if(config->types.typeArray[t].type != TYPE_SILENCE)
+				config->types.typeArray[t].type = TYPE_TIMEDOMAIN;  // TYPE_SKIP
 		}
-		if(config->useExtraData && config->types.typeArray[i].IsaddOnData)
+		if(config->useExtraData && config->types.typeArray[t].IsaddOnData)
 			config->hasAddOnData ++;
 	}
 
