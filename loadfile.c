@@ -490,6 +490,63 @@ int DetectSync(AudioSignal *Signal, parameters *config)
 	double				seconds = 0;
 
 	Signal->framerate = GetMSPerFrame(Signal, config);
+
+	if(config->ManualSyncRef || config->ManualSyncComp)
+	{
+		int setvalue = 0;
+
+		if(config->ManualSyncRef && Signal->role == ROLE_REF)
+		{
+			Signal->startOffset = config->ManualSyncRefStart*Signal->AudioChannels; 
+			Signal->endOffset = config->ManualSyncRefEnd*Signal->AudioChannels;
+			if(Signal->endOffset > (long)Signal->header.data.DataSize/Signal->bytesPerSample)
+			{
+				logmsg("\nERROR: End offset is out of bounds, file ends at asample %ld and got %ld.\n",
+					(long)Signal->header.data.DataSize/Signal->bytesPerSample,
+					SamplesForDisplay(Signal->endOffset, Signal->AudioChannels));
+				return 0;
+			}
+			Signal->framerate = CalculateFrameRateAndCheckSamplerate(Signal, config);
+			setvalue = 1;
+		}
+
+		if(config->ManualSyncComp && Signal->role == ROLE_COMP)
+		{
+			Signal->startOffset = config->ManualSyncCompStart*Signal->AudioChannels; 
+			Signal->endOffset = config->ManualSyncCompEnd*Signal->AudioChannels;
+			if(Signal->endOffset > (long)Signal->header.data.DataSize/Signal->bytesPerSample)
+			{
+				logmsg("\nERROR: End offset is out of bounds, file ends at asample %ld and got %ld.\n",
+					(long)Signal->header.data.DataSize/Signal->bytesPerSample, 
+					SamplesForDisplay(Signal->endOffset, Signal->AudioChannels));
+				return 0;
+			}
+			Signal->framerate = CalculateFrameRateAndCheckSamplerate(Signal, config);
+			setvalue = 1;
+		}
+
+		if(setvalue)
+		{
+			if(!Signal->framerate)
+			{
+				logmsg("\nERROR: Framerate could not be detected.\n");
+				return 0;
+			}
+
+			logmsg(" - Detected %.8g Hz signal (%.8gms per frame) from Audio file\n", 
+						roundFloat(CalculateScanRate(Signal)), Signal->framerate);
+
+			seconds = (double)Signal->numSamples/Signal->SampleRate/(double)Signal->AudioChannels;
+			if(seconds < GetSignalTotalDuration(Signal->framerate, config))
+				logmsg(" - File length is smaller than the expected %gs\n",
+					GetSignalTotalDuration(Signal->framerate, config));
+
+			if(GetFirstSilenceIndex(config) != NO_INDEX)
+				Signal->hasSilenceBlock = 1;
+			return 1;
+		}
+	}
+	
 	if(GetFirstSyncIndex(config) != NO_INDEX && !config->noSyncProfile)
 	{
 		if(config->clock)

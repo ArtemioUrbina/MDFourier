@@ -695,7 +695,7 @@ int ProcessNoiseFloor(AudioSignal *ReferenceSignal, AudioSignal *ComparisonSigna
 		ReferenceSignal->floorAmplitude = SIGNIFICANT_AMPLITUDE;
 	}
 
-	// Higher noise floor was found, but low fundamental noise was used
+	// Higher noise floor was found, biut low fundamental noise was used
 	if(config->referenceNoiseFloor > ReferenceSignal->floorAmplitude)
 		config->noiseFloorTooHigh |= ReferenceSignal->role;
 

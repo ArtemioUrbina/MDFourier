@@ -1634,6 +1634,22 @@ void DrawLabelsMDF(PlotFile *plot, char *Gname, char *GType, int type, parameter
 		pl_alabel_r(plot->plotter, 'l', 'l', msg);
 	}
 
+	if(config->ManualSyncComp)
+	{
+		PLOT_WARN(1, warning++);
+		sprintf(msg, "NOTE: Comp sync manually set (-m c:%ld:%ld)", 
+			config->ManualSyncCompStart, config->ManualSyncCompEnd);
+		pl_alabel_r(plot->plotter, 'l', 'l', msg);
+	}
+
+	if(config->ManualSyncRef)
+	{
+		PLOT_WARN(1, warning++);
+		sprintf(msg, "NOTE: Ref sync manually set (-m r:%ld:%ld)", 
+			config->ManualSyncRefStart, config->ManualSyncRefEnd);
+		pl_alabel_r(plot->plotter, 'l', 'l', msg);
+	}
+
 	if(config->maxDbPlotZC != DB_HEIGHT && type == PLOT_COMPARE)
 	{
 		PLOT_WARN(1, warning++);

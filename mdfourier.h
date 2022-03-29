@@ -685,6 +685,16 @@ typedef struct parameters_st {
 	int				drawMissExtraFreq;
 	int				trimmingNeeded;
 
+/* Manual sync*/
+	int				ManualSyncRef;
+	long			ManualSyncRefStart;
+	long			ManualSyncRefEnd;
+
+	int				ManualSyncComp;
+	long			ManualSyncCompStart;
+	long			ManualSyncCompEnd;
+
+
 /* Values only used for clock frequency */
 	char		clkName[20];
 	int			clkMeasure;

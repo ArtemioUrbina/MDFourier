@@ -292,8 +292,8 @@ int commandline(int argc , char *argv[], parameters *config)
 	
 	CleanParameters(config);
 
-	// Available: JKUmq1234567
-	while ((c = getopt (argc, argv, "Aa:Bb:Cc:Dd:Ee:Ff:GgHhIijkL:lMNn:Oo:P:p:QRr:Ss:TtuVvWw:XxY:yZ:z0:89")) != -1)
+	// Available: JKUq1234567
+	while ((c = getopt (argc, argv, "Aa:Bb:Cc:Dd:Ee:Ff:GgHhIijkL:lMm:Nn:Oo:P:p:QRr:Ss:TtuVvWw:XxY:yZ:z0:89")) != -1)
 	switch (c)
 	  {
 	  case 'A':
@@ -446,6 +446,42 @@ int commandline(int argc , char *argv[], parameters *config)
 		break;
 	  case 'M':
 		config->plotMissing = 0;
+		break;
+	  case 'm':
+		{
+			char manualType = '\0';
+			long start = 0, end = 0;
+
+			if(sscanf(optarg, "%c:%ld:%ld\n", &manualType, &start, &end) != 3 ||  
+				(manualType != 'r' && manualType != 'c'))
+			{
+				logmsg("-ERROR: Invalid manual offset (-m) parameter: %s.\n", optarg);
+				logmsg("  Must be of the form [r|c]:<start sample>:<end sample>\n", optarg);
+				return 0;
+			}
+
+			if(end <= start)
+			{
+				logmsg("ERROR: For manual sample offset, ending offset must be bigger than the starting offset\n", optarg);
+				return 0;
+			}
+			if(manualType == 'r')
+			{
+				config->ManualSyncRef = 1;
+				config->ManualSyncRefStart = start;
+				config->ManualSyncRefEnd = end;
+				logmsg("- Reference ");
+			}
+
+			if(manualType == 'c')
+			{
+				config->ManualSyncComp = 1;
+				config->ManualSyncCompStart = start;
+				config->ManualSyncCompEnd = end;
+				logmsg("- Comparison ");
+			}
+			logmsg("manual sample offset set %ld-%ld\n", start, end);
+		}
 		break;
 	  case 'N':
 		config->logScale = 0;

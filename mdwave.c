@@ -948,7 +948,7 @@ int commandline_wave(int argc , char *argv[], parameters *config)
 	  case 'I':
 		config->ignoreFrameRateDiff = 1;
 		break;
-	  case 'T':
+      case 'T':
 		config->syncTolerance++;
 		if(config->syncTolerance > 3)
 			config->syncTolerance = 3;
