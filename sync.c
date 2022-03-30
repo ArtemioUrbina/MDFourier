@@ -811,25 +811,35 @@ long int AdjustPulseSampleStartByLength(double* Samples, wav_hdr header, long in
 				}
 			}
 
-			foundPulseLength = pulseArray[endDetectPos].samples - pulseArray[startDetectPos].samples;
-			foundPulseLength = RoundToNsamples((double)foundPulseLength, AudioChannels, NULL, NULL);
-			newFoundPos = RoundToNsamples((double)pulseArray[startDetectPos].samples + ((double)foundPulseLength/2.0 - (double)synLenInSamples/2.0), AudioChannels, NULL, NULL);
-			if (newFoundPos != foundPos)
+			if(startDetectPos != -1 && endDetectPos != -1)
 			{
-				foundPos = newFoundPos;
-				config->syncAlignTolerance[config->syncAlignIterator] = 1;
-				config->syncAlignPct[config->syncAlignIterator] = percent;
+				foundPulseLength = pulseArray[endDetectPos].samples - pulseArray[startDetectPos].samples;
+				foundPulseLength = RoundToNsamples((double)foundPulseLength, AudioChannels, NULL, NULL);
+				newFoundPos = RoundToNsamples((double)pulseArray[startDetectPos].samples + ((double)foundPulseLength/2.0 - (double)synLenInSamples/2.0), AudioChannels, NULL, NULL);
+				if (newFoundPos != foundPos)
+				{
+					foundPos = newFoundPos;
+					config->syncAlignTolerance[config->syncAlignIterator] = 1;
+					config->syncAlignPct[config->syncAlignIterator] = percent;
+					if (config->debugSync)
+						logmsg("WARNING: Had to adjust sync pulse start due to %g%% pulse length difference from %ld samples to %ld samples\n", percent,
+							SamplesForDisplay(pulseArray[startDetectPos].samples, AudioChannels), SamplesForDisplay(foundPos, AudioChannels));
+				}
 				if (config->debugSync)
-					logmsg("WARNING: Had to adjust sync pulse start due to %g%% pulse length difference from %ld samples to %ld samples\n", percent,
-						SamplesForDisplay(pulseArray[startDetectPos].samples, AudioChannels), SamplesForDisplay(foundPos, AudioChannels));
+					logmsgFileOnly("FOUND: Item-%ld Sample: %ld %gHz Mag %g Phase %g\n",
+						startDetectPos,
+						SamplesForDisplay(pulseArray[startDetectPos].samples, AudioChannels),
+						pulseArray[startDetectPos].hertz, pulseArray[startDetectPos].magnitude, pulseArray[startDetectPos].phase);
 			}
 		}
-
-		if (config->debugSync)
-			logmsgFileOnly("FOUND: Item-%ld Sample: %ld %gHz Mag %g Phase %g\n",
-				startDetectPos,
-				SamplesForDisplay(pulseArray[startDetectPos].samples, AudioChannels),
-				pulseArray[startDetectPos].hertz, pulseArray[startDetectPos].magnitude, pulseArray[startDetectPos].phase);
+		else
+		{
+			if(foundPulseLength > synLenInSamples)
+			{
+				// Center the first pulse within the expected pulse sync length
+				foundPos += ((foundPulseLength-synLenInSamples)/2.0)*AudioChannels;
+			}
+		}
 	}
 
 	free(buffer);

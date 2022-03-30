@@ -120,6 +120,7 @@ typedef struct averaged_freq{
 #define	WAVEFORM_AMPDIFF	2
 #define	WAVEFORM_MISSING	3
 #define	WAVEFORM_EXTRA		4
+#define	WAVEFORM_SYNCZOOM	5
 
 typedef enum differencePlotType
 {

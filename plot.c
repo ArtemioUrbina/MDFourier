@@ -5283,6 +5283,14 @@ void PlotTimeDomainGraphs(AudioSignal *Signal, parameters *config)
 					logmsg(PLOT_ADVANCE_CHAR);
 					plots = 0;
 				}
+				if(Signal->Blocks[i].type == TYPE_SYNC)
+				{
+					sprintf(name, "TD_%05ld_%s_ZOOM_%s_%05d_%s", 
+						i, Signal->role == ROLE_REF ? "1" : "2",
+						GetBlockName(config, i), GetBlockSubIndex(config, i), config->compareName);
+
+					PlotBlockTimeDomainGraph(Signal, i, name, WAVEFORM_SYNCZOOM, 0, config);
+				}
 			}
 
 			if(Signal->Blocks[i].internalSyncCount)
@@ -5666,7 +5674,16 @@ void PlotBlockTimeDomainGraph(AudioSignal *Signal, int block, char *name, int wa
 	if(!samples)
 		return;
 
-	numSamples = Signal->Blocks[block].audio.size;
+	if(wavetype == WAVEFORM_SYNCZOOM)
+	{
+		long int oneFrameSamples = 0;
+
+		oneFrameSamples = SecondsToSamples(Signal->SampleRate, FramesToSeconds(Signal->framerate, 1), Signal->AudioChannels, NULL, NULL);
+		numSamples = oneFrameSamples;
+	}
+	else
+		numSamples = Signal->Blocks[block].audio.size;
+
 	difference = Signal->Blocks[block].audio.difference;
 	if(difference < 0)
 		plotSize += numSamples - difference;
