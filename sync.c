@@ -113,7 +113,7 @@ long int DetectEndPulse(double *AllSamples, long int startpulse, wav_hdr header,
 {
 	int			maxdetected = 0, frameAdjust = 0, tries = 0, maxtries = END_SYNC_MAX_TRIES;
 	int			factor = 0, AudioChannels = 0, bytesPerSample = 0;
-	long int 	sampleOffset = 0, searchOffset = -1, totalSamples = 0;
+	long int 	sampleOffset = 0, searchOffset = -1, totalSamples = 0, secondSilenceStart = 0;
 	double		silenceOffset[END_SYNC_MAX_TRIES] = END_SYNC_VALUES;
 
 	bytesPerSample = header.fmt.bitsPerSample / 8;
@@ -132,6 +132,7 @@ long int DetectEndPulse(double *AllSamples, long int startpulse, wav_hdr header,
 		return -1;
 	}
 	sampleOffset += startpulse;
+	secondSilenceStart = sampleOffset;
 	if(sampleOffset < totalSamples)
 	{
 		if(config->debugSync)
@@ -164,9 +165,9 @@ long int DetectEndPulse(double *AllSamples, long int startpulse, wav_hdr header,
 
 	do
 	{
-		/* Use defaults to calculate real frame rate */
+		/* Use defaults to calculate real frame rate but don't go further than silence*/
 		sampleOffset = GetSecondSyncSilenceSampleOffset(GetMSPerFrameRole(role, config), header, frameAdjust, silenceOffset[tries], config) + startpulse;
-		if(sampleOffset < totalSamples)
+		if(sampleOffset < secondSilenceStart && sampleOffset < totalSamples)
 		{
 			if(config->debugSync)
 				logmsgFileOnly("\nFile %s\nStarting Detect end pulse #%d with sample offset %ld [%g silence]\n\tMaxDetected %d frameAdjust: %d\n",
@@ -191,6 +192,40 @@ long int DetectEndPulse(double *AllSamples, long int startpulse, wav_hdr header,
 
 		tries ++;
 	}while(searchOffset == -1 && tries < maxtries);
+
+	if(searchOffset == -1)
+	{
+		tries = 0;
+		do
+		{
+			/* Use defaults to calculate real frame rate further back than silence... */
+			sampleOffset = GetSecondSyncSilenceSampleOffset(GetMSPerFrameRole(role, config), header, frameAdjust, silenceOffset[tries], config) + startpulse;
+			if(sampleOffset >= secondSilenceStart && sampleOffset < totalSamples)
+			{
+				if(config->debugSync)
+					logmsgFileOnly("\nFile %s\nStarting Detect end pulse #%d with sample offset %ld [%g silence]\n\tMaxDetected %d frameAdjust: %d\n",
+						GetFileName(role, config), tries + 1, SamplesForDisplay(sampleOffset, AudioChannels), silenceOffset[tries], maxdetected, frameAdjust);
+	
+				frameAdjust = 0;
+				maxdetected = 0;
+
+				searchOffset = DetectPulseInternal(AllSamples, header, factor, sampleOffset, &maxdetected, role, AudioChannels, config);
+				if(searchOffset == -1 && !maxdetected)
+				{
+					if(config->debugSync)
+						logmsgFileOnly("End pulse failed try #%d, started search at %ld samples [%g silence]\n",
+						tries+1, SamplesForDisplay(sampleOffset, AudioChannels), silenceOffset[tries]);
+				}
+			}
+			else
+			{
+				if(config->debugSync)
+					logmsgFileOnly("End pulse %d detection out of bounds at %ld samples\n", tries, SamplesForDisplay(sampleOffset, AudioChannels));
+			}
+
+			tries ++;
+		}while(searchOffset == -1 && tries < maxtries);
+	}
 
 	if(tries >= maxtries)
 		return -1;
@@ -654,6 +689,8 @@ long int AdjustPulseSampleStartByLength(double* Samples, wav_hdr header, long in
 	if (!matchCount)
 	{
 		logmsgFileOnly("\tERROR: Sync Adjustment, no matches at %g\n", targetFrequency);
+		free(buffer);
+		free(pulseArray);
 		return(foundPos);
 	}
 	averageMag = averageMag / (double)matchCount;
@@ -672,6 +709,8 @@ long int AdjustPulseSampleStartByLength(double* Samples, wav_hdr header, long in
 	if (!matchCount)
 	{
 		logmsgFileOnly("\tERROR: Sync Adjustment, no matches at for std dev %g\n", targetFrequency);
+		free(buffer);
+		free(pulseArray);
 		return(foundPos);
 	}
 	standardDeviation = sqrt(standardDeviation / (matchCount - 1));
