@@ -948,7 +948,6 @@ void ShortenFileName(char *filename, char *copy)
 
 int CreateFolder(char *name)
 {
-
 #if defined (WIN32)
 #if INTPTR_MAX == INT64_MAX
 #define	_mkdir mkdir
@@ -1114,11 +1113,11 @@ int CreateFolderName(char *mainfolder, parameters *config)
 					return 0;
 				}
 			}
-		}while(!found && value < 1000);
+		}while(!found && value < 10000);
 
-		if(value >= 1000)
+		if(value >= 10000)
 		{
-			logmsg("ERROR: Could not create '%s', only 1000 folder per comparison supported\n", config->folderName);
+			logmsg("ERROR: Could not create '%s', only 10000 folder per comparison supported\n", config->folderName);
 			return 0;
 		}
 	}
