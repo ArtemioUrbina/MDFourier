@@ -57,6 +57,10 @@ void PrintUsage()
 	logmsg("	 -T: Increase Sync detection <T>olerance (ignore frequency for pulses)\n");
 	logmsg("	 -Y: Define the Reference Video Format from the profile\n");
 	logmsg("	 -Z: Define the Comparison Video Format from the profile\n");
+	logmsg("	 -m: Set <m>anual sync samples, takes format [r|c]:<start sample>:<end sample>\n");
+	logmsg("		where r is for reference and c is for comparison\n");
+	logmsg("		example: -m r:64001:12236801\n");
+	logmsg("		sample values must be the start of each pulse sequence\n");
 	logmsg("	 -R: Adjust sample <R>ate if duration difference is found\n");
 	logmsg("	 -j: Ad<j>ust clock (profile defined) via FFTW if difference is found\n");
 	logmsg("	 -k: cloc<k> FFTW operations\n");
@@ -938,14 +942,8 @@ void ShortenFileName(char *filename, char *copy)
 
 #if defined (WIN32)
 	if(len > MAX_FILE_NAME)
-	{	
-		copy[MAX_FILE_NAME - 4] = rand() % 26 + 'a';
-		copy[MAX_FILE_NAME - 3] = rand() % 26 + 'a';
-		copy[MAX_FILE_NAME - 2] = rand() % 26 + 'a';
 		copy[MAX_FILE_NAME - 1] = '\0';
-	}
 #endif
-	
 }
 
 int CreateFolder(char *name)
@@ -1034,21 +1032,18 @@ int CleanFolderName(char *name, char *origName)
 int CreateFolderName(char *mainfolder, parameters *config)
 {
 	int len = 0;
-	char tmp[BUFFER_SIZE/2], fn[BUFFER_SIZE/2], pname[BUFFER_SIZE/2];
+	char tmp[BUFFER_SIZE/2], fn[BUFFER_SIZE/2], pname[BUFFER_SIZE/2], popfolder[FILENAME_MAX];
 
 	if(!config)
 		return 0;
 
-#if defined (WIN32)
-	srand(time(NULL));
-#endif
-
+	// Compose the folder name a_vs_b_0000
 	ShortenFileName(basename(config->referenceFile), tmp);
 	len = strlen(tmp);
 	if(strlen(config->comparisonFile))
 	{
 		ShortenFileName(basename(config->comparisonFile), fn);
-		sprintf(tmp+len, "_vs_%s", fn);
+		sprintf(tmp+len, "_vs_%s_0000", fn);
 
 		len = strlen(tmp);
 	}
@@ -1059,6 +1054,7 @@ int CreateFolderName(char *mainfolder, parameters *config)
 			tmp[i] = '_';
 	}
 
+	// Setup the top level folder for profile if it doesn't exist
 	sprintf(pname, "%s", config->types.Name);
 	if(CleanFolderName(pname, config->types.Name) == -1)
 	{
@@ -1069,17 +1065,64 @@ int CreateFolderName(char *mainfolder, parameters *config)
 	sprintf(config->compareName, "%s", tmp);
 	sprintf(config->folderName, "%s%c%s", mainfolder, FOLDERCHAR, pname);
 
+	// Create the top level folder "MDFResults"
 	if(!CreateFolder(mainfolder))
 	{
 		logmsg("ERROR: Could not create '%s'\n", mainfolder);
 		return 0;
 	}
+	// Create the top level folder for profile if it doesn't exist
 	if(!CreateFolder(config->folderName))
 	{
 		logmsg("ERROR: Could not create '%s'\n", config->folderName);
 		return 0;
 	}
+
+	// Finally, set the current results folder name
 	sprintf(config->folderName, "%s%c%s%c%s", mainfolder, FOLDERCHAR, pname, FOLDERCHAR, tmp);
+	// get top folder if in case we need to pop out of it
+	if(!GetCurrentDir(popfolder, sizeof(char)*FILENAME_MAX))
+	{
+		logmsg("ERROR: Could not get current path\n");
+		return 0;
+	}
+	// Check if folder already exists
+	if(chdir(config->folderName) != -1)
+	{
+		int value = 0, found = 0;
+
+		if(chdir(popfolder) == -1)  // return to proper parent folder
+		{
+			// what we failed?!?!?!
+			logmsg("ERROR: Could not change folder to '%s'\n", popfolder);
+			return 0;
+		}
+
+		len = strlen(config->folderName);
+		value = atoi(config->folderName+len-4);
+		do
+		{
+			value++;
+			sprintf(config->folderName+len-4, "%04d", value);
+			if(chdir(config->folderName) == -1) // we couldn't push to it, got it
+				found = 1;
+			else
+			{
+				if(chdir(popfolder) == -1)  // return to proper parent folder
+				{
+					logmsg("ERROR: Could not change folder to '%s'\n", popfolder);
+					return 0;
+				}
+			}
+		}while(!found && value < 1000);
+
+		if(value >= 1000)
+		{
+			logmsg("ERROR: Could not create '%s', only 1000 folder per comparison supported\n", config->folderName);
+			return 0;
+		}
+	}
+
 	if(!CreateFolder(config->folderName))
 	{
 		logmsg("ERROR: Could not create '%s'\n", config->folderName);

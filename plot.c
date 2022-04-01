@@ -1591,14 +1591,18 @@ void DrawLabelsMDF(PlotFile *plot, char *Gname, char *GType, int type, parameter
 		if(config->comparisonSignal->originalSR)
 		{
 			PLOT_WARN(1, warning++);
-			sprintf(msg, "NOTE: CM sample rate adj. to match duration \\!=%0.3f\\ct (-R)", config->ComCentsDifferenceSR);
+			sprintf(msg, "NOTE: CM sample rate calculated %s%0.3f\\ct . Adjusted to match. (-R)", 
+				config->ComCentsDifferenceSR > 0 ? "+" : "",
+				config->ComCentsDifferenceSR);
 			pl_alabel_r(plot->plotter, 'l', 'l', msg);
 		}
 
 		if(config->referenceSignal->originalSR)
 		{
 			PLOT_WARN(1, warning++);
-			sprintf(msg, "NOTE: RF sample rate adj. to match duration \\!=%0.3f\\ct (-R)", config->RefCentsDifferenceSR);
+			sprintf(msg, "NOTE: RF sample rate calculated %s%0.3f\\ct . Adjusted to match. (-R)", 
+				config->RefCentsDifferenceSR > 0 ? "+" : "",
+				config->RefCentsDifferenceSR);
 			pl_alabel_r(plot->plotter, 'l', 'l', msg);
 		}
 	}
@@ -5285,7 +5289,7 @@ void PlotTimeDomainGraphs(AudioSignal *Signal, parameters *config)
 				}
 				if(Signal->Blocks[i].type == TYPE_SYNC)
 				{
-					sprintf(name, "TD_%05ld_%s_ZOOM_%s_%05d_%s", 
+					sprintf(name, "ZOOM_Sync_TD_%05ld_%s_%s_%05d_%s", 
 						i, Signal->role == ROLE_REF ? "1" : "2",
 						GetBlockName(config, i), GetBlockSubIndex(config, i), config->compareName);
 
@@ -5798,16 +5802,20 @@ void PlotBlockTimeDomainGraph(AudioSignal *Signal, int block, char *name, int wa
 
 		oneFrameSamples = SecondsToSamples(Signal->SampleRate, FramesToSeconds(Signal->framerate, 1), Signal->AudioChannels, NULL, NULL);
 		if(GetFirstSyncIndex(config) == block)
-			sprintf(title, "%s# %d%s | samples %ld-%ld | Start Sync: (used:%ld/measrd:%ld)-%ld", GetBlockDisplayName(config, block), GetBlockSubIndex(config, block),
+			sprintf(title, "%s# %d%s %s| samples %ld-%ld | START Sync: <used:%ld/measrd:%ld>-%ld", 
+				GetBlockDisplayName(config, block), GetBlockSubIndex(config, block),
 				GetWFMTypeText(wavetype, buffer, data, Signal->role), 
+				wavetype == WAVEFORM_SYNCZOOM ? "ZOOM" : "", 
 				SamplesForDisplay(sampleOffset, Signal->AudioChannels),
 				SamplesForDisplay(sampleOffset+numSamples*Signal->AudioChannels, Signal->AudioChannels),
 				SamplesForDisplay(sampleOffset+oneFrameSamples, Signal->AudioChannels),
 				SamplesForDisplay(Signal->startOffset, Signal->AudioChannels),
 				SamplesForDisplay(Signal->endOffset, Signal->AudioChannels));
 		else
-			sprintf(title, "%s# %d%s | samples %ld-%ld | End Sync: %ld-(used:%ld/measrd:%ld)", GetBlockDisplayName(config, block), GetBlockSubIndex(config, block),
+			sprintf(title, "%s# %d%s %s| samples %ld-%ld | END Sync: %ld-<used:%ld/measrd:%ld>", 
+				GetBlockDisplayName(config, block), GetBlockSubIndex(config, block), 
 				GetWFMTypeText(wavetype, buffer, data, Signal->role), 
+				wavetype == WAVEFORM_SYNCZOOM ? "ZOOM" : "", 
 				SamplesForDisplay(sampleOffset, Signal->AudioChannels),
 				SamplesForDisplay(sampleOffset+numSamples*Signal->AudioChannels, Signal->AudioChannels),
 				SamplesForDisplay(Signal->startOffset, Signal->AudioChannels),

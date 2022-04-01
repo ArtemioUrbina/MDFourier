@@ -2996,7 +2996,7 @@ double CalculateFrameRateAndCheckSamplerate(AudioSignal *Signal, parameters *con
 	calculatedSamplerate = (endOffset-startOffset)/(expectedFR*LastSyncFrameOffset);
 	calculatedSamplerate = calculatedSamplerate*1000.0/(double)Signal->AudioChannels;
 
-	centsDifferenceSR = 1200.0*log2(calculatedSamplerate/Signal->SampleRate);
+	centsDifferenceSR = 1200.0*log2(Signal->SampleRate/calculatedSamplerate);
 	SRDifference = calculatedSamplerate - Signal->SampleRate;
 
 #ifdef DEBUG
