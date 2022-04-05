@@ -620,16 +620,8 @@ void PlotResults(AudioSignal *ReferenceSignal, AudioSignal *ComparisonSignal, pa
 			struct	timespec	lstart, lend;
 
 			StartPlot(" - Time Domain Graphs from highly different notes\n  ", &lstart, config);
-#ifdef OPENMP_ENABLE
-	#pragma omp parallel for
-#endif
-			for (int i = 0; i < 2; i++)
-			{
-				if (i == 0)
-					PlotTimeDomainHighDifferenceGraphs(ReferenceSignal, config);
-				else
-					PlotTimeDomainHighDifferenceGraphs(ComparisonSignal, config);
-			}
+			PlotTimeDomainHighDifferenceGraphs(ReferenceSignal, config);
+			PlotTimeDomainHighDifferenceGraphs(ComparisonSignal, config);
 			EndPlot("Time Domain Graphs", &lstart, &lend, config);
 		}
 	}
