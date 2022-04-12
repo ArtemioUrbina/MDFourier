@@ -88,7 +88,7 @@ void PrintUsage()
 	logmsg("	 -t: Don't create Time Spectrogram Plots\n");
 	logmsg("	 -O: Don't create Phase Pl<O>ts\n");
 	logmsg("	 -Q: Don't create Time Domain Plots\n");
-	logmsg("	 -H: Output waveform plots for <H>ighly different notes\n");
+	logmsg("	 -H: Output waveform plots for <H>ighly different notes, takes a value in percentage\n");
 	logmsg("	 -o: Define the output filter function for color weights [0-5]\n");
 	logmsg("	 -u: Create waveform plots for all notes\n");
 	logmsg("	      -uu:  Create DFT windowed waveform plots for all notes\n");
@@ -297,7 +297,7 @@ int commandline(int argc , char *argv[], parameters *config)
 	CleanParameters(config);
 
 	// Available: JKUq1234567
-	while ((c = getopt (argc, argv, "Aa:Bb:Cc:Dd:Ee:Ff:GgHhIijkL:lMm:Nn:Oo:P:p:QRr:Ss:TtuVvWw:XxY:yZ:z0:89")) != -1)
+	while ((c = getopt (argc, argv, "Aa:Bb:Cc:Dd:Ee:Ff:GgH:hIijkL:lMm:Nn:Oo:P:p:QRr:Ss:TtuVvWw:XxY:yZ:z0:89")) != -1)
 	switch (c)
 	  {
 	  case 'A':
@@ -378,7 +378,7 @@ int commandline(int argc , char *argv[], parameters *config)
 		config->MaxFreq = atoi(optarg);
 		if(config->MaxFreq < 1 || config->MaxFreq > MAX_FREQ_COUNT)
 		{
-			logmsg("-ERROR: Number fo frequencies must be between %d and %d\n", 1, MAX_FREQ_COUNT);
+			logmsg("-ERROR: Number of frequencies must be between %d and %d\n", 1, MAX_FREQ_COUNT);
 			return 0;
 		}
 		logmsg("\t-Max frequencies to use from FFTW are %d (default %d)\n", config->MaxFreq, FREQ_COUNT);
@@ -390,7 +390,23 @@ int commandline(int argc , char *argv[], parameters *config)
 		config->averagePlot = 0;
 		break;
 	  case 'H':
-		config->plotTimeDomainHiDiff = 1;
+		{
+			double percent = 0;
+
+			percent = atof(optarg);
+			if(percent > 100.0 || percent < 0.0)
+			{
+				logmsg("-ERROR: Percent for comparison must be between 0.0 and 100.0\n");
+				return 0;
+			}
+			
+			config->thresholdAmplitudeHiDif = percent;
+			config->thresholdMissingHiDif = percent;
+			config->thresholdExtraHiDif = percent;
+
+			logmsg("\t-Percentage for highly different wavefors set at %g%% (old value 1%%)\n", percent);
+			config->plotTimeDomainHiDiff = 1;
+		}
 		break;
 	  case 'h':
 		PrintUsage();
@@ -662,8 +678,12 @@ int commandline(int argc , char *argv[], parameters *config)
 		  logmsg("\t ERROR: Max frequency range for FFTW -%c requires an argument: %d-%d\n", START_HZ*2, END_HZ, optopt);
 		else if (optopt == 'f')
 		  logmsg("\t ERROR: Max # of frequencies to use from FFTW -%c requires an argument: 1-%d\n", optopt, MAX_FREQ_COUNT);
+		else if (optopt == 'H')
+		  logmsg("\t ERROR: Highly different waveform  -%c requires an argument: 0.0-100.0\n", optopt);
 		else if (optopt == 'L')
 		  logmsg("\t ERROR: Plot Resolution -%c requires an argument: 1-6\n", optopt);
+		else if (optopt == 'm')
+		  logmsg("\t ERROR: Manual sync -%c requires an argument: [r|c]:<s>:<e>\n", optopt);
 		else if (optopt == 'n')
 		  logmsg("\t ERROR: Normalization type -%c requires an argument:\n\tUse 't' Time Domain Max, 'f' Frequency Domain Max or 'a' Average\n");
 		else if (optopt == 'o')

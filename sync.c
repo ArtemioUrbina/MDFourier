@@ -99,15 +99,18 @@ long int DetectPulse(double *AllSamples, wav_hdr header, int role, parameters *c
  2.1 and above were added for PAL MD at 60 detection. Yes, that is 2.1
 */
 
-#define END_SYNC_MAX_TRIES		64
+#define END_SYNC_MAX_TRIES		86
 #define END_SYNC_VALUES			{ 0.50, 0.25, 0.0, 1.25, 1.50,\
-								0.9, 0.8, 0.7, 0.6, 1.6, 1.7, 1.8, 1.9, \
-								0.4, 0.3, 0.1, 1.1, 1.3, 1.4,\
+								0.9, 0.8, 0.7, 0.6, 1.6, 1.7, 1.8, 1.9,\
+								0.4, 0.3, 0.2, 0.1, 1.1, 1.3, 1.2, 1.4,\
 								1.0, -1,0, 2.0, -2.0,\
 								2.1, 2.2, 2.3, 2.4, 2.5, 2.5, 2.7, 2.8, 2.9, 3.0,\
 								-2.1, -2.2, -2.3, -2.4, -2.5, -2.5, -2.7, -2.8, -2.9, -3.0,\
 								3.1, 3.2, 3.3, 3.4, 3.5, 3.5, 3.7, 3.8, 3.9, 4.0,\
-								-3.1, -3.2, -3.3, -3.4, -3.5, -3.5, -3.7, -3.8, -3.9, -4.0 }
+								-3.1, -3.2, -3.3, -3.4, -3.5, -3.5, -3.7, -3.8, -3.9, -4.0,\
+								-0.50, -0.25, -1.25, -1.50,\
+								-0.9, -0.8, -0.7, -0.6, -1.6, -1.7, -1.8, -1.9,\
+								-0.4, -0.3, -0.2, -0.1, -1.1, -1.2, -1.3, -1.4 }
 
 long int DetectEndPulse(double *AllSamples, long int startpulse, wav_hdr header, int role, parameters *config)
 {
@@ -181,13 +184,13 @@ long int DetectEndPulse(double *AllSamples, long int startpulse, wav_hdr header,
 			{
 				if(config->debugSync)
 					logmsgFileOnly("End pulse failed try #%d, started search at %ld samples [%g silence]\n",
-					tries+1, SamplesForDisplay(sampleOffset, AudioChannels), silenceOffset[tries]);
+						tries+1, SamplesForDisplay(sampleOffset, AudioChannels), silenceOffset[tries]);
 			}
 		}
 		else
 		{
-			if(config->debugSync)
-				logmsgFileOnly("End pulse %d detection out of bounds at %ld samples\n", tries, SamplesForDisplay(sampleOffset, AudioChannels));
+			if(sampleOffset > totalSamples && config->debugSync)
+				logmsgFileOnly("End pulse try #%d detection out of bounds at %ld samples\n", tries+1, SamplesForDisplay(sampleOffset, AudioChannels));
 		}
 
 		tries ++;
@@ -219,8 +222,8 @@ long int DetectEndPulse(double *AllSamples, long int startpulse, wav_hdr header,
 			}
 			else
 			{
-				if(config->debugSync)
-					logmsgFileOnly("End pulse %d detection out of bounds at %ld samples\n", tries, SamplesForDisplay(sampleOffset, AudioChannels));
+				if(sampleOffset > totalSamples && config->debugSync)
+					logmsgFileOnly("End pulse #%d detection out of bounds at %ld samples\n", tries+1, SamplesForDisplay(sampleOffset, AudioChannels));
 			}
 
 			tries ++;
@@ -736,27 +739,50 @@ long int AdjustPulseSampleStartByLength(double* Samples, wav_hdr header, long in
 
 	for (pos = 0; pos < count; pos++)
 	{
+		// pulseArray[pos].hertz is 0 if not a harmonic or the Target frequency
 		if (config->debugSync)
-			logmsgFileOnly("[%0.4d/%0.4d]Sample: %ld/Byte:%ld %gHz Mag %g Phase %g\n", pos, count,
+			logmsgFileOnly("[%0.4d/%0.4d]Sample: %ld/Byte:%ld %gHz Mag %g Phase %g Search for: %g\n", pos, count,
 				SamplesForDisplay(pulseArray[pos].samples, AudioChannels), 
 				SamplesToBytes(pulseArray[pos].samples, bytesPerSample),
-				pulseArray[pos].hertz, pulseArray[pos].magnitude, pulseArray[pos].phase);
-		if (targetFrequency == pulseArray[pos].hertz && pulseArray[pos].magnitude >= compareMag)
+				pulseArray[pos].hertz, pulseArray[pos].magnitude, pulseArray[pos].phase,
+				compareMag);
+		if (pulseArray[pos].hertz != 0 && pulseArray[pos].magnitude >= compareMag)
 		{
 			if (startDetectPos == -1)
 			{
 				startDetectPos = pos;
 				if (config->debugSync)
-					logmsgFileOnly("== match start ==\n");
+					logmsgFileOnly("== match start == using Sample: %ld\n", 
+						SamplesForDisplay(pulseArray[startDetectPos].samples, AudioChannels));
 			}
 		}
 		else
 		{
-			if (startDetectPos != -1 && (targetFrequency != pulseArray[pos].hertz ||
-				(targetFrequency == pulseArray[pos].hertz && pulseArray[pos].magnitude < compareMag*0.5)))
+			// Only do something if Start Sync was detected
+			if (startDetectPos != -1)
 			{
-				endDetectPos = pos + RoundToNsamples((double)samplesNeeded/4.0, AudioChannels, NULL, NULL);   // Add the tail since we are doing overlapped starts
-				break;
+				double		adjustEnd = 1.0;
+				long int	foundPulseLength = 0;
+
+				// Adjust tolerance if we stiull are not within the expected pulse length
+				foundPulseLength = pulseArray[pos].samples - pulseArray[startDetectPos].samples;
+				if(foundPulseLength < synLenInSamples)
+					adjustEnd = 0.1;
+
+				// Check for end of the pulse
+				if ((pulseArray[pos].hertz == 0 ||
+					(pulseArray[pos].hertz != 0 && pulseArray[pos].magnitude < compareMag*adjustEnd)))
+				{
+					//endDetectPos = pos + RoundToNsamples((double)samplesNeeded/4.0, AudioChannels, NULL, NULL);   // Add the tail since we are doing overlapped starts
+					if(pulseArray[pos].hertz == 0)
+						pos --;
+					endDetectPos = pos;
+					if (config->debugSync)
+						logmsgFileOnly("== match end == using Sample: %ld (compared %g)\n", 
+							SamplesForDisplay(pulseArray[endDetectPos].samples, AudioChannels),
+							compareMag*adjustEnd);
+					break;
+				}
 			}
 		}
 	}
@@ -772,8 +798,11 @@ long int AdjustPulseSampleStartByLength(double* Samples, wav_hdr header, long in
 		percent = (double)abs(foundPulseLength-synLenInSamples)*100.0/(double)synLenInSamples;
 
 		if (config->debugSync)
-			logmsgFileOnly("Percent %g%% detected length %ld expected length: %ld\n", percent,
-				SamplesForDisplay(foundPulseLength, AudioChannels), SamplesForDisplay(synLenInSamples, AudioChannels));
+			logmsgFileOnly("Detected at: %ld Percent outside %g%% detected length %ld expected length: %ld\n",
+				SamplesForDisplay(foundPos, AudioChannels), 
+				percent,
+				SamplesForDisplay(foundPulseLength, AudioChannels), 
+				SamplesForDisplay(synLenInSamples, AudioChannels));
 
 		if (percent > 10 && percent < 75)
 		{
@@ -836,9 +865,20 @@ long int AdjustPulseSampleStartByLength(double* Samples, wav_hdr header, long in
 		{
 			if(foundPulseLength > synLenInSamples)
 			{
+				if (config->debugSync)
+					logmsgFileOnly("Starting from sample: %ld, using %g Mag (Start Mag %g -> End Mag%g)\n",
+						SamplesForDisplay(foundPos, AudioChannels),
+						compareMag,
+						pulseArray[startDetectPos].magnitude,
+						pulseArray[endDetectPos].magnitude);
+
 				// Center the first pulse within the expected pulse sync length
 				foundPos += ((foundPulseLength-synLenInSamples)/2.0)*AudioChannels;
+				if (config->debugSync)
+					logmsgFileOnly("Corrected to sample: %ld\n",
+						SamplesForDisplay(foundPos, AudioChannels));
 			}
+
 		}
 	}
 
