@@ -79,7 +79,9 @@ void PrintUsage()
 	logmsg("		1: %gx%g  2: %gx%g 3: %gx%g\n",
 			PLOT_RES_X_LOW, PLOT_RES_Y_LOW, PLOT_RES_X, PLOT_RES_Y, PLOT_RES_X_1K, PLOT_RES_Y_1K);
 	logmsg("		4: %gx%g 5: %gx%g 6: %gx%g\n",
-			PLOT_RES_X_HI, PLOT_RES_Y_HI, PLOT_RES_X_4K, PLOT_RES_Y_4K, PLOT_RES_X_FP, PLOT_RES_Y_FP);
+			PLOT_RES_X_HI, PLOT_RES_Y_HI, PLOT_RES_X_4K, PLOT_RES_Y_4K, PLOT_RES_X_8K, PLOT_RES_Y_8K);
+	logmsg("		7: %gx%g 8: %gx%g 9: %gx%g\n",
+			PLOT_RES_X_16K, PLOT_RES_Y_16K, PLOT_RES_X_32K, PLOT_RES_Y_32K, PLOT_RES_X_64K, PLOT_RES_Y_64K);
 	logmsg("	 -D: Don't create <D>ifferences Plots\n");
 	logmsg("	 -g: Don't create avera<g>e points over the plotted graphs\n");
 	logmsg("	 -M: Don't create <M>issing Plots\n");
@@ -430,6 +432,11 @@ int commandline(int argc , char *argv[], parameters *config)
 	  case 'L':
 		switch(atoi(optarg))
 		{
+			case 0:
+				config->plotResX = PLOT_RES_X_LL;
+				config->plotResY = PLOT_RES_Y_LL;
+				config->showPercent = 0;
+				break;
 			case 1:
 				config->plotResX = PLOT_RES_X_LOW;
 				config->plotResY = PLOT_RES_Y_LOW;
@@ -452,14 +459,27 @@ int commandline(int argc , char *argv[], parameters *config)
 				config->plotResY = PLOT_RES_Y_4K;
 				break;
 			case 6:
-				config->plotResX = PLOT_RES_X_FP;
-				config->plotResY = PLOT_RES_Y_FP;
+				config->plotResX = PLOT_RES_X_8K;
+				config->plotResY = PLOT_RES_Y_8K;
+				break;
+			case 7:
+				config->plotResX = PLOT_RES_X_16K;
+				config->plotResY = PLOT_RES_Y_16K;
+				break;
+			case 8:
+				config->plotResX = PLOT_RES_X_32K;
+				config->plotResY = PLOT_RES_Y_32K;
+				break;
+			case 9:
+				config->plotResX = PLOT_RES_X_64K;
+				config->plotResY = PLOT_RES_Y_64K;
 				break;
 			default:
 				logmsg("-ERROR: Invalid resolution (-%c) parameter %s\n", optopt, optarg);
 				return 0;
 				break;
 		}
+		logmsg("Plot resolution set to %gx%g\n", config->plotResX, config->plotResY);
 		break;
 	  case 'l':
 		DisableLog();

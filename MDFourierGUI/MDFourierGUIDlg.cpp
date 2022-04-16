@@ -23,6 +23,7 @@ CMDFourierGUIDlg::CMDFourierGUIDlg(CWnd* pParent /*=NULL*/)
 	elementCount = 0;
 	elements = NULL;
 	elementPos = 0;
+	Monitor_vert = Monitor_horz = -1;
 }
 
 void CMDFourierGUIDlg::DoDataExchange(CDataExchange* pDX)
@@ -117,6 +118,7 @@ BOOL CMDFourierGUIDlg::OnInitDialog()
 	m_WaveFormCheckBox.SetCheck(TRUE);
 	m_PhaseCheckBox.SetCheck(TRUE);
 
+	ReduceWindowSizeIfLowRes();
 	FillComboBoxes();
 
 	m_OpenResultsBttn.EnableWindow(FALSE);
@@ -127,6 +129,86 @@ BOOL CMDFourierGUIDlg::OnInitDialog()
 
 	DragAcceptFiles(TRUE);
 	return TRUE;  // return TRUE  unless you set the focus to a control
+}
+
+void CMDFourierGUIDlg::ReduceWindowSizeIfLowRes()
+{
+	HMONITOR hmon;
+    MONITORINFO mi = {0};
+
+    mi.cbSize = sizeof(mi);
+	hmon = ::MonitorFromWindow(m_hWnd, MONITOR_DEFAULTTOPRIMARY);
+    if(::GetMonitorInfo(hmon, &mi))
+    {
+        //Got monitor size & position where the process was started in
+        CRect rcThis;
+        this->GetWindowRect(rcThis);
+
+		int sizex = mi.rcWork.right - mi.rcWork.left;
+		int sizey = mi.rcWork.bottom - mi.rcWork.top;
+
+		int windowH = rcThis.Height();
+		// We take working area, not full resolution
+		if(sizey > 1900)
+		{
+			Monitor_vert = mi.rcMonitor.bottom - mi.rcMonitor.top;
+			Monitor_horz = mi.rcMonitor.right - mi.rcMonitor.left;
+		}
+		else
+		{
+			Monitor_vert = sizey; 
+			Monitor_horz = sizex; 
+		}
+		if(mi.rcMonitor.bottom - mi.rcMonitor.top < 600 || Monitor_horz < 800)
+		{
+			MessageBox(L"Resolution needs to be at least 800x600, sorry", L"MDFourier");
+			EndDialog(IDCANCEL);
+			return;
+		}
+		if(windowH > sizey)
+		{
+			CRect rect;
+			int targetH = sizey*.8;
+			int ctrlH = 0;
+			int margin = 50;
+			
+			//Move buttons
+			m_ExecuteBttn.GetWindowRect(&rect);
+			ctrlH = rect.Height();
+			rect.top = targetH - ctrlH - margin;
+			rect.bottom = targetH - margin;
+			m_ExecuteBttn.MoveWindow(&rect);
+
+			m_CloseBttn.GetWindowRect(&rect);
+			ctrlH = rect.Height();
+			rect.top = targetH - ctrlH - margin;
+			rect.bottom = targetH - margin;
+			m_CloseBttn.MoveWindow(&rect);
+
+			m_OpenResultsBttn.GetWindowRect(&rect);
+			ctrlH = rect.Height();
+			rect.top = targetH - ctrlH - margin;
+			rect.bottom = targetH - margin;
+			m_OpenResultsBttn.MoveWindow(&rect);
+
+			// Resize Output
+			int buttonsTop = rect.top;
+			m_OutputTextCtrl.GetWindowRect(&rect);
+			rect.top -= ctrlH;
+			rect.bottom = buttonsTop - ctrlH / 2;
+			m_OutputTextCtrl.MoveWindow(&rect);
+
+			this->SetWindowPos(NULL, 0, 0, rcThis.Width(), targetH, SWP_NOMOVE | SWP_NOZORDER);
+			this->GetWindowRect(rcThis);
+			windowH = rcThis.Height();
+		}
+        int x = (sizex - rcThis.Width()) / 2;
+        int y = (sizey - rcThis.Height()) / 2;
+
+        this->MoveWindow(mi.rcWork.left + x, mi.rcWork.top + y, rcThis.Width(), rcThis.Height());
+    }
+    else
+        this->CenterWindow();
 }
 
 // If you add a minimize button to your dialog, you will need the code below
@@ -318,13 +400,13 @@ void CMDFourierGUIDlg::ExecuteCommand(CString Compare)
 		command += syncData;
 	}
 
-	if(m_AlignFFTWCheckBox.GetCheck() == BST_CHECKED)
+	if(m_AlignFFTWCheckBox.GetCheck() == BST_CHECKED && extraCmd.Find(L"-z") == -1)
 		command += " -z";
 
-	if(m_AveragePlotCheckBox.GetCheck() != BST_CHECKED)
+	if(m_AveragePlotCheckBox.GetCheck() != BST_CHECKED && extraCmd.Find(L"-g") == -1)
 		command += " -g";
 
-	if(m_VerboseLogCheckBox.GetCheck() == BST_CHECKED)
+	if(m_VerboseLogCheckBox.GetCheck() == BST_CHECKED && extraCmd.Find(L"-v") == -1)
 	{
 		command += " -v";
 		cDos.verbose = TRUE;
@@ -332,27 +414,27 @@ void CMDFourierGUIDlg::ExecuteCommand(CString Compare)
 	else
 		cDos.verbose = FALSE;
 
-	if(m_DifferencesCheckBox.GetCheck() != BST_CHECKED)
+	if(m_DifferencesCheckBox.GetCheck() != BST_CHECKED && extraCmd.Find(L"-D") == -1)
 		command += " -D";
-	if(m_MissingExtraCheckBox.GetCheck() != BST_CHECKED)
+	if(m_MissingExtraCheckBox.GetCheck() != BST_CHECKED && extraCmd.Find(L"-M") == -1)
 		command += " -M";
-	if(m_SpectrogramsCheckBox.GetCheck() != BST_CHECKED)
+	if(m_SpectrogramsCheckBox.GetCheck() != BST_CHECKED && extraCmd.Find(L"-S") == -1)
 		command += " -S";
-	if(m_NoiseFloorCheckBox.GetCheck() != BST_CHECKED)
+	if(m_NoiseFloorCheckBox.GetCheck() != BST_CHECKED && extraCmd.Find(L"-F") == -1)
 		command += " -F";
-	if(m_TimeSpectrogramCheckBox.GetCheck() != BST_CHECKED)
+	if(m_TimeSpectrogramCheckBox.GetCheck() != BST_CHECKED && extraCmd.Find(L"-t") == -1)
 		command += " -t";
 	else
 	{
-		if(m_FullResTimeSpectrCheckBox.GetCheck())
+		if(m_FullResTimeSpectrCheckBox.GetCheck() && extraCmd.Find(L"-E") == -1)
 			command += " -E";
 	}
-	if(m_WaveFormCheckBox.GetCheck() != BST_CHECKED)
+	if(m_WaveFormCheckBox.GetCheck() != BST_CHECKED && extraCmd.Find(L"-Q") == -1)
 		command += " -Q";
-	if(m_PhaseCheckBox.GetCheck() != BST_CHECKED)
+	if(m_PhaseCheckBox.GetCheck() != BST_CHECKED && extraCmd.Find(L"-O") == -1)
 		command += " -O";
 
-	if(m_ExtraDataCheckBox.GetCheck() != BST_CHECKED)
+	if(m_ExtraDataCheckBox.GetCheck() != BST_CHECKED && extraCmd.Find(L"-X") == -1)
 		command += " -X";
 
 	if(m_EnableExtraCommandCheckBox.GetCheck() == BST_CHECKED)
@@ -363,7 +445,7 @@ void CMDFourierGUIDlg::ExecuteCommand(CString Compare)
 		command += extraCmd;
 	}
 
-	if(m_Resolution.GetCurSel() != 1)
+	if(extraCmd.Find(L"-L") == -1)
 	{
 		res = GetSelectedCommandLineValue(m_Resolution, COUNT_RESOLUTION);
 		command += L" -L "+res;
@@ -386,7 +468,10 @@ void CMDFourierGUIDlg::OnBnClickedCancel()
 	CString msg;
 
 	if(cDos.m_fDone)
-		CDialogEx::OnCancel();
+	{
+		if(MessageBox(L"Really close MDFourier?", L"Close MDFourier", MB_OKCANCEL)==IDOK)
+			CDialogEx::OnCancel();
+	}
 	else
 	{
 		if(killingDOS)
@@ -742,12 +827,35 @@ void CMDFourierGUIDlg::FillComboBoxes()
 	InsertValueInCombo(L"Dim", L"5", CurveConvert[5], m_CurveAdjustSelect);
 	m_CurveAdjustSelect.SetCurSel(3);
 
-	InsertValueInCombo(L"Low", L"1", Resolutions[0], m_Resolution);
-	InsertValueInCombo(L"Default", L"2", Resolutions[1], m_Resolution);
-	InsertValueInCombo(L"1080p", L"3", Resolutions[2], m_Resolution);
-	InsertValueInCombo(L"Hi", L"4", Resolutions[3], m_Resolution);
-	InsertValueInCombo(L"4K", L"5", Resolutions[4], m_Resolution);
-	m_Resolution.SetCurSel(1);
+	InsertValueInCombo(L"500p", L"0", Resolutions[0], m_Resolution);
+	InsertValueInCombo(L"600p", L"1", Resolutions[1], m_Resolution);
+	InsertValueInCombo(L"900p", L"2", Resolutions[2], m_Resolution);
+	InsertValueInCombo(L"1080p", L"3", Resolutions[3], m_Resolution);
+	InsertValueInCombo(L"1800p", L"4", Resolutions[4], m_Resolution);
+	InsertValueInCombo(L"2160p", L"5", Resolutions[5], m_Resolution);
+	InsertValueInCombo(L"4320p", L"6", Resolutions[6], m_Resolution);
+	InsertValueInCombo(L"8640p", L"7", Resolutions[7], m_Resolution);
+	//InsertValueInCombo(L"32K", L"8", Resolutions[7], m_Resolution);
+	//InsertValueInCombo(L"64K", L"9", Resolutions[8], m_Resolution);
+	m_Resolution.SetCurSel(2);
+	// Auto select 1080p or 4K, etc
+	if(Monitor_vert != -1)
+	{
+		if(Monitor_vert >= 4320)
+			m_Resolution.SetCurSel(6);
+		else if(Monitor_vert >= 2160)
+			m_Resolution.SetCurSel(5);
+		else if(Monitor_vert >= 1800)
+			m_Resolution.SetCurSel(4);
+		else if(Monitor_vert >= 1080)
+			m_Resolution.SetCurSel(3);
+		else if(Monitor_vert >= 900)
+			m_Resolution.SetCurSel(2);
+		else if(Monitor_vert >= 600)
+			m_Resolution.SetCurSel(1);
+		else
+			m_Resolution.SetCurSel(0);
+	}
 }
 
 int CMDFourierGUIDlg::LoadProfile(CString FullFileName, CString &Name, CString &Version, CString &Error, CommandLineArray ProfileSyncTypes[], int ArraySize, int &syncCount)
@@ -1089,7 +1197,7 @@ void CMDFourierGUIDlg::OnBnClickedAbout()
 {
 	CString msg;
 
-	msg.Format(L"MDFourier Front End\n\nArtemio Urbina 2019-2021\nUsing %s\nCode available under GPL\n\nhttp://junkerhq.net/MDFourier/\n\nOpen website and manual?", 
+	msg.Format(L"MDFourier Front End\n\nArtemio Urbina 2019-2022\nUsing %s\nCode available under GPL\n\nhttp://junkerhq.net/MDFourier/\n\nOpen website and manual?", 
 		MDFVersion);
 	if(MessageBox(msg, L"About MDFourier", MB_OKCANCEL | MB_ICONQUESTION) == IDOK)
 	{

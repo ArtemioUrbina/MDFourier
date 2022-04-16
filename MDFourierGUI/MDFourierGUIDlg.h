@@ -6,14 +6,14 @@
 #include "afxwin.h"
 #include "DOSExecute.h"
 
-#define MDFVERSION			L"1.07c"
+#define MDFVERSION			L"1.08"
 #define	IDT_DOS				1000
 
 #define	COUNT_CURVES		6
 #define COUNT_WINDOWS		5
 #define	COUNT_PROFILES		255
 #define COUNT_SYNCTYPE		10
-#define COUNT_RESOLUTION	5
+#define COUNT_RESOLUTION	8
 
 typedef struct commandline_st {
 	CString	Name;
@@ -102,6 +102,9 @@ protected:
 	int		DosWaitCount;
 	int		syncTypes;
 
+	int Monitor_vert;
+	int Monitor_horz;
+
 	void ReadAndDisplayResults(CString &newText);
 	void CheckForDifferenceplots(CString ntext);
 	void FillComboBoxes();
@@ -117,6 +120,7 @@ protected:
 	void ClearResults() { m_OpenResultsBttn.EnableWindow(FALSE); m_OutputTextCtrl.SetWindowText(L""); m_ResultsFolderText = L""; };
 	void ChangeWindowText(CString data = L"");
 
+	void ReduceWindowSizeIfLowRes();
 	// Generated message map functions
 	virtual BOOL OnInitDialog();
 	afx_msg void OnPaint();

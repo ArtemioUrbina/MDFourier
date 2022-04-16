@@ -78,6 +78,9 @@ typedef struct averaged_freq{
 #define X1BORDER	0.045	// right border
 #define Y1BORDER 	0.10	// top border
 
+/* 0 */
+#define PLOT_RES_X_LL 800.0
+#define PLOT_RES_Y_LL 400.0
 /* 1 */
 #define PLOT_RES_X_LOW 1200.0
 #define PLOT_RES_Y_LOW 600.0
@@ -94,8 +97,17 @@ typedef struct averaged_freq{
 #define PLOT_RES_X_4K 3840.0
 #define PLOT_RES_Y_4K 2160.0
 /* 6 */
-#define PLOT_RES_X_FP 8000.0
-#define PLOT_RES_Y_FP 4000.0
+#define PLOT_RES_X_8K 7680.0
+#define PLOT_RES_Y_8K 4320.0
+/* 7 */
+#define PLOT_RES_X_16K 15360.0
+#define PLOT_RES_Y_16K 8640.0
+/* 8 */
+#define PLOT_RES_X_32K 30720.0
+#define PLOT_RES_Y_32K 17280.0
+/* 9 */
+#define PLOT_RES_X_64K 61440.0
+#define PLOT_RES_Y_64K 34560.0
 
 #define PHASE_ANGLE		200
 #define	PHASE_DIFF		0
