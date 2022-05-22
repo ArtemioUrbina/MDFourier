@@ -128,6 +128,7 @@
 #define WARN_HIGH		1
 #define WARN_NONE		2
 
+#define HORZ_SCALE_STEP			1000
 #define	VERT_SCALE_STEP			3
 #define	VERT_SCALE_STEP_BAR		3
 
@@ -2766,7 +2767,7 @@ void PlotAllDifferentAmplitudes(FlatAmplDifference *amplDiff, long int size, cha
 	if(!CreatePlotFile(&plot, config))
 		return;
 
-	DrawGridZeroDBCentered(&plot, dBFS, VERT_SCALE_STEP, config->endHzPlot, 1000, config);
+	DrawGridZeroDBCentered(&plot, dBFS, VERT_SCALE_STEP, config->endHzPlot, HORZ_SCALE_STEP, config);
 	DrawLabelsZeroDBCentered(&plot, dBFS, VERT_SCALE_STEP, config->endHzPlot, config);
 
 	for(int a = 0; a < size; a++)
@@ -2873,7 +2874,7 @@ void PlotSingleTypeDifferentAmplitudes(FlatAmplDifference *amplDiff, long int si
 	if(!CreatePlotFile(&plot, config))
 		return;
 
-	DrawGridZeroDBCentered(&plot, dBFS, VERT_SCALE_STEP, config->endHzPlot, 1000, config);
+	DrawGridZeroDBCentered(&plot, dBFS, VERT_SCALE_STEP, config->endHzPlot, HORZ_SCALE_STEP, config);
 	DrawLabelsZeroDBCentered(&plot, dBFS, VERT_SCALE_STEP, config->endHzPlot, config);
 
 	for(int a = 0; a < size; a++)
@@ -2958,7 +2959,7 @@ void PlotSilenceBlockDifferentAmplitudes(FlatAmplDifference *amplDiff, long int 
 	if(!CreatePlotFile(&plot, config))
 		return;
 
-	DrawGridZeroDBCentered(&plot, dBFS, VERT_SCALE_STEP, config->endHzPlot, 1000, config);
+	DrawGridZeroDBCentered(&plot, dBFS, VERT_SCALE_STEP, config->endHzPlot, HORZ_SCALE_STEP, config);
 	DrawLabelsZeroDBCentered(&plot, dBFS, VERT_SCALE_STEP, config->endHzPlot, config);
 
 	DrawNoiseLines(&plot, 0, endAmplitude, Signal, config);
@@ -3858,7 +3859,7 @@ void PlotTest(char *filename, parameters *config)
 	if(!CreatePlotFile(&plot, config))
 		return;
 
-	DrawGridZeroDBCentered(&plot, dBFS, VERT_SCALE_STEP, config->endHzPlot, 1000, config);
+	DrawGridZeroDBCentered(&plot, dBFS, VERT_SCALE_STEP, config->endHzPlot, HORZ_SCALE_STEP, config);
 	DrawLabelsZeroDBCentered(&plot, dBFS, VERT_SCALE_STEP, config->endHzPlot, config);
 
 	srand(time(NULL));
@@ -4324,7 +4325,7 @@ void PlotNoiseDifferentAmplitudesAveragedInternal(FlatAmplDifference *amplDiff, 
 		vertscale *= 2;
 	if(dbs > 200)
 		vertscale *= 10;
-	DrawGridZeroDBCentered(&plot, dbs, vertscale, config->endHzPlot, 1000, config);
+	DrawGridZeroDBCentered(&plot, dbs, vertscale, config->endHzPlot, HORZ_SCALE_STEP, config);
 	DrawLabelsZeroDBCentered(&plot, dbs, vertscale, config->endHzPlot, config);
 
 	DrawNoiseLines(&plot, dbs, -1*dbs, Signal, config);
@@ -4413,7 +4414,7 @@ void PlotSingleTypeDifferentAmplitudesAveraged(FlatAmplDifference *amplDiff, lon
 	if(!CreatePlotFile(&plot, config))
 		return;
 
-	DrawGridZeroDBCentered(&plot, dbs, VERT_SCALE_STEP, config->endHzPlot, 1000, config);
+	DrawGridZeroDBCentered(&plot, dbs, VERT_SCALE_STEP, config->endHzPlot, HORZ_SCALE_STEP, config);
 	DrawLabelsZeroDBCentered(&plot, dbs, VERT_SCALE_STEP, config->endHzPlot, config);
 
 	if(channel == CHANNEL_MONO)
@@ -4550,7 +4551,7 @@ void PlotAllDifferentAmplitudesAveraged(FlatAmplDifference *amplDiff, long int s
 	if(!CreatePlotFile(&plot, config))
 		return;
 
-	DrawGridZeroDBCentered(&plot, dBFS, VERT_SCALE_STEP, config->endHzPlot, 1000, config);
+	DrawGridZeroDBCentered(&plot, dBFS, VERT_SCALE_STEP, config->endHzPlot, HORZ_SCALE_STEP, config);
 	DrawLabelsZeroDBCentered(&plot, dBFS, VERT_SCALE_STEP, config->endHzPlot, config);
 
 	for(long int a = 0; a < size; a++)
