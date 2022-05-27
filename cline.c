@@ -61,6 +61,8 @@ void PrintUsage()
 	logmsg("		where r is for reference and c is for comparison\n");
 	logmsg("		example: -m r:64001:12236801\n");
 	logmsg("		sample values must be the start of each pulse sequence\n");
+	logmsg("	 -1: Set bisection lines to pinpoint in plots, takes format <hertz>:<amplitude>\n");
+	logmsg("		example: -q 1825.26:3.75\n");
 	logmsg("	 -R: Adjust sample <R>ate if duration difference is found\n");
 	logmsg("	 -j: Ad<j>ust clock (profile defined) via FFTW if difference is found\n");
 	logmsg("	 -k: cloc<k> FFTW operations\n");
@@ -286,6 +288,10 @@ void CleanParameters(parameters *config)
 	config->RefCentsDifferenceSR = 0;
 	config->ComCentsDifferenceSR = 0;
 
+	config->SetBisectionLines = 0;
+	config->BisectionHertz = 0;
+	config->BisectionAmplitude = 0;
+
 	EnableLog();
 }
 
@@ -298,8 +304,8 @@ int commandline(int argc , char *argv[], parameters *config)
 	
 	CleanParameters(config);
 
-	// Available: JKUq1234567
-	while ((c = getopt (argc, argv, "Aa:Bb:Cc:Dd:Ee:Ff:GgH:hIijkL:lMm:Nn:Oo:P:p:QRr:Ss:TtuVvWw:XxY:yZ:z0:89")) != -1)
+	// Available: JKU1234567
+	while ((c = getopt (argc, argv, "Aa:Bb:Cc:Dd:Ee:Ff:GgH:hIijkL:lMm:Nn:Oo:P:p:Qq:Rr:Ss:TtuVvWw:XxY:yZ:z0:89")) != -1)
 	switch (c)
 	  {
 	  case 'A':
@@ -496,13 +502,13 @@ int commandline(int argc , char *argv[], parameters *config)
 				(manualType != 'r' && manualType != 'c'))
 			{
 				logmsg("-ERROR: Invalid manual offset (-m) parameter: %s.\n", optarg);
-				logmsg("  Must be of the form [r|c]:<start sample>:<end sample>\n", optarg);
+				logmsg("  Must be of the form [r|c]:<start sample>:<end sample>\n");
 				return 0;
 			}
 
 			if(end <= start)
 			{
-				logmsg("ERROR: For manual sample offset, ending offset must be bigger than the starting offset\n", optarg);
+				logmsg("ERROR: For manual sample offset, ending offset must be bigger than the starting offset\n");
 				return 0;
 			}
 			if(manualType == 'r')
@@ -585,6 +591,24 @@ int commandline(int argc , char *argv[], parameters *config)
 		break;
 	  case 'Q':
 		config->plotTimeDomain = 0;
+		break;
+	  case 'q':
+		{
+			double BisectionHertz = 0, BisectionAmplitude = 0;
+
+			if(sscanf(optarg, "%lf:%lf", &BisectionHertz, &BisectionAmplitude) != 2)
+			{
+				logmsg("-ERROR: Invalid values for bisection lines (-q): %s.\n", optarg);
+				logmsg("  Must be of the form <bisection hertz>:<bisection samplitude>\n");
+				return 0;
+			}
+
+			config->SetBisectionLines = 1;
+			config->BisectionHertz = BisectionHertz;
+			config->BisectionAmplitude = BisectionAmplitude;
+			
+			logmsg("Bisection lines set at %g,%g\n", BisectionHertz, BisectionAmplitude);
+		}
 		break;
 	  case 'R':
 		config->doSamplerateAdjust = 1;
@@ -712,6 +736,8 @@ int commandline(int argc , char *argv[], parameters *config)
 		  logmsg("\t ERROR: Profile File -%c requires a file argument\n", optopt);
 		else if (optopt == 'p')
 		  logmsg("\t ERROR: Significant Amplitude -%c requires an argument: -1.0 to -200.0 dBFS\n\t\tOr 0 for Auto Adjustment to Comparision Noise Floor\n", optopt);
+		else if (optopt == '1')
+		  logmsg("\t ERROR: Bisection lines -%c requires an argument: <h>:<d>\n", optopt);
 		else if (optopt == 'r')
 		  logmsg("\t ERROR: Reference File -%c requires an argument.\n", optopt);
 		else if (optopt == 's')
@@ -823,6 +849,21 @@ int commandline(int argc , char *argv[], parameters *config)
 				config->plotAllNotesWindowed = 1;
 				logmsg("\t-Creating waveform plots for all notes with window for DFFT\n");
 				break;
+		}
+	}
+
+	if(config->SetBisectionLines)
+	{
+		if(config->BisectionHertz < 0 || config->BisectionHertz > config->endHz)
+		{
+			logmsg("ERROR: Bisection line frequency must be lower than the analysis frequency (%g hz)\n", config->endHz);
+			return 0;
+		}
+
+		if(fabs(config->BisectionAmplitude) > config->maxDbPlotZC)
+		{
+			logmsg("ERROR: Bisection line amplitude must be lower than the analysis amplitude (%g dB)\n", config->maxDbPlotZC);
+			return 0;
 		}
 	}
 

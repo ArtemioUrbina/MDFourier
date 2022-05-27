@@ -48,7 +48,7 @@
 
 #include "incbeta.h"
 
-#define MDVERSION "1.09"
+#define MDVERSION "1.091"
 
 #if INTPTR_MAX == INT64_MAX
 #define	BITS_MDF "64-bit"
@@ -694,6 +694,10 @@ typedef struct parameters_st {
 	long			ManualSyncCompStart;
 	long			ManualSyncCompEnd;
 
+/* Bisection Lines */
+	int				SetBisectionLines;
+	double			BisectionHertz;
+	double			BisectionAmplitude;
 
 /* Values only used for clock frequency */
 	char		clkName[20];

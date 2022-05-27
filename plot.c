@@ -913,6 +913,20 @@ int ClosePlot(PlotFile *plot)
 	return 1;
 }
 
+void DrawBisectionLines(PlotFile *plot, parameters *config)
+{
+	if(config->SetBisectionLines)
+	{
+		pl_pencolor_r (plot->plotter, 0xffff, 0, 0);
+
+		pl_fline_r(plot->plotter, transformtoLog(config->BisectionHertz, config), -1*config->maxDbPlotZC, transformtoLog(config->BisectionHertz, config), config->maxDbPlotZC);
+		pl_endpath_r(plot->plotter);
+
+		pl_fline_r(plot->plotter, transformtoLog(config->startHzPlot+1, config), config->BisectionAmplitude, transformtoLog(config->endHzPlot, config), config->BisectionAmplitude);
+		pl_endpath_r(plot->plotter);
+	}
+}
+
 void DrawFrequencyHorizontal(PlotFile *plot, double vertical, double hz, double hzIncrement, parameters *config)
 {
 	pl_pencolor_r (plot->plotter, 0, 0x5555, 0);
@@ -1576,6 +1590,15 @@ void DrawLabelsMDF(PlotFile *plot, char *Gname, char *GType, int type, parameter
 			PLOT_WARN(1, warning++);
 			pl_alabel_r(plot->plotter, 'l', 'l', "NOTE: Normalized by averages (-n a)");
 		}
+	}
+
+	if(config->SetBisectionLines)
+	{
+		PLOT_WARN(1, warning++);
+		sprintf(msg, "NOTE: Bisection lines set at %gHz %gdB (-q)", 
+				config->BisectionHertz,
+				config->BisectionAmplitude);
+		pl_alabel_r(plot->plotter, 'l', 'l', msg);
 	}
 
 	if(config->doSamplerateAdjust &&
@@ -2795,6 +2818,8 @@ void PlotAllDifferentAmplitudes(FlatAmplDifference *amplDiff, long int size, cha
 	DrawColorAllTypeScale(&plot, MODE_DIFF, LEFT_MARGIN, HEIGHT_MARGIN, config->plotResX/COLOR_BARS_WIDTH_SCALE, config->plotResY/1.15, config->significantAmplitude, VERT_SCALE_STEP_BAR, DRAW_BARS, channel, config);
 	DrawLabelsMDF(&plot, title, ALL_LABEL, PLOT_COMPARE, config);
 
+	DrawBisectionLines(&plot, config);
+
 	ClosePlot(&plot);
 }
 
@@ -2901,6 +2926,9 @@ void PlotSingleTypeDifferentAmplitudes(FlatAmplDifference *amplDiff, long int si
 		config->plotResX/COLOR_BARS_WIDTH_SCALE, config->plotResY/1.15,
 		0, config->significantAmplitude, VERT_SCALE_STEP_BAR, channel, config);
 	DrawLabelsMDF(&plot, title, GetTypeDisplayName(config, type), PLOT_COMPARE, config);
+
+	DrawBisectionLines(&plot, config);
+
 	ClosePlot(&plot);
 }
 
@@ -3867,6 +3895,8 @@ void PlotTest(char *filename, parameters *config)
 	DrawLabelsMDF(&plot, "PLOT TEST [%s]", "ZDBC", PLOT_COMPARE, config);
 	DrawColorAllTypeScale(&plot, MODE_DIFF, LEFT_MARGIN, HEIGHT_MARGIN, config->plotResX/COLOR_BARS_WIDTH_SCALE, config->plotResY/1.15, config->significantAmplitude, VERT_SCALE_STEP_BAR, DRAW_BARS, CHANNEL_STEREO, config);
 
+	DrawBisectionLines(&plot, config);
+
 	ClosePlot(&plot);
 }
 
@@ -4528,6 +4558,9 @@ void PlotSingleTypeDifferentAmplitudesAveraged(FlatAmplDifference *amplDiff, lon
 	}
 	DrawColorScale(&plot, type, MODE_DIFF, LEFT_MARGIN, HEIGHT_MARGIN, config->plotResX/COLOR_BARS_WIDTH_SCALE, config->plotResY/1.15, 0, config->significantAmplitude, VERT_SCALE_STEP_BAR, channel, config);
 	DrawLabelsMDF(&plot, title, GetTypeDisplayName(config, type), PLOT_COMPARE, config);
+
+	DrawBisectionLines(&plot, config);
+
 	ClosePlot(&plot);
 }
 
@@ -4646,6 +4679,8 @@ void PlotAllDifferentAmplitudesAveraged(FlatAmplDifference *amplDiff, long int s
 
 	DrawColorAllTypeScale(&plot, MODE_DIFF, LEFT_MARGIN, HEIGHT_MARGIN, config->plotResX/COLOR_BARS_WIDTH_SCALE, config->plotResY/1.15, config->significantAmplitude, VERT_SCALE_STEP_BAR, DRAW_BARS, CHANNEL_STEREO, config);
 	DrawLabelsMDF(&plot, DIFFERENCE_AVG_TITLE, ALL_LABEL, PLOT_COMPARE, config);
+
+	DrawBisectionLines(&plot, config);
 
 	ClosePlot(&plot);
 }
