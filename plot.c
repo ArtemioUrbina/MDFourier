@@ -917,13 +917,41 @@ void DrawBisectionLines(PlotFile *plot, parameters *config)
 {
 	if(config->SetBisectionLines)
 	{
+		char label[20];
+
+		// Red color for lines
 		pl_pencolor_r (plot->plotter, 0xffff, 0, 0);
 
+		// Draw Bisection lines
 		pl_fline_r(plot->plotter, transformtoLog(config->BisectionHertz, config), -1*config->maxDbPlotZC, transformtoLog(config->BisectionHertz, config), config->maxDbPlotZC);
 		pl_endpath_r(plot->plotter);
 
 		pl_fline_r(plot->plotter, transformtoLog(config->startHzPlot+1, config), config->BisectionAmplitude, transformtoLog(config->endHzPlot, config), config->BisectionAmplitude);
 		pl_endpath_r(plot->plotter);
+
+		// Draw Frequency Label
+		pl_savestate_r(plot->plotter);
+		pl_fspace_r(plot->plotter, 0-X0BORDER*config->plotResX*plot->leftmargin, -1*config->plotResY/2-Y0BORDER*config->plotResY, config->plotResX+X1BORDER*config->plotResX, config->plotResY/2+Y1BORDER*config->plotResY);
+
+		pl_ffontname_r(plot->plotter, PLOT_FONT);
+		pl_ffontsize_r(plot->plotter, FONT_SIZE_1);
+
+		pl_fmove_r(plot->plotter, config->plotResX/config->endHzPlot*transformtoLog(config->BisectionHertz, config), config->plotResY/2);
+		sprintf(label, "%gHz", config->BisectionHertz);
+		pl_alabel_r(plot->plotter, 'c', 'b', label);
+		pl_restorestate_r(plot->plotter);
+
+		// Draw Amplitude Label
+		pl_savestate_r(plot->plotter);
+		pl_fspace_r(plot->plotter, 0-X0BORDER*config->plotResX*plot->leftmargin, -1*config->plotResY/2-Y0BORDER*config->plotResY, config->plotResX+X1BORDER*config->plotResX, config->plotResY/2+Y1BORDER*config->plotResY);
+
+		pl_ffontname_r(plot->plotter, PLOT_FONT);
+		pl_ffontsize_r(plot->plotter, FONT_SIZE_1);
+
+		pl_fmove_r(plot->plotter, config->plotResX+PLOT_SPACER, config->BisectionAmplitude*config->plotResY/(2*config->maxDbPlotZC)+config->plotResY/100);
+		sprintf(label, " %gdB", config->BisectionAmplitude);
+		pl_alabel_r(plot->plotter, 'l', 't', label);
+		pl_restorestate_r(plot->plotter);
 	}
 }
 

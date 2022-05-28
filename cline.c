@@ -854,7 +854,13 @@ int commandline(int argc , char *argv[], parameters *config)
 
 	if(config->SetBisectionLines)
 	{
-		if(config->BisectionHertz < 0 || config->BisectionHertz > config->endHz)
+		if(config->BisectionHertz < 0)
+		{
+			logmsg("ERROR: Bisection line frequency must be higher than the base analysis frequency (%g hz)\n", config->startHz);
+			return 0;
+		}
+
+		if(config->BisectionHertz > config->endHz)
 		{
 			logmsg("ERROR: Bisection line frequency must be lower than the analysis frequency (%g hz)\n", config->endHz);
 			return 0;
