@@ -827,7 +827,7 @@ int commandline_wave(int argc , char *argv[], parameters *config)
 	config->useCompProfile = 0;
 	config->executefft = 1;
 
-	while ((c = getopt (argc, argv, "qnhvzcklyCBis:e:f:t:p:w:r:P:IY:T0:")) != -1)
+	while ((c = getopt (argc, argv, "qnhvzcklyCBis:e:f:m:t:p:w:r:P:IY:T0:")) != -1)
 	switch (c)
 	  {
 	  case 'h':
@@ -887,6 +887,42 @@ int commandline_wave(int argc , char *argv[], parameters *config)
 		{
 			logmsg("-ERROR: Number fo frequencies must be between %d and %d\n", 1, MAX_FREQ_COUNT);
 			return 0;
+		}
+		break;
+	  case 'm':
+		{
+			char manualType = '\0';
+			long start = 0, end = 0;
+
+			if(sscanf(optarg, "%c:%ld:%ld\n", &manualType, &start, &end) != 3 ||  
+				(manualType != 'r' && manualType != 'c'))
+			{
+				logmsg("-ERROR: Invalid manual offset (-m) parameter: %s.\n", optarg);
+				logmsg("  Must be of the form [r|c]:<start sample>:<end sample>\n");
+				return 0;
+			}
+
+			if(end <= start)
+			{
+				logmsg("ERROR: For manual sample offset, ending offset must be bigger than the starting offset\n");
+				return 0;
+			}
+			if(manualType == 'r')
+			{
+				config->ManualSyncRef = 1;
+				config->ManualSyncRefStart = start;
+				config->ManualSyncRefEnd = end;
+				logmsg("- Reference ");
+			}
+
+			if(manualType == 'c')
+			{
+				config->ManualSyncComp = 1;
+				config->ManualSyncCompStart = start;
+				config->ManualSyncCompEnd = end;
+				logmsg("- Comparison ");
+			}
+			logmsg("manual sample offset set %ld-%ld\n", start, end);
 		}
 		break;
 	  case 'p':

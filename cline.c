@@ -332,9 +332,9 @@ int commandline(int argc , char *argv[], parameters *config)
 		break;
 	  case 'b':
 		config->AmpBarRange = atof(optarg);
-		if(config->AmpBarRange < 0 || config->AmpBarRange > 16)
+		if(config->AmpBarRange < 0.0001 || config->AmpBarRange > 16)
 		{
-			logmsg("-ERROR: Range must be between %d and %d\n", 0, 16);
+			logmsg("-ERROR: Range must be between %g and %g\n", 0.0001, 16.0);
 			return 0;
 		}
 		logmsg("\t-Changing Bar range to %dbfs\n", config->AmpBarRange);
@@ -402,9 +402,9 @@ int commandline(int argc , char *argv[], parameters *config)
 			double percent = 0;
 
 			percent = atof(optarg);
-			if(percent > 100.0 || percent < 0.0)
+			if(percent > 100.0 || percent < 0.01)
 			{
-				logmsg("-ERROR: Percent for comparison must be between 0.0 and 100.0\n");
+				logmsg("-ERROR: Percent for comparison must be between 0.01%% and 100.0%%\n");
 				return 0;
 			}
 			
@@ -711,9 +711,10 @@ int commandline(int argc , char *argv[], parameters *config)
 	  case '9':
 		config->compressToBlocks = 1;
 		break;
+	  default:
 	  case '?':
 		if (optopt == 'b')
-		  logmsg("\t ERROR: Bar Difference -%c option requires a real number.\n", optopt);
+		  logmsg("\t ERROR: Bar Difference -%c option requires a real number > 0.0001 < 16.\n", optopt);
 		else if (optopt == 'c')
 		  logmsg("\t ERROR: Compare File -%c requires an argument.\n", optopt);
 		else if (optopt == 'd')
@@ -723,7 +724,7 @@ int commandline(int argc , char *argv[], parameters *config)
 		else if (optopt == 'f')
 		  logmsg("\t ERROR: Max # of frequencies to use from FFTW -%c requires an argument: 1-%d\n", optopt, MAX_FREQ_COUNT);
 		else if (optopt == 'H')
-		  logmsg("\t ERROR: Highly different waveform  -%c requires an argument: 0.0-100.0\n", optopt);
+		  logmsg("\t ERROR: Highly different waveform -%c requires an argument: 0.01-100.0\n", optopt);
 		else if (optopt == 'L')
 		  logmsg("\t ERROR: Plot Resolution -%c requires an argument: 1-6\n", optopt);
 		else if (optopt == 'm')
@@ -755,10 +756,6 @@ int commandline(int argc , char *argv[], parameters *config)
 		else
 		  logmsg("\t ERROR: Unknown option character `\\x%x'.\n", optopt);
 		return 0;
-		break;
-	  default:
-		logmsg("\t ERROR: Invalid argument %c\n", optopt);
-		return(0);
 		break;
 	  }
 	

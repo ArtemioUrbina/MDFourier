@@ -1083,7 +1083,7 @@ long int FindDifferenceAveragesperBlock(double thresholdAmplitude, double thresh
 			if(missing > thresholdMissing)
 			{
 				config->referenceSignal->Blocks[b].missingPercent = missing;
-				config->comparisonSignal->Blocks[b].missingPercent = 0;
+				config->comparisonSignal->Blocks[b].missingPercent = missing;  // set to 0 to not show both
 				total ++;
 			}
 		}
@@ -1093,7 +1093,7 @@ long int FindDifferenceAveragesperBlock(double thresholdAmplitude, double thresh
 			extra = (double)extraCount/(double)extraTotal*100.0;
 			if(extra > thresholdExtra)
 			{
-				config->referenceSignal->Blocks[b].extraPercent = 0;
+				config->referenceSignal->Blocks[b].extraPercent = extra;	// set to 0 to not show both
 				config->comparisonSignal->Blocks[b].extraPercent = extra;
 				total ++;
 			}
