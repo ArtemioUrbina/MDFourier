@@ -48,7 +48,7 @@
 
 #include "incbeta.h"
 
-#define MDVERSION "1.091"
+#define MDVERSION "1.10"
 
 #if INTPTR_MAX == INT64_MAX
 #define	BITS_MDF "64-bit"
@@ -94,6 +94,7 @@
 #define TYPE_TIMEDOMAIN_C		't'
 #define TYPE_SILENCE_OVER_C		'N'
 #define TYPE_WATERMARK_C		'W'
+#define TYPE_SILENCE_TRIM_C		'X'
 
 #define	BAR_DIFF_DB_TOLERANCE	1.0
 
@@ -470,6 +471,7 @@ typedef struct window_unit_st {
 	double		seconds;
 	long int	size;
 	long int	sizePadding;
+	int			trimSize;
 } windowUnit;
 
 typedef struct window_st {
@@ -610,6 +612,7 @@ typedef struct parameters_st {
 	double			thresholdMissingHiDif;
 	double			thresholdExtraHiDif;
 
+	long int		blockSignalSize;
 	int				plotDifferences;
 	int				plotMissing;
 	int				plotSpectrogram;
@@ -634,6 +637,7 @@ typedef struct parameters_st {
 	int				FullTimeSpectroScale;
 	int				hasTimeDomain;
 	int				hasSilenceOverRide;
+	int				SilenceDecayTrim;
 	int				hasAddOnData;
 	int				frequencyNormalizationTries;
 	double			frequencyNormalizationTolerant;

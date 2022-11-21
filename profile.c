@@ -176,10 +176,8 @@ int EndProfileLoad(parameters *config)
 	if(!CheckSyncFormats(config))
 		return 0;
 
-	/*
 	if(!CheckProfileBaseLength(config))
 		return 0;
-	*/
 
 	return 1;
 }
@@ -467,7 +465,7 @@ int LoadAudioBlockStructure(FILE *file, parameters *config)
 				return 0;
 			}
 		}
-		else
+		else  // Any other lines
 		{
 			if(sscanf(lineBuffer, "%*s %*s %d %d %d %20s %c\n", 
 				&config->types.typeArray[i].elementCount,
@@ -922,46 +920,41 @@ void PrintAudioBlocks(parameters *config)
 
 int CheckProfileBaseLength(parameters *config)
 {
-	int first = 0, failed = 0;
-	//int framelength[100];
+	long int longest = 0, different = 0;
 
 	if(!config)
 		return 0;
 
 	for(int i = 0; i < config->types.typeCount; i++)
 	{
-		if(config->types.typeArray[i].type > TYPE_CONTROL)
+		if(config->types.typeArray[i].type >= TYPE_CONTROL)
 		{
 			double	seconds = 0;
 
-			if(!first)
-			{
-				first = config->types.typeArray[i].frames;
-				logmsg("Block %d OK [%d]\n", i, first);
-			}
-			else
-			{
-				if(first != config->types.typeArray[i].frames)
-				{
-					logmsg("Block %d fails [%d & %d]\n", i, first, config->types.typeArray[i].frames);
-					failed = 1;
-				}
-				else
-					logmsg("Block %d OK\n", i);
-			}
+			if(config->types.typeArray[i].frames > longest)
+				longest = config->types.typeArray[i].frames;
+
+			if(config->types.typeArray[i].frames != longest)
+				different++;
 
 			seconds = FramesToSeconds(config->types.typeArray[i].frames, config->types.SyncFormat[0].MSPerFrame);
-			if(seconds > 1.0)
-				logmsg("Block %d (%g seconds issue with Zero Pad)\n", i, seconds);
-
-			//framelength[i] = config->types.typeArray[i].elementCount*config->types.typeArray[i].frames;
+			if(seconds > 1.0 && config->ZeroPad)
+			{
+				logmsg("ERROR: Block %d is %g seconds. Cannot apply Zero Padding\n", i, seconds);
+				return 0;
+			}
 		}
 	}
-	if(failed)
+
+	if(!longest)
 	{
-		logmsg("Invalid Profile\n");
+		logmsg("Invalid Profile, no valid lengths\n");
 		return 0;
 	}
+
+	if(different)
+		config->blockSignalSize = longest;
+
 	return 1;
 }
 
@@ -981,7 +974,7 @@ void SelectSilenceProfile(parameters *config)
 			config->types.typeArray[i].type = TYPE_SKIP;
 	}
 
-	// Convert Silence Overrride to silence blocks
+	// Convert Silence Override to silence blocks
 	for(int i = 0; i < config->types.typeCount; i++)
 	{
 		if(config->types.typeArray[i].type == TYPE_SILENCE_OVERRIDE)

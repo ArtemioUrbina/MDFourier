@@ -205,7 +205,7 @@ int PlotNoiseFloorSpectrogram(FlatFrequency* freqs, long int size, char* filenam
 void PlotSingleTypeSpectrogram(FlatFrequency *freqs, long int size, int type, char *filename, int signal, char channel, parameters *config);
 void PlotAllSpectrogram(FlatFrequency *freqs, long int size, char *filename, int signal, parameters *config);
 
-void PlotWindow(windowUnit *windowUnit, parameters *config);
+void PlotWindow(windowUnit *windowUnit, int index, int role, parameters *config);
 void PlotBetaFunctions(parameters *config);
 
 FlatAmplDifference *CreateFlatDifferences(parameters *config, long int *size, diffPlotType plotType);
@@ -228,7 +228,7 @@ double DrawMatchBar(PlotFile *plot, int colorName, double x, double y, double wi
 
 void PlotTest(char *filename, parameters *config);
 void PlotTestZL(char *filename, parameters *config);
-void VisualizeWindows(windowManager *wm, parameters *config);
+void VisualizeWindows(windowManager *wm, int role, parameters *config);
 
 char *GetCurrentPathAndChangeToResultsFolder(parameters *config);
 void ReturnToMainPath(char **CurrentPath);

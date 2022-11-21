@@ -2928,6 +2928,32 @@ inline double GetDecimalValues(double value)
 	return value;
 }
 
+// Zero padding to make all blocks the same frame size
+long int GetBlockZeroPadValues(long int *monoSignalSize, long int size, int AudioChannels, double *seconds, long int blockSignalSize, double samplerate)
+{
+	long int padding = 0;
+
+	if(!monoSignalSize || !seconds)
+		return padding;
+
+	// Check if we need to do something
+	if(size != blockSignalSize)
+	{
+		// It has to be lower or equal, since by definition block size is the biggest block
+		if(size < blockSignalSize)
+		{
+			padding = (blockSignalSize - size)/AudioChannels;
+			*monoSignalSize += padding;
+			*seconds = (double)(*monoSignalSize)/samplerate;
+		}
+		else
+			logmsg("ERROR: GetZeroBlockPadValues() segment size was biggen thatblockSignalSize (%ld > %ld)\n", 
+				size, blockSignalSize);
+	}
+	return padding;
+}
+
+// Zero pad to 1 second for 1hz alignment of bins
 long int GetZeroPadValues(long int *monoSignalSize, double *seconds, double samplerate)
 {
 	long int zeropadding = 0;

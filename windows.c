@@ -66,9 +66,9 @@ int initWindows(windowManager *wm, double SampleRate, char winType, parameters *
 	return 1;
 }
 
-double *CreateWindowInternal(windowManager *wm, double *(*creator)(long), char *name, double seconds, long size, long sizePadding, long clkAdjustBufferSize)
+double *CreateWindowInternal(windowManager *wm, double *(*creator)(long), char *name, double seconds, long size, long sizePadding, long clkAdjustBufferSize, double frames)
 {
-	double *window = NULL, *tmp = NULL;
+	double *window = NULL;
 
 	window = creator(size);
 	if(!window)
@@ -76,8 +76,11 @@ double *CreateWindowInternal(windowManager *wm, double *(*creator)(long), char *
 		logmsg ("%s window creation failed\n", name);
 		return NULL;
 	}
+	// Size difference at the end, for difference between frame rates
 	if(sizePadding)
 	{
+		double *tmp = NULL;
+
 		tmp = (double*)realloc(window, sizeof(double)*(size+sizePadding+clkAdjustBufferSize));
 		if(!tmp)
 		{
@@ -88,11 +91,12 @@ double *CreateWindowInternal(windowManager *wm, double *(*creator)(long), char *
 		window = tmp;
 		memset(window+size, 0, sizeof(double)*(sizePadding+clkAdjustBufferSize));
 	}
-	wm->windowArray[wm->windowCount].sizePadding = sizePadding;
 
+	wm->windowArray[wm->windowCount].sizePadding = sizePadding;
 	wm->windowArray[wm->windowCount].window = window;
 	wm->windowArray[wm->windowCount].seconds = seconds;
 	wm->windowArray[wm->windowCount].size = size;
+	wm->windowArray[wm->windowCount].frames = frames;
 	wm->windowCount++;
 	return window;
 }
@@ -149,16 +153,16 @@ double *CreateWindow(windowManager *wm, long int frames, long int cutFrames, dou
 	*/
 
 	if(wm->winType == 't')
-		return(CreateWindowInternal(wm, tukeyWindow, "Tukey", seconds, size, sizePadding, clkAdjustBufferSize));
+		return(CreateWindowInternal(wm, tukeyWindow, "Tukey", seconds, size, sizePadding, clkAdjustBufferSize, frames));
 
 	if(wm->winType == 'f')
-		return(CreateWindowInternal(wm, flattopWindow, "Flattop", seconds, size, sizePadding, clkAdjustBufferSize));
+		return(CreateWindowInternal(wm, flattopWindow, "Flattop", seconds, size, sizePadding, clkAdjustBufferSize, frames));
 
 	if(wm->winType == 'h')
-		return(CreateWindowInternal(wm, hannWindow, "Hann", seconds, size, sizePadding, clkAdjustBufferSize));
+		return(CreateWindowInternal(wm, hannWindow, "Hann", seconds, size, sizePadding, clkAdjustBufferSize, frames));
 
 	if(wm->winType == 'm')
-		return(CreateWindowInternal(wm, hammingWindow, "Hamming", seconds, size, sizePadding, clkAdjustBufferSize));
+		return(CreateWindowInternal(wm, hammingWindow, "Hamming", seconds, size, sizePadding, clkAdjustBufferSize, frames));
 
 	logmsg("FAILED Creating window size %g (%ld frames %g fr)\n", frames*framerate, frames, framerate);
 	return NULL;

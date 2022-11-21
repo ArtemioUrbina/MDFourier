@@ -3313,7 +3313,7 @@ void PlotNoiseSpectrogram(FlatFrequency *freqs, long int size, char channel, cha
 	ClosePlot(&plot);
 }
 
-void VisualizeWindows(windowManager *wm, parameters *config)
+void VisualizeWindows(windowManager *wm, int role, parameters *config)
 {
 	if(!wm)
 		return;
@@ -3326,11 +3326,11 @@ void VisualizeWindows(windowManager *wm, parameters *config)
 		//for(long int j = 0; j < wm->windowArray[i].size; j++)
 			//logmsg("Window %ld %g\n", j, wm->windowArray[i].window[j]);
 
-		PlotWindow(&wm->windowArray[i], config);
+		PlotWindow(&wm->windowArray[i], i, role, config);
 	}
 }
 
-void PlotWindow(windowUnit *windowUnit, parameters *config)
+void PlotWindow(windowUnit *windowUnit, int index, int role, parameters *config)
 {
 	PlotFile plot;
 	char	 name[BUFFER_SIZE];
@@ -3344,7 +3344,7 @@ void PlotWindow(windowUnit *windowUnit, parameters *config)
 	frames = windowUnit->frames;
 	size = windowUnit->size;
 
-	sprintf(name, "WindowPlot_%s", GetWindow(config->window));
+	sprintf(name, "WindowPlot_%s_%s_ind%03d_fr%g_sz%ld", GetWindow(config->window), role == ROLE_REF ? "0Ref" : "1Comp", index, frames, size);
 	FillPlotExtra(&plot, name, 320, 384, 0, -0.1, 1, 1.1, 0.001, 0, config);
 
 	if(!CreatePlotFile(&plot, config))
@@ -3352,7 +3352,7 @@ void PlotWindow(windowUnit *windowUnit, parameters *config)
 
 	// Frames Grid
 	pl_pencolor_r (plot.plotter, 0, 0x3333, 0);
-	for(long int i = 0; i < frames; i++)
+	for(long int i = 0; i <= frames; i++)
 		pl_fline_r(plot.plotter, (double)i*1/(double)frames, -0.1, (double)i*1/(double)frames, 1.1);
 
 	// horizontal grid
@@ -3367,6 +3367,7 @@ void PlotWindow(windowUnit *windowUnit, parameters *config)
 	
 	ClosePlot(&plot);
 }
+
 
 void PlotBetaFunctions(parameters *config)
 {
@@ -5291,7 +5292,9 @@ void PlotTimeDomainGraphs(AudioSignal *Signal, parameters *config)
 		{
 			int doPlot = 0;
 
-			doPlot = Signal->Blocks[i].type == TYPE_TIMEDOMAIN || (config->timeDomainSync && Signal->Blocks[i].type == TYPE_SYNC);
+			doPlot = Signal->Blocks[i].type == TYPE_TIMEDOMAIN ||
+				(config->timeDomainSync && Signal->Blocks[i].type == TYPE_SYNC) ||
+				(config->timeDomainSync && Signal->Blocks[i].type == TYPE_SILENCE);
 			if(config->plotAllNotes || doPlot)
 			{
 				if(config->plotAllNotes != 2 || doPlot)
@@ -5328,7 +5331,9 @@ void PlotTimeDomainGraphs(AudioSignal *Signal, parameters *config)
 	{
 		int doPlot = 0;
 
-		doPlot = Signal->Blocks[i].type == TYPE_TIMEDOMAIN || (config->timeDomainSync && Signal->Blocks[i].type == TYPE_SYNC);
+		doPlot = Signal->Blocks[i].type == TYPE_TIMEDOMAIN ||
+				(config->timeDomainSync && Signal->Blocks[i].type == TYPE_SYNC) ||
+				(config->timeDomainSync && Signal->Blocks[i].type == TYPE_SILENCE);
 		if(config->plotAllNotes || doPlot)
 		{
 			if(config->plotAllNotes != 2 || doPlot)
@@ -5365,7 +5370,7 @@ void PlotTimeDomainGraphs(AudioSignal *Signal, parameters *config)
 				}
 			}
 
-			if(config->plotAllNotesWindowed && Signal->Blocks[i].audio.window_samples)
+			if(Signal->Blocks[i].audio.window_samples && (config->plotAllNotesWindowed || Signal->Blocks[i].type == TYPE_SILENCE))
 			{
 				sprintf(name, "TD_%05ld_%s_%s_%05d_%s", 
 					i, Signal->role == ROLE_REF ? "3" : "4",
@@ -5861,7 +5866,7 @@ void PlotBlockTimeDomainGraph(AudioSignal *Signal, int block, char *name, int wa
 			sprintf(title, "%s# %d%s %s| samples %ld-%ld | START Sync: <used:%ld/measrd:%ld>-%ld", 
 				GetBlockDisplayName(config, block), GetBlockSubIndex(config, block),
 				GetWFMTypeText(wavetype, buffer, data, Signal->role), 
-				wavetype == WAVEFORM_SYNCZOOM ? "ZOOM" : "", 
+				wavetype == WAVEFORM_SYNCZOOM || config->zoomWaveForm ? "ZOOM" : "", 
 				SamplesForDisplay(sampleOffset, Signal->AudioChannels),
 				SamplesForDisplay(sampleOffset+numSamples*Signal->AudioChannels, Signal->AudioChannels),
 				SamplesForDisplay(sampleOffset+oneFrameSamples, Signal->AudioChannels),
@@ -5871,7 +5876,7 @@ void PlotBlockTimeDomainGraph(AudioSignal *Signal, int block, char *name, int wa
 			sprintf(title, "%s# %d%s %s| samples %ld-%ld | END Sync: %ld-<used:%ld/measrd:%ld>", 
 				GetBlockDisplayName(config, block), GetBlockSubIndex(config, block), 
 				GetWFMTypeText(wavetype, buffer, data, Signal->role), 
-				wavetype == WAVEFORM_SYNCZOOM ? "ZOOM" : "", 
+				wavetype == WAVEFORM_SYNCZOOM || config->zoomWaveForm ? "ZOOM" : "", 
 				SamplesForDisplay(sampleOffset, Signal->AudioChannels),
 				SamplesForDisplay(sampleOffset+numSamples*Signal->AudioChannels, Signal->AudioChannels),
 				SamplesForDisplay(Signal->startOffset, Signal->AudioChannels),
@@ -5879,8 +5884,9 @@ void PlotBlockTimeDomainGraph(AudioSignal *Signal, int block, char *name, int wa
 				SamplesForDisplay(Signal->endOffset, Signal->AudioChannels));
 	}
 	else
-		sprintf(title, "%s# %d%s | samples %ld-%ld", GetBlockDisplayName(config, block), GetBlockSubIndex(config, block),
+		sprintf(title, "%s# %d%s %s| samples %ld-%ld", GetBlockDisplayName(config, block), GetBlockSubIndex(config, block),
 			GetWFMTypeText(wavetype, buffer, data, Signal->role), 
+			config->zoomWaveForm ? "ZOOM" : "",
 			SamplesForDisplay(sampleOffset, Signal->AudioChannels),
 			SamplesForDisplay(sampleOffset+numSamples*Signal->AudioChannels, Signal->AudioChannels));
 	DrawLabelsMDF(&plot, Signal->role == ROLE_REF ? WAVEFORM_TITLE_REF : WAVEFORM_TITLE_COM, title, Signal->role == ROLE_REF ? PLOT_SINGLE_REF : PLOT_SINGLE_COM, config);

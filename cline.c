@@ -174,6 +174,8 @@ void CleanParameters(parameters *config)
 	config->FullTimeSpectroScale = 0;
 	config->hasTimeDomain = 0;
 	config->hasSilenceOverRide = 0;
+
+	config->blockSignalSize = 0;
 	config->hasAddOnData = 0;
 	config->noSyncProfile = 0;
 	config->noSyncProfileType = NO_SYNC_AUTO;
@@ -322,7 +324,7 @@ int commandline(int argc , char *argv[], parameters *config)
 			return 0;
 		}
 		if(config->zoomWaveForm)
-			logmsg("\t-Zooming waveform from 0dbfs to %dbfs\n", config->zoomWaveForm);
+			logmsg("\t-Zooming waveform from 0dbfs to %gdbfs\n", config->zoomWaveForm);
 		else
 			logmsg("\t-Zooming waveform kept at 0dbfs\n");
 		break;

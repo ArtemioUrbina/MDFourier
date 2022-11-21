@@ -363,7 +363,7 @@ double findAverageAmplitudeForTarget(Pulses *pulseArray, double targetFrequency,
 			countNoise++;
 	}
 
-	if(config->syncTolerance >= 2 || countNoise >= (TotalMS - start)*.98)
+	if(config->syncTolerance >= 2 || countNoise >= (TotalMS - start)*.70)
 	{
 		// clean noise at sync frequency
 		for(i = start; i < TotalMS; i++)
@@ -377,9 +377,10 @@ double findAverageAmplitudeForTarget(Pulses *pulseArray, double targetFrequency,
 	}
 	
 	if(config->debugSync)
-		logmsgFileOnly("AVG: %g STD: %g Use: %g count %ld total %d %% %g\n",
+		logmsgFileOnly("AVG Amp: %g STD Dev: %g Use Amp: %g count %ld total %d %% %g (Noise %g%%)\n",
 			averageAmplitude, standardDeviation, useAmplitude,
-			TotalMS-start, count, (double)count/(double)(TotalMS-start)*100);
+			TotalMS-start, count, (double)count/(double)(TotalMS-start)*100,
+			(double)countNoise/(double)(TotalMS-start)*100);
 
 	if(config->debugSync)
 		logmsgFileOnly("Searching for Average amplitude in block: F %g Total Start sample: %ld milliseconds to check: %ld\n", 
@@ -549,8 +550,8 @@ long int DetectPulseTrainSequence(Pulses *pulseArray, double targetFrequency, do
 				pulse_count++;
 
 				if(config->debugSync)
-					logmsgFileOnly("Closed pulse #%d cycle, silence count %d pulse count %d (%d/%d)\n",
-						pulse_count, silence_count, frame_pulse_count, lookingfor, (int)(lookingfor*1.5));
+					logmsgFileOnly("Closed pulse #%d cycle. Silence count %d. Frame: Pulse %d Silence: %d (look reg %d/ used %d)\n",
+						pulse_count, silence_count, frame_pulse_count, frame_silence_count, lookingfor, (int)(lookingfor*1.5));
 				
 				if(config->syncTolerance)
 					silence_count = pulse_count - 1;
@@ -891,7 +892,7 @@ long int AdjustPulseSampleStartByLength(double* Samples, wav_hdr header, long in
 // Searches using 1ms/factor blocks
 long int DetectPulseInternal(double *Samples, wav_hdr header, int factor, long int offset, int *maxdetected, int role, int AudioChannels, parameters *config)
 {
-	int					bytesPerSample = 0;
+	int					bytesPerSample = 0, executeCleanSilence = 0;
 	long int			i = 0, TotalMS = 0, totalSamples = 0;
 	double				*sampleBuffer = NULL;
 	long int		 	sampleBufferSize = 0, pos = 0, startPos = 0;
@@ -989,16 +990,16 @@ long int DetectPulseInternal(double *Samples, wav_hdr header, int factor, long i
 		if(config->debugSync)
 			logmsgFileOnly("\n - Using %gHz and harmonics %g/%gHz for sync detection\n", 
 				targetFrequency, targetFrequencyHarmonic[0], targetFrequencyHarmonic[1]);
+		executeCleanSilence = 1;
 	}
 		
 	if(config->debugSync)
 	{
-		logmsgFileOnly("\nDefined Sync %g/%g/%g Adjusted to %g/%g/%g\n", 
-				origFrequency, 
-				origFrequency >= HARMONIC_TSHLD ? origFrequency : targetFrequency*2, 
-				origFrequency >= HARMONIC_TSHLD ? origFrequency : targetFrequency*3, 
+		logmsgFileOnly("\nDefined Sync %g", origFrequency);
+		if(executeCleanSilence)
+			logmsgFileOnly("Adjusted to %g/%g/%g\n", 
 				targetFrequency, targetFrequencyHarmonic[0], targetFrequencyHarmonic[1]);
-		logmsgFileOnly("Start ms %ld Total MS: %ld (%ld)\n",
+		logmsgFileOnly("\nStart ms %ld Total MS: %ld (%ld)\n",
 			 i, TotalMS-1, totalSamples/sampleBufferSize - 1);
 	}
 
