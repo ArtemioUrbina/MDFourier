@@ -61,7 +61,7 @@
 #define MAX_FREQ_COUNT		96000 	/* Number of frequencies to compare(MAX) */
 #define FREQ_COUNT			2000	/* Number of frequencies to compare(default) */
 
-#define SIGNIFICANT_AMPLITUDE			-66.0
+#define SIGNIFICANT_AMPLITUDE		-66.0
 #define NS_LOWEST_AMPLITUDE			-200
 #define	PCM_8BIT_MIN_AMPLITUDE		-48.16
 #define	PCM_16BIT_MIN_AMPLITUDE		-96.33
@@ -637,7 +637,6 @@ typedef struct parameters_st {
 	int				FullTimeSpectroScale;
 	int				hasTimeDomain;
 	int				hasSilenceOverRide;
-	int				SilenceDecayTrim;
 	int				hasAddOnData;
 	int				frequencyNormalizationTries;
 	double			frequencyNormalizationTolerant;

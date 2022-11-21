@@ -4,10 +4,12 @@ NEC: PC Engine/Turbo Grafx-16
 NTSC 16.714522 263 8606 14 10
 CLK n
 [MonoBalanceBlock] 63      ;Use 1khz-ish, PSG# 61
-[ToneLines] 6
+[ToneLines] 8
 Sync s 1 20 0 red m
-Silence n 1 20 0 gray m
-PSG 1 68 10 0 yellow s     ;Twice each note since there are few (38 20)
+WaitDecay k 1 7 0 red m
+Silence n 1 13 1 gray m
+PSG 1 136 5 0 yellow s        ;twice each note since there are few (34 20)
 Noise 2 5 40 0 aqua n
-Silence n 1 20 0 gray m
+WaitDecay k 1 7 0 red m
+Silence n 1 13 1 gray m
 Sync s 1 20 0 red m

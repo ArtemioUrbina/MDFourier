@@ -6,12 +6,12 @@ CLK n
 [MonoBalanceBlock] 65         ;Balance mono. Use 1khz-ish, PSG# 61
 [ToneLines] 15
 Sync s 1 20 0 red m
-WaitDecay k 1 10 0 red m
-Silence n 2 5 0 gray m
+WaitDecay k 1 7 0 red m
+Silence n 1 13 1 gray m
 PSG 1 136 5 0 yellow s        ;twice each note since there are few (34 20)
 Noise 2 5 40 0 aqua n
-WaitDecay k 1 10 0 red m
-Silence n 2 5 0 gray m
+WaitDecay k 1 7 0 red m
+Silence n 1 13 1 gray m
 Sync s 1 20 0 red m
 WaitPadding k 1 4 0 red m
 ADSTART k 1 1 0 red m
