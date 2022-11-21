@@ -841,17 +841,17 @@ void CMDFourierGUIDlg::FillComboBoxes()
 	// Auto select 1080p or 4K, etc
 	if(Monitor_vert != -1)
 	{
-		if(Monitor_vert >= 4320)
+		if(Monitor_vert > 4320)
 			m_Resolution.SetCurSel(6);
-		else if(Monitor_vert >= 2160)
+		else if(Monitor_vert > 2160)
 			m_Resolution.SetCurSel(5);
-		else if(Monitor_vert >= 1800)
+		else if(Monitor_vert > 1800)
 			m_Resolution.SetCurSel(4);
-		else if(Monitor_vert >= 1080)
+		else if(Monitor_vert > 1080)
 			m_Resolution.SetCurSel(3);
-		else if(Monitor_vert >= 900)
+		else if(Monitor_vert > 900)
 			m_Resolution.SetCurSel(2);
-		else if(Monitor_vert >= 600)
+		else if(Monitor_vert > 600)
 			m_Resolution.SetCurSel(1);
 		else
 			m_Resolution.SetCurSel(0);
