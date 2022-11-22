@@ -8,6 +8,6 @@ APU y 54 8000 4
 [ToneLines] 5
 Sync s 1 20 0 red m
 Silence n 1 20 0 gray m
-SPC700 1 120 10 -5 magenta m
+SPC700 1 120 10 -5 magenta s
 Silence n 1 20 0 gray m
 Sync s 1 20 0 red m

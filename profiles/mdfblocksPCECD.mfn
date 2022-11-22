@@ -9,7 +9,7 @@ Sync s 1 20 0 red m
 WaitDecay k 1 7 0 red m
 Silence n 1 13 1 gray m
 PSG 1 136 5 0 yellow s        ;twice each note since there are few (34 20)
-Noise 2 5 40 0 aqua n
+Noise 2 20 10 0 aqua n
 WaitDecay k 1 7 0 red m
 Silence n 1 13 1 gray m
 Sync s 1 20 0 red m
