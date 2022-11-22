@@ -176,4 +176,5 @@ long int GetSignalMinInt(AudioSignal *Signal);
 
 double GetSignalMinDBFS(AudioSignal *Signal);
 void CheckAmplitudeMatchByDuration(AudioSignal *reference, parameters *config);
+void CheckAmplitudeMatchByDurationMDW(AudioSignal *reference, parameters *config);
 #endif

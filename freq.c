@@ -2950,6 +2950,14 @@ void CheckAmplitudeMatchByDuration(__attribute__((unused))AudioSignal *reference
 	config->maxBlockSeconds = FramesToSeconds(config->biggerFramerate, config->maxBlockFrameCount);
 }
 
+void CheckAmplitudeMatchByDurationMDW(AudioSignal *reference, parameters *config)
+{
+	if(!config->padBlockSizes)
+		return;
+
+	config->maxBlockSeconds = FramesToSeconds(reference->framerate, config->maxBlockFrameCount);
+}
+
 // Zero padding to make all blocks the same frame size
 long int GetBlockZeroPadValues(long int *monoSignalSize, double *seconds, double maxBlockSeconds, double samplerate)
 {

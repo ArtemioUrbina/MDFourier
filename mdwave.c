@@ -187,7 +187,7 @@ int ExecuteMDWave(parameters *config, int discardMDW)
 		}
 	}
 
-	CheckAmplitudeMatchByDuration(ReferenceSignal, config);
+	CheckAmplitudeMatchByDurationMDW(ReferenceSignal, config);
 
 	logmsg("\n* Processing Audio\n");
 	MainPath = PushMainPath(config);
