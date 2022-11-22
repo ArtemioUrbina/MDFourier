@@ -187,6 +187,8 @@ int ExecuteMDWave(parameters *config, int discardMDW)
 		}
 	}
 
+	CheckAmplitudeMatchByDuration(ReferenceSignal, config);
+
 	logmsg("\n* Processing Audio\n");
 	MainPath = PushMainPath(config);
 	if(!ProcessSignalMDW(ReferenceSignal, config))
@@ -600,6 +602,9 @@ int ExecuteDFFTInternal(AudioBlocks *AudioArray, double *samples, long int size,
 	stereoSignalSize = (long)size;
 	monoSignalSize = stereoSignalSize/AudioChannels;
 	seconds = (double)size/(samplerate*(double)AudioChannels);
+
+	if(config->padBlockSizes)
+		zeropadding = GetBlockZeroPadValues(&monoSignalSize, &seconds, config->maxBlockSeconds, samplerate);
 
 	if(config->ZeroPad)  /* disabled by default */
 		zeropadding = GetZeroPadValues(&monoSignalSize, &seconds, samplerate);

@@ -68,6 +68,7 @@
 #define	PCM_24BIT_MIN_AMPLITUDE		-144.49
 #define	PCM_32BIT_MIN_AMPLITUDE		-192.66
 #define HIGHEST_NOISEFLOOR_ALLOWED	-40.0
+#define	NOISE_FLOOR_DIGITAL_FAIR	-120.0
 
 #define STEREO_TOLERANCE_REPORT		8.5
 
@@ -592,6 +593,7 @@ typedef struct parameters_st {
 	double			significantAmplitude;
 	double			referenceNoiseFloor;
 	double			smallerFramerate;
+	double			biggerFramerate;
 	double			referenceFramerate;
 	int				logScale;
 	int				logScaleTS;
@@ -612,7 +614,11 @@ typedef struct parameters_st {
 	double			thresholdMissingHiDif;
 	double			thresholdExtraHiDif;
 
-	long int		blockSignalSize;
+	// Keep Power/Amplitude levels matched even with uneven blocks
+	long int		maxBlockFrameCount;
+	int				padBlockSizes;
+	double			maxBlockSeconds;
+
 	int				plotDifferences;
 	int				plotMissing;
 	int				plotSpectrogram;

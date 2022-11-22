@@ -951,12 +951,10 @@ int CheckProfileBaseLength(parameters *config)
 		logmsg("ERROR: Invalid Profile, no valid lengths\n");
 		return 0;
 	}
+	config->maxBlockFrameCount = longest;
 
 	if(different)
-	{
-		config->blockSignalSize = longest;
-		logmsg("- Zero Padding all blocks to %d frames to keep amplitudes consistent\n", longest);
-	}
+		config->padBlockSizes = 1;
 
 	return 1;
 }

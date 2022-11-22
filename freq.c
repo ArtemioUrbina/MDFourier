@@ -687,17 +687,28 @@ double GetLowerFrameRate(double framerateA, double framerateB)
 	return framerateA;
 }
 
+double GetHigherFrameRate(double framerateA, double framerateB)
+{
+	if(framerateA < framerateB)
+		return framerateB;
+
+	return framerateA;
+}
+
 void CompareFrameRates(AudioSignal *Signal1, AudioSignal *Signal2, parameters *config)
 {
-	double diff = 0;
-
-	diff = fabs(Signal1->framerate - Signal2->framerate);
-	//if(diff == 0.0)
 	if(areDoublesEqual(Signal1->framerate, Signal2->framerate))
+	{
 		config->smallerFramerate = Signal1->framerate;
+		config->biggerFramerate = Signal1->framerate;
+	}
 	else
 	{
+		double diff = 0;
+
+		diff = fabs(Signal1->framerate - Signal2->framerate);
 		config->smallerFramerate = GetLowerFrameRate(Signal1->framerate, Signal2->framerate);
+		config->biggerFramerate  = GetHigherFrameRate(Signal1->framerate, Signal2->framerate);
 		if((config->verbose && diff > 0.001) || diff > 0.1) {
 			logmsg("\n= Different frame rates found (%.8g), compensating to %.8gms =\n", 
 				diff, config->smallerFramerate);
@@ -2928,28 +2939,34 @@ inline double GetDecimalValues(double value)
 	return value;
 }
 
+// Sets the time length to use in order to match uneven blocks
+// so that power/amplitude is kept when using differennt frame length blocks
+void CheckAmplitudeMatchByDuration(__attribute__((unused))AudioSignal *reference, parameters *config)
+{
+	if(!config->padBlockSizes)
+		return;
+
+	// we use the bigger framerate so that when padding, everything is covered
+	config->maxBlockSeconds = FramesToSeconds(config->biggerFramerate, config->maxBlockFrameCount);
+}
+
 // Zero padding to make all blocks the same frame size
-long int GetBlockZeroPadValues(long int *monoSignalSize, long int size, int AudioChannels, double *seconds, long int blockSignalSize, double samplerate)
+long int GetBlockZeroPadValues(long int *monoSignalSize, double *seconds, double maxBlockSeconds, double samplerate)
 {
 	long int padding = 0;
 
 	if(!monoSignalSize || !seconds)
 		return padding;
 
-	// Check if we need to do something
-	if(size != blockSignalSize)
+	if (maxBlockSeconds > *seconds)
 	{
-		// It has to be lower or equal, since by definition block size is the biggest block
-		if(size < blockSignalSize)
-		{
-			padding = (blockSignalSize - size)/AudioChannels;
-			*monoSignalSize += padding;
-			*seconds = (double)(*monoSignalSize)/samplerate;
-		}
-		else
-			logmsg("ERROR: GetZeroBlockPadValues() segment size was biggen thatblockSignalSize (%ld > %ld)\n", 
-				size, blockSignalSize);
+		padding = SecondsToSamples(samplerate, maxBlockSeconds - *seconds, 1, NULL, NULL);
+		*monoSignalSize += padding;
+		*seconds = maxBlockSeconds;
 	}
+	else if (maxBlockSeconds < *seconds)
+		logmsg("WARNING: Block length longer than max block lentgth %g > %g\n", *seconds, maxBlockSeconds);
+
 	return padding;
 }
 

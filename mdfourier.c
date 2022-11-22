@@ -40,8 +40,8 @@
 
 int LoadAndProcessAudioFiles(AudioSignal **ReferenceSignal, AudioSignal **ComparisonSignal, parameters *config);
 int ProcessSignal(AudioSignal *Signal, parameters *config);
-int ExecuteDFFT(AudioBlocks *AudioArray, double *samples, size_t size, size_t difference, AudioSignal *Signal, double *window, int ZeroPad, parameters *config);
-int ExecuteDFFTInternal(AudioBlocks *AudioArray, double *samples, size_t size, size_t difference, AudioSignal *ASignal, double *window, char channel, int ZeroPad, parameters *config);
+int ExecuteDFFT(AudioBlocks *AudioArray, double *samples, size_t size, double samplerate, double *window, int AudioChannels, int ZeroPad, parameters *config);
+int ExecuteDFFTInternal(AudioBlocks *AudioArray, double *samples, size_t size, double samplerate, double *window, char channel, int AudioChannels, int ZeroPad, parameters *config);
 int CompareAudioBlocks(AudioSignal *ReferenceSignal, AudioSignal *ComparisonSignal, parameters *config);
 int CopySamplesForTimeDomainPlot(AudioBlocks *AudioArray, double *samples, size_t size, size_t diff, double *window, int AudioChannels, int forcecopy, parameters *config);
 void CleanUp(AudioSignal **ReferenceSignal, AudioSignal **ComparisonSignal, parameters *config);
@@ -755,8 +755,15 @@ int ProcessNoiseFloor(AudioSignal *ReferenceSignal, AudioSignal *ComparisonSigna
 		//config->significantAmplitude = SIGNIFICANT_VOLUME;
 	}
 
-	logmsg(" - Using %g dBFS as minimum significant amplitude for analysis\n",
-		config->significantAmplitude);
+	// check if digital noise floow, so we limit ourselves to a reasonable noise floow
+	if(config->significantAmplitude < NOISE_FLOOR_DIGITAL_FAIR)
+	{
+		logmsg(" - Found possible digital noise floor at %g dBFS. Limiting to %g dBFS, use -p to override\n",
+			config->significantAmplitude, NOISE_FLOOR_DIGITAL_FAIR);
+		config->significantAmplitude = NOISE_FLOOR_DIGITAL_FAIR;
+	}
+	else
+		logmsg(" - Using %g dBFS as minimum significant amplitude for analysis\n",	config->significantAmplitude);
 	return 1;
 }
 
@@ -818,6 +825,8 @@ int LoadAndProcessAudioFiles(AudioSignal **ReferenceSignal, AudioSignal **Compar
 		if(!TimeDomainNormalize(ReferenceSignal, ComparisonSignal, config))
 			return 0;
 	}
+
+	CheckAmplitudeMatchByDuration(*ReferenceSignal, config);
 
 	logmsg("\n* Executing Discrete Fast Fourier Transforms on 'Reference' file\n");
 	if(!ProcessSignal(*ReferenceSignal, config))
@@ -1144,7 +1153,7 @@ int RecalculateFFTW(AudioSignal *Signal, parameters *config)
 			windowUsed = getWindowByLength(&windows, frames, cutFrames, config->smallerFramerate, config);
 
 			CleanFrequenciesInBlock(&Signal->Blocks[i], config);
-			if(!ExecuteDFFT(&Signal->Blocks[i], Signal->Blocks[i].audio.samples, Signal->Blocks[i].audio.size, Signal->Blocks[i].audio.difference, Signal, windowUsed, config->ZeroPad, config))
+			if(!ExecuteDFFT(&Signal->Blocks[i], Signal->Blocks[i].audio.samples, Signal->Blocks[i].audio.size, Signal->SampleRate, windowUsed, Signal->AudioChannels, config->ZeroPad, config))
 				return 0;
 			if(!FillFrequencyStructures(Signal, &Signal->Blocks[i], config))
 				return 0;
@@ -1155,7 +1164,7 @@ int RecalculateFFTW(AudioSignal *Signal, parameters *config)
 			if(config->clkMeasure && config->clkBlock == i)
 			{
 				CleanFrequenciesInBlock(&Signal->clkFrequencies, config);
-				if(!ExecuteDFFT(&Signal->clkFrequencies, Signal->Blocks[i].audio.samples, Signal->Blocks[i].audio.size, Signal->Blocks[i].audio.difference, Signal, windowUsed, 1 /* zeropad on */, config))
+				if(!ExecuteDFFT(&Signal->clkFrequencies, Signal->Blocks[i].audio.samples, Signal->Blocks[i].audio.size, Signal->SampleRate, windowUsed, Signal->AudioChannels, 1 /* zeropad on */, config))
 					return 0;
 
 				if(!FillFrequencyStructures(Signal, &Signal->clkFrequencies, config))
@@ -1432,7 +1441,7 @@ int ProcessSignal(AudioSignal *Signal, parameters *config)
 
 		if(Signal->Blocks[i].type >= TYPE_SILENCE || Signal->Blocks[i].type == TYPE_WATERMARK)
 		{
-			if(!ExecuteDFFT(&Signal->Blocks[i], sampleBuffer, loadedBlockSize, difference, Signal, windowUsed, config->ZeroPad, config))
+			if(!ExecuteDFFT(&Signal->Blocks[i], sampleBuffer, loadedBlockSize-difference, Signal->SampleRate, windowUsed, Signal->AudioChannels, config->ZeroPad, config))
 				return 0;
 
 			//logmsg("estimated %g (difference %ld)\n", Signal->Blocks[i].frames*Signal->framerate/1000.0, difference);
@@ -1443,7 +1452,7 @@ int ProcessSignal(AudioSignal *Signal, parameters *config)
 
 		if(config->clkMeasure && config->clkBlock == i)
 		{
-			if(!ExecuteDFFT(&Signal->clkFrequencies, sampleBuffer, loadedBlockSize, difference, Signal, windowUsed, 1, config))
+			if(!ExecuteDFFT(&Signal->clkFrequencies, sampleBuffer, loadedBlockSize-difference, Signal->SampleRate, windowUsed, Signal->AudioChannels, 1, config))
 				return 0;
 
 			if(!FillFrequencyStructures(Signal, &Signal->clkFrequencies, config))
@@ -1519,11 +1528,11 @@ int ProcessSignal(AudioSignal *Signal, parameters *config)
 	return i;
 }
 
-int ExecuteDFFT(AudioBlocks *AudioArray, double *samples, size_t size, size_t difference, AudioSignal *Signal, double *window, int ZeroPad, parameters *config)
+int ExecuteDFFT(AudioBlocks *AudioArray, double *samples, size_t size, double samplerate, double *window, int AudioChannels, int ZeroPad, parameters *config)
 {
 	char channel = CHANNEL_STEREO;
 
-	if(Signal->AudioChannels == 1)
+	if(AudioChannels == 1)
 		channel = CHANNEL_LEFT;
 	else
 	{
@@ -1534,23 +1543,22 @@ int ExecuteDFFT(AudioBlocks *AudioArray, double *samples, size_t size, size_t di
 		if(AudioArray->channel == CHANNEL_STEREO)
 		{
 			channel = CHANNEL_RIGHT;
-			if(!ExecuteDFFTInternal(AudioArray, samples, size, difference, Signal, window, channel, ZeroPad, config))
+			if(!ExecuteDFFTInternal(AudioArray, samples, size, samplerate, window, channel, AudioChannels, ZeroPad, config))
 				return 0;
 			channel = CHANNEL_LEFT;
 		}
 	}
-	return(ExecuteDFFTInternal(AudioArray, samples, size, difference, Signal, window, channel, ZeroPad, config));
+	return(ExecuteDFFTInternal(AudioArray, samples, size, samplerate, window, channel, AudioChannels, ZeroPad, config));
 }
 
-int ExecuteDFFTInternal(AudioBlocks *AudioArray, double *samples, size_t size, size_t difference, AudioSignal *ASignal, double *window, char channel, int ZeroPad, parameters *config)
+int ExecuteDFFTInternal(AudioBlocks *AudioArray, double *samples, size_t size, double samplerate, double *window, char channel, int AudioChannels, int ZeroPad, parameters *config)
 {
 	fftw_plan		p = NULL;
 	long			stereoSignalSize = 0;
 	long			i = 0, monoSignalSize = 0, zeropadding = 0;
 	double			*signal = NULL;
 	fftw_complex	*spectrum = NULL;
-	double			seconds = 0, samplerate;
-	int				AudioChannels;
+	double			seconds = 0;
 
 	if(!AudioArray)
 	{
@@ -1558,23 +1566,13 @@ int ExecuteDFFTInternal(AudioBlocks *AudioArray, double *samples, size_t size, s
 		return 0;
 	}
 
-	samplerate = ASignal->SampleRate;
-	AudioChannels = ASignal->AudioChannels;
+	stereoSignalSize = (long)size;
+	monoSignalSize = stereoSignalSize/AudioChannels;
+	seconds = (double)size/(samplerate*(double)AudioChannels);
 
-	stereoSignalSize = (long)(size-difference);
-	monoSignalSize = stereoSignalSize/ASignal->AudioChannels;
-	seconds = (double)stereoSignalSize/(samplerate*(double)AudioChannels);
-
-	if(config->blockSignalSize)
-	{
-		double duration = 0;
-		long int blockSignalSize;
-
-		duration = FramesToSeconds(ASignal->framerate, config->blockSignalSize);
-		blockSignalSize = SecondsToSamples(samplerate, duration, AudioChannels, NULL, NULL);
-		zeropadding = GetBlockZeroPadValues(&monoSignalSize, size, AudioChannels, &seconds, blockSignalSize, samplerate);
-	}
-
+	if(config->padBlockSizes)
+		zeropadding = GetBlockZeroPadValues(&monoSignalSize, &seconds, config->maxBlockSeconds, samplerate);
+	
 	if(ZeroPad)  /* disabled by default */
 		zeropadding = GetZeroPadValues(&monoSignalSize, &seconds, samplerate);
 

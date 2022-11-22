@@ -155,6 +155,7 @@ void CleanParameters(parameters *config)
 	config->significantAmplitude = SIGNIFICANT_AMPLITUDE;
 	config->referenceNoiseFloor = 0;
 	config->smallerFramerate = 0;
+	config->biggerFramerate = 0;
 	config->referenceFramerate = 0;
 	config->ZeroPad = 0;
 	config->debugSync = 0;
@@ -175,7 +176,10 @@ void CleanParameters(parameters *config)
 	config->hasTimeDomain = 0;
 	config->hasSilenceOverRide = 0;
 
-	config->blockSignalSize = 0;
+	config->maxBlockFrameCount = 0;
+	config->padBlockSizes = 0;
+	config->maxBlockSeconds = 0;
+
 	config->hasAddOnData = 0;
 	config->noSyncProfile = 0;
 	config->noSyncProfileType = NO_SYNC_AUTO;
@@ -318,9 +322,9 @@ int commandline(int argc , char *argv[], parameters *config)
 		config->zoomWaveForm = atof(optarg);
 		if(config->zoomWaveForm > 0)
 			config->zoomWaveForm *= -1;
-		if(config->zoomWaveForm < -200)
+		if(config->zoomWaveForm < -250)
 		{
-			logmsg(" -ERROR: Waveform Zoom Range must be between %d and %d\n", 0, -200);
+			logmsg(" -ERROR: Waveform Zoom Range must be between %d and %d\n", 0, -250);
 			return 0;
 		}
 		if(config->zoomWaveForm)

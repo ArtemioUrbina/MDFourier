@@ -153,7 +153,7 @@ double CalculateScanRateOriginalFramerate(AudioSignal *Signal);
 
 double FindFrequencyBinSizeForBlock(AudioSignal *Signal, long int block);
 long int GetZeroPadValues(long int *monoSignalSize, double *seconds, double samplerate);
-long int GetBlockZeroPadValues(long int *monoSignalSize, long int size, int AudioChannels, double *seconds, long int blockSignalSize, double samplerate);
+long int GetBlockZeroPadValues(long int *monoSignalSize, double *seconds, double maxBlockSeconds, double samplerate);
 void CalculateFrequencyBrackets(AudioSignal *signal, parameters *config);
 double FindFrequencyBracket(double frequency, size_t size, int AudioChannels, double samplerate, parameters *config);
 double FindFrequencyBracketForSync(double frequency, size_t size, int AudioChannels, double samplerate, parameters *config);
@@ -175,4 +175,5 @@ long int GetSignalMaxInt(AudioSignal *Signal);
 long int GetSignalMinInt(AudioSignal *Signal);
 
 double GetSignalMinDBFS(AudioSignal *Signal);
+void CheckAmplitudeMatchByDuration(AudioSignal *reference, parameters *config);
 #endif
