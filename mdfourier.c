@@ -1321,6 +1321,9 @@ int DuplicateSamplesForWavefromPlots(AudioSignal *Signal, long int element, long
 	return 1;
 }
 
+// This define changes a possible core behaviour when comparing PAL vs NTSC systems
+// needs verification and experimentation
+#define ORIG_MDF
 int ProcessSignal(AudioSignal *Signal, parameters *config)
 {
 	long int		pos = 0;
@@ -1387,14 +1390,20 @@ int ProcessSignal(AudioSignal *Signal, parameters *config)
 		*/
 
 		// This compensates framerate difference
+#ifdef ORIG_MDF
 		difference = GetSampleSizeDifferenceByFrameRate(framerate, frames, Signal->SampleRate, Signal->AudioChannels, config);
+#endif
 		// This compensates for subsample time differences
 		loadedBlockSize = SecondsToSamples(Signal->SampleRate, duration, Signal->AudioChannels, &discardSamples, &leftDecimals);
 
 		if(Signal->Blocks[i].type >= TYPE_SILENCE || Signal->Blocks[i].type == TYPE_WATERMARK) // We get the smaller window, since we'll truncate
 		{
 			if(!syncinternal)
+#ifdef ORIG_MDF
 				windowUsed = getWindowByLength(&windows, frames, cutFrames, config->smallerFramerate, config);
+#else
+				windowUsed = getWindowByLength(&windows, frames, cutFrames, framerate, config);
+#endif
 			else
 				windowUsed = getWindowByLength(&windows, frames, cutFrames, framerate, config);
 		}

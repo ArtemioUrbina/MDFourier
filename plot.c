@@ -5793,28 +5793,23 @@ void PlotBlockTimeDomainGraph(AudioSignal *Signal, int block, char *name, int wa
 
 	// Draw samples
 	SetPenColor(color, 0xffff, &plot);
-	if(config->zoomWaveForm == 0)	// This is the regular plot
+	
+	// we treat all samples as if zoomed in, since we changed the comparison so that it can clip
+	for(sample = 0; sample < numSamples - 1; sample ++)
 	{
-		for(sample = 0; sample < numSamples - 1; sample ++)
-			pl_fline_r(plot.plotter, sample, samples[sample], sample+1, samples[sample+1]);
+		double s0 = samples[sample], s1 = samples[sample+1];
+
+		// draw samples outside zoom up to the zoom point
+		if(s0 > MaxY) s0 = MaxY;
+		if(s1 < MinY) s1 = MinY;
+
+		if(s0 < MinY) s0 = MinY;
+		if(s1 > MaxY) s1 = MaxY;
+
+		if(!(s0 == s1 && (s0 == MaxY || s0 == MinY)))  // clear samples fully outside zoom
+			pl_fline_r(plot.plotter, sample, s0, sample+1, s1);
 	}
-	else	// This is for zoomed in plots
-	{
-		for(sample = 0; sample < numSamples - 1; sample ++)
-		{
-			double s0 = samples[sample], s1 = samples[sample+1];
 
-			// draw samples outside zoom up to the zoom point
-			if(s0 > MaxY) s0 = MaxY;
-			if(s1 < MinY) s1 = MinY;
-
-			if(s0 < MinY) s0 = MinY;
-			if(s1 > MaxY) s1 = MaxY;
-
-			if(!(s0 == s1 && (s0 == MaxY || s0 == MinY)))  // clear samples fully outside zoom
-				pl_fline_r(plot.plotter, sample, s0, sample+1, s1);
-		}
-	}
 	pl_endpath_r(plot.plotter);
 
 	// Draw Extra Channel samples
@@ -5831,28 +5826,22 @@ void PlotBlockTimeDomainGraph(AudioSignal *Signal, int block, char *name, int wa
 		else
 			samples = Signal->Blocks[block].audioRight.samples;
 		SetPenColor(color, 0xffff, &plot);
-		if(config->zoomWaveForm == 0)	// This is the regular plot
+		
+		for(sample = 0; sample < numSamples - 1; sample ++)
 		{
-			for(sample = 0; sample < numSamples - 1; sample ++)
-				pl_fline_r(plot.plotter, sample, samples[sample], sample+1, samples[sample+1]);
+			double s0 = samples[sample], s1 = samples[sample+1];
+	
+			// draw samples outside zoom up to the zoom point
+			if(s0 > MaxY) s0 = MaxY;
+			if(s1 < MinY) s1 = MinY;
+	
+			if(s0 < MinY) s0 = MinY;
+			if(s1 > MaxY) s1 = MaxY;
+	
+			if(!(s0 == s1 && (s0 == MaxY || s0 == MinY)))  // clear samples fully outside zoom
+				pl_fline_r(plot.plotter, sample, s0, sample+1, s1);
 		}
-		else	// This is for zoomed in plots
-		{
-			for(sample = 0; sample < numSamples - 1; sample ++)
-			{
-				double s0 = samples[sample], s1 = samples[sample+1];
-	
-				// draw samples outside zoom up to the zoom point
-				if(s0 > MaxY) s0 = MaxY;
-				if(s1 < MinY) s1 = MinY;
-	
-				if(s0 < MinY) s0 = MinY;
-				if(s1 > MaxY) s1 = MaxY;
-	
-				if(!(s0 == s1 && (s0 == MaxY || s0 == MinY)))  // clear samples fully outside zoom
-					pl_fline_r(plot.plotter, sample, s0, sample+1, s1);
-			}
-		}
+
 		pl_endpath_r(plot.plotter);
 		pl_restorestate_r(plot.plotter);
 	}
