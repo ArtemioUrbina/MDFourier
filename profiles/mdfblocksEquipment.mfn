@@ -7,7 +7,7 @@ CLK n
 [ToneLines] 15
 Sync s 1 26 0 red m
 _buffer_ k 1 4 0 red m
-Silence n 2 10 0 gray m
+Silence n 2 10 1 gray m
 Sine_sweep 1 150 10 0 green S
     PAD k 1 30 0 red m
 Pulse_sweep 2 150 10 0 yellow S
@@ -18,5 +18,5 @@ Pink_Noise 4 30 10 0 magenta n
     PAD k 1 90 0 red m
 Fade 5 30 10 0 orange m
 _buffer_ k 1 5 0 red m
-Silence n 2 10 0 gray m
+Silence n 2 10 1 gray m
 Sync s 1 26 0 red m
