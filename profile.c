@@ -465,7 +465,7 @@ int LoadAudioBlockStructure(FILE *file, parameters *config)
 				return 0;
 			}
 		}
-		else  // Any other lines
+		else  // All regular lines
 		{
 			if(sscanf(lineBuffer, "%*s %*s %d %d %d %20s %c\n", 
 				&config->types.typeArray[i].elementCount,
@@ -506,6 +506,20 @@ int LoadAudioBlockStructure(FILE *file, parameters *config)
 				}
 				config->usesStereo = 1;
 			}
+
+			// Check for masking extensions, will probably be dforced in profile 2.4. They are optional now
+			if(sscanf(lineBuffer, "%*s %*s %*d %*d %*d %*s %*c %c\n", 
+				&config->types.typeArray[i].maskType) == 1)
+			{
+				if(config->types.typeArray[i].maskType != MASK_USE_WINDOW && config->types.typeArray[i].maskType != MASK_NONE)
+				{
+					logmsg("ERROR: Mask type can only be 'w' or 'n' for windowed or none (windowed was the original default)\n %s\n", lineBuffer);
+					fclose(file);
+					return 0;
+				}
+			}
+			else
+				config->types.typeArray[i].maskType = MASK_DEFAULT;
 		}
 
 		if(!config->types.typeArray[i].elementCount)

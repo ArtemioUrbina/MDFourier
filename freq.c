@@ -247,7 +247,7 @@ int InitFreqStruc(Frequency **freq, parameters *config)
 	return 1;
 }
 
-int InitAudioBlock(AudioBlocks* block, char channel, parameters *config)
+int InitAudioBlock(AudioBlocks* block, char channel, char maskType, parameters *config)
 {
 	if(!block)
 		return 0;
@@ -259,6 +259,7 @@ int InitAudioBlock(AudioBlocks* block, char channel, parameters *config)
 			return 0;
 	}
 	block->channel = channel;
+	block->maskType = maskType;
 	return(InitFreqStruc(&block->freq, config));
 }
 
@@ -316,13 +317,13 @@ AudioSignal *CreateAudioSignal(parameters *config)
 
 	for(int n = 0; n < config->types.totalBlocks; n++)
 	{
-		if(!InitAudioBlock(&Signal->Blocks[n], GetBlockChannel(config, n), config))
+		if(!InitAudioBlock(&Signal->Blocks[n], GetBlockChannel(config, n), GetBlockMaskType(config, n), config))
 			return NULL;
 	}
 
 	InitAudio(Signal, config);
 	if(config->clkMeasure)
-		InitAudioBlock(&Signal->clkFrequencies, CHANNEL_MONO, config);
+		InitAudioBlock(&Signal->clkFrequencies, CHANNEL_MONO, MASK_DEFAULT, config);	// we use the new mask default here
 	return Signal;
 }
 
@@ -1444,6 +1445,23 @@ char GetBlockChannel(parameters *config, int pos)
 	}
 	
 	return CHANNEL_NONE;
+}
+
+char GetBlockMaskType(parameters *config, int pos)
+{
+	int elementsCounted = 0;
+
+	if(!config)
+		return MASK_DEFAULT;
+
+	for(int i = 0; i < config->types.typeCount; i++)
+	{
+		elementsCounted += config->types.typeArray[i].elementCount;
+		if(elementsCounted > pos)
+			return(config->types.typeArray[i].maskType);
+	}
+	
+	return MASK_DEFAULT;
 }
 
 char *GetBlockColor(parameters *config, int pos)
@@ -2660,10 +2678,12 @@ void PrintComparedBlocks(AudioBlocks *ReferenceArray, AudioBlocks *ComparedArray
 			{
 				if(areDoublesEqual(ReferenceArray->freq[j].amplitude, 
 									ComparedArray->freq[match].amplitude))
-					logmsgFileOnly("FA");
+					logmsgFileOnly("F+");
 				else
 					logmsgFileOnly("F-");
 			}
+			else
+				logmsgFileOnly("XX");
 			logmsgFileOnly("\n");
 		}
 	}

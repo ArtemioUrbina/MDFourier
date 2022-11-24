@@ -172,6 +172,10 @@
 
 #define	NO_CLK			-1
 
+#define MASK_USE_WINDOW	'*'
+#define MASK_NONE		'-'
+#define MASK_DEFAULT	MASK_NONE
+
 #if defined (WIN32)
 	#define MAX_FOLDER_NAME	50
 	#define MAX_FILE_NAME	25
@@ -243,6 +247,7 @@ typedef struct abt_st {
 	int			syncTone;
 	double		syncLen;
 	int			IsaddOnData;
+	char		maskType;
 } AudioBlockType;
 
 typedef struct sync_st {
@@ -400,6 +405,7 @@ typedef struct AudioBlock_st {
 	int				frames;
 	double 			seconds;
 	char			channel;
+	char			maskType;
 
 	double			AverageDifference;
 	double			missingPercent;

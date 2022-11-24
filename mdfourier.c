@@ -1321,9 +1321,6 @@ int DuplicateSamplesForWavefromPlots(AudioSignal *Signal, long int element, long
 	return 1;
 }
 
-// This define changes a possible core behaviour when comparing PAL vs NTSC systems
-// needs verification and experimentation
-#define ORIG_MDF
 int ProcessSignal(AudioSignal *Signal, parameters *config)
 {
 	long int		pos = 0;
@@ -1389,21 +1386,21 @@ int ProcessSignal(AudioSignal *Signal, parameters *config)
 			loadedBlockSize = SecondsToSamples(Signal->SampleRate, duration, Signal->AudioChannels, &discardSamples, &leftDecimals);
 		*/
 
-		// This compensates framerate difference
-#ifdef ORIG_MDF
-		difference = GetSampleSizeDifferenceByFrameRate(framerate, frames, Signal->SampleRate, Signal->AudioChannels, config);
-#endif
+		// This compensates framerate difference in the old style, and used in Mega Drive FM between PAL and NTSC
+		// Here the window masks out part of the signal in the old style, needed when
+		// XTAL for audio is the same between PAL and NTSC (?)
+		// C64 needs this off (MASK_NONE) and Genesis on (MASK_USE_WINDOW)
+		// current new default is off (MASk_NONE) if the profile doesn't specify it
+		if(Signal->Blocks[i].maskType == MASK_USE_WINDOW)
+			difference = GetSampleSizeDifferenceByFrameRate(framerate, frames, Signal->SampleRate, Signal->AudioChannels, config);
+
 		// This compensates for subsample time differences
 		loadedBlockSize = SecondsToSamples(Signal->SampleRate, duration, Signal->AudioChannels, &discardSamples, &leftDecimals);
 
-		if(Signal->Blocks[i].type >= TYPE_SILENCE || Signal->Blocks[i].type == TYPE_WATERMARK) // We get the smaller window, since we'll truncate
+		if(Signal->Blocks[i].type >= TYPE_SILENCE || Signal->Blocks[i].type == TYPE_WATERMARK)
 		{
-			if(!syncinternal)
-#ifdef ORIG_MDF
-				windowUsed = getWindowByLength(&windows, frames, cutFrames, config->smallerFramerate, config);
-#else
-				windowUsed = getWindowByLength(&windows, frames, cutFrames, framerate, config);
-#endif
+			if(!syncinternal && Signal->Blocks[i].maskType == MASK_USE_WINDOW)
+				windowUsed = getWindowByLength(&windows, frames, cutFrames, config->smallerFramerate, config); // We get the smaller window, since we'll truncate
 			else
 				windowUsed = getWindowByLength(&windows, frames, cutFrames, framerate, config);
 		}
@@ -1444,7 +1441,7 @@ int ProcessSignal(AudioSignal *Signal, parameters *config)
 				SamplesForDisplay(loadedBlockSize - difference, Signal->AudioChannels), SamplesToSeconds(Signal->SampleRate, loadedBlockSize - difference, Signal->AudioChannels),
 				SamplesForDisplay(discardSamples, Signal->AudioChannels), leftDecimals/(double)Signal->AudioChannels);
 #endif
-
+		
 		memset(sampleBuffer, 0, sampleBufferSize*sizeof(double));
 		memcpy(sampleBuffer, Signal->Samples + pos, (loadedBlockSize-difference)*sizeof(double));
 
@@ -1452,9 +1449,9 @@ int ProcessSignal(AudioSignal *Signal, parameters *config)
 		{
 			if(!ExecuteDFFT(&Signal->Blocks[i], sampleBuffer, loadedBlockSize-difference, Signal->SampleRate, windowUsed, Signal->AudioChannels, config->ZeroPad, config))
 				return 0;
-
-			//logmsg("estimated %g (difference %ld)\n", Signal->Blocks[i].frames*Signal->framerate/1000.0, difference);
-			// uncomment in ExecuteDFFT as well
+#ifdef DEBUG
+			logmsg("estimated %g (difference %ld)\n", Signal->Blocks[i].frames*Signal->framerate/1000.0, difference);
+#endif
 			if(!FillFrequencyStructures(Signal, &Signal->Blocks[i], config))
 				return 0;
 		}
@@ -1639,7 +1636,10 @@ int ExecuteDFFTInternal(AudioBlocks *AudioArray, double *samples, size_t size, d
 	fftw_destroy_plan(p);
 	p = NULL;
 
-	//logmsg("Seconds %g was %g ", seconds, AudioArray->seconds); // uncomment estimated above as well
+#ifdef DEBUG
+	logmsg("Seconds %g was %g ", seconds, AudioArray->seconds);
+#endif
+
 	if(channel != CHANNEL_RIGHT)
 	{
 		AudioArray->fftwValues.spectrum = spectrum;
@@ -1792,6 +1792,9 @@ int CompareAudioBlocks(AudioSignal *ReferenceSignal, AudioSignal *ComparisonSign
 	if(!CreateDifferenceArray(config))
 		return 0;
 
+	if(config->extendedResults || config->showAll)
+		logmsg("\n");
+
 	for(block = 0; block < config->types.totalBlocks; block++)
 	{
 		char	channel = CHANNEL_MONO;
@@ -1832,22 +1835,25 @@ int CompareAudioBlocks(AudioSignal *ReferenceSignal, AudioSignal *ComparisonSign
 				return 0;
 		}
 
-		if(config->Differences.BlockDiffArray[block].cntFreqBlkDiff)
+		if(type > TYPE_CONTROL)
 		{
-			if(config->extendedResults)
+			if(config->Differences.BlockDiffArray[block].cntFreqBlkDiff)
 			{
-				logmsgFileOnly("Unmatched Block Report for %s# %ld (%ld)\n", GetBlockName(config, block), GetBlockSubIndex(config, block), block);
-				PrintComparedBlocks(&ReferenceSignal->Blocks[block], &ComparisonSignal->Blocks[block],
-					config);
+				if(config->extendedResults)
+				{
+					logmsgFileOnly("UnMatched Block Report for %s# %ld (%ld)\n", GetBlockName(config, block), GetBlockSubIndex(config, block), block);
+					PrintComparedBlocks(&ReferenceSignal->Blocks[block], &ComparisonSignal->Blocks[block],
+						config);
+				}
 			}
-		}
-		else
-		{
-			if(config->showAll)
+			else
 			{
-				logmsgFileOnly("Matched Block Report for %s# %ld (%ld)\n", GetBlockName(config, block), GetBlockSubIndex(config, block), block);
-				PrintComparedBlocks(&ReferenceSignal->Blocks[block], &ComparisonSignal->Blocks[block],
-					config);
+				if(config->showAll)
+				{
+					logmsgFileOnly("Matched Block Report for %s# %ld (%ld)\n", GetBlockName(config, block), GetBlockSubIndex(config, block), block);
+					PrintComparedBlocks(&ReferenceSignal->Blocks[block], &ComparisonSignal->Blocks[block],
+						config);
+				}
 			}
 		}
 	}

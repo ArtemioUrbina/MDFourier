@@ -307,14 +307,20 @@ int ProcessSignalMDW(AudioSignal *Signal, parameters *config)
 		frames = GetBlockFrames(config, i);
 		cutFrames = GetBlockCutFrames(config, i);
 		duration = FramesToSeconds(framerate, frames);
-				
-		loadedBlockSize = SecondsToSamples(Signal->SampleRate, duration, Signal->AudioChannels, &discardSamples, &leftDecimals);
 
-		difference = GetSampleSizeDifferenceByFrameRate(framerate, frames, Signal->SampleRate, Signal->AudioChannels, config);
+		if(Signal->Blocks[i].maskType == MASK_USE_WINDOW)
+			difference = GetSampleSizeDifferenceByFrameRate(framerate, frames, Signal->SampleRate, Signal->AudioChannels, config);
+
+		loadedBlockSize = SecondsToSamples(Signal->SampleRate, duration, Signal->AudioChannels, &discardSamples, &leftDecimals);
 
 		windowUsed = NULL;
 		if(Signal->Blocks[i].type >= TYPE_SILENCE || Signal->Blocks[i].type == TYPE_WATERMARK)
-			windowUsed = getWindowByLength(&windows, frames, cutFrames, Signal->framerate, config);
+		{
+			if(!syncinternal && Signal->Blocks[i].maskType == MASK_USE_WINDOW)
+				windowUsed = getWindowByLength(&windows, frames, cutFrames, config->smallerFramerate, config);
+			else
+				windowUsed = getWindowByLength(&windows, frames, cutFrames, framerate, config);
+		}
 
 		//logmsg("Loaded %ld Left %ld Discard %ld difference %ld Decimals %g\n", loadedBlockSize, discardSamples, difference, leftDecimals);
 		if(pos + loadedBlockSize > Signal->numSamples)
@@ -429,14 +435,20 @@ int ProcessSignalMDW(AudioSignal *Signal, parameters *config)
 			frames = GetBlockFrames(config, i);
 			cutFrames = GetBlockCutFrames(config, i);
 			duration = FramesToSeconds(framerate, frames);
+	
+			if(Signal->Blocks[i].maskType == MASK_USE_WINDOW)
+				difference = GetSampleSizeDifferenceByFrameRate(framerate, frames, Signal->SampleRate, Signal->AudioChannels, config);
 
 			loadedBlockSize = SecondsToSamples(Signal->SampleRate, duration, Signal->AudioChannels, &discardSamples, &leftDecimals);
-	
-			difference = GetSampleSizeDifferenceByFrameRate(framerate, frames, Signal->SampleRate, Signal->AudioChannels, config);
 
 			windowUsed = NULL;
-			if(Signal->Blocks[i].type >= TYPE_SILENCE  || Signal->Blocks[i].type == TYPE_WATERMARK)
-				windowUsed = getWindowByLength(&windows, frames, cutFrames, framerate, config);
+			if(Signal->Blocks[i].type >= TYPE_SILENCE || Signal->Blocks[i].type == TYPE_WATERMARK)
+			{
+				if(!syncinternal && Signal->Blocks[i].maskType == MASK_USE_WINDOW)
+					windowUsed = getWindowByLength(&windows, frames, cutFrames, config->smallerFramerate, config);
+				else
+					windowUsed = getWindowByLength(&windows, frames, cutFrames, framerate, config);
+			}
 			
 			//logmsg("Loaded %ld Left %ld Discard %ld difference %ld Decimals %g\n", loadedBlockSize, discardSamples, difference, leftDecimals);
 			if(pos + loadedBlockSize > Signal->numSamples)
