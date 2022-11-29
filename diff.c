@@ -267,7 +267,7 @@ void ReleaseDifferenceArray(parameters *config)
 	config->Differences.cntTotalAudioDiff = 0;
 }
 
-int IncrementCmpAmplDifference(int block, char channel, parameters *config)
+int IncrementCmpAmpl(int block, char channel, parameters *config)
 {
 	if(!config)
 		return 0;
@@ -288,7 +288,7 @@ int IncrementCmpAmplDifference(int block, char channel, parameters *config)
 	return 1;
 }
 
-int IncrementCmpPhaseDifference(int block, parameters *config)
+int IncrementCmpPhase(int block, parameters *config)
 {
 	if(!config)
 		return 0;
@@ -444,11 +444,15 @@ int IncrementCompared(int block, char channel, parameters *config)
 		return 0;
 
 	config->Differences.cntTotalCompared ++;
-	if(!IncrementCmpAmplDifference(block, channel, config))
+	if(channel == CHANNEL_LEFT || channel == CHANNEL_MONO)
+		config->Differences.cntTotalComparedLeft++;
+	if(channel == CHANNEL_RIGHT)
+		config->Differences.cntTotalComparedRight++;
+	if(!IncrementCmpAmpl(block, channel, config))
 		return 0;
-	if(!IncrementCmpFreqNotFound(block, config))
+	if(!IncrementCmpFreq(block, config))
 		return 0;
-	if(!IncrementCmpPhaseDifference(block, config))
+	if(!IncrementCmpPhase(block, config))
 		return 0;
 	return 1;
 }
@@ -482,7 +486,7 @@ int IncrementPerfectMatch(int block, char channel, parameters *config)
 	return 1;
 }
 
-int IncrementCmpFreqNotFound(int block, parameters *config)
+int IncrementCmpFreq(int block, parameters *config)
 {
 	if(!config)
 		return 0;
@@ -564,7 +568,7 @@ void PrintDifferentAmplitudes(int block, parameters *config)
 
 	for(int a = 0; a < config->Differences.BlockDiffArray[block].cntAmplBlkDiff; a++)
 	{
-		logmsgFileOnly("Frequency: %7g Hz\tAmplitude: %4.2f dBFS\tAmplitude Difference: %4.2f dB\tChannel: %c\n",
+		logmsgFileOnly("Frequency: %7.4g Hz\tAmplitude: %4.6g dBFS\tAmplitude Difference: %4.6g dB\tChannel: %c\n",
 			config->Differences.BlockDiffArray[block].amplDiffArray[a].hertz,
 			config->Differences.BlockDiffArray[block].amplDiffArray[a].refAmplitude,
 			config->Differences.BlockDiffArray[block].amplDiffArray[a].diffAmplitude,
@@ -1231,7 +1235,7 @@ int FindPerfectMatches(int type, long int *inside, long int *count, char channel
 
 	for(int b = 0; b < config->types.totalBlocks; b++)
 	{
-		if(config->Differences.BlockDiffArray[b].type < TYPE_SILENCE)
+		if(config->Differences.BlockDiffArray[b].type <= TYPE_SILENCE)
 			continue;
 
 		if(type == config->Differences.BlockDiffArray[b].type)

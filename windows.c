@@ -42,13 +42,6 @@ int initWindows(windowManager *wm, double SampleRate, char winType, parameters *
 	wm->SampleRate = 0;
 	wm->winType = 'n';
 	
-	if(winType == 'n')
-	{
-		wm->windowArray = NULL;
-		wm->windowCount = 0;
-		return 1;
-	}
-
 	// Create the wm
 	wm->windowArray = (windowUnit*)malloc(sizeof(windowUnit)*MAX_WINDOWS);
 	if(!wm->windowArray)
@@ -111,9 +104,6 @@ double *CreateWindow(windowManager *wm, long int frames, long int cutFrames, dou
 	if(!wm)
 		return NULL;
 
-	if(wm->winType == 'n')
-		return NULL;
-
 	if(cutFrames >= frames)
 	{
 		logmsg("ERROR: Cutframes %ld >= frames %ld\n", cutFrames, frames);
@@ -151,6 +141,9 @@ double *CreateWindow(windowManager *wm, long int frames, long int cutFrames, dou
 	else
 		logmsg("**** Creating window size %ld+%ld(+%ld)=%ld(%ld) (%ld frames %g fr)\n", size, sizePadding, clkAdjustBufferSize, size+sizePadding, size+sizePadding+clkAdjustBufferSize, frames, framerate);
 	*/
+
+	if(wm->winType == 'n')
+		return(CreateWindowInternal(wm, rectWindow, "Eectangle", seconds, size, sizePadding, clkAdjustBufferSize, frames));
 
 	if(wm->winType == 't')
 		return(CreateWindowInternal(wm, tukeyWindow, "Tukey", seconds, size, sizePadding, clkAdjustBufferSize, frames));
@@ -273,6 +266,25 @@ double *flattopWindow(long int n)
 	return(w);
 }
 
+// We need to create it because it is used as a mask sometimes
+double *rectWindow(long int n)
+{
+	long int i;
+	double *w;
+ 
+	w = (double*) calloc(n, sizeof(double));
+	if(!w)
+	{
+		logmsg("Not enough memory for window\n");
+		return NULL;
+	}
+	memset(w, 0, n*sizeof(double));
+ 
+	for(i=0; i<n; i++)
+		w[i] = 1;
+ 
+	return(w);
+}
 
 // Only attenuate the edges to reduce errors
 double *tukeyWindow(long int n)

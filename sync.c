@@ -1139,7 +1139,7 @@ double ProcessChunkForSyncPulse(double *samples, size_t size, long samplerate, P
 	{
 		double magnitude;
 
-		magnitude = CalculateMagnitude(spectrum[i], size);
+		magnitude = CalculateMagnitude(&spectrum[i], size);
 		if(magnitude > maxMag)
 		{
 			int		pass = 0;
@@ -1153,7 +1153,7 @@ double ProcessChunkForSyncPulse(double *samples, size_t size, long samplerate, P
 			{
 				maxHertz = hertz;
 				maxMag = magnitude;
-				maxPhase = CalculatePhase(spectrum[i]);
+				maxPhase = CalculatePhase(&spectrum[i]);
 			}
 		}
 	}

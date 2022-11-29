@@ -141,10 +141,10 @@ long int SamplesForDisplay(long int samples, int AudioChannels);
 int DetectWatermark(AudioSignal *Signal, parameters *config);
 int DetectWatermarkIssue(char* msg, AudioSignal* Signal, parameters* config);
 
-double CalculateMagnitude(fftw_complex value, long int size);
+double CalculateMagnitude(fftw_complex *value, double factor);
 double CalculateAmplitude(double magnitude, double MaxMagnitude);
 double CalculateAmplitudeInternal(double magnitude, double MaxMagnitude);
-double CalculatePhase(fftw_complex value);
+double CalculatePhase(fftw_complex *value);
 double CalculateFrequency(double boxindex, double boxsize);
 double CalculateFrameRate(AudioSignal *Signal, parameters *config);
 double CalculateFrameRateNS(AudioSignal *Signal, double Frames, parameters *config);
@@ -176,6 +176,6 @@ long int GetSignalMaxInt(AudioSignal *Signal);
 long int GetSignalMinInt(AudioSignal *Signal);
 
 double GetSignalMinDBFS(AudioSignal *Signal);
-void CheckAmplitudeMatchByDuration(AudioSignal *reference, parameters *config);
-void CheckAmplitudeMatchByDurationMDW(AudioSignal *reference, parameters *config);
+void SetAmplitudeMatchByDuration(AudioSignal *reference, parameters *config);
+void SetAmplitudeMatchByDurationMDW(AudioSignal *reference, parameters *config);
 #endif

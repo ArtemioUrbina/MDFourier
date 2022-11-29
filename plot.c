@@ -5750,8 +5750,8 @@ void PlotBlockTimeDomainGraph(AudioSignal *Signal, int block, char *name, int wa
 		numSamples = Signal->Blocks[block].audio.size;
 
 	difference = Signal->Blocks[block].audio.difference;
-	if(difference < 0)
-		plotSize += numSamples - difference;
+	if(difference < 0)			// Negative difference is for matching empty space on smaller framerate
+		plotSize = numSamples - difference;
 	else
 		plotSize = numSamples;
 
@@ -5764,7 +5764,7 @@ void PlotBlockTimeDomainGraph(AudioSignal *Signal, int block, char *name, int wa
 	}
 	else
 	*/
-		FillPlot(&plot, name, 0, MinY, plotSize, MaxY, 1, 0.2, config);
+	FillPlot(&plot, name, 0, MinY, plotSize, MaxY, 1, 0.2, config);
 
 	if(!CreatePlotFile(&plot, config))
 		return;

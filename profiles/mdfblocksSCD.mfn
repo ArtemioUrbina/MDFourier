@@ -9,14 +9,14 @@ CLK n
 Sync s 1 20 0 red m
 Silence n 1 20 0 gray m
 FM 1 96 20 0 green S *
-SPSG 2 40 20 -1 yellow m
-SPSG_Ramp 2 40 10 0 yellow m
+SPSG 2 40 20 -1 yellow m *
+SPSG_Ramp 2 40 10 0 yellow m *
 Noise 3 16 20 -1 aqua m
 Silence n 1 20 0 gray m
 Sync s 1 20 0 red m
 Wait k 1 4 0 red m
 PCMSTART k 1 2 0 red m
-PCM 4 28 5 0 magenta m           ;twice each note since there are few (14 10)
+PCM 4 28 5 0 magenta m
 PCMEND k 1 2 0 red m
 CD-Paused i 1 2 red m 8000 0.300
 CD-DA 5 128 5 0 orange S

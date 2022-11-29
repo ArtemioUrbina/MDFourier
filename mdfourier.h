@@ -61,6 +61,8 @@
 #define MAX_FREQ_COUNT		96000 	/* Number of frequencies to compare(MAX) */
 #define FREQ_COUNT			2000	/* Number of frequencies to compare(default) */
 
+#define DBL_PERFECT_MATCH			 0.00001	// double difference to be considered a "perfect" match
+
 #define SIGNIFICANT_AMPLITUDE		-66.0
 #define NS_LOWEST_AMPLITUDE			-200
 #define	PCM_8BIT_MIN_AMPLITUDE		-48.16
@@ -375,6 +377,7 @@ typedef struct FrequencySt {
 typedef struct fftw_spectrum_st {
 	fftw_complex  	*spectrum;
 	size_t			size;
+	size_t			ENBW;
 } FFTWSpectrum;
 
 typedef struct samples_st {

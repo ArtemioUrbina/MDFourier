@@ -35,6 +35,7 @@ double *hannWindow(long int n);
 double *flattopWindow(long int n);
 double *tukeyWindow(long int n);
 double *hammingWindow(long int n);
+double *rectWindow(long int n);
 
 int initWindows(windowManager *wm, double SampleRate, char winType, parameters *config);
 double *getWindowByLength(windowManager *wm, long int frames, long int cutFrames, double framerate, parameters *config);

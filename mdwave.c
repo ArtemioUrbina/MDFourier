@@ -187,7 +187,7 @@ int ExecuteMDWave(parameters *config, int discardMDW)
 		}
 	}
 
-	CheckAmplitudeMatchByDurationMDW(ReferenceSignal, config);
+	SetAmplitudeMatchByDurationMDW(ReferenceSignal, config);
 
 	logmsg("\n* Processing Audio\n");
 	MainPath = PushMainPath(config);
@@ -615,9 +615,6 @@ int ExecuteDFFTInternal(AudioBlocks *AudioArray, double *samples, long int size,
 	monoSignalSize = stereoSignalSize/AudioChannels;
 	seconds = (double)size/(samplerate*(double)AudioChannels);
 
-	if(config->padBlockSizes)
-		zeropadding = GetBlockZeroPadValues(&monoSignalSize, &seconds, config->maxBlockSeconds, samplerate);
-
 	if(config->ZeroPad)  /* disabled by default */
 		zeropadding = GetZeroPadValues(&monoSignalSize, &seconds, samplerate);
 
@@ -713,11 +710,13 @@ int ExecuteDFFTInternal(AudioBlocks *AudioArray, double *samples, long int size,
 		{
 			AudioArray->fftwValues.spectrum = spectrum;
 			AudioArray->fftwValues.size = monoSignalSize;
+			AudioArray->fftwValues.ENBW = monoSignalSize;
 		}
 		else
 		{
 			AudioArray->fftwValuesRight.spectrum = spectrum;
 			AudioArray->fftwValuesRight.size = monoSignalSize;
+			AudioArray->fftwValuesRight.ENBW = monoSignalSize;
 		}
 		AudioArray->seconds = seconds;
 	}
@@ -766,7 +765,7 @@ int ExecuteDFFTInternal(AudioBlocks *AudioArray, double *samples, long int size,
 			double amplitude = 0, magnitude = 0;
 			int blank = 0;
 	
-			magnitude = CalculateMagnitude(spectrum[i], monoSignalSize);
+			magnitude = CalculateMagnitude(&spectrum[i], monoSignalSize);
 			amplitude = CalculateAmplitude(magnitude, Signal->MaxMagnitude.magnitude);
 
 			// limit by noise cut frequncy count/amplitude
@@ -785,7 +784,7 @@ int ExecuteDFFTInternal(AudioBlocks *AudioArray, double *samples, long int size,
 				fftw_complex filter;
 
 				// This should never be done as such
-				// A proper filter shuld be used, or you'll get
+				// A proper filter should be used, or you'll get
 				// ringing artifacts via Gibbs phenomenon
 				// Here it "works" because we are just
 				// "visualizing" the results

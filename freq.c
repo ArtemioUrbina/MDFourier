@@ -49,9 +49,9 @@ inline int areDoublesEqual(double a, double b)
 	if(fabs(a - b) < (DBL_EPSILON * fabs(a + b)))
 		return 1;
 
-	// matches with tolerance, 0.00001hz or dBFS seems way more than enough
+	// matches with tolerance, DBL_PERFECT_MATCH or 0.00001 seems way more than enough
 	diff = fabs(fabs(b) - fabs(a));
-	if(diff != 0.0 && diff < 0.00001)
+	if(diff != 0.0 && diff < DBL_PERFECT_MATCH)
 		return 1;
 	return 0;
 }
@@ -367,6 +367,8 @@ void InitAudio(AudioSignal *Signal, parameters *config)
 			
 			Signal->Blocks[n].fftwValues.spectrum = NULL;
 			Signal->Blocks[n].fftwValues.size = 0;
+			Signal->Blocks[n].fftwValues.ENBW = 0;
+
 			Signal->Blocks[n].audio.samples = NULL;
 			Signal->Blocks[n].audio.window_samples = NULL;
 			Signal->Blocks[n].audio.size = 0;
@@ -375,6 +377,8 @@ void InitAudio(AudioSignal *Signal, parameters *config)
 
 			Signal->Blocks[n].fftwValuesRight.spectrum = NULL;
 			Signal->Blocks[n].fftwValuesRight.size = 0;
+			Signal->Blocks[n].fftwValuesRight.ENBW = 0;
+
 			Signal->Blocks[n].audioRight.samples = NULL;
 			Signal->Blocks[n].audioRight.window_samples = NULL;
 			Signal->Blocks[n].audioRight.size = 0;
@@ -482,6 +486,7 @@ void CleanAndReleaseFFTW(AudioBlocks * AudioArray)
 
 	ReleaseFFTW(AudioArray);
 	AudioArray->fftwValues.size = 0;
+	AudioArray->fftwValues.ENBW = 0;
 }
 
 void ReleaseFFTW(AudioBlocks * AudioArray)
@@ -698,7 +703,8 @@ double GetHigherFrameRate(double framerateA, double framerateB)
 
 void CompareFrameRates(AudioSignal *Signal1, AudioSignal *Signal2, parameters *config)
 {
-	if(areDoublesEqual(Signal1->framerate, Signal2->framerate))
+	// Any difference needs to be accounted for
+	if(Signal1->framerate == Signal2->framerate)
 	{
 		config->smallerFramerate = Signal1->framerate;
 		config->biggerFramerate = Signal1->framerate;
@@ -2462,26 +2468,27 @@ void PrintFrequencies(AudioSignal *Signal, parameters *config)
 }
 
 /* check ProcessSamples in mdwave if changed, for reverse FFTW */
-inline double CalculateMagnitude(fftw_complex value, long int size)
+/* power spectral density(PSD) rms	*/
+inline double CalculateMagnitude(fftw_complex *value, double factor)
 {
 	double r1 = 0;
 	double i1 = 0;
 	double magnitude = 0;
 
-	r1 = creal(value);
-	i1 = cimag(value);
-	magnitude = sqrt(r1*r1 + i1*i1)/(double)size;
+	r1 = creal(*value);
+	i1 = cimag(*value);
+	magnitude = (2*sqrt(r1*r1 + i1*i1))/factor;
 	return magnitude;
 }
 
-inline double CalculatePhase(fftw_complex value)
+inline double CalculatePhase(fftw_complex *value)
 {
 	double r1 = 0;
 	double i1 = 0;
 	double phase = 0;
 
-	r1 = creal(value);
-	i1 = cimag(value);
+	r1 = creal(*value);
+	i1 = cimag(*value);
 	phase = atan2(i1, r1)*180/M_PI;
 
 	return phase;
@@ -2553,6 +2560,7 @@ int FillFrequencyStructuresInternal(AudioSignal *Signal, AudioBlocks *AudioArray
 	double 			boxsize = 0;
 	int				nyquistLimit = 0;
 	long int		*SilenceSize = NULL;
+	double			ENBW = 0;
 	Frequency		*f_array = NULL, **targetFreq = NULL;
 	FFTWSpectrum	*fftw = NULL;
 
@@ -2569,15 +2577,17 @@ int FillFrequencyStructuresInternal(AudioSignal *Signal, AudioBlocks *AudioArray
 		SilenceSize = &AudioArray->SilenceSizeRight;
 	}
 	size = fftw->size;
-	if(!size || !fftw->spectrum || !targetFreq || !(*targetFreq))
+	ENBW = fftw->ENBW;
+
+	if(!size || !fftw->spectrum || !targetFreq || !(*targetFreq) || !ENBW)
 	{
-		logmsg("FillFrequencyStructures size == 0\n");
+		logmsg("ERROR: Invalid FillFrequencyStructures params\n");
 		return 0;
 	}
 
 	if(AudioArray->seconds == 0.0)
 	{
-		logmsg("FillFrequencyStructures seconds == 0\n");
+		logmsg("ERROR: FillFrequencyStructures seconds == 0\n");
 		return 0;
 	}
 
@@ -2610,9 +2620,9 @@ int FillFrequencyStructuresInternal(AudioSignal *Signal, AudioBlocks *AudioArray
 	for(i = startBin; i < endBin; i++)
 	{
 		f_array[count].hertz = CalculateFrequency(i, boxsize);
-		f_array[count].magnitude = CalculateMagnitude(fftw->spectrum[i], size);
+		f_array[count].magnitude = CalculateMagnitude(&fftw->spectrum[i], ENBW);
 		f_array[count].amplitude = NO_AMPLITUDE;
-		f_array[count].phase = CalculatePhase(fftw->spectrum[i]);
+		f_array[count].phase = CalculatePhase(&fftw->spectrum[i]);
 		f_array[count].matched = 0;
 		count++;
 	}
@@ -2650,7 +2660,6 @@ void PrintComparedBlocks(AudioBlocks *ReferenceArray, AudioBlocks *ComparedArray
 	if(ReferenceArray->freqRight)
 		logmsgFileOnly("LEFT Channel\n");
 	
-	/* changed Magnitude->amplitude */
 	for(int j = 0; j < config->MaxFreq; j++)
 	{
 		if(config->significantAmplitude > ReferenceArray->freq[j].amplitude)
@@ -2718,10 +2727,12 @@ void PrintComparedBlocks(AudioBlocks *ReferenceArray, AudioBlocks *ComparedArray
 				{
 					if(areDoublesEqual(ReferenceArray->freqRight[j].amplitude,
 										ComparedArray->freqRight[match].amplitude))
-						logmsgFileOnly("FA");
+						logmsgFileOnly("F+");
 					else
 						logmsgFileOnly("F-");
 				}
+				else
+					logmsgFileOnly("XX");
 				logmsgFileOnly("\n");
 			}
 		}
@@ -2961,7 +2972,7 @@ inline double GetDecimalValues(double value)
 
 // Sets the time length to use in order to match uneven blocks
 // so that power/amplitude is kept when using differennt frame length blocks
-void CheckAmplitudeMatchByDuration(__attribute__((unused))AudioSignal *reference, parameters *config)
+void SetAmplitudeMatchByDuration(__attribute__((unused))AudioSignal *reference, parameters *config)
 {
 	if(!config->padBlockSizes)
 		return;
@@ -2970,7 +2981,7 @@ void CheckAmplitudeMatchByDuration(__attribute__((unused))AudioSignal *reference
 	config->maxBlockSeconds = FramesToSeconds(config->biggerFramerate, config->maxBlockFrameCount);
 }
 
-void CheckAmplitudeMatchByDurationMDW(AudioSignal *reference, parameters *config)
+void SetAmplitudeMatchByDurationMDW(AudioSignal *reference, parameters *config)
 {
 	if(!config->padBlockSizes)
 		return;

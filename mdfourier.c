@@ -755,7 +755,8 @@ int ProcessNoiseFloor(AudioSignal *ReferenceSignal, AudioSignal *ComparisonSigna
 		//config->significantAmplitude = SIGNIFICANT_VOLUME;
 	}
 
-	// check if digital noise floow, so we limit ourselves to a reasonable noise floow
+	/*
+	// check if digital noise floor, so we limit ourselves to a reasonable noise floor
 	if(config->significantAmplitude < NOISE_FLOOR_DIGITAL_FAIR)
 	{
 		logmsg(" - Found possible digital noise floor at %g dBFS. Limiting to %g dBFS, use -p to override\n",
@@ -763,7 +764,8 @@ int ProcessNoiseFloor(AudioSignal *ReferenceSignal, AudioSignal *ComparisonSigna
 		config->significantAmplitude = NOISE_FLOOR_DIGITAL_FAIR;
 	}
 	else
-		logmsg(" - Using %g dBFS as minimum significant amplitude for analysis\n",	config->significantAmplitude);
+	*/
+	logmsg(" - Using %g dBFS as minimum significant amplitude for analysis\n",	config->significantAmplitude);
 	return 1;
 }
 
@@ -826,7 +828,7 @@ int LoadAndProcessAudioFiles(AudioSignal **ReferenceSignal, AudioSignal **Compar
 			return 0;
 	}
 
-	CheckAmplitudeMatchByDuration(*ReferenceSignal, config);
+	SetAmplitudeMatchByDuration(*ReferenceSignal, config);
 
 	logmsg("\n* Executing Discrete Fast Fourier Transforms on 'Reference' file\n");
 	if(!ProcessSignal(*ReferenceSignal, config))
@@ -1450,7 +1452,7 @@ int ProcessSignal(AudioSignal *Signal, parameters *config)
 			if(!ExecuteDFFT(&Signal->Blocks[i], sampleBuffer, loadedBlockSize-difference, Signal->SampleRate, windowUsed, Signal->AudioChannels, config->ZeroPad, config))
 				return 0;
 #ifdef DEBUG
-			logmsg("estimated %g (difference %ld)\n", Signal->Blocks[i].frames*Signal->framerate/1000.0, difference);
+			//logmsg("estimated %g (difference %ld)\n", Signal->Blocks[i].frames*Signal->framerate/1000.0, difference);
 #endif
 			if(!FillFrequencyStructures(Signal, &Signal->Blocks[i], config))
 				return 0;
@@ -1557,6 +1559,8 @@ int ExecuteDFFT(AudioBlocks *AudioArray, double *samples, size_t size, double sa
 	return(ExecuteDFFTInternal(AudioArray, samples, size, samplerate, window, channel, AudioChannels, ZeroPad, config));
 }
 
+// we use this for normalization now that we zeropad
+// https://holometer.fnal.gov/GH_FFT.pdf
 int ExecuteDFFTInternal(AudioBlocks *AudioArray, double *samples, size_t size, double samplerate, double *window, char channel, int AudioChannels, int ZeroPad, parameters *config)
 {
 	fftw_plan		p = NULL;
@@ -1564,7 +1568,7 @@ int ExecuteDFFTInternal(AudioBlocks *AudioArray, double *samples, size_t size, d
 	long			i = 0, monoSignalSize = 0, zeropadding = 0;
 	double			*signal = NULL;
 	fftw_complex	*spectrum = NULL;
-	double			seconds = 0;
+	double			seconds = 0, S2 = 0;
 
 	if(!AudioArray)
 	{
@@ -1629,7 +1633,10 @@ int ExecuteDFFTInternal(AudioBlocks *AudioArray, double *samples, size_t size, d
 			signal[i] = (samples[i*AudioChannels]+samples[i*AudioChannels+1])/2.0;
 
 		if(window)
+		{
 			signal[i] *= window[i];
+			S2 += window[i]*window[i];
+		}
 	}
 
 	fftw_execute(p);
@@ -1637,18 +1644,20 @@ int ExecuteDFFTInternal(AudioBlocks *AudioArray, double *samples, size_t size, d
 	p = NULL;
 
 #ifdef DEBUG
-	logmsg("Seconds %g was %g ", seconds, AudioArray->seconds);
+	//logmsg("Seconds %g was %g ", seconds, AudioArray->seconds);
 #endif
 
 	if(channel != CHANNEL_RIGHT)
 	{
 		AudioArray->fftwValues.spectrum = spectrum;
 		AudioArray->fftwValues.size = monoSignalSize;
+		AudioArray->fftwValues.ENBW = samplerate*S2;
 	}
 	else
 	{
 		AudioArray->fftwValuesRight.spectrum = spectrum;
 		AudioArray->fftwValuesRight.size = monoSignalSize;
+		AudioArray->fftwValuesRight.ENBW = samplerate*S2;
 	}
 	AudioArray->seconds = seconds;
 	free(signal);
@@ -1800,16 +1809,24 @@ int CompareAudioBlocks(AudioSignal *ReferenceSignal, AudioSignal *ComparisonSign
 		char	channel = CHANNEL_MONO;
 		int 	refSize = 0, testSize = 0, type = 0;
 
-		/* Ignore Control blocks */
 		type = GetBlockType(config, block);
 		channel = GetBlockChannel(config, block);
-
-		/* For Time Domain Plots with big framerate difference */
+ 
+		/* For Time Domain Plots with big framerate difference we set negative difference for the smaller, so they are drawn at the same scale. */
 		if(ReferenceSignal->Blocks[block].audio.difference != 0)
-			ComparisonSignal->Blocks[block].audio.difference = -1*ReferenceSignal->Blocks[block].audio.difference;
+		{
+			double seconds = 0;
+			seconds = SamplesToSeconds(ReferenceSignal->SampleRate, ReferenceSignal->Blocks[block].audio.difference, ReferenceSignal->AudioChannels);
+			ComparisonSignal->Blocks[block].audio.difference = -1*SecondsToSamples(ComparisonSignal->SampleRate, seconds, ComparisonSignal->AudioChannels, NULL, NULL);
+		}
 		if(ComparisonSignal->Blocks[block].audio.difference != 0)
-			ReferenceSignal->Blocks[block].audio.difference = -1*ComparisonSignal->Blocks[block].audio.difference;
+		{
+			double seconds = 0;
+			seconds = SamplesToSeconds(ComparisonSignal->SampleRate, ComparisonSignal->Blocks[block].audio.difference, ComparisonSignal->AudioChannels);
+			ReferenceSignal->Blocks[block].audio.difference = -1*SecondsToSamples(ReferenceSignal->SampleRate, seconds, ReferenceSignal->AudioChannels, NULL, NULL);
+		}
 
+		/* Ignore Control blocks */
 		if(type < TYPE_CONTROL)
 			continue;
 
@@ -1841,9 +1858,10 @@ int CompareAudioBlocks(AudioSignal *ReferenceSignal, AudioSignal *ComparisonSign
 			{
 				if(config->extendedResults)
 				{
-					logmsgFileOnly("UnMatched Block Report for %s# %ld (%ld)\n", GetBlockName(config, block), GetBlockSubIndex(config, block), block);
-					PrintComparedBlocks(&ReferenceSignal->Blocks[block], &ComparisonSignal->Blocks[block],
-						config);
+					logmsgFileOnly("Matched Block Report for %s# %ld (%ld) (differences: %ld)\n", 
+						GetBlockName(config, block), GetBlockSubIndex(config, block), block,
+						config->Differences.BlockDiffArray[block].cntFreqBlkDiff);
+					PrintComparedBlocks(&ReferenceSignal->Blocks[block], &ComparisonSignal->Blocks[block], config);
 				}
 			}
 			else
@@ -1851,8 +1869,7 @@ int CompareAudioBlocks(AudioSignal *ReferenceSignal, AudioSignal *ComparisonSign
 				if(config->showAll)
 				{
 					logmsgFileOnly("Matched Block Report for %s# %ld (%ld)\n", GetBlockName(config, block), GetBlockSubIndex(config, block), block);
-					PrintComparedBlocks(&ReferenceSignal->Blocks[block], &ComparisonSignal->Blocks[block],
-						config);
+					PrintComparedBlocks(&ReferenceSignal->Blocks[block], &ComparisonSignal->Blocks[block], config);
 				}
 			}
 		}
