@@ -406,7 +406,7 @@ int LoadWAVFile(FILE *file, AudioSignal *Signal, parameters *config)
 			switch(Signal->bytesPerSample)
 			{
 				case 1:
-					sample = fileBytes[srcPos];
+					sample = fileBytes[srcPos]-0x80;	// 8 bit is unsigned. Convert to signed
 					break;
 				case 2:
 					signSample = fileBytes[srcPos+1];
@@ -1213,7 +1213,7 @@ int CopySamplesForTimeDomainPlotInternalSync(AudioBlocks *AudioArray, double *sa
 	char			channel = 0;
 	long			stereoSignalSize = 0;	
 	long			i = 0, monoSignalSize = 0;
-	double			*signal = NULL, *window_samples = NULL;
+	double			*signal = NULL, *windowed_samples = NULL;
 	
 	if(!AudioArray)
 	{
@@ -1252,13 +1252,13 @@ int CopySamplesForTimeDomainPlotInternalSync(AudioBlocks *AudioArray, double *sa
 
 	if(config->plotAllNotesWindowed && window)
 	{
-		window_samples = (double*)malloc(sizeof(double)*(monoSignalSize+1));
-		if(!window_samples)
+		windowed_samples = (double*)malloc(sizeof(double)*(monoSignalSize+1));
+		if(!windowed_samples)
 		{
-			logmsg("Not enough memory [window_samples]\n");
+			logmsg("Not enough memory [windowed_samples]\n");
 			return(0);
 		}
-		memset(window_samples, 0, sizeof(double)*(monoSignalSize+1));
+		memset(windowed_samples, 0, sizeof(double)*(monoSignalSize+1));
 	}
 
 	if(AudioChannels == 1)
@@ -1279,12 +1279,13 @@ int CopySamplesForTimeDomainPlotInternalSync(AudioBlocks *AudioArray, double *sa
 	AudioArray->internalSync[slotForSamples].samples = signal;
 	AudioArray->internalSync[slotForSamples].size = monoSignalSize;
 	AudioArray->internalSync[slotForSamples].difference = 0;
+	AudioArray->internalSync[slotForSamples].padding = 0;
 
 	if(config->plotAllNotesWindowed && window)
 	{
 		for(i = 0; i < monoSignalSize; i++)
-			window_samples[i] = (double)((double)signal[i]*window[i]);
-		AudioArray->audio.window_samples = window_samples;
+			windowed_samples[i] = (double)((double)signal[i]*window[i]);
+		AudioArray->audio.windowed_samples = windowed_samples;
 	}
 
 	return(1);

@@ -58,6 +58,7 @@ int ReportClockResults(AudioSignal *ReferenceSignal, AudioSignal *ComparisonSign
 int RecalculateFrequencyStructures(AudioSignal *ReferenceSignal, AudioSignal *ComparisonSignal, parameters *config);
 int NormalizeAndFinishProcess(AudioSignal **ReferenceSignal, AudioSignal **ComparisonSignal, parameters *config);
 int FrequencyDomainNormalize(AudioSignal **ReferenceSignal, AudioSignal **ComparisonSignal, parameters *config);
+void AdjustTimeDomainData(AudioSignal *ReferenceSignal, AudioSignal *ComparisonSignal, parameters *config);
 
 // Time domain
 MaxSample FindMaxSampleAmplitude(AudioSignal *Signal);
@@ -138,6 +139,8 @@ int main(int argc , char *argv[])
 			}
 		}
 	}
+
+	AdjustTimeDomainData(ReferenceSignal, ComparisonSignal, &config);
 
 	logmsg("\n* Comparing frequencies: ");
 	if(!CompareAudioBlocks(ReferenceSignal, ComparisonSignal, &config))
@@ -973,7 +976,7 @@ int CopySamplesForTimeDomainPlotWindowOnly(AudioBlocks *AudioArray, double *wind
 		return 0;
 	}
 
-	if(AudioArray->audio.window_samples)
+	if(AudioArray->audio.windowed_samples)
 	{
 		logmsg("ERROR: Window waveforms already stored\n");
 		return 0;
@@ -999,11 +1002,11 @@ int CopySamplesForTimeDomainPlotWindowOnly(AudioBlocks *AudioArray, double *wind
 
 	for(i = 0; i < monoSignalSize - difference; i++)
 		window_samples[i] = signal[i]*window[i];
-	AudioArray->audio.window_samples = window_samples;
+	AudioArray->audio.windowed_samples = window_samples;
 
 	if(AudioChannels == 2)
 	{
-		if(AudioArray->audioRight.window_samples)
+		if(AudioArray->audioRight.windowed_samples)
 		{
 			logmsg("ERROR: Window waveforms already stored\n");
 			return 0;
@@ -1029,10 +1032,11 @@ int CopySamplesForTimeDomainPlotWindowOnly(AudioBlocks *AudioArray, double *wind
 
 		AudioArray->audioRight.size = monoSignalSize;
 		AudioArray->audioRight.difference = difference;
+		AudioArray->audioRight.padding = 0;
 
 		for(i = 0; i < monoSignalSize - difference; i++)
 			window_samples[i] = signal[i]*window[i];
-		AudioArray->audioRight.window_samples = window_samples;
+		AudioArray->audioRight.windowed_samples = window_samples;
 	}
 
 	return(1);
@@ -1086,6 +1090,7 @@ int CopySamplesForTimeDomainPlot(AudioBlocks *AudioArray, double *samples, size_
 	AudioArray->audio.samples = signal;
 	AudioArray->audio.size = monoSignalSize;
 	AudioArray->audio.difference = difference;
+	AudioArray->audio.padding = 0;
 
 	if(AudioChannels == 2)
 	{
@@ -1103,13 +1108,14 @@ int CopySamplesForTimeDomainPlot(AudioBlocks *AudioArray, double *samples, size_
 		AudioArray->audioRight.samples = signalRight;
 		AudioArray->audioRight.size = monoSignalSize;
 		AudioArray->audioRight.difference = difference;
+		AudioArray->audioRight.padding = 0;
 	}
 
 	if((config->plotAllNotesWindowed && window && !config->doClkAdjust) || (copywindow && window))
 	{
 		for(i = 0; i < monoSignalSize - difference; i++)
 			window_samples[i] = signal[i]*window[i];
-		AudioArray->audio.window_samples = window_samples;
+		AudioArray->audio.windowed_samples = window_samples;
 
 		if(AudioChannels == 2 && signalRight)
 		{
@@ -1124,16 +1130,101 @@ int CopySamplesForTimeDomainPlot(AudioBlocks *AudioArray, double *samples, size_
 			memset(window_samplesRight, 0, sizeof(double)*(monoSignalSize+1));
 			for(i = 0; i < monoSignalSize - difference; i++)
 				window_samplesRight[i] = signalRight[i]*window[i];
-			AudioArray->audioRight.window_samples = window_samplesRight;
+			AudioArray->audioRight.windowed_samples = window_samplesRight;
 		}
 	}
 
 	return(1);
 }
 
+void AdjustTimeDomainData(AudioSignal* ReferenceSignal, AudioSignal* ComparisonSignal, parameters* config)
+{
+	int		block = 0;
+
+	for(block = 0; block < config->types.totalBlocks; block++)
+	{	
+		if(ReferenceSignal->Blocks[block].type < TYPE_SILENCE)
+			continue;
+
+		if(ReferenceSignal->Blocks[block].maskType == MASK_USE_WINDOW)
+		{
+			/* For Time Domain Plots with big framerate difference we set negative difference for the smaller, so they are drawn at the same scale. */
+			if(ReferenceSignal->Blocks[block].audio.difference != 0)
+			{
+				double seconds = 0;
+				seconds = SamplesToSeconds(ReferenceSignal->SampleRate, ReferenceSignal->Blocks[block].audio.difference, ReferenceSignal->AudioChannels);
+				ComparisonSignal->Blocks[block].audio.padding = SecondsToSamples(ComparisonSignal->SampleRate, seconds, ComparisonSignal->AudioChannels, NULL, NULL);
+			}
+			if(ComparisonSignal->Blocks[block].audio.difference != 0)
+			{
+				double seconds = 0;
+				seconds = SamplesToSeconds(ComparisonSignal->SampleRate, ComparisonSignal->Blocks[block].audio.difference, ComparisonSignal->AudioChannels);
+				ReferenceSignal->Blocks[block].audio.padding = SecondsToSamples(ReferenceSignal->SampleRate, seconds, ReferenceSignal->AudioChannels, NULL, NULL);
+			}
+		}
+
+		// this might tell a white lie, for visualization, when config->padBlockSizes is true it clips all zeropadding when in both Ref and Comp
+		if(config->plotAllNotes != 4)
+		{
+			if(ReferenceSignal->Blocks[block].type < TYPE_SILENCE)
+				continue;
+
+			if(ReferenceSignal->Blocks[block].maskType == MASK_NONE)
+			{
+				long		frames = 0;
+
+				frames = GetBlockFrames(config, block);
+				if(ReferenceSignal->framerate != ComparisonSignal->framerate)
+				{
+					double secondsRef = 0, secondsComp = 0, padding = 0;
+
+					secondsRef = FramesToSeconds(frames, ReferenceSignal->framerate);
+					secondsComp = FramesToSeconds(frames, ComparisonSignal->framerate);
+					if(ReferenceSignal->framerate > ComparisonSignal->framerate)
+					{
+						padding = secondsRef - secondsComp;
+						ComparisonSignal->Blocks[block].audio.padding += SecondsToSamples(ComparisonSignal->SampleRate, padding, ComparisonSignal->AudioChannels, NULL, NULL);
+					}
+					else
+					{
+						padding = secondsComp - secondsRef;
+						ReferenceSignal->Blocks[block].audio.padding += SecondsToSamples(ReferenceSignal->SampleRate, padding, ReferenceSignal->AudioChannels, NULL, NULL);
+					}
+				}
+			}
+		}
+		else
+		{
+			// This one shows the true full zero padding
+			if(config->padBlockSizes && ReferenceSignal->Blocks[block].type >= TYPE_SILENCE)
+			{
+				long		frames = 0;
+				double		padding = 0, duration = 0, longest_seconds = 0;
+
+				frames = GetBlockFrames(config, block);
+				longest_seconds = FramesToSeconds(config->maxBlockFrameCount, config->biggerFramerate);
+
+				duration = FramesToSeconds(frames, ReferenceSignal->framerate);
+				if(longest_seconds > duration)
+				{
+					padding = longest_seconds - duration;
+					ReferenceSignal->Blocks[block].audio.padding += SecondsToSamples(ReferenceSignal->SampleRate, padding, ReferenceSignal->AudioChannels, NULL, NULL);
+				}
+			
+				duration = FramesToSeconds(frames, ComparisonSignal->framerate);
+				if(longest_seconds > duration)
+				{
+					padding = longest_seconds - duration;
+					ComparisonSignal->Blocks[block].audio.padding += SecondsToSamples(ComparisonSignal->SampleRate, padding, ComparisonSignal->AudioChannels, NULL, NULL);
+				}
+			}
+		}
+	}
+}
+
 int RecalculateFFTW(AudioSignal *Signal, parameters *config)
 {
-	long int		i = 0;
+	long int		i = 0;	
 	double			*windowUsed = NULL;
 	windowManager	windows;
 
@@ -1280,7 +1371,7 @@ int RecalculateFrequencyStructures(AudioSignal *ReferenceSignal, AudioSignal *Co
 	return 1;
 }
 
-int DuplicateSamplesForWavefromPlots(AudioSignal *Signal, long int element, long int pos, long int loadedBlockSize, long int difference, double framerate, double *windowUsed, parameters *config, long int syncAdvance)
+int DuplicateSamplesForWaveformPlots(AudioSignal *Signal, long int element, long int pos, long int loadedBlockSize, long int difference, double framerate, double *windowUsed, parameters *config, long int syncAdvance)
 {
 	if(config->timeDomainSync && Signal->Blocks[element].type == TYPE_SYNC)
 	{
@@ -1413,7 +1504,7 @@ int ProcessSignal(AudioSignal *Signal, parameters *config)
 			endProcess = 1;
 		}
 
-		if(!DuplicateSamplesForWavefromPlots(Signal, i, pos, loadedBlockSize, difference, framerate, windowUsed, config, syncAdvance))
+		if(!DuplicateSamplesForWaveformPlots(Signal, i, pos, loadedBlockSize, difference, framerate, windowUsed, config, syncAdvance))
 			return 0;
 
 		if(endProcess || pos + loadedBlockSize > Signal->numSamples)
@@ -1812,20 +1903,6 @@ int CompareAudioBlocks(AudioSignal *ReferenceSignal, AudioSignal *ComparisonSign
 		type = GetBlockType(config, block);
 		channel = GetBlockChannel(config, block);
  
-		/* For Time Domain Plots with big framerate difference we set negative difference for the smaller, so they are drawn at the same scale. */
-		if(ReferenceSignal->Blocks[block].audio.difference != 0)
-		{
-			double seconds = 0;
-			seconds = SamplesToSeconds(ReferenceSignal->SampleRate, ReferenceSignal->Blocks[block].audio.difference, ReferenceSignal->AudioChannels);
-			ComparisonSignal->Blocks[block].audio.difference = -1*SecondsToSamples(ComparisonSignal->SampleRate, seconds, ComparisonSignal->AudioChannels, NULL, NULL);
-		}
-		if(ComparisonSignal->Blocks[block].audio.difference != 0)
-		{
-			double seconds = 0;
-			seconds = SamplesToSeconds(ComparisonSignal->SampleRate, ComparisonSignal->Blocks[block].audio.difference, ComparisonSignal->AudioChannels);
-			ReferenceSignal->Blocks[block].audio.difference = -1*SecondsToSamples(ReferenceSignal->SampleRate, seconds, ReferenceSignal->AudioChannels, NULL, NULL);
-		}
-
 		/* Ignore Control blocks */
 		if(type < TYPE_CONTROL)
 			continue;
@@ -2183,14 +2260,14 @@ void NormalizeBlockByRatio(AudioBlocks *AudioArray, double ratio)
 	}
 
 	// Do window as well
-	samples = AudioArray->audio.window_samples;
+	samples = AudioArray->audio.windowed_samples;
 	if(samples)
 	{
 		for(i = 0; i < AudioArray->audio.size; i++)
 			samples[i] = samples[i]*ratio;
 	}
 
-	samples = AudioArray->audioRight.window_samples;
+	samples = AudioArray->audioRight.windowed_samples;
 	if(samples)
 	{
 		for(i = 0; i < AudioArray->audio.size; i++)

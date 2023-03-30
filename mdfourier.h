@@ -48,7 +48,7 @@
 
 #include "incbeta.h"
 
-#define MDVERSION "1.10"
+#define MDVERSION "1.11"
 
 #if INTPTR_MAX == INT64_MAX
 #define	BITS_MDF "64-bit"
@@ -382,9 +382,10 @@ typedef struct fftw_spectrum_st {
 
 typedef struct samples_st {
 	double			*samples;
-	double			*window_samples;
+	double			*windowed_samples;
 	long int		size;
 	long int		difference;
+	long int		padding;
 	long int		sampleOffset;
 } BlockSamples;
 

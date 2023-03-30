@@ -5299,7 +5299,7 @@ void PlotTimeDomainGraphs(AudioSignal *Signal, parameters *config)
 			{
 				if(config->plotAllNotes != 2 || doPlot)
 					plots++;
-				if(config->plotAllNotesWindowed && Signal->Blocks[i].audio.window_samples)
+				if(config->plotAllNotesWindowed && Signal->Blocks[i].audio.windowed_samples)
 					plots++;
 				if(Signal->Blocks[i].internalSyncCount)
 					plots += Signal->Blocks[i].internalSyncCount;
@@ -5370,7 +5370,7 @@ void PlotTimeDomainGraphs(AudioSignal *Signal, parameters *config)
 				}
 			}
 
-			if(Signal->Blocks[i].audio.window_samples && (config->plotAllNotesWindowed || Signal->Blocks[i].type == TYPE_SILENCE))
+			if(Signal->Blocks[i].audio.windowed_samples && (config->plotAllNotesWindowed || Signal->Blocks[i].type == TYPE_SILENCE))
 			{
 				sprintf(name, "TD_%05ld_%s_%s_%05d_%s", 
 					i, Signal->role == ROLE_REF ? "3" : "4",
@@ -5486,6 +5486,7 @@ void PlotTimeDomainHighDifferenceGraphs(AudioSignal *Signal, parameters *config)
 
 void DrawVerticalFrameGrid(PlotFile *plot, AudioSignal *Signal, double frames, double frameIncrement, double MaxSamples, int forceDrawMS, parameters *config)
 {
+	char label[40];
 	int		drawMS = 0;
 	double	x = 0, xfactor = 0, segment = 0, MaxY = config->lowestValueBitDepth, MinY = config->highestValueBitDepth;
 
@@ -5547,7 +5548,7 @@ void DrawVerticalFrameGrid(PlotFile *plot, AudioSignal *Signal, double frames, d
 		pl_endpath_r(plot->plotter);
 	}
 
-	/* Draw the labels ¨*/
+	/* Draw the labels */
 	pl_savestate_r(plot->plotter);
 	pl_fspace_r(plot->plotter, 0-X0BORDER*config->plotResX*plot->leftmargin, -1*config->plotResY/2-Y0BORDER*config->plotResY, config->plotResX+X1BORDER*config->plotResX, config->plotResY/2+Y1BORDER*config->plotResY);
 	pl_ffontsize_r(plot->plotter, FONT_SIZE_1);
@@ -5557,11 +5558,24 @@ void DrawVerticalFrameGrid(PlotFile *plot, AudioSignal *Signal, double frames, d
 	xfactor = config->plotResX/MaxSamples;
 	for(int i = 0; i <= frames; i += segment)
 	{
-		char label[40];
-
 		x = FramesToSamples(i, Signal->SampleRate, Signal->framerate);
 		sprintf(label, "Frame %d", i);
 		pl_fmove_r(plot->plotter, x*xfactor, config->plotResY/2);
+		pl_alabel_r(plot->plotter, 'c', 'b', label);
+
+		if(config->plotAllNotes == 4)
+		{
+			sprintf(label, "%0.4f s", FramesToSeconds(i, Signal->framerate));
+			pl_fmove_r(plot->plotter, x*xfactor, config->plotResY/2+config->plotResY/40);
+			pl_alabel_r(plot->plotter, 'c', 'b', label);
+		}
+	}
+
+	// this shows the full plot duration in seconds at the top right
+	if(config->plotAllNotes == 4 && x*xfactor < config->plotResX)
+	{
+		sprintf(label, "%0.4f s", SamplesToSeconds(Signal->SampleRate, MaxSamples, Signal->AudioChannels));
+		pl_fmove_r(plot->plotter, config->plotResX, config->plotResY/2+config->plotResY/40);
 		pl_alabel_r(plot->plotter, 'c', 'b', label);
 	}
 
@@ -5711,7 +5725,7 @@ void PlotBlockTimeDomainGraph(AudioSignal *Signal, int block, char *name, int wa
 	int			forceMS = 0;
 	char		title[BUFFER_SIZE/2], buffer[BUFFER_SIZE];
 	PlotFile	plot;
-	long int	color = 0, sample = 0, numSamples = 0, difference = 0, plotSize = 0, sampleOffset = 0;
+	long int	color = 0, sample = 0, numSamples = 0, difference = 0, padding = 0, plotSize = 0, sampleOffset = 0, plotFrames = 0;
 	double		*samples = NULL;
 	double		margin1 = 0, margin2 = 0, MaxY = config->highestValueBitDepth, MinY = config->lowestValueBitDepth;
 
@@ -5732,7 +5746,7 @@ void PlotBlockTimeDomainGraph(AudioSignal *Signal, int block, char *name, int wa
 		return;
 
 	if(wavetype == WAVEFORM_WINDOW)
-		samples = Signal->Blocks[block].audio.window_samples;
+		samples = Signal->Blocks[block].audio.windowed_samples;
 	else
 		samples = Signal->Blocks[block].audio.samples;
 
@@ -5750,20 +5764,12 @@ void PlotBlockTimeDomainGraph(AudioSignal *Signal, int block, char *name, int wa
 		numSamples = Signal->Blocks[block].audio.size;
 
 	difference = Signal->Blocks[block].audio.difference;
-	if(difference < 0)			// Negative difference is for matching empty space on smaller framerate
-		plotSize = numSamples - difference;
-	else
-		plotSize = numSamples;
+	padding = Signal->Blocks[block].audio.padding;
+
+	plotSize = numSamples + padding;
 
 	sampleOffset = Signal->Blocks[block].audio.sampleOffset;
-	/*
-	if(config->debugSync && Signal->Blocks[block].type == TYPE_SYNC)
-	{
-		FillPlotExtra(&plot, name, SYNC_DEBUG_SCALE*config->plotResX, config->plotResY, 0, MinY, plotSize, MaxY, 1, 0.2, config);
-		forceMS = 1;
-	}
-	else
-	*/
+
 	FillPlot(&plot, name, 0, MinY, plotSize, MaxY, 1, 0.2, config);
 
 	if(!CreatePlotFile(&plot, config))
@@ -5779,7 +5785,21 @@ void PlotBlockTimeDomainGraph(AudioSignal *Signal, int block, char *name, int wa
 		pl_filltype_r(plot.plotter, 0);
 	}
 
-	DrawVerticalFrameGrid(&plot, Signal, Signal->Blocks[block].frames, 1, plotSize, forceMS, config);
+	// added samples box (padding)
+	if(padding > 0 && Signal->Blocks[block].type != TYPE_SYNC)
+	{
+		pl_filltype_r(plot.plotter, 1);
+		pl_pencolor_r(plot.plotter, 0, 0x1111, 0);
+		pl_fillcolor_r(plot.plotter, 0, 0x1111, 0);
+		pl_fbox_r(plot.plotter, numSamples, MinY, plotSize-1, MaxY);
+		pl_filltype_r(plot.plotter, 0);
+	}
+
+	if(config->plotAllNotes == 4 && Signal->Blocks[block].type != TYPE_SYNC)
+		plotFrames = SamplesToFrames(Signal->SampleRate, plotSize+1-difference, Signal->framerate, Signal->AudioChannels);
+	else
+		plotFrames = Signal->Blocks[block].frames;
+	DrawVerticalFrameGrid(&plot, Signal, plotFrames, 1, plotSize-difference, forceMS, config);
 	DrawINTXXDBFSLines(&plot, numSamples, Signal->AudioChannels, config);
 
 	color = MatchColor(GetBlockColor(config, block));
@@ -5822,7 +5842,7 @@ void PlotBlockTimeDomainGraph(AudioSignal *Signal, int block, char *name, int wa
 		pl_fspace_r(plot.plotter, plot.x0, MinY-margin1, plot.x1, 3*MaxY+margin2);
 
 		if(wavetype == WAVEFORM_WINDOW)
-			samples = Signal->Blocks[block].audioRight.window_samples;
+			samples = Signal->Blocks[block].audioRight.windowed_samples;
 		else
 			samples = Signal->Blocks[block].audioRight.samples;
 		SetPenColor(color, 0xffff, &plot);

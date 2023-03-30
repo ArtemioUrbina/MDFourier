@@ -511,9 +511,13 @@ int LoadAudioBlockStructure(FILE *file, parameters *config)
 			if(sscanf(lineBuffer, "%*s %*s %*d %*d %*d %*s %*c %c\n", 
 				&config->types.typeArray[i].maskType) == 1)
 			{
+				if(config->types.typeArray[i].maskType == ';')
+					config->types.typeArray[i].maskType = MASK_NONE;
+
 				if(config->types.typeArray[i].maskType != MASK_USE_WINDOW && config->types.typeArray[i].maskType != MASK_NONE)
 				{
-					logmsg("ERROR: Mask type can only be 'w' or 'n' for windowed or none (windowed was the original default)\n %s\n", lineBuffer);
+					logmsg("ERROR: Mask type can only be 'w' or 'n' for windowed or none (windowed was the original default)\n %s (0x%02X)\n", lineBuffer,
+						config->types.typeArray[i].maskType);
 					fclose(file);
 					return 0;
 				}
@@ -943,19 +947,19 @@ int CheckProfileBaseLength(parameters *config)
 	{
 		if(config->types.typeArray[i].type >= TYPE_CONTROL)
 		{
-			double	seconds = 0;
-
 			if(config->types.typeArray[i].frames > longest)
 				longest = config->types.typeArray[i].frames;
 
-			if(config->types.typeArray[i].frames != longest)
-				different++;
-
-			seconds = FramesToSeconds(config->types.typeArray[i].frames, config->types.SyncFormat[0].MSPerFrame);
-			if(seconds > 1.0 && config->ZeroPad)
+			if(config->ZeroPad)
 			{
-				logmsg("ERROR: Block %d is %g seconds. Cannot apply Zero Padding\n", i, seconds);
-				return 0;
+				double	seconds = 0;
+
+				seconds = FramesToSeconds(config->types.typeArray[i].frames, config->types.SyncFormat[0].MSPerFrame);
+				if(seconds > 1.0)
+				{
+					logmsg("ERROR: Block %d is %g seconds. Cannot apply Zero Padding\n", i, seconds);
+					return 0;
+				}
 			}
 		}
 	}
@@ -965,6 +969,16 @@ int CheckProfileBaseLength(parameters *config)
 		logmsg("ERROR: Invalid Profile, no valid lengths\n");
 		return 0;
 	}
+
+	for(int i = 0; i < config->types.typeCount; i++)
+	{
+		if(config->types.typeArray[i].type >= TYPE_CONTROL)
+		{
+			if(config->types.typeArray[i].frames != longest)
+				different++;
+		}
+	}
+
 	config->maxBlockFrameCount = longest;
 
 	if(different)

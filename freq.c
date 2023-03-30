@@ -370,9 +370,10 @@ void InitAudio(AudioSignal *Signal, parameters *config)
 			Signal->Blocks[n].fftwValues.ENBW = 0;
 
 			Signal->Blocks[n].audio.samples = NULL;
-			Signal->Blocks[n].audio.window_samples = NULL;
+			Signal->Blocks[n].audio.windowed_samples = NULL;
 			Signal->Blocks[n].audio.size = 0;
 			Signal->Blocks[n].audio.difference = 0;
+			Signal->Blocks[n].audio.padding = 0;
 			Signal->Blocks[n].audio.sampleOffset = 0;
 
 			Signal->Blocks[n].fftwValuesRight.spectrum = NULL;
@@ -380,9 +381,10 @@ void InitAudio(AudioSignal *Signal, parameters *config)
 			Signal->Blocks[n].fftwValuesRight.ENBW = 0;
 
 			Signal->Blocks[n].audioRight.samples = NULL;
-			Signal->Blocks[n].audioRight.window_samples = NULL;
+			Signal->Blocks[n].audioRight.windowed_samples = NULL;
 			Signal->Blocks[n].audioRight.size = 0;
 			Signal->Blocks[n].audioRight.difference = 0;
+			Signal->Blocks[n].audioRight.padding = 0;
 			Signal->Blocks[n].audioRight.sampleOffset = 0;
 
 			Signal->Blocks[n].SilenceSizeLeft = 0;
@@ -470,9 +472,10 @@ int initInternalSync(AudioBlocks * AudioArray, int size)
 	for(int i = 0; i < size; i++)
 	{
 		AudioArray->internalSync[i].samples = NULL;
-		AudioArray->internalSync[i].window_samples = NULL;
+		AudioArray->internalSync[i].windowed_samples = NULL;
 		AudioArray->internalSync[i].size = 0;
 		AudioArray->internalSync[i].difference = 0;
+		AudioArray->internalSync[i].padding = 0;
 	}
 
 	AudioArray->internalSyncCount = size;
@@ -517,26 +520,28 @@ void ReleaseSamples(AudioBlocks * AudioArray)
 		free(AudioArray->audio.samples);
 		AudioArray->audio.samples = NULL;
 	}
-	if(AudioArray->audio.window_samples)
+	if(AudioArray->audio.windowed_samples)
 	{
-		free(AudioArray->audio.window_samples);
-		AudioArray->audio.window_samples = NULL;
+		free(AudioArray->audio.windowed_samples);
+		AudioArray->audio.windowed_samples = NULL;
 	}
 	AudioArray->audio.size = 0;
 	AudioArray->audio.difference = 0;
+	AudioArray->audio.padding = 0;
 
 	if(AudioArray->audioRight.samples)
 	{
 		free(AudioArray->audioRight.samples);
 		AudioArray->audioRight.samples = NULL;
 	}
-	if(AudioArray->audioRight.window_samples)
+	if(AudioArray->audioRight.windowed_samples)
 	{
-		free(AudioArray->audioRight.window_samples);
-		AudioArray->audioRight.window_samples = NULL;
+		free(AudioArray->audioRight.windowed_samples);
+		AudioArray->audioRight.windowed_samples = NULL;
 	}
 	AudioArray->audioRight.size = 0;
 	AudioArray->audioRight.difference = 0;
+	AudioArray->audioRight.padding = 0;
 
 	if(AudioArray->internalSync)
 	{
@@ -547,13 +552,14 @@ void ReleaseSamples(AudioBlocks * AudioArray)
 				free(AudioArray->internalSync[i].samples);
 				AudioArray->internalSync[i].samples = NULL;
 			}
-			if(AudioArray->internalSync[i].window_samples)
+			if(AudioArray->internalSync[i].windowed_samples)
 			{
-				free(AudioArray->internalSync[i].window_samples);
-				AudioArray->internalSync[i].window_samples = NULL;
+				free(AudioArray->internalSync[i].windowed_samples);
+				AudioArray->internalSync[i].windowed_samples = NULL;
 			}
 			AudioArray->internalSync[i].size = 0;
 			AudioArray->internalSync[i].difference = 0;
+			AudioArray->internalSync[i].padding = 0;
 		}
 		free(AudioArray->internalSync);
 		AudioArray->internalSync = NULL;

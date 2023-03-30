@@ -646,8 +646,8 @@ int commandline(int argc , char *argv[], parameters *config)
 		break;
 	  case 'u':
 		config->plotAllNotes++;
-		if(config->plotAllNotes > 3)
-			config->plotAllNotes = 3;
+		if(config->plotAllNotes > 4)
+			config->plotAllNotes = 4;
 		break;
 	  case 'V':  // reserved
 		break;
@@ -842,15 +842,19 @@ int commandline(int argc , char *argv[], parameters *config)
 		switch(config->plotAllNotes)
 		{
 			case 1:
-				logmsg("\t-Creating waveform plots for all notes\n");
+				logmsg("\t-Creating waveform plots for all blocks\n");
 				break;
 			case 2:
 				config->plotAllNotesWindowed = 1;
-				logmsg("\t-Creating DFT windowed waveform plots for all notes\n");
+				logmsg("\t-Creating only DFT windowed waveform plots for all blocks\n");
 				break;
 			case 3:
 				config->plotAllNotesWindowed = 1;
-				logmsg("\t-Creating waveform plots for all notes with window for DFFT\n");
+				logmsg("\t-Creating waveform and DFFT window plots for all blocks\n");
+				break;
+			case 4:
+				config->plotAllNotesWindowed = 1;
+				logmsg("\t-Creating waveform and DFFT window plots for all blocks, and showing real zero padding if needed\n");
 				break;
 		}
 	}
