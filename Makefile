@@ -5,8 +5,9 @@ UNAME_M := $(shell uname -m)
 ifeq ($(UNAME_S),Darwin)
 ifeq ($(UNAME_M),arm64)
 all:macarm
-endif
+else
 all:mac
+endif
 endif
 
 ifeq ($(UNAME_O),GNU/Linux)
