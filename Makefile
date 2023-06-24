@@ -1,8 +1,13 @@
 UNAME_O := $(shell uname -o)
 UNAME_S := $(shell uname -s)
+UNAME_M := $(shell uname -m)
 
 ifeq ($(UNAME_S),Darwin)
+ifeq ($(UNAME_M),arm64)
+all:macarm
+else
 all:mac
+endif
 endif
 
 ifeq ($(UNAME_O),GNU/Linux)
@@ -16,6 +21,7 @@ endif
 ifeq ($(UNAME_O),Cygwin)
 all:cygwin
 endif
+
 CC     = gcc
 OPT    = -O3
 OPENMP = -DOPENMP_ENABLE -fopenmp
@@ -59,8 +65,13 @@ cygwin: executable
 
 #flags for mac
 mac: CCFLAGS    = $(BASE_CCFLAGS) $(OPT)
-mac: LFLAGS     = -Wl,-no_compact_unwind -logg $(BASE_LIBS) 
+mac: LFLAGS     = -Wl,-no_compact_unwind -logg $(BASE_LIBS)
 mac: executable
+
+#flags for apple silicon mac
+macarm: CCFLAGS    = -I/opt/homebrew/include $(BASE_CCFLAGS) $(OPT)
+macarm: LFLAGS     = -L/opt/homebrew/lib -Wl,-no_compact_unwind -logg $(BASE_LIBS)
+macarm: executable
 
 #flags for debug
 debug: CCFLAGS  = $(LOCAL_INCLUDE) $(BASE_CCFLAGS) -DDEBUG -g
