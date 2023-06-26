@@ -602,7 +602,7 @@ long int DetectPulseTrainSequence(Pulses *pulseArray, double targetFrequency, do
 
 long int AdjustPulseSampleStartByLength(double* Samples, wav_hdr header, long int offset, int role, int AudioChannels, parameters* config)
 {
-	int			samplesNeeded = 0, frequency = 0, startDetectPos = -1, endDetectPos = -1, bytesPerSample = 0, failMatchCount = 0;
+	int			samplesNeeded = 0, frequency = 0, startDetectPos = -1, endDetectPos = -1, bytesPerSample = 0;
 	long int	startSearch = 0, endSearch = 0, pos = 0, count = 0, foundPos = -1, totalSamples = 0;
 	long int	synLenInSamples = 0, matchCount = 0, tolerance = 0;
 	double*		buffer = NULL, percentSTD = 0;
@@ -756,7 +756,6 @@ long int AdjustPulseSampleStartByLength(double* Samples, wav_hdr header, long in
 					logmsgFileOnly("== match start == using Sample: %ld\n", 
 						SamplesForDisplay(pulseArray[startDetectPos].samples, AudioChannels));
 			}
-			failMatchCount = 0;
 		}
 		else
 		{
@@ -773,14 +772,15 @@ long int AdjustPulseSampleStartByLength(double* Samples, wav_hdr header, long in
 
 				// Check for end of the pulse
 				if ((pulseArray[pos].hertz == 0 ||
-					(failMatchCount > 5 && pulseArray[pos].hertz != 0 && pulseArray[pos].magnitude < compareMag*adjustEnd)))
+					(pulseArray[pos].hertz != 0 && pulseArray[pos].magnitude < compareMag*adjustEnd)))
 				{
 					// abort in 16khz 8 bit attempts that have very low matching due to small errors
-					if(samplesNeeded <= 2 && foundPulseLength < synLenInSamples && pulseArray[pos].hertz == 0)
+					if(samplesNeeded <= 2 && foundPulseLength < synLenInSamples)
 					{
 						logmsgFileOnly("== Aborted centering, probably 16khz 8 bit matching\n");
 						return(offset);
 					}
+
 					//endDetectPos = pos + RoundToNsamples((double)samplesNeeded/4.0, AudioChannels, NULL, NULL);   // Add the tail since we are doing overlapped starts
 					if(pulseArray[pos].hertz == 0)
 						pos --;
@@ -790,11 +790,6 @@ long int AdjustPulseSampleStartByLength(double* Samples, wav_hdr header, long in
 							SamplesForDisplay(pulseArray[endDetectPos].samples, AudioChannels),
 							compareMag*adjustEnd);
 					break;
-				}
-				else
-				{
-					if(pulseArray[pos].magnitude < compareMag)
-						failMatchCount ++;
 				}
 			}
 		}
@@ -808,7 +803,7 @@ long int AdjustPulseSampleStartByLength(double* Samples, wav_hdr header, long in
 		foundPulseLength = pulseArray[endDetectPos].samples - pulseArray[startDetectPos].samples;
 		foundPos = pulseArray[startDetectPos].samples;
 
-		percent = (double)abs(foundPulseLength-synLenInSamples)*100.0/(double)synLenInSamples;
+		percent = (double)labs(foundPulseLength-synLenInSamples)*100.0/(double)synLenInSamples;
 
 		if (config->debugSync)
 			logmsgFileOnly("Detected at: %ld Percent outside %g%% detected length in samples %ld expected length in samples: %ld\n",
