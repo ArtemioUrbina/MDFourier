@@ -499,10 +499,10 @@ int DetectSync(AudioSignal *Signal, parameters *config)
 		{
 			Signal->startOffset = config->ManualSyncRefStart*Signal->AudioChannels; 
 			Signal->endOffset = config->ManualSyncRefEnd*Signal->AudioChannels;
-			if(Signal->endOffset > (long)Signal->header.data.DataSize/Signal->bytesPerSample)
+			if(Signal->endOffset > Signal->numSamples)
 			{
-				logmsg("\nERROR: End offset is out of bounds, file ends at asample %ld and got %ld.\n",
-					(long)Signal->header.data.DataSize/Signal->bytesPerSample,
+				logmsg("\nERROR: End offset is out of bounds, file ends at sample %ld and was asked for %ld.\n",
+					Signal->numSamples,
 					SamplesForDisplay(Signal->endOffset, Signal->AudioChannels));
 				return 0;
 			}
@@ -514,10 +514,10 @@ int DetectSync(AudioSignal *Signal, parameters *config)
 		{
 			Signal->startOffset = config->ManualSyncCompStart*Signal->AudioChannels; 
 			Signal->endOffset = config->ManualSyncCompEnd*Signal->AudioChannels;
-			if(Signal->endOffset > (long)Signal->header.data.DataSize/Signal->bytesPerSample)
+			if(Signal->endOffset > Signal->numSamples)
 			{
-				logmsg("\nERROR: End offset is out of bounds, file ends at asample %ld and got %ld.\n",
-					(long)Signal->header.data.DataSize/Signal->bytesPerSample, 
+				logmsg("\nERROR: End offset is out of bounds, file ends at sample %ld and was asked for %ld.\n",
+					Signal->numSamples, 
 					SamplesForDisplay(Signal->endOffset, Signal->AudioChannels));
 				return 0;
 			}

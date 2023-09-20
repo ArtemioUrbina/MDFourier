@@ -3534,6 +3534,71 @@ double FindFundamentalAmplitudeAverage(AudioSignal *Signal, parameters *config)
 	return AvgFundAmp;
 }
 
+double FindNoiseFloorAmplitudeAverage(AudioSignal *Signal, parameters *config)
+{
+	double		AvgFundAmp = 0;
+	long int	count = 0, freqUse = 0;
+
+	if(!Signal)
+		return 0;
+
+	freqUse = config->MaxFreq;
+	if(config->MaxFreq > 50)  // et a limit so the average makes some sense, higher 50 frequencies here
+		freqUse = 50;
+
+	for(int block = 0; block < config->types.totalBlocks; block++)
+	{
+		int type = TYPE_NOTYPE;
+
+		type = GetBlockType(config, block);
+		if(type == TYPE_SILENCE)
+		{
+			for(int i = 0; i < freqUse; i++)
+			{
+				if(Signal->Blocks[block].freq[i].hertz && Signal->Blocks[block].freq[i].amplitude != NO_AMPLITUDE &&
+					Signal->Blocks[block].freq[i].amplitude > Signal->floorAmplitude - 30) // we set a limit in amplitude as well
+				{
+					AvgFundAmp += Signal->Blocks[block].freq[i].amplitude;
+					count ++;
+					//logmsg("%g dBFS @ %g\n", Signal->Blocks[block].freq[i].amplitude, Signal->Blocks[block].freq[i].hertz);
+				}
+			}
+		}
+	}
+
+	for(int block = 0; block < config->types.totalBlocks; block++)
+	{
+		if(Signal->Blocks[block].freqRight)
+		{
+			int type = TYPE_NOTYPE;
+
+			type = GetBlockType(config, block);
+			if(type == TYPE_SILENCE)
+			{
+				for(int i = 0; i < freqUse; i++)
+				{
+					if(Signal->Blocks[block].freqRight[i].hertz && Signal->Blocks[block].freqRight[i].amplitude != NO_AMPLITUDE &&
+						Signal->Blocks[block].freq[i].amplitude > Signal->floorAmplitude - 30)
+					{
+						AvgFundAmp += Signal->Blocks[block].freqRight[i].amplitude;
+						count ++;
+						//logmsg("%g dBFS @ %g\n", Signal->Blocks[block].freqRight[i].amplitude, Signal->Blocks[block].freqRight[i].hertz);
+					}
+				}
+			}
+		}
+	}
+
+	if(count)
+	{
+		AvgFundAmp /= count;
+		logmsg(" - %s signal Noise Floor Average Amplitude %g dBFS\n", 
+			getRoleText(Signal), AvgFundAmp);
+	}
+
+	return AvgFundAmp;
+}
+
 inline long int GetSignalMaxInt(AudioSignal *Signal)
 {
 	long int Max = 0;

@@ -769,6 +769,12 @@ int ProcessNoiseFloor(AudioSignal *ReferenceSignal, AudioSignal *ComparisonSigna
 	else
 	*/
 	logmsg(" - Using %g dBFS as minimum significant amplitude for analysis\n",	config->significantAmplitude);
+
+	if(refHasFloor)
+		FindNoiseFloorAmplitudeAverage(ReferenceSignal, config);
+	if(comHasFloor)
+		FindNoiseFloorAmplitudeAverage(ComparisonSignal, config);
+	
 	return 1;
 }
 

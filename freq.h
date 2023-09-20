@@ -159,6 +159,7 @@ void CalculateFrequencyBrackets(AudioSignal *signal, parameters *config);
 double FindFrequencyBracket(double frequency, size_t size, int AudioChannels, double samplerate, parameters *config);
 double FindFrequencyBracketForSync(double frequency, size_t size, int AudioChannels, double samplerate, parameters *config);
 double FindFundamentalAmplitudeAverage(AudioSignal *Signal, parameters *config);
+double FindNoiseFloorAmplitudeAverage(AudioSignal *Signal, parameters *config);
 
 char GetTypeProfileName(int type);
 int GetPulseSyncFreq(int role, parameters *config);

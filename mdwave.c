@@ -843,7 +843,7 @@ int commandline_wave(int argc , char *argv[], parameters *config)
 	config->useCompProfile = 0;
 	config->executefft = 1;
 
-	while ((c = getopt (argc, argv, "qnhvzcklyCBis:e:f:m:t:p:w:r:P:IY:T0:")) != -1)
+	while ((c = getopt (argc, argv, "qnhvzcklyCBis:e:f:m:t:p:w:r:P:IY:T0:9")) != -1)
 	switch (c)
 	  {
 	  case 'h':
@@ -1008,6 +1008,9 @@ int commandline_wave(int argc , char *argv[], parameters *config)
 	  case '0':
 		sprintf(config->outputPath, "%s", optarg);
 		break;
+      case '9':
+		config->compressToBlocks = 1;
+        break;
 	  case '?':
 		if (optopt == 'r')
 		  logmsg("\t ERROR:  Reference File -%c requires an argument.\n", optopt);
