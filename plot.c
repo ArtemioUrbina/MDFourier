@@ -991,7 +991,12 @@ void DrawGridZeroDBCentered(PlotFile *plot, double dBFS, double dbIncrement, dou
 	else
 	{
 		if(fabs(dBFS) <= 3.0)
-			dbIncrement = 1.0;
+			dbIncrement = 0.2;
+		else
+		{
+			if(fabs(dBFS) <= 5.0)
+				dbIncrement = 0.5;
+		}
 	}
 
 	if(config->maxDbPlotZC == DB_HEIGHT)
@@ -1635,7 +1640,7 @@ void DrawLabelsMDF(PlotFile *plot, char *Gname, char *GType, int type, parameter
 		if(config->comparisonSignal->originalSR)
 		{
 			PLOT_WARN(1, warning++);
-			sprintf(msg, "NOTE: CM sample rate calculated %s%0.3f\\ct . Adjusted to match. (-R)", 
+			sprintf(msg, "NOTE: CM sample rate calculated %s%0.3f\\ct . Adjusted (-R)", 
 				config->ComCentsDifferenceSR > 0 ? "+" : "",
 				config->ComCentsDifferenceSR);
 			pl_alabel_r(plot->plotter, 'l', 'l', msg);
@@ -1644,7 +1649,7 @@ void DrawLabelsMDF(PlotFile *plot, char *Gname, char *GType, int type, parameter
 		if(config->referenceSignal->originalSR)
 		{
 			PLOT_WARN(1, warning++);
-			sprintf(msg, "NOTE: RF sample rate calculated %s%0.3f\\ct . Adjusted to match. (-R)", 
+			sprintf(msg, "NOTE: RF sample rate calculated %s%0.3f\\ct . Adjusted (-R)", 
 				config->RefCentsDifferenceSR > 0 ? "+" : "",
 				config->RefCentsDifferenceSR);
 			pl_alabel_r(plot->plotter, 'l', 'l', msg);
@@ -5637,7 +5642,7 @@ void DrawINTXXDBFSLines(PlotFile *plot, double resx, int AudioChannels, paramete
 		if(AudioChannels == 2)
 			pl_restorestate_r(plot->plotter);
 
-		/* Draw the labels ¨*/
+		/* Draw the labels ï¿½*/
 	
 		pl_savestate_r(plot->plotter);
 		if(AudioChannels == 2)
