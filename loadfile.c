@@ -132,6 +132,27 @@ void ConvertByteArrayToIEEE64Sample(const void *buf, void *target)
 	t[7] = b[7];
 }
 
+// For future(?) Endianess compatibility
+uint32_t EndianessChange32bits(uint32_t num)
+{
+	uint32_t swapped = 0;
+	
+	swapped = ((num>>24)&0xff) | // move byte 3 to byte 0
+              ((num<<8)&0xff0000) | // move byte 1 to byte 2
+              ((num>>8)&0xff00) | // move byte 2 to byte 1
+              ((num<<24)&0xff000000); // byte 0 to byte 3
+	return swapped;
+}
+
+uint16_t EndianessChange16bits(uint16_t num)
+{
+	uint16_t swapped = 0;
+	
+	swapped = (num>>8) | (num<<8);
+	return swapped;
+}
+
+
 int CheckFactChunk(FILE *file, AudioSignal *Signal)
 {
 	size_t				bytesRead = 0;
@@ -205,10 +226,14 @@ int LoadWAVFile(FILE *file, AudioSignal *Signal, parameters *config)
 			return(0);
 		}
 		if(strncmp((char*)schunk.chunkID, "fmt", 3) != 0)
-			fseek(file, schunk.Size*sizeof(uint8_t), SEEK_CUR);
+		{
+			if(fseek(file, schunk.Size*sizeof(uint8_t), SEEK_CUR) != 0)
+				return 0;
+		}
 		else
 		{
-			fseek(file, -1*(long int)sizeof(sub_chunk), SEEK_CUR);
+			if(fseek(file, -1*(long int)sizeof(sub_chunk), SEEK_CUR) != 0)
+				return 0;
 			found = 1;
 		}
 	}while(!found);
@@ -242,7 +267,11 @@ int LoadWAVFile(FILE *file, AudioSignal *Signal, parameters *config)
 			break;
 		default:
 			if(Signal->header.fmt.Subchunk1Size + 8 > sizeof(fmt_hdr))  // Add the fmt and chunksize length: 8 bytes
-				fseek(file, Signal->header.fmt.Subchunk1Size + 8 - sizeof(fmt_hdr), SEEK_CUR);
+			{
+				if(fseek(file, Signal->header.fmt.Subchunk1Size + 8 - sizeof(fmt_hdr), SEEK_CUR) != 0)
+					return 0;
+			}
+
 			if(config->verbose)
 				logmsg("\t-WARNING: Unsupported fmt sub chunk size: %lu\n", Signal->header.fmt.Subchunk1Size);
 			break;
@@ -260,10 +289,14 @@ int LoadWAVFile(FILE *file, AudioSignal *Signal, parameters *config)
 			return(0);
 		}
 		if(strncmp((char*)schunk.chunkID, "data", 4) != 0)
-			fseek(file, schunk.Size*sizeof(uint8_t), SEEK_CUR);
+		{
+			if(fseek(file, schunk.Size*sizeof(uint8_t), SEEK_CUR) != 0)
+				return 0;
+		}
 		else
 		{
-			fseek(file, -1*(long int)sizeof(sub_chunk), SEEK_CUR);
+			if(fseek(file, -1*(long int)sizeof(sub_chunk), SEEK_CUR))
+				return 0;
 			found = 1;
 		}
 
@@ -273,7 +306,8 @@ int LoadWAVFile(FILE *file, AudioSignal *Signal, parameters *config)
 			if(strncmp((char*)schunk.chunkID, "fact", 4) == 0)
 			{
 				// rewind the block and read it
-				fseek(file, -1*(long int)(sizeof(sub_chunk)+schunk.Size*sizeof(uint8_t)), SEEK_CUR);
+				if(fseek(file, -1*(long int)(sizeof(sub_chunk)+schunk.Size*sizeof(uint8_t)), SEEK_CUR) != 0)
+					return 0;
 
 				// fact chunk read
 				if(!CheckFactChunk(file, Signal))
