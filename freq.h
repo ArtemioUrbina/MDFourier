@@ -83,6 +83,7 @@ char GetBlockMaskType(parameters *config, int pos);
 char GetTypeChannel(parameters *config, int type);
 void CleanName(char *name, char *display);
 int MatchesPreviousType(int pos, int type, parameters *config);
+int MatchesExtraDataColor(int pos, int type, parameters *config);
 void CheckSilenceOverride(parameters *config);
 int ConvertAudioTypeForProcessing(int type, parameters *config);
 int getArrayIndexforType(int type, int *typeArray, int typeCount);

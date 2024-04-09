@@ -327,7 +327,8 @@ int LoadWAVFile(FILE *file, AudioSignal *Signal, parameters *config)
 
 	if(Signal->AudioChannels == INVALID_CHANNELS)
 	{
-		logmsg("\tERROR: Only Mono and Stereo files are supported.\n");
+		logmsg("\tERROR: Only Mono and Stereo files are supported. ");
+        logmsg("File has %d channels\n", Signal->header.fmt.NumOfChan);
 		return(0);
 	}
 

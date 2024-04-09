@@ -1,0 +1,16 @@
+MDFourierAudioBlockFile 2.3
+MSX PSG
+[VideoModes] 1
+NTSC 16.692754 262 8820 14 10
+CLK n
+[MonoBalanceBlock] 4      ;Use 1khz-ish
+[ToneLines] 9
+Sync s 1 20 0 red m
+WaitDecay k 1 5 0 red m
+Silence n 1 15 0 gray m
+SPSG 1 40 20 0 yellow m *
+SPSG_Ramp 2 40 10 0 yellow m *
+Noise 3 32 20 0 aqua m
+WaitDecay k 1 5 0 red m
+Silence n 1 15 1 gray m
+Sync s 1 20 0 red m

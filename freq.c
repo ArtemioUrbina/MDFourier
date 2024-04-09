@@ -815,6 +815,27 @@ int MatchesPreviousType(int pos, int type, parameters *config)
 	return 0;
 }
 
+int MatchesExtraDataColor(int pos, int type, parameters *config)
+{
+	if(!config)
+		return 0;
+
+	if(type <= TYPE_CONTROL)
+		return 0;
+
+	for(int i = 0; i < pos; i++)
+	{
+		if(config->types.typeArray[i].type == type)
+		{
+			if(MatchColor(config->types.typeArray[pos].color) !=
+				MatchColor(config->types.typeArray[i].color))
+					return i;
+		}
+	}
+	
+	return 0;
+}
+
 void CheckSilenceOverride(parameters *config)
 {
 	int count = 0;

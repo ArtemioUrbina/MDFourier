@@ -556,7 +556,24 @@ int LoadAudioBlockStructure(FILE *file, parameters *config)
 				config->types.typeArray[i].type = TYPE_TIMEDOMAIN;  // TYPE_SKIP
 		}
 		if(config->useExtraData && config->types.typeArray[i].IsaddOnData)
+		{
+			int parent = 0;
+
 			config->hasAddOnData ++;
+
+			parent = MatchesExtraDataColor(i, config->types.typeArray[i].type, config);
+			if(parent)
+			{
+				logmsg("Extra Data \"%s\" color %s does not match parent category (%d:%s) color %s. Aborting.\n", 
+						config->types.typeArray[i].typeDisplayName,
+						config->types.typeArray[i].color,
+						config->types.typeArray[parent].type,
+						config->types.typeArray[parent].typeDisplayName,
+						config->types.typeArray[parent].color);
+				fclose(file);
+				return 0;
+			}
+		}
 
 		lineCount++;
 	}
@@ -801,6 +818,25 @@ int LoadAudioNoSyncProfile(FILE *file, parameters *config)
 			if(config->types.typeArray[t].type != TYPE_SILENCE)
 				config->types.typeArray[t].type = TYPE_TIMEDOMAIN;  // TYPE_SKIP
 		}
+
+		if(config->useExtraData && config->types.typeArray[t].IsaddOnData)
+		{
+			int parent = 0;
+
+			parent = MatchesExtraDataColor(t, config->types.typeArray[t].type, config);
+			if(parent)
+			{
+				logmsg("Extra Data \"%s\" color %s does not match parent category (%d:%s) color %s. Aborting.\n", 
+						config->types.typeArray[t].typeDisplayName,
+						config->types.typeArray[t].color,
+						config->types.typeArray[parent].type,
+						config->types.typeArray[parent].typeDisplayName,
+						config->types.typeArray[parent].color);
+				fclose(file);
+				return 0;
+			}
+		}
+
 		if(config->useExtraData && config->types.typeArray[t].IsaddOnData)
 			config->hasAddOnData ++;
 	}
@@ -871,7 +907,9 @@ void PrintAudioBlocks(parameters *config)
 			StartSeconds,
 			TotalSeconds);
 
-		if(config->types.typeArray[i].type >= TYPE_SILENCE && config->types.typeArray[i].type != TYPE_SKIP)
+		if(config->types.typeArray[i].type != TYPE_SYNC && 
+			config->types.typeArray[i].type >= TYPE_SILENCE &&
+			config->types.typeArray[i].type != TYPE_SKIP)
 		{
 			averageFrameAnalisis += config->types.typeArray[i].frames;
 			count++;
