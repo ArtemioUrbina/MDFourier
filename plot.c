@@ -354,8 +354,8 @@ void PlotResults(AudioSignal *ReferenceSignal, AudioSignal *ComparisonSignal, pa
 				return;
 		}
 
-		ShortenFileName(basename(ReferenceSignal->SourceFile), tmpNameRef);
-		ShortenFileName(basename(ComparisonSignal->SourceFile), tmpNameComp);
+		ShortenFileName(basename(ReferenceSignal->SourceFile), tmpNameRef, BUFFER_SIZE);
+		ShortenFileName(basename(ComparisonSignal->SourceFile), tmpNameComp, BUFFER_SIZE);
 #ifdef OPENMP_ENABLE
 	#pragma omp parallel for
 #endif
@@ -856,6 +856,11 @@ int CreatePlotFile(PlotFile *plot, parameters *config)
 
 	sprintf(size, "%dx%d", plot->sizex, plot->sizey);
 	plot->plotter_params = pl_newplparams ();
+	if(!plot->plotter_params)
+	{
+		logmsg("Couldn't create plotter_params\n");
+		return 0;
+	}
 	pl_setplparam (plot->plotter_params, "BITMAPSIZE", size);
 	if((plot->plotter = pl_newpl_r("png", stdin, plot->file, stderr, plot->plotter_params)) == NULL)
 	{
@@ -4850,7 +4855,7 @@ void PlotTimeSpectrogram(AudioSignal *Signal, char channel, parameters *config)
 		return;
 
 	// Name the plot
-	ShortenFileName(basename(Signal->SourceFile), name);
+	ShortenFileName(basename(Signal->SourceFile), name, BUFFER_SIZE);
 	if(channel == CHANNEL_STEREO)
 		sprintf(filename, "T_SP_%c_%s", Signal->role == ROLE_REF ? 'A' : 'B', name);
 	else
@@ -5011,7 +5016,7 @@ void PlotSingleTypeTimeSpectrogram(AudioSignal* Signal, char channel, int plotTy
 		return;
 
 	// Name the plot
-	ShortenFileName(basename(Signal->SourceFile), name);
+	ShortenFileName(basename(Signal->SourceFile), name, BUFFER_SIZE);
 	if (channel == CHANNEL_STEREO)
 		sprintf(filename, "T_SP_%02d_%s_%c_%s", 
 				plotType, GetTypeName(config, plotType), Signal->role == ROLE_REF ? 'A' : 'B', name);
@@ -5160,7 +5165,7 @@ void PlotTimeSpectrogramUnMatchedContent(AudioSignal *Signal, char channel, para
 	if(!Signal || !config)
 		return;
 
-	ShortenFileName(basename(Signal->SourceFile), name);
+	ShortenFileName(basename(Signal->SourceFile), name, BUFFER_SIZE);
 	if(Signal->role == ROLE_REF)
 		sprintf(filename, "MISSING-A-T_SP_%s_%c", name, channel);
 	else
@@ -6324,7 +6329,7 @@ void PlotCLKSpectrogram(AudioSignal *Signal, parameters *config)
 	long int			size = 0;
 	FlatFrequency		*frequencies = NULL;
 	
-	ShortenFileName(basename(Signal->SourceFile), tmpName);
+	ShortenFileName(basename(Signal->SourceFile), tmpName, BUFFER_SIZE);
 	frequencies = CreateFlatFrequenciesCLK(Signal, &size, config);
 	sprintf(name, "SP_%c_%s_CLK_%s", Signal->role == ROLE_REF ? 'A' : 'B', tmpName, config->clkName);
 	PlotCLKSpectrogramInternal(frequencies, size, name, Signal->role, config);

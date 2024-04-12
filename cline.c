@@ -305,6 +305,7 @@ int commandline(int argc , char *argv[], parameters *config)
 {
 	FILE *file = NULL;
 	int c, index, ref = 0, tar = 0;
+	int profileLoaded = 0;
 	
 	opterr = 0;
 	
@@ -578,6 +579,12 @@ int commandline(int argc , char *argv[], parameters *config)
 		break;
 	  case 'P':
 		sprintf(config->profileFile, "%s", optarg);
+		if (!LoadProfile(config))
+		{
+			logmsg("Invalid Profile, aborting\n");
+			return 0;
+		}
+		profileLoaded = 1;
 		break;
 	  case 'p':
 		config->significantAmplitude = atof(optarg);
@@ -684,11 +691,30 @@ int commandline(int argc , char *argv[], parameters *config)
 		config->showAll = 1;
 		break;
 	  case 'Y':
-		config->videoFormatRef = atoi(optarg);
-		if(config->videoFormatRef < 0 || config->videoFormatRef > MAX_SYNC)  // We'll confirm this later
+		if(strlen(optarg) == 1)
 		{
-			logmsg("-ERROR: Profile can have up to %d types\n", MAX_SYNC);
-			return 0;
+			config->videoFormatRef = atoi(optarg);
+			if (config->videoFormatRef < 0 || config->videoFormatRef > MAX_SYNC)  // We'll confirm this later
+			{
+				logmsg("-ERROR: Profile can have up to %d types\n", MAX_SYNC);
+				return 0;
+			}
+		}
+		else
+		{
+			if(!profileLoaded)
+			{
+				logmsg("-ERROR: for Video Format matching, define the profile first (-P)");
+				return 0;
+			}
+			config->videoFormatRef = MatchVideoFormat(config, optarg);
+			if(config->videoFormatRef == -1)
+			{
+				logmsg("-ERROR: Invalid format \"%s\". Defined formats are: ", optarg);
+				listFormats(config);
+				logmsg("\n");
+				return 0;
+			}
 		}
 		break;
 	  case 'y':
@@ -696,11 +722,30 @@ int commandline(int argc , char *argv[], parameters *config)
 		config->timeDomainSync = 1;
 		break;
 	  case 'Z':
-		config->videoFormatCom = atoi(optarg);
-		if(config->videoFormatRef < 0 || config->videoFormatRef > MAX_SYNC)
+		if(strlen(optarg) == 1)
 		{
-			logmsg("- ERROR: Profile can have up to %d types\n", MAX_SYNC);
-			return 0;
+			config->videoFormatCom = atoi(optarg);
+			if (config->videoFormatCom < 0 || config->videoFormatCom > MAX_SYNC)
+			{
+				logmsg("- ERROR: Profile can have up to %d types\n", MAX_SYNC);
+				return 0;
+			}
+		}
+		else
+		{
+			if (!profileLoaded)
+			{
+				logmsg("-ERROR: for Video Format matching, define the profile first (-P)");
+				return 0;
+			}
+			config->videoFormatCom = MatchVideoFormat(config, optarg);
+			if (config->videoFormatCom == -1)
+			{
+				logmsg("-ERROR: Invalid format \"%s\". Defined formats are: ", optarg);
+				listFormats(config);
+				logmsg("\n");
+				return 0;
+			}
 		}
 		break;
 	  case 'z':
@@ -1024,17 +1069,18 @@ int SetupFolders(char *folder, char *logname, parameters *config)
 	return 1;
 }
 
-void ShortenFileName(char *filename, char *copy)
+void ShortenFileName(char *filename, char *copy, int size)
 {
 	int len = 0, ext = 0;
 
-	sprintf(copy, "%s", filename);
+	strncpy(copy, filename, size - 1);
 	len = strlen(copy);
 	ext = getExtensionLength(copy)+1;
 	copy[len-ext] = '\0';
-	len = strlen(copy);
 
 #if defined (WIN32)
+	len = strlen(copy);
+
 	if(len > MAX_FILE_NAME)
 		copy[MAX_FILE_NAME - 1] = '\0';
 #endif
@@ -1125,17 +1171,17 @@ int CleanFolderName(char *name, char *origName)
 int CreateFolderName(char *mainfolder, parameters *config)
 {
 	int len = 0;
-	char tmp[BUFFER_SIZE/2], fn[BUFFER_SIZE/2], pname[BUFFER_SIZE/2], popfolder[FILENAME_MAX];
+	char tmp[BUFFER_SIZE-10], fn[BUFFER_SIZE-20], pname[BUFFER_SIZE], popfolder[FILENAME_MAX];
 
 	if(!config)
 		return 0;
 
 	// Compose the folder name a_vs_b_0000
-	ShortenFileName(basename(config->referenceFile), tmp);
+	ShortenFileName(basename(config->referenceFile), tmp, BUFFER_SIZE-10);
 	len = strlen(tmp);
 	if(strlen(config->comparisonFile))
 	{
-		ShortenFileName(basename(config->comparisonFile), fn);
+		ShortenFileName(basename(config->comparisonFile), fn, BUFFER_SIZE-20);
 		sprintf(tmp+len, "_vs_%s_0000", fn);
 
 		len = strlen(tmp);
@@ -1227,11 +1273,11 @@ int CreateFolderName(char *mainfolder, parameters *config)
 void InvertComparedName(parameters *config)
 {
 	int len;
-	char tmp[BUFFER_SIZE], fn[BUFFER_SIZE];
+	char tmp[BUFFER_SIZE], fn[BUFFER_SIZE-4];
 
-	ShortenFileName(basename(config->referenceFile), tmp);
+	ShortenFileName(basename(config->referenceFile), tmp, BUFFER_SIZE);
 	len = strlen(tmp);
-	ShortenFileName(basename(config->comparisonFile), fn);
+	ShortenFileName(basename(config->comparisonFile), fn, BUFFER_SIZE-4);
 	sprintf(tmp+len, "_vs_%s", fn);
 
 	len = strlen(tmp);
@@ -1241,7 +1287,7 @@ void InvertComparedName(parameters *config)
 			tmp[i] = '_';
 	}
 
-	sprintf(config->compareName, "%s", tmp);
+	strncpy(config->compareName, tmp, BUFFER_SIZE);
 }
 
 char *GetNormalization(enum normalize n)

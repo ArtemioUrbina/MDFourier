@@ -201,7 +201,7 @@
 #define M_PI 3.1415926535897932384626433832795
 #endif
 
-#define	MAX_SYNC		10
+#define	MAX_SYNC		9
 
 #define	FREQDOMTRIES	500
 #define	FREQDOMRATIO	-30.0  // dBFS

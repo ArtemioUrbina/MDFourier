@@ -54,7 +54,7 @@ void PrintUsage();
 double TimeSpecToSeconds(struct timespec* ts);
 char *getFilenameExtension(char *filename);
 int getExtensionLength(char *filename);
-void ShortenFileName(char *filename, char *copy);
+void ShortenFileName(char *filename, char *copy, int maxlen);
 int CleanFolderName(char *name, char *origName);
 
 char *PushMainPath(parameters *config);

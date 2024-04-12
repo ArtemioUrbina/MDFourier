@@ -86,26 +86,23 @@ int main(int argc , char *argv[])
 	if(!commandline(argc, argv, &config))
 	{
 		printf("	 -h: Shows command line help\n");
+		CleanUp(&ReferenceSignal, &ComparisonSignal, &config);
 		return 1;
 	}
 
 	clock_gettime(CLOCK_MONOTONIC, &start);
 
-	if(!LoadProfile(&config))
-	{
-		logmsg("Aborting\n");
-		return 1;
-	}
-
 	if(!SetupFolders(config.outputFolder, "Log", &config))
 	{
 		logmsg("Aborting\n");
+		CleanUp(&ReferenceSignal, &ComparisonSignal, &config);
 		return 1;
 	}
 
 	if(!EndProfileLoad(&config))
 	{
 		logmsg("Aborting\n");
+		CleanUp(&ReferenceSignal, &ComparisonSignal, &config);
 		return 1;
 	}
 
@@ -146,6 +143,7 @@ int main(int argc , char *argv[])
 	if(!CompareAudioBlocks(ReferenceSignal, ComparisonSignal, &config))
 	{
 		logmsg("Aborting\n");
+		CleanUp(&ReferenceSignal, &ComparisonSignal, &config);
 		return 1;
 	}
 
@@ -476,7 +474,7 @@ int FrequencyDomainNormalize(AudioSignal **ReferenceSignal, AudioSignal **Compar
 		double	ComparisonLocalMaximumArray = 0, ratioRefArray = 0;
 
 		if(config->verbose) { logmsg(" - Searching for lower ratio alternatives\n"); }
-		memset(MaxRefArray, 0, FREQDOMTRIES*sizeof(MaxMagn));
+		memset(MaxRefArray, 0, sizeof(MaxRefArray));
 		if(FindMultiMaxMagnitudeBlock(*ReferenceSignal, MaxRefArray, &numMatches, config))
 		{
 			int		matchIndex = -1;

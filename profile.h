@@ -45,4 +45,7 @@ void SelectSilenceProfile(parameters *config);
 char *getRoleText(AudioSignal *Signal);
 int CheckProfileBaseLength(parameters *config);
 
+int MatchVideoFormat(parameters * config, char* format);
+void listFormats(parameters * config);
+
 #endif

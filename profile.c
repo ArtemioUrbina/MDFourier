@@ -116,6 +116,35 @@ void FlattenProfile(parameters *config)
 	logmsg("Audio Blocks flattened\n");
 }
 
+int MatchVideoFormat(parameters* config, char* format)
+{
+	if (!config)
+		return -1;
+
+	for (int s = 0; s < config->types.syncCount; s++)
+	{
+		if (strcmp(format, config->types.SyncFormat[s].syncName) == 0)
+			return s;
+	}
+
+	return -1;
+}
+
+void listFormats(parameters* config)
+{
+	if (!config)
+		return;
+
+	for (int s = 0; s < config->types.syncCount; s++)
+	{
+		logmsg("%d/%s", s, config->types.SyncFormat[s].syncName);
+		if (s != config->types.syncCount - 1)
+			logmsg(", ");
+	}
+
+	return;
+}
+
 int CheckSyncFormats(parameters *config)
 {
 	if(config->noSyncProfile && !config->types.syncCount)
@@ -139,12 +168,7 @@ int CheckSyncFormats(parameters *config)
 	{
 		logmsg("\tERROR: Invalid format '%d' for Comparison, profile defines %d types:\n\t[", 
 				config->videoFormatCom, config->types.syncCount);
-		for(int s = 0; s < config->types.syncCount; s++)
-		{
-			logmsg("%d:%s", s, config->types.SyncFormat[s].syncName);
-			if(s != config->types.syncCount - 1)
-				logmsg(", ");
-		}
+		listFormats(config);
 		logmsg("]\n");
 		return 0;
 	}
