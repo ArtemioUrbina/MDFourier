@@ -50,7 +50,7 @@ int commandline(int argc , char *argv[], parameters *config);
 char *GetChannel(char c);
 char *GetWindow(char c);
 int Header(int log, int argc, char *argv[]);
-void PrintUsage();
+void PrintUsage(void);
 double TimeSpecToSeconds(struct timespec* ts);
 char *getFilenameExtension(char *filename);
 int getExtensionLength(char *filename);

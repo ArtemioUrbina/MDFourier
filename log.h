@@ -31,16 +31,16 @@
 
 #include "mdfourier.h"
 
-void initLog();
-void EnableLog();
-void DisableLog();
-int IsLogEnabled();
+void initLog(void);
+void EnableLog(void);
+void DisableLog(void);
+int IsLogEnabled(void);
 
 void logmsg(char *fmt, ... );
 void logmsgFileOnly(char *fmt, ... );
 
 int setLogName(char *name);
-void endLog();
+void endLog(void);
 
 void ConvertSampleToByteArray(double sample, char *bytes, int size);
 int SaveWAVEChunk(char *filename, AudioSignal *Signal, double *buffer, long int block, long int loadedBlockSize, int diff, parameters *config);

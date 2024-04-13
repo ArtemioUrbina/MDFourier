@@ -35,10 +35,10 @@ CC     = gcc
 OPT    = -O3
 OPENMP = -DOPENMP_ENABLE -fopenmp
 
-BASE_CCFLAGS    = -Wfatal-errors -Wpedantic -Wall -Wextra -std=gnu99
+BASE_CCFLAGS    = -Wstrict-prototypes -Wfatal-errors -Wpedantic -Wall -Wextra -std=gnu99
 BASE_LIBS       = -lm -lfftw3 -lplot -lpng -lz -lFLAC
 
-#-Wstrict-prototypes -Wfloat-equal -Wconversion
+#-Wfloat-equal -Wconversion
 
 #For local builds
 LOCAL_INCLUDE         = -I/usr/local/include

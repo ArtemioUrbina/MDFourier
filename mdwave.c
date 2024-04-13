@@ -45,7 +45,7 @@ int ProcessSignalMDW(AudioSignal *Signal, parameters *config);
 int ExecuteDFFT(AudioBlocks *AudioArray, double *samples, long int size, double samplerate, double *window, parameters *config, int fftw_direction, AudioSignal *Signal);
 int ExecuteDFFTInternal(AudioBlocks *AudioArray, double *samples, long int size, double samplerate, double *window, char channel, parameters *config, int fftw_direction, AudioSignal *Signal);
 int commandline_wave(int argc , char *argv[], parameters *config);
-void PrintUsage_wave();
+void PrintUsage_wave(void);
 void Header_wave(int log);
 void CleanUp(AudioSignal **ReferenceSignal, parameters *config);
 int ExecuteMDWave(parameters *config, int discardMDW);
