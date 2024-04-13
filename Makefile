@@ -9,7 +9,7 @@ else
 	UNAME := $(shell uname -o)
 endif
 
-$(info Building for $(UNAME))
+$(info Building MDFourier for $(UNAME))
 
 ifeq ($(UNAME),Darwin)
 all:mac
