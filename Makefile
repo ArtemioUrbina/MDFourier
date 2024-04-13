@@ -1,21 +1,36 @@
-UNAME_O := $(shell uname -o)
-UNAME_S := $(shell uname -s)
+#OS and architecture check
+ifeq ($(shell uname),Darwin)
+	ifeq ($(shell uname -m),arm64)
+		UNAME = DarwinARM64
+	else
+		UNAME = Darwin
+	endif
+else
+	UNAME := $(shell uname -o)
+endif
 
-ifeq ($(UNAME_S),Darwin)
+$(info Building MDFourier for $(UNAME))
+
+ifeq ($(UNAME),Darwin)
 all:mac
 endif
 
-ifeq ($(UNAME_O),GNU/Linux)
+ifeq ($(UNAME),DarwinARM64)
+all:macarm
+endif
+
+ifeq ($(UNAME),GNU/Linux)
 all:linux
 endif
 
-ifeq ($(UNAME_O),Msys)
+ifeq ($(UNAME),Msys)
 all:msys-s
 endif
 
-ifeq ($(UNAME_O),Cygwin)
+ifeq ($(UNAME),Cygwin)
 all:cygwin
 endif
+
 CC     = gcc
 OPT    = -O3
 OPENMP = -DOPENMP_ENABLE -fopenmp
@@ -59,8 +74,13 @@ cygwin: executable
 
 #flags for mac
 mac: CCFLAGS    = $(BASE_CCFLAGS) $(OPT)
-mac: LFLAGS     = -Wl,-no_compact_unwind -logg $(BASE_LIBS) 
+mac: LFLAGS     = -Wl,-no_compact_unwind -logg $(BASE_LIBS)
 mac: executable
+
+#flags for apple silicon mac
+macarm: CCFLAGS    = -I/opt/homebrew/include $(BASE_CCFLAGS) $(OPT)
+macarm: LFLAGS     = -L/opt/homebrew/lib -Wl,-no_compact_unwind -logg $(BASE_LIBS)
+macarm: executable
 
 #flags for debug
 debug: CCFLAGS  = $(LOCAL_INCLUDE) $(BASE_CCFLAGS) -DDEBUG -g
