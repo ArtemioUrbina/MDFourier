@@ -44,11 +44,11 @@ int do_log = 0;
 char log_file[T_BUFFER_SIZE];
 FILE *logfile = NULL;
 
-void EnableLog() { do_log = CONSOLE_ENABLED; }
-void DisableLog() { do_log = 0; }
-int IsLogEnabled() { return do_log; }
+void EnableLog(void) { do_log = CONSOLE_ENABLED; }
+void DisableLog(void) { do_log = 0; }
+int IsLogEnabled(void) { return do_log; }
 
-void initLog()
+void initLog(void)
 {
 	do_log = 0;
 	logfile = NULL;
@@ -135,7 +135,7 @@ int setLogName(char *name)
 	return 1;
 }
 
-void endLog()
+void endLog(void)
 {
 	if(logfile)
 	{
