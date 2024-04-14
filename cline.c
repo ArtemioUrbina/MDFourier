@@ -37,7 +37,7 @@
 #define CHAR_FOLDER_CHANGE_T2	3
 
 // -9 and -V not shown
-void PrintUsage()
+void PrintUsage(void)
 {
 	logmsg("  usage: mdfourier -P profile.mdf -r reference.wav -c compare.wav\n");
 	logmsg("   FFT and Analysis options:\n");

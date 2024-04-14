@@ -1086,7 +1086,7 @@ int commandline_wave(int argc , char *argv[], parameters *config)
 	return 1;
 }
 
-void PrintUsage_wave()
+void PrintUsage_wave(void)
 {
 	logmsg("  usage: mdwave -P profile.mdf -r audio.wav\n");
 	logmsg("   FFT and Analysis options:\n");

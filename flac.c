@@ -58,7 +58,7 @@ static FLAC__StreamDecoderWriteStatus write_callback(const FLAC__StreamDecoder *
 static void metadata_callback(const FLAC__StreamDecoder *decoder, const FLAC__StreamMetadata *metadata, void *client_data);
 static void error_callback(const FLAC__StreamDecoder *decoder, FLAC__StreamDecoderErrorStatus status, void *client_data);
 
-char* getflacErrorStr()
+char* getflacErrorStr(void)
 {
 	if(flacInternalErrorStr[0] != 0)
 		return(flacInternalErrorStr);
@@ -66,7 +66,7 @@ char* getflacErrorStr()
 		return NULL;
 }
 
-int flacErrorReported()
+int flacErrorReported(void)
 {
 	return(flacInternalMDFErrors);
 }
