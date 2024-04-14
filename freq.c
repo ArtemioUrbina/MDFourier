@@ -1089,10 +1089,8 @@ int GetFirstSilenceIndex(parameters *config)
 
 double GetFirstSilenceDuration(double framerate, parameters *config)
 {
-	int index = 0;
-
 	if(!config)
-		return NO_INDEX;
+		return 0;
 
 	for(int i = 0; i < config->types.typeCount; i++)
 	{
@@ -1103,8 +1101,6 @@ double GetFirstSilenceDuration(double framerate, parameters *config)
 			frames = config->types.typeArray[i].elementCount * config->types.typeArray[i].frames;
 			return(FramesToSeconds(frames, framerate));
 		}
-		else
-			index += config->types.typeArray[i].elementCount;
 	}
 	return 0;
 }

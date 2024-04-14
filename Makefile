@@ -1,23 +1,5 @@
 #OS and architecture check
-ifeq ($(shell uname),Darwin)
-	ifeq ($(shell uname -m),arm64)
-		UNAME = DarwinARM64
-	else
-		UNAME = Darwin
-	endif
-else
-	UNAME := $(shell uname -o)
-endif
-
 $(info Building MDFourier for $(UNAME))
-
-ifeq ($(UNAME),Darwin)
-all:mac
-endif
-
-ifeq ($(UNAME),DarwinARM64)
-all:macarm
-endif
 
 ifeq ($(UNAME),GNU/Linux)
 all:linux
@@ -29,6 +11,24 @@ endif
 
 ifeq ($(UNAME),Cygwin)
 all:cygwin
+endif
+
+ifeq ($(shell uname),Darwin)
+	ifeq ($(shell uname -m),arm64)
+		UNAME = DarwinARM64
+	else
+		UNAME = Darwin
+	endif
+else
+	UNAME := $(shell uname -o)
+endif
+
+ifeq ($(UNAME),Darwin)
+all:mac
+endif
+
+ifeq ($(UNAME),DarwinARM64)
+all:macarm
 endif
 
 CC     = gcc
