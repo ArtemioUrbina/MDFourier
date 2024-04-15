@@ -63,7 +63,7 @@ typedef struct averaged_freq{
 #define COLOR_BLUE		3
 #define COLOR_YELLOW	4
 #define COLOR_MAGENTA	5
-#define COLOR_AQUA		6
+#define COLOR_CYAN		6
 #define COLOR_PURPLE	7
 #define COLOR_ORANGE	8
 #define COLOR_GRAY		9

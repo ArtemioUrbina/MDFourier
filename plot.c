@@ -3423,7 +3423,7 @@ void PlotBetaFunctions(parameters *config)
 			
 			color = y*0xffff;
 	
-			SetPenColor(COLOR_AQUA, color, &plot);
+			SetPenColor(COLOR_CYAN, color, &plot);
 			//logmsg("x: %g (%g) y: %g (%g) c:%ld\n", x, x*60, y, y*60, color);
 			pl_fpoint_r(plot.plotter, x, y);
 		}
@@ -3453,8 +3453,9 @@ int MatchColor(char *color)
 		return(COLOR_YELLOW);
 	if(strcmp(colorcopy, "magenta") == 0)
 		return(COLOR_MAGENTA);
-	if(strcmp(colorcopy, "aqua") == 0 || strcmp(color, "aquamarine") == 0)
-		return(COLOR_AQUA);
+	if(strcmp(colorcopy, "cyan") == 0 || strcmp(color, "aqua") == 0
+		|| strcmp(color, "aquamarine") == 0)
+		return(COLOR_CYAN);
 	if(strcmp(colorcopy, "orange") == 0)
 		return(COLOR_ORANGE);
 	if(strcmp(colorcopy, "purple") == 0)
@@ -3489,7 +3490,7 @@ void SetPenColor(int colorIndex, long int color, PlotFile *plot)
 		case COLOR_YELLOW:
 			pl_pencolor_r(plot->plotter, color, color, 0);
 			break;
-		case COLOR_AQUA:
+		case COLOR_CYAN:
 			pl_pencolor_r(plot->plotter, 0, color, color);
 			break;
 		case COLOR_MAGENTA:
@@ -3529,7 +3530,7 @@ void SetFillColor(int colorIndex, long int color, PlotFile *plot)
 		case COLOR_YELLOW:
 			pl_fillcolor_r(plot->plotter, color, color, 0);
 			break;
-		case COLOR_AQUA:
+		case COLOR_CYAN:
 			pl_fillcolor_r(plot->plotter, 0, color, color);
 			break;
 		case COLOR_MAGENTA:
