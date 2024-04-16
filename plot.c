@@ -802,6 +802,54 @@ int FillPlotExtra(PlotFile *plot, char *name, int sizex, int sizey, double x0, d
 	return(rt);
 }
 
+#if defined (WIN32)
+int checkPathLen(char* file, parameters* config)
+{
+	int len = 0;
+	char* CurrentPath = NULL;
+
+	if (!config)
+		return 0;
+	CurrentPath = (char*)malloc(sizeof(char) * FILENAME_MAX);
+	if (!CurrentPath)
+		return 0;
+
+	if (!GetCurrentDir(CurrentPath, sizeof(char) * FILENAME_MAX))
+	{
+		free(CurrentPath);
+		logmsg("Could not get current path\n");
+		return 0;
+	}
+
+	len = strlen(CurrentPath) + strlen(file) + 1;
+	if(len >= MAX_PATH)
+	{
+		int lfile = strlen(file);
+		int third = lfile/3;
+
+		logmsg("\nWARNING: Path + file exceeds OS MAX_PATH: ");
+		if(MAX_PATH > strlen(CurrentPath) + third*2 + 1)
+		{
+			int pos = 0;
+
+			for(pos = 0; pos < third; pos++)
+				file[third + pos] = file[lfile - third + pos];
+
+			file[third] = '_';
+			file[third + pos] = '\0';
+
+			len = strlen(CurrentPath) + strlen(file) + 1;
+			logmsg("Shortened to %s\n", file);
+		}
+		else
+			logmsg("Path too long, move MDFourier to a shorter PATH.\n");
+	}
+
+	free(CurrentPath);
+	return 1;
+}
+#endif
+
 int FillPlot(PlotFile *plot, char *name, double x0, double y0, double x1, double y1, double penWidth, double leftMarginSize, parameters *config)
 {
 	double dX = 0, dY = 0;
@@ -814,6 +862,10 @@ int FillPlot(PlotFile *plot, char *name, double x0, double y0, double x1, double
 	plot->file = NULL;
 
 	ComposeFileNameoPath(plot->FileName, name, ".png", config);
+
+#if defined (WIN32)
+	checkPathLen(plot->FileName, config);
+#endif
 
 	plot->sizex = config->plotResX;
 	plot->sizey = config->plotResY;
@@ -850,7 +902,7 @@ int CreatePlotFile(PlotFile *plot, parameters *config)
 	plot->file = fopen(plot->FileName, "wb");
 	if(!plot->file)
 	{
-		logmsg("WARNING: Couldn't create graph file %s\n%s\n", plot->FileName, strerror(errno));
+		logmsg("ERROR: Couldn't create graph file %s\n", plot->FileName);
 		return 0;
 	}
 
@@ -858,19 +910,19 @@ int CreatePlotFile(PlotFile *plot, parameters *config)
 	plot->plotter_params = pl_newplparams ();
 	if(!plot->plotter_params)
 	{
-		logmsg("Couldn't create plotter_params\n");
+		logmsg("ERROR: Couldn't create plotter_params\n");
 		return 0;
 	}
 	pl_setplparam (plot->plotter_params, "BITMAPSIZE", size);
 	if((plot->plotter = pl_newpl_r("png", stdin, plot->file, stderr, plot->plotter_params)) == NULL)
 	{
-		logmsg("Couldn't create Plotter\n");
+		logmsg("ERROR: Couldn't create Plotter\n");
 		return 0;
 	}
 
 	if(pl_openpl_r(plot->plotter) < 0)
 	{
-		logmsg("Couldn't open Plotter\n");
+		logmsg("ERROR: Couldn't open Plotter\n");
 		return 0;
 	}
 	pl_fspace_r(plot->plotter, plot->x0, plot->y0, plot->x1, plot->y1);
@@ -894,20 +946,20 @@ int ClosePlot(PlotFile *plot)
 {
 	if(pl_closepl_r(plot->plotter) < 0)
 	{
-		logmsg("Couldn't close Plotter\n");
+		logmsg("ERROR: Couldn't close Plotter\n");
 		return 0;
 	}
 	
 	if(pl_deletepl_r(plot->plotter) < 0)
 	{
-		logmsg("Couldn't delete Plotter\n");
+		logmsg("ERROR: Couldn't delete Plotter\n");
 		return 0;
 	}
 	plot->plotter = NULL;
 
 	if(pl_deleteplparams(plot->plotter_params) < 0)
 	{
-		logmsg("Couldn't delete Plotter Params\n");
+		logmsg("ERROR: Couldn't delete Plotter Params\n");
 		return 0;
 	}
 	plot->plotter_params = NULL;

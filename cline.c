@@ -973,20 +973,6 @@ int checkPath(char *path)
 	return 1;
 }
 
-/*
-char *getTempDir()
-{
-	char *tmp = NULL;
-	
-	tmp = getenv("TMPDIR");
-	if(!tmp)
-		tmp = getenv("TEMP");
-	if(!tmp)
-		tmp = getenv("TMP");
-	return tmp;
-}
-*/
-
 int checkAlternatePaths(parameters *config)
 {
 	if(!checkPath(config->outputPath))

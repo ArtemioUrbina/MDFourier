@@ -45,7 +45,6 @@ int ExecuteDFFTInternal(AudioBlocks *AudioArray, double *samples, size_t size, d
 int CompareAudioBlocks(AudioSignal *ReferenceSignal, AudioSignal *ComparisonSignal, parameters *config);
 int CopySamplesForTimeDomainPlot(AudioBlocks *AudioArray, double *samples, size_t size, size_t diff, double *window, int AudioChannels, int forcecopy, parameters *config);
 void CleanUp(AudioSignal **ReferenceSignal, AudioSignal **ComparisonSignal, parameters *config);
-void NormalizeAudio(AudioSignal *Signal);
 void NormalizeTimeDomainByFrequencyRatio(AudioSignal *Signal, double normalizationRatio, parameters *config);
 double FindRatio(AudioSignal *Signal, double normalizationRatio, parameters *config);
 double FindRatioForBlock(AudioBlocks *AudioArray, double ratio);
@@ -73,7 +72,7 @@ double FindLocalMaximumInBlock(AudioSignal *Signal, MaxMagn refMax, int allowDif
 double FindFundamentalMagnitudeAverage(AudioSignal *Signal, parameters *config);
 double FindFundamentalMagnitudeStdDev(AudioSignal *Signal, double AvgFundMag, parameters *config);
 
-int main(int argc , char *argv[])
+int main(int argc, char *argv[])
 {
 	AudioSignal  		*ReferenceSignal = NULL;
 	AudioSignal  		*ComparisonSignal = NULL;
@@ -1453,6 +1452,7 @@ int ProcessSignal(AudioSignal *Signal, parameters *config)
 
 	if(!initWindows(&windows, Signal->SampleRate, config->window, config))
 	{
+		free(sampleBuffer);
 		logmsg("\tERROR: Could not create FFTW windows.\n");
 		return 0;
 	}
@@ -1509,7 +1509,11 @@ int ProcessSignal(AudioSignal *Signal, parameters *config)
 		}
 
 		if(!DuplicateSamplesForWaveformPlots(Signal, i, pos, loadedBlockSize, difference, framerate, windowUsed, config, syncAdvance))
+		{
+			free(sampleBuffer);
+			freeWindows(&windows);
 			return 0;
+		}
 
 		if(endProcess || pos + loadedBlockSize > Signal->numSamples)
 		{
@@ -1545,21 +1549,37 @@ int ProcessSignal(AudioSignal *Signal, parameters *config)
 		if(Signal->Blocks[i].type >= TYPE_SILENCE || Signal->Blocks[i].type == TYPE_WATERMARK)
 		{
 			if(!ExecuteDFFT(&Signal->Blocks[i], sampleBuffer, loadedBlockSize-difference, Signal->SampleRate, windowUsed, Signal->AudioChannels, config->ZeroPad, config))
+			{
+				free(sampleBuffer);
+				freeWindows(&windows);
 				return 0;
+			}
 #ifdef DEBUG
 			//logmsg("estimated %g (difference %ld)\n", Signal->Blocks[i].frames*Signal->framerate/1000.0, difference);
 #endif
 			if(!FillFrequencyStructures(Signal, &Signal->Blocks[i], config))
+			{
+				free(sampleBuffer);
+				freeWindows(&windows);
 				return 0;
+			}
 		}
 
 		if(config->clkMeasure && config->clkBlock == i)
 		{
 			if(!ExecuteDFFT(&Signal->clkFrequencies, sampleBuffer, loadedBlockSize-difference, Signal->SampleRate, windowUsed, Signal->AudioChannels, 1, config))
+			{
+				free(sampleBuffer);
+				freeWindows(&windows);
 				return 0;
+			}
 
 			if(!FillFrequencyStructures(Signal, &Signal->clkFrequencies, config))
+			{
+				free(sampleBuffer);
+				freeWindows(&windows);
 				return 0;
+			}
 		}
 
 		pos += loadedBlockSize;
@@ -1576,13 +1596,21 @@ int ProcessSignal(AudioSignal *Signal, parameters *config)
 		if(Signal->Blocks[i].type == TYPE_INTERNAL_KNOWN)
 		{
 			if(!ProcessInternalSync(Signal, i, pos, &syncinternal, &syncAdvance, TYPE_INTERNAL_KNOWN, config))
+			{
+				free(sampleBuffer);
+				freeWindows(&windows);
 				return 0;
+			}
 		}
 
 		if(Signal->Blocks[i].type == TYPE_INTERNAL_UNKNOWN)
 		{
 			if(!ProcessInternalSync(Signal, i, pos, &syncinternal, &syncAdvance, TYPE_INTERNAL_UNKNOWN, config))
+			{
+				free(sampleBuffer);
+				freeWindows(&windows);
 				return 0;
+			}
 		}
 
 		i++;
@@ -1690,6 +1718,7 @@ int ExecuteDFFTInternal(AudioBlocks *AudioArray, double *samples, size_t size, d
 	spectrum = (fftw_complex*)fftw_malloc(sizeof(fftw_complex)*(monoSignalSize/2+1));
 	if(!spectrum)
 	{
+		free(signal);
 		logmsg("Not enough memory\n");
 		return(0);
 	}

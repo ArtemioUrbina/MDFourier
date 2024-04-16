@@ -31,13 +31,6 @@
 #include "freq.h"
 #include "cline.h"
 
-#ifndef MAX_PATH
-#ifdef __MINGW32__
-//MAX_PATH
-#include "minwindef.h"
-#endif
-#endif
-
 #define	CONSOLE_ENABLED		1
 
 int do_log = 0;

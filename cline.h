@@ -39,6 +39,13 @@
 	#define GetCurrentDir getcwd
 #endif
 
+#ifndef MAX_PATH
+#ifdef __MINGW32__
+ //MAX_PATH
+#include "minwindef.h"
+#endif
+#endif
+
 int SetupFolders(char *folder, char *logname, parameters *config);
 int CreateFolder(char *name);
 int CreateFolderName(char *mainfolder, parameters *config);
