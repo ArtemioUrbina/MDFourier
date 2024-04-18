@@ -101,6 +101,7 @@ int CDOSExecute::ExecuteExternalFile()
 		// Display the error
 		CString strError = (LPTSTR) lpMsgBuf;
 		TRACE(_T("::executeCommandLine() failed at CreateProcess()\nCommand=%s\nMessage=%s\n\n"), m_cline, strError);
+		m_OutputText += strError;
 
 		// Free resources created by the system
 		LocalFree(lpMsgBuf);
@@ -154,6 +155,28 @@ int CDOSExecute::ExecuteExternalFile()
 		if(ExitCode == STATUS_DLL_NOT_FOUND)
 		{
 			m_OutputText += L"ERROR: Command was not statically linked. DLLs not found.";
+			CloseHandle(pInfo.hProcess);
+			CloseHandle(pInfo.hThread);
+			CloseHandle(rPipe);
+			m_fDone = TRUE;
+			return 0;
+		}
+
+		if (ExitCode == STATUS_ACCESS_VIOLATION)
+		{
+			m_OutputText += L"ERROR: mdfourier crashed, please report with parameters:\n";
+			m_OutputText += m_cline.GetBuffer(nStrBuffer);
+			CloseHandle(pInfo.hProcess);
+			CloseHandle(pInfo.hThread);
+			CloseHandle(rPipe);
+			m_fDone = TRUE;
+			return 0;
+		}
+
+		if (ExitCode != 0 && ExitCode != 1)
+		{
+			m_OutputText += L"ERROR: Unkown exit code, please report with parameters:\n";
+			m_OutputText += m_cline.GetBuffer(nStrBuffer);
 			CloseHandle(pInfo.hProcess);
 			CloseHandle(pInfo.hThread);
 			CloseHandle(rPipe);

@@ -1197,7 +1197,7 @@ void CMDFourierGUIDlg::OnBnClickedAbout()
 {
 	CString msg;
 
-	msg.Format(L"MDFourier Front End\n\nArtemio Urbina 2019-2022\nUsing %s\nCode available under GPL\n\nhttp://junkerhq.net/MDFourier/\n\nOpen website and manual?", 
+	msg.Format(L"MDFourier Front End\n\nArtemio Urbina 2019-2024\nUsing %s\nCode available under GPL\n\nhttp://junkerhq.net/MDFourier/\n\nOpen website and manual?", 
 		MDFVersion);
 	if(MessageBox(msg, L"About MDFourier", MB_OKCANCEL | MB_ICONQUESTION) == IDOK)
 	{
