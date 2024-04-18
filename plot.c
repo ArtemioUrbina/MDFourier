@@ -354,8 +354,8 @@ void PlotResults(AudioSignal *ReferenceSignal, AudioSignal *ComparisonSignal, pa
 				return;
 		}
 
-		ShortenFileName(basename(ReferenceSignal->SourceFile), tmpNameRef, BUFFER_SIZE);
-		ShortenFileName(basename(ComparisonSignal->SourceFile), tmpNameComp, BUFFER_SIZE);
+		ShortenFileName(basename(ReferenceSignal->SourceFile), tmpNameRef, BUFFER_SIZE/2);
+		ShortenFileName(basename(ComparisonSignal->SourceFile), tmpNameComp, BUFFER_SIZE/2);
 #ifdef OPENMP_ENABLE
 	#pragma omp parallel for
 #endif
@@ -4908,7 +4908,7 @@ void PlotTimeSpectrogram(AudioSignal *Signal, char channel, parameters *config)
 		return;
 
 	// Name the plot
-	ShortenFileName(basename(Signal->SourceFile), name, BUFFER_SIZE);
+	ShortenFileName(basename(Signal->SourceFile), name, BUFFER_SIZE/2);
 	if(channel == CHANNEL_STEREO)
 		sprintf(filename, "T_SP_%c_%s", Signal->role == ROLE_REF ? 'A' : 'B', name);
 	else
@@ -5063,13 +5063,13 @@ void PlotSingleTypeTimeSpectrogram(AudioSignal* Signal, char channel, int plotTy
 	double		frameOffset = 0;
 	long int	block = 0, i = 0;
 	int			lastType = TYPE_NOTYPE;
-	char		filename[BUFFER_SIZE], name[BUFFER_SIZE / 2], * title = NULL;
+	char		filename[BUFFER_SIZE], name[BUFFER_SIZE/2], * title = NULL;
 
 	if (!Signal || !config)
 		return;
 
 	// Name the plot
-	ShortenFileName(basename(Signal->SourceFile), name, BUFFER_SIZE);
+	ShortenFileName(basename(Signal->SourceFile), name, BUFFER_SIZE/2);
 	if (channel == CHANNEL_STEREO)
 		sprintf(filename, "T_SP_%02d_%s_%c_%s", 
 				plotType, GetTypeName(config, plotType), Signal->role == ROLE_REF ? 'A' : 'B', name);
@@ -5218,7 +5218,7 @@ void PlotTimeSpectrogramUnMatchedContent(AudioSignal *Signal, char channel, para
 	if(!Signal || !config)
 		return;
 
-	ShortenFileName(basename(Signal->SourceFile), name, BUFFER_SIZE);
+	ShortenFileName(basename(Signal->SourceFile), name, BUFFER_SIZE/2);
 	if(Signal->role == ROLE_REF)
 		sprintf(filename, "MISSING-A-T_SP_%s_%c", name, channel);
 	else
@@ -6382,7 +6382,7 @@ void PlotCLKSpectrogram(AudioSignal *Signal, parameters *config)
 	long int			size = 0;
 	FlatFrequency		*frequencies = NULL;
 	
-	ShortenFileName(basename(Signal->SourceFile), tmpName, BUFFER_SIZE);
+	ShortenFileName(basename(Signal->SourceFile), tmpName, BUFFER_SIZE/2);
 	frequencies = CreateFlatFrequenciesCLK(Signal, &size, config);
 	sprintf(name, "SP_%c_%s_CLK_%s", Signal->role == ROLE_REF ? 'A' : 'B', tmpName, config->clkName);
 	PlotCLKSpectrogramInternal(frequencies, size, name, Signal->role, config);
