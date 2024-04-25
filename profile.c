@@ -915,21 +915,21 @@ void PrintAudioBlocks(parameters *config)
 		TotalSeconds += seconds;
 		frames += config->types.typeArray[i].elementCount * config->types.typeArray[i].frames;
 
-		logmsgFileOnly("%c%s %s %d %d %d %s %c %s | Frames: %ld/%d | Seconds: %g [%g to %g]\n", 
+		logmsgFileOnly("Frames: %0.5ld/%0.5d | length: %6.3f [%10.3f to %10.3f] | %c%s %s %d %d %d %s %c %s\n", 
+            (long int)config->types.typeArray[i].elementCount*config->types.typeArray[i].frames,
+			frames,
+			seconds, 
+			StartSeconds,
+			TotalSeconds,
 			config->types.typeArray[i].type == TYPE_SKIP ? '\t' : ' ',
-			config->types.typeArray[i].typeDisplayName,
+			config->types.typeArray[i].typeName,
 			type,
 			config->types.typeArray[i].elementCount,
 			config->types.typeArray[i].frames,
 			config->types.typeArray[i].cutFrames*-1,
 			config->types.typeArray[i].color,
 			config->types.typeArray[i].channel,
-			config->types.typeArray[i].IsaddOnData ? "(ExtraData)" : " ",
-			(long int)config->types.typeArray[i].elementCount*config->types.typeArray[i].frames,
-			frames,
-			seconds, 
-			StartSeconds,
-			TotalSeconds);
+			config->types.typeArray[i].IsaddOnData ? "(ExtraData)" : " ");
 
 		if(config->types.typeArray[i].type != TYPE_SYNC && 
 			config->types.typeArray[i].type >= TYPE_SILENCE &&
