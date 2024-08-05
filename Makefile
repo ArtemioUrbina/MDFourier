@@ -2,7 +2,10 @@
 ifeq ($(shell uname),Darwin)
 	ifeq ($(shell uname -m),arm64)
 		UNAME = DarwinARM64
-	else
+	endif
+	ifeq ($(shell uname -p),powerpc)
+                UNAME = DarwinPPC
+        else
 		UNAME = Darwin
 	endif
 else
@@ -29,6 +32,10 @@ endif
 
 ifeq ($(UNAME),DarwinARM64)
 all:macarm
+endif
+
+ifeq ($(UNAME),DarwinPPC)
+all:macppc
 endif
 
 CC     = gcc
@@ -81,6 +88,11 @@ mac: executable
 macarm: CCFLAGS    = -I/opt/homebrew/include $(BASE_CCFLAGS) $(OPT)
 macarm: LFLAGS     = -L/opt/homebrew/lib -Wl,-no_compact_unwind -logg $(BASE_LIBS)
 macarm: executable
+
+#flags for powerpc mac
+macppc: CCFLAGS    = -I/usr/X11R6/include/ $(filter-out -Wpedantic,$(BASE_CCFLAGS)) $(OPT)
+macppc: LFLAGS     = -L/usr/X11R6/lib/ -Wl,-logg $(BASE_LIBS) -lx11 -lxext -lxt -lmx -lxaw -lsm -lice -lxmu -lxpm
+macppc: executable
 
 #flags for debug
 debug: CCFLAGS  = $(LOCAL_INCLUDE) $(BASE_CCFLAGS) -DDEBUG -g
