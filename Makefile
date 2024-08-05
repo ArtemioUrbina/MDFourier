@@ -1,15 +1,17 @@
 #OS and architecture check
+ARCH = $(shell uname -p)
 ifeq ($(shell uname),Darwin)
-	ifeq ($(shell uname -m),arm64)
-		UNAME = DarwinARM64
-	endif
-	ifeq ($(shell uname -p),powerpc)
+        ifeq ($(ARCH),arm)
+                UNAME = DarwinARM
+        endif
+        ifeq ($(ARCH),powerpc)
                 UNAME = DarwinPPC
-        else
-		UNAME = Darwin
-	endif
+        endif
+        ifeq ($(ARCH),i386)
+                UNAME = Darwin
+        endif
 else
-	UNAME := $(shell uname -o)
+        UNAME := $(shell uname -o)
 endif
 
 $(info Building MDFourier for $(UNAME))
