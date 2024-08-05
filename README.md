@@ -28,6 +28,51 @@ The makefiles to compile either version are provided with the source code.
 
 Please read the documentation available at http://junkerhq.net/MDFourier/
 
+### Compiling on macOS
+#### Intel and ARM architecture
+
+If you haven't installed XCode or the Command Line Tools already, open a Terminal and just run `make`.
+
+A prompt will ask you to install the Command Line Tools, say yes and it will install all the necessary development tools without installing the whole XCode package.
+
+Install [Homebrew](https://brew.sh), follow the instructions.
+
+Then install the following libraries using `brew install <package name>`
+- fttw
+- plotutils
+- libpng
+- flac
+- libogg
+
+Dependencies will be automatically resolved and installed by Homebrew.
+
+Clone this repository and run `make`
+
+#### PowerPC architecture
+
+Install XCode 2.5
+
+Install X11 from your Mac OS X installation DVD/CD (Look for "Optional Installs" package)
+
+Run the system updater to make sure you have the last version of XCode and X11
+
+Install [Tigerbrew](https://github.com/mistydemeo/tigerbrew/) and carefully follow the instructions.
+
+Then install the following libraries using `brew install <package name>`
+- fttw
+- plotutils
+- libpng
+- flac
+- libogg
+
+Dependencies will be automatically resolved and installed by Tigerbrew.
+
+Clone this repository and run `make`
+
+#### Making redistributable static binaries on macOS
+
+Please refer to [this post](https://donluca.theclassicgamer.net/compiling-static-binaries-on-macos/) for a guide on how to create a redistributable MDFourier binary with the libraries needed statically linked.
+
 ### Notes for compiling under MSYS2/MinGW64
 
 If you have them available for install from the system, go for that. If building the libraries from source, here is what has worked for me.
