@@ -69,6 +69,10 @@ Dependencies will be automatically resolved and installed by Tigerbrew.
 
 Clone this repository and run `make`
 
+### Making redistributable static binaries on macOS
+
+Please refer to [this post](https://donluca.theclassicgamer.net/compiling-static-binaries-on-macos/) for a guide on how to create a redistributable MDFourier binary with the libraries needed statically linked.
+
 ### Notes for compiling under MSYS2/MinGW64
 
 If you have them available for install from the system, go for that. If building the libraries from source, here is what has worked for me.
