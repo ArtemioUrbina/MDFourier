@@ -3017,17 +3017,20 @@ long int GetBlockZeroPadValues(long int *monoSignalSize, double *seconds, double
 {
 	long int padding = 0;
 
-	if(!monoSignalSize || !seconds)
+	if(!monoSignalSize || !seconds || maxBlockSeconds == *seconds)
 		return padding;
 
+	// It has to be lower or equal, since by definition block size is the biggest block
+	// It is only longer for TYPE_SILENCE blocks, but we don't know that at this level
+	// so we ignore it for such case and apply it elsewhere. 
 	if (maxBlockSeconds > *seconds)
 	{
 		padding = SecondsToSamples(samplerate, maxBlockSeconds - *seconds, 1, NULL, NULL);
 		*monoSignalSize += padding;
 		*seconds = maxBlockSeconds;
 	}
-	else if (maxBlockSeconds < *seconds)
-		logmsg("WARNING: Block length longer than max block lentgth %g > %g\n", *seconds, maxBlockSeconds);
+	else
+		logmsgFileOnly("WARNING: Block length longer than max block lentgth %g > %g (might be normal with silence being longer than the regular blocks)\n", *seconds, maxBlockSeconds);
 
 	return padding;
 }
