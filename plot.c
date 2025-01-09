@@ -3514,6 +3514,8 @@ int MatchColor(char *color)
 		return(COLOR_PURPLE);
 	if(strcmp(colorcopy, "gray") == 0)
 		return(COLOR_GRAY);
+	if(strcmp(colorcopy, "grey") == 0)
+		return(COLOR_GRAY);
 	if(strcmp(colorcopy, "null") == 0)
 		return(COLOR_NULL);
 
