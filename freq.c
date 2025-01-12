@@ -869,10 +869,14 @@ int ConvertAudioTypeForProcessing(int type, parameters *config)
 	return type;
 }
 
+#define WATERMARK_SEARCH_PCT	(1.0/100.0)
+#define WATERMARK_TOLERANCE		20.0
+
 int DetectWatermark(AudioSignal *Signal, parameters *config)
 {
 	int watermark = -1, found = 0;
 	double	WaterMarkValid = 0, WaterMarkInvalid = 0;
+	double	freqSearch = config->MaxFreq * WATERMARK_SEARCH_PCT;
 
 	if(!config || !Signal)
 		return 0;
@@ -916,18 +920,18 @@ int DetectWatermark(AudioSignal *Signal, parameters *config)
 	WaterMarkInvalid = FindFrequencyBracket(config->types.watermarkInvalidFreq, Signal->Blocks[watermark].fftwValues.size, 
 					Signal->header.fmt.NumOfChan, Signal->SampleRate, config);
 
-	for(int i = 0; i < 5; i++)
+	for(int i = 0; i < freqSearch; i++)
 	{
 		if(Signal->Blocks[watermark].freq[i].hertz &&
 			Signal->Blocks[watermark].freq[i].amplitude > config->significantAmplitude/2)
 		{
-			if(fabs(Signal->Blocks[watermark].freq[i].hertz - WaterMarkValid) < 10)
+			if(fabs(Signal->Blocks[watermark].freq[i].hertz - WaterMarkValid) < WATERMARK_TOLERANCE)
 			{
 				Signal->watermarkStatus = WATERMARK_VALID;
 				found = 1;
 				break;
 			}
-			if(fabs(Signal->Blocks[watermark].freq[i].hertz - WaterMarkInvalid) < 10)
+			if(fabs(Signal->Blocks[watermark].freq[i].hertz - WaterMarkInvalid) < WATERMARK_TOLERANCE)
 			{
 				Signal->watermarkStatus = WATERMARK_INVALID;
 				logmsg(" - WARNING: %s signal was recorded with %s difference. Results are probably incorrect.\n",
@@ -2239,7 +2243,7 @@ void FindMaxMagnitude(AudioSignal *Signal, parameters *config)
 		int type = TYPE_NOTYPE;
 
 		type = GetBlockType(config, block);
-		if(type > TYPE_SILENCE)
+		if(type > TYPE_SILENCE || type == TYPE_WATERMARK)
 		{
 			for(long int i = 0; i < config->MaxFreq; i++)
 			{
@@ -2318,10 +2322,12 @@ void CalculateAmplitudes(AudioSignal *Signal, double ZeroDbMagReference, paramet
 					break;
 	
 				if(Signal->Blocks[block].freq[i].magnitude)
-					Signal->Blocks[block].freq[i].amplitude = 
+				{
+					Signal->Blocks[block].freq[i].amplitude =
 						CalculateAmplitude(Signal->Blocks[block].freq[i].magnitude, ZeroDbMagReference);
+				}
 				else
-						Signal->Blocks[block].freq[i].amplitude = NO_AMPLITUDE;
+					Signal->Blocks[block].freq[i].amplitude = NO_AMPLITUDE;
 			}
 
 			if(Signal->Blocks[block].freqRight)
@@ -3518,7 +3524,7 @@ double FindFundamentalAmplitudeAverage(AudioSignal *Signal, parameters *config)
 		int type = TYPE_NOTYPE;
 
 		type = GetBlockType(config, block);
-		if(type > TYPE_SILENCE && Signal->Blocks[block].freq[0].hertz != 0 &&
+		if((type > TYPE_SILENCE || type == TYPE_WATERMARK) && Signal->Blocks[block].freq[0].hertz != 0 &&
 			Signal->Blocks[block].freq[0].amplitude != NO_AMPLITUDE)
 		{
 			AvgFundAmp += Signal->Blocks[block].freq[0].amplitude;
@@ -3533,7 +3539,7 @@ double FindFundamentalAmplitudeAverage(AudioSignal *Signal, parameters *config)
 			int type = TYPE_NOTYPE;
 
 			type = GetBlockType(config, block);
-			if(type > TYPE_SILENCE && Signal->Blocks[block].freqRight[0].hertz != 0  &&
+			if((type > TYPE_SILENCE || type == TYPE_WATERMARK) && Signal->Blocks[block].freqRight[0].hertz != 0  &&
 				Signal->Blocks[block].freqRight[0].amplitude != NO_AMPLITUDE)
 			{
 				AvgFundAmp += Signal->Blocks[block].freqRight[0].amplitude;

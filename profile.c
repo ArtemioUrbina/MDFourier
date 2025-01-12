@@ -915,8 +915,8 @@ void PrintAudioBlocks(parameters *config)
 		TotalSeconds += seconds;
 		frames += config->types.typeArray[i].elementCount * config->types.typeArray[i].frames;
 
-		logmsgFileOnly("Frames: %0.5ld/%0.5d | length: %6.3f [%10.3f to %10.3f] | %c%s %s %d %d %d %s %c %s\n", 
-            (long int)config->types.typeArray[i].elementCount*config->types.typeArray[i].frames,
+		logmsgFileOnly("Frames: %0.5ld/%0.5d | length: %6.3f [%10.3f to %10.3f] | %c%s %s %d %d %d %s %c %s", 
+			(long int)config->types.typeArray[i].elementCount*config->types.typeArray[i].frames,
 			frames,
 			seconds, 
 			StartSeconds,
@@ -930,6 +930,16 @@ void PrintAudioBlocks(parameters *config)
 			config->types.typeArray[i].color,
 			config->types.typeArray[i].channel,
 			config->types.typeArray[i].IsaddOnData ? "(ExtraData)" : " ");
+
+		if(config->types.typeArray[i].type == TYPE_WATERMARK)
+		{
+			logmsgFileOnly("%d %d %s", 
+				config->types.watermarkValidFreq,
+				config->types.watermarkInvalidFreq,
+				config->types.watermarkDisplayName);
+		}
+
+		logmsgFileOnly("\n");
 
 		if(config->types.typeArray[i].type != TYPE_SYNC && 
 			config->types.typeArray[i].type >= TYPE_SILENCE &&

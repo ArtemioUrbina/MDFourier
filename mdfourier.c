@@ -2425,7 +2425,7 @@ void NormalizeMagnitudesByRatio(AudioSignal *Signal, double ratio, parameters *c
 		long int	size = 0;
 
 		type = GetBlockType(config, block);
-		if(type >= TYPE_SILENCE)
+		if(type >= TYPE_SILENCE || type == TYPE_WATERMARK || type == TYPE_CLK_ANALYSIS)
 		{
 			size = GetBlockFreqSize(Signal, block, CHANNEL_LEFT, config);
 			for(long int i = 0; i < size; i++)
@@ -2472,7 +2472,7 @@ MaxMagn FindMaxMagnitudeBlock(AudioSignal *Signal, parameters *config)
 		int type = TYPE_NOTYPE;
 
 		type = GetBlockType(config, block);
-		if(type > TYPE_CONTROL)
+		if(type > TYPE_CONTROL || type == TYPE_WATERMARK)
 		{
 			size = GetBlockFreqSize(Signal, block, CHANNEL_LEFT, config);
 			for(long int i = 0; i < size; i++)
@@ -2585,7 +2585,7 @@ int FindMultiMaxMagnitudeBlock(AudioSignal *Signal, MaxMagn	*MaxMag, int *size, 
 		int type = TYPE_NOTYPE;
 
 		type = GetBlockType(config, block);
-		if(type > TYPE_CONTROL)
+		if(type > TYPE_CONTROL || type == TYPE_WATERMARK)
 		{
 			blocksize = GetBlockFreqSize(Signal, block, CHANNEL_LEFT, config);
 			for(long int i = 0; i < blocksize; i++)

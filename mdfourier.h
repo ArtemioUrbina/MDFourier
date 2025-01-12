@@ -48,7 +48,7 @@
 
 #include "incbeta.h"
 
-#define MDVERSION "1.13"
+#define MDVERSION "1.14"
 
 #if INTPTR_MAX == INT64_MAX
 #define	BITS_MDF "64-bit"
@@ -83,7 +83,7 @@
 #define TYPE_TIMEDOMAIN			-7
 #define	TYPE_SILENCE_OVERRIDE	-8
 #define	TYPE_WATERMARK			-9
-#define TYPE_CLK_ANALYSIS       -10 // used internally
+#define TYPE_CLK_ANALYSIS		-10 // used internally
 #define TYPE_CONTROL			TYPE_SILENCE
 
 
