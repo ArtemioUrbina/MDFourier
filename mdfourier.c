@@ -298,7 +298,12 @@ int ReportClockResults(AudioSignal *ReferenceSignal, AudioSignal *ComparisonSign
 	if(!config->clkMeasure)
 		return 1;
 
-	CalculateCLKAmplitudes(ReferenceSignal, ComparisonSignal, config);
+	if(!CalculateCLKAmplitudes(ReferenceSignal, ComparisonSignal, config)) {
+		logmsg("\n* WARNING: %s Clocks based on expected %d Hz on note %s# %d could not be calculated\n",
+		config->clkName, config->clkFreq, GetBlockName(config, config->clkBlock),
+		GetBlockSubIndex(config, config->clkBlock));
+		return 0;
+	}
 
 	refClk = CalculateClk(ReferenceSignal, config);
 	compClk = CalculateClk(ComparisonSignal, config);
@@ -1534,13 +1539,14 @@ int ProcessSignal(AudioSignal *Signal, parameters *config)
 
 #ifdef DEBUG
 		if(config->verbose >= 2)
-			logmsg("Pos: %ld (%s %gs) loaded %ld Diff %ld loaded-diff %ld (%.10g s) discard %ld restDec %lg\n",
+			logmsg("Pos: %ld (%s %gs) loaded %ld Diff %ld loaded-diff %ld (%.10g s) discard %ld restDec %lg Type: %s Block: %ld\n",
 				SamplesForDisplay(pos, Signal->AudioChannels), 
 				Signal->Blocks[i].type >= TYPE_SILENCE || Signal->Blocks[i].type == TYPE_WATERMARK ? "" : "NO DFT", duration,
 				SamplesForDisplay(loadedBlockSize, Signal->AudioChannels),
 				SamplesForDisplay(difference, Signal->AudioChannels),
 				SamplesForDisplay(loadedBlockSize - difference, Signal->AudioChannels), SamplesToSeconds(Signal->SampleRate, loadedBlockSize - difference, Signal->AudioChannels),
-				SamplesForDisplay(discardSamples, Signal->AudioChannels), leftDecimals/(double)Signal->AudioChannels);
+				SamplesForDisplay(discardSamples, Signal->AudioChannels), leftDecimals/(double)Signal->AudioChannels,
+				GetTypeName(config, Signal->Blocks[i].type), i);
 #endif
 		
 		memset(sampleBuffer, 0, sampleBufferSize*sizeof(double));
@@ -1555,7 +1561,8 @@ int ProcessSignal(AudioSignal *Signal, parameters *config)
 				return 0;
 			}
 #ifdef DEBUG
-			//logmsg("estimated %g (difference %ld)\n", Signal->Blocks[i].frames*Signal->framerate/1000.0, difference);
+			if(config->verbose >= 3)
+				logmsg("estimated %g (difference %ld)\n", Signal->Blocks[i].frames*Signal->framerate/1000.0, difference);
 #endif
 			if(!FillFrequencyStructures(Signal, &Signal->Blocks[i], config))
 			{
@@ -1567,7 +1574,8 @@ int ProcessSignal(AudioSignal *Signal, parameters *config)
 
 		if(config->clkMeasure && config->clkBlock == i)
 		{
-			if(!ExecuteDFFT(&Signal->clkFrequencies, sampleBuffer, loadedBlockSize-difference, Signal->SampleRate, windowUsed, Signal->AudioChannels, 1, config))
+			windowUsed = getWindowByLength(&windows, 1000.0/framerate, 0, framerate, config);
+			if(!ExecuteDFFT(&Signal->clkFrequencies, sampleBuffer, loadedBlockSize-difference, Signal->SampleRate, windowUsed, Signal->AudioChannels, 1 /* force ZeroPad */, config))
 			{
 				free(sampleBuffer);
 				freeWindows(&windows);
@@ -1708,6 +1716,11 @@ int ExecuteDFFTInternal(AudioBlocks *AudioArray, double *samples, size_t size, d
 	
 	if(ZeroPad)  /* disabled by default */
 		zeropadding = GetZeroPadValues(&monoSignalSize, &seconds, samplerate);
+
+#ifdef DEBUG
+	if(config->verbose >= 2)
+		logmsg("ExecuteDFFTInternal> stereoSignalSize: %ld monoSignalSize: %ld zeropadding: %ld windowed: %ld seconds: %g\n", stereoSignalSize, monoSignalSize, zeropadding, monoSignalSize - zeropadding, seconds);
+#endif
 
 	signal = (double*)malloc(sizeof(double)*(monoSignalSize+1));
 	if(!signal)

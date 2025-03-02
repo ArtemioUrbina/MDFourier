@@ -135,15 +135,17 @@ double *CreateWindow(windowManager *wm, long int frames, long int cutFrames, dou
 		return NULL;
 	}
 
-	/*
-	if(!config->doClkAdjust)
-		logmsg("**** Creating window size %ld+%ld=%ld (%ld frames %g fr)\n", size, sizePadding, size+sizePadding, frames, framerate);
-	else
-		logmsg("**** Creating window size %ld+%ld(+%ld)=%ld(%ld) (%ld frames %g fr)\n", size, sizePadding, clkAdjustBufferSize, size+sizePadding, size+sizePadding+clkAdjustBufferSize, frames, framerate);
-	*/
-
+#ifdef DEBUG
+	if(config->verbose >= 2) {
+		if(!config->doClkAdjust)
+			logmsg("**** Creating window size %ld+%ld=%ld (%ld frames %g fr)\n", size, sizePadding, size+sizePadding, frames, framerate);
+		else
+			logmsg("**** Creating window size %ld+%ld(+%ld)=%ld(%ld) (%ld frames %g fr) clkAdjustBufferSize: $ld\n", size, sizePadding, clkAdjustBufferSize, size+sizePadding, size+sizePadding+clkAdjustBufferSize, frames, framerate, clkAdjustBufferSize);
+	}
+#endif
+	
 	if(wm->winType == 'n')
-		return(CreateWindowInternal(wm, rectWindow, "Eectangle", seconds, size, sizePadding, clkAdjustBufferSize, frames));
+		return(CreateWindowInternal(wm, rectWindow, "Rectangle", seconds, size, sizePadding, clkAdjustBufferSize, frames));
 
 	if(wm->winType == 't')
 		return(CreateWindowInternal(wm, tukeyWindow, "Tukey", seconds, size, sizePadding, clkAdjustBufferSize, frames));
@@ -179,15 +181,25 @@ double *getWindowByLength(windowManager *wm, long int frames, long int cutFrames
 
 	for(int i = 0; i < wm->windowCount; i++)
 	{
-		//logmsg("Comparing pos %d: %g to %g from %d\n", i, seconds, wm->windowArray[i].seconds, wm->windowCount);
+#ifdef DEBUG
+		if(config->verbose >= 3)
+			logmsg("Comparing pos %d: %g to %g from %d\n", i, seconds, wm->windowArray[i].seconds, wm->windowCount);
+#endif
 		if(size == wm->windowArray[i].size && sizePadding == wm->windowArray[i].sizePadding)
 		{
-			//logmsg("Served window size %ld zero:%ld (%ld frames %ld cut frames %g fr)\n", size, sizePadding, frames, cutFrames, framerate);
+#ifdef DEBUG
+			if(config->verbose >= 2)
+				logmsg("Served window size %ld zero:%ld (%ld frames %ld cut frames %g fr)\n", size, sizePadding, frames, cutFrames, framerate);
+#endif
+			
 			return wm->windowArray[i].window;
 		}
 	}
 
-	//logmsg("Creating window %ld zero:%ld (%ld frames %ld cut frames %g fr)\n", size, sizePadding, frames, cutFrames, framerate);
+#ifdef DEBUG
+	if(config->verbose >= 2)
+		logmsg("Creating window %ld zero:%ld (%ld frames %ld cut frames %g fr)\n", size, sizePadding, frames, cutFrames, framerate);
+#endif
 	return CreateWindow(wm, frames, cutFrames, framerate, config);
 }
 

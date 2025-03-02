@@ -531,7 +531,7 @@ int LoadAudioBlockStructure(FILE *file, parameters *config)
 				config->usesStereo = 1;
 			}
 
-			// Check for masking extensions, will probably be dforced in profile 2.4. They are optional now
+			// Check for masking extensions, will probably be forced in profile 2.4. They are optional now
 			if(sscanf(lineBuffer, "%*s %*s %*d %*d %*d %*s %*c %c\n", 
 				&config->types.typeArray[i].maskType) == 1)
 			{
