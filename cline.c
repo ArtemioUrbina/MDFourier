@@ -111,7 +111,7 @@ int Header(int log, int argc, char *argv[])
 #else
 	char title1[] = "MDFourier " MDVERSION " [240p Test Suite Fourier Audio compare tool] " BITS_MDF "\n";
 #endif
-	char title2[] = "Artemio Urbina 2019-2024 free software under GPL - http://junkerhq.net/MDFourier\n";
+	char title2[] = "Artemio Urbina 2019-2025 free software under GPL - http://junkerhq.net/MDFourier\n";
 
 	if(argc == 2 && !strncmp(argv[1], "-V", 2))
 	{

@@ -58,6 +58,7 @@ int RecalculateFrequencyStructures(AudioSignal *ReferenceSignal, AudioSignal *Co
 int NormalizeAndFinishProcess(AudioSignal **ReferenceSignal, AudioSignal **ComparisonSignal, parameters *config);
 int FrequencyDomainNormalize(AudioSignal **ReferenceSignal, AudioSignal **ComparisonSignal, parameters *config);
 void AdjustTimeDomainData(AudioSignal *ReferenceSignal, AudioSignal *ComparisonSignal, parameters *config);
+void printTextResults(parameters *config);
 
 // Time domain
 MaxSample FindMaxSampleAmplitude(AudioSignal *Signal);
@@ -161,6 +162,8 @@ int main(int argc, char *argv[])
 	logmsg("* Plotting results to PNGs:\n");
 	PlotResults(ReferenceSignal, ComparisonSignal, &config);
 
+	printTextResults(&config);
+
 	if(IsLogEnabled())
 		endLog();
 
@@ -188,6 +191,58 @@ int main(int argc, char *argv[])
 			config.folderName);
 
 	return(0);
+}
+
+void printTextResults(parameters *config)
+{
+	double lowest = 100.0f;
+	int *typeID = NULL, t = 0, numTypes = 0, lowID = -1;
+
+	numTypes = GetActiveBlockTypesNoRepeat(config);
+
+	typeID = (int*)malloc(sizeof(int)*numTypes);
+	if(!typeID)
+	{
+		logmsg("Not enough memory for text results\n");
+		return;
+	}
+	
+	for(int i = 0; i < config->types.typeCount; i++)
+	{
+		if(config->types.typeArray[i].type > TYPE_CONTROL && !config->types.typeArray[i].IsaddOnData)
+		{
+			typeID[t] = config->types.typeArray[i].type;
+			t++;
+		}
+	}
+
+	/* Find worst with any amplitude difference */
+	for(t = 0; t < numTypes; t++)
+	{
+		double		pcnt = 0;
+		long int	cnt = 0, cmp = 0;
+
+		FindDifferenceTypeTotals(typeID[t], &cnt, &cmp, CHANNEL_STEREO, config);
+
+		pcnt = ((double)cnt*100.0f)/(double)cmp;
+		if(pcnt < lowest)
+		{
+			lowID = t;
+			lowest = pcnt;
+		}
+	}
+
+	if(lowID != -1)
+	{
+		char	*label = NULL;
+		label = GetTypeDisplayName(config, typeID[lowID]);
+		logmsg("* Worst w/any Amplitude Difference: %s~%0.4f%%\n", label, lowest);
+	}
+	else
+		logmsg("* Worst w/any Amplitude Difference: NOT FOUND\n");
+
+	free(typeID);
+	typeID = NULL;
 }
 
 void FindViewPort(parameters *config)
@@ -1422,6 +1477,7 @@ int DuplicateSamplesForWaveformPlots(AudioSignal *Signal, long int element, long
 	return 1;
 }
 
+
 int ProcessSignal(AudioSignal *Signal, parameters *config)
 {
 	long int		pos = 0;
@@ -1470,7 +1526,7 @@ int ProcessSignal(AudioSignal *Signal, parameters *config)
 		int			endProcess = 0;
 		double		*windowUsed = NULL;
 		double		duration = 0, framerate = 0;
-		long int	frames = 0, difference = 0, cutFrames = 0;
+		long int	frames = 0, difference = 0, cutFrames = 0, padding = 0;
 
 		if(!syncinternal)
 			framerate = Signal->framerate;
@@ -1501,6 +1557,10 @@ int ProcessSignal(AudioSignal *Signal, parameters *config)
 
 		if(Signal->Blocks[i].type >= TYPE_SILENCE || Signal->Blocks[i].type == TYPE_WATERMARK)
 		{
+			padding = cutFrames;
+			if(config->ZeroPad)
+				padding = 1000.0/framerate;
+
 			if(!syncinternal && Signal->Blocks[i].maskType == MASK_USE_WINDOW)
 				windowUsed = getWindowByLength(&windows, frames, cutFrames, config->smallerFramerate, config); // We get the smaller window, since we'll truncate
 			else
@@ -1760,6 +1820,11 @@ int ExecuteDFFTInternal(AudioBlocks *AudioArray, double *samples, size_t size, d
 	memset(signal, 0, sizeof(double)*(monoSignalSize+1));
 	memset(spectrum, 0, sizeof(fftw_complex)*(monoSignalSize/2+1));
 
+#ifdef DEBUG
+	if(config->verbose >= 3)
+		logmsg("monoSignalSize: %ld zeropadding: %ld monoSignalSize - zeropadding: %ld\n", monoSignalSize, zeropadding, monoSignalSize - zeropadding);
+#endif
+
 	for(i = 0; i < monoSignalSize - zeropadding; i++)
 	{
 		if(channel == CHANNEL_LEFT)
@@ -1773,6 +1838,12 @@ int ExecuteDFFTInternal(AudioBlocks *AudioArray, double *samples, size_t size, d
 		{
 			signal[i] *= window[i];
 			S2 += window[i]*window[i];
+			if(isinf(S2)) {
+				logmsg("i: %ld S2: %g window[i]: %g\n", i, S2, window[i]);
+				logmsg("monoSignalSize: %ld zeropadding: %ld monoSignalSize - zeropadding: %ld\n", monoSignalSize, zeropadding, monoSignalSize - zeropadding);
+				logmsg("ERROR: Window error in code detected\n");
+				return 0;
+			}
 		}
 	}
 
@@ -1781,7 +1852,8 @@ int ExecuteDFFTInternal(AudioBlocks *AudioArray, double *samples, size_t size, d
 	p = NULL;
 
 #ifdef DEBUG
-	//logmsg("Seconds %g was %g ", seconds, AudioArray->seconds);
+	if(config->verbose >= 3)
+		logmsg("Seconds %g was %g. S2: %ld\n", seconds, AudioArray->seconds, S2);
 #endif
 
 	if(channel != CHANNEL_RIGHT)

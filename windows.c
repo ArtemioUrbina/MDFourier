@@ -179,12 +179,13 @@ double *getWindowByLength(windowManager *wm, long int frames, long int cutFrames
 	secondsPadding = FramesToSeconds(cutFrames, framerate);
 	sizePadding = ceil(wm->SampleRate*secondsPadding);
 
+#ifdef DEBUG
+	if(config->verbose >= 3)
+		logmsg("Asked for window %ld zero:%ld (%ld frames %ld cut frames %g fr)\n", size, sizePadding, frames, cutFrames, framerate);
+#endif
+
 	for(int i = 0; i < wm->windowCount; i++)
 	{
-#ifdef DEBUG
-		if(config->verbose >= 3)
-			logmsg("Comparing pos %d: %g to %g from %d\n", i, seconds, wm->windowArray[i].seconds, wm->windowCount);
-#endif
 		if(size == wm->windowArray[i].size && sizePadding == wm->windowArray[i].sizePadding)
 		{
 #ifdef DEBUG

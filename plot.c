@@ -911,18 +911,26 @@ int CreatePlotFile(PlotFile *plot, parameters *config)
 	if(!plot->plotter_params)
 	{
 		logmsg("ERROR: Couldn't create plotter_params\n");
+		fclose(plot->file); 
 		return 0;
 	}
 	pl_setplparam (plot->plotter_params, "BITMAPSIZE", size);
-	if((plot->plotter = pl_newpl_r("png", stdin, plot->file, stderr, plot->plotter_params)) == NULL)
+
+	plot->plotter = pl_newpl_r("png", stdin, plot->file, stderr, plot->plotter_params);
+	if(!plot->plotter)
 	{
 		logmsg("ERROR: Couldn't create Plotter\n");
+		pl_deleteplparams(plot->plotter_params);
+		fclose(plot->file); 
 		return 0;
 	}
 
 	if(pl_openpl_r(plot->plotter) < 0)
 	{
 		logmsg("ERROR: Couldn't open Plotter\n");
+		pl_deletepl_r(plot->plotter);
+		pl_deleteplparams(plot->plotter_params);
+		fclose(plot->file); 
 		return 0;
 	}
 	pl_fspace_r(plot->plotter, plot->x0, plot->y0, plot->x1, plot->y1);

@@ -3361,7 +3361,7 @@ char *GetFileName(int role, parameters *config)
 double CalculateClk(AudioSignal *Signal, parameters *config)
 {
 	int i = 0, highestWithinRange = -1;
-	double target = 0;
+	double target = 0, tolerance = 0.05;
 
 	if(!config->clkMeasure)
 		return 0;
@@ -3373,7 +3373,7 @@ double CalculateClk(AudioSignal *Signal, parameters *config)
 	target = config->clkFreq * config->clkRatio;
 	for(i = 0; i < config->MaxFreq; i++)
 	{
-		if(fabs(Signal->clkFrequencies.freq[i].hertz*config->clkRatio - target) < 0.05*target)
+		if(fabs(Signal->clkFrequencies.freq[i].hertz*config->clkRatio - target) < tolerance*target)
 		{
 			highestWithinRange = i;
 			break;
