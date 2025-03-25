@@ -1105,8 +1105,8 @@ int CMDFourierGUIDlg::CheckDependencies()
 			}
 			else
 				error = 4;
-			if(version != MDFVERSION)
-				error = 3;
+			//if(version != MDFVERSION)
+				//error = 3;
 		}
 		else
 			error = 2;
