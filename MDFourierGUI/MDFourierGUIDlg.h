@@ -113,6 +113,7 @@ protected:
 	void InsertValueInCombo(CString Name, CString value, CommandLineArray &Data, CComboBox &Combo);
 	int LoadProfile(CString FullFileName, CString &Name, CString &Version, CString &Error, CommandLineArray	ProfileSyncTypes[], int ArraySize, int &syncCount);
 	CString GetSelectedCommandLineValue(CComboBox &Combo, int size);
+	CString GetSelectedText(CComboBox& Combo);
 	void ExecuteCommand(CString Compare);
 	void CheckPlotSelection(CButton &clicked);
 	int FindProfiles(CString sPath, CString pattern);

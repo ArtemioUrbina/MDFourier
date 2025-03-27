@@ -799,6 +799,19 @@ CString CMDFourierGUIDlg::GetSelectedCommandLineValue(CComboBox &Combo, int size
 	return DataOk->valueMDF;
 }
 
+CString CMDFourierGUIDlg::GetSelectedText(CComboBox& Combo)
+{
+	int selected = -1;
+	CString selectedText;
+
+	selected = Combo.GetCurSel();
+	if (selected == CB_ERR)
+		return L"-";
+
+	Combo.GetLBText(selected, selectedText);
+	return(selectedText);
+}
+
 void CMDFourierGUIDlg::InsertValueInCombo(CString Name, CString value, CommandLineArray &Data, CComboBox &Combo)
 {
 	int indexCB;
@@ -1477,16 +1490,19 @@ LRESULT CMDFourierGUIDlg::OnDropFiles(WPARAM wParam, LPARAM lParam)
 void CMDFourierGUIDlg::OnCbnDropdownProfile()
 {
 	int matched = 0;
+	CString oldProfile;
+
+	oldProfile = GetSelectedText(m_Profiles);
 
 	matched = FindProfiles(L"profiles", L"*.mfn");
-	if(matched <= 0)
+	if (matched <= 0)
 	{
 		CString msg;
 		TCHAR	pwd[MAX_PATH];
 
 		GetCurrentDirectory(MAX_PATH, pwd);
 
-		if(matched == 0)
+		if (matched == 0)
 		{
 			msg.Format(L"Please place profile files (*.mfn) in folder:\n %s\\profiles", pwd);
 			MessageBox(msg, L"Error mdfblocks.mfn not found");
@@ -1497,14 +1513,20 @@ void CMDFourierGUIDlg::OnCbnDropdownProfile()
 			MessageBox(msg, L"Invalid Profiles");
 		}
 	}
+	else
+		m_Profiles.SelectString(-1, oldProfile);
 }
 
 
 void CMDFourierGUIDlg::OnCbnSelendokProfile()
 {
 	int					match = 0, syncCount = 0;
-	CString				Name, Version, Error, FullFileName;
+	CString				Name, Version, Error, FullFileName, oldTextSelRef, oldTextSelCom;
 	CommandLineArray	ProfileSyncTypes[COUNT_SYNCTYPE];
+
+	
+	oldTextSelRef = GetSelectedText(m_RefSync);
+	oldTextSelCom = GetSelectedText(m_ComSync);
 
 	syncTypes = 0;
 	m_RefSync.ResetContent();
@@ -1529,8 +1551,12 @@ void CMDFourierGUIDlg::OnCbnSelendokProfile()
 			InsertValueInCombo(ProfileSyncTypes[i].Name, ProfileSyncTypes[i].valueMDF, SyncType[i], m_RefSync);
 			InsertValueInCombo(ProfileSyncTypes[i].Name, ProfileSyncTypes[i].valueMDF, SyncType[i], m_ComSync);
 		}
-		m_RefSync.SetCurSel(0);
-		m_ComSync.SetCurSel(0);
+		// If possible, keep the same sync selection
+		if(m_RefSync.SelectString(-1, oldTextSelRef) == CB_ERR)
+			m_RefSync.SetCurSel(0);
+		if (m_ComSync.SelectString(-1, oldTextSelCom) == CB_ERR)
+			m_ComSync.SetCurSel(0);
+		
 		syncTypes = syncCount;
 	}
 	wintextProfile = Name;
