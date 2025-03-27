@@ -1711,22 +1711,22 @@ Frequency FindNoiseBlockInsideOneStandardDeviation(AudioSignal *Signal, paramete
 		int type = TYPE_NOTYPE;
 
 		type = GetBlockType(config, block);
-		if(GetTypeChannel(config, type) != CHANNEL_NOISE)
-			continue;
-
-		for(int i = 0; i < config->MaxFreq; i++)
+		if(GetTypeChannel(config, type) == CHANNEL_NOISE)
 		{
-			if(Signal->Blocks[block].freq[i].hertz && Signal->Blocks[block].freq[i].amplitude != NO_AMPLITUDE)
+			for(int i = 0; i < config->MaxFreq; i++)
 			{
-				double hz, amp;
-	
-				hz = Signal->Blocks[block].freq[i].hertz;
-				amp = fabs(Signal->Blocks[block].freq[i].amplitude);
-	
-				mean.hertz += hz;
-				mean.amplitude += amp;
-	
-				count ++;
+				if(Signal->Blocks[block].freq[i].hertz && Signal->Blocks[block].freq[i].amplitude != NO_AMPLITUDE)
+				{
+					double hz, amp;
+		
+					hz = Signal->Blocks[block].freq[i].hertz;
+					amp = fabs(Signal->Blocks[block].freq[i].amplitude);
+		
+					mean.hertz += hz;
+					mean.amplitude += amp;
+		
+					count ++;
+				}
 			}
 		}
 	}
@@ -1744,21 +1744,22 @@ Frequency FindNoiseBlockInsideOneStandardDeviation(AudioSignal *Signal, paramete
 		int type = TYPE_NOTYPE;
 
 		type = GetBlockType(config, block);
-		if(GetTypeChannel(config, type) != CHANNEL_NOISE)
-			continue;
-		for(int i = 0; i < config->MaxFreq; i++)
+		if(GetTypeChannel(config, type) == CHANNEL_NOISE)
 		{
-			if(Signal->Blocks[block].freq[i].hertz && Signal->Blocks[block].freq[i].amplitude != NO_AMPLITUDE)
+			for(int i = 0; i < config->MaxFreq; i++)
 			{
-				double hz, amp;
-		
-				hz = Signal->Blocks[block].freq[i].hertz;
-				amp = fabs(Signal->Blocks[block].freq[i].amplitude);
-		
-				sd.hertz += pow(hz - mean.hertz, 2);
-				sd.amplitude += pow(amp - mean.amplitude, 2);
-		
-				count ++;
+				if(Signal->Blocks[block].freq[i].hertz && Signal->Blocks[block].freq[i].amplitude != NO_AMPLITUDE)
+				{
+					double hz, amp;
+			
+					hz = Signal->Blocks[block].freq[i].hertz;
+					amp = fabs(Signal->Blocks[block].freq[i].amplitude);
+			
+					sd.hertz += pow(hz - mean.hertz, 2);
+					sd.amplitude += pow(amp - mean.amplitude, 2);
+			
+					count ++;
+				}
 			}
 		}
 	}
@@ -1786,18 +1787,19 @@ Frequency FindNoiseBlockInsideOneStandardDeviation(AudioSignal *Signal, paramete
 		int type = TYPE_NOTYPE;
 
 		type = GetBlockType(config, block);
-		if(GetTypeChannel(config, type) != CHANNEL_NOISE)
-			continue;
-		for(int i = 0; i < config->MaxFreq; i++)
+		if(GetTypeChannel(config, type) == CHANNEL_NOISE)
 		{
-			if(Signal->Blocks[block].freq[i].hertz && Signal->Blocks[block].freq[i].amplitude != NO_AMPLITUDE)
+			for(int i = 0; i < config->MaxFreq; i++)
 			{
-				double amp;
-	
-				amp = Signal->Blocks[block].freq[i].amplitude;
-	
-				if(amp <= cutOff.amplitude)
-					outside ++;
+				if(Signal->Blocks[block].freq[i].hertz && Signal->Blocks[block].freq[i].amplitude != NO_AMPLITUDE)
+				{
+					double amp;
+		
+					amp = Signal->Blocks[block].freq[i].amplitude;
+		
+					if(amp <= cutOff.amplitude)
+						outside ++;
+				}
 			}
 		}
 	}

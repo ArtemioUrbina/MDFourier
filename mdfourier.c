@@ -222,7 +222,7 @@ void printTextResults(parameters *config)
 		double		pcnt = 0;
 		long int	cnt = 0, cmp = 0;
 
-		FindDifferenceTypeTotals(typeID[t], &cnt, &cmp, CHANNEL_STEREO, config);
+		FindDifferenceWithinInterval(typeID[t], &cnt, &cmp, config->AmpBarRange, CHANNEL_STEREO, config);
 
 		pcnt = ((double)cnt*100.0f)/(double)cmp;
 		if(pcnt < lowest)
@@ -236,10 +236,10 @@ void printTextResults(parameters *config)
 	{
 		char	*label = NULL;
 		label = GetTypeDisplayName(config, typeID[lowID]);
-		logmsg("* Worst w/any Amplitude Difference: %s~%0.4f%%\n", label, lowest);
+		logmsg("* Worst within [0 to \\+-%gdB] Difference: %s~%0.4f%%\n", config->AmpBarRange, label, lowest);
 	}
 	else
-		logmsg("* Worst w/any Amplitude Difference: NOT FOUND\n");
+		logmsg("* Worst within [0 to \\+-%gdB] Difference: NOT FOUND\n", config->AmpBarRange);
 
 	free(typeID);
 	typeID = NULL;
