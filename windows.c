@@ -90,7 +90,7 @@ double *CreateWindowInternal(windowManager *wm, double *(*createWindow)(long), c
 			realMemSize = realMemSize + sizePadding + clkAdjustBufferSize;
 
 #ifdef DEBUG
-		if(config->verbose >= 2) {
+		if(config->verbose >= 2)
 			logmsg("*** Padding window size %ld->%ld\n", windowSize, realMemSize);
 #endif
 

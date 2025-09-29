@@ -320,11 +320,13 @@ void PrintSignalCLKData(AudioSignal *Signal, parameters *config)
 {
 	if(Signal->EstimatedSR)
 	{
+		/*
 		if(!config->doSamplerateAdjust)
 			logmsg(", WARNING: %s sample rate estimated at %gHz from signal length (can be auto matched with -R)",
 				Signal->role == ROLE_REF ? "Reference" : "Comparison",
 				Signal->EstimatedSR);
 		else
+		*/
 		{
 			if(Signal->originalSR)
 			{
