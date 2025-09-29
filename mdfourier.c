@@ -137,6 +137,9 @@ int main(int argc, char *argv[])
 		}
 	}
 
+	ReleasePCM(ReferenceSignal);
+	ReleasePCM(ComparisonSignal);
+
 	AdjustTimeDomainData(ReferenceSignal, ComparisonSignal, &config);
 
 	logmsg("\n* Comparing frequencies: ");
@@ -904,9 +907,6 @@ int LoadAndProcessAudioFiles(AudioSignal **ReferenceSignal, AudioSignal **Compar
 	if(!ProcessSignal(*ComparisonSignal, config))
 		return 0;
 
-	ReleasePCM(*ReferenceSignal);
-	ReleasePCM(*ComparisonSignal);
-
 	CalculateFrequencyBrackets(*ReferenceSignal, config);
 	CalculateFrequencyBrackets(*ComparisonSignal, config);
 
@@ -1288,48 +1288,108 @@ void AdjustTimeDomainData(AudioSignal* ReferenceSignal, AudioSignal* ComparisonS
 int RecalculateFFTW(AudioSignal *Signal, parameters *config)
 {
 	long int		i = 0;	
-	double			*windowUsed = NULL;
+	double			*sampleBuffer = NULL;
+	long int		sampleBufferSize = 0;
+	double			*windowUsed = NULL, longest = 0;
 	windowManager	windows;
 
 	if(!config->doClkAdjust)
 		return 0;
+
+	longest = FramesToSeconds(Signal->framerate, GetLongestElementFrames(config));
+	sampleBufferSize = SecondsToSamples(Signal->SampleRate, longest, Signal->AudioChannels, NULL, NULL);
+	sampleBuffer = (double*)malloc(sampleBufferSize*sizeof(double));
+	if(!sampleBuffer)
+	{
+		logmsg("\tERROR: malloc failed.\n");
+		return(0);
+	}
 
 	if(!initWindows(&windows, Signal->SampleRate, config->window, config))
 		return 0;
 
 	while(i < config->types.totalBlocks)
 	{
-		if(Signal->Blocks[i].type > TYPE_SILENCE)
+		if(Signal->Blocks[i].type > TYPE_SILENCE || Signal->Blocks[i].type == TYPE_WATERMARK)
 		{
-			long int frames = 0, cutFrames = 0;
+			long int frames = 0, cutFrames = 0, currSamplesSize = 0;
 
 			frames = GetBlockFrames(config, i);
 			cutFrames = GetBlockCutFrames(config, i);
 
 			windowUsed = getWindowByLength(&windows, frames, cutFrames, config->smallerFramerate, config);
 
+			currSamplesSize = Signal->Blocks[i].loadSize - Signal->Blocks[i].difference;
+
+			memset(sampleBuffer, 0, sampleBufferSize*sizeof(double));
+			memcpy(sampleBuffer, Signal->Samples + Signal->Blocks[i].offset, currSamplesSize*sizeof(double));
+
 			CleanFrequenciesInBlock(&Signal->Blocks[i], config);
-			if(!ExecuteDFFT(&Signal->Blocks[i], Signal->Blocks[i].audio.samples, Signal->Blocks[i].audio.size, Signal->SampleRate, windowUsed, Signal->AudioChannels, config->ZeroPad, config))
+			if(!ExecuteDFFT(&Signal->Blocks[i], sampleBuffer, currSamplesSize, Signal->SampleRate, windowUsed, Signal->AudioChannels, config->ZeroPad, config))
+			{
+				free(sampleBuffer);
+				freeWindows(&windows);
 				return 0;
+			}
 			if(!FillFrequencyStructures(Signal, &Signal->Blocks[i], config))
+			{
+				free(sampleBuffer);
+				freeWindows(&windows);
 				return 0;
+			}
 
 			if(config->plotAllNotesWindowed && !CopySamplesForTimeDomainPlotWindowOnly(&Signal->Blocks[i], windowUsed, Signal->AudioChannels, config))
+			{
+				free(sampleBuffer);
+				freeWindows(&windows);
 				return 0;
+			}
 
+			// Draws the recalculated, not the original ones
 			if(config->clkMeasure && config->clkBlock == i)
 			{
-				CleanFrequenciesInBlock(&Signal->clkFrequencies, config);
-				if(!ExecuteDFFT(&Signal->clkFrequencies, Signal->Blocks[i].audio.samples, Signal->Blocks[i].audio.size, Signal->SampleRate, windowUsed, Signal->AudioChannels, 1 /* zeropad on */, config))
+				windowManager clockWindows;
+	
+				// Force a Hamming window for the clock signal
+				if(!initWindows(&clockWindows, Signal->SampleRate, 'm', config))
+				{
+					free(sampleBuffer);
+					freeWindows(&windows);
+					freeWindows(&clockWindows);
 					return 0;
+				}
+
+				windowUsed = getWindowByLength(&clockWindows, 1000.0/Signal->framerate, 0, Signal->framerate, config);
+				CleanFrequenciesInBlock(&Signal->clkFrequencies, config);
+				if(!ExecuteDFFT(&Signal->clkFrequencies, sampleBuffer, currSamplesSize, Signal->SampleRate, windowUsed, Signal->AudioChannels, 1 , config)) // zeropad on 
+				{
+					free(sampleBuffer);
+					freeWindows(&windows);
+					freeWindows(&clockWindows);
+					return 0;
+				}
 
 				if(!FillFrequencyStructures(Signal, &Signal->clkFrequencies, config))
+				{
+					free(sampleBuffer);
+					freeWindows(&windows);
+					freeWindows(&clockWindows);
 					return 0;
+				}
+
+				if(config->drawWindows)
+					VisualizeWindows(&clockWindows, "CLK-RECALC", Signal->role, config);
+
+				freeWindows(&clockWindows);
 			}
 		}
 		i++;
 	}
 
+	if(config->drawWindows)
+		VisualizeWindows(&windows, "CLK-RECALC", Signal->role, config);
+
+	free(sampleBuffer);
 	freeWindows(&windows);
 
 	if(config->normType != max_frequency)
@@ -1372,7 +1432,7 @@ double RecalculateFrameRateAndSamplerateComp(AudioSignal *ReferenceSignal, Audio
 	compCLK = CalculateClk(ComparisonSignal, config);
 
 	config->clkRef = refCLK;
-	config->clkCom = compCLK	;
+	config->clkCom = compCLK;
 
 	if(refCLK < compCLK)
 	{
@@ -1431,6 +1491,8 @@ int RecalculateFrequencyStructures(AudioSignal *ReferenceSignal, AudioSignal *Co
 	if(!NormalizeAndFinishProcess(&ReferenceSignal, &ComparisonSignal, config))
 		return 0;
 
+	if(!CalculateCLKAmplitudes(ReferenceSignal, ComparisonSignal, config))
+		return 0;
 	return 1;
 }
 
@@ -1482,7 +1544,7 @@ int ProcessSignal(AudioSignal *Signal, parameters *config)
 {
 	long int		pos = 0;
 	double			longest = 0;
-	double			*sampleBuffer;
+	double			*sampleBuffer = NULL;
 	long int		sampleBufferSize = 0;
 	windowManager	windows;
 	long int		loadedBlockSize = 0, i = 0, syncAdvance = 0;
@@ -1526,7 +1588,7 @@ int ProcessSignal(AudioSignal *Signal, parameters *config)
 		int			endProcess = 0;
 		double		*windowUsed = NULL;
 		double		duration = 0, framerate = 0;
-		long int	frames = 0, difference = 0, cutFrames = 0, padding = 0;
+		long int	frames = 0, difference = 0, cutFrames = 0;
 
 		if(!syncinternal)
 			framerate = Signal->framerate;
@@ -1548,7 +1610,7 @@ int ProcessSignal(AudioSignal *Signal, parameters *config)
 		// Here the window masks out part of the signal in the old style, needed when
 		// XTAL for audio is the same between PAL and NTSC (?)
 		// C64 needs this off (MASK_NONE) and Genesis on (MASK_USE_WINDOW)
-		// current new default is off (MASk_NONE) if the profile doesn't specify it
+		// current new default is off (MASK_NONE) if the profile doesn't specify it
 		if(Signal->Blocks[i].maskType == MASK_USE_WINDOW)
 			difference = GetSampleSizeDifferenceByFrameRate(framerate, frames, Signal->SampleRate, Signal->AudioChannels, config);
 
@@ -1557,10 +1619,6 @@ int ProcessSignal(AudioSignal *Signal, parameters *config)
 
 		if(Signal->Blocks[i].type >= TYPE_SILENCE || Signal->Blocks[i].type == TYPE_WATERMARK)
 		{
-			padding = cutFrames;
-			if(config->ZeroPad)
-				padding = 1000.0/framerate;
-
 			if(!syncinternal && Signal->Blocks[i].maskType == MASK_USE_WINDOW)
 				windowUsed = getWindowByLength(&windows, frames, cutFrames, config->smallerFramerate, config); // We get the smaller window, since we'll truncate
 			else
@@ -1612,6 +1670,9 @@ int ProcessSignal(AudioSignal *Signal, parameters *config)
 		memset(sampleBuffer, 0, sampleBufferSize*sizeof(double));
 		memcpy(sampleBuffer, Signal->Samples + pos, (loadedBlockSize-difference)*sizeof(double));
 
+		Signal->Blocks[i].offset = pos;
+		Signal->Blocks[i].loadSize = loadedBlockSize;
+		Signal->Blocks[i].difference = difference;
 		if(Signal->Blocks[i].type >= TYPE_SILENCE || Signal->Blocks[i].type == TYPE_WATERMARK)
 		{
 			if(!ExecuteDFFT(&Signal->Blocks[i], sampleBuffer, loadedBlockSize-difference, Signal->SampleRate, windowUsed, Signal->AudioChannels, config->ZeroPad, config))
@@ -1634,11 +1695,23 @@ int ProcessSignal(AudioSignal *Signal, parameters *config)
 
 		if(config->clkMeasure && config->clkBlock == i)
 		{
-			windowUsed = getWindowByLength(&windows, 1000.0/framerate, 0, framerate, config);
+			windowManager clockWindows;
+
+			// Force a Hamming window for the clock signal
+			if(!initWindows(&clockWindows, Signal->SampleRate, 'm', config))
+			{
+				free(sampleBuffer);
+				freeWindows(&windows);
+				freeWindows(&clockWindows);
+				return 0;
+			}
+
+			windowUsed = getWindowByLength(&clockWindows, 1000.0/framerate, 0, framerate, config);
 			if(!ExecuteDFFT(&Signal->clkFrequencies, sampleBuffer, loadedBlockSize-difference, Signal->SampleRate, windowUsed, Signal->AudioChannels, 1 /* force ZeroPad */, config))
 			{
 				free(sampleBuffer);
 				freeWindows(&windows);
+				freeWindows(&clockWindows);
 				return 0;
 			}
 
@@ -1646,8 +1719,13 @@ int ProcessSignal(AudioSignal *Signal, parameters *config)
 			{
 				free(sampleBuffer);
 				freeWindows(&windows);
+				freeWindows(&clockWindows);
 				return 0;
 			}
+			if(config->drawWindows)
+				VisualizeWindows(&clockWindows, "CLK", Signal->role, config);
+
+			freeWindows(&clockWindows);
 		}
 
 		pos += loadedBlockSize;
@@ -1717,7 +1795,7 @@ int ProcessSignal(AudioSignal *Signal, parameters *config)
 
 	if(config->drawWindows)
 	{
-		VisualizeWindows(&windows, Signal->role, config);
+		VisualizeWindows(&windows, "MAIN", Signal->role, config);
 		PlotBetaFunctions(config);
 	}
 
@@ -1779,7 +1857,8 @@ int ExecuteDFFTInternal(AudioBlocks *AudioArray, double *samples, size_t size, d
 
 #ifdef DEBUG
 	if(config->verbose >= 2)
-		logmsg("ExecuteDFFTInternal> stereoSignalSize: %ld monoSignalSize: %ld zeropadding: %ld windowed: %ld seconds: %g\n", stereoSignalSize, monoSignalSize, zeropadding, monoSignalSize - zeropadding, seconds);
+		logmsg("ExecuteDFFTInternal> stereoSignalSize: %ld monoSignalSize: %ld zeropadding: %ld windowed: %ld seconds: %g\n", 
+			stereoSignalSize, monoSignalSize, zeropadding, monoSignalSize - zeropadding, seconds);
 #endif
 
 	signal = (double*)malloc(sizeof(double)*(monoSignalSize+1));
@@ -1822,7 +1901,8 @@ int ExecuteDFFTInternal(AudioBlocks *AudioArray, double *samples, size_t size, d
 
 #ifdef DEBUG
 	if(config->verbose >= 3)
-		logmsg("monoSignalSize: %ld zeropadding: %ld monoSignalSize - zeropadding: %ld\n", monoSignalSize, zeropadding, monoSignalSize - zeropadding);
+		logmsg("monoSignalSize: %ld zeropadding: %ld monoSignalSize - zeropadding: %ld\n",
+			monoSignalSize, zeropadding, monoSignalSize - zeropadding);
 #endif
 
 	for(i = 0; i < monoSignalSize - zeropadding; i++)
@@ -1840,7 +1920,8 @@ int ExecuteDFFTInternal(AudioBlocks *AudioArray, double *samples, size_t size, d
 			S2 += window[i]*window[i];
 			if(isinf(S2)) {
 				logmsg("i: %ld S2: %g window[i]: %g\n", i, S2, window[i]);
-				logmsg("monoSignalSize: %ld zeropadding: %ld monoSignalSize - zeropadding: %ld\n", monoSignalSize, zeropadding, monoSignalSize - zeropadding);
+				logmsg("monoSignalSize: %ld zeropadding: %ld monoSignalSize - zeropadding: %ld\n",
+					monoSignalSize, zeropadding, monoSignalSize - zeropadding);
 				logmsg("ERROR: Window error in code detected\n");
 				return 0;
 			}

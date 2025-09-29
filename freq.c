@@ -387,6 +387,10 @@ void InitAudio(AudioSignal *Signal, parameters *config)
 			Signal->Blocks[n].audioRight.padding = 0;
 			Signal->Blocks[n].audioRight.sampleOffset = 0;
 
+			Signal->Blocks[n].offset = 0;
+			Signal->Blocks[n].loadSize = 0;
+			Signal->Blocks[n].difference = 0;
+
 			Signal->Blocks[n].SilenceSizeLeft = 0;
 			Signal->Blocks[n].SilenceSizeRight = 0;
 
@@ -594,6 +598,10 @@ void ReleaseBlock(AudioBlocks * AudioArray)
 	AudioArray->index = 0;
 	AudioArray->type = TYPE_NOTYPE;
 	AudioArray->seconds = 0;
+
+	AudioArray->offset = 0;
+	AudioArray->loadSize = 0;
+	AudioArray->difference = 0;
 }
 
 void ReleasePCM(AudioSignal *Signal)

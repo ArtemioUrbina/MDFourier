@@ -595,7 +595,8 @@ long int DetectPulseTrainSequence(Pulses *pulseArray, double targetFrequency, do
 	}
 
 	if(config->debugSync)
-		logmsgFileOnly("Failed\n");
+		logmsg("*FAILED* Partial pulse sequence detected: %d pulses, but not complete\n", *maxdetected);
+
 	*maxdetected = pulse_count;
 	return -1;
 }

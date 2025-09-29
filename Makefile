@@ -97,9 +97,14 @@ macppc: LFLAGS     = -L/usr/X11R6/lib/ -Wl,-logg $(BASE_LIBS) -lx11 -lxext -lxt 
 macppc: executable
 
 #flags for debug
-debug: CCFLAGS  = $(LOCAL_INCLUDE) $(BASE_CCFLAGS) -DDEBUG -g
+debug: CCFLAGS  = $(LOCAL_INCLUDE) $(BASE_CCFLAGS) -DDEBUG -g 
 debug: LFLAGS   = $(LOCAL_LINK) $(BASE_LIBS)
 debug: executable
+
+#flags for debug
+debugsan: CCFLAGS  = $(LOCAL_INCLUDE) $(BASE_CCFLAGS) -DDEBUG -g -fsanitize=address
+debugsan: LFLAGS   = $(LOCAL_LINK) $(BASE_LIBS)
+debugsan: executable
 
 executable: mdfourier
 executable: mdwave

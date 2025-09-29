@@ -411,6 +411,10 @@ typedef struct AudioBlock_st {
 	char			channel;
 	char			maskType;
 
+	long int		offset;
+	long int		loadSize;
+	long int		difference;
+	
 	double			AverageDifference;
 	double			missingPercent;
 	double			extraPercent;
@@ -481,8 +485,9 @@ typedef struct window_unit_st {
 	long int	frames;
 	double		seconds;
 	long int	size;
+	long int	clkAdjust;
 	long int	sizePadding;
-	int			trimSize;
+	long int	realMemSize;
 } windowUnit;
 
 typedef struct window_st {
@@ -589,6 +594,7 @@ typedef struct parameters_st {
 	double			startHzPlot, endHzPlot;
 	double			maxDbPlotZC;
 	int				maxDbPlotZCChanged;
+	int				limitHorizontal;
 	int				showAll;
 	int				extendedResults;
 	int				verbose;

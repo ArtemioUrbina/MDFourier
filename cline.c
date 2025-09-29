@@ -102,6 +102,8 @@ void PrintUsage(void)
 	logmsg("	 -x: (text) Enables e<x>tended log results. Shows a table with matches\n");
 	logmsg("	 -0: Change output folder\n");
 	logmsg("	 -y: Output debug Sync pulse detection algorithm information\n");
+	logmsg("	 -7: Creates plots for all windows used\n");
+	logmsg("	 -J: Limits plot horizontal display\n");
 }
 
 int Header(int log, int argc, char *argv[])
@@ -143,6 +145,7 @@ void CleanParameters(parameters *config)
 	config->endHzPlot = END_HZ;
 	config->maxDbPlotZC = DB_HEIGHT;
 	config->maxDbPlotZCChanged = 0;
+	config->limitHorizontal = 0;
 	config->extendedResults = 0;
 	config->verbose = 0;
 	config->window = 't';
@@ -311,8 +314,8 @@ int commandline(int argc , char *argv[], parameters *config)
 	
 	CleanParameters(config);
 
-	// Available: JKU1234567
-	while ((c = getopt (argc, argv, "Aa:Bb:Cc:Dd:Ee:Ff:GgH:hIijkL:lMm:Nn:Oo:P:p:Qq:Rr:Ss:TtuVvWw:XxY:yZ:z0:89")) != -1)
+	// Available: KU123456
+	while ((c = getopt (argc, argv, "Aa:Bb:Cc:Dd:Ee:Ff:GgH:hIiJjkL:lMm:Nn:Oo:P:p:Qq:Rr:Ss:TtuVvWw:XxY:yZ:z0:789")) != -1)
 	switch (c)
 	  {
 	  case 'A':
@@ -435,6 +438,10 @@ int commandline(int argc , char *argv[], parameters *config)
 		config->ignoreFloor = 1;
 		logmsg("\t-Ignoring Silence block noise floor\n");
 		break;
+	  case 'J':
+		  config->limitHorizontal = 1;
+		  logmsg("\t-Limiting Horizontal Plot Range\n");
+		  break;
 	  case 'j':
 		config->doClkAdjust = 1;
 		logmsg("\t-Adjusting Clock\n");
@@ -638,7 +645,7 @@ int commandline(int argc , char *argv[], parameters *config)
 		config->startHz = atof(optarg);
 		if(config->startHz < 1.0 || config->startHz > MAX_HZ-100.0)
 		{
-			logmsg(" - ERROR: Requested %g start frequency is out of range\n", atof(optarg));
+			logmsg(" - ERROR: Requested %g start frequency is out of range, should be between 1 and %g\n", atof(optarg), MAX_HZ - 100.0);
 			return 0;
 		}
 		logmsg("\t-Frequency start range for FFTW is now %g (default %g)\n", config->startHz, START_HZ);
@@ -754,6 +761,9 @@ int commandline(int argc , char *argv[], parameters *config)
 		break;
 	  case '0':
 		sprintf(config->outputPath, "%s", optarg);
+		break;
+	  case '7':
+		config->drawWindows = 1;
 		break;
 	  case '8':
 		config->logScaleTS = 1;
@@ -923,6 +933,12 @@ int commandline(int argc , char *argv[], parameters *config)
 			logmsg("ERROR: Bisection line amplitude must be lower than the analysis amplitude (%g dB)\n", config->maxDbPlotZC);
 			return 0;
 		}
+	}
+
+	if(config->limitHorizontal)
+	{
+		config->startHzPlot = config->startHz - 1000;
+		config->endHzPlot = config->endHz + 1000;
 	}
 
 	return 1;

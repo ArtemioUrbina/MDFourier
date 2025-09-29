@@ -59,22 +59,42 @@ int initWindows(windowManager *wm, double SampleRate, char winType, parameters *
 	return 1;
 }
 
-double *CreateWindowInternal(windowManager *wm, double *(*creator)(long), char *name, double seconds, long size, long sizePadding, long clkAdjustBufferSize, double frames)
+double *CreateWindowInternal(windowManager *wm, double *(*createWindow)(long), char *name, double seconds, long windowSize, long sizePadding, long clkAdjustBufferSize, double frames, parameters *config)
 {
+	long int realMemSize = 0;
 	double *window = NULL;
 
-	window = creator(size);
+	realMemSize = windowSize;
+
+	window = createWindow(windowSize);
 	if(!window)
 	{
 		logmsg ("%s window creation failed\n", name);
 		return NULL;
 	}
-	// Size difference at the end, for difference between frame rates
-	if(sizePadding)
+	// Size difference at the end, for difference between frame rates and Zeropadding
+	if(sizePadding+clkAdjustBufferSize)
 	{
 		double *tmp = NULL;
 
-		tmp = (double*)realloc(window, sizeof(double)*(size+sizePadding+clkAdjustBufferSize));
+		if(config->ZeroPad)
+		{
+			long int neededSize = realMemSize + sizePadding + clkAdjustBufferSize;
+			if(neededSize < wm->SampleRate)
+			{
+				neededSize = wm->SampleRate - realMemSize;
+				realMemSize = wm->SampleRate;
+			}
+		}
+		else
+			realMemSize = realMemSize + sizePadding + clkAdjustBufferSize;
+
+#ifdef DEBUG
+		if(config->verbose >= 2) {
+			logmsg("*** Padding window size %ld->%ld\n", windowSize, realMemSize);
+#endif
+
+		tmp = (double*)realloc(window, sizeof(double)*realMemSize);
 		if(!tmp)
 		{
 			free(window);
@@ -82,14 +102,17 @@ double *CreateWindowInternal(windowManager *wm, double *(*creator)(long), char *
 			return NULL;
 		}
 		window = tmp;
-		memset(window+size, 0, sizeof(double)*(sizePadding+clkAdjustBufferSize));
+		memset(window+windowSize, 0, sizeof(double)*(realMemSize-windowSize));
 	}
 
-	wm->windowArray[wm->windowCount].sizePadding = sizePadding;
 	wm->windowArray[wm->windowCount].window = window;
-	wm->windowArray[wm->windowCount].seconds = seconds;
-	wm->windowArray[wm->windowCount].size = size;
 	wm->windowArray[wm->windowCount].frames = frames;
+	wm->windowArray[wm->windowCount].seconds = seconds;
+	wm->windowArray[wm->windowCount].size = windowSize;
+	wm->windowArray[wm->windowCount].clkAdjust = clkAdjustBufferSize;
+	wm->windowArray[wm->windowCount].sizePadding = sizePadding;
+	wm->windowArray[wm->windowCount].realMemSize = realMemSize;
+	
 	wm->windowCount++;
 	return window;
 }
@@ -112,8 +135,17 @@ double *CreateWindow(windowManager *wm, long int frames, long int cutFrames, dou
 
 	if(wm->windowCount == wm->MaxWindow)
 	{
-		logmsg("ERROR: Reached Max window limit %d\n", wm->MaxWindow);
-		return NULL;
+		windowUnit *tmp = NULL;
+
+		tmp = (windowUnit*)realloc(wm->windowArray, sizeof(windowUnit)*(wm->MaxWindow+MAX_WINDOWS));
+		if(!tmp)
+		{
+			logmsg("Not enough memory for expanded window manager\n");
+			return NULL;
+		}
+		wm->windowArray = tmp;
+		memset(wm->windowArray+wm->MaxWindow, 0, sizeof(windowUnit)*MAX_WINDOWS);
+		wm->MaxWindow += MAX_WINDOWS;
 	}
 
 	seconds = FramesToSeconds(frames-cutFrames, framerate);
@@ -138,26 +170,28 @@ double *CreateWindow(windowManager *wm, long int frames, long int cutFrames, dou
 #ifdef DEBUG
 	if(config->verbose >= 2) {
 		if(!config->doClkAdjust)
-			logmsg("**** Creating window size %ld+%ld=%ld (%ld frames %g fr)\n", size, sizePadding, size+sizePadding, frames, framerate);
+			logmsg(" *** Creating window: size %ld+(p)%ld = %ld (%ld frames %g fr)\n",
+				size, sizePadding, size+sizePadding, frames, framerate);
 		else
-			logmsg("**** Creating window size %ld+%ld(+%ld)=%ld(%ld) (%ld frames %g fr) clkAdjustBufferSize: $ld\n", size, sizePadding, clkAdjustBufferSize, size+sizePadding, size+sizePadding+clkAdjustBufferSize, frames, framerate, clkAdjustBufferSize);
+			logmsg(" *** Creating window: size %ld+(p)%ld(+(clk)%ld)=%ld(%ld) (%ld frames %g fr) clkAdjustBufferSize: %ld\n",
+				size, sizePadding, clkAdjustBufferSize, size+sizePadding, size+sizePadding+clkAdjustBufferSize, frames, framerate, clkAdjustBufferSize);
 	}
 #endif
 	
 	if(wm->winType == 'n')
-		return(CreateWindowInternal(wm, rectWindow, "Rectangle", seconds, size, sizePadding, clkAdjustBufferSize, frames));
+		return(CreateWindowInternal(wm, rectWindow, "Rectangle", seconds, size, sizePadding, clkAdjustBufferSize, frames, config));
 
 	if(wm->winType == 't')
-		return(CreateWindowInternal(wm, tukeyWindow, "Tukey", seconds, size, sizePadding, clkAdjustBufferSize, frames));
+		return(CreateWindowInternal(wm, tukeyWindow, "Tukey", seconds, size, sizePadding, clkAdjustBufferSize, frames, config));
 
 	if(wm->winType == 'f')
-		return(CreateWindowInternal(wm, flattopWindow, "Flattop", seconds, size, sizePadding, clkAdjustBufferSize, frames));
+		return(CreateWindowInternal(wm, flattopWindow, "Flattop", seconds, size, sizePadding, clkAdjustBufferSize, frames, config));
 
 	if(wm->winType == 'h')
-		return(CreateWindowInternal(wm, hannWindow, "Hann", seconds, size, sizePadding, clkAdjustBufferSize, frames));
+		return(CreateWindowInternal(wm, hannWindow, "Hann", seconds, size, sizePadding, clkAdjustBufferSize, frames, config));
 
 	if(wm->winType == 'm')
-		return(CreateWindowInternal(wm, hammingWindow, "Hamming", seconds, size, sizePadding, clkAdjustBufferSize, frames));
+		return(CreateWindowInternal(wm, hammingWindow, "Hamming", seconds, size, sizePadding, clkAdjustBufferSize, frames, config));
 
 	logmsg("FAILED Creating window size %g (%ld frames %g fr)\n", frames*framerate, frames, framerate);
 	return NULL;
@@ -181,7 +215,8 @@ double *getWindowByLength(windowManager *wm, long int frames, long int cutFrames
 
 #ifdef DEBUG
 	if(config->verbose >= 3)
-		logmsg("Asked for window %ld zero:%ld (%ld frames %ld cut frames %g fr)\n", size, sizePadding, frames, cutFrames, framerate);
+		logmsg("Asked for window: %ld pad:%ld (%ld frames %ld cut frames %g fr)\n",
+			size, sizePadding, frames, cutFrames, framerate);
 #endif
 
 	for(int i = 0; i < wm->windowCount; i++)
@@ -190,7 +225,8 @@ double *getWindowByLength(windowManager *wm, long int frames, long int cutFrames
 		{
 #ifdef DEBUG
 			if(config->verbose >= 2)
-				logmsg("Served window size %ld zero:%ld (%ld frames %ld cut frames %g fr)\n", size, sizePadding, frames, cutFrames, framerate);
+				logmsg("Served window size %ld zero:%ld (%ld frames %ld cut frames %g fr)\n",
+					size, sizePadding, frames, cutFrames, framerate);
 #endif
 			
 			return wm->windowArray[i].window;
@@ -227,6 +263,17 @@ void freeWindows(windowManager *wm)
 	wm->MaxWindow = 0;
 	wm->SampleRate = 0;
 	wm->winType = 'n';
+}
+
+void printWindows(windowManager *wm)
+{
+	for(int i = 0; i < wm->windowCount; i++)
+	{
+		printf("WINDOW: %d frames %ld seconds %g size %ld pad: %ld real: %ld\n", i,
+			wm->windowArray[i].frames, wm->windowArray[i].seconds,
+			wm->windowArray[i].size, wm->windowArray[i].sizePadding,
+			wm->windowArray[i].realMemSize);
+	}
 }
 
 // reduce scalloping loss 

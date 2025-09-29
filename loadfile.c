@@ -133,14 +133,30 @@ void ConvertByteArrayToIEEE64Sample(const void *buf, void *target)
 }
 
 // For future(?) Endianess compatibility
+uint64_t EndianessChange64bits(uint64_t num)
+{
+	uint64_t swapped = 0;
+
+	swapped =	((num >> 56) & 0x00000000000000FFULL) | // move byte 7 to byte 0
+				((num >> 40) & 0x000000000000FF00ULL) | // move byte 6 to byte 1
+				((num >> 24) & 0x0000000000FF0000ULL) | // move byte 5 to byte 2
+				((num >> 8)  & 0x00000000FF000000ULL) | // move byte 4 to byte 3
+				((num << 8)  & 0x000000FF00000000ULL) | // move byte 3 to byte 4
+				((num << 24) & 0x0000FF0000000000ULL) | // move byte 2 to byte 5
+				((num << 40) & 0x00FF000000000000ULL) | // move byte 1 to byte 6
+				((num << 56) & 0xFF00000000000000ULL);	// move byte 0 to byte 7
+
+	return swapped;
+}
+
 uint32_t EndianessChange32bits(uint32_t num)
 {
 	uint32_t swapped = 0;
 	
-	swapped = ((num>>24)&0xff) | // move byte 3 to byte 0
-              ((num<<8)&0xff0000) | // move byte 1 to byte 2
-              ((num>>8)&0xff00) | // move byte 2 to byte 1
-              ((num<<24)&0xff000000); // byte 0 to byte 3
+	swapped =	((num>>24) & 0xff) |		// move byte 3 to byte 0
+				((num<<8)  & 0xff0000) |	// move byte 1 to byte 2
+				((num>>8)  & 0xff00) |		// move byte 2 to byte 1
+				((num<<24) & 0xff000000);	// move byte 0 to byte 3
 	return swapped;
 }
 
@@ -328,7 +344,7 @@ int LoadWAVFile(FILE *file, AudioSignal *Signal, parameters *config)
 	if(Signal->AudioChannels == INVALID_CHANNELS)
 	{
 		logmsg("\tERROR: Only Mono and Stereo files are supported. ");
-        logmsg("File has %d channels\n", Signal->header.fmt.NumOfChan);
+		logmsg("File has %d channels\n", Signal->header.fmt.NumOfChan);
 		return(0);
 	}
 

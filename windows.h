@@ -43,5 +43,6 @@ double *CreateWindow(windowManager *wm, long int frames, long int cutFrames, dou
 void freeWindows(windowManager *windows);
 double CompensateValueForWindow(double value, char winType);
 double CalculateCorrectionFactor(windowManager *wm, long int frames);
+void printWindows(windowManager *wm);
 
 #endif

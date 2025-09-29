@@ -146,6 +146,7 @@
 #define	T_SPECTR_FOLDER		"TimeSpectrograms"
 #define	NOISEFLOOR_FOLDER	"NoiseFloor"
 #define	CLK_FOLDER			"CLK"
+#define	WINDOWS_FOLDER		"Windows"
 
 //#define TESTWARNINGS
 #define SYNC_DEBUG_SCALE	8
@@ -3383,11 +3384,19 @@ void PlotNoiseSpectrogram(FlatFrequency *freqs, long int size, char channel, cha
 	ClosePlot(&plot);
 }
 
-void VisualizeWindows(windowManager *wm, int role, parameters *config)
+void VisualizeWindows(windowManager *wm, char *type, int role, parameters *config)
 {
+	char 	*CurrentPath = NULL, *MainPath = NULL, *returnFolder = NULL;
+
 	if(!wm)
 		return;
 
+	MainPath = PushMainPath(config);
+	CurrentPath = GetCurrentPathAndChangeToResultsFolder(config);
+			
+	returnFolder = PushFolder(WINDOWS_FOLDER);
+	if(!returnFolder)
+		return;
 	for(int i = 0; i < wm->windowCount; i++)
 	{
 		//logmsg("Factor len %ld: %g\n", wm->windowArray[i].frames,
@@ -3396,16 +3405,19 @@ void VisualizeWindows(windowManager *wm, int role, parameters *config)
 		//for(long int j = 0; j < wm->windowArray[i].size; j++)
 			//logmsg("Window %ld %g\n", j, wm->windowArray[i].window[j]);
 
-		PlotWindow(&wm->windowArray[i], i, role, config);
+		PlotWindow(&wm->windowArray[i], i, role, type, wm->winType, config);
 	}
+	ReturnToMainPath(&returnFolder);
+	ReturnToMainPath(&CurrentPath);
+	PopMainPath(&MainPath);
 }
 
-void PlotWindow(windowUnit *windowUnit, int index, int role, parameters *config)
+void PlotWindow(windowUnit *windowUnit, int index, int role, char *type, char winType, parameters *config)
 {
 	PlotFile plot;
 	char	 name[BUFFER_SIZE];
 	double 	 *window = NULL, frames;
-	long int size;
+	long int size, realMemSize;
 
 	if(!config || !windowUnit)
 		return;
@@ -3413,13 +3425,16 @@ void PlotWindow(windowUnit *windowUnit, int index, int role, parameters *config)
 	window = windowUnit->window;
 	frames = windowUnit->frames;
 	size = windowUnit->size;
+	realMemSize = windowUnit->realMemSize;
 
-	sprintf(name, "WindowPlot_%s_%s_ind%03d_fr%g_sz%ld", GetWindow(config->window), role == ROLE_REF ? "0Ref" : "1Comp", index, frames, size);
-	FillPlotExtra(&plot, name, 320, 384, 0, -0.1, 1, 1.1, 0.001, 0, config);
+	sprintf(name, "WindowPlot_%s_%s_%s_ind%03d_fr%g_sz%ld_rlsz%ld",
+		GetWindow(winType), type, role == ROLE_REF ? "0Ref" : "1Comp", index, frames, size, realMemSize);
+	FillPlotExtra(&plot, name, 1024, 1280, 0, -0.1, 1, 1.1, 0.001, 0, config);
 
 	if(!CreatePlotFile(&plot, config))
 		return;
 
+	//size = realMemSize;
 	// Frames Grid
 	pl_pencolor_r (plot.plotter, 0, 0x3333, 0);
 	for(long int i = 0; i <= frames; i++)
@@ -3441,10 +3456,18 @@ void PlotWindow(windowUnit *windowUnit, int index, int role, parameters *config)
 
 void PlotBetaFunctions(parameters *config)
 {
+	char 	*CurrentPath = NULL, *MainPath = NULL, *returnFolder = NULL;
 	char	 name[BUFFER_SIZE];
 	int		 type = 0;
 
 	if(!config)
+		return;
+
+	MainPath = PushMainPath(config);
+	CurrentPath = GetCurrentPathAndChangeToResultsFolder(config);
+			
+	returnFolder = PushFolder(WINDOWS_FOLDER);
+	if(!returnFolder)
 		return;
 
 	for(type = 0; type <= 5; type ++)
@@ -3490,6 +3513,9 @@ void PlotBetaFunctions(parameters *config)
 		
 		ClosePlot(&plot);
 	}
+	ReturnToMainPath(&returnFolder);
+	ReturnToMainPath(&CurrentPath);
+	PopMainPath(&MainPath);
 }
 
 int MatchColor(char *color)
@@ -6432,7 +6458,7 @@ FlatFrequency *CreateFlatFrequenciesCLK(AudioSignal *Signal, long int *size, par
 		tmp.hertz = Signal->clkFrequencies.freq[i].hertz;
 		tmp.amplitude = Signal->clkFrequencies.freq[i].amplitude;
 		tmp.type = TYPE_CLK_ANALYSIS;
-		tmp.color = COLOR_GREEN;
+		tmp.color = COLOR_YELLOW;
 		tmp.channel = CHANNEL_LEFT;
 
 		if(InsertElementInPlace(Freqs, tmp, counter))
