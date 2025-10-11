@@ -6,49 +6,49 @@ PAL 19.99720039 314 7990 12 9
 NULL n
 [MonoBalanceBlock] 44      ;Use 1khz-ish, Pulse_12.5# 42
 [ToneLines] 46
-Sync s 1 20 0 red m
-Silence n 1 20 0 gray m
-Pulse_12.5 1 87 10 0 yellow m
-      PADDING k 1 10 0 gray m
-Pulse_25 2 87 10 0 orange m
-      PADDING k 1 10 0 gray m
-Pulse_50 3 87 10 0 purple m
-      PADDING k 1 10 0 gray m
-Triangle_notes 4 87 10 0 green m
-      PADDING k 1 10 0 gray m
-v00_noise 5 16 20 0 blue n
-v01_noise 6 16 20 0 red n
-      PADDING k 1 8 0 gray m
-      TRIANGID W 1 2 red m 1000 120 Phase
-      PADDING k 1 10 0 gray m
-v00_E-#_noise 7 4 22 0 magenta n
-      PADDING k 1 12 0 gray m
-DMC_pops t 2 20 0 aqua m
-DMC_pitches 8 16 20 0 aqua m
-      PADDING k 1 20 0 gray m
-Phase_reset_individual t 1 20 0 green m
-      PADDING k 1 10 0 gray m
-Phase_upward_hardware t 1 20 0 green m
-      PADDING k 1 10 0 gray m
-Phase_upward_software t 1 20 0 green m
-      PADDING k 1 10 0 gray m
-Pitch_slide_pulse 1 41 6 0 yellow m
-      PADDING k 1 34 0 gray m
-Pitch_slide_triangle 4 12 21 0 green m
-      PADDING k 1 28 0 gray m
-Noise_profile N 1 60 0 gray m
-Volume_ramp_1 t 1 75 0 red m
-      PADDING k 1 15 0 gray m
-Volume_ramp_2 t 1 75 0 red m
-      PADDING k 1 15 0 gray m
-Volume_ramp_3 t 1 75 0 red m
-      PADDING k 1 15 0 gray m
-Volume_ramp_4 t 1 75 0 red m
-      PADDING k 1 15 0 gray m
-Volume_ramp_5 t 1 75 0 red m
-      PADDING k 1 15 0 gray m
-Volume_ramp_6 t 1 75 0 red m
-      PADDING k 1 15 0 gray m
-DMC_fading t 10 60 0 green m
-Silence n 1 20 0 gray m
-Sync s 1 20 0 red m
+Sync                   s  1 20 0 red     m
+Silence                n  1 20 0 gray    m
+Pulse_12.5             1 87 10 0 yellow  m
+      PADDING          k  1 10 0 gray    m
+Pulse_25               2 87 10 0 orange  m
+      PADDING          k  1 10 0 gray    m
+Pulse_50               3 87 10 0 purple  m
+      PADDING          k  1 10 0 gray    m
+Triangle_notes         4 87 10 0 green   m
+      PADDING          k  1 10 0 gray    m
+v00_noise              5 16 20 0 blue    m
+v01_noise              6 16 20 0 red     m
+      PADDING          k  1  8 0 gray    m
+      TRIANGID         W  1  2   red     m 1000 120 Phase
+      PADDING          k  1 10 0 gray    m
+v00_E-#_noise          7  9 10 0 magenta m
+      PADDING          k  1 10 0 gray    m
+DMC_pops               t  2 20 0 aqua    m
+DMC_pitches            8 16 20 0 aqua    m
+      PADDING          k  1 20 0 gray    m
+Phase_reset_individual t  1 20 0 green   m
+      PADDING          k  1 10 0 gray    m
+Phase_upward_hardware  t  1 20 0 green   m
+      PADDING          k  1 10 0 gray    m
+Phase_upward_software  t  1 20 0 green   m
+      PADDING          k  1 10 0 gray    m
+Pitch_slide_pulse      1 24 10 0 yellow  m
+      PADDING          k  1 40 0 gray    m
+Pitch_slide_triangle   4 25 10 0 green   m
+      PADDING          k  1 30 0 gray    m
+Noise_profile          N  1 60 0 gray    m
+Volume_ramp_1          t  1 75 0 red     m
+      PADDING          k  1 15 0 gray    m
+Volume_ramp_2          t  1 75 0 red     m
+      PADDING          k  1 15 0 gray    m
+Volume_ramp_3          t  1 75 0 red     m
+      PADDING          k  1 15 0 gray    m
+Volume_ramp_4          t  1 75 0 red     m
+      PADDING          k  1 15 0 gray    m
+Volume_ramp_5          t  1 75 0 red     m
+      PADDING          k  1 15 0 gray    m
+Volume_ramp_6          t  1 75 0 red     m
+      PADDING          k  1 15 0 gray    m
+DMC_fading             t 10 60 0 green   m
+Silence                n  1 20 0 gray    m
+Sync                   s  1 20 0 red     m

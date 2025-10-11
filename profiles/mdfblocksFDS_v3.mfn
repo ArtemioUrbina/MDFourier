@@ -1,0 +1,73 @@
+MDFourierAudioBlockFile 2.3
+Nintendo: Famicom Disk System (v3.0)
+[VideoModes] 1
+NTSC 16.63926734 262 7998 12 10
+NULL n                      ; does FDS run on PAL NESs?
+[MonoBalanceBlock] 524      ; NAT_2A03
+[ToneLines] 66
+Sync                     s  1  20 0 red m
+WaitDecay                k  1  10 0 red m
+Silence                  n  1  10 0 gray m
+Sine_notes               1 94  10 0 yellow m
+      PADDING            k  1  10 0 gray m
+Square_notes             2 94  10 0 orange m
+      PADDING            k  1  10 0 gray m
+Square_32x_notes         3 94  10 0 cyan m
+      PADDING            k  1  30 0 gray m ; 10 frames + 20 frames padding added in the next test
+Wave_DC_pops             t  3  20 0 yellow m
+      PADDING            k  1  10 0 gray m
+Phase_reset_individual   t  1  20 0 green m
+      PADDING            k  1  20 0 gray m
+Sine_pitch_slide         1 56  10 0 yellow m
+      PADDING            k 1   10 0 gray m
+Square_pitch_slide       2 56  10 0 orange m
+      PADDING            k  1  10 0 gray m
+Saw_pitch_slide          4 56  10 0 green m
+      PADDING            k  1  10 0 gray m
+Square_32x_pitch_slide   3 56  10 0 cyan m
+      PADDING            k  1  10 0 gray m
+NAT_FDS                  t  1 120 0 red m
+      PADDING            k  1  60 0 gray m
+NAT_2A03                 5  1 120 0 magenta m
+      PADDING            k  1  60 0 gray m
+Phase_check_FDS          t  1  30 0 yellow m
+      PADDING            k  1  10 0 gray m
+Phase_check_2A03         5  1  30 0 magenta m
+      PADDING            k  1  10 0 gray m
+DAC_sort_check_FDS       t  1  30 0 yellow m
+      PADDING            k  1  10 0 gray m
+Master_0                 t  1  40 0 green m
+Master_1                 t  1  40 0 green m
+Master_2                 t  1  40 0 green m
+Master_3                 t  1  40 0 green m
+      PADDING            k  1  10 0 gray m
+Vol_Envelope_Manual      t  1  40 0 green m
+Vol_Envelope_Down        t  1  40 0 green m
+Vol_Envelope_Up          t  1  40 0 green m
+      PADDING            k  1  20 0 gray m
+Vol_Envelope_Manual_Mute t  1   2 0 green m
+      PADDING            k  1  10 0 gray m
+Vol_Envelope_Down_Mute   t  1   2 0 green m
+      PADDING            k  1  10 0 gray m
+Vol_Envelope_Manual_DC   t  1  40 0 green m
+Mod_timbre_NEZPlug       t  1  30 0 yellow m
+      PADDING            k  1  10 0 gray m
+Mod_timbre_correct       t  1  30 0 yellow m
+      PADDING            k  1  10 0 gray m
+Mod_reset                t  1  30 0 yellow m
+      PADDING            k  1  10 0 gray m
+Mod_overflow             t  1  30 0 yellow m
+      PADDING            k  1  10 0 gray m
+Mod_underflow            t  1  30 0 yellow m
+      PADDING            k  1  10 0 gray m
+Mod_halt                 t  1  30 0 yellow m
+      PADDING            k  1  10 0 gray m
+Mod_Envelope_Manual      t  1  70 0 green m
+      PADDING            k  1  10 0 gray m
+Mod_Envelope_Down        t  1  70 0 green m
+      PADDING            k  1  10 0 gray m
+Mod_Envelope_Up          t  1  70 0 green m
+      PADDING            k  1  10 0 gray m
+WaitDecay                k  1  10 0 red m
+Silence                  n  1  10 0 gray m
+Sync                     s  1  20 0 red m
