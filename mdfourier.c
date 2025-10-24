@@ -321,7 +321,7 @@ void PrintSignalCLKData(AudioSignal *Signal, parameters *config)
 	if(Signal->EstimatedSR)
 	{
 		/*
-		if(!config->doSamplerateAdjust)
+		if(!ApplySamplerateChange(Signal, config))
 			logmsg(", WARNING: %s sample rate estimated at %gHz from signal length (can be auto matched with -R)",
 				Signal->role == ROLE_REF ? "Reference" : "Comparison",
 				Signal->EstimatedSR);
@@ -1303,7 +1303,7 @@ int RecalculateFFTW(AudioSignal *Signal, parameters *config)
 	sampleBuffer = (double*)malloc(sampleBufferSize*sizeof(double));
 	if(!sampleBuffer)
 	{
-		logmsg("\tERROR: malloc failed.\n");
+		logmsg("\tERROR: malloc failed RecalculateFFTW.\n");
 		return(0);
 	}
 

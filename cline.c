@@ -282,7 +282,7 @@ void CleanParameters(parameters *config)
 	config->clkRef = 0;
 	config->clkCom = 0;
 
-	config->doSamplerateAdjust = 0;
+	config->doSamplerateAdjust = 'n';
 	config->doClkAdjust = 0;
 
 	config->useExtraData = 1;
@@ -309,13 +309,14 @@ int commandline(int argc , char *argv[], parameters *config)
 	FILE *file = NULL;
 	int c, index, ref = 0, tar = 0;
 	int profileLoaded = 0;
+	char param = '\0';
 	
 	opterr = 0;
 	
 	CleanParameters(config);
 
 	// Available: KU123456
-	while ((c = getopt (argc, argv, "Aa:Bb:Cc:Dd:Ee:Ff:GgH:hIiJjkL:lMm:Nn:Oo:P:p:Qq:Rr:Ss:TtuVvWw:XxY:yZ:z0:789")) != -1)
+	while ((c = getopt (argc, argv, "Aa:Bb:Cc:Dd:Ee:Ff:GgH:hIiJjkL:lMm:Nn:Oo:P:p:Qq:R:r:Ss:TtuVvWw:XxY:yZ:z0:789")) != -1)
 	switch (c)
 	  {
 	  case 'A':
@@ -439,9 +440,9 @@ int commandline(int argc , char *argv[], parameters *config)
 		logmsg("\t-Ignoring Silence block noise floor\n");
 		break;
 	  case 'J':
-		  config->limitHorizontal = 1;
-		  logmsg("\t-Limiting Horizontal Plot Range\n");
-		  break;
+		config->limitHorizontal = 1;
+		logmsg("\t-Limiting Horizontal Plot Range\n");
+		break;
 	  case 'j':
 		config->doClkAdjust = 1;
 		logmsg("\t-Adjusting Clock\n");
@@ -619,7 +620,7 @@ int commandline(int argc , char *argv[], parameters *config)
 			if(sscanf(optarg, "%lf:%lf", &BisectionHertz, &BisectionAmplitude) != 2)
 			{
 				logmsg("-ERROR: Invalid values for bisection lines (-q): %s.\n", optarg);
-				logmsg("  Must be of the form <bisection hertz>:<bisection samplitude>\n");
+				logmsg("  Must be of the from <bisection hertz>:<bisection samplitude>\n");
 				return 0;
 			}
 
@@ -631,8 +632,23 @@ int commandline(int argc , char *argv[], parameters *config)
 		}
 		break;
 	  case 'R':
-		config->doSamplerateAdjust = 1;
-		logmsg("\t-Adjusting sample rate if inconsistency found\n");
+		if(sscanf(optarg, "%c", &param) == 1 && (param == 'r' || param == 'c' || param == 'b'))
+		{
+			config->doSamplerateAdjust = param;
+			logmsg("\t-Adjusting sample rate if inconsistency found for: ");
+			if(param == 'b')
+				logmsg("both signals\n");
+			if(param == 'r')
+				logmsg("Reference\n");
+			if(param == 'c')
+				logmsg("Comparision\n");
+		}
+		else
+		{
+			logmsg("-ERROR: Invalid value for Sample rate Adjustment -%c.\n", c);
+			logmsg("  Must be 'r' for Reference, 'c' for Comparision or 'b' for Both\n");
+			return 0;
+		}
 		break;
 	  case 'r':
 		sprintf(config->referenceFile, "%s", optarg);

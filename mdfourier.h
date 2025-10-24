@@ -48,7 +48,7 @@
 
 #include "incbeta.h"
 
-#define MDVERSION "1.15"
+#define MDVERSION "1.161"
 
 #if INTPTR_MAX == INT64_MAX
 #define	BITS_MDF "64-bit"
@@ -736,7 +736,7 @@ typedef struct parameters_st {
     double      clkCom;
 
 	int			doClkAdjust;
-	int			doSamplerateAdjust;
+	char		doSamplerateAdjust;
 
 	AudioSignal		*referenceSignal;
 	AudioSignal		*comparisonSignal;

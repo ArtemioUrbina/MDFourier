@@ -1253,7 +1253,7 @@ void enableTestWarnings(parameters *config)
 
 	config->warningStereoReversed = 1;
 
-	config->doSamplerateAdjust = 1;
+	config->doSamplerateAdjust = 'b';
 	config->SRNoMatch = 1;
 	config->referenceSignal->EstimatedSR = 32780;
 	config->comparisonSignal->EstimatedSR = 34812.87;
@@ -1309,7 +1309,7 @@ void DrawSRData(PlotFile *plot, AudioSignal *Signal, char *msg, parameters *conf
 		return;
 
 	pl_pencolor_r(plot->plotter, 0xcccc, 0xcccc, 0);
-	if(config->doSamplerateAdjust)
+	if(ApplySamplerateChange(Signal, config))
 		sprintf(str, "\\ptSR %%s: %%g\\->%%gkHz");
 	else
 		sprintf(str, "\\ptSR %%s: %%g(%%g)kHz");
@@ -1700,7 +1700,7 @@ void DrawLabelsMDF(PlotFile *plot, char *Gname, char *GType, int type, parameter
 		pl_alabel_r(plot->plotter, 'l', 'l', msg);
 	}
 
-	if(config->doSamplerateAdjust &&
+	if(config->doSamplerateAdjust != 'n'  &&
 		(config->referenceSignal->originalSR || config->comparisonSignal->originalSR))
 	{
 		if(config->comparisonSignal->originalSR)
@@ -1914,7 +1914,7 @@ void DrawLabelsMDF(PlotFile *plot, char *Gname, char *GType, int type, parameter
 	}
 
 
-	if(config->SRNoMatch && !config->doSamplerateAdjust)
+	if(config->SRNoMatch && config->doSamplerateAdjust == 'n')
 	{
 		double labelwidth = 0;
 

@@ -3082,6 +3082,15 @@ long int GetZeroPadValues(long int *monoSignalSize, double *seconds, double samp
 	return zeropadding;
 }
 
+int ApplySamplerateChange(AudioSignal *Signal, parameters *config)
+{
+	if(config->doSamplerateAdjust == 'b' ||
+			(config->doSamplerateAdjust == 'r' && Signal->role == ROLE_REF) ||
+			(config->doSamplerateAdjust == 'c' && Signal->role == ROLE_COMP))
+		return 1;
+	return 0;
+}
+
 double CalculateFrameRateAndCheckSamplerate(AudioSignal *Signal, parameters *config)
 {
 	double framerate = 0, endOffset = 0, startOffset = 0;
@@ -3186,9 +3195,9 @@ double CalculateFrameRateAndCheckSamplerate(AudioSignal *Signal, parameters *con
 	if(areDoublesEqual(fabs(SRDifference), 0.0))  // do not make adjustments if they make no change at all 
 		return framerate;
 
-	if(config->doSamplerateAdjust && fabs(centsDifferenceSR) > 0)
+	if(config->doSamplerateAdjust != 'n' && fabs(centsDifferenceSR) > 0)
 	{
-		if(config->doSamplerateAdjust)
+		if(ApplySamplerateChange(Signal, config))
 		{
 			logmsg(" - NOTE: Auto adjustment of samplerate and frame rate applied\n");
 			logmsg("    Original framerate: %gms (%g difference) detected %fHz (%gHz difference) sample rate from audio duration\n", framerate, diffFR, calculatedSamplerate, SRDifference);
@@ -3234,7 +3243,7 @@ double CalculateFrameRateAndCheckSamplerate(AudioSignal *Signal, parameters *con
 			logmsg(" - There might be a pitch difference of %g cents\n", centsDifferenceSR);
 		}
 		
-		if(fabs(centsDifferenceSR) >= MAX_CENTS_DIFF || config->doSamplerateAdjust)
+		if(fabs(centsDifferenceSR) >= MAX_CENTS_DIFF || ApplySamplerateChange(Signal, config))
 		{
 			if(Signal->role == ROLE_REF)
 				config->RefCentsDifferenceSR = centsDifferenceSR;

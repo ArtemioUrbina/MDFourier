@@ -180,4 +180,6 @@ long int GetSignalMinInt(AudioSignal *Signal);
 double GetSignalMinDBFS(AudioSignal *Signal);
 void SetAmplitudeMatchByDuration(AudioSignal *reference, parameters *config);
 void SetAmplitudeMatchByDurationMDW(AudioSignal *reference, parameters *config);
+
+int ApplySamplerateChange(AudioSignal *Signal, parameters *config);
 #endif
