@@ -728,8 +728,8 @@ typedef struct parameters_st {
 	char		clkName[20];
 	int			clkMeasure;
 	int			clkBlock;
-	int			clkFreq;
-	int			clkRatio;
+	double		clkFreq;
+	double		clkRatio;
 	int			clkNotFound;
 	int			clkWarning;
     double      clkRef;

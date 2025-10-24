@@ -325,7 +325,7 @@ int LoadAudioBlockStructure(FILE *file, parameters *config)
 	config->clkMeasure = (tmp == 'y');
 	if(config->clkMeasure)
 	{
-		if(sscanf(lineBuffer, "%*s %*c %d %d %d\n", 
+		if(sscanf(lineBuffer, "%*s %*c %d %lf %lf\n", 
 			&config->clkBlock,
 			&config->clkFreq,
 			&config->clkRatio) != 3)

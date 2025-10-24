@@ -1247,8 +1247,8 @@ void enableTestWarnings(parameters *config)
 
 	config->clkMeasure = 1;
 	config->clkBlock = 2;
-	config->clkFreq = 8000;
-	config->clkRatio = 4;
+	config->clkFreq = 8000.0;
+	config->clkRatio = 4.0;
 	config->doClkAdjust = 1;
 
 	config->warningStereoReversed = 1;

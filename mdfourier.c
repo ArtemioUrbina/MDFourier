@@ -359,7 +359,7 @@ int ReportClockResults(AudioSignal *ReferenceSignal, AudioSignal *ComparisonSign
 		return 1;
 
 	if(!CalculateCLKAmplitudes(ReferenceSignal, ComparisonSignal, config)) {
-		logmsg("\n* WARNING: %s Clocks based on expected %d Hz on note %s# %d could not be calculated\n",
+		logmsg("\n* WARNING: %s Clocks based on expected %0.2lf Hz on note %s# %d could not be calculated\n",
 		config->clkName, config->clkFreq, GetBlockName(config, config->clkBlock),
 		GetBlockSubIndex(config, config->clkBlock));
 		return 0;
@@ -371,13 +371,13 @@ int ReportClockResults(AudioSignal *ReferenceSignal, AudioSignal *ComparisonSign
 	config->clkRef = refClk;
 	config->clkCom = compClk;
 
-	logmsg("\n* Estimated %s Clocks based on expected %d Hz on note %s# %d:\n",
+	logmsg("\n* Estimated %s Clocks based on expected %0.2lf Hz on note %s# %d:\n",
 		config->clkName, config->clkFreq, GetBlockName(config, config->clkBlock),
 		GetBlockSubIndex(config, config->clkBlock));
-	logmsg(" - Reference: %gHz", refClk);
+	logmsg(" - Reference: %0.2lfHz", refClk);
 	PrintSignalCLKData(ReferenceSignal, config);
 
-	logmsg(" - Comparison: %gHz", compClk);
+	logmsg(" - Comparison: %0.2lfHz", compClk);
 	PrintSignalCLKData(ComparisonSignal, config);
 
 	config->centsDifferenceCLK = 1200*log2(refClk/compClk);
@@ -1407,7 +1407,7 @@ void RecalculateFrameRateAndSamplerate(AudioSignal *Signal, parameters *config)
 	double	ratio = 0;
 	int		estimatedSampleRate = 0;
 
-	ratio = ((double)(config->clkFreq*config->clkRatio))/CalculateClk(Signal, config);
+	ratio = config->clkFreq*config->clkRatio/CalculateClk(Signal, config);
 	estimatedSampleRate = ceil(Signal->SampleRate*ratio);
 	Signal->EstimatedSR_CLK = estimatedSampleRate;
 

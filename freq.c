@@ -3403,12 +3403,12 @@ double CalculateClk(AudioSignal *Signal, parameters *config)
 	if(highestWithinRange == -1)
 	{
 		config->clkNotFound |= Signal->role;
-		return Signal->clkFrequencies.freq[0].hertz * (double)config->clkRatio;
+		return Signal->clkFrequencies.freq[0].hertz * config->clkRatio;
 	}
 	if(highestWithinRange != 0)
 		config->clkWarning |= Signal->role;
 
-	return Signal->clkFrequencies.freq[highestWithinRange].hertz * (double)config->clkRatio;
+	return Signal->clkFrequencies.freq[highestWithinRange].hertz * config->clkRatio;
 }
 
 double FindMaxMagnitudeCLKSignal(AudioSignal *Signal, parameters *config)
