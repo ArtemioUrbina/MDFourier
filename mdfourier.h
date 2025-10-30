@@ -734,6 +734,8 @@ typedef struct parameters_st {
 	int			clkWarning;
     double      clkRef;
     double      clkCom;
+	int			*clkBlocksAdjust;
+	int			clkBlkAdjustNum;
 
 	int			doClkAdjust;
 	char		doSamplerateAdjust;

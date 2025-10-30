@@ -285,6 +285,9 @@ void CleanParameters(parameters *config)
 	config->doSamplerateAdjust = 'n';
 	config->doClkAdjust = 0;
 
+	config->clkBlocksAdjust = NULL;
+	config->clkBlkAdjustNum = 0;
+
 	config->useExtraData = 1;
 	config->compressToBlocks = 0;
 	config->drawPerfect = 1;

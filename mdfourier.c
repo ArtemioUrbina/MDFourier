@@ -1287,6 +1287,21 @@ void AdjustTimeDomainData(AudioSignal* ReferenceSignal, AudioSignal* ComparisonS
 	}
 }
 
+int IsTypeInCLKLArray(int type, parameters *config)
+{
+	int i = 0;
+
+	if(config->clkBlkAdjustNum == -1) /* profile indicates all */
+		return 1;
+
+	for(i = 0; i < config->clkBlkAdjustNum; i++)
+	{
+		if(config->clkBlocksAdjust[i] == type)
+			return 1;
+	}
+	return 0;
+}
+
 int RecalculateFFTW(AudioSignal *Signal, parameters *config)
 {
 	long int		i = 0;	
@@ -1312,7 +1327,8 @@ int RecalculateFFTW(AudioSignal *Signal, parameters *config)
 
 	while(i < config->types.totalBlocks)
 	{
-		if(Signal->Blocks[i].type > TYPE_SILENCE || Signal->Blocks[i].type == TYPE_WATERMARK)
+		if((Signal->Blocks[i].type > TYPE_SILENCE || Signal->Blocks[i].type == TYPE_WATERMARK) &&
+			IsTypeInCLKLArray(Signal->Blocks[i].type, config))
 		{
 			long int frames = 0, cutFrames = 0, currSamplesSize = 0;
 

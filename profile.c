@@ -223,6 +223,79 @@ int CheckChannel(char *channel, parameters *config)
 	return 0;
 }
 
+int CreateCLKArray(char *lineBuffer, parameters *config)
+{
+	/* 	If no blocks are specified, or  '*' found apply to all.
+			Otherwise apply to explicitly mentioned blocks */
+
+	int pos = 0, spaces = 0, listStart = 0, params = 1, start = 0, count = 0;
+
+	/* We start by catching up tp the already parsed position */
+	/* "%*s %*c %d %lf %lf" */
+	while(lineBuffer[pos] != '\n' && lineBuffer[pos] != '\0' && spaces < 5)
+	{
+		if(lineBuffer[pos] == ' ')
+			spaces ++;
+		pos++;
+	}
+
+	if(lineBuffer[pos] == '\0' || lineBuffer[pos] == '\n')
+	{
+		config->clkBlkAdjustNum = -1; /* apply to all */
+		return 1;
+	}
+
+	listStart = pos;
+	if(lineBuffer[listStart] == '*')
+	{
+		config->clkBlkAdjustNum = -1; /* apply to all */
+		return 1;
+	}
+
+	/* count parameter list */
+	while(lineBuffer[pos] != '\0')
+	{
+		if(lineBuffer[pos] == ' ')
+			params ++;
+		pos++;
+	}
+
+	config->clkBlocksAdjust = (int*)malloc(sizeof(int)*params);
+	if(!config->clkBlocksAdjust)
+		return 0;
+
+	pos = listStart;
+	start = pos;
+	while(lineBuffer[pos] != '\0' && lineBuffer[pos] != '\n')
+	{
+		if(lineBuffer[pos] == ' ')
+		{
+			if(pos > start)
+			{
+				if(sscanf(lineBuffer+start, "%d", &config->clkBlocksAdjust[count++]) != 1)
+				{
+					free(config->clkBlocksAdjust);
+					return 0;
+				}
+			}
+			start = pos+1;
+		}
+		pos++;
+	}
+
+	if (pos > start)
+	{
+		if(sscanf(lineBuffer+start, "%d", &config->clkBlocksAdjust[count++]) != 1)
+		{
+			free(config->clkBlocksAdjust);
+			return 0;
+		}
+	}
+
+	config->clkBlkAdjustNum = params;
+	return 1;
+}
+
 int LoadAudioBlockStructure(FILE *file, parameters *config)
 {
 	int		insideInternal = 0, i = 0, syncCount = 0, lineCount = 7;
@@ -325,7 +398,7 @@ int LoadAudioBlockStructure(FILE *file, parameters *config)
 	config->clkMeasure = (tmp == 'y');
 	if(config->clkMeasure)
 	{
-		if(sscanf(lineBuffer, "%*s %*c %d %lf %lf\n", 
+		if(sscanf(lineBuffer, "%*s %*c %d %lf %lf", 
 			&config->clkBlock,
 			&config->clkFreq,
 			&config->clkRatio) != 3)
@@ -337,7 +410,14 @@ int LoadAudioBlockStructure(FILE *file, parameters *config)
 
 		if(config->clkBlock <= 0 || config->clkFreq <= 0 || config->clkRatio <= 0)
 		{
-			logmsg("ERROR: Invalid MD Fourier Audio Blocks File (CLK):\n%s\n", lineBuffer);
+			logmsg("ERROR: Invalid MD Fourier Audio Blocks File (CLK Values):\n%s\n", lineBuffer);
+			fclose(file);
+			return 0;
+		}
+
+		if(!CreateCLKArray(lineBuffer, config))
+		{
+			logmsg("ERROR: Invalid MD Fourier Audio Blocks File (CLK Block Array):\n%s\n", lineBuffer);
 			fclose(file);
 			return 0;
 		}
