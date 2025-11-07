@@ -3052,37 +3052,38 @@ long int GetBlockZeroPadValues(long int *monoSignalSize, double *seconds, double
 		*seconds = maxBlockSeconds;
 	}
 	else
-		logmsgFileOnly("WARNING: Block length longer than max block lentgth %g > %g (might be normal with silence being longer than the regular blocks)\n", *seconds, maxBlockSeconds);
+		logmsgFileOnly("WARNING: Block length longer than max block length %g > %g (might be normal with silence being longer than the regular blocks)\n", *seconds, maxBlockSeconds);
 
 	return padding;
 }
-
-// Zero pad to 1 second for 1hz alignment of bins
-long int GetZeroPadValues(long int *monoSignalSize, double *seconds, double samplerate)
+// Align frequency bins to 1/ZeroPadFactor Hz (ZeroPadFactor seconds alignment), base is 1
+long int GetZeroPadValues(long int *monoSignalSize, double *seconds, double samplerate, int ZeroPadFactor)
 {
 	long int zeropadding = 0;
+	long int alignmentSize = 0;
 
 	// Samplerate CHECK
 	if(!monoSignalSize || !seconds)
 		return zeropadding;
 
+	alignmentSize = (long int)(ZeroPadFactor * samplerate);
 	// Align frequency bins to 1Hz
-	if(*monoSignalSize != (long int)samplerate)
+	if(*monoSignalSize != alignmentSize)
 	{
-		if(*monoSignalSize < samplerate)
+		if(*monoSignalSize < alignmentSize)
 		{
-			zeropadding = samplerate - *monoSignalSize;
+			zeropadding = alignmentSize - *monoSignalSize;
 			*monoSignalSize += zeropadding;
-			*seconds = 1;
+			*seconds = ZeroPadFactor;
 		}
 		else
 		{
 			int times;
 
-			times = ceil((double)*monoSignalSize/samplerate);
-			zeropadding = times*samplerate - *monoSignalSize;
+			times = ceil((double)*monoSignalSize/alignmentSize);
+			zeropadding = times*alignmentSize - *monoSignalSize;
 			*monoSignalSize += zeropadding;
-			*seconds = times;
+			*seconds = times * ZeroPadFactor;
 		}
 	}
 	return zeropadding;
@@ -3383,7 +3384,7 @@ char *GetFileName(int role, parameters *config)
 		return(config->comparisonFile);
 }
 
-double CalculateClk(AudioSignal *Signal, parameters *config)
+double CalculateClkFraction(AudioSignal *Signal, parameters *config)
 {
 	int i = 0, highestWithinRange = -1;
 	double target = 0, tolerance = 0.05;
@@ -3414,7 +3415,7 @@ double CalculateClk(AudioSignal *Signal, parameters *config)
 	if(highestWithinRange != 0)
 		config->clkWarning |= Signal->role;
 
-	return Signal->clkFrequencies.freq[highestWithinRange].hertz * config->clkRatio;
+	return Signal->clkFrequencies.freq[highestWithinRange].hertz;
 }
 
 double FindMaxMagnitudeCLKSignal(AudioSignal *Signal, parameters *config)

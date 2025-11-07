@@ -154,7 +154,7 @@ double CalculateScanRate(AudioSignal *Signal);
 double CalculateScanRateOriginalFramerate(AudioSignal *Signal);
 
 double FindFrequencyBinSizeForBlock(AudioSignal *Signal, long int block);
-long int GetZeroPadValues(long int *monoSignalSize, double *seconds, double samplerate);
+long int GetZeroPadValues(long int *monoSignalSize, double *seconds, double samplerate, int ZeroPadFactor);
 long int GetBlockZeroPadValues(long int *monoSignalSize, double *seconds, double maxBlockSeconds, double samplerate);
 void CalculateFrequencyBrackets(AudioSignal *signal, parameters *config);
 double FindFrequencyBracket(double frequency, size_t size, int AudioChannels, double samplerate, parameters *config);
@@ -171,7 +171,7 @@ int GetLineCount(int role, parameters *config);
 double GetMSPerFrame(AudioSignal *Signal, parameters *config);
 double GetMSPerFrameRole(int role, parameters *config);
 char *GetFileName(int role, parameters *config);
-double CalculateClk(AudioSignal *Signal, parameters *config);
+double CalculateClkFraction(AudioSignal *Signal, parameters *config);
 int CalculateCLKAmplitudes(AudioSignal *ReferenceSignal, AudioSignal *ComparisonSignal, parameters *config);
 
 long int GetSignalMaxInt(AudioSignal *Signal);

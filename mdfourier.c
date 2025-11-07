@@ -125,18 +125,6 @@ int main(int argc, char *argv[])
 		return 1;
 	}
 
-	if(!ReportClockResults(ReferenceSignal, ComparisonSignal, &config))
-	{
-		if(config.doClkAdjust)
-		{
-			if(!RecalculateFrequencyStructures(ReferenceSignal, ComparisonSignal, &config))
-			{
-				logmsg("Could not recalculate frequencies, Aborting\n");
-				return 1;
-			}
-		}
-	}
-
 	ReleasePCM(ReferenceSignal);
 	ReleasePCM(ComparisonSignal);
 
@@ -353,7 +341,7 @@ void PrintSignalCLKData(AudioSignal *Signal, parameters *config)
 
 int ReportClockResults(AudioSignal *ReferenceSignal, AudioSignal *ComparisonSignal, parameters *config)
 {
-	double refClk = 0, compClk = 0;
+	double refClkFraction = 0, compClkFraction = 0;
 
 	if(!config->clkMeasure)
 		return 1;
@@ -365,22 +353,22 @@ int ReportClockResults(AudioSignal *ReferenceSignal, AudioSignal *ComparisonSign
 		return 0;
 	}
 
-	refClk = CalculateClk(ReferenceSignal, config);
-	compClk = CalculateClk(ComparisonSignal, config);
+	refClkFraction = CalculateClkFraction(ReferenceSignal, config);
+	compClkFraction = CalculateClkFraction(ComparisonSignal, config);
 
-	config->clkRef = refClk;
-	config->clkCom = compClk;
+	config->clkRef = refClkFraction * config->clkRatio;
+	config->clkCom = compClkFraction * config->clkRatio;
 
-	logmsg("\n* Estimated %s Clocks based on expected %0.2lf Hz on note %s# %d:\n",
+	logmsg("\n* Estimated %s Clocks based on expected %0.04lf Hz on note %s# %d:\n",
 		config->clkName, config->clkFreq, GetBlockName(config, config->clkBlock),
 		GetBlockSubIndex(config, config->clkBlock));
-	logmsg(" - Reference: %0.2lfHz", refClk);
+	logmsg(" - Reference: %0.04lfHz -> %0.04lfHz", refClkFraction, config->clkRef);
 	PrintSignalCLKData(ReferenceSignal, config);
 
-	logmsg(" - Comparison: %0.2lfHz", compClk);
+	logmsg(" - Comparison: %0.04lfHz -> %0.04lfHz", compClkFraction, config->clkCom);
 	PrintSignalCLKData(ComparisonSignal, config);
 
-	config->centsDifferenceCLK = 1200*log2(refClk/compClk);
+	config->centsDifferenceCLK = 1200*log2(refClkFraction/compClkFraction);
 	if(fabs(config->centsDifferenceCLK) >= MIN_CENTS_DIFF)
 	{
 		logmsg(" - Pitch difference in cents: %g\n", config->centsDifferenceCLK);
@@ -912,6 +900,18 @@ int LoadAndProcessAudioFiles(AudioSignal **ReferenceSignal, AudioSignal **Compar
 	CalculateFrequencyBrackets(*ReferenceSignal, config);
 	CalculateFrequencyBrackets(*ComparisonSignal, config);
 
+    if(!ReportClockResults(*ReferenceSignal, *ComparisonSignal, config))
+	{
+		if(config->doClkAdjust)
+		{
+			if(!RecalculateFrequencyStructures(*ReferenceSignal, *ComparisonSignal, config))
+			{
+				logmsg("Could not recalculate frequencies, Aborting\n");
+				return 1;
+			}
+		}
+	}
+
 	if(!NormalizeAndFinishProcess(ReferenceSignal, ComparisonSignal, config))
 		return 0;
 
@@ -1377,9 +1377,10 @@ int RecalculateFFTW(AudioSignal *Signal, parameters *config)
 					return 0;
 				}
 
-				windowUsed = getWindowByLength(&clockWindows, 1000.0/Signal->framerate, 0, Signal->framerate, config);
+				// We only use ZeroPadFactor for the CLK, the rest is zero padded to 1hz
+				windowUsed = getWindowByLength(&clockWindows, config->ZeroPadFactor*1000.0/Signal->framerate, 0, Signal->framerate, config);
 				CleanFrequenciesInBlock(&Signal->clkFrequencies, config);
-				if(!ExecuteDFFT(&Signal->clkFrequencies, sampleBuffer, currSamplesSize, Signal->SampleRate, windowUsed, Signal->AudioChannels, 1 , config)) // zeropad on 
+				if(!ExecuteDFFT(&Signal->clkFrequencies, sampleBuffer, currSamplesSize, Signal->SampleRate, windowUsed, Signal->AudioChannels, 1*config->ZeroPadFactor , config)) // zeropad on 
 				{
 					free(sampleBuffer);
 					freeWindows(&windows);
@@ -1442,29 +1443,29 @@ void RecalculateFrameRateAndSamplerate(AudioSignal *Signal, parameters *config)
 // so we go for the lower one
 double RecalculateFrameRateAndSamplerateComp(AudioSignal *ReferenceSignal, AudioSignal *ComparisonSignal, parameters *config)
 {
-	double		ratio = 0, refCLK = 0, compCLK = 0, adjustedTo = 0;
+	double		ratio = 0, refClkFraction = 0, compClkFraction = 0, adjustedTo = 0;
 	int			estimatedSampleRate = 0;
 	AudioSignal	*changedSignal = 0;
 
-	refCLK = CalculateClk(ReferenceSignal, config);
-	compCLK = CalculateClk(ComparisonSignal, config);
+	refClkFraction = CalculateClkFraction(ReferenceSignal, config);
+	compClkFraction = CalculateClkFraction(ComparisonSignal, config);
 
-	config->clkRef = refCLK;
-	config->clkCom = compCLK;
+	config->clkRef = refClkFraction * config->clkRatio;
+	config->clkCom = compClkFraction * config->clkRatio;
 
-	if(refCLK < compCLK)
+	if(refClkFraction < compClkFraction)
 	{
 		changedSignal = ComparisonSignal;
-		ratio = refCLK/compCLK;
-		changedSignal->originalCLK = compCLK;
-		adjustedTo = refCLK;
+		ratio = refClkFraction/compClkFraction;
+		changedSignal->originalCLK = config->clkCom;
+		adjustedTo = config->clkRef;
 	}
 	else
 	{
 		changedSignal = ReferenceSignal;
-		ratio = compCLK/refCLK;
-		changedSignal->originalCLK = refCLK;
-		adjustedTo = compCLK;
+		ratio = compClkFraction/refClkFraction;
+		changedSignal->originalCLK = config->clkRef;
+		adjustedTo = config->clkCom;
 	}
 
 	config->changedCLKFrom = changedSignal->role;
@@ -1494,19 +1495,19 @@ int RecalculateFrequencyStructures(AudioSignal *ReferenceSignal, AudioSignal *Co
 	//RecalculateFrameRateAndSamplerate(ComparisonSignal, config);
 
 	adjusted = RecalculateFrameRateAndSamplerateComp(ReferenceSignal, ComparisonSignal, config);
-	logmsg(" - Adjusted %s %s to %gHz\n",
+	logmsg(" - Adjusted %s %s to %0.04lfHz\n",
 			config->changedCLKFrom == ROLE_REF? "Reference" : "Comparison",
 			config->clkName, adjusted);
 	CompareFrameRates(ReferenceSignal, ComparisonSignal, config);
 
-	logmsg(" - Recalculation Discrete Fast Fourier Transforms with adjusted %s value\n", config->clkName);
+	// Reestimate maxBlockSeconds for Zero padding
+	SetAmplitudeMatchByDuration(ReferenceSignal, config);
+
+	logmsg(" - Recalculating Discrete Fast Fourier Transforms with adjusted %s value\n", config->clkName);
 	if(!RecalculateFFTW(ReferenceSignal, config))
 		return 0;
 
 	if(!RecalculateFFTW(ComparisonSignal, config))
-		return 0;
-
-	if(!NormalizeAndFinishProcess(&ReferenceSignal, &ComparisonSignal, config))
 		return 0;
 
 	if(!CalculateCLKAmplitudes(ReferenceSignal, ComparisonSignal, config))
@@ -1724,8 +1725,9 @@ int ProcessSignal(AudioSignal *Signal, parameters *config)
 				return 0;
 			}
 
-			windowUsed = getWindowByLength(&clockWindows, 1000.0/framerate, 0, framerate, config);
-			if(!ExecuteDFFT(&Signal->clkFrequencies, sampleBuffer, loadedBlockSize-difference, Signal->SampleRate, windowUsed, Signal->AudioChannels, 1 /* force ZeroPad */, config))
+			// We only use ZeroPadFactor for the CLK, the rest is zero padded to 1hz
+			windowUsed = getWindowByLength(&clockWindows, config->ZeroPadFactor*1000.0/framerate, 0, framerate, config);
+			if(!ExecuteDFFT(&Signal->clkFrequencies, sampleBuffer, loadedBlockSize-difference, Signal->SampleRate, windowUsed, Signal->AudioChannels, 1*config->ZeroPadFactor /* force ZeroPad */, config))
 			{
 				free(sampleBuffer);
 				freeWindows(&windows);
@@ -1871,7 +1873,7 @@ int ExecuteDFFTInternal(AudioBlocks *AudioArray, double *samples, size_t size, d
 		zeropadding = GetBlockZeroPadValues(&monoSignalSize, &seconds, config->maxBlockSeconds, samplerate);
 	
 	if(ZeroPad)  /* disabled by default */
-		zeropadding = GetZeroPadValues(&monoSignalSize, &seconds, samplerate);
+		zeropadding = GetZeroPadValues(&monoSignalSize, &seconds, samplerate, ZeroPad);
 
 #ifdef DEBUG
 	if(config->verbose >= 2)

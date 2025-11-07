@@ -616,7 +616,7 @@ int ExecuteDFFTInternal(AudioBlocks *AudioArray, double *samples, long int size,
 	seconds = (double)size/(samplerate*(double)AudioChannels);
 
 	if(config->ZeroPad)  /* disabled by default */
-		zeropadding = GetZeroPadValues(&monoSignalSize, &seconds, samplerate);
+		zeropadding = GetZeroPadValues(&monoSignalSize, &seconds, samplerate, 1);
 
 	// Round to 3 decimal places so that 48kHz and 44 kHz line up
 	boxsize = RoundFloat(AudioArray->seconds, 3);

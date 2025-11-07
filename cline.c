@@ -161,6 +161,7 @@ void CleanParameters(parameters *config)
 	config->biggerFramerate = 0;
 	config->referenceFramerate = 0;
 	config->ZeroPad = 0;
+	config->ZeroPadFactor = 1;
 	config->debugSync = 0;
 	config->timeDomainSync = 1;
 	config->drawWindows = 0;

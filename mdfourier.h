@@ -48,7 +48,7 @@
 
 #include "incbeta.h"
 
-#define MDVERSION "1.161"
+#define MDVERSION "1.164"
 
 #if INTPTR_MAX == INT64_MAX
 #define	BITS_MDF "64-bit"
@@ -616,6 +616,7 @@ typedef struct parameters_st {
 	int				debugSync;
 	int				timeDomainSync;
 	int				ZeroPad;
+	int				ZeroPadFactor;
 	enum normalize	normType;
 	int				channelBalance;
 	int				showPercent;

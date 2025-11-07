@@ -1330,7 +1330,7 @@ void DrawClockData(PlotFile *plot, AudioSignal *Signal, char *msg, parameters *c
 		pl_pencolor_r(plot->plotter, 0, 0xcccc, 0xcccc);
 
 	if(!Signal->originalCLK)
-		sprintf(msg, "%s %s: %gHz",
+		sprintf(msg, "%s %s: %0.4lfHz",
 			config->clkName,
 			Signal->role == ROLE_REF ? "RF" : "CM",
 			Signal->role == ROLE_REF ? config->clkRef : config->clkCom);
@@ -1340,9 +1340,9 @@ void DrawClockData(PlotFile *plot, AudioSignal *Signal, char *msg, parameters *c
 
 		pl_pencolor_r(plot->plotter, 0xcccc, 0xcccc, 0);
 		if(config->doClkAdjust)
-			sprintf(str, "%s %%s: %%g\\->%%gHz", config->clkName);
+			sprintf(str, "%s %%s: %%0.4lf\\->%%0.4lfHz", config->clkName);
 		else
-			sprintf(str, "%s %%s: %%g(%%g)Hz", config->clkName);
+			sprintf(str, "%s %%s: %%0.4lf(%%0.4lf)Hz", config->clkName);
 		sprintf(msg, str,
 			Signal->role == ROLE_REF ? "RF" : "CM",
 			Signal->originalCLK,

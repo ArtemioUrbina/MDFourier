@@ -185,8 +185,9 @@ int EndProfileLoad(parameters *config)
 	{
 		if(config->clkMeasure)
 		{
-			logmsg(" - Adjusting CLK rates, align to 1hz enabled (Zero padding)\n");
+			logmsg(" - Adjusting CLK rates, align to 1/16hz enabled (Zero padding)\n");
 			config->ZeroPad = 1;
+			config->ZeroPadFactor = 16;
 		}
 		else
 		{

@@ -315,7 +315,7 @@ int ExecuteBalanceDFFT(AudioBlocks *AudioArray, double *samples, size_t size, do
 	seconds = (double)size/(samplerate*2);
 
 	if(config->ZeroPad)  /* disabled by default */
-		zeropadding = GetZeroPadValues(&monoSignalSize, &seconds, samplerate);
+		zeropadding = GetZeroPadValues(&monoSignalSize, &seconds, samplerate, 1);
 
 	signal = (double*)malloc(sizeof(double)*(monoSignalSize+1));
 	if(!signal)
