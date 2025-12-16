@@ -1,0 +1,31 @@
+﻿
+Microsoft Visual Studio Solution File, Format Version 12.00
+# Visual Studio Version 18
+VisualStudioVersion = 18.1.11304.174 d18.0
+MinimumVisualStudioVersion = 10.0.40219.1
+Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "MDFourierGUI", "MDFourierGUI.vcxproj", "{0D018F92-E4C3-43F3-B17D-EBF4C97085EC}"
+EndProject
+Global
+	GlobalSection(SolutionConfigurationPlatforms) = preSolution
+		Debug|x64 = Debug|x64
+		Debug|x86 = Debug|x86
+		Release|x64 = Release|x64
+		Release|x86 = Release|x86
+	EndGlobalSection
+	GlobalSection(ProjectConfigurationPlatforms) = postSolution
+		{0D018F92-E4C3-43F3-B17D-EBF4C97085EC}.Debug|x64.ActiveCfg = Debug|x64
+		{0D018F92-E4C3-43F3-B17D-EBF4C97085EC}.Debug|x64.Build.0 = Debug|x64
+		{0D018F92-E4C3-43F3-B17D-EBF4C97085EC}.Debug|x86.ActiveCfg = Debug|Win32
+		{0D018F92-E4C3-43F3-B17D-EBF4C97085EC}.Debug|x86.Build.0 = Debug|Win32
+		{0D018F92-E4C3-43F3-B17D-EBF4C97085EC}.Release|x64.ActiveCfg = Release|x64
+		{0D018F92-E4C3-43F3-B17D-EBF4C97085EC}.Release|x64.Build.0 = Release|x64
+		{0D018F92-E4C3-43F3-B17D-EBF4C97085EC}.Release|x86.ActiveCfg = Release|Win32
+		{0D018F92-E4C3-43F3-B17D-EBF4C97085EC}.Release|x86.Build.0 = Release|Win32
+	EndGlobalSection
+	GlobalSection(SolutionProperties) = preSolution
+		HideSolutionNode = FALSE
+	EndGlobalSection
+	GlobalSection(ExtensibilityGlobals) = postSolution
+		SolutionGuid = {A97DDF11-9ECB-4579-89D8-E765480FE399}
+	EndGlobalSection
+EndGlobal

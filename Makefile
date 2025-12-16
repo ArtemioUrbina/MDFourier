@@ -50,25 +50,24 @@ BASE_LIBS       = -lm -lfftw3 -lplot -lpng -lz -lFLAC
 #-Wfloat-equal -Wconversion
 
 #For local builds
-LOCAL_INCLUDE         = -I/usr/local/include
-LOCAL_LINK            = -L/usr/local/lib
 EXTRA_CFLAGS_SYMBOLS  = -fdata-sections -ffunction-sections
+EXTRA_FLAC_STATIC     = -DFLAC__NO_DLL
 EXTRA_LFLAGS_SYMBOLS  = -Wl,--gc-sections -Wl,--strip-all
 EXTRA_LFLAGS_STATIC   = -Wl,-Bstatic
 
 #generic release
-all: CCFLAGS    = $(LOCAL_INCLUDE) $(BASE_CCFLAGS) $(OPT)
-all: LFLAGS     = $(LOCAL_LINK) $(BASE_LIBS)
+all: CCFLAGS    = $(BASE_CCFLAGS) $(OPT)
+all: LFLAGS     = $(BASE_LIBS)
 all: executable
 
 #extra flags for static release
-msys-s: CCFLAGS = $(LOCAL_INCLUDE) $(BASE_CCFLAGS) $(OPT) $(EXTRA_CFLAGS_SYMBOLS) $(OPENMP)
-msys-s: LFLAGS  = $(LOCAL_LINK) $(EXTRA_LFLAGS_STATIC) $(EXTRA_LFLAGS_SYMBOLS) $(BASE_LIBS) 
+msys-s: CCFLAGS = $(BASE_CCFLAGS) $(OPT) $(EXTRA_FLAC_STATIC) $(EXTRA_CFLAGS_SYMBOLS) $(OPENMP)
+msys-s: LFLAGS  = $(EXTRA_LFLAGS_STATIC) $(EXTRA_LFLAGS_SYMBOLS) $(BASE_LIBS) 
 msys-s: executable
 
 #extra flags for static with checks for testing in MSYS
-check: CCFLAGS  = $(LOCAL_INCLUDE) $(BASE_CCFLAGS) $(OPT) $(EXTRA_CFLAGS_SYMBOLS) $(OPENMP) -DDEBUG
-check: LFLAGS   = $(LOCAL_LINK) $(EXTRA_LFLAGS_STATIC) $(EXTRA_LFLAGS_SYMBOLS) $(BASE_LIBS) 
+check: CCFLAGS  = $(BASE_CCFLAGS) $(OPT) $(EXTRA_FLAC_STATIC) $(EXTRA_CFLAGS_SYMBOLS) $(OPENMP) -DDEBUG
+check: LFLAGS   = $(EXTRA_LFLAGS_STATIC) $(EXTRA_LFLAGS_SYMBOLS) $(BASE_LIBS) 
 check: executable
 
 #Linux/Un*x release
@@ -77,8 +76,8 @@ linux: LFLAGS   = $(EXTRA_LFLAGS_SYMBOLS) $(BASE_LIBS)
 linux: executable
 
 #Cygwin release
-cygwin: CCFLAGS = $(LOCAL_INCLUDE) $(BASE_CCFLAGS) $(OPT) $(OPENMP)
-cygwin: LFLAGS = $(LOCAL_LINK) $(BASE_LIBS) -Wl,--strip-all
+cygwin: CCFLAGS = $(BASE_CCFLAGS) $(OPT) $(OPENMP)
+cygwin: LFLAGS = $(BASE_LIBS) -Wl,--strip-all
 cygwin: executable
 
 #flags for mac
@@ -97,13 +96,13 @@ macppc: LFLAGS     = -L/usr/X11R6/lib/ -Wl,-logg $(BASE_LIBS) -lx11 -lxext -lxt 
 macppc: executable
 
 #flags for debug
-debug: CCFLAGS  = $(LOCAL_INCLUDE) $(BASE_CCFLAGS) -DDEBUG -g 
-debug: LFLAGS   = $(LOCAL_LINK) $(BASE_LIBS)
+debug: CCFLAGS  = $(BASE_CCFLAGS) -DDEBUG -g 
+debug: LFLAGS   = $(BASE_LIBS)
 debug: executable
 
 #flags for debug
-debugsan: CCFLAGS  = $(LOCAL_INCLUDE) $(BASE_CCFLAGS) -DDEBUG -g -fsanitize=address
-debugsan: LFLAGS   = $(LOCAL_LINK) $(BASE_LIBS)
+debugsan: CCFLAGS  = $(BASE_CCFLAGS) -DDEBUG -g -fsanitize=address
+debugsan: LFLAGS   = $(BASE_LIBS)
 debugsan: executable
 
 executable: mdfourier

@@ -17,12 +17,12 @@ The following implementations are also used and included with the source files:
 - sort.h for tim sort.
 - Incomplete Beta Function.
 
-The pre-compiled executable of the Analysis Software for Windows is created with MinGW, and statically linked for distribution against these libraries:
+The pre-compiled executable of the Analysis Software for Windows is created with MSYS2 UCRT64, and statically linked for distribution against these libraries:
 
-- fftw-3.3.8
+- fftw 3.3.10-5
 - plotutils-2.6
-- libpng-1.5.30
-- flac-1.3.3
+- libpng 1.6.53-1
+- flac-1.5.0
 
 The makefiles to compile either version are provided with the source code. 
 
@@ -73,22 +73,29 @@ Clone this repository and run `make`
 
 Please refer to [this post](https://donluca.theclassicgamer.net/compiling-static-binaries-on-macos/) for a guide on how to create a redistributable MDFourier binary with the libraries needed statically linked.
 
-### Notes for compiling under MSYS2/MinGW64
+### Notes for compiling under MSYS2/MinGW
 
-If you have them available for install from the system, go for that. If building the libraries from source, here is what has worked for me.
+Install MSYS2
+Use the UCRT64 version
 
-For all four libraries use: 
+#### Compiler and libraries
+Run the following commands to install all tools and libraries that work for our static buils:
 
-./configure CPPFLAGS='-I/usr/local/include' LDFLAGS='-L/usr/local/lib' 
-
-#### fftw-3.3.8
-In order to compile fftw, you need gcc and fortran installed.
-
-#### libpng-1.4.22
-Edit configure and remove the HAVE_SOLARIS lines
+pacman -Syu
+pacman -S make
+pacman -S mingw-w64-ucrt-x86_64-toolchain
+pacman -S mingw-w64-ucrt-x86_64-fftw
+pacman -S mingw-w64-ucrt-x86_64-libpng
 
 #### plotutils-2.6
-From: https://stackoverflow.com/questions/39861615/plotutils-compilation-error-with-png-1-6-25-dereferencing-pointer-to-incomplete
+
+These need to be patched, I have a pre-patched version if you prefer.
+
+##### Patching it yourself
+
+Download from: https://ftp.gnu.org/gnu/plotutils/plotutils-2.6.tar.gz
+
+Following the instructions from: https://stackoverflow.com/questions/39861615/plotutils-compilation-error-with-png-1-6-25-dereferencing-pointer-to-incomplete
 
 Edit file plotutils-2.6\libplot\z_write.c and change both occurances of:
 
@@ -98,25 +105,24 @@ to:
 
         png_jmpbuf(png_ptr)
 
-#### libFlac 1.3.3:
+##### Pre-patched
 
-I don't compile with ogg support to minimize dependencies. 
-change:
+Download from: https://github.com/ArtemioUrbina/Plotutils
 
-            CPPFLAGS="$CPPFLAGS -D_FORTIFY_SOURCE=2" 
+And then run:
 
-to
-
-            CPPFLAGS="$CPPFLAGS" 
-
-And for static linking move:
-
-            flac-1.3.3\src\libFLAC\.libs\libFLAC-static.a
-
-to
-
-            msys64\mingw64\lib\libFLAC.a
+./configure --prefix=/ucrt64 --enable-static --disable-shared LDFLAGS=-static
+make
+make install
 
 
+#### libFlac 1.5.0:
 
+In order to build it statically:
 
+pacman -S autoconf automake pkg-config libtool
+Download flac
+./autogen.sh
+./configure --prefix=/ucrt64 --enable-static --disable-shared --disable-ogg --disable-doxygen
+make
+make install
