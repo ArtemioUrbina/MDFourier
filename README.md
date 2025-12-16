@@ -111,9 +111,9 @@ Download from: https://github.com/ArtemioUrbina/Plotutils
 
 And then run:
 
-./configure --prefix=/ucrt64 --enable-static --disable-shared LDFLAGS=-static
-make
-make install
+- ./configure --prefix=/ucrt64 --enable-static --disable-shared LDFLAGS=-static
+- make
+- make install
 
 
 #### libFlac 1.5.0:
