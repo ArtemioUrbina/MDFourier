@@ -73,7 +73,7 @@ Clone this repository and run `make`
 
 Please refer to [this post](https://donluca.theclassicgamer.net/compiling-static-binaries-on-macos/) for a guide on how to create a redistributable MDFourier binary with the libraries needed statically linked.
 
-### Notes for compiling under MSYS2/MinGW
+### Notes for compiling under MSYS2/UCRT64
 
 - Install MSYS2
 - Use the UCRT64 version
@@ -105,6 +105,8 @@ to:
 
         png_jmpbuf(png_ptr)
 
+You also need to remove the define for bool in lines 256 to 265 from file include/sys-defines.h
+
 ##### Pre-patched
 
 Download from: https://github.com/ArtemioUrbina/Plotutils
@@ -123,6 +125,70 @@ In order to build it statically:
 - pacman -S autoconf automake pkg-config libtool
 - Download libFLAC https://ftp.osuosl.org/pub/xiph/releases/flac/
 - ./autogen.sh
-- ./configure --prefix=/ucrt64 --enable-static --disable-shared --disable-ogg --disable-doxygen
+- ./configure --prefix=/ucrt64 --enable-static --disable-shared --disable-ogg
 - make
 - make install
+
+### Notes for compiling under MSYS2/CLANG64
+
+- Install MSYS2
+- Use the CLANG64 version
+
+#### Compiler and libraries
+Run the following commands to install all tools and libraries that work for our static buils:
+
+- pacman -Syu
+- pacman -S make
+- pacman -S mingw-w64-clang-x86_64-headers mingw-w64-clang-x86_64-lldb mingw-w64-clang-x86_64-lld
+- pacman -S mingw-w64-clang-x86_64-clang
+- pacman -S mingw-w64-clang-x86_64-toolchain
+- pacman -S mingw-w64-clang-x86_64-fftw
+- pacman -S mingw-w64-clang-x86_64-libpng
+
+#### plotutils-2.6
+
+These need to be patched, I have a pre-patched version if you prefer.
+
+##### Patching it yourself
+
+Download from: https://ftp.gnu.org/gnu/plotutils/plotutils-2.6.tar.gz
+
+Following the instructions from: https://stackoverflow.com/questions/39861615/plotutils-compilation-error-with-png-1-6-25-dereferencing-pointer-to-incomplete
+
+Edit file plotutils-2.6\libplot\z_write.c and change both occurances of:
+
+        png_ptr->jmpbuf
+
+to:
+
+        png_jmpbuf(png_ptr)
+
+
+##### Pre-patched
+
+Download from: https://github.com/ArtemioUrbina/Plotutils
+
+You need to add the define for bool in line 256 in file include/sys-defines.h
+
+#define bool int
+#define true 1
+#define false 0
+
+And then run:
+
+- ./configure --prefix=/clang64 --enable-static --disable-shared CC=clang CXX=clang++ LDFLAGS=-static
+- make
+- make install
+
+
+#### libFlac 1.5.0:
+
+In order to build it statically:
+
+- pacman -S autoconf automake pkg-config libtool
+- Download libFLAC https://ftp.osuosl.org/pub/xiph/releases/flac/
+- ./autogen.sh
+- ./configure --prefix=/clang64 --enable-static --disable-shared CC=clang CXX=clang++ LDFLAGS=-static --disable-ogg
+- make
+- make install
+

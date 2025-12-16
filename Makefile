@@ -1,5 +1,7 @@
 #OS and architecture check
+CC     = gcc
 ARCH = $(shell uname -p)
+
 ifeq ($(shell uname),Darwin)
         ifeq ($(ARCH),arm)
                 UNAME = DarwinARM
@@ -12,6 +14,13 @@ ifeq ($(shell uname),Darwin)
         endif
 else
         UNAME := $(shell uname -o)
+		ifeq ($(UNAME),Msys)
+			MSYSENV := $(shell echo $$MSYSTEM)
+			ifeq ($(MSYSENV),CLANG64)
+				CC = clang
+				MSYS_LD_CLANG = -lwinpthread
+			endif
+		endif
 endif
 
 $(info Building MDFourier for $(UNAME))
@@ -40,12 +49,11 @@ ifeq ($(UNAME),DarwinPPC)
 all:macppc
 endif
 
-CC     = gcc
 OPT    = -O3
 OPENMP = -DOPENMP_ENABLE -fopenmp
 
 BASE_CCFLAGS    = -Wstrict-prototypes -Wfatal-errors -Wpedantic -Wall -Wextra -std=gnu99
-BASE_LIBS       = -lm -lfftw3 -lplot -lpng -lz -lFLAC
+BASE_LIBS       = -lm -lfftw3 -lplot -lpng -lz -lFLAC $(MSYS_LD_CLANG)
 
 #-Wfloat-equal -Wconversion
 
