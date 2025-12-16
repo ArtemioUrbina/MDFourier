@@ -75,17 +75,17 @@ Please refer to [this post](https://donluca.theclassicgamer.net/compiling-static
 
 ### Notes for compiling under MSYS2/MinGW
 
-Install MSYS2
-Use the UCRT64 version
+- Install MSYS2
+- Use the UCRT64 version
 
 #### Compiler and libraries
 Run the following commands to install all tools and libraries that work for our static buils:
 
-pacman -Syu
-pacman -S make
-pacman -S mingw-w64-ucrt-x86_64-toolchain
-pacman -S mingw-w64-ucrt-x86_64-fftw
-pacman -S mingw-w64-ucrt-x86_64-libpng
+- pacman -Syu
+- pacman -S make
+- pacman -S mingw-w64-ucrt-x86_64-toolchain
+- pacman -S mingw-w64-ucrt-x86_64-fftw
+- pacman -S mingw-w64-ucrt-x86_64-libpng
 
 #### plotutils-2.6
 
@@ -120,9 +120,9 @@ make install
 
 In order to build it statically:
 
-pacman -S autoconf automake pkg-config libtool
-Download flac
-./autogen.sh
-./configure --prefix=/ucrt64 --enable-static --disable-shared --disable-ogg --disable-doxygen
-make
-make install
+- pacman -S autoconf automake pkg-config libtool
+- Download libFLAC https://ftp.osuosl.org/pub/xiph/releases/flac/
+- ./autogen.sh
+- ./configure --prefix=/ucrt64 --enable-static --disable-shared --disable-ogg --disable-doxygen
+- make
+- make install
