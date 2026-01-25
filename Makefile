@@ -41,7 +41,7 @@ ifeq ($(UNAME),Darwin)
 all:mac
 endif
 
-ifeq ($(UNAME),DarwinARM64)
+ifeq ($(UNAME),DarwinARM)
 all:macarm
 endif
 
