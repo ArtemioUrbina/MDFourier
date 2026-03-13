@@ -964,7 +964,7 @@ int CMDFourierGUIDlg::LoadProfile(CString FullFileName, CString &Name, CString &
 
 	for(i = 0; i < count; i++)
 	{
-		if(fwscanf_s(file, L"%s %*f %*d %*d %*d %*d\n", text, BUFFER_SIZE) == 1)
+		if(fwscanf_s(file, L"%s %*f %*d %*d %*d %*d %*[^\n]\n", text, BUFFER_SIZE) == 1)
 		{
 			ProfileSyncTypes[i].Name = text;
 			ProfileSyncTypes[i].valueMDF.Format(L"%d", i);
