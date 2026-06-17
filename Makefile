@@ -25,12 +25,12 @@ endif
 
 $(info Building MDFourier for $(UNAME))
 
-ifeq ($(UNAME),GNU/Linux)
-all:linux
+ifeq ($(UNAME),Msys)
+all: msys-s
 endif
 
-ifeq ($(UNAME),Msys)
-all:msys-s
+ifeq ($(UNAME),GNU/Linux)
+all:linux
 endif
 
 ifeq ($(UNAME),Cygwin)
@@ -41,7 +41,7 @@ ifeq ($(UNAME),Darwin)
 all:mac
 endif
 
-ifeq ($(UNAME),DarwinARM)
+ifeq ($(UNAME),DarwinARM64)
 all:macarm
 endif
 

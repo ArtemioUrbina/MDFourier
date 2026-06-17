@@ -248,112 +248,135 @@ long int DetectEndPulse(double *AllSamples, long int startpulse, wav_hdr header,
 	return sampleOffset;
 }
 
+static inline int isTargetFreq(double hertz, double targetFrequency, const double *targetFrequencyHarmonic)
+{
+	return hertz == targetFrequency
+		|| (targetFrequencyHarmonic[0] != NO_FREQ && hertz == targetFrequencyHarmonic[0])
+		|| (targetFrequencyHarmonic[1] != NO_FREQ && hertz == targetFrequencyHarmonic[1]);
+}
 
 #define LOGCASE(x, y) { x; if(config->debugSync) logmsgFileOnly("Case #%d\n", y); }
 double findAverageAmplitudeForTarget(Pulses *pulseArray, double targetFrequency, double *targetFrequencyHarmonic, long int TotalMS, long int start, int factor, int AudioChannels, parameters *config)
 {
-	long	count = 0, i = 0, countNoise = 0;
-	double	averageAmplitude = 0, standardDeviation = 0, useAmplitude = 0, percent = 0;
+	long	i                   = 0;
+	long	count               = 0;    /* number of pulses matching the target freq    */
+	long	countNoise          = 0;    /* pulses at targetFrequency (fundamental only) */
+	double	M2                  = 0.0;  /* running sum of squared deviations (Welford)  */
+	double	delta               = 0.0;  /* scratch for Welford update                   */
+	double	averageAmplitude	= 0.0;	/* running mean  (Welford)                      */
+	double	standardDeviation   = 0.0;
+	double	useAmplitude        = 0.0;
+	double	percent             = 0.0;
 
 	if(config->debugSync)
 		logmsgFileOnly("Searching for in range: %ld-%ld samples\n", 
 				SamplesForDisplay(pulseArray[start].samples, AudioChannels),
 				SamplesForDisplay(pulseArray[TotalMS-1].samples, AudioChannels));
+
 	for(i = start; i < TotalMS; i++)
 	{
-		if(pulseArray[i].hertz == targetFrequency 
-			|| (targetFrequencyHarmonic[0] != NO_FREQ && pulseArray[i].hertz == targetFrequencyHarmonic[0])
-			|| (targetFrequencyHarmonic[1] != NO_FREQ && pulseArray[i].hertz == targetFrequencyHarmonic[1]))
+		if(isTargetFreq(pulseArray[i].hertz, targetFrequency, targetFrequencyHarmonic))
 		{
-			averageAmplitude += fabs(pulseArray[i].amplitude);
+			double x = fabs(pulseArray[i].amplitude);
 			count ++;
+			delta = x-averageAmplitude;
+			averageAmplitude += delta/(double)count;
+			M2 += delta*(x-averageAmplitude);
 		}
 	}
 
-	if(!count)
+	if(count <= 1)
 	{
 		logmsgFileOnly("WARNING! Average Amplitude values for sync not found in range (NULL from digital/emu)\n");
 		return 0;
 	}
 
-	averageAmplitude /= count;
 
-	// Calculate Standard Deviatioon
-	count = 0;
-	for(i = start; i < TotalMS; i++)
+	standardDeviation = sqrt(M2/(double)(count-1));
+
+	percent = (double)count/(double)(TotalMS-start)*100.0;
+
+	/* 
+	 * Select an amplitude threshold (always returned as a negative dBFS).
+	 * Pass only pulses that are clearly above the noise floor.
+	 *
+	 * FACTOR_LFEXPL is not handled here: it falls through
+	 * to the useAmplitude == 0 guard below, which returns -1 dBFS.
+	 *
+	 */
+	if(factor == FACTOR_EXPLORE)	/* first-round detection */
 	{
-		if(pulseArray[i].hertz == targetFrequency 
-			|| (targetFrequencyHarmonic[0] != NO_FREQ && pulseArray[i].hertz == targetFrequencyHarmonic[0])
-			|| (targetFrequencyHarmonic[1] != NO_FREQ && pulseArray[i].hertz == targetFrequencyHarmonic[1]))
+		if(averageAmplitude <= 40)	/* this is the regular case for the above */
 		{
-			standardDeviation += pow(fabs(pulseArray[i].amplitude) - averageAmplitude, 2);
-			count ++;
-		}
-	}
+			if(averageAmplitude >= 10)
+			{
+				if(standardDeviation < averageAmplitude)
+				{
 
-	if(!count)
-	{
-		logmsgFileOnly("WARNING! Standard Deviation values for sync not found in range (NULL from digital/emu)\n");
-		return 0;
-	}
-
-	standardDeviation = sqrt(standardDeviation/(count-1));
-
-	percent = (double)count/(double)(TotalMS-start)*100;
-	
-	if(factor == FACTOR_EXPLORE) { // first round detection
-		if(averageAmplitude <= 40) { //this is the regular case for the above
-			if(averageAmplitude >= 10) {
-				if(standardDeviation < averageAmplitude) {
-					if(percent > 5 && !(config->syncTolerance >= 2))
-						LOGCASE(useAmplitude = -1*averageAmplitude, 0)
+					if (percent > 5 && !(config->syncTolerance >= 2))
+						LOGCASE(useAmplitude = -1*averageAmplitude,                           0)
 					else
-						LOGCASE(useAmplitude = -1*(averageAmplitude + standardDeviation/2), 1)
-				} else 
-					LOGCASE(useAmplitude = -1*(averageAmplitude + standardDeviation/4), 2)
-			} else {
-				LOGCASE(useAmplitude = -1*(averageAmplitude + 2*standardDeviation), 3)
+						LOGCASE(useAmplitude = -1*(averageAmplitude + standardDeviation / 2), 1)
+				}
+				else
+					LOGCASE(useAmplitude = -1*(averageAmplitude + standardDeviation / 4),     2)
 			}
-			
-		} else {
-			// these are special cases, too much difference
-			if(standardDeviation < averageAmplitude)
-				LOGCASE(useAmplitude = -1*(averageAmplitude - standardDeviation), 4)
 			else
-				LOGCASE(useAmplitude = -1*(averageAmplitude - standardDeviation/2), 5)
+				/* Low amplitude: cast a wide net                           */
+				LOGCASE(useAmplitude = -1*(averageAmplitude + 2.0 * standardDeviation),       3)
+		}
+		else	/* these are special cases, too much difference */
+		{
+			if(standardDeviation < averageAmplitude)
+				LOGCASE(useAmplitude = -1*(averageAmplitude - standardDeviation),             4)
+			else
+				LOGCASE(useAmplitude = -1*(averageAmplitude - standardDeviation / 2),         5)
 		}
 	}
-	else if(factor == FACTOR_DETECT) { // second round
-		if(percent > 55) { // Too much noise 
-			if(percent > 90) {  // ridiculous noise
-				if(percent == 100)
-					LOGCASE(useAmplitude = -1*(averageAmplitude + standardDeviation/4), 6)
+	else if(factor == FACTOR_DETECT)	/* second-round fine detection      */
+	{
+		if(percent > 55)		/* Too much noise */
+		{
+			if(percent > 90)	/* ridiculous noise */
+			{
+				if(percent == 100) 	/* every frame is the target freq       */
+					LOGCASE(useAmplitude = -1*(averageAmplitude + standardDeviation / 4),     6)
 				else
-					LOGCASE(useAmplitude = -1*averageAmplitude, 7)
-			} else if(averageAmplitude <= 40) {
-				if(standardDeviation < averageAmplitude)
-					LOGCASE(useAmplitude = -1*averageAmplitude, 8)
-				else
-					LOGCASE(useAmplitude = -1*(averageAmplitude + standardDeviation/4), 9)
-			} else {
-				// these are special cases, too much difference
-				if(standardDeviation < averageAmplitude)
-					LOGCASE(useAmplitude = -1*(averageAmplitude - standardDeviation), 10)
-				else
-					LOGCASE(useAmplitude = -1*(averageAmplitude - standardDeviation/2), 11)
+					LOGCASE(useAmplitude = -1*averageAmplitude,                               7)
 			}
-		} else { // lower that 55%, pulses hopefully
-			if(standardDeviation < averageAmplitude || (fabs(standardDeviation) + fabs(averageAmplitude) <= 20))  // this is the ideal case
-				LOGCASE(useAmplitude = -1*(averageAmplitude + standardDeviation), 12)
-			else  // This is trying to adjust it
-				LOGCASE(useAmplitude = -1*(averageAmplitude + standardDeviation/4), 13)
+			else if(averageAmplitude <= 40)
+			{
+				if(standardDeviation < averageAmplitude)
+					LOGCASE(useAmplitude = -1*averageAmplitude,                               8)
+				else
+					LOGCASE(useAmplitude = -1*(averageAmplitude + standardDeviation / 4),     9)
+			}
+			else	/* these are special cases, too much difference */
+			{
+				if(standardDeviation < averageAmplitude)
+					LOGCASE(useAmplitude = -1*(averageAmplitude - standardDeviation),         10)
+				else
+					LOGCASE(useAmplitude = -1*(averageAmplitude - standardDeviation / 2),     11)
+			}
+		}
+		else	/* percent <= 55: sparse matches, pulses hopefully       */
+		{
+			/* ideal case */
+			if(standardDeviation < averageAmplitude || (standardDeviation + averageAmplitude <= 20.0))
+				LOGCASE(useAmplitude = -1*(averageAmplitude + standardDeviation),             12)
+			else /* This is trying to adjust it */
+				LOGCASE(useAmplitude = -1*(averageAmplitude + standardDeviation / 4),         13)
 		}
 	}
+	/* else: FACTOR_LFEXPL falls through to -1 below */
 
 	if(count && useAmplitude == 0)
 	{
-		if(config->debugSync)
-			logmsgFileOnly("Signal is too perfect, matching to -1dbfs\n");
+		/* Either the signal was perfectly uniform (all cases evaluated to
+		 * exactly 0 after arithmetic), or this is FACTOR_LFEXPL.
+		 * Fall back to -1 dBFS */
+		if (config->debugSync)
+			logmsgFileOnly("Signal is too perfect (or factor has no case), matching to -1 dBFS\n");
 		useAmplitude = -1;
 	}
 
@@ -368,26 +391,25 @@ double findAverageAmplitudeForTarget(Pulses *pulseArray, double targetFrequency,
 		// clean noise at sync frequency
 		for(i = start; i < TotalMS; i++)
 		{
-			if((pulseArray[i].hertz == targetFrequency 
-				|| (targetFrequencyHarmonic[0] != NO_FREQ && pulseArray[i].hertz == targetFrequencyHarmonic[0])
-				|| (targetFrequencyHarmonic[1] != NO_FREQ && pulseArray[i].hertz == targetFrequencyHarmonic[1]))
-				&& pulseArray[i].amplitude != NO_AMPLITUDE && pulseArray[i].amplitude < floor(useAmplitude))
+			if(isTargetFreq(pulseArray[i].hertz, targetFrequency, targetFrequencyHarmonic)
+				&& pulseArray[i].amplitude != NO_AMPLITUDE
+				&& pulseArray[i].amplitude < floor(useAmplitude))
 					pulseArray[i].hertz = 0;
 		}
 	}
-	
-	if(config->debugSync)
-		logmsgFileOnly("AVG Amp: %g STD Dev: %g Use Amp: %g count %ld total %d %% %g (Noise %g%%)\n",
-			averageAmplitude, standardDeviation, useAmplitude,
-			TotalMS-start, count, (double)count/(double)(TotalMS-start)*100,
-			(double)countNoise/(double)(TotalMS-start)*100);
+
 
 	if(config->debugSync)
-		logmsgFileOnly("Searching for Average amplitude in block: F %g Total Start sample: %ld milliseconds to check: %ld\n", 
-			targetFrequency, 
+	{
+		logmsgFileOnly("AVG Amp: %g STD Dev: %g Use Amp: %g total %ld count %ld %% %g (Noise %g%%)\n",
+			averageAmplitude, standardDeviation, useAmplitude,
+			TotalMS - start, count, percent,
+			(double)countNoise/(double)(TotalMS-start)*100.0);
+		logmsgFileOnly("Searching for Average amplitude in block: F %g Total Start sample: %ld milliseconds to check: %ld\n",
+			targetFrequency,
 			SamplesForDisplay(pulseArray[start].samples, AudioChannels),
 			TotalMS);
-
+	}
 
 	return useAmplitude;
 }
@@ -647,7 +669,7 @@ long int AdjustPulseSampleStartByLength(double* Samples, wav_hdr header, long in
 	endSearch = RoundToNsamples((double)endSearch, AudioChannels, NULL, NULL);
 
 	if (config->debugSync)
-		logmsgFileOnly("\nSearching at %ld samples/%ld bytes End At: %ld samples/%ld bytes (%d bytes per sample)\n  looking for %d->%ghz samples needed: %d\n",
+		logmsgFileOnly("\nSearching at %ld samples/%ld bytes End At: %ld samples/%ld bytes (%d bytes per sample)\n	looking for %d->%ghz samples needed: %d\n",
 			SamplesForDisplay(startSearch, AudioChannels), SamplesToBytes(startSearch, bytesPerSample),
 			SamplesForDisplay(endSearch, AudioChannels), SamplesToBytes(endSearch, bytesPerSample), 
 			bytesPerSample, 
@@ -782,7 +804,7 @@ long int AdjustPulseSampleStartByLength(double* Samples, wav_hdr header, long in
 						return(offset);
 					}
 
-					//endDetectPos = pos + RoundToNsamples((double)samplesNeeded/4.0, AudioChannels, NULL, NULL);   // Add the tail since we are doing overlapped starts
+					//endDetectPos = pos + RoundToNsamples((double)samplesNeeded/4.0, AudioChannels, NULL, NULL);	// Add the tail since we are doing overlapped starts
 					if(pulseArray[pos].hertz == 0)
 						pos --;
 					endDetectPos = pos;
@@ -843,7 +865,7 @@ long int AdjustPulseSampleStartByLength(double* Samples, wav_hdr header, long in
 						tolerance--;
 					else
 					{
-						endDetectPos = pos + RoundToNsamples((double)samplesNeeded / 4.0, AudioChannels, NULL, NULL);   // Add the tail since we are doing overlapped starts
+						endDetectPos = pos + RoundToNsamples((double)samplesNeeded / 4.0, AudioChannels, NULL, NULL);	// Add the tail since we are doing overlapped starts
 						break;
 					}
 				}
@@ -989,7 +1011,7 @@ long int DetectPulseInternal(double *Samples, wav_hdr header, int factor, long i
 	origFrequency = GetPulseSyncFreq(role, config);
 	targetFrequency = FindFrequencyBracketForSync(origFrequency,
 						sampleBufferSize, AudioChannels, header.fmt.SamplesPerSec, config);
-	if(origFrequency < HARMONIC_TSHLD)  //default behavior for around 8khz, harmonic is NO_FREQ
+	if(origFrequency < HARMONIC_TSHLD)	//default behavior for around 8khz, harmonic is NO_FREQ
 	{
 		targetFrequencyHarmonic[0] = FindFrequencyBracketForSync(targetFrequency*2, 	
 						sampleBufferSize, AudioChannels, header.fmt.SamplesPerSec, config);
@@ -1154,7 +1176,7 @@ double ProcessChunkForSyncPulse(double *samples, size_t size, long samplerate, P
 			double	hertz = 0;
 
 			hertz = CalculateFrequency(i, boxsize);
-			if (hertz < SYNC_LPF || (config->syncTolerance && hertz < SYNC_LPF/2))  // LPF
+			if (hertz < SYNC_LPF || (config->syncTolerance && hertz < SYNC_LPF/2))	// LPF
 				pass = 1;
 			
 			if(pass)
