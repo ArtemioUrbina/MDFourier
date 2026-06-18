@@ -168,7 +168,7 @@ void CMDFourierGUIDlg::ReduceWindowSizeIfLowRes()
 		if(windowH > sizey)
 		{
 			CRect rect;
-			int targetH = sizey*.8;
+			int targetH = (int)(sizey*0.8);
 			int ctrlH = 0;
 			int margin = 50;
 			
@@ -500,7 +500,6 @@ void CMDFourierGUIDlg::OnBnClickedCancel()
 void CMDFourierGUIDlg::ReadAndDisplayResults(CString &newText)
 {
 	CString		ntext;
-	int			newLineCount;
 
 	cDos.Lock();
 	ntext = cDos.m_OutputText;
@@ -508,11 +507,24 @@ void CMDFourierGUIDlg::ReadAndDisplayResults(CString &newText)
 
 	if(ntext != cmdWindowText)
 	{
-		m_OutputTextCtrl.SetWindowText(ntext);
-		newLineCount = ntext.Replace(_T("\n"), _T("\n"));		
-		m_OutputTextCtrl.SendMessage(EM_LINESCROLL, 0, newLineCount);
+		int oldLen = cmdWindowText.GetLength();
+		CString newContent = ntext.Mid(oldLen);
+
+		m_OutputTextCtrl.SetRedraw(FALSE);
+
+		int nLength = m_OutputTextCtrl.GetWindowTextLength();
+		m_OutputTextCtrl.SetSel(nLength, nLength);
+
+		m_OutputTextCtrl.ReplaceSel(newContent);
+
+		m_OutputTextCtrl.SetRedraw(TRUE);
+		m_OutputTextCtrl.Invalidate();
+
+		m_OutputTextCtrl.SendMessage(WM_VSCROLL, SB_BOTTOM, 0);
+
 		cmdWindowText = ntext;
 	}
+
 	newText = ntext;
 }
 
@@ -524,7 +536,7 @@ void CMDFourierGUIDlg::CheckForDifferenceplots(CString ntext)
 	if (m_OpenResultsBttn.IsWindowEnabled())
 		return;
 
-	// Check is we enable the results button
+	// Check if we enable the results button
 	pos = ntext.Find(searchFor, 0);
 	if (pos != -1)
 	{
@@ -1154,7 +1166,7 @@ int CMDFourierGUIDlg::CheckDependencies()
 		}
 		else
 		{
-			msg.Format(L"Please update your profiles (*.mfn) to version %s in folder:\n %s\\profiles", ProfileVersion, pwd);
+			msg.Format(L"Please update your profiles (*.mfn) to version %s in folder:\n %s\\profiles", ProfileVersion.GetBuffer(), pwd);
 			MessageBox(msg, L"Invalid Profiles");
 		}
 		return 0;
@@ -1210,7 +1222,7 @@ void CMDFourierGUIDlg::OnBnClickedAbout()
 {
 	CString msg;
 
-	msg.Format(L"MDFourier Front End\n\nArtemio Urbina 2019-2024\nUsing %s\nCode available under GPL\n\nhttp://junkerhq.net/MDFourier/\n\nOpen website and manual?", 
+	msg.Format(L"MDFourier Front End\n\nArtemio Urbina 2019-2026\nUsing %s\nCode available under GPL\n\nhttp://junkerhq.net/MDFourier/\n\nOpen website and manual?", 
 		MDFVersion);
 	if(MessageBox(msg, L"About MDFourier", MB_OKCANCEL | MB_ICONQUESTION) == IDOK)
 	{
