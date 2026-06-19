@@ -681,11 +681,11 @@ void PlotAmpDifferences(parameters *config)
 				if (!returnFolder)
 					return;
 
-				sprintf(name, "%s_%c", config->compareName, CHANNEL_LEFT);
+				snprintf(name, sizeof(name), "%s_%c", config->compareName, CHANNEL_LEFT);
 				PlotAllDifferentAmplitudes(amplDiff, size, CHANNEL_LEFT, name, config);
 				logmsg(PLOT_ADVANCE_CHAR);
 
-				sprintf(name, "%s_%c", config->compareName, CHANNEL_RIGHT);
+				snprintf(name, sizeof(name), "%s_%c", config->compareName, CHANNEL_RIGHT);
 				PlotAllDifferentAmplitudes(amplDiff, size, CHANNEL_RIGHT, name, config);
 				logmsg(PLOT_ADVANCE_CHAR);
 
