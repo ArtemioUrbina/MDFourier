@@ -370,6 +370,7 @@ void CMDFourierGUIDlg::OnBnClickedOk()
 
 	if(elementCount)
 	{
+		cmdWindowText = "";
 		multiErrors.Empty();
 		multiWarnings.Empty();
 		ExecuteCommand(elements[elementPos]);
