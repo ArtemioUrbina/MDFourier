@@ -977,12 +977,10 @@ int CMDFourierGUIDlg::LoadProfile(CString FullFileName, CString &Name, CString &
 
 	for(i = 0; i < count; i++)
 	{
-		if(fwscanf_s(file, L"%s %*f %*d %*d %*d %*d %*[^\n]\n", text, BUFFER_SIZE) == 1)
-		{
-			ProfileSyncTypes[i].Name = text;
-			ProfileSyncTypes[i].valueMDF.Format(L"%d", i);
-		}
-		else
+		float freq;
+		int lines, samples, pre, post;
+
+		if (fwscanf_s(file, L"%255s %f %d %d %d %d", text, (unsigned)_countof(text), &freq, &lines, &samples, &pre, &post) != 6)
 		{
 			CString	msg;
 
@@ -991,7 +989,16 @@ int CMDFourierGUIDlg::LoadProfile(CString FullFileName, CString &Name, CString &
 			fclose(file);
 			return 0;
 		}
+
+		// Skip the rest of the line
+		wint_t ch;
+		while ((ch = fgetwc(file)) != WEOF && ch != L'\n')
+			;
+
+		ProfileSyncTypes[i].Name = text;
+		ProfileSyncTypes[i].valueMDF.Format(L"%d", i);
 	}
+
 	fclose(file);
 	syncCount = count;
 	return 1;
