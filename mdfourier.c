@@ -900,7 +900,7 @@ int LoadAndProcessAudioFiles(AudioSignal **ReferenceSignal, AudioSignal **Compar
 	CalculateFrequencyBrackets(*ReferenceSignal, config);
 	CalculateFrequencyBrackets(*ComparisonSignal, config);
 
-    if(!ReportClockResults(*ReferenceSignal, *ComparisonSignal, config))
+	if(!ReportClockResults(*ReferenceSignal, *ComparisonSignal, config))
 	{
 		if(config->doClkAdjust)
 		{
@@ -1453,13 +1453,17 @@ double RecalculateFrameRateAndSamplerateComp(AudioSignal *ReferenceSignal, Audio
 	config->clkRef = refClkFraction * config->clkRatio;
 	config->clkCom = compClkFraction * config->clkRatio;
 
-	if(refClkFraction < compClkFraction)
+	// Needs more validation, works with DOS profile
+	// Commenting out the auto select, 
+	// Keep the reference and only change the clk of the comparision
+	//if(refClkFraction < compClkFraction)
 	{
 		changedSignal = ComparisonSignal;
 		ratio = refClkFraction/compClkFraction;
 		changedSignal->originalCLK = config->clkCom;
 		adjustedTo = config->clkRef;
 	}
+	/*
 	else
 	{
 		changedSignal = ReferenceSignal;
@@ -1467,6 +1471,7 @@ double RecalculateFrameRateAndSamplerateComp(AudioSignal *ReferenceSignal, Audio
 		changedSignal->originalCLK = config->clkRef;
 		adjustedTo = config->clkCom;
 	}
+	*/
 
 	config->changedCLKFrom = changedSignal->role;
 
