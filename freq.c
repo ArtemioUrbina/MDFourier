@@ -2599,6 +2599,33 @@ int FillFrequencyStructures(AudioSignal *Signal, AudioBlocks *AudioArray, parame
 	return 1;
 }
 
+/*
+ * Refine CLK peak's frequency between bins, with a parabola
+ */
+static double RefinePeakFrequency(FFTWSpectrum *fftw, double ENBW, long int bin, long int size, double boxsize)
+{
+	double a = 0, b = 0, c = 0, denom = 0, offset = 0;
+
+	if(bin <= 0 || bin >= size/2)
+		return CalculateFrequency(bin, boxsize);
+
+	a = CalculateMagnitude(&fftw->spectrum[bin-1], ENBW);
+	b = CalculateMagnitude(&fftw->spectrum[bin], ENBW);
+	c = CalculateMagnitude(&fftw->spectrum[bin+1], ENBW);
+	if(a <= 0 || b <= 0 || c <= 0 || b < a || b < c)
+		return CalculateFrequency(bin, boxsize);
+
+	a = log(a);
+	b = log(b);
+	c = log(c);
+	denom = a - 2*b + c;
+	if(denom == 0)
+		return CalculateFrequency(bin, boxsize);
+
+	offset = 0.5*(a - c)/denom;		/* -0.5 to 0.5 bins */
+	return CalculateFrequency(bin + offset, boxsize);
+}
+
 int FillFrequencyStructuresInternal(AudioSignal *Signal, AudioBlocks *AudioArray, char channel, parameters *config)
 {
 	long int 		i = 0, startBin= 0, endBin = 0, count = 0, size = 0, amount = 0;
@@ -2684,6 +2711,17 @@ int FillFrequencyStructuresInternal(AudioSignal *Signal, AudioBlocks *AudioArray
 	{
 		// Only copy Top amount frequencies
 		memcpy(*targetFreq, f_array, sizeof(Frequency)*amount);
+
+		// CLK: refine the peaks between bins while the spectrum exists
+		if(Signal && AudioArray == &Signal->clkFrequencies)
+		{
+			for(i = 0; i < amount; i++)
+			{
+				long int bin = (long int)floor((*targetFreq)[i].hertz*boxsize + 0.5);
+
+				(*targetFreq)[i].hertz = RefinePeakFrequency(fftw, ENBW, bin, size, boxsize);
+			}
+		}
 
 		// release temporal storage
 		free(f_array);
