@@ -1853,7 +1853,7 @@ int ExecuteDFFT(AudioBlocks *AudioArray, double *samples, size_t size, double sa
 int ExecuteDFFTInternal(AudioBlocks *AudioArray, double *samples, size_t size, double samplerate, double *window, char channel, int AudioChannels, int ZeroPad, parameters *config)
 {
 	fftw_plan		p = NULL;
-	long			stereoSignalSize = 0;
+	long			stereoSignalSize = 0, realMonoSize = 0;
 	long			i = 0, monoSignalSize = 0, zeropadding = 0;
 	double			*signal = NULL;
 	fftw_complex	*spectrum = NULL;
@@ -1868,12 +1868,14 @@ int ExecuteDFFTInternal(AudioBlocks *AudioArray, double *samples, size_t size, d
 	stereoSignalSize = (long)size;
 	monoSignalSize = stereoSignalSize/AudioChannels;
 	seconds = (double)size/(samplerate*(double)AudioChannels);
-
-	if(config->padBlockSizes)
-		zeropadding = GetBlockZeroPadValues(&monoSignalSize, &seconds, config->maxBlockSeconds, samplerate);
+	realMonoSize = monoSignalSize;
 	
-	if(ZeroPad)  /* disabled by default */
-		zeropadding = GetZeroPadValues(&monoSignalSize, &seconds, samplerate, ZeroPad);
+	if(ZeroPad)  /* explicit alignment target wins (CLK path, or -Z) */
+		GetZeroPadValues(&monoSignalSize, &seconds, samplerate, ZeroPad);
+	else if(config->padBlockSizes)
+		GetBlockZeroPadValues(&monoSignalSize, &seconds, config->maxBlockSeconds, samplerate);
+	
+	zeropadding = monoSignalSize - realMonoSize;
 
 #ifdef DEBUG
 	if(config->verbose >= 2)

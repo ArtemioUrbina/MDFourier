@@ -104,12 +104,12 @@ macppc: LFLAGS     = -L/usr/X11R6/lib/ -Wl,-logg $(BASE_LIBS) -lx11 -lxext -lxt 
 macppc: executable
 
 #flags for debug
-debug: CCFLAGS  = $(BASE_CCFLAGS) -DDEBUG -g 
+debug: CCFLAGS  = $(BASE_CCFLAGS) $(EXTRA_FLAC_STATIC) -DDEBUG -g 
 debug: LFLAGS   = $(BASE_LIBS)
 debug: executable
 
 #flags for debug
-debugsan: CCFLAGS  = $(BASE_CCFLAGS) -DDEBUG -g -fsanitize=address
+debugsan: CCFLAGS  = $(BASE_CCFLAGS) $(EXTRA_FLAC_STATIC) -DDEBUG -g -fsanitize=address
 debugsan: LFLAGS   = $(BASE_LIBS)
 debugsan: executable
 
