@@ -1377,10 +1377,10 @@ int RecalculateFFTW(AudioSignal *Signal, parameters *config)
 					return 0;
 				}
 
-				// We only use ZeroPadFactor for the CLK, the rest is zero padded to 1hz
-				windowUsed = getWindowByLength(&clockWindows, config->ZeroPadFactor*1000.0/Signal->framerate, 0, Signal->framerate, config);
+				// The CLK uses its own zero padding
+				windowUsed = getWindowByLength(&clockWindows, frames, cutFrames, Signal->framerate, config);
 				CleanFrequenciesInBlock(&Signal->clkFrequencies, config);
-				if(!ExecuteDFFT(&Signal->clkFrequencies, sampleBuffer, currSamplesSize, Signal->SampleRate, windowUsed, Signal->AudioChannels, 1*config->ZeroPadFactor , config)) // zeropad on 
+				if(!ExecuteDFFT(&Signal->clkFrequencies, sampleBuffer, currSamplesSize, Signal->SampleRate, windowUsed, Signal->AudioChannels, ZEROPAD_FACTOR_CLK, config)) // zeropad on 
 				{
 					free(sampleBuffer);
 					freeWindows(&windows);
@@ -1730,9 +1730,9 @@ int ProcessSignal(AudioSignal *Signal, parameters *config)
 				return 0;
 			}
 
-			// We only use ZeroPadFactor for the CLK, the rest is zero padded to 1hz
-			windowUsed = getWindowByLength(&clockWindows, config->ZeroPadFactor*1000.0/framerate, 0, framerate, config);
-			if(!ExecuteDFFT(&Signal->clkFrequencies, sampleBuffer, loadedBlockSize-difference, Signal->SampleRate, windowUsed, Signal->AudioChannels, 1*config->ZeroPadFactor /* force ZeroPad */, config))
+			// The CLK uses its own zero padding
+			windowUsed = getWindowByLength(&clockWindows, frames, cutFrames, framerate, config);
+			if(!ExecuteDFFT(&Signal->clkFrequencies, sampleBuffer, loadedBlockSize-difference, Signal->SampleRate, windowUsed, Signal->AudioChannels, ZEROPAD_FACTOR_CLK /* force ZeroPad */, config))
 			{
 				free(sampleBuffer);
 				freeWindows(&windows);

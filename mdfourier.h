@@ -63,6 +63,9 @@
 
 #define DBL_PERFECT_MATCH			 0.00001	// double difference to be considered a "perfect" match
 
+#define ZEROPAD_FACTOR				16
+#define ZEROPAD_FACTOR_CLK			64
+
 #define SIGNIFICANT_AMPLITUDE		-66.0
 #define NS_LOWEST_AMPLITUDE			-200
 #define	PCM_8BIT_MIN_AMPLITUDE		-48.16
