@@ -836,7 +836,10 @@ double FindVisibleInViewPortWithinStandardDeviation(double *maxAmpl, double *out
 	if(!count)
 		return -1;
 
-	standard = sqrt(standard/(count-1));
+	if(count > 1)
+		standard = sqrt(standard/(count-1));
+	else
+		standard = 0;
 	count = 0;
 
 	threshold = mean + numstd*standard;
