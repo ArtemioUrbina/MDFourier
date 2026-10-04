@@ -54,6 +54,8 @@ double FindMaxSampleForWaveform(AudioSignal *Signal, int *block, parameters *con
 double FindMaxSampleInBlock(AudioBlocks *AudioArray);
 void FindViewPort(parameters *config);
 int ReportClockResults(AudioSignal *ReferenceSignal, AudioSignal *ComparisonSignal, parameters *config);
+int IdentifyCLK(double measured, int *matches, double *ppmDiff, parameters *config);
+void ReportCLKIdentity(char *roleName, double measured, int *clkID, parameters *config);
 int RecalculateFrequencyStructures(AudioSignal *ReferenceSignal, AudioSignal *ComparisonSignal, parameters *config);
 int NormalizeAndFinishProcess(AudioSignal **ReferenceSignal, AudioSignal **ComparisonSignal, parameters *config);
 int FrequencyDomainNormalize(AudioSignal **ReferenceSignal, AudioSignal **ComparisonSignal, parameters *config);
@@ -339,6 +341,77 @@ void PrintSignalCLKData(AudioSignal *Signal, parameters *config)
 			Signal->role == ROLE_REF ? "Reference" : "Comparison");
 }
 
+int IdentifyCLK(double measured, int *matches, double *ppmDiff, parameters *config)
+{
+	int		i = 0, bestMatch = CLKID_NONE, nearest = CLKID_NONE;
+	double	ppm = 0, bestMatchPPM = 0, nearestPPM = 0;
+
+	*matches = 0;
+	*ppmDiff = 0;
+
+	if(!config->clkIDs || !config->clkIDCount || measured <= 0)
+		return CLKID_NONE;
+
+	for(i = 0; i < config->clkIDCount; i++)
+	{
+		ppm = (measured - config->clkIDs[i].nominal)/config->clkIDs[i].nominal*1000000.0;
+
+		if(nearest == CLKID_NONE || fabs(ppm) < fabs(nearestPPM))
+		{
+			nearest = i;
+			nearestPPM = ppm;
+		}
+
+		if(measured >= config->clkIDs[i].minHz && measured <= config->clkIDs[i].maxHz)
+		{
+			(*matches)++;
+			if(bestMatch == CLKID_NONE || fabs(ppm) < fabs(bestMatchPPM))
+			{
+				bestMatch = i;
+				bestMatchPPM = ppm;
+			}
+		}
+	}
+
+	if(bestMatch != CLKID_NONE)
+	{
+		*ppmDiff = bestMatchPPM;
+		return bestMatch;
+	}
+
+	*ppmDiff = nearestPPM;
+	return nearest;
+}
+
+void ReportCLKIdentity(char *roleName, double measured, int *clkID, parameters *config)
+{
+	int		index = CLKID_NONE, matches = 0;
+	double	ppmDiff = 0;
+
+	*clkID = CLKID_NONE;
+	index = IdentifyCLK(measured, &matches, &ppmDiff, config);
+	if(index == CLKID_NONE)
+		return;
+
+	if(matches)
+	{
+		*clkID = index;
+		logmsg(" - %s identified as: %s [%0.2lf ppm from %0.04lfHz]",
+			roleName, config->clkIDs[index].displayName,
+			ppmDiff, config->clkIDs[index].nominal);
+		if(matches > 1)
+			logmsg(" (%d ranges matched, closest used)", matches);
+		logmsg("\n");
+	}
+	else
+	{
+		logmsg(" - %s identified as: Unknown, nearest is %s [%0.2lf ppm from %0.04lfHz, range is +/-%g%s]\n",
+			roleName, config->clkIDs[index].displayName,
+			ppmDiff, config->clkIDs[index].nominal,
+			config->clkIDs[index].tolerance, GetCLKToleranceUnit(&config->clkIDs[index]));
+	}
+}
+
 int ReportClockResults(AudioSignal *ReferenceSignal, AudioSignal *ComparisonSignal, parameters *config)
 {
 	double refClkFraction = 0, compClkFraction = 0;
@@ -367,6 +440,13 @@ int ReportClockResults(AudioSignal *ReferenceSignal, AudioSignal *ComparisonSign
 
 	logmsg(" - Comparison: %0.04lfHz -> %0.04lfHz", compClkFraction, config->clkCom);
 	PrintSignalCLKData(ComparisonSignal, config);
+
+	/* Identify before -j changes all */
+	if(config->clkIDCount)
+	{
+		ReportCLKIdentity("Reference", config->clkRef, &config->clkRefID, config);
+		ReportCLKIdentity("Comparison", config->clkCom, &config->clkComID, config);
+	}
 
 	config->centsDifferenceCLK = 1200*log2(refClkFraction/compClkFraction);
 	if(fabs(config->centsDifferenceCLK) >= MIN_CENTS_DIFF)
@@ -1022,6 +1102,7 @@ void CleanUp(AudioSignal **ReferenceSignal, AudioSignal **ComparisonSignal, para
 	}
 
 	ReleaseAudioBlockStructure(config);
+	ReleaseCLKData(config);
 }
 
 int CopySamplesForTimeDomainPlotWindowOnly(AudioBlocks *AudioArray, double *window, int AudioChannels, parameters *config)

@@ -367,6 +367,159 @@ int ValidateCLKArray(parameters *config)
 	return 1;
 }
 
+int ParseCLKTolerance(char *token, CLKIdentity *clkID)
+{
+	int		read = 0;
+	char	*unit = NULL;
+
+	if(sscanf(token, "%lf%n", &clkID->tolerance, &read) != 1)
+		return 0;
+
+	unit = token + read;
+	if(strcmp(unit, "ppm") == 0)
+		clkID->unit = CLKID_UNIT_PPM;
+	else if(strcmp(unit, "c") == 0 || strcmp(unit, "cents") == 0)
+		clkID->unit = CLKID_UNIT_CENTS;
+	else if(strcmp(unit, "Hz") == 0 || strcmp(unit, "hz") == 0)
+		clkID->unit = CLKID_UNIT_HZ;
+	else
+		return 0;
+
+	if(clkID->tolerance <= 0)
+		return 0;
+	return 1;
+}
+
+void CalculateCLKIdentityRange(CLKIdentity *clkID)
+{
+	switch(clkID->unit)
+	{
+		case CLKID_UNIT_PPM:
+			clkID->minHz = clkID->nominal*(1.0 - clkID->tolerance/1000000.0);
+			clkID->maxHz = clkID->nominal*(1.0 + clkID->tolerance/1000000.0);
+			break;
+		case CLKID_UNIT_CENTS:
+			clkID->minHz = clkID->nominal*pow(2.0, -clkID->tolerance/1200.0);
+			clkID->maxHz = clkID->nominal*pow(2.0, clkID->tolerance/1200.0);
+			break;
+		case CLKID_UNIT_HZ:
+		default:
+			clkID->minHz = clkID->nominal - clkID->tolerance;
+			clkID->maxHz = clkID->nominal + clkID->tolerance;
+			break;
+	}
+}
+
+char *GetCLKToleranceUnit(CLKIdentity *clkID)
+{
+	switch(clkID->unit)
+	{
+		case CLKID_UNIT_PPM:
+			return "ppm";
+		case CLKID_UNIT_CENTS:
+			return "cents";
+		default:
+			return "Hz";
+	}
+}
+
+/*  [CLKID] N
+ *  Name	Nominal	Tolerance(ppm|c|cents|Hz)
+ */
+int LoadCLKIdentities(char *lineBuffer, FILE *file, parameters *config)
+{
+	int		i = 0, j = 0, count = 0;
+	char	tolerance[PARAM_BUFFER_SIZE];
+
+	if(sscanf(lineBuffer, "[CLKID] %d", &count) != 1 || count <= 0)
+	{
+		logmsg("ERROR: Invalid Line '%s'\nExpected [CLKID] N\n", lineBuffer);
+		return 0;
+	}
+
+	if(config->clkIDs)
+	{
+		free(config->clkIDs);
+		config->clkIDs = NULL;
+		config->clkIDCount = 0;
+	}
+
+	config->clkIDs = (CLKIdentity*)malloc(sizeof(CLKIdentity)*count);
+	if(!config->clkIDs)
+	{
+		logmsg("ERROR: Not enough memory for CLK identities\n");
+		return 0;
+	}
+	memset(config->clkIDs, 0, sizeof(CLKIdentity)*count);
+
+	for(i = 0; i < count; i++)
+	{
+		readLine(lineBuffer, file);
+		if(sscanf(lineBuffer, "%127s %lf %s", 
+			config->clkIDs[i].name,
+			&config->clkIDs[i].nominal,
+			tolerance) != 3)
+		{
+			logmsg("ERROR: Invalid CLKID line, expected 'Name Nominal Tolerance(ppm|c|Hz)':\n%s\n", lineBuffer);
+			free(config->clkIDs);
+			config->clkIDs = NULL;
+			return 0;
+		}
+
+		if(config->clkIDs[i].nominal <= 0 || !ParseCLKTolerance(tolerance, &config->clkIDs[i]))
+		{
+			logmsg("ERROR: Invalid CLKID values, nominal must be > 0 and tolerance end in ppm, c or Hz:\n%s\n", lineBuffer);
+			free(config->clkIDs);
+			config->clkIDs = NULL;
+			return 0;
+		}
+
+		CleanName(config->clkIDs[i].name, config->clkIDs[i].displayName);
+		CalculateCLKIdentityRange(&config->clkIDs[i]);
+	}
+	config->clkIDCount = count;
+
+	if(!config->clkMeasure)
+	{
+		logmsg(" - WARNING: [CLKID] ignored, CLK measurement is disabled in profile\n");
+		return 1;
+	}
+
+	/* find closest nominal */
+	for(i = 0; i < count; i++)
+	{
+		for(j = i + 1; j < count; j++)
+		{
+			if(config->clkIDs[i].minHz <= config->clkIDs[j].maxHz &&
+				config->clkIDs[j].minHz <= config->clkIDs[i].maxHz)
+			{
+				logmsg(" - WARNING: CLKID ranges for '%s' and '%s' overlap\n",
+					config->clkIDs[i].displayName, config->clkIDs[j].displayName);
+			}
+		}
+	}
+	return 1;
+}
+
+void ReleaseCLKData(parameters *config)
+{
+	if(config->clkBlocksAdjust)
+	{
+		free(config->clkBlocksAdjust);
+		config->clkBlocksAdjust = NULL;
+	}
+	config->clkBlkAdjustNum = 0;
+
+	if(config->clkIDs)
+	{
+		free(config->clkIDs);
+		config->clkIDs = NULL;
+	}
+	config->clkIDCount = 0;
+	config->clkRefID = CLKID_NONE;
+	config->clkComID = CLKID_NONE;
+}
+
 int LoadAudioBlockStructure(FILE *file, parameters *config)
 {
 	int		insideInternal = 0, i = 0, syncCount = 0, lineCount = 7;
@@ -494,8 +647,20 @@ int LoadAudioBlockStructure(FILE *file, parameters *config)
 		}
 	}
 
-	/* Stereo Balancing */
+	/* Clock Identification ranges */
 	readLine(lineBuffer, file);
+	if(strncmp(lineBuffer, "[CLKID]", 7) == 0)
+	{
+		if(!LoadCLKIdentities(lineBuffer, file, config))
+		{
+			fclose(file);
+			return 0;
+		}
+		lineCount += config->clkIDCount + 1;
+		readLine(lineBuffer, file);
+	}
+
+	/* Stereo Balancing, line was already read above */
 	if(sscanf(lineBuffer, "[MonoBalanceBlock] %s\n", buffer) != 1)
 	{
 		logmsg("ERROR: Invalid Line '%s'\nExpected [MonoBalanceBlock] N\n", lineBuffer);

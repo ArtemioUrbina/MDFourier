@@ -181,6 +181,12 @@
 #define MASK_NONE		'-'
 #define MASK_DEFAULT	MASK_NONE
 
+/* Clock identification ranges [CLKID] */
+#define CLKID_UNIT_HZ		'h'
+#define CLKID_UNIT_PPM		'p'
+#define CLKID_UNIT_CENTS	'c'
+#define CLKID_NONE			-1
+
 #if defined (WIN32)
 	#define MAX_FOLDER_NAME	50
 	#define MAX_FILE_NAME	25
@@ -254,6 +260,16 @@ typedef struct abt_st {
 	int			IsaddOnData;
 	char		maskType;
 } AudioBlockType;
+
+typedef struct clkid_st {
+	char		name[128];
+	char		displayName[128];
+	double		nominal;
+	double		tolerance;
+	char		unit;
+	double		minHz;
+	double		maxHz;
+} CLKIdentity;
 
 typedef struct sync_st {
 	char		syncName[255];
@@ -740,6 +756,10 @@ typedef struct parameters_st {
     double      clkCom;
 	int			*clkBlocksAdjust;
 	int			clkBlkAdjustNum;
+	CLKIdentity	*clkIDs;
+	int			clkIDCount;
+	int			clkRefID;
+	int			clkComID;
 
 	int			doClkAdjust;
 	char		doSamplerateAdjust;

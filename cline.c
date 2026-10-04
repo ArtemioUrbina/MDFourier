@@ -288,6 +288,10 @@ void CleanParameters(parameters *config)
 
 	config->clkBlocksAdjust = NULL;
 	config->clkBlkAdjustNum = 0;
+	config->clkIDs = NULL;
+	config->clkIDCount = 0;
+	config->clkRefID = CLKID_NONE;
+	config->clkComID = CLKID_NONE;
 
 	config->useExtraData = 1;
 	config->compressToBlocks = 0;

@@ -49,4 +49,7 @@ int MatchVideoFormat(parameters * config, char* format);
 void listFormats(parameters * config);
 
 int ValidateCLKArray(parameters *config);
+int LoadCLKIdentities(char *lineBuffer, FILE *file, parameters *config);
+char *GetCLKToleranceUnit(CLKIdentity *clkID);
+void ReleaseCLKData(parameters *config);
 #endif
