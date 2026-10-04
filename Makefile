@@ -116,17 +116,26 @@ debugsan: executable
 executable: mdfourier
 executable: mdwave
 
-mdfourier: profile.o sync.o freq.o windows.o log.o diff.o cline.o plot.o balance.o incbeta.o loadfile.o flac.o mdfourier.o 
+COMMON_OBJS = profile.o sync.o freq.o windows.o log.o diff.o cline.o plot.o balance.o incbeta.o loadfile.o flac.o
+ALL_OBJS    = $(COMMON_OBJS) mdfourier.o mdwave.o
+
+#Generate .d files with the headers each .c includes, so header changes rebuild them
+DEPFLAGS    = -MMD -MP
+
+mdfourier: $(COMMON_OBJS) mdfourier.o
 	$(CC) $(CCFLAGS) -o $@ $^ $(LFLAGS)
 
-mdwave: profile.o sync.o freq.o windows.o log.o diff.o cline.o plot.o incbeta.o balance.o loadfile.o flac.o mdwave.o
+mdwave: $(COMMON_OBJS) mdwave.o
 	$(CC) $(CCFLAGS) -o $@ $^ $(LFLAGS)
 
-.c.o:
-	$(CC) -c $(CCFLAGS) $< -o $@
+%.o: %.c
+	$(CC) -c $(CCFLAGS) $(DEPFLAGS) $< -o $@
+
+-include $(ALL_OBJS:.o=.d)
 
 clean:
 	rm -f *.o
+	rm -f *.d
 	rm -f mdfourier.exe
 	rm -f mdwave.exe
 	rm -f mdfourier

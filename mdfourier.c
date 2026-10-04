@@ -3,7 +3,7 @@
  * A Fourier Transform analysis tool to compare game console audio
  * http://junkerhq.net/MDFourier/
  *
- * Copyright (C)2019-2020 Artemio Urbina
+ * Copyright (C)2019-2026 Artemio Urbina
  *
  * This file is part of the 240p Test Suite
  *
@@ -393,6 +393,7 @@ void ReportCLKIdentity(char *roleName, double measured, int *clkID, parameters *
 	if(index == CLKID_NONE)
 		return;
 
+	*clkID = CLKID_UNKNOWN;
 	if(matches)
 	{
 		*clkID = index;
@@ -476,7 +477,8 @@ int ReportClockResults(AudioSignal *ReferenceSignal, AudioSignal *ComparisonSign
 
 			if(reportOption)
 			*/
-				logmsg(" - WARNING: Clocks don't match, results may vary considerably. Can adjust with -j\n");
+			config->diffClkNoMatch = 1;
+			logmsg(" - WARNING: Clocks don't match, results may vary considerably. Can adjust with -j\n");
 		}
 		return 0;
 	}

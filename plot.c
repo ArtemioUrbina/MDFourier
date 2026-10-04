@@ -3,7 +3,7 @@
  * A Fourier Transform analysis tool to compare game console audio
  * http://junkerhq.net/MDFourier/
  *
- * Copyright (C)2019-2020 Artemio Urbina
+ * Copyright (C)2019-2026 Artemio Urbina
  *
  * This file is part of the 240p Test Suite
  *
@@ -1350,6 +1350,72 @@ void DrawClockData(PlotFile *plot, AudioSignal *Signal, char *msg, parameters *c
 	}
 }
 
+char *GetCLKIdentityName(AudioSignal *Signal, parameters *config)
+{
+	int clkID = CLKID_NONE;
+
+	if(!Signal || !config->clkIDCount)
+		return NULL;
+
+	clkID = Signal->role == ROLE_REF ? config->clkRefID : config->clkComID;
+	if(clkID == CLKID_UNKNOWN)
+		return "Unknown";
+	if(clkID < 0 || clkID >= config->clkIDCount)
+		return NULL;
+	return config->clkIDs[clkID].displayName;
+}
+
+void DrawClockIdentity(PlotFile *plot, AudioSignal *Signal, char *clockLabel, int row, parameters *config)
+{
+	int		len = 0;
+	char	*name = NULL, label[BUFFER_SIZE];
+	double	x = 0, limit = 0, available = 0;
+
+	name = GetCLKIdentityName(Signal, config);
+	if(!name)
+		return;
+
+	if(row == 1 && config->MaxFreq != FREQ_COUNT)
+		limit = config->plotResX-4*config->plotResX/10;
+	else
+		limit = config->plotResX-3*config->plotResX/10;
+
+	x = config->plotResX-5*config->plotResX/10 +
+		pl_flabelwidth_r(plot->plotter, clockLabel) + 
+		pl_flabelwidth_r(plot->plotter, " ");
+	available = limit - x - pl_flabelwidth_r(plot->plotter, " ");
+	if(available <= 0)
+		return;
+
+	len = strlen(name);
+	if(len > BUFFER_SIZE - 8)
+		len = BUFFER_SIZE - 8;
+	sprintf(label, "[%.*s]", len, name);
+	while(len > 1 && pl_flabelwidth_r(plot->plotter, label) > available)
+	{
+		len--;
+		sprintf(label, "[%.*s.]", len, name);
+	}
+	if(pl_flabelwidth_r(plot->plotter, label) > available)
+		return;
+
+	if(strcmp(name, "Unknown") == 0)
+		pl_pencolor_r(plot->plotter, 0xcccc, 0xcccc, 0);
+	else
+		pl_pencolor_r(plot->plotter, 0xcccc, 0xcccc, 0xcccc);
+
+	pl_fmove_r(plot->plotter, x, config->plotResY/2-row*BAR_HEIGHT);
+	pl_alabel_r(plot->plotter, 'l', 'l', label);
+}
+
+void DrawClockRow(PlotFile *plot, AudioSignal *Signal, char *msg, int row, parameters *config)
+{
+	PLOT_COLUMN(5, row);
+	DrawClockData(plot, Signal, msg, config);
+	pl_alabel_r(plot->plotter, 'l', 'l', msg);
+	DrawClockIdentity(plot, Signal, msg, row, config);
+}
+
 void DrawImbalance(PlotFile *plot, AudioSignal *Signal, char *msg, parameters *config)
 {
 	if(Signal->AudioChannels == 1)
@@ -2082,26 +2148,13 @@ void DrawLabelsMDF(PlotFile *plot, char *Gname, char *GType, int type, parameter
 	{
 		if(type == PLOT_COMPARE)
 		{
-			PLOT_COLUMN(5, 1);
-			DrawClockData(plot, config->referenceSignal, msg, config);
-			pl_alabel_r(plot->plotter, 'l', 'l', msg);
-
-			PLOT_COLUMN(5, 2);
-			DrawClockData(plot, config->comparisonSignal, msg, config);
-			pl_alabel_r(plot->plotter, 'l', 'l', msg);
+			DrawClockRow(plot, config->referenceSignal, msg, 1, config);
+			DrawClockRow(plot, config->comparisonSignal, msg, 2, config);
 		}
 		else if(type == PLOT_SINGLE_REF)
-		{
-			PLOT_COLUMN(5, 1);
-			DrawClockData(plot, config->referenceSignal, msg, config);
-			pl_alabel_r(plot->plotter, 'l', 'l', msg);
-		}
+			DrawClockRow(plot, config->referenceSignal, msg, 1, config);
 		else
-		{
-			PLOT_COLUMN(5, 2);
-			DrawClockData(plot, config->comparisonSignal, msg, config);
-			pl_alabel_r(plot->plotter, 'l', 'l', msg);
-		}
+			DrawClockRow(plot, config->comparisonSignal, msg, 2, config);
 	}
 
 	if(config->notVisible > 1)
@@ -6524,7 +6577,16 @@ void PlotCLKSpectrogramInternal(FlatFrequency *freqs, long int size, char *filen
 
 	plot.SpecialWarning = "NOTE: dBFS scale relative between CLK signals";
 	DrawColorScale(&plot, TYPE_CLK_ANALYSIS, MODE_SPEC, LEFT_MARGIN, HEIGHT_MARGIN, config->plotResX/COLOR_BARS_WIDTH_SCALE, config->plotResY/1.15, (int)startAmplitude, (int)(endAmplitude-startAmplitude), VERT_SCALE_STEP, CHANNEL_STEREO, config);
-	DrawLabelsMDF(&plot, signal == ROLE_REF ? SPECTROGRAM_CLK_REF : SPECTROGRAM_CLK_COM, config->clkName, signal == ROLE_REF ? PLOT_SINGLE_REF : PLOT_SINGLE_COM, config);
+	{
+		char	clkLabel[BUFFER_SIZE], *idName = NULL;
+
+		idName = GetCLKIdentityName(signal == ROLE_REF ? config->referenceSignal : config->comparisonSignal, config);
+		if(idName)
+			sprintf(clkLabel, "%s - %.200s", config->clkName, idName);
+		else
+			sprintf(clkLabel, "%s", config->clkName);
+		DrawLabelsMDF(&plot, signal == ROLE_REF ? SPECTROGRAM_CLK_REF : SPECTROGRAM_CLK_COM, clkLabel, signal == ROLE_REF ? PLOT_SINGLE_REF : PLOT_SINGLE_COM, config);
+	}
 
 	ClosePlot(&plot);
 }

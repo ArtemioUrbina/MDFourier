@@ -3,7 +3,7 @@
  * A Fourier Transform analysis tool to compare game console audio
  * http://junkerhq.net/MDFourier/
  *
- * Copyright (C)2019-2020 Artemio Urbina
+ * Copyright (C)2019-2026 Artemio Urbina
  *
  * This file is part of the 240p Test Suite
  *
@@ -48,7 +48,7 @@
 
 #include "incbeta.h"
 
-#define MDVERSION "1.164"
+#define MDVERSION "1.165"
 
 #if INTPTR_MAX == INT64_MAX
 #define	BITS_MDF "64-bit"
@@ -186,6 +186,7 @@
 #define CLKID_UNIT_PPM		'p'
 #define CLKID_UNIT_CENTS	'c'
 #define CLKID_NONE			-1
+#define CLKID_UNKNOWN		-2
 
 #if defined (WIN32)
 	#define MAX_FOLDER_NAME	50
