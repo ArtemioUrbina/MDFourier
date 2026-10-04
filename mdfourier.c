@@ -1104,7 +1104,6 @@ void CleanUp(AudioSignal **ReferenceSignal, AudioSignal **ComparisonSignal, para
 	}
 
 	ReleaseAudioBlockStructure(config);
-	ReleaseCLKData(config);
 }
 
 int CopySamplesForTimeDomainPlotWindowOnly(AudioBlocks *AudioArray, double *window, int AudioChannels, parameters *config)

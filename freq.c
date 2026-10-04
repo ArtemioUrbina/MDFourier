@@ -664,12 +664,8 @@ void ReleaseAudioBlockStructure(parameters *config)
 		fftw_destroy_plan(config->sync_plan);
 		config->sync_plan = NULL;
 	}
-	if(config->clkBlocksAdjust)
-	{
-		free(config->clkBlocksAdjust);
-		config->clkBlocksAdjust = NULL;
-		config->clkBlkAdjustNum = 0;
-	}
+	
+	ReleaseCLKData(config);
 }
 
 int CalculateTimeDurations(AudioSignal *Signal, parameters *config)
