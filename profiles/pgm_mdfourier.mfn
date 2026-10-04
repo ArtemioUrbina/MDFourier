@@ -1,0 +1,16 @@
+MDFourierAudioBlockFile 2.3
+PGM (IGS PGM) ICS2115
+[VideoModes] 1
+ICS 16.68934 552 8820 14 10
+CLK n
+[MonoBalanceBlock] 40
+[ToneLines] 9
+Sync s 1 20 0 red m
+Silence n 1 48 0 gray m
+Tones 1 72 24 1 green m
+Silence n 1 48 0 gray m
+PanSweep 2 16 24 1 yellow m
+Silence n 1 48 0 gray m
+Noise 3 72 24 1 aqua m
+Silence n 1 48 0 gray m
+Sync s 1 20 0 red m

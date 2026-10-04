@@ -1,0 +1,18 @@
+MDFourierAudioBlockFile 2.3
+Taito: F2
+[VideoModes] 1
+NTSC 16.6511279322 262 8294 14 10
+CLK n
+[MonoBalanceBlock] 104				 ; Use 1khz-ish, SSG# 1
+[ToneLines] 11
+Sync s 1 20 0 red m
+pad k 1 10 0 red m
+Silence n 1 30 10 gray m
+FM 1 96 20 0 green m
+SPSG_Ramp 2 31 16 0 yellow m
+pad k 1 1 0 red m
+pad k 32 5 0 blue m
+pad k 1 1 0 red m
+pad k 1 10 0 red m
+Silence n 1 30 10 gray m
+Sync s 1 20 0 red m

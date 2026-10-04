@@ -1,0 +1,21 @@
+MDFourierAudioBlockFile 2.3
+SNK: Neo Geo
+[VideoModes] 3
+MVS  16.892455 264 8294 14 10
+NTSC 16.777248 264 8294 14 10
+PAL  19.831255 312 8294 14 10
+CLK n
+[MonoBalanceBlock] 104				 ; Use 1khz-ish, SSG# 1
+[ToneLines] 12
+Sync s 1 20 0 red m
+pad k 1 10 0 red m
+Silence n 1 30 10 gray m
+FM 1 96 20 0 green S
+SPSG_Ramp 2 31 16 0 yellow m
+pad k 1 1 0 red m
+ADPCM-A 4 48 5 0 aqua m
+ADPCM-B 5 30 5 0 magenta m			; 44k
+pad k 1 2 0 red m
+pad k 1 10 0 red m
+Silence n 1 30 10 gray m
+Sync s 1 20 0 red m

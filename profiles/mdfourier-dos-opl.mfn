@@ -1,0 +1,20 @@
+MDFourierAudioBlockFile 2.3
+DOS: OPL2/OPL3 FM Synthesis
+[VideoModes] 1
+VGA70 14.26805 449 6000 14 10
+CLK y 2 6002.078595 8.283114 1 2
+[CLKID] 4
+OPL2/3_YM       49715.9028   250ppm
+ESFM_ESS        49624.7075   500ppm
+OPL3SAx_YM      49515.7895   500ppm
+CQM_Creative    49804.4221   500ppm
+[MonoBalanceBlock] 2
+[ToneLines] 8
+Sync      s   1 20 0 red    m
+Silence   n   1 20 0 gray   m
+CHIPID    1   1 60 0 yellow m
+Silence   n   1 20 0 gray   m
+FM        2 128 20 4 green  s *
+Decay     k   1  5 0 red    m
+Silence   n   1 20 0 gray   m
+Sync      s   1 20 0 red    m

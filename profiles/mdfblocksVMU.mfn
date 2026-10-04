@@ -1,0 +1,12 @@
+MDFourierAudioBlockFile 2.3
+SEGA: VMU Dreamcast
+[VideoModes] 1
+NTSC 500 262 2732 320 10
+CLK n
+[MonoBalanceBlock] 20      ;Use 1khz-ish, PWM# 1
+[ToneLines] 5
+Sync s 1 8 0 red m
+Silence n 1 4 0 gray m
+PWM 2 31 1 0 green m
+Silence n 1 4 0 gray m
+Sync s 1 8 0 red m

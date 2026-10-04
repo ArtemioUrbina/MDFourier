@@ -1,0 +1,15 @@
+MDFourierAudioBlockFile 2.3
+IREM: M92
+[VideoModes] 1
+PCB 16.66479 567 8300 12 10
+CLK n
+[MonoBalanceBlock] 40      ;Use 1khz-ish
+[ToneLines] 8
+Sync s 1 20 0 red m
+Silence n 2 10 0 gray m
+FM 1 128 20 4 green s
+mute k 1 1 0 yellow s
+PCM 2 107 10 0 orange m
+mute k 1 5 0 yellow s
+Silence n 2 10 0 gray m
+Sync s 1 20 0 red m
