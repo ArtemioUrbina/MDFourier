@@ -1910,6 +1910,7 @@ int ExecuteDFFTInternal(AudioBlocks *AudioArray, double *samples, size_t size, d
 			logmsg("FFTW failed to create FFTW_MEASURE plan\n");
 			free(signal);
 			signal = NULL;
+			fftw_free(spectrum);
 			return 0;
 		}
 	}
@@ -1920,6 +1921,7 @@ int ExecuteDFFTInternal(AudioBlocks *AudioArray, double *samples, size_t size, d
 		logmsg("FFTW failed to create FFTW_MEASURE plan\n");
 		free(signal);
 		signal = NULL;
+		fftw_free(spectrum);
 		return 0;
 	}
 

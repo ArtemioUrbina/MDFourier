@@ -48,4 +48,5 @@ int CheckProfileBaseLength(parameters *config);
 int MatchVideoFormat(parameters * config, char* format);
 void listFormats(parameters * config);
 
+int ValidateCLKArray(parameters *config);
 #endif

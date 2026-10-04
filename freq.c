@@ -648,7 +648,8 @@ void ReleaseAudioBlockStructure(parameters *config)
 
 	if(config->model_plan)
 	{
-		fftw_export_wisdom_to_filename("wisdom.fftw");
+		if(!fftw_export_wisdom_to_filename("wisdom.fftw"))
+			printf("WARNING: Could not save wisdom.fftw file\n");
 
 		fftw_destroy_plan(config->model_plan);
 		config->model_plan = NULL;

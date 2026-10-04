@@ -192,6 +192,9 @@ int EndProfileLoad(parameters *config)
 					ZEROPAD_FACTOR, ZEROPAD_FACTOR_CLK);
 			config->ZeroPad = 1;
 			config->ZeroPadFactor = ZEROPAD_FACTOR;
+
+			if(!ValidateCLKArray(config))
+				return 0;
 		}
 		else
 		{
@@ -228,41 +231,64 @@ int CheckChannel(char *channel, parameters *config)
 	return 0;
 }
 
+int IsCLKSeparator(char c)
+{
+	if(c == ' ' || c == '\t' || c == '\r' || c == '\n')
+		return 1;
+	return 0;
+}
+
+int SkipCLKSeparators(char *lineBuffer, int pos)
+{
+	while(lineBuffer[pos] != '\0' && IsCLKSeparator(lineBuffer[pos]))
+		pos++;
+	return pos;
+}
+
+int SkipCLKToken(char *lineBuffer, int pos)
+{
+	while(lineBuffer[pos] != '\0' && !IsCLKSeparator(lineBuffer[pos]))
+		pos++;
+	return pos;
+}
+
 int CreateCLKArray(char *lineBuffer, parameters *config)
 {
 	/* 	If no blocks are specified, or  '*' found apply to all.
 			Otherwise apply to explicitly mentioned blocks */
 
-	int pos = 0, spaces = 0, listStart = 0, params = 1, start = 0, count = 0;
+	int pos = 0, fields = 0, listStart = 0, params = 0, start = 0, count = 0, read = 0;
 
-	/* We start by catching up tp the already parsed position */
+	config->clkBlocksAdjust = NULL;
+	config->clkBlkAdjustNum = -1; /* apply to all by default */
+
+	/* We start by catching up to the already parsed position */
 	/* "%*s %*c %d %lf %lf" */
-	while(lineBuffer[pos] != '\n' && lineBuffer[pos] != '\0' && spaces < 5)
+	pos = SkipCLKSeparators(lineBuffer, pos);
+	while(lineBuffer[pos] != '\0' && fields < 5)
 	{
-		if(lineBuffer[pos] == ' ')
-			spaces ++;
-		pos++;
+		pos = SkipCLKToken(lineBuffer, pos);
+		pos = SkipCLKSeparators(lineBuffer, pos);
+		fields++;
 	}
 
-	if(lineBuffer[pos] == '\0' || lineBuffer[pos] == '\n')
-	{
-		config->clkBlkAdjustNum = -1; /* apply to all */
-		return 1;
-	}
+	if(fields < 5)
+		return 0;
+
+	if(lineBuffer[pos] == '\0')
+		return 1; /* apply to all */
 
 	listStart = pos;
-	if(lineBuffer[listStart] == '*')
-	{
-		config->clkBlkAdjustNum = -1; /* apply to all */
-		return 1;
-	}
 
 	/* count parameter list */
 	while(lineBuffer[pos] != '\0')
 	{
-		if(lineBuffer[pos] == ' ')
-			params ++;
-		pos++;
+		start = pos;
+		pos = SkipCLKToken(lineBuffer, pos);
+		if(pos - start == 1 && lineBuffer[start] == '*')
+			return 1; /* apply to all */
+		params++;
+		pos = SkipCLKSeparators(lineBuffer, pos);
 	}
 
 	config->clkBlocksAdjust = (int*)malloc(sizeof(int)*params);
@@ -270,34 +296,74 @@ int CreateCLKArray(char *lineBuffer, parameters *config)
 		return 0;
 
 	pos = listStart;
-	start = pos;
-	while(lineBuffer[pos] != '\0' && lineBuffer[pos] != '\n')
+	while(lineBuffer[pos] != '\0')
 	{
-		if(lineBuffer[pos] == ' ')
+		start = pos;
+		pos = SkipCLKToken(lineBuffer, pos);
+		/* The whole token must be a number */
+		if(sscanf(lineBuffer+start, "%d%n", &config->clkBlocksAdjust[count], &read) != 1 || start + read != pos)
 		{
-			if(pos > start)
-			{
-				if(sscanf(lineBuffer+start, "%d", &config->clkBlocksAdjust[count++]) != 1)
-				{
-					free(config->clkBlocksAdjust);
-					return 0;
-				}
-			}
-			start = pos+1;
+			logmsg("ERROR: Invalid block type in CLK adjust list: %s\n", lineBuffer+start);
+			free(config->clkBlocksAdjust);
+			config->clkBlocksAdjust = NULL;
+			return 0;
 		}
-		pos++;
+		count++;
+		pos = SkipCLKSeparators(lineBuffer, pos);
 	}
 
-	if (pos > start)
+	config->clkBlkAdjustNum = count;
+	return 1;
+}
+
+int ValidateCLKArray(parameters *config)
+{
+	int i = 0, t = 0, clkType = 0, clkTypeListed = 0;
+
+	if(config->clkBlkAdjustNum == -1)
 	{
-		if(sscanf(lineBuffer+start, "%d", &config->clkBlocksAdjust[count++]) != 1)
+		logmsg(" - Clock adjustment applies to all block types\n");
+		return 1;
+	}
+
+	logmsg(" - Clock adjustment limited to types:");
+	for(i = 0; i < config->clkBlkAdjustNum; i++)
+	{
+		int found = 0;
+
+		for(t = 0; t < config->types.typeCount; t++)
 		{
-			free(config->clkBlocksAdjust);
+			if(config->types.typeArray[t].type == config->clkBlocksAdjust[i] &&
+				config->types.typeArray[t].type > TYPE_SILENCE)
+			{
+				logmsg(" %s", config->types.typeArray[t].typeDisplayName);
+				found = 1;
+				break;
+			}
+		}
+		if(!found)
+		{
+			logmsg("\nERROR: CLK adjust list has type %d, which is not an audio block type in this profile\n",
+				config->clkBlocksAdjust[i]);
 			return 0;
 		}
 	}
+	logmsg("\n");
 
-	config->clkBlkAdjustNum = params;
+	/* The block used to measure the clock must also be adjusted */
+	clkType = GetBlockType(config, config->clkBlock);
+	for(i = 0; i < config->clkBlkAdjustNum; i++)
+	{
+		if(config->clkBlocksAdjust[i] == clkType)
+			clkTypeListed = 1;
+	}
+	if(!clkTypeListed)
+	{
+		logmsg("ERROR: CLK block %s# %d (type %d) is not in the CLK adjust list\n",
+			GetBlockName(config, config->clkBlock),
+			GetBlockSubIndex(config, config->clkBlock), clkType);
+		return 0;
+	}
 	return 1;
 }
 
