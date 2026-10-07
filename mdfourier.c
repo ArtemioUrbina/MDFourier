@@ -1417,7 +1417,11 @@ int RecalculateFFTW(AudioSignal *Signal, parameters *config)
 			frames = GetBlockFrames(config, i);
 			cutFrames = GetBlockCutFrames(config, i);
 
-			windowUsed = getWindowByLength(&windows, frames, cutFrames, config->smallerFramerate, config);
+			// Same window selection as ProcessSignal, the block data was loaded with it
+			if(Signal->Blocks[i].maskType == MASK_USE_WINDOW)
+				windowUsed = getWindowByLength(&windows, frames, cutFrames, config->smallerFramerate, config);
+			else
+				windowUsed = getWindowByLength(&windows, frames, cutFrames, Signal->framerate, config);
 
 			currSamplesSize = Signal->Blocks[i].loadSize - Signal->Blocks[i].difference;
 

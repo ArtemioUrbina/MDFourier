@@ -77,17 +77,12 @@ double *CreateWindowInternal(windowManager *wm, double *(*createWindow)(long), c
 	{
 		double *tmp = NULL;
 
-		if(config->ZeroPad)
-		{
-			long int neededSize = realMemSize + sizePadding + clkAdjustBufferSize;
-			if(neededSize < wm->SampleRate)
-			{
-				neededSize = wm->SampleRate - realMemSize;
-				realMemSize = wm->SampleRate;
-			}
-		}
-		else
-			realMemSize = realMemSize + sizePadding + clkAdjustBufferSize;
+		// The cut frames and clk buffer must always be covered, the window is applied over the whole loaded block
+		realMemSize = realMemSize + sizePadding + clkAdjustBufferSize;
+
+		// With ZeroPad use at least one second
+		if(config->ZeroPad && realMemSize < (long int)wm->SampleRate)
+			realMemSize = (long int)wm->SampleRate;
 
 #ifdef DEBUG
 		if(config->verbose >= 2)
