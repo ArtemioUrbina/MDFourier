@@ -884,6 +884,7 @@ int LoadAudioBlockStructure(FILE *file, parameters *config)
 		{
 			logmsg("ERROR: Unrecognized color \"%s\" aborting\n", 
 				config->types.typeArray[i].color);
+			listColors();
 			fclose(file);
 			return 0;
 		}
@@ -1145,8 +1146,9 @@ int LoadAudioNoSyncProfile(FILE *file, parameters *config)
 	
 		if(MatchColor(config->types.typeArray[t].color) == COLOR_NONE)
 		{
-			logmsg("Unrecognized color \"%s\" aborting\n", 
+			logmsg("ERROR: Unrecognized color \"%s\" aborting\n", 
 				config->types.typeArray[t].color);
+			listColors();
 			fclose(file);
 			return 0;
 		}

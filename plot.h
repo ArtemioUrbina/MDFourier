@@ -67,6 +67,18 @@ typedef struct averaged_freq{
 #define COLOR_PURPLE	7
 #define COLOR_ORANGE	8
 #define COLOR_GRAY		9
+#define COLOR_PINK		10
+#define COLOR_LIME		11
+#define COLOR_VIOLET	12
+#define COLOR_SKY		13
+#define COLOR_SALMON	14
+#define COLOR_MINT		15
+#define COLOR_INDIGO	16
+#define COLOR_EMERALD	17
+#define COLOR_ROSE		18
+#define COLOR_CANARY	19
+#define COLOR_COBALT	20
+#define COLOR_SCARLET	21
 #define COLOR_NULL		-1
 
 #define	MODE_DIFF		1
@@ -187,6 +199,7 @@ void SetPenColorStr(char *colorName, long int color, PlotFile *plot);
 void SetPenColor(int colorIndex, long int color, PlotFile *plot);
 void SetFillColor(int colorIndex, long int color, PlotFile *plot);
 int MatchColor(char *color);
+void listColors(void);
 
 void PlotAllDifferentAmplitudes(FlatAmplDifference *amplDiff, long int size, char channel, char *filename, parameters *config);
 int PlotEachTypeDifferentAmplitudes(FlatAmplDifference *amplDiff, long int size, char *filename, parameters *config);

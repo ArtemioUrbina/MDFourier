@@ -1,0 +1,34 @@
+MDFourierAudioBlockFile 2.3
+DOS: OPL2/OPL3 FM Synthesis
+[VideoModes] 1
+VGA70 14.26805 449 6000 14 10
+CLK y 2 6002.078595 8.283114 1 2 3 4 5 6 7 8 9
+[CLKID] 4
+OPL2/3      49715.9028   250ppm
+CQM         49804.4221   500ppm
+ESFM        49624.7075   500ppm
+OPL3-SAx    49515.7895   500ppm
+[MonoBalanceBlock] 2
+[ToneLines] 22
+Sync            s   1 20  0 red     m
+Silence         n   1 20  0 gray    m
+CHIPID          1   1 60  0 lime    m
+    PADDING     k   1 20  0 red     m
+MIXER           W   1 10    yellow  m 1000 2000 Mixer
+    PADDING     k   1 20  0 gray    m
+FM              2 128 20  4 green   s *
+    PADDING     k   1 25  0 red     m
+Sine            3 128 10  2 cyan    s *
+    PADDING     k   1 25  0 red     m
+Depth           4   8 20  4 pink    s *
+    PADDING     k   1 20  0 red     m
+Feedback        5   7 20  4 orange  s *
+Feedback7       6   1 20  4 salmon  s *
+    PADDING     k   1 20  0 red     m
+Level           7   8 20  4 blue    s *
+    PADDING     k   1 20  0 gray    m
+LFO             8   4 70 14 magenta s *
+    PADDING     k   1 20  0 red     m
+Wave            9   8 20  4 purple  s *
+Silence         n   1 20  0 gray    m
+Sync            s   1 20  0 red     m

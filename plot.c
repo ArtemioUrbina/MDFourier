@@ -3571,43 +3571,98 @@ void PlotBetaFunctions(parameters *config)
 	PopMainPath(&MainPath);
 }
 
+typedef struct color_def_st {
+	char	*name;
+	int		index;
+	double	r;
+	double	g;
+	double	b;
+} ColorDef;
+
+ColorDef colorTable[] = {
+	{ "red",		COLOR_RED,		1.0,	0.0,	0.0 },
+	{ "green",		COLOR_GREEN,	0.0,	1.0,	0.0 },
+	{ "blue",		COLOR_BLUE,		0.0,	0.0,	1.0 },
+	{ "yellow",		COLOR_YELLOW,	1.0,	1.0,	0.0 },
+	{ "magenta",	COLOR_MAGENTA,	1.0,	0.0,	1.0 },
+	{ "cyan",		COLOR_CYAN,		0.0,	1.0,	1.0 },
+	{ "aqua",		COLOR_CYAN,		0.0,	1.0,	1.0 },
+	{ "aquamarine",	COLOR_CYAN,		0.0,	1.0,	1.0 },
+	{ "purple",		COLOR_PURPLE,	0.5,	0.0,	1.0 },
+	{ "orange",		COLOR_ORANGE,	1.0,	0.5,	0.0 },
+	{ "gray",		COLOR_GRAY,		1.0,	1.0,	1.0 },
+	{ "grey",		COLOR_GRAY,		1.0,	1.0,	1.0 },
+	{ "pink",		COLOR_PINK,		1.0,	0.4,	0.7 },
+	{ "lime",		COLOR_LIME,		0.6,	1.0,	0.0 },
+	{ "violet",		COLOR_VIOLET,	0.75,	0.45,	1.0 },
+	{ "sky",		COLOR_SKY,		0.4,	0.75,	1.0 },
+	{ "salmon",		COLOR_SALMON,	1.0,	0.55,	0.45},
+	{ "mint",		COLOR_MINT,		0.4,	1.0,	0.7 },
+	{ "indigo",		COLOR_INDIGO,	0.35,	0.35,	1.0 },
+	{ "emerald",	COLOR_EMERALD,	0.0,	1.0,	0.5 },
+	{ "rose",		COLOR_ROSE,		1.0,	0.0,	0.5 },
+	{ "canary",		COLOR_CANARY,	1.0,	1.0,	0.4 },
+	{ "cobalt",		COLOR_COBALT,	0.0,	0.5,	1.0 },
+	{ "scarlet",	COLOR_SCARLET,	1.0,	0.25,	0.25 },
+	{ "null",		COLOR_NULL,		0.0,	0.0,	0.0 },
+	{ NULL,			COLOR_NONE,		0.0,	0.0,	0.0 }
+};
+
 int MatchColor(char *color)
 {
 	unsigned int	i = 0, len = 0;
 	char			colorcopy[640];
 
+	if(!color)
+		return COLOR_NONE;
+
 	strncpy(colorcopy, color, 512);
+	colorcopy[512] = '\0';
 
 	len = strlen(colorcopy);
 	for(i = 0; i < len; i++)
 		colorcopy[i] = tolower(colorcopy[i]);
 
-	if(strcmp(colorcopy, "red") == 0)
-		return(COLOR_RED);
-	if(strcmp(colorcopy, "green") == 0)
-		return(COLOR_GREEN);
-	if(strcmp(colorcopy, "blue") == 0)
-		return(COLOR_BLUE);
-	if(strcmp(colorcopy, "yellow") == 0)
-		return(COLOR_YELLOW);
-	if(strcmp(colorcopy, "magenta") == 0)
-		return(COLOR_MAGENTA);
-	if(strcmp(colorcopy, "cyan") == 0 || strcmp(color, "aqua") == 0
-		|| strcmp(color, "aquamarine") == 0)
-		return(COLOR_CYAN);
-	if(strcmp(colorcopy, "orange") == 0)
-		return(COLOR_ORANGE);
-	if(strcmp(colorcopy, "purple") == 0)
-		return(COLOR_PURPLE);
-	if(strcmp(colorcopy, "gray") == 0)
-		return(COLOR_GRAY);
-	if(strcmp(colorcopy, "grey") == 0)
-		return(COLOR_GRAY);
-	if(strcmp(colorcopy, "null") == 0)
-		return(COLOR_NULL);
+	for(i = 0; colorTable[i].name; i++)
+	{
+		if(strcmp(colorcopy, colorTable[i].name) == 0)
+			return colorTable[i].index;
+	}
 
-	logmsg("Unmatched color %s, using green\n", color);
-	return COLOR_GREEN;
+	return COLOR_NONE;
+}
+
+void GetColorRGB(int colorIndex, long int color, long int *r, long int *g, long int *b)
+{
+	int i = 0;
+
+	for(i = 0; colorTable[i].name; i++)
+	{
+		if(colorTable[i].index == colorIndex)
+		{
+			*r = (long int)(color*colorTable[i].r);
+			*g = (long int)(color*colorTable[i].g);
+			*b = (long int)(color*colorTable[i].b);
+			return;
+		}
+	}
+
+	*r = 0;
+	*g = color;
+	*b = 0;
+}
+
+void listColors(void)
+{
+	int i = 0;
+
+	logmsg("Available colors:");
+	for(i = 0; colorTable[i].name; i++)
+	{
+		if(colorTable[i].index != COLOR_NULL)
+			logmsg(" %s", colorTable[i].name);
+	}
+	logmsg("\n");
 }
 
 void SetPenColorStr(char *colorName, long int color, PlotFile *plot)
@@ -3617,84 +3672,19 @@ void SetPenColorStr(char *colorName, long int color, PlotFile *plot)
 
 void SetPenColor(int colorIndex, long int color, PlotFile *plot)
 {
-	switch(colorIndex)
-	{
-		case COLOR_RED:
-			pl_pencolor_r(plot->plotter, color, 0, 0);
-			break;
-		case COLOR_GREEN:
-			pl_pencolor_r(plot->plotter, 0, color, 0);
-			break;
-		case COLOR_BLUE:
-			pl_pencolor_r(plot->plotter, 0, 0, color);
-			break;
-		case COLOR_YELLOW:
-			pl_pencolor_r(plot->plotter, color, color, 0);
-			break;
-		case COLOR_CYAN:
-			pl_pencolor_r(plot->plotter, 0, color, color);
-			break;
-		case COLOR_MAGENTA:
-			pl_pencolor_r(plot->plotter, color, 0, color);
-			break;
-		case COLOR_PURPLE:
-			pl_pencolor_r(plot->plotter, color/2, 0, color);
-			break;
-		case COLOR_ORANGE:
-			pl_pencolor_r(plot->plotter, color, color/2, 0);
-			break;
-		case COLOR_GRAY:
-			pl_pencolor_r(plot->plotter, color, color, color);
-			break;
-		case COLOR_NULL:
-			pl_pencolor_r(plot->plotter, 0, 0, 0);
-			break;
-		default:
-			pl_pencolor_r(plot->plotter, 0, color, 0);
-			break;
-	}
+	long int r = 0, g = 0, b = 0;
+
+	GetColorRGB(colorIndex, color, &r, &g, &b);
+	pl_pencolor_r(plot->plotter, r, g, b);
 }
 
 void SetFillColor(int colorIndex, long int color, PlotFile *plot)
 {
-	switch(colorIndex)
-	{
-		case COLOR_RED:
-			pl_fillcolor_r(plot->plotter, color, 0, 0);
-			break;
-		case COLOR_GREEN:
-			pl_fillcolor_r(plot->plotter, 0, color, 0);
-			break;
-		case COLOR_BLUE:
-			pl_fillcolor_r(plot->plotter, 0, 0, color);
-			break;
-		case COLOR_YELLOW:
-			pl_fillcolor_r(plot->plotter, color, color, 0);
-			break;
-		case COLOR_CYAN:
-			pl_fillcolor_r(plot->plotter, 0, color, color);
-			break;
-		case COLOR_MAGENTA:
-			pl_fillcolor_r(plot->plotter, color, 0, color);
-			break;
-		case COLOR_PURPLE:
-			pl_fillcolor_r(plot->plotter, color/2, 0, color);
-			break;
-		case COLOR_ORANGE:
-			pl_fillcolor_r(plot->plotter, color, color/2, 0);
-			break;
-		case COLOR_GRAY:
-			pl_fillcolor_r(plot->plotter, color, color, color);
-			break;
-		case COLOR_NULL:
-			pl_fillcolor_r(plot->plotter, 0, 0, 0);
-			break;
-		default:
-			pl_fillcolor_r(plot->plotter, 0, color, 0);
-			break;
-	}
-}
+	long int r = 0, g = 0, b = 0;
 
+	GetColorRGB(colorIndex, color, &r, &g, &b);
+	pl_fillcolor_r(plot->plotter, r, g, b);
+}
 
 FlatAmplDifference *CreateFlatDifferences(parameters *config, long int *size, diffPlotType plotType)
 {
