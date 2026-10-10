@@ -5716,7 +5716,7 @@ void DrawVerticalFrameGrid(PlotFile *plot, AudioSignal *Signal, double frames, d
 	// this shows the full plot duration in seconds at the top right
 	if(config->plotAllNotes == 4 && x*xfactor < config->plotResX)
 	{
-		sprintf(label, "%0.4f s", SamplesToSeconds(Signal->SampleRate, MaxSamples, Signal->AudioChannels));
+		sprintf(label, "%0.4f s", SamplesToSeconds(Signal->SampleRate, MaxSamples, 1)); // mono
 		pl_fmove_r(plot->plotter, config->plotResX, config->plotResY/2+config->plotResY/40);
 		pl_alabel_r(plot->plotter, 'c', 'b', label);
 	}
@@ -5938,7 +5938,7 @@ void PlotBlockTimeDomainGraph(AudioSignal *Signal, int block, char *name, int wa
 	}
 
 	if(config->plotAllNotes == 4 && Signal->Blocks[block].type != TYPE_SYNC)
-		plotFrames = SamplesToFrames(Signal->SampleRate, plotSize+1-difference, Signal->framerate, Signal->AudioChannels);
+		plotFrames = SamplesToFrames(Signal->SampleRate, plotSize+1-difference, Signal->framerate, 1); // mono
 	else
 		plotFrames = Signal->Blocks[block].frames;
 	DrawVerticalFrameGrid(&plot, Signal, plotFrames, 1, plotSize-difference, forceMS, config);

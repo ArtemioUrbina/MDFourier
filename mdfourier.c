@@ -1299,14 +1299,14 @@ void AdjustTimeDomainData(AudioSignal* ReferenceSignal, AudioSignal* ComparisonS
 			if(ReferenceSignal->Blocks[block].audio.difference != 0)
 			{
 				double seconds = 0;
-				seconds = SamplesToSeconds(ReferenceSignal->SampleRate, ReferenceSignal->Blocks[block].audio.difference, ReferenceSignal->AudioChannels);
-				ComparisonSignal->Blocks[block].audio.padding = SecondsToSamples(ComparisonSignal->SampleRate, seconds, ComparisonSignal->AudioChannels, NULL, NULL);
+				seconds = SamplesToSeconds(ReferenceSignal->SampleRate, ReferenceSignal->Blocks[block].audio.difference, 1);
+				ComparisonSignal->Blocks[block].audio.padding = SecondsToSamples(ComparisonSignal->SampleRate, seconds, 1, NULL, NULL);
 			}
 			if(ComparisonSignal->Blocks[block].audio.difference != 0)
 			{
 				double seconds = 0;
-				seconds = SamplesToSeconds(ComparisonSignal->SampleRate, ComparisonSignal->Blocks[block].audio.difference, ComparisonSignal->AudioChannels);
-				ReferenceSignal->Blocks[block].audio.padding = SecondsToSamples(ReferenceSignal->SampleRate, seconds, ReferenceSignal->AudioChannels, NULL, NULL);
+				seconds = SamplesToSeconds(ComparisonSignal->SampleRate, ComparisonSignal->Blocks[block].audio.difference, 1);
+				ReferenceSignal->Blocks[block].audio.padding = SecondsToSamples(ReferenceSignal->SampleRate, seconds, 1, NULL, NULL);
 			}
 		}
 
@@ -1330,12 +1330,12 @@ void AdjustTimeDomainData(AudioSignal* ReferenceSignal, AudioSignal* ComparisonS
 					if(ReferenceSignal->framerate > ComparisonSignal->framerate)
 					{
 						padding = secondsRef - secondsComp;
-						ComparisonSignal->Blocks[block].audio.padding += SecondsToSamples(ComparisonSignal->SampleRate, padding, ComparisonSignal->AudioChannels, NULL, NULL);
+						ComparisonSignal->Blocks[block].audio.padding += SecondsToSamples(ComparisonSignal->SampleRate, padding, 1, NULL, NULL);
 					}
 					else
 					{
 						padding = secondsComp - secondsRef;
-						ReferenceSignal->Blocks[block].audio.padding += SecondsToSamples(ReferenceSignal->SampleRate, padding, ReferenceSignal->AudioChannels, NULL, NULL);
+						ReferenceSignal->Blocks[block].audio.padding += SecondsToSamples(ReferenceSignal->SampleRate, padding, 1, NULL, NULL);
 					}
 				}
 			}
@@ -1355,14 +1355,14 @@ void AdjustTimeDomainData(AudioSignal* ReferenceSignal, AudioSignal* ComparisonS
 				if(longest_seconds > duration)
 				{
 					padding = longest_seconds - duration;
-					ReferenceSignal->Blocks[block].audio.padding += SecondsToSamples(ReferenceSignal->SampleRate, padding, ReferenceSignal->AudioChannels, NULL, NULL);
+					ReferenceSignal->Blocks[block].audio.padding += SecondsToSamples(ReferenceSignal->SampleRate, padding, 1, NULL, NULL);
 				}
 			
 				duration = FramesToSeconds(frames, ComparisonSignal->framerate);
 				if(longest_seconds > duration)
 				{
 					padding = longest_seconds - duration;
-					ComparisonSignal->Blocks[block].audio.padding += SecondsToSamples(ComparisonSignal->SampleRate, padding, ComparisonSignal->AudioChannels, NULL, NULL);
+					ComparisonSignal->Blocks[block].audio.padding += SecondsToSamples(ComparisonSignal->SampleRate, padding, 1, NULL, NULL);
 				}
 			}
 		}
