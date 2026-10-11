@@ -33,9 +33,22 @@
 #include "float.h"
 #include "profile.h"
 
+inline int FrequencyMagnitudeOrder(const Frequency a, const Frequency b)
+{
+	if(a.magnitude > b.magnitude)
+		return -1;
+	if(a.magnitude < b.magnitude)
+		return 1;
+	if(a.hertz < b.hertz)
+		return -1;
+	if(a.hertz > b.hertz)
+		return 1;
+	return 0;
+}
+
 #define SORT_NAME FFT_Frequency_Magnitude
 #define SORT_TYPE Frequency
-#define SORT_CMP(x, y)  ((x).magnitude > (y).magnitude ? -1 : ((x).magnitude == (y).magnitude ? 0 : 1))
+#define SORT_CMP(x, y)  FrequencyMagnitudeOrder((x), (y))
 #include "sort.h"  // https://github.com/swenson/sort/
 
 inline int areDoublesEqual(double a, double b)
@@ -637,6 +650,97 @@ void ReleaseAudio(AudioSignal *Signal, parameters *config)
 	InitAudio(Signal, config);
 }
 
+// FFTW_MEASURE is slow and not thread safe, changed to fftw_execute_dft_r2c
+typedef struct plan_cache_st {
+	long int	size;
+	fftw_plan	plan;
+} PlanCacheEntry;
+
+#define PLAN_CACHE_GROW	16
+
+PlanCacheEntry	*planCache = NULL;
+int	planCacheCount = 0, planCacheMax = 0;
+
+void InitFFTW()
+{
+	static int done = 0;
+
+	if(done)
+		return;
+	if(!fftw_import_wisdom_from_filename("wisdom.fftw"))
+		logmsgFileOnly("No wisdom.fftw found, planning from scratch\n");
+	fftw_set_timelimit(5.0);
+	done = 1;
+}
+
+fftw_plan GetR2CPlan(long int size)
+{
+	fftw_plan	plan = NULL;
+
+#ifdef OPENMP_ENABLE
+	#pragma omp critical(fftw_planner)
+#endif
+	{
+		for(int i = 0; !plan && i < planCacheCount; i++)
+		{
+			if(planCache[i].size == size)
+				plan = planCache[i].plan;
+		}
+
+		if(!plan)
+		{
+			double			*in = NULL;
+			fftw_complex	*out = NULL;
+
+			if(planCacheCount == planCacheMax)
+			{
+				PlanCacheEntry *tmp = NULL;
+
+				tmp = (PlanCacheEntry*)realloc(planCache, sizeof(PlanCacheEntry)*(planCacheMax + PLAN_CACHE_GROW));
+				if(tmp)
+				{
+					planCache = tmp;
+					planCacheMax += PLAN_CACHE_GROW;
+				}
+			}
+
+			// FFTW_MEASURE with disposable arrays
+			in = (double*)fftw_malloc(sizeof(double)*(size+1));
+			out = (fftw_complex*)fftw_malloc(sizeof(fftw_complex)*(size/2+1));
+			if(in && out && planCacheCount < planCacheMax)
+			{
+				plan = fftw_plan_dft_r2c_1d(size, in, out, FFTW_MEASURE);
+				if(plan)
+				{
+					planCache[planCacheCount].size = size;
+					planCache[planCacheCount].plan = plan;
+					planCacheCount++;
+				}
+			}
+			if(in)
+				fftw_free(in);
+			if(out)
+				fftw_free(out);
+		}
+	}
+
+	return plan;
+}
+
+void ReleaseFFTWPlanCache(void)
+{
+	for(int i = 0; i < planCacheCount; i++)
+	{
+		if(planCache[i].plan)
+			fftw_destroy_plan(planCache[i].plan);
+	}
+	if(planCache)
+		free(planCache);
+	planCache = NULL;
+	planCacheCount = 0;
+	planCacheMax = 0;
+}
+
 void ReleaseAudioBlockStructure(parameters *config)
 {
 	if(config->types.typeCount && config->types.typeArray)
@@ -646,11 +750,11 @@ void ReleaseAudioBlockStructure(parameters *config)
 		config->types.typeCount = 0;
 	}
 
+	if(!fftw_export_wisdom_to_filename("wisdom.fftw"))
+		printf("WARNING: Could not save wisdom.fftw file\n");
+
 	if(config->model_plan)
 	{
-		if(!fftw_export_wisdom_to_filename("wisdom.fftw"))
-			printf("WARNING: Could not save wisdom.fftw file\n");
-
 		fftw_destroy_plan(config->model_plan);
 		config->model_plan = NULL;
 	}
@@ -666,6 +770,7 @@ void ReleaseAudioBlockStructure(parameters *config)
 	}
 	
 	ReleaseCLKData(config);
+	ReleaseFFTWPlanCache();
 }
 
 int CalculateTimeDurations(AudioSignal *Signal, parameters *config)
@@ -2623,6 +2728,62 @@ static double RefinePeakFrequency(FFTWSpectrum *fftw, double ENBW, long int bin,
 	return CalculateFrequency(bin + offset, boxsize);
 }
 
+inline void SwapFrequency(Frequency *a, Frequency *b)
+{
+	Frequency tmp = *a;
+
+	*a = *b;
+	*b = tmp;
+}
+
+void SelectTopFrequencies(Frequency *f_array, long int count, long int amount)
+{
+	long int	left = 0, right = count - 1;
+
+	if(amount <= 0 || count <= 1)
+		return;
+
+	if(amount < count)
+	{
+		while(left < right)
+		{
+			long int	mid = left + (right - left)/2, store = left;
+			Frequency	pivot;
+
+			// median of three for the pivot
+			if(FrequencyMagnitudeOrder(f_array[mid], f_array[left]) < 0)
+				SwapFrequency(&f_array[mid], &f_array[left]);
+			if(FrequencyMagnitudeOrder(f_array[right], f_array[left]) < 0)
+				SwapFrequency(&f_array[right], &f_array[left]);
+			if(FrequencyMagnitudeOrder(f_array[right], f_array[mid]) < 0)
+				SwapFrequency(&f_array[right], &f_array[mid]);
+
+			pivot = f_array[mid];
+			SwapFrequency(&f_array[mid], &f_array[right]);
+			for(long int i = left; i < right; i++)
+			{
+				if(FrequencyMagnitudeOrder(f_array[i], pivot) < 0)
+				{
+					SwapFrequency(&f_array[i], &f_array[store]);
+					store++;
+				}
+			}
+			SwapFrequency(&f_array[store], &f_array[right]);
+
+			if(store == amount - 1 || store == amount)
+				break;
+			if(store < amount)
+				left = store + 1;
+			else
+				right = store - 1;
+		}
+	}
+	else
+		amount = count;
+
+	FFT_Frequency_Magnitude_heap_sort(f_array, amount);
+}
+
 int FillFrequencyStructuresInternal(AudioSignal *Signal, AudioBlocks *AudioArray, char channel, parameters *config)
 {
 	long int 		i = 0, startBin= 0, endBin = 0, count = 0, size = 0, amount = 0;
@@ -2701,11 +2862,11 @@ int FillFrequencyStructuresInternal(AudioSignal *Signal, AudioBlocks *AudioArray
 	else
 		amount = config->MaxFreq;
 
-	// Sort the array by top magnitudes
-	FFT_Frequency_Magnitude_tim_sort(f_array, count);
-
 	if(AudioArray->type != TYPE_SILENCE)
 	{
+		// Only the top amount are kept, select them instead of sorting all bins
+		SelectTopFrequencies(f_array, count, amount);
+
 		// Only copy Top amount frequencies
 		memcpy(*targetFreq, f_array, sizeof(Frequency)*amount);
 
@@ -2726,7 +2887,8 @@ int FillFrequencyStructuresInternal(AudioSignal *Signal, AudioBlocks *AudioArray
 	}
 	else
 	{
-		// We use the whole frequency range for Noise floor analysis
+		// We use the whole frequency range for Noise floor analysis, sorted
+		FFT_Frequency_Magnitude_tim_sort(f_array, count);
 		free(*targetFreq);
 		*targetFreq = f_array;
 		*SilenceSize = count;	

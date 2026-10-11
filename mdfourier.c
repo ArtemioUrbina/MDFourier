@@ -1384,28 +1384,71 @@ int IsTypeInCLKLArray(int type, parameters *config)
 	return 0;
 }
 
+/* A block DFT queued while walking the signal.
+ * Compared the results without paralelizing with OMP
+ * The resulting pngs and logs are identical */
+typedef struct dfft_job_st {
+	long int	block;
+	long int	offset;
+	long int	size;
+	double		*window;
+} DFFTJob;
+
+int RunDFFTJobs(AudioSignal *Signal, DFFTJob *jobs, long int count, int recalculate, parameters *config)
+{
+	int failed = 0;
+
+#ifdef OPENMP_ENABLE
+	#pragma omp parallel for schedule(dynamic)
+#endif
+	for(long int j = 0; j < count; j++)
+	{
+		AudioBlocks	*block = &Signal->Blocks[jobs[j].block];
+		int			ok = 1;
+
+		if(recalculate)
+			CleanFrequenciesInBlock(block, config);
+
+		ok = ExecuteDFFT(block, Signal->Samples + jobs[j].offset, jobs[j].size, Signal->SampleRate, jobs[j].window, Signal->AudioChannels, config->ZeroPad, config);
+		if(ok)
+			ok = FillFrequencyStructures(Signal, block, config);
+		if(ok && recalculate && config->plotAllNotesWindowed)
+			ok = CopySamplesForTimeDomainPlotWindowOnly(block, jobs[j].window, Signal->AudioChannels, config);
+
+		if(!ok)
+		{
+#ifdef OPENMP_ENABLE
+			#pragma omp atomic write
+#endif
+			failed = 1;
+		}
+	}
+
+	return !failed;
+}
+
 int RecalculateFFTW(AudioSignal *Signal, parameters *config)
 {
-	long int		i = 0;	
-	double			*sampleBuffer = NULL;
-	long int		sampleBufferSize = 0;
-	double			*windowUsed = NULL, longest = 0;
+	long int		i = 0, jobCount = 0;
+	double			*windowUsed = NULL;
 	windowManager	windows;
+	DFFTJob			*jobs = NULL;
 
 	if(!config->doClkAdjust)
 		return 0;
 
-	longest = FramesToSeconds(Signal->framerate, GetLongestElementFrames(config));
-	sampleBufferSize = SecondsToSamples(Signal->SampleRate, longest, Signal->AudioChannels, NULL, NULL);
-	sampleBuffer = (double*)malloc(sampleBufferSize*sizeof(double));
-	if(!sampleBuffer)
+	jobs = (DFFTJob*)malloc(sizeof(DFFTJob)*config->types.totalBlocks);
+	if(!jobs)
 	{
 		logmsg("\tERROR: malloc failed RecalculateFFTW.\n");
 		return(0);
 	}
 
 	if(!initWindows(&windows, Signal->SampleRate, config->window, config))
+	{
+		free(jobs);
 		return 0;
+	}
 
 	while(i < config->types.totalBlocks)
 	{
@@ -1418,6 +1461,7 @@ int RecalculateFFTW(AudioSignal *Signal, parameters *config)
 			cutFrames = GetBlockCutFrames(config, i);
 
 			// Same window selection as ProcessSignal, the block data was loaded with it
+			// Window manager is not thread safe
 			if(Signal->Blocks[i].maskType == MASK_USE_WINDOW)
 				windowUsed = getWindowByLength(&windows, frames, cutFrames, config->smallerFramerate, config);
 			else
@@ -1425,29 +1469,11 @@ int RecalculateFFTW(AudioSignal *Signal, parameters *config)
 
 			currSamplesSize = Signal->Blocks[i].loadSize - Signal->Blocks[i].difference;
 
-			memset(sampleBuffer, 0, sampleBufferSize*sizeof(double));
-			memcpy(sampleBuffer, Signal->Samples + Signal->Blocks[i].offset, currSamplesSize*sizeof(double));
-
-			CleanFrequenciesInBlock(&Signal->Blocks[i], config);
-			if(!ExecuteDFFT(&Signal->Blocks[i], sampleBuffer, currSamplesSize, Signal->SampleRate, windowUsed, Signal->AudioChannels, config->ZeroPad, config))
-			{
-				free(sampleBuffer);
-				freeWindows(&windows);
-				return 0;
-			}
-			if(!FillFrequencyStructures(Signal, &Signal->Blocks[i], config))
-			{
-				free(sampleBuffer);
-				freeWindows(&windows);
-				return 0;
-			}
-
-			if(config->plotAllNotesWindowed && !CopySamplesForTimeDomainPlotWindowOnly(&Signal->Blocks[i], windowUsed, Signal->AudioChannels, config))
-			{
-				free(sampleBuffer);
-				freeWindows(&windows);
-				return 0;
-			}
+			jobs[jobCount].block = i;
+			jobs[jobCount].offset = Signal->Blocks[i].offset;
+			jobs[jobCount].size = currSamplesSize;
+			jobs[jobCount].window = windowUsed;
+			jobCount++;
 
 			// Draws the recalculated, not the original ones
 			if(config->clkMeasure && config->clkBlock == i)
@@ -1457,7 +1483,7 @@ int RecalculateFFTW(AudioSignal *Signal, parameters *config)
 				// Force a Hamming window for the clock signal
 				if(!initWindows(&clockWindows, Signal->SampleRate, 'm', config))
 				{
-					free(sampleBuffer);
+					free(jobs);
 					freeWindows(&windows);
 					freeWindows(&clockWindows);
 					return 0;
@@ -1466,9 +1492,9 @@ int RecalculateFFTW(AudioSignal *Signal, parameters *config)
 				// The CLK uses its own zero padding
 				windowUsed = getWindowByLength(&clockWindows, frames, cutFrames, Signal->framerate, config);
 				CleanFrequenciesInBlock(&Signal->clkFrequencies, config);
-				if(!ExecuteDFFT(&Signal->clkFrequencies, sampleBuffer, currSamplesSize, Signal->SampleRate, windowUsed, Signal->AudioChannels, ZEROPAD_FACTOR_CLK, config)) // zeropad on 
+				if(!ExecuteDFFT(&Signal->clkFrequencies, Signal->Samples + Signal->Blocks[i].offset, currSamplesSize, Signal->SampleRate, windowUsed, Signal->AudioChannels, ZEROPAD_FACTOR_CLK, config)) // zeropad on 
 				{
-					free(sampleBuffer);
+					free(jobs);
 					freeWindows(&windows);
 					freeWindows(&clockWindows);
 					return 0;
@@ -1476,7 +1502,7 @@ int RecalculateFFTW(AudioSignal *Signal, parameters *config)
 
 				if(!FillFrequencyStructures(Signal, &Signal->clkFrequencies, config))
 				{
-					free(sampleBuffer);
+					free(jobs);
 					freeWindows(&windows);
 					freeWindows(&clockWindows);
 					return 0;
@@ -1491,10 +1517,17 @@ int RecalculateFFTW(AudioSignal *Signal, parameters *config)
 		i++;
 	}
 
+	if(!RunDFFTJobs(Signal, jobs, jobCount, 1, config))
+	{
+		free(jobs);
+		freeWindows(&windows);
+		return 0;
+	}
+
 	if(config->drawWindows)
 		VisualizeWindows(&windows, "CLK-RECALC", Signal->role, config);
 
-	free(sampleBuffer);
+	free(jobs);
 	freeWindows(&windows);
 
 	if(config->normType != max_frequency)
@@ -1581,6 +1614,7 @@ double RecalculateFrameRateAndSamplerateComp(AudioSignal *ReferenceSignal, Audio
 int RecalculateFrequencyStructures(AudioSignal *ReferenceSignal, AudioSignal *ComparisonSignal, parameters *config)
 {
 	double adjusted = 0;
+	struct timespec	start, end;
 
 	//RecalculateFrameRateAndSamplerate(ReferenceSignal, config);
 	//RecalculateFrameRateAndSamplerate(ComparisonSignal, config);
@@ -1595,6 +1629,10 @@ int RecalculateFrequencyStructures(AudioSignal *ReferenceSignal, AudioSignal *Co
 	SetAmplitudeMatchByDuration(ReferenceSignal, config);
 
 	logmsg(" - Recalculating Discrete Fast Fourier Transforms with adjusted %s value\n", config->clkName);
+
+	if(config->clock)
+		clock_gettime(CLOCK_MONOTONIC, &start);
+
 	if(!RecalculateFFTW(ReferenceSignal, config))
 		return 0;
 
@@ -1603,6 +1641,14 @@ int RecalculateFrequencyStructures(AudioSignal *ReferenceSignal, AudioSignal *Co
 
 	if(!CalculateCLKAmplitudes(ReferenceSignal, ComparisonSignal, config))
 		return 0;
+
+	if(config->clock)
+	{
+		double	elapsedSeconds;
+		clock_gettime(CLOCK_MONOTONIC, &end);
+		elapsedSeconds = TimeSpecToSeconds(&end) - TimeSpecToSeconds(&start);
+		logmsg(" - clk: Recalculating DFFT took %0.2fs\n", elapsedSeconds);
+	}
 	return 1;
 }
 
@@ -1657,10 +1703,11 @@ int ProcessSignal(AudioSignal *Signal, parameters *config)
 	double			*sampleBuffer = NULL;
 	long int		sampleBufferSize = 0;
 	windowManager	windows;
-	long int		loadedBlockSize = 0, i = 0, syncAdvance = 0;
+	long int		loadedBlockSize = 0, i = 0, syncAdvance = 0, jobCount = 0;
 	struct timespec	start, end;
 	int				discardSamples = 0, syncinternal = 0;
 	double			leftDecimals = 0;
+	DFFTJob			*jobs = NULL;
 #ifdef DEBUG
 	long int		totalDiscarded = 0, totalProcessed = 0, totalDifference = 0;
 	double			totalTimeEst = 0, totalTimeReal = 0;
@@ -1683,9 +1730,18 @@ int ProcessSignal(AudioSignal *Signal, parameters *config)
 		return(0);
 	}
 
+	jobs = (DFFTJob*)malloc(sizeof(DFFTJob)*config->types.totalBlocks);
+	if(!jobs)
+	{
+		free(sampleBuffer);
+		logmsg("\tERROR: malloc failed.\n");
+		return(0);
+	}
+
 	if(!initWindows(&windows, Signal->SampleRate, config->window, config))
 	{
 		free(sampleBuffer);
+		free(jobs);
 		logmsg("\tERROR: Could not create FFTW windows.\n");
 		return 0;
 	}
@@ -1744,6 +1800,7 @@ int ProcessSignal(AudioSignal *Signal, parameters *config)
 		if(!DuplicateSamplesForWaveformPlots(Signal, i, pos, loadedBlockSize, difference, framerate, windowUsed, config, syncAdvance))
 		{
 			free(sampleBuffer);
+			free(jobs);
 			freeWindows(&windows);
 			return 0;
 		}
@@ -1777,40 +1834,35 @@ int ProcessSignal(AudioSignal *Signal, parameters *config)
 				GetTypeName(config, Signal->Blocks[i].type), i);
 #endif
 		
-		memset(sampleBuffer, 0, sampleBufferSize*sizeof(double));
-		memcpy(sampleBuffer, Signal->Samples + pos, (loadedBlockSize-difference)*sizeof(double));
-
 		Signal->Blocks[i].offset = pos;
 		Signal->Blocks[i].loadSize = loadedBlockSize;
 		Signal->Blocks[i].difference = difference;
 		if(Signal->Blocks[i].type >= TYPE_SILENCE || Signal->Blocks[i].type == TYPE_WATERMARK)
 		{
-			if(!ExecuteDFFT(&Signal->Blocks[i], sampleBuffer, loadedBlockSize-difference, Signal->SampleRate, windowUsed, Signal->AudioChannels, config->ZeroPad, config))
-			{
-				free(sampleBuffer);
-				freeWindows(&windows);
-				return 0;
-			}
+			// Queued, all block DFTs run in parallel after the signal is walked
+			jobs[jobCount].block = i;
+			jobs[jobCount].offset = pos;
+			jobs[jobCount].size = loadedBlockSize-difference;
+			jobs[jobCount].window = windowUsed;
+			jobCount++;
 #ifdef DEBUG
 			if(config->verbose >= 3)
 				logmsg("estimated %g (difference %ld)\n", Signal->Blocks[i].frames*Signal->framerate/1000.0, difference);
 #endif
-			if(!FillFrequencyStructures(Signal, &Signal->Blocks[i], config))
-			{
-				free(sampleBuffer);
-				freeWindows(&windows);
-				return 0;
-			}
 		}
 
 		if(config->clkMeasure && config->clkBlock == i)
 		{
 			windowManager clockWindows;
 
+			memset(sampleBuffer, 0, sampleBufferSize*sizeof(double));
+			memcpy(sampleBuffer, Signal->Samples + pos, (loadedBlockSize-difference)*sizeof(double));
+
 			// Force a Hamming window for the clock signal
 			if(!initWindows(&clockWindows, Signal->SampleRate, 'm', config))
 			{
 				free(sampleBuffer);
+				free(jobs);
 				freeWindows(&windows);
 				freeWindows(&clockWindows);
 				return 0;
@@ -1821,6 +1873,7 @@ int ProcessSignal(AudioSignal *Signal, parameters *config)
 			if(!ExecuteDFFT(&Signal->clkFrequencies, sampleBuffer, loadedBlockSize-difference, Signal->SampleRate, windowUsed, Signal->AudioChannels, ZEROPAD_FACTOR_CLK /* force ZeroPad */, config))
 			{
 				free(sampleBuffer);
+				free(jobs);
 				freeWindows(&windows);
 				freeWindows(&clockWindows);
 				return 0;
@@ -1829,6 +1882,7 @@ int ProcessSignal(AudioSignal *Signal, parameters *config)
 			if(!FillFrequencyStructures(Signal, &Signal->clkFrequencies, config))
 			{
 				free(sampleBuffer);
+				free(jobs);
 				freeWindows(&windows);
 				freeWindows(&clockWindows);
 				return 0;
@@ -1855,6 +1909,7 @@ int ProcessSignal(AudioSignal *Signal, parameters *config)
 			if(!ProcessInternalSync(Signal, i, pos, &syncinternal, &syncAdvance, TYPE_INTERNAL_KNOWN, config))
 			{
 				free(sampleBuffer);
+				free(jobs);
 				freeWindows(&windows);
 				return 0;
 			}
@@ -1865,6 +1920,7 @@ int ProcessSignal(AudioSignal *Signal, parameters *config)
 			if(!ProcessInternalSync(Signal, i, pos, &syncinternal, &syncAdvance, TYPE_INTERNAL_UNKNOWN, config))
 			{
 				free(sampleBuffer);
+				free(jobs);
 				freeWindows(&windows);
 				return 0;
 			}
@@ -1872,6 +1928,16 @@ int ProcessSignal(AudioSignal *Signal, parameters *config)
 
 		i++;
 	}
+
+	if(!RunDFFTJobs(Signal, jobs, jobCount, 0, config))
+	{
+		free(sampleBuffer);
+		free(jobs);
+		freeWindows(&windows);
+		return 0;
+	}
+	free(jobs);
+	jobs = NULL;
 
 #ifdef DEBUG
 	logmsg("Total discarded %s samples: %ld of %d bytes each (%ld bytes total)\n", 
@@ -1943,7 +2009,7 @@ int ExecuteDFFT(AudioBlocks *AudioArray, double *samples, size_t size, double sa
 // https://holometer.fnal.gov/GH_FFT.pdf
 int ExecuteDFFTInternal(AudioBlocks *AudioArray, double *samples, size_t size, double samplerate, double *window, char channel, int AudioChannels, int ZeroPad, parameters *config)
 {
-	fftw_plan		p = NULL;
+	fftw_plan		p = NULL;	// Shared per size, from the plan cache
 	long			stereoSignalSize = 0, realMonoSize = 0;
 	long			i = 0, monoSignalSize = 0, zeropadding = 0;
 	double			*signal = NULL;
@@ -1974,7 +2040,8 @@ int ExecuteDFFTInternal(AudioBlocks *AudioArray, double *samples, size_t size, d
 			stereoSignalSize, monoSignalSize, zeropadding, monoSignalSize - zeropadding, seconds);
 #endif
 
-	signal = (double*)malloc(sizeof(double)*(monoSignalSize+1));
+	// fftw_malloc so the alignment matches the cached plan's
+	signal = (double*)fftw_malloc(sizeof(double)*(monoSignalSize+1));
 	if(!signal)
 	{
 		logmsg("Not enough memory\n");
@@ -1983,29 +2050,16 @@ int ExecuteDFFTInternal(AudioBlocks *AudioArray, double *samples, size_t size, d
 	spectrum = (fftw_complex*)fftw_malloc(sizeof(fftw_complex)*(monoSignalSize/2+1));
 	if(!spectrum)
 	{
-		free(signal);
+		fftw_free(signal);
 		logmsg("Not enough memory\n");
 		return(0);
 	}
 
-	if(!config->model_plan)
-	{
-		config->model_plan = fftw_plan_dft_r2c_1d(monoSignalSize, signal, spectrum, FFTW_MEASURE);
-		if(!config->model_plan)
-		{
-			logmsg("FFTW failed to create FFTW_MEASURE plan\n");
-			free(signal);
-			signal = NULL;
-			fftw_free(spectrum);
-			return 0;
-		}
-	}
-
-	p = fftw_plan_dft_r2c_1d(monoSignalSize, signal, spectrum, FFTW_MEASURE);
+	p = GetR2CPlan(monoSignalSize);
 	if(!p)
 	{
 		logmsg("FFTW failed to create FFTW_MEASURE plan\n");
-		free(signal);
+		fftw_free(signal);
 		signal = NULL;
 		fftw_free(spectrum);
 		return 0;
@@ -2038,13 +2092,14 @@ int ExecuteDFFTInternal(AudioBlocks *AudioArray, double *samples, size_t size, d
 				logmsg("monoSignalSize: %ld zeropadding: %ld monoSignalSize - zeropadding: %ld\n",
 					monoSignalSize, zeropadding, monoSignalSize - zeropadding);
 				logmsg("ERROR: Window error in code detected\n");
+				fftw_free(signal);
+				fftw_free(spectrum);
 				return 0;
 			}
 		}
 	}
 
-	fftw_execute(p);
-	fftw_destroy_plan(p);
+	fftw_execute_dft_r2c(p, signal, spectrum);
 	p = NULL;
 
 #ifdef DEBUG
@@ -2065,7 +2120,7 @@ int ExecuteDFFTInternal(AudioBlocks *AudioArray, double *samples, size_t size, d
 		AudioArray->fftwValuesRight.ENBW = samplerate*S2;
 	}
 	AudioArray->seconds = seconds;
-	free(signal);
+	fftw_free(signal);
 	signal = NULL;
 
 	return(1);

@@ -1119,11 +1119,9 @@ double ProcessChunkForSyncPulse(double *samples, size_t size, long samplerate, P
 		return(0);
 	}
 
+	InitFFTW();
 	if(!config->sync_plan)
 	{
- 		fftw_import_wisdom_from_filename("wisdom.fftw");
- 		fftw_set_timelimit(5.0);
-
 		config->sync_plan = fftw_plan_dft_r2c_1d(monoSignalSize, signal, spectrum, FFTW_MEASURE);
 		if(!config->sync_plan)
 		{

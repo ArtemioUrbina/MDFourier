@@ -182,4 +182,7 @@ void SetAmplitudeMatchByDuration(AudioSignal *reference, parameters *config);
 void SetAmplitudeMatchByDurationMDW(AudioSignal *reference, parameters *config);
 
 int ApplySamplerateChange(AudioSignal *Signal, parameters *config);
+
+void InitFFTW(void);
+fftw_plan GetR2CPlan(long int size);
 #endif
