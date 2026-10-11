@@ -3772,6 +3772,35 @@ int InsertElementInPlace(FlatFrequency *Freqs, FlatFrequency Element, long int c
 	return 1;
 }
 
+// By channel, then frequency. Used to merge repeated frequencies
+#define SORT_NAME FlatFrequenciesByChannelHertz
+#define SORT_TYPE FlatFrequency
+#define SORT_CMP(x, y)  ((x).channel != (y).channel ? ((x).channel < (y).channel ? -1 : 1) : \
+						((x).hertz < (y).hertz ? -1 : ((x).hertz == (y).hertz ? 0 : 1)))
+#include "sort.h"  // https://github.com/swenson/sort/
+
+long int MergeRepeatedFrequencies(FlatFrequency *Freqs, long int count)
+{
+	long int last = 0;
+
+	if(count <= 1)
+		return count;
+
+	FlatFrequenciesByChannelHertz_tim_sort(Freqs, count);
+	for(long int j = 1; j < count; j++)
+	{
+		if(Freqs[j].channel == Freqs[last].channel && areDoublesEqual(Freqs[j].hertz, Freqs[last].hertz))
+		{
+			// same frequency and channel: keep the loudest
+			if(Freqs[j].amplitude > Freqs[last].amplitude)
+				Freqs[last].amplitude = Freqs[j].amplitude;
+		}
+		else
+			Freqs[++last] = Freqs[j];	// a new frequency, keep it
+	}
+	return last + 1;
+}
+
 // Generates the flat frequency array, either for all blocks but Noise floor or just noise floor
 FlatFrequency *CreateFlatFrequencies(AudioSignal *Signal, long int *size, int NoiseFloor, parameters *config)
 {
@@ -3945,11 +3974,8 @@ FlatFrequency *CreateFlatFrequencies(AudioSignal *Signal, long int *size, int No
 					tmp.color = color;
 					tmp.channel = CHANNEL_LEFT;
 	
-					if(InsertElementInPlace(splitFreqArray[typeIndex].data, tmp, splitFreqArray[typeIndex].pos))
-					{
-						splitFreqArray[typeIndex].pos++;
-						counter ++;
-					}
+					// repeated frequencies are merged once all blocks are in
+					splitFreqArray[typeIndex].data[splitFreqArray[typeIndex].pos++] = tmp;
 				}
 				else
 					break;
@@ -3985,11 +4011,7 @@ FlatFrequency *CreateFlatFrequencies(AudioSignal *Signal, long int *size, int No
 						tmp.color = color;
 						tmp.channel = CHANNEL_RIGHT;
 		
-						if(InsertElementInPlace(splitFreqArray[typeIndex].data, tmp, splitFreqArray[typeIndex].pos))
-						{
-							splitFreqArray[typeIndex].pos++;
-							counter ++;
-						}
+						splitFreqArray[typeIndex].data[splitFreqArray[typeIndex].pos++] = tmp;
 					}
 					else
 						break;
@@ -4005,6 +4027,12 @@ FlatFrequency *CreateFlatFrequencies(AudioSignal *Signal, long int *size, int No
 	{
 		free(types);
 		types = NULL;
+	}
+
+	for(i = 0; i < numTypes; i++)
+	{
+		splitFreqArray[i].pos = MergeRepeatedFrequencies(splitFreqArray[i].data, splitFreqArray[i].pos);
+		counter += splitFreqArray[i].pos;
 	}
 
 	Freqs = (FlatFrequency*)malloc(sizeof(FlatFrequency)*counter);
@@ -4041,7 +4069,6 @@ FlatFrequency *CreateFlatFrequencies(AudioSignal *Signal, long int *size, int No
 	*size = counter;
 	return(Freqs);
 }
-
 
 void PlotTest(char *filename, parameters *config)
 {
