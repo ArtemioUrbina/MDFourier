@@ -37,6 +37,7 @@
 #include "balance.h"
 #include "loadfile.h"
 #include "profile.h"
+#include <float.h>
 
 int LoadAndProcessAudioFiles(AudioSignal **ReferenceSignal, AudioSignal **ComparisonSignal, parameters *config);
 int ProcessSignal(AudioSignal *Signal, parameters *config);
@@ -2160,9 +2161,63 @@ int CalculateMaxCompare(int block, AudioSignal *Signal, double significant, char
 	return size;
 }
 
+typedef struct hertz_index_st {
+	double	hertz;
+	int		index;
+} HertzIndex;
+
+inline int HertzIndexOrder(const HertzIndex a, const HertzIndex b)
+{
+	if(a.hertz < b.hertz)
+		return -1;
+	if(a.hertz > b.hertz)
+		return 1;
+	if(a.index < b.index)
+		return -1;
+	if(a.index > b.index)
+		return 1;
+	return 0;
+}
+
+#define SORT_NAME HertzIndex
+#define SORT_TYPE HertzIndex
+#define SORT_CMP(x, y)  HertzIndexOrder((x), (y))
+#include "sort.h"  // https://github.com/swenson/sort/
+
+int FindMatchingFrequency(HertzIndex *sorted, int size, Frequency *freqComp, double hertz)
+{
+	int		low = 0, high = size, best = -1;
+	double	tolerance = 0;
+
+	tolerance = 2*DBL_PERFECT_MATCH + 4*DBL_EPSILON*fabs(hertz);
+
+	while(low < high)	// first entry >= hertz - tolerance
+	{
+		int mid = low + (high - low)/2;
+
+		if(sorted[mid].hertz < hertz - tolerance)
+			low = mid + 1;
+		else
+			high = mid;
+	}
+
+	for(int i = low; i < size && sorted[i].hertz <= hertz + tolerance; i++)
+	{
+		int comp = sorted[i].index;
+
+		if(!freqComp[comp].matched && areDoublesEqual(hertz, freqComp[comp].hertz))
+		{
+			if(best == -1 || comp < best)
+				best = comp;
+		}
+	}
+	return best;
+}
+
 int CompareFrequencies(AudioSignal *ReferenceSignal, AudioSignal *ComparisonSignal, char channel, int block, int refSize, int testSize, parameters *config)
 {
 	Frequency	*freqRef = NULL, *freqComp = NULL;
+	HertzIndex	*sorted = NULL;
 
 	if(channel == CHANNEL_LEFT)
 	{
@@ -2181,6 +2236,24 @@ int CompareFrequencies(AudioSignal *ReferenceSignal, AudioSignal *ComparisonSign
 		return 0;
 	}
 
+	// For binary search
+	if(testSize > 0)
+	{
+		sorted = (HertzIndex*)malloc(sizeof(HertzIndex)*testSize);
+		if(!sorted)
+		{
+			logmsg("Not enough memory for frequency comparison\n");
+			return 0;
+		}
+		for(int comp = 0; comp < testSize; comp++)
+		{
+			sorted[comp].hertz = freqComp[comp].hertz;
+			sorted[comp].index = comp;
+		}
+		
+		HertzIndex_heap_sort(sorted, testSize);
+	}
+
 	for(int freq = 0; freq < refSize; freq++)
 	{
 		int found = 0, index = 0;
@@ -2188,21 +2261,21 @@ int CompareFrequencies(AudioSignal *ReferenceSignal, AudioSignal *ComparisonSign
 		if(!IncrementCompared(block, channel, config))
 		{
 			logmsg("Internal consistency failure, please send error log (compare)\n");
+			free(sorted);
 			return 0;
 		}
 
-		for(int comp = 0; comp < testSize; comp++)
+		if(!freqRef[freq].matched && sorted)
 		{
-			if(!freqRef[freq].matched && !freqComp[comp].matched &&
-				areDoublesEqual(freqRef[freq].hertz, freqComp[comp].hertz))
+			int comp = FindMatchingFrequency(sorted, testSize, freqComp, freqRef[freq].hertz);
+
+			if(comp != -1)
 			{
 				freqComp[comp].matched = freq + 1;
 				freqRef[freq].matched = comp + 1;
 
 				found = 1;
 				index = comp;
-
-				break;
 			}
 		}
 
@@ -2214,6 +2287,7 @@ int CompareFrequencies(AudioSignal *ReferenceSignal, AudioSignal *ComparisonSign
 				if(!InsertAmplDifference(block, freqRef[freq], freqComp[index], channel, config))
 				{
 					logmsg("Internal consistency failure, please send error log (AmplDiff)\n");
+					free(sorted);
 					return 0;
 				}
 			}
@@ -2222,6 +2296,7 @@ int CompareFrequencies(AudioSignal *ReferenceSignal, AudioSignal *ComparisonSign
 				if(!IncrementPerfectMatch(block, channel, config))
 				{
 					logmsg("Internal consistency failure, please send error log (perfect)\n");
+					free(sorted);
 					return 0;
 				}
 			}
@@ -2231,6 +2306,7 @@ int CompareFrequencies(AudioSignal *ReferenceSignal, AudioSignal *ComparisonSign
 				if(!InsertPhaseDifference(block, freqRef[freq], freqComp[index], channel, config))
 				{
 					logmsg("Internal consistency failure, please send error log (PhaseDiff)\n");
+					free(sorted);
 					return 0;
 				}
 			}
@@ -2243,10 +2319,12 @@ int CompareFrequencies(AudioSignal *ReferenceSignal, AudioSignal *ComparisonSign
 			if(!InsertFreqNotFound(block, freqRef[freq].hertz, freqRef[freq].amplitude, channel, config))
 			{
 				logmsg("Internal consistency failure, please send error log (Not found)\n");
+				free(sorted);
 				return 0;
 			}
 		}
 	}
+	free(sorted);
 	return 1;
 }
 
