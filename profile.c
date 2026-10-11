@@ -1043,7 +1043,7 @@ int LoadAudioNoSyncProfile(FILE *file, parameters *config)
 		fclose(file);
 		return 0;
 	}
-	memset(config->types.typeArray, 0, sizeof(AudioBlockType));
+	memset(config->types.typeArray, 0, sizeof(AudioBlockType)*config->types.typeCount);
 
 	for(int t = 0; t < config->types.typeCount; t++)
 	{

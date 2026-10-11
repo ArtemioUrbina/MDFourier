@@ -653,6 +653,7 @@ void ReleaseAudio(AudioSignal *Signal, parameters *config)
 // FFTW_MEASURE is slow and not thread safe, changed to fftw_execute_dft_r2c
 typedef struct plan_cache_st {
 	long int	size;
+	int			reverse;	// 0 for real to complex & 1 for complex to real (mdwave)
 	fftw_plan	plan;
 } PlanCacheEntry;
 
@@ -673,7 +674,7 @@ void InitFFTW()
 	done = 1;
 }
 
-fftw_plan GetR2CPlan(long int size)
+fftw_plan GetPlanInternal(long int size, int reverse)
 {
 	fftw_plan	plan = NULL;
 
@@ -683,7 +684,7 @@ fftw_plan GetR2CPlan(long int size)
 	{
 		for(int i = 0; !plan && i < planCacheCount; i++)
 		{
-			if(planCache[i].size == size)
+			if(planCache[i].size == size && planCache[i].reverse == reverse)
 				plan = planCache[i].plan;
 		}
 
@@ -709,10 +710,14 @@ fftw_plan GetR2CPlan(long int size)
 			out = (fftw_complex*)fftw_malloc(sizeof(fftw_complex)*(size/2+1));
 			if(in && out && planCacheCount < planCacheMax)
 			{
-				plan = fftw_plan_dft_r2c_1d(size, in, out, FFTW_MEASURE);
+				if(!reverse)
+					plan = fftw_plan_dft_r2c_1d(size, in, out, FFTW_MEASURE);
+				else
+					plan = fftw_plan_dft_c2r_1d(size, out, in, FFTW_MEASURE);
 				if(plan)
 				{
 					planCache[planCacheCount].size = size;
+					planCache[planCacheCount].reverse = reverse;
 					planCache[planCacheCount].plan = plan;
 					planCacheCount++;
 				}
@@ -725,6 +730,16 @@ fftw_plan GetR2CPlan(long int size)
 	}
 
 	return plan;
+}
+
+fftw_plan GetR2CPlan(long int size)
+{
+	return GetPlanInternal(size, 0);
+}
+
+fftw_plan GetC2RPlan(long int size)
+{
+	return GetPlanInternal(size, 1);
 }
 
 void ReleaseFFTWPlanCache(void)

@@ -3,7 +3,7 @@
  * A Fourier Transform analysis tool to compare game console audio
  * http://junkerhq.net/MDFourier/
  *
- * Copyright (C)2019-2020 Artemio Urbina
+ * Copyright (C)2019-2026 Artemio Urbina
  *
  * This file is part of the 240p Test Suite
  *
@@ -42,13 +42,13 @@
 #include "profile.h"
 
 int ProcessSignalMDW(AudioSignal *Signal, parameters *config);
-int ExecuteDFFT(AudioBlocks *AudioArray, double *samples, long int size, double samplerate, double *window, parameters *config, int fftw_direction, AudioSignal *Signal);
-int ExecuteDFFTInternal(AudioBlocks *AudioArray, double *samples, long int size, double samplerate, double *window, char channel, parameters *config, int fftw_direction, AudioSignal *Signal);
+int ExecuteDFFT(AudioBlocks *AudioArray, double *samples, double *discarded, long int size, double samplerate, double *window, parameters *config, int fftw_direction, AudioSignal *Signal);
+int ExecuteDFFTInternal(AudioBlocks *AudioArray, double *samples, double *discarded, long int size, double samplerate, double *window, char channel, parameters *config, int fftw_direction, AudioSignal *Signal);
 int commandline_wave(int argc , char *argv[], parameters *config);
 void PrintUsage_wave(void);
 void Header_wave(int log);
 void CleanUp(AudioSignal **ReferenceSignal, parameters *config);
-int ExecuteMDWave(parameters *config, int discardMDW);
+int ExecuteMDWave(parameters *config);
 
 int main(int argc , char *argv[])
 {
@@ -64,6 +64,9 @@ int main(int argc , char *argv[])
 
 	if(config.clock)
 		clock_gettime(CLOCK_MONOTONIC, &start);
+
+	// load saved FFTW wisdom so plans are not measured again every run
+	InitFFTW();
 
 	if(!LoadProfile(&config))
 	{
@@ -83,25 +86,10 @@ int main(int argc , char *argv[])
 		return 1;
 	}
 
-	if(ExecuteMDWave(&config, 0) == 1)
+	if(ExecuteMDWave(&config) == 1)
 	{
 		logmsg("Aborting\n");
 		return 1;
-	}
-
-	if(config.executefft)
-	{
-		if(!LoadProfile(&config))
-			return 1;
-
-		if(ExecuteMDWave(&config, 1) == 1)
-			return 1;
-	}
-	else
-	{
-		printf("\nResults stored in %s%s\n", 
-			config.outputPath,
-			config.folderName);
 	}
 
 	if(config.clock)
@@ -112,25 +100,24 @@ int main(int argc , char *argv[])
 		logmsg(" - clk: MDWave took %0.2fs\n", elapsedSeconds);
 	}
 
+	printf("\nResults stored in %s%s\n", 
+		config.outputPath,
+		config.folderName);
+
+
 	fftw_cleanup();
 
-        if(IsLogEnabled())
-	        endLog();
+	if(IsLogEnabled())
+		endLog();
 
 
 	return 0;
 }
 
-int ExecuteMDWave(parameters *config, int discardMDW)
+int ExecuteMDWave(parameters *config)
 {
 	AudioSignal  		*ReferenceSignal = NULL;
 	char 				*MainPath = NULL;
-
-	if(discardMDW)
-	{
-		logmsg("\n* Calculating values for Discard file\n");
-		config->discardMDW = 1;
-	}
 
 	if(!LoadFile(&ReferenceSignal, config->referenceFile, ROLE_REF, config))
 	{
@@ -161,7 +148,8 @@ int ExecuteMDWave(parameters *config, int discardMDW)
 				if(!name)
 				{
 					logmsg("ERROR: Invalid Mono Balance Block %d\n", block);
-					return 0;
+					CleanUp(&ReferenceSignal, config);
+					return 1;
 				}
 			}
 			else
@@ -177,7 +165,10 @@ int ExecuteMDWave(parameters *config, int discardMDW)
 						name, GetBlockSubIndex(config, block));
 				}
 				if(CheckBalance(ReferenceSignal, block, config) == 0)
-					return 0;
+				{
+					CleanUp(&ReferenceSignal, config);
+					return 1;
+				}
 			}
 			else
 			{
@@ -202,11 +193,6 @@ int ExecuteMDWave(parameters *config, int discardMDW)
 	//logmsg("* Max blanked frequencies per block %d\n", config->maxBlanked);
 	CleanUp(&ReferenceSignal, config);
 
-	if(discardMDW)
-		printf("\nResults stored in %s%s\n", 
-			config->outputPath,
-			config->folderName);
-	
 	return(0);
 }
 
@@ -222,9 +208,20 @@ void CleanUp(AudioSignal **ReferenceSignal, parameters *config)
 	ReleaseAudioBlockStructure(config);
 }
 
-char *GenerateFileNamePrefix(parameters *config)
+char *GenerateFileNamePrefix(int discarded)
 {
-	return(config->discardMDW ? "2_Discarded" : "1_Used");
+	return(discarded ? "2_Discarded" : "1_Used");
+}
+
+int SaveProcessedChunk(AudioSignal *Signal, long int block, double *buffer, long int size, int discarded, parameters *config)
+{
+	char	Name[BUFFER_SIZE*2+256], tempName[BUFFER_SIZE];
+
+	sprintf(tempName, "Chunks%cProcessed%c%03ld_%s_%s_%03d_chunk", FOLDERCHAR, FOLDERCHAR, block, 
+		GenerateFileNamePrefix(discarded), GetBlockName(config, block), 
+		GetBlockSubIndex(config, block));
+	ComposeFileName(Name, tempName, ".wav", config);
+	return SaveWAVEChunk(Name, Signal, buffer, 0, size, 0, config);
 }
 
 int CreateChunksFolder(parameters *config)
@@ -249,16 +246,15 @@ int ProcessSignalMDW(AudioSignal *Signal, parameters *config)
 {
 	long int		pos = 0;
 	double			longest = 0;
-	double			*sampleBuffer;
+	double			*sampleBuffer = NULL, *discardBuffer = NULL, *discardSignal = NULL;
 	long int		sampleBufferSize = 0;
 	windowManager	windows;
 	double			*windowUsed = NULL;
 	long int		loadedBlockSize = 0, i = 0, syncAdvance = 0;
 	struct timespec	start, end;
-	char			Name[BUFFER_SIZE*2+256], tempName[BUFFER_SIZE];
+	char			Name[BUFFER_SIZE*2+256];
 	int				discardSamples = 0, syncinternal = 0, hadSync = 0;
 	double			leftDecimals = 0;
-	FILE			*processed = NULL;
 
 	pos = Signal->startOffset;
 
@@ -280,6 +276,7 @@ int ProcessSignalMDW(AudioSignal *Signal, parameters *config)
 	if(!initWindows(&windows, Signal->SampleRate, config->window, config))
 	{
 		logmsg("\tERROR: Could not create FFTW windows.\n");
+		free(sampleBuffer);
 		return 0;
 	}
 
@@ -288,6 +285,8 @@ int ProcessSignalMDW(AudioSignal *Signal, parameters *config)
 	if(config->chunks && !CreateChunksFolder(config))
 	{
 		logmsg("\tERROR: Could not create output folders.\n");
+		free(sampleBuffer);
+		freeWindows(&windows);
 		return 0;
 	}
 
@@ -341,11 +340,15 @@ int ProcessSignalMDW(AudioSignal *Signal, parameters *config)
 
 		if(Signal->Blocks[i].type >= TYPE_SILENCE && config->executefft)
 		{
-			if(!ExecuteDFFT(&Signal->Blocks[i], sampleBuffer, loadedBlockSize-difference, Signal->SampleRate, windowUsed, config, FORWARD_FFTW, Signal))
+			if(!ExecuteDFFT(&Signal->Blocks[i], sampleBuffer, NULL, loadedBlockSize-difference, Signal->SampleRate, windowUsed, config, FORWARD_FFTW, Signal))
+			{
+				free(sampleBuffer);
+				freeWindows(&windows);
 				return 0;
+			}
 		}
 		
-		if(config->chunks && !config->discardMDW)
+		if(config->chunks)
 		{
 			sprintf(Name, "%s%cChunks%cSource%c%03ld_0_%010ld_%s_%03d_chunk.wav", 
 				config->folderName, FOLDERCHAR, FOLDERCHAR, FOLDERCHAR,
@@ -360,7 +363,11 @@ int ProcessSignalMDW(AudioSignal *Signal, parameters *config)
 		if(Signal->Blocks[i].type == TYPE_INTERNAL_KNOWN)
 		{
 			if(!ProcessInternalSync(Signal, i, pos, &syncinternal, &syncAdvance, TYPE_INTERNAL_KNOWN, config))
+			{
+				free(sampleBuffer);
+				freeWindows(&windows);
 				return 0;
+			}
 			
 			if(!syncinternal)
 				syncAdvance = 0;
@@ -371,7 +378,11 @@ int ProcessSignalMDW(AudioSignal *Signal, parameters *config)
 		if(Signal->Blocks[i].type == TYPE_INTERNAL_UNKNOWN)
 		{
 			if(!ProcessInternalSync(Signal, i, pos, &syncinternal, &syncAdvance, TYPE_INTERNAL_UNKNOWN, config))
+			{
+				free(sampleBuffer);
+				freeWindows(&windows);
 				return 0;
+			}
 			
 			if(!syncinternal)
 				syncAdvance = 0;
@@ -414,11 +425,27 @@ int ProcessSignalMDW(AudioSignal *Signal, parameters *config)
 	{
 		if(config->clock)
 			clock_gettime(CLOCK_MONOTONIC, &start);
+
+		discardSignal = (double*)malloc(Signal->numSamples*sizeof(double));
+		discardBuffer = (double*)malloc(sampleBufferSize*sizeof(double));
+		if(!discardSignal || !discardBuffer)
+		{
+			logmsg("\tERROR: Not enough memory for the Discarded signal.\n");
+			if(discardSignal)
+				free(discardSignal);
+			if(discardBuffer)
+				free(discardBuffer);
+			free(sampleBuffer);
+			freeWindows(&windows);
+			return 0;
+		}
+		memcpy(discardSignal, Signal->Samples, Signal->numSamples*sizeof(double));
 	
 		// Clean up everything again
 		pos = Signal->startOffset;		
 		discardSamples = 0;
 		leftDecimals = 0;
+		syncinternal = 0;
 		i = 0;
 	
 		// redo after processing
@@ -463,41 +490,55 @@ int ProcessSignalMDW(AudioSignal *Signal, parameters *config)
 				break;
 			}
 
-			// Clean Buffer and fill it
+			// Clean Buffers and fill them with the original block
 			memset(sampleBuffer, 0, sampleBufferSize*sizeof(double));
 			memcpy(sampleBuffer, Signal->Samples + pos, loadedBlockSize*sizeof(double));
-			// Empty original signal, and overlap
+			memcpy(discardBuffer, sampleBuffer, sampleBufferSize*sizeof(double));
+
+			// Empty both output signals, and overlap
 			if(pos > 4 && pos+loadedBlockSize+discardSamples+4 <= Signal->numSamples)
+			{
 				memset(Signal->Samples + pos-4, 0, (loadedBlockSize+discardSamples+4)*sizeof(double));
+				memset(discardSignal + pos-4, 0, (loadedBlockSize+discardSamples+4)*sizeof(double));
+			}
 			else
+			{
 				memset(Signal->Samples + pos, 0, loadedBlockSize*sizeof(double));
+				memset(discardSignal + pos, 0, loadedBlockSize*sizeof(double));
+			}
 		
 			if(Signal->Blocks[i].type >= TYPE_SILENCE)
 			{
-				if(!ExecuteDFFT(&Signal->Blocks[i], sampleBuffer, loadedBlockSize-difference, Signal->SampleRate, windowUsed, config, REVERSE_FFTW, Signal))
+				// Used goes to sampleBuffer, Discarded to discardBuffer
+				if(!ExecuteDFFT(&Signal->Blocks[i], sampleBuffer, discardBuffer, loadedBlockSize-difference, Signal->SampleRate, windowUsed, config, REVERSE_FFTW, Signal))
+				{
+					free(discardSignal);
+					free(discardBuffer);
+					free(sampleBuffer);
+					freeWindows(&windows);
 					return 0;
+				}
 			}
-
-			if(Signal->Blocks[i].type < TYPE_SILENCE && !config->discardMDW)
+			else
 			{
-				if(Signal->Blocks[i].type != TYPE_SYNC)  // Copy control notes to discarded for reference
-					memcpy(sampleBuffer, Signal->Samples + pos, loadedBlockSize*sizeof(double));
+				// Used keeps only the sync pulses,
+				// Discarded keeps all of them for reference
+				if(Signal->Blocks[i].type != TYPE_SYNC)
+					memset(sampleBuffer, 0, loadedBlockSize*sizeof(double));
 			}
 
-			// Fill back original signal with whatever we have in sampleBuffer
+			// Fill back both signals
 			memcpy(Signal->Samples + pos, sampleBuffer, loadedBlockSize*sizeof(double));
+			memcpy(discardSignal + pos, discardBuffer, loadedBlockSize*sizeof(double));
+
+			if(config->chunks && (Signal->Blocks[i].type >= TYPE_SILENCE || Signal->Blocks[i].type == TYPE_WATERMARK))
+			{
+				SaveProcessedChunk(Signal, i, sampleBuffer, loadedBlockSize, 0, config);
+				SaveProcessedChunk(Signal, i, discardBuffer, loadedBlockSize, 1, config);
+			}
 	
 			pos += loadedBlockSize;
 			pos += discardSamples;
-	
-			if(config->chunks && (Signal->Blocks[i].type >= TYPE_SILENCE || Signal->Blocks[i].type == TYPE_WATERMARK))
-			{
-				sprintf(tempName, "Chunks%cProcessed%c%03ld_%s_%s_%03d_chunk", FOLDERCHAR, FOLDERCHAR, i, 
-					GenerateFileNamePrefix(config), GetBlockName(config, i), 
-					GetBlockSubIndex(config, i));
-				ComposeFileName(Name, tempName, ".wav", config);
-				SaveWAVEChunk(Name, Signal, sampleBuffer, 0, loadedBlockSize, 0, config);
-			}
 
 			// Use original framerate for CD-DA chunks
 			if(Signal->Blocks[i].type == TYPE_INTERNAL_KNOWN || Signal->Blocks[i].type == TYPE_INTERNAL_UNKNOWN)
@@ -506,41 +547,45 @@ int ProcessSignalMDW(AudioSignal *Signal, parameters *config)
 			i++;
 		}
 
-		// clear the rest of the buffer
+		// clear the rest of the buffers
 		memset(Signal->Samples + pos, 0, (sizeof(double)*(Signal->numSamples - pos)));
+		memset(discardSignal + pos, 0, (sizeof(double)*(Signal->numSamples - pos)));
 
-		ComposeFileName(Name, GenerateFileNamePrefix(config), ".wav", config);
-		processed = fopen(Name, "wb");
-		if(!processed)
+		ComposeFileName(Name, GenerateFileNamePrefix(0), ".wav", config);
+		if(!SaveWAVEChunk(Name, Signal, Signal->Samples, 0, Signal->numSamples, 0, config))
 		{
-			logmsg("\tCould not open processed file %s\n", Name);
+			free(discardSignal);
+			free(discardBuffer);
+			free(sampleBuffer);
+			freeWindows(&windows);
 			return 0;
 		}
-	
-		SaveWAVEChunk(Name, Signal, Signal->Samples, 0, Signal->numSamples, 0, config);
-		if(processed)
+
+		ComposeFileName(Name, GenerateFileNamePrefix(1), ".wav", config);
+		if(!SaveWAVEChunk(Name, Signal, discardSignal, 0, Signal->numSamples, 0, config))
 		{
-			fclose(processed);
-			processed = NULL;
+			free(discardSignal);
+			free(discardBuffer);
+			free(sampleBuffer);
+			freeWindows(&windows);
+			return 0;
 		}
+
+		free(discardSignal);
+		discardSignal = NULL;
+		free(discardBuffer);
+		discardBuffer = NULL;
 	}
 
 	// save frequency unprocesed wav if requested with -n, for internal sync and verification
 	if(hadSync && !config->executefft)
 	{
 		ComposeFileName(Name, "SyncRemoved", ".wav", config);
-		processed = fopen(Name, "wb");
-		if(!processed)
+		if(!SaveWAVEChunk(Name, Signal, Signal->Samples, 0, Signal->numSamples, 0, config))
 		{
-			logmsg("\tCould not open processed file %s\n", Name);
+			free(sampleBuffer);
+			freeWindows(&windows);
 			return 0;
-		}
-	
-		SaveWAVEChunk(Name, Signal, Signal->Samples, 0, Signal->numSamples, 0, config);
-		if(processed)
-		{
-			fclose(processed);
-			processed = NULL;
 		}
 	}
 
@@ -558,7 +603,7 @@ int ProcessSignalMDW(AudioSignal *Signal, parameters *config)
 	return 1;
 }
 
-int ExecuteDFFT(AudioBlocks *AudioArray, double *samples, long int size, double samplerate, double *window, parameters *config, int fftw_direction, AudioSignal *Signal)
+int ExecuteDFFT(AudioBlocks *AudioArray, double *samples, double *discarded, long int size, double samplerate, double *window, parameters *config, int fftw_direction, AudioSignal *Signal)
 {
 	int AudioChannels = Signal->AudioChannels;
 	char channel = CHANNEL_STEREO;
@@ -574,13 +619,13 @@ int ExecuteDFFT(AudioBlocks *AudioArray, double *samples, long int size, double 
 		if(AudioArray->channel == CHANNEL_STEREO)
 		{
 			channel = CHANNEL_RIGHT;
-			if(!ExecuteDFFTInternal(AudioArray, samples, size, samplerate, window, channel, config, fftw_direction, Signal))
+			if(!ExecuteDFFTInternal(AudioArray, samples, discarded, size, samplerate, window, channel, config, fftw_direction, Signal))
 				return 0;
 			channel = CHANNEL_LEFT;
 		}
 	}
 
-	if(!ExecuteDFFTInternal(AudioArray, samples, size, samplerate, window, channel, config, fftw_direction, Signal))
+	if(!ExecuteDFFTInternal(AudioArray, samples, discarded, size, samplerate, window, channel, config, fftw_direction, Signal))
 		return 0;
 
 	if(fftw_direction == FORWARD_FFTW)
@@ -592,13 +637,13 @@ int ExecuteDFFT(AudioBlocks *AudioArray, double *samples, long int size, double 
 	return 1;
 }
 
-int ExecuteDFFTInternal(AudioBlocks *AudioArray, double *samples, long int size, double samplerate, double *window, char channel, parameters *config, int fftw_direction, AudioSignal *Signal)
+int ExecuteDFFTInternal(AudioBlocks *AudioArray, double *samples, double *discarded, long int size, double samplerate, double *window, char channel, parameters *config, int fftw_direction, AudioSignal *Signal)
 {
-	fftw_plan		p = NULL, pBack = NULL;
+	fftw_plan		p = NULL, pBack = NULL;	/* shared per size, from the plan cache */
 	long int		stereoSignalSize = 0, blanked = 0;	
 	long int		i = 0, monoSignalSize = 0, zeropadding = 0; 
 	double			*signal = NULL;
-	fftw_complex	*spectrum = NULL;
+	fftw_complex	*spectrum = NULL, *spectrumUsed = NULL, *spectrumDiscard = NULL;
 	double			boxsize = 0, seconds = 0;
 	double			CutOff = 0;
 	long int		startBin = 0, endBin = 0;
@@ -624,10 +669,11 @@ int ExecuteDFFTInternal(AudioBlocks *AudioArray, double *samples, long int size,
 	startBin = floor(config->startHz*boxsize);
 	endBin = floor(config->endHz*boxsize);
 
-	if(Signal->nyquistLimit && endBin > size/2)
-		endBin = ceil(size/2);
+	// bins are from the mono transform, size counts all channels
+	if(Signal->nyquistLimit && endBin > monoSignalSize/2)
+		endBin = ceil(monoSignalSize/2);
 
-	signal = (double*)malloc(sizeof(double)*(monoSignalSize+1));
+	signal = (double*)fftw_malloc(sizeof(double)*(monoSignalSize+1));
 	if(!signal)
 	{
 		logmsg("Not enough memory (malloc)\n");
@@ -637,49 +683,27 @@ int ExecuteDFFTInternal(AudioBlocks *AudioArray, double *samples, long int size,
 	if(!spectrum)
 	{
 		logmsg("Not enough memory (fftw_malloc)\n");
+		fftw_free(signal);
 		return(0);
 	}
 
-	if(!config->model_plan)
-	{
-		config->model_plan = fftw_plan_dft_r2c_1d(monoSignalSize, signal, spectrum, FFTW_MEASURE);
-		if(!config->model_plan)
-		{
-			logmsg("FFTW failed to create FFTW_MEASURE plan\n");
-			free(signal);
-			signal = NULL;
-			return 0;
-		}
-	}
-
-	p = fftw_plan_dft_r2c_1d(monoSignalSize, signal, spectrum, FFTW_MEASURE);
+	p = GetR2CPlan(monoSignalSize);
 	if(!p)
 	{
 		logmsg("FFTW failed to create FFTW_MEASURE plan\n");
-		free(signal);
-		signal = NULL;
+		fftw_free(signal);
+		fftw_free(spectrum);
 		return 0;
 	}
 
 	if(fftw_direction == REVERSE_FFTW)
 	{
-		if(!config->reverse_plan)
-		{
-			config->reverse_plan = fftw_plan_dft_c2r_1d(monoSignalSize, spectrum, signal, FFTW_MEASURE);
-			if(!config->reverse_plan)
-			{
-				logmsg("FFTW failed to create FFTW_MEASURE reverse plan\n");
-				free(signal);
-				signal = NULL;
-				return 0;
-			}
-		}
-		pBack = fftw_plan_dft_c2r_1d(monoSignalSize, spectrum, signal, FFTW_MEASURE);
+		pBack = GetC2RPlan(monoSignalSize);
 		if(!pBack)
 		{
-			logmsg("FFTW failed to create FFTW_MEASURE plan\n");
-			free(signal);
-			signal = NULL;
+			logmsg("FFTW failed to create FFTW_MEASURE reverse plan\n");
+			fftw_free(signal);
+			fftw_free(spectrum);
 			return 0;
 		}
 	}
@@ -700,8 +724,7 @@ int ExecuteDFFTInternal(AudioBlocks *AudioArray, double *samples, long int size,
 			signal[i] = signal[i]*window[i];
 	}
 
-	fftw_execute(p); 
-	fftw_destroy_plan(p);
+	fftw_execute_dft_r2c(p, signal, spectrum);
 	p = NULL;
 
 	if(fftw_direction == FORWARD_FFTW)
@@ -733,11 +756,46 @@ int ExecuteDFFTInternal(AudioBlocks *AudioArray, double *samples, long int size,
 		else
 			targetFreq = AudioArray->freqRight;
 
-		if(!targetFreq)
+		if(!targetFreq || !discarded)
 		{
 			logmsg("Invalid channel data\n");
+			fftw_free(signal);
+			fftw_free(spectrum);
 			return 0;
 		}
+
+		//	The windowed spectrum decides which bins are kept
+		spectrumUsed = (fftw_complex*)fftw_malloc(sizeof(fftw_complex)*(monoSignalSize/2+1));
+		spectrumDiscard = (fftw_complex*)fftw_malloc(sizeof(fftw_complex)*(monoSignalSize/2+1));
+		if(!spectrumUsed || !spectrumDiscard)
+		{
+			logmsg("Not enough memory (fftw_malloc)\n");
+			if(spectrumUsed)
+				fftw_free(spectrumUsed);
+			if(spectrumDiscard)
+				fftw_free(spectrumDiscard);
+			fftw_free(signal);
+			fftw_free(spectrum);
+			return 0;
+		}
+
+		if(window)
+		{
+			memset(signal, 0, sizeof(double)*(monoSignalSize+1));
+			for(i = 0; i < monoSignalSize - zeropadding; i++)
+			{
+				if(channel == CHANNEL_LEFT)
+					signal[i] = samples[i*AudioChannels];
+				if(channel == CHANNEL_RIGHT)
+					signal[i] = samples[i*AudioChannels+1];
+				if(channel == CHANNEL_STEREO)
+					signal[i] = (samples[i*AudioChannels]+samples[i*AudioChannels+1])/2.0;
+			}
+			fftw_execute_dft_r2c(GetR2CPlan(monoSignalSize), signal, spectrumUsed);
+		}
+		else
+			memcpy(spectrumUsed, spectrum, sizeof(fftw_complex)*(monoSignalSize/2+1));
+		memcpy(spectrumDiscard, spectrumUsed, sizeof(fftw_complex)*(monoSignalSize/2+1));
 
 		for(int j = 0; j < config->MaxFreq; j++)
 		{
@@ -776,9 +834,6 @@ int ExecuteDFFTInternal(AudioBlocks *AudioArray, double *samples, long int size,
 			if(i < startBin || i > endBin)
 				blank = 1;
 
-			if(config->discardMDW)
-				blank = !blank;
-
 			if(blank)
 			{
 				fftw_complex filter;
@@ -789,40 +844,48 @@ int ExecuteDFFTInternal(AudioBlocks *AudioArray, double *samples, long int size,
 				// Here it "works" because we are just
 				// "visualizing" the results
 				filter = 0;
-				spectrum[i] = spectrum[i]*filter;
+				spectrumUsed[i] = spectrumUsed[i]*filter; // removed from Used
 				blanked ++;
 			}
+			else
+				spectrumDiscard[i] = 0;	// kept in Used, so not in Discarded
 		}
 		
 		// Magic! iFFTW
-		fftw_execute(pBack); 
-		fftw_destroy_plan(pBack);
-		pBack = NULL;
-	
-		for(i = 0; i < monoSignalSize - zeropadding; i++)
+		for(int out = 0; out < 2; out++)
 		{
-			double value;
+			double	*target = out == 0 ? samples : discarded;
 
-			// reversing window causes distortion since we have zeroes
-			// but we do want to see the windows in the iFFT anyway
-			// uncomment if needed
-			//if(window && window[i])
-			//value = (signal[i]/window[i])/monoSignalSize;
-			//else
-			value = signal[i]/monoSignalSize; /* check CalculateMagnitude if changed */
-			if(channel == CHANNEL_LEFT || channel == CHANNEL_STEREO || channel == CHANNEL_MONO)
-				samples[i*AudioChannels] = value;
-			if(channel == CHANNEL_RIGHT || channel == CHANNEL_STEREO)
-				samples[i*AudioChannels+1] = value;
+			fftw_execute_dft_c2r(pBack, out == 0 ? spectrumUsed : spectrumDiscard, signal);
+		
+			for(i = 0; i < monoSignalSize - zeropadding; i++)
+			{
+				double value;
+
+				// reversing window causes distortion since we have zeroes
+				// but we do want to see the windows in the iFFT anyway
+				// uncomment if needed
+				//if(window && window[i])
+				//value = (signal[i]/window[i])/monoSignalSize;
+				//else
+				value = signal[i]/monoSignalSize; /* check CalculateMagnitude if changed */
+				if(channel == CHANNEL_LEFT || channel == CHANNEL_STEREO || channel == CHANNEL_MONO)
+					target[i*AudioChannels] = value;
+				if(channel == CHANNEL_RIGHT || channel == CHANNEL_STEREO)
+					target[i*AudioChannels+1] = value;
+			}
 		}
+		pBack = NULL;
 
 		//logmsg("Blanked %ld frequencies from a total of %ld\n", blanked, monoSignalSize/2);
 		if(blanked > config->maxBlanked)
 			config->maxBlanked = blanked;
 		fftw_free(spectrum);
+		fftw_free(spectrumUsed);
+		fftw_free(spectrumDiscard);
 	}
 
-	free(signal);
+	fftw_free(signal);
 	signal = NULL;
 
 	return(1);
@@ -843,7 +906,7 @@ int commandline_wave(int argc , char *argv[], parameters *config)
 	config->useCompProfile = 0;
 	config->executefft = 1;
 
-	while ((c = getopt (argc, argv, "qnhvzcklyCBis:e:f:m:t:p:w:r:P:IY:T0:9")) != -1)
+	while ((c = getopt (argc, argv, "qnhvzcklyCBis:e:f:m:p:w:r:P:IY:T0:9")) != -1)
 	switch (c)
 	  {
 	  case 'h':
@@ -975,11 +1038,12 @@ int commandline_wave(int argc , char *argv[], parameters *config)
 			case 'f':
 			case 'h':
 			case 't':
+			case 'm':
 				config->window = optarg[0];
 				break;
 			default:
 				logmsg("- ERROR: Invalid Window for FFT option '%c'\n", optarg[0]);
-				logmsg("\tUse n for None, t for Tukey window (default), f for Flattop or h for Hann window\n");
+				logmsg("\tUse n for None, t for Tukey window (default), f for Flattop, h for Hann or m for Hamming window\n");
 				return 0;
 				break;
 		}
@@ -1015,13 +1079,13 @@ int commandline_wave(int argc , char *argv[], parameters *config)
 		if (optopt == 'r')
 		  logmsg("\t ERROR:  Reference File -%c requires an argument.\n", optopt);
 		else if (optopt == 'w')
-		  logmsg("\t ERROR:  FFT Window option -%c requires an argument: n,t,f or h\n", optopt);
+		  logmsg("\t ERROR:  FFT Window option -%c requires an argument: n,t,f,h or m\n", optopt);
 		else if (optopt == 'f')
 		  logmsg("\t ERROR:  Max # of frequencies to use from FFTW -%c requires an argument: 1-%d\n", optopt, MAX_FREQ_COUNT);
 		else if (optopt == 's')
-		  logmsg("\t ERROR:  Min frequency range for FFTW -%c requires an argument: %d-%d\n", 1, END_HZ-100, optopt);
+		  logmsg("\t ERROR:  Min frequency range for FFTW -%c requires an argument: %d-%d\n", optopt, 1, (int)(END_HZ-100));
 		else if (optopt == 'e')
-		  logmsg("\t ERROR:  Max frequency range for FFTW -%c requires an argument: %d-%d\n", START_HZ*2, END_HZ, optopt);
+		  logmsg("\t ERROR:  Max frequency range for FFTW -%c requires an argument: %d-%d\n", optopt, (int)(START_HZ*2), (int)END_HZ);
 		else if (optopt == 'P')
 		  logmsg("\t ERROR:  Profile File -%c requires a file argument\n", optopt);
 		else if (optopt == 'Y')
@@ -1052,7 +1116,7 @@ int commandline_wave(int argc , char *argv[], parameters *config)
 
 	if(config->endHz <= config->startHz)
 	{
-		logmsg("ERROR: Invalid frequency range for FFTW (%d Hz to %d Hz)\n", config->startHz, config->endHz);
+		logmsg("ERROR: Invalid frequency range for FFTW (%g Hz to %g Hz)\n", config->startHz, config->endHz);
 		return 0;
 	}
 
@@ -1097,7 +1161,6 @@ void PrintUsage_wave(void)
 	logmsg("	 -f: Change the number of <f>requencies to use from FFTW\n");
 	logmsg("	 -s: Defines <s>tart of the frequency range to compare with FFT\n");
 	logmsg("	 -e: Defines <e>nd of the frequency range to compare with FFT\n");
-	logmsg("	 -t: Defines the <t>olerance when comparing amplitudes in dBFS\n");
 	logmsg("	 -z: Uses Zero Padding to equal 1 Hz FFT bins\n");
 	logmsg("	 -B: Do not do stereo channel audio <B>alancing\n");
 	logmsg("	 -C: Use <C>omparison framerate profile in 'No-Sync' compare mode\n");

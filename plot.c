@@ -150,7 +150,6 @@
 
 //#define TESTWARNINGS
 #define SYNC_DEBUG_SCALE		8
-#define	WAVEFORM_DECIMATE_MIN	4
 
 char *GetCurrentPathAndChangeToResultsFolder(parameters *config)
 {

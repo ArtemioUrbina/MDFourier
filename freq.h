@@ -185,4 +185,6 @@ int ApplySamplerateChange(AudioSignal *Signal, parameters *config);
 
 void InitFFTW(void);
 fftw_plan GetR2CPlan(long int size);
+fftw_plan GetC2RPlan(long int size);
+void ReleaseFFTWPlanCache(void);
 #endif
