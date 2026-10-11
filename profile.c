@@ -1347,7 +1347,8 @@ int CheckProfileBaseLength(parameters *config)
 				seconds = FramesToSeconds(config->types.typeArray[i].frames, config->types.SyncFormat[0].MSPerFrame);
 				if(seconds > 1.0)
 				{
-					logmsg("ERROR: Block %d is %g seconds. Cannot apply Zero Padding\n", i, seconds);
+					logmsg("ERROR: Block %d (%s) is %g seconds. Cannot apply Zero Padding\n",
+							i, config->types.typeArray[i].typeDisplayName, seconds);
 					return 0;
 				}
 			}
