@@ -149,7 +149,8 @@
 #define	WINDOWS_FOLDER		"Windows"
 
 //#define TESTWARNINGS
-#define SYNC_DEBUG_SCALE	8
+#define SYNC_DEBUG_SCALE		8
+#define	WAVEFORM_DECIMATE_MIN	4
 
 char *GetCurrentPathAndChangeToResultsFolder(parameters *config)
 {
@@ -235,6 +236,391 @@ char *PushFolder(char *name)
 		return NULL;
 	}
 	return CurrentPath;
+}
+
+#define PJOB_SPEC_TYPE		0
+#define PJOB_SPEC_ALL		1
+#define PJOB_NOISE_SPEC		2
+#define PJOB_DIFF_TYPE		3
+#define PJOB_DIFF_ALL		4
+#define PJOB_DIFF_AVG_TYPE	5
+#define PJOB_PHASE_TYPE		6
+#define PJOB_PHASE_ALL		7
+
+typedef struct plot_job_st {
+	int			kind;
+	int			type;
+	int			typeIndex;		// in config->types.typeArray
+	int			slot;			// averaged: position in the averaged arrays
+	char		channel;
+	int			role;			// signal role, or phase plot type
+	void		*data;
+	long int	size;
+	AudioSignal	*Signal;
+	char		folder[64];		// empty for the current folder
+	char		name[BUFFER_SIZE];
+} PlotJob;
+
+typedef struct plot_job_list_st {
+	PlotJob		*jobs;
+	int			count;
+	int			max;
+} PlotJobList;
+
+// Shared results for averaged difference jobs
+typedef struct averaged_results_st {
+	FlatAmplDifference	*amplDiff;
+	long int			amplSize;
+	char				*filename;
+	int					typeCount;
+	int					someStereo;
+	AveragedFrequencies	**averagedArray;
+	long int			*averagedSizes;
+} AveragedResults;
+
+PlotJob *NewPlotJob(PlotJobList *list, int kind)
+{
+	PlotJob *job = NULL;
+
+	if(list->count == list->max)
+	{
+		PlotJob *tmp = NULL;
+
+		tmp = (PlotJob*)realloc(list->jobs, sizeof(PlotJob)*(list->max + 32));
+		if(!tmp)
+		{
+			logmsg("ERROR: Not enough memory for plot list\n");
+			return NULL;
+		}
+		list->jobs = tmp;
+		list->max += 32;
+	}
+	job = &list->jobs[list->count++];
+	memset(job, 0, sizeof(PlotJob));
+	job->kind = kind;
+	return job;
+}
+
+void SetPlotJobName(PlotJob *job, char *folder, char *name)
+{
+	if(folder)
+	{
+		snprintf(job->folder, sizeof(job->folder), "%s", folder);
+		snprintf(job->name, BUFFER_SIZE, "%.63s%c%.*s", folder, FOLDERCHAR, BUFFER_SIZE - 72, name);
+	}
+	else
+		snprintf(job->name, BUFFER_SIZE, "%.*s", BUFFER_SIZE - 8, name);
+}
+
+void FreePlotJobList(PlotJobList *list)
+{
+	if(list->jobs)
+		free(list->jobs);
+	list->jobs = NULL;
+	list->count = 0;
+	list->max = 0;
+}
+
+void ExecuteAveragedJob(PlotJob *job, AveragedResults *avg, parameters *config)
+{
+	int		i = job->typeIndex, type = job->type;
+	char	name[BUFFER_SIZE], file[BUFFER_SIZE];
+	char	*folder = NULL;
+
+	if(avg->typeCount == 1)
+		sprintf(name, "DA__ALL_%s_AVG", avg->filename);
+	else
+		sprintf(name, "DA_%s_%02d%s_AVG", avg->filename, type, config->types.typeArray[i].typeName);
+
+	avg->averagedArray[job->slot] = CreateFlatDifferencesAveraged(type, CHANNEL_STEREO, &avg->averagedSizes[job->slot], normalPlot, config);
+	if(!avg->averagedArray[job->slot])
+		return;
+
+	folder = avg->typeCount > 1 ? DIFFERENCE_FOLDER : NULL;
+	if(folder)
+		snprintf(file, BUFFER_SIZE, "%.63s%c%.*s", folder, FOLDERCHAR, BUFFER_SIZE - 72, name);
+	else
+		snprintf(file, BUFFER_SIZE, "%.*s", BUFFER_SIZE - 8, name);
+	PlotSingleTypeDifferentAmplitudesAveraged(avg->amplDiff, avg->amplSize, type, file, avg->averagedArray[job->slot], avg->averagedSizes[job->slot], config->types.typeArray[i].channel == CHANNEL_STEREO ? CHANNEL_STEREO : CHANNEL_MONO, config);
+	logmsg(PLOT_ADVANCE_CHAR);
+
+	if(config->types.typeArray[i].channel == CHANNEL_STEREO && avg->someStereo)
+	{
+		char				channels[2] = { CHANNEL_LEFT, CHANNEL_RIGHT };
+
+		for(int c = 0; c < 2; c++)
+		{
+			long int			sizeChannel = 0;
+			AveragedFrequencies	*averagedChannel = NULL;
+
+			averagedChannel = CreateFlatDifferencesAveraged(type, channels[c], &sizeChannel, normalPlot, config);
+			if(avg->typeCount == 1)
+				sprintf(name, "DA__ALL_%s_%c_AVG", avg->filename, channels[c]);
+			else
+				sprintf(name, "DA_%s_%02d%s_%c_AVG", avg->filename, type, config->types.typeArray[i].typeName, channels[c]);
+			snprintf(file, BUFFER_SIZE, "%s%c%.*s", DIFFERENCE_FOLDER, FOLDERCHAR, BUFFER_SIZE - 72, name);
+			PlotSingleTypeDifferentAmplitudesAveraged(avg->amplDiff, avg->amplSize, type, file, averagedChannel, sizeChannel, channels[c], config);
+			logmsg(PLOT_ADVANCE_CHAR);
+			if(averagedChannel)
+				free(averagedChannel);
+		}
+	}
+}
+
+void ExecutePlotJob(PlotJob *job, void *extra, parameters *config)
+{
+	switch(job->kind)
+	{
+		case PJOB_SPEC_TYPE:
+			PlotSingleTypeSpectrogram((FlatFrequency*)job->data, job->size, job->type, job->name, job->role, job->channel, config);
+			break;
+		case PJOB_SPEC_ALL:
+			PlotAllSpectrogram((FlatFrequency*)job->data, job->size, job->name, job->role, config);
+			break;
+		case PJOB_NOISE_SPEC:
+			PlotNoiseSpectrogram((FlatFrequency*)job->data, job->size, job->channel, job->name, job->role, config, job->Signal);
+			break;
+		case PJOB_DIFF_TYPE:
+			PlotSingleTypeDifferentAmplitudes((FlatAmplDifference*)job->data, job->size, job->type, job->name, job->channel, config);
+			break;
+		case PJOB_DIFF_ALL:
+			PlotAllDifferentAmplitudesInFolder((FlatAmplDifference*)job->data, job->size, job->channel, job->name, job->folder[0] ? job->folder : NULL, config);
+			break;
+		case PJOB_DIFF_AVG_TYPE:
+			ExecuteAveragedJob(job, (AveragedResults*)extra, config);
+			return;	// logs its own progress
+		case PJOB_PHASE_TYPE:
+			PlotSingleTypePhase((FlatPhase*)job->data, job->size, job->type, job->name, job->role, job->channel, config);
+			break;
+		case PJOB_PHASE_ALL:
+			PlotAllPhase((FlatPhase*)job->data, job->size, job->name, job->role, config);
+			break;
+	}
+	logmsg(PLOT_ADVANCE_CHAR);
+}
+
+int CreatePlotJobFolders(PlotJobList *list)
+{
+	for(int j = 0; j < list->count; j++)
+	{
+		int seen = 0;
+
+		if(!list->jobs[j].folder[0])
+			continue;
+		for(int k = 0; k < j; k++)
+		{
+			if(strcmp(list->jobs[k].folder, list->jobs[j].folder) == 0)
+			{
+				seen = 1;
+				break;
+			}
+		}
+		if(!seen && !CreateFolder(list->jobs[j].folder))
+		{
+			logmsg("ERROR: Could not create %s subfolder\n", list->jobs[j].folder);
+			return 0;
+		}
+	}
+	return 1;
+}
+
+void RunPlotJobs(PlotJobList *list, void *extra, parameters *config)
+{
+	if(!list->count)
+		return;
+
+	if(!CreatePlotJobFolders(list))
+		return;
+
+#ifdef OPENMP_ENABLE
+	#pragma omp parallel for schedule(dynamic)
+#endif
+	for(int j = 0; j < list->count; j++)
+		ExecutePlotJob(&list->jobs[j], extra, config);
+}
+
+/* Per type spectrograms of one signal, same files and rules as PlotEachTypeSpectrogram.
+   Returns the number of types */
+int AddSpectrogramTypeJobs(PlotJobList *list, FlatFrequency *freqs, long int size, char *filename, int signal, AudioSignal *Signal, char *folder, parameters *config)
+{
+	int 	types = 0;
+	char	name[BUFFER_SIZE];
+	char	channels[3] = { CHANNEL_STEREO, CHANNEL_LEFT, CHANNEL_RIGHT };
+
+	for(int i = 0; i < config->types.typeCount; i++)
+	{
+		int count = 1;
+
+		if(config->types.typeArray[i].type <= TYPE_CONTROL || config->types.typeArray[i].IsaddOnData)
+			continue;
+
+		if(config->types.typeArray[i].channel == CHANNEL_STEREO && Signal->AudioChannels == 2)
+			count = 3;
+
+		for(int c = 0; c < count; c++)
+		{
+			PlotJob *job = NewPlotJob(list, PJOB_SPEC_TYPE);
+
+			if(!job)
+				return types;
+			if(c == 0)
+				sprintf(name, "SP_%c_%s_%02d%s", signal == ROLE_REF ? 'A' : 'B', filename,
+					config->types.typeArray[i].type, config->types.typeArray[i].typeName);
+			else
+				sprintf(name, "SP_%c_%s_%02d%s_%c", signal == ROLE_REF ? 'A' : 'B', filename,
+					config->types.typeArray[i].type, config->types.typeArray[i].typeName, channels[c]);
+			SetPlotJobName(job, folder, name);
+			job->data = freqs;
+			job->size = size;
+			job->type = config->types.typeArray[i].type;
+			job->role = signal;
+			job->channel = channels[c];
+		}
+		types++;
+	}
+	return types;
+}
+
+void AddNoiseSpectrogramJobs(PlotJobList *list, FlatFrequency *freqs, long int size, char *filename, int signal, AudioSignal *Signal, parameters *config)
+{
+	char	name[BUFFER_SIZE];
+	char	channels[3] = { CHANNEL_STEREO, CHANNEL_LEFT, CHANNEL_RIGHT };
+
+	if(!freqs)
+		return;
+
+	for(int i = 0; i < config->types.typeCount; i++)
+	{
+		int count = 1;
+
+		if(config->types.typeArray[i].type != TYPE_SILENCE)
+			continue;
+
+		if(config->types.typeArray[i].channel == CHANNEL_STEREO && Signal->AudioChannels == 2)
+			count = 3;
+
+		for(int c = 0; c < count; c++)
+		{
+			PlotJob *job = NewPlotJob(list, PJOB_NOISE_SPEC);
+
+			if(!job)
+				return;
+			if(c == 0)
+				sprintf(name, "NF_SP_%c_%s_%02d%s", signal == ROLE_REF ? 'A' : 'B', filename, 
+					config->types.typeArray[i].type, config->types.typeArray[i].typeName);
+			else
+				sprintf(name, "NF_SP_%c_%s_%02d%s_%c", signal == ROLE_REF ? 'A' : 'B', filename,
+					config->types.typeArray[i].type, config->types.typeArray[i].typeName, channels[c]);
+			SetPlotJobName(job, NULL, name);
+			job->data = freqs;
+			job->size = size;
+			job->role = signal;
+			job->channel = channels[c];
+			job->Signal = Signal;
+		}
+		return;		// only the first silence type, as before
+	}
+}
+
+/* Same files and rules as PlotEachTypeDifferentAmplitudes. Returns the number of types */
+int AddDifferenceTypeJobs(PlotJobList *list, FlatAmplDifference *amplDiff, long int size, char *filename, parameters *config)
+{
+	int 	types = 0, typeCount = 0, someStereo = 0;
+	char	name[BUFFER_SIZE];
+	char	channels[3] = { CHANNEL_STEREO, CHANNEL_LEFT, CHANNEL_RIGHT };
+
+	someStereo = config->referenceSignal->AudioChannels == 2 || config->comparisonSignal->AudioChannels == 2;
+	typeCount = GetActiveBlockTypesNoRepeat(config);
+	for(int i = 0; i < config->types.typeCount; i++)
+	{
+		int type = config->types.typeArray[i].type, count = 1;
+
+		if(type <= TYPE_CONTROL || config->types.typeArray[i].IsaddOnData)
+			continue;
+
+		if(config->types.typeArray[i].channel == CHANNEL_STEREO && someStereo)
+			count = 3;
+
+		for(int c = 0; c < count; c++)
+		{
+			PlotJob	*job = NewPlotJob(list, PJOB_DIFF_TYPE);
+			char	*folder = NULL;
+
+			if(!job)
+				return types;
+			if(c == 0)
+			{
+				sprintf(name, "DA_%s_%02d%s", filename, type, config->types.typeArray[i].typeName);
+				folder = typeCount > 1 ? DIFFERENCE_FOLDER : NULL;
+			}
+			else
+			{
+				sprintf(name, "DA_%s_%02d%s_%c", filename, type, config->types.typeArray[i].typeName, channels[c]);
+				folder = DIFFERENCE_FOLDER;	// typeCount > 1 || someStereo
+			}
+			SetPlotJobName(job, folder, name);
+			job->data = amplDiff;
+			job->size = size;
+			job->type = type;
+			job->channel = channels[c];
+		}
+		types++;
+	}
+	return types;
+}
+
+/* Same files and rules as PlotEachTypePhase. Returns the number of types */
+int AddPhaseTypeJobs(PlotJobList *list, FlatPhase *phaseDiff, long int size, char *filename, int pType, parameters *config)
+{
+	int 	types = 0, typeCount = 0, bothStereo = 0;
+	char	name[BUFFER_SIZE];
+	char	channels[3] = { CHANNEL_STEREO, CHANNEL_LEFT, CHANNEL_RIGHT };
+
+	bothStereo = config->referenceSignal->AudioChannels == 2 && config->comparisonSignal->AudioChannels == 2;
+	typeCount = GetActiveBlockTypesNoRepeat(config);
+	for(int i = 0; i < config->types.typeCount; i++)
+	{
+		int type = config->types.typeArray[i].type, count = 1;
+
+		if(type <= TYPE_CONTROL || config->types.typeArray[i].IsaddOnData)
+			continue;
+
+		if(config->types.typeArray[i].channel == CHANNEL_STEREO && bothStereo)
+			count = 3;
+
+		for(int c = 0; c < count; c++)
+		{
+			PlotJob	*job = NewPlotJob(list, PJOB_PHASE_TYPE);
+			char	*folder = NULL;
+
+			if(!job)
+				return types;
+			if(c == 0)
+			{
+				if(pType == PHASE_DIFF)
+					sprintf(name, "PHASE_DIFF_%s_%02d%s", filename, type, config->types.typeArray[i].typeName);
+				else
+					sprintf(name, "PHASE_%c_%s_%02d%s", pType == PHASE_REF ? 'A' : 'B', filename, type, config->types.typeArray[i].typeName);
+				folder = typeCount > 1 ? PHASE_FOLDER : NULL;
+			}
+			else
+			{
+				if(pType == PHASE_DIFF)
+					sprintf(name, "PHASE_DIFF_%s_%02d%s_%c", filename, type, config->types.typeArray[i].typeName, channels[c]);
+				else
+					sprintf(name, "PHASE_%c_%s_%02d%s_%c", pType == PHASE_REF ? 'A' : 'B', filename, type, config->types.typeArray[i].typeName, channels[c]);
+				folder = PHASE_FOLDER;	// typeCount > 1 || bothStereo
+			}
+			SetPlotJobName(job, folder, name);
+			job->data = phaseDiff;
+			job->size = size;
+			job->type = type;
+			job->role = pType;
+			job->channel = channels[c];
+		}
+		types++;
+	}
+	return types;
 }
 
 void PlotResults(AudioSignal *ReferenceSignal, AudioSignal *ComparisonSignal, parameters *config)
@@ -328,7 +714,6 @@ void PlotResults(AudioSignal *ReferenceSignal, AudioSignal *ComparisonSignal, pa
 	{
 		int					typeCount = 0, someStereo = 0, doRefAll = 0, doCompAll = 0;
 		struct	timespec	lstart, lend;
-		char				*returnFolder = NULL;
 		char				tmpNameRef[BUFFER_SIZE/2], tmpNameComp[BUFFER_SIZE/2];
 		long int			sizeRef = 0, sizeComp = 0;
 		FlatFrequency		*freqsRef = NULL, *freqsComp = NULL;
@@ -348,56 +733,47 @@ void PlotResults(AudioSignal *ReferenceSignal, AudioSignal *ComparisonSignal, pa
 		//Create subfolder if needed
 		typeCount = GetActiveBlockTypesNoRepeat(config);
 		someStereo = config->referenceSignal->AudioChannels == 2 || config->comparisonSignal->AudioChannels == 2;
-		if (typeCount > 1 || someStereo)
-		{
-			returnFolder = PushFolder(SPECTROGRAM_FOLDER);
-			if (!returnFolder)
-				return;
-		}
 
 		ShortenFileName(basename(ReferenceSignal->SourceFile), tmpNameRef, BUFFER_SIZE/2);
 		ShortenFileName(basename(ComparisonSignal->SourceFile), tmpNameComp, BUFFER_SIZE/2);
-#ifdef OPENMP_ENABLE
-	#pragma omp parallel for
-#endif
-		for(int i = 0; i < 2; i++)
-		{
-			if(i == 0)
-			{
-				if(PlotEachTypeSpectrogram(freqsRef, sizeRef, tmpNameRef, ReferenceSignal->role, config, ReferenceSignal) > 1)
-					doRefAll = 1;
-			}
-			else
-			{
-				if(PlotEachTypeSpectrogram(freqsComp, sizeComp, tmpNameComp, ComparisonSignal->role, config, ComparisonSignal) > 1)
-					doCompAll = 1;
-			}
-		}
 
-		if (typeCount > 1 || someStereo)
+		// All spectrogram plots of both signals in one parallel list
 		{
-			ReturnToMainPath(&returnFolder);
-			returnFolder = NULL;
-		}
+			PlotJobList	list = { NULL, 0, 0 };
+			char		*folder = NULL;
 
-		if(doRefAll && doCompAll)
-		{
-#ifdef OPENMP_ENABLE
-	#pragma omp parallel for
-#endif
-			for(int i = 0; i < 2; i++)
+			if (typeCount > 1 || someStereo)
+				folder = SPECTROGRAM_FOLDER;
+
+			if(AddSpectrogramTypeJobs(&list, freqsRef, sizeRef, tmpNameRef, ReferenceSignal->role, ReferenceSignal, folder, config) > 1)
+				doRefAll = 1;
+			if(AddSpectrogramTypeJobs(&list, freqsComp, sizeComp, tmpNameComp, ComparisonSignal->role, ComparisonSignal, folder, config) > 1)
+				doCompAll = 1;
+
+			if(doRefAll && doCompAll)
 			{
-				if(i == 0)
+				PlotJob *job = NULL;
+
+				job = NewPlotJob(&list, PJOB_SPEC_ALL);
+				if(job)
 				{
-					PlotAllSpectrogram(freqsRef, sizeRef, tmpNameRef, ReferenceSignal->role, config);
-					logmsg(PLOT_ADVANCE_CHAR);
+					SetPlotJobName(job, NULL, tmpNameRef);
+					job->data = freqsRef;
+					job->size = sizeRef;
+					job->role = ReferenceSignal->role;
 				}
-				else
+				job = NewPlotJob(&list, PJOB_SPEC_ALL);
+				if(job)
 				{
-					PlotAllSpectrogram(freqsComp, sizeComp, tmpNameComp, ComparisonSignal->role, config);
-					logmsg(PLOT_ADVANCE_CHAR);				
+					SetPlotJobName(job, NULL, tmpNameComp);
+					job->data = freqsComp;
+					job->size = sizeComp;
+					job->role = ComparisonSignal->role;
 				}
 			}
+
+			RunPlotJobs(&list, NULL, config);
+			FreePlotJobList(&list);
 		}
 
 		if(freqsRef)
@@ -426,18 +802,20 @@ void PlotResults(AudioSignal *ReferenceSignal, AudioSignal *ComparisonSignal, pa
 				else
 					freqsComp = CreateSpectrogramFrequencies(ComparisonSignal, &sizeComp, 1, config);
 			}
+			{
+				PlotJobList	list = { NULL, 0, 0 };
+
+				// the comparison plots use the reference scale, set it before they run
+				SetNoiseFloorReferenceLimits(freqsRef, sizeRef, config);
+				AddNoiseSpectrogramJobs(&list, freqsRef, sizeRef, tmpNameRef, ReferenceSignal->role, ReferenceSignal, config);
+				AddNoiseSpectrogramJobs(&list, freqsComp, sizeComp, tmpNameComp, ComparisonSignal->role, ComparisonSignal, config);
+				RunPlotJobs(&list, NULL, config);
+				FreePlotJobList(&list);
+			}
 			if(freqsRef)
-			{
-				PlotNoiseFloorSpectrogram(freqsRef, sizeRef, tmpNameRef, ReferenceSignal->role, config, ReferenceSignal);
-				logmsg(PLOT_ADVANCE_CHAR);
 				free(freqsRef);
-			}
 			if(freqsComp)
-			{
-				PlotNoiseFloorSpectrogram(freqsComp, sizeComp, tmpNameComp, ComparisonSignal->role, config, ComparisonSignal);
-				logmsg(PLOT_ADVANCE_CHAR);
 				free(freqsComp);
-			}
 
 			EndPlot("Noise Floor Spectrogram", &lstart, &lend, config);
 		}
@@ -516,7 +894,7 @@ void PlotResults(AudioSignal *ReferenceSignal, AudioSignal *ComparisonSignal, pa
 			if (!returnFolder)
 				return;
 #ifdef OPENMP_ENABLE
-	#pragma omp parallel for
+	#pragma omp parallel for schedule(dynamic)
 #endif
 			for (int i = 0; i < config->types.typeCount; i++)
 			{
@@ -600,16 +978,7 @@ void PlotResults(AudioSignal *ReferenceSignal, AudioSignal *ComparisonSignal, pa
 		}
 
 		StartPlot(" - Waveform Graphs ", &lstart, config);
-#ifdef OPENMP_ENABLE
-	#pragma omp parallel for
-#endif
-		for (int i = 0; i < 2; i++)
-		{
-			if (i == 0)
-				PlotTimeDomainGraphs(ReferenceSignal, config);
-			else
-				PlotTimeDomainGraphs(ComparisonSignal, config);
-		}
+		PlotTimeDomainGraphsAll(ReferenceSignal, ComparisonSignal, config);
 		EndPlot("Waveform", &lstart, &lend, config);
 
 		ReturnToMainPath(&returnFolder);
@@ -657,13 +1026,14 @@ void PlotAmpDifferences(parameters *config)
 
 	if(config->plotDifferences)
 	{
-		int typeCount = 0, plotAll = 0, someStereo = 0;
+		int			typeCount = 0, plotAll = 0, someStereo = 0;
+		PlotJobList	list = { NULL, 0, 0 };
 
 		someStereo = config->referenceSignal->AudioChannels == 2 || config->comparisonSignal->AudioChannels == 2;
 		typeCount = GetActiveBlockTypesNoRepeat(config);
 		if (typeCount > 1 || someStereo)
 		{
-			if (PlotEachTypeDifferentAmplitudes(amplDiff, size, config->compareName, config) > 1)
+			if (AddDifferenceTypeJobs(&list, amplDiff, size, config->compareName, config) > 1)
 				plotAll = 1;
 		}
 		else
@@ -671,29 +1041,38 @@ void PlotAmpDifferences(parameters *config)
 
 		if (plotAll)
 		{
-			PlotAllDifferentAmplitudes(amplDiff, size, CHANNEL_STEREO, config->compareName, config);
+			PlotJob	*job = NULL;
+
+			job = NewPlotJob(&list, PJOB_DIFF_ALL);
+			if(job)
+			{
+				SetPlotJobName(job, NULL, config->compareName);
+				job->data = amplDiff;
+				job->size = size;
+				job->channel = CHANNEL_STEREO;
+			}
 			if(config->channelBalance == 0 && config->referenceSignal->AudioChannels == 2 && config->comparisonSignal->AudioChannels == 2)
 			{
-				char		name[2*BUFFER_SIZE];
-				char		*returnFolder = NULL;
+				char	channels[2] = { CHANNEL_LEFT, CHANNEL_RIGHT };
 
-				returnFolder = PushFolder(DIFFERENCE_FOLDER);
-				if (!returnFolder)
-					return;
-
-				sprintf(name, "%s_%c", config->compareName, CHANNEL_LEFT);
-				PlotAllDifferentAmplitudes(amplDiff, size, CHANNEL_LEFT, name, config);
-				logmsg(PLOT_ADVANCE_CHAR);
-
-				sprintf(name, "%s_%c", config->compareName, CHANNEL_RIGHT);
-				PlotAllDifferentAmplitudes(amplDiff, size, CHANNEL_RIGHT, name, config);
-				logmsg(PLOT_ADVANCE_CHAR);
-
-				ReturnToMainPath(&returnFolder);
+				for(int c = 0; c < 2; c++)
+				{
+					job = NewPlotJob(&list, PJOB_DIFF_ALL);
+					if(job)
+					{
+						// the folder is added to the name by PlotAllDifferentAmplitudesInFolder
+						snprintf(job->folder, sizeof(job->folder), "%s", DIFFERENCE_FOLDER);
+						snprintf(job->name, BUFFER_SIZE, "%.*s_%c", BUFFER_SIZE - 8, config->compareName, channels[c]);
+						job->data = amplDiff;
+						job->size = size;
+						job->channel = channels[c];
+					}
+				}
 			}
-
-			logmsg(PLOT_ADVANCE_CHAR);
 		}
+
+		RunPlotJobs(&list, NULL, config);
+		FreePlotJobList(&list);
 	}
 
 	if(config->averagePlot)
@@ -825,19 +1204,27 @@ int checkPathLen(char* file, parameters* config)
 	len = strlen(CurrentPath) + strlen(file) + 1;
 	if(len >= MAX_PATH)
 	{
-		int lfile = strlen(file);
-		int third = lfile/3;
+		// Only shorten the file name
+		char *base = strrchr(file, FOLDERCHAR);
+		int prefix = 0, lfile = 0, third = 0;
+
+		if(!base)
+			base = strrchr(file, '/');
+		base = base ? base + 1 : file;
+		prefix = base - file;
+		lfile = strlen(base);
+		third = lfile/3;
 
 		logmsg("\nWARNING: Path + file exceeds OS MAX_PATH: ");
-		if(MAX_PATH > strlen(CurrentPath) + third*2 + 1)
+		if(MAX_PATH > strlen(CurrentPath) + prefix + third*2 + 1)
 		{
 			int pos = 0;
 
 			for(pos = 0; pos < third; pos++)
-				file[third + pos] = file[lfile - third + pos];
+				base[third + pos] = base[lfile - third + pos];
 
-			file[third] = '_';
-			file[third + pos] = '\0';
+			base[third] = '_';
+			base[third + pos] = '\0';
 
 			len = strlen(CurrentPath) + strlen(file) + 1;
 			logmsg("Shortened to %s\n", file);
@@ -917,6 +1304,10 @@ int CreatePlotFile(PlotFile *plot, parameters *config)
 	}
 	pl_setplparam (plot->plotter_params, "BITMAPSIZE", size);
 
+	/* libplot keeps a global table of plotters, serialize creation and deletion */
+#ifdef OPENMP_ENABLE
+	#pragma omp critical(libplot_registry)
+#endif
 	plot->plotter = pl_newpl_r("png", stdin, plot->file, stderr, plot->plotter_params);
 	if(!plot->plotter)
 	{
@@ -929,6 +1320,9 @@ int CreatePlotFile(PlotFile *plot, parameters *config)
 	if(pl_openpl_r(plot->plotter) < 0)
 	{
 		logmsg("ERROR: Couldn't open Plotter\n");
+#ifdef OPENMP_ENABLE
+		#pragma omp critical(libplot_registry)
+#endif
 		pl_deletepl_r(plot->plotter);
 		pl_deleteplparams(plot->plotter_params);
 		fclose(plot->file); 
@@ -959,10 +1353,18 @@ int ClosePlot(PlotFile *plot)
 		return 0;
 	}
 	
-	if(pl_deletepl_r(plot->plotter) < 0)
 	{
-		logmsg("ERROR: Couldn't delete Plotter\n");
-		return 0;
+		int deleted = 0;
+
+#ifdef OPENMP_ENABLE
+		#pragma omp critical(libplot_registry)
+#endif
+		deleted = pl_deletepl_r(plot->plotter);
+		if(deleted < 0)
+		{
+			logmsg("ERROR: Couldn't delete Plotter\n");
+			return 0;
+		}
 	}
 	plot->plotter = NULL;
 
@@ -2925,6 +3327,11 @@ void SaveCSVAmpDiff(FlatAmplDifference *amplDiff, long int size, char *filename,
 
 void PlotAllDifferentAmplitudes(FlatAmplDifference *amplDiff, long int size, char channel, char *filename, parameters *config)
 {
+	PlotAllDifferentAmplitudesInFolder(amplDiff, size, channel, filename, NULL, config);
+}
+
+void PlotAllDifferentAmplitudesInFolder(FlatAmplDifference *amplDiff, long int size, char channel, char *filename, char *folder, parameters *config)
+{
 	PlotFile	plot;
 	char		name[BUFFER_SIZE];
 	char*		title = NULL;
@@ -2936,7 +3343,10 @@ void PlotAllDifferentAmplitudes(FlatAmplDifference *amplDiff, long int size, cha
 	if(!amplDiff)
 		return;
 
-	sprintf(name, "DA__ALL_%s", filename);
+	if(folder)
+		sprintf(name, "%s%cDA__ALL_%s", folder, FOLDERCHAR, filename);
+	else
+		sprintf(name, "DA__ALL_%s", filename);
 	FillPlot(&plot, name, config->startHzPlot, -1*dBFS, config->endHzPlot, dBFS, 1, 1, config);
 
 	if(!CreatePlotFile(&plot, config))
@@ -3258,6 +3668,9 @@ int PlotNoiseFloorSpectrogram(FlatFrequency * freqs, long int size, char* filena
 	int		i = 0, type = 0;
 	char	name[BUFFER_SIZE];
 
+	if(Signal->role == ROLE_REF)
+		SetNoiseFloorReferenceLimits(freqs, size, config);
+
 	for (i = 0; i < config->types.typeCount; i++)
 	{
 		type = config->types.typeArray[i].type;
@@ -3346,35 +3759,49 @@ void PlotSingleTypeSpectrogram(FlatFrequency *freqs, long int size, int type, ch
 	ClosePlot(&plot);
 }
 
+void GetNoiseSpectrogramLimits(FlatFrequency *freqs, long int size, double *startAmplitude, double *endAmplitude, parameters *config)
+{
+	*startAmplitude = config->significantAmplitude;
+	*endAmplitude = config->lowestDBFS;
+
+	for(long int f = 0; f < size; f++)
+	{
+		if(freqs[f].type == TYPE_SILENCE)
+		{
+			if (freqs[f].amplitude > *startAmplitude)
+				*startAmplitude = freqs[f].amplitude;
+			if (freqs[f].amplitude < *endAmplitude)
+				*endAmplitude = freqs[f].amplitude;
+		}
+	}
+
+	if(*endAmplitude < NS_LOWEST_AMPLITUDE)
+		*endAmplitude = NS_LOWEST_AMPLITUDE;
+}
+
+void SetNoiseFloorReferenceLimits(FlatFrequency *freqs, long int size, parameters *config)
+{
+	double startAmplitude = 0, endAmplitude = 0;
+
+	if(!freqs)
+		return;
+
+	GetNoiseSpectrogramLimits(freqs, size, &startAmplitude, &endAmplitude, config);
+	config->refNoiseMin = startAmplitude;
+	config->refNoiseMax = endAmplitude;
+}
+
 void PlotNoiseSpectrogram(FlatFrequency *freqs, long int size, char channel, char *filename, int signal, parameters *config, AudioSignal *Signal)
 {
 	PlotFile	plot;
 	char*		title = NULL;
-	double		startAmplitude = config->significantAmplitude, endAmplitude = config->lowestDBFS;
+	double		startAmplitude = 0, endAmplitude = 0;
 
 	if(!config)
 		return;
 
 	// Find limits
-	for(int f = 0; f < size; f++)
-	{
-		if(freqs[f].type == TYPE_SILENCE)
-		{
-			if (freqs[f].amplitude > startAmplitude)
-				startAmplitude = freqs[f].amplitude;
-			if (freqs[f].amplitude < endAmplitude)
-				endAmplitude = freqs[f].amplitude;
-		}
-	}
-
-	if(endAmplitude < NS_LOWEST_AMPLITUDE)
-		endAmplitude = NS_LOWEST_AMPLITUDE;
-
-	if (Signal->role == ROLE_REF)
-	{
-		config->refNoiseMin = startAmplitude;
-		config->refNoiseMax = endAmplitude;
-	}
+	GetNoiseSpectrogramLimits(freqs, size, &startAmplitude, &endAmplitude, config);
 
 	if(Signal->role == ROLE_COMP)
 	{
@@ -4371,6 +4798,8 @@ int PlotDifferentAmplitudesAveraged(FlatAmplDifference *amplDiff, long int size,
 	char				name[BUFFER_SIZE];
 	long int			*averagedSizes = NULL;
 	AveragedFrequencies	**averagedArray = NULL;
+	PlotJobList			list = { NULL, 0, 0 };
+	AveragedResults		results;
 
 	typeCount = GetActiveBlockTypesNoRepeat(config);
 	someStereo = config->referenceSignal->AudioChannels == 2 || config->comparisonSignal->AudioChannels == 2;
@@ -4381,7 +4810,10 @@ int PlotDifferentAmplitudesAveraged(FlatAmplDifference *amplDiff, long int size,
 
 	averagedSizes = (long int*)malloc(sizeof(long int)*typeCount);
 	if(!averagedSizes)
+	{
+		free(averagedArray);
 		return 0;
+	}
 
 	memset(averagedArray, 0, sizeof(AveragedFrequencies*)*typeCount);
 	memset(averagedSizes, 0, sizeof(long int)*typeCount);
@@ -4392,72 +4824,31 @@ int PlotDifferentAmplitudesAveraged(FlatAmplDifference *amplDiff, long int size,
 
 		if(type > TYPE_CONTROL && !config->types.typeArray[i].IsaddOnData)
 		{
-			if(typeCount == 1)
-				sprintf(name, "DA__ALL_%s_AVG", filename);
-			else
-				sprintf(name, "DA_%s_%02d%s_AVG", filename, 
-					config->types.typeArray[i].type, config->types.typeArray[i].typeName);
+			PlotJob *job = NewPlotJob(&list, PJOB_DIFF_AVG_TYPE);
 
-			averagedArray[types] = CreateFlatDifferencesAveraged(type, CHANNEL_STEREO, &averagedSizes[types], normalPlot, config);
-
-			if(averagedArray[types])
+			if(job)
 			{
-				char	*returnFolder = NULL;
-
-				if(typeCount > 1)
-				{
-					returnFolder = PushFolder(DIFFERENCE_FOLDER);
-					if(!returnFolder)
-						return 0;
-				}
-
-				PlotSingleTypeDifferentAmplitudesAveraged(amplDiff, size, type, name, averagedArray[types], averagedSizes[types], config->types.typeArray[i].channel == CHANNEL_STEREO ? CHANNEL_STEREO : CHANNEL_MONO, config);
-				logmsg(PLOT_ADVANCE_CHAR);
-
-				if(typeCount > 1)
-					ReturnToMainPath(&returnFolder);
-
-				if(config->types.typeArray[i].channel == CHANNEL_STEREO && someStereo)
-				{
-					long int sizeLeft = 0, sizeRight = 0;
-					AveragedFrequencies	*averagedArrayLeft = NULL, *averagedArrayRight = NULL;
-
-					if(typeCount > 1 || someStereo)
-					{
-						returnFolder = PushFolder(DIFFERENCE_FOLDER);
-						if(!returnFolder)
-							return 0;
-					}
-
-					averagedArrayLeft = CreateFlatDifferencesAveraged(type, CHANNEL_LEFT, &sizeLeft, normalPlot, config);
-					if(typeCount == 1)
-						sprintf(name, "DA__ALL_%s_%c_AVG", filename, CHANNEL_LEFT);
-					else
-						sprintf(name, "DA_%s_%02d%s_%c_AVG", filename, 
-							config->types.typeArray[i].type, config->types.typeArray[i].typeName, CHANNEL_LEFT);
-					PlotSingleTypeDifferentAmplitudesAveraged(amplDiff, size, type, name, averagedArrayLeft, sizeLeft, CHANNEL_LEFT, config);
-					logmsg(PLOT_ADVANCE_CHAR);
-					free(averagedArrayLeft);
-
-					averagedArrayRight = CreateFlatDifferencesAveraged(type, CHANNEL_RIGHT, &sizeRight, normalPlot, config);
-					if(typeCount == 1)
-						sprintf(name, "DA__ALL_%s_%c_AVG", filename, CHANNEL_RIGHT);
-					else
-						sprintf(name, "DA_%s_%02d%s_%c_AVG", filename, 
-							config->types.typeArray[i].type, config->types.typeArray[i].typeName, CHANNEL_RIGHT);
-					PlotSingleTypeDifferentAmplitudesAveraged(amplDiff, size, type, name, averagedArrayRight, sizeRight, CHANNEL_RIGHT, config);
-					logmsg(PLOT_ADVANCE_CHAR);
-
-					if(typeCount > 1 || someStereo)
-						ReturnToMainPath(&returnFolder);
-
-					free(averagedArrayRight);
-				}
+				job->type = type;
+				job->typeIndex = i;
+				job->slot = types;
+				// folders are only used for creating them, names are built in the job
+				if(typeCount > 1 || (config->types.typeArray[i].channel == CHANNEL_STEREO && someStereo))
+					snprintf(job->folder, sizeof(job->folder), "%s", DIFFERENCE_FOLDER);
 			}
-
 			types ++;
 		}
 	}
+
+	results.amplDiff = amplDiff;
+	results.amplSize = size;
+	results.filename = filename;
+	results.typeCount = typeCount;
+	results.someStereo = someStereo;
+	results.averagedArray = averagedArray;
+	results.averagedSizes = averagedSizes;
+
+	RunPlotJobs(&list, &results, config);
+	FreePlotJobList(&list);
 
 	if(types > 1 && averagedArray && averagedSizes)
 	{
@@ -5449,112 +5840,174 @@ void PlotTimeSpectrogramUnMatchedContent(AudioSignal *Signal, char channel, para
 	ClosePlot(&plot);
 }
 
-void PlotTimeDomainGraphs(AudioSignal *Signal, parameters *config)
+#define WFJOB_GENERAL	0
+#define WFJOB_SYNCZOOM	1
+#define WFJOB_INTERNAL	2
+#define WFJOB_WINDOW	3
+
+typedef struct waveform_job_st {
+	AudioSignal	*Signal;
+	long int	block;
+	int			kind;
+	int			slot;
+} WaveformJob;
+
+long int CollectWaveformJobs(AudioSignal *Signal, WaveformJob *jobs, parameters *config)
 {
-	long int	plots = 0, i = 0;
-	double		output = 0;
-	char		name[BUFFER_SIZE*2];
+	long int count = 0;
 
-	if(config->plotAllNotes || config->timeDomainSync)
-	{
-		for(i = 0; i < config->types.totalBlocks; i++)
-		{
-			int doPlot = 0;
+	if(!Signal || !(config->plotAllNotes || config->timeDomainSync))
+		return 0;
 
-			doPlot = Signal->Blocks[i].type == TYPE_TIMEDOMAIN ||
-				(config->timeDomainSync && Signal->Blocks[i].type == TYPE_SYNC) ||
-				(config->timeDomainSync && Signal->Blocks[i].type == TYPE_SILENCE);
-			if(config->plotAllNotes || doPlot)
-			{
-				if(config->plotAllNotes != 2 || doPlot)
-					plots++;
-				if(config->plotAllNotesWindowed && Signal->Blocks[i].audio.windowed_samples)
-					plots++;
-				if(Signal->Blocks[i].internalSyncCount)
-					plots += Signal->Blocks[i].internalSyncCount;
-			}
-		}
-#ifdef OPENMP_ENABLE
-		if(plots && Signal->role == ROLE_REF)
-			logmsg("%ld plots:\n", plots*2);
-#else
-		if(plots)
-			logmsg("%ld plots for %s:\n  ", plots, getRoleText(Signal));
-#endif
-	}
-
-	if(!plots)
-		return;
-
-#ifdef OPENMP_ENABLE
-	output = plots/40;
-#else
-	output = plots/80;
-#endif
-
-	if(output < 1)
-		output = 1;
-
-	plots = 0;
-	for(i = 0; i < config->types.totalBlocks; i++)
+	for(long int i = 0; i < config->types.totalBlocks; i++)
 	{
 		int doPlot = 0;
 
 		doPlot = Signal->Blocks[i].type == TYPE_TIMEDOMAIN ||
 				(config->timeDomainSync && Signal->Blocks[i].type == TYPE_SYNC) ||
 				(config->timeDomainSync && Signal->Blocks[i].type == TYPE_SILENCE);
-		if(config->plotAllNotes || doPlot)
+		if(!(config->plotAllNotes || doPlot))
+			continue;
+
+		if(config->plotAllNotes != 2 || doPlot)
 		{
-			if(config->plotAllNotes != 2 || doPlot)
+			if(jobs)
 			{
-				sprintf(name, "TD_%05ld_%s_%s_%05d_%s", 
-					i, Signal->role == ROLE_REF ? "1" : "2",
-					GetBlockName(config, i), GetBlockSubIndex(config, i), config->compareName);
-
-				PlotBlockTimeDomainGraph(Signal, i, name, WAVEFORM_GENERAL, 0, config);
-				if(++plots >= output)
-				{
-					logmsg(PLOT_ADVANCE_CHAR);
-					plots = 0;
-				}
-				if(Signal->Blocks[i].type == TYPE_SYNC)
-				{
-					sprintf(name, "ZOOM_Sync_TD_%05ld_%s_%s_%05d_%s", 
-						i, Signal->role == ROLE_REF ? "1" : "2",
-						GetBlockName(config, i), GetBlockSubIndex(config, i), config->compareName);
-
-					PlotBlockTimeDomainGraph(Signal, i, name, WAVEFORM_SYNCZOOM, 0, config);
-				}
+				jobs[count].Signal = Signal;
+				jobs[count].block = i;
+				jobs[count].kind = WFJOB_GENERAL;
+				jobs[count].slot = 0;
 			}
-
-			if(Signal->Blocks[i].internalSyncCount)
+			count++;
+			if(Signal->Blocks[i].type == TYPE_SYNC)
 			{
-				for(int slot = 0; slot < Signal->Blocks[i].internalSyncCount; slot++)
+				if(jobs)
 				{
-					sprintf(name, "TD_%05ld_%s_%s_%05d_%s_%02d", 
-									i, Signal->role == ROLE_REF ? "1" : "2",
-									GetBlockName(config, i), GetBlockSubIndex(config, i), 
-									config->compareName, slot);
-					PlotBlockTimeDomainInternalSyncGraph(Signal, i, name, slot, config);
+					jobs[count].Signal = Signal;
+					jobs[count].block = i;
+					jobs[count].kind = WFJOB_SYNCZOOM;
+					jobs[count].slot = 0;
 				}
-			}
-
-			if(Signal->Blocks[i].audio.windowed_samples && (config->plotAllNotesWindowed || Signal->Blocks[i].type == TYPE_SILENCE))
-			{
-				sprintf(name, "TD_%05ld_%s_%s_%05d_%s", 
-					i, Signal->role == ROLE_REF ? "3" : "4",
-					GetBlockName(config, i), GetBlockSubIndex(config, i), config->compareName);
-
-				PlotBlockTimeDomainGraph(Signal, i, name, WAVEFORM_WINDOW, 0, config);
-
-				if(++plots >= output)
-				{
-					logmsg(PLOT_ADVANCE_CHAR);
-					plots = 0;
-				}
+				count++;
 			}
 		}
+
+		for(int slot = 0; slot < Signal->Blocks[i].internalSyncCount; slot++)
+		{
+			if(jobs)
+			{
+				jobs[count].Signal = Signal;
+				jobs[count].block = i;
+				jobs[count].kind = WFJOB_INTERNAL;
+				jobs[count].slot = slot;
+			}
+			count++;
+		}
+
+		if(Signal->Blocks[i].audio.windowed_samples && (config->plotAllNotesWindowed || Signal->Blocks[i].type == TYPE_SILENCE))
+		{
+			if(jobs)
+			{
+				jobs[count].Signal = Signal;
+				jobs[count].block = i;
+				jobs[count].kind = WFJOB_WINDOW;
+				jobs[count].slot = 0;
+			}
+			count++;
+		}
 	}
+	return count;
+}
+
+void ExecuteWaveformJob(WaveformJob *job, parameters *config)
+{
+	char		name[BUFFER_SIZE*2];
+	AudioSignal	*Signal = job->Signal;
+	long int	i = job->block;
+	int			isRef = Signal->role == ROLE_REF;
+
+	switch(job->kind)
+	{
+		case WFJOB_GENERAL:
+			sprintf(name, "TD_%05ld_%s_%s_%05d_%s", 
+				i, isRef ? "1" : "2",
+				GetBlockName(config, i), GetBlockSubIndex(config, i), config->compareName);
+			PlotBlockTimeDomainGraph(Signal, i, name, WAVEFORM_GENERAL, 0, config);
+			break;
+		case WFJOB_SYNCZOOM:
+			sprintf(name, "ZOOM_Sync_TD_%05ld_%s_%s_%05d_%s", 
+				i, isRef ? "1" : "2",
+				GetBlockName(config, i), GetBlockSubIndex(config, i), config->compareName);
+			PlotBlockTimeDomainGraph(Signal, i, name, WAVEFORM_SYNCZOOM, 0, config);
+			break;
+		case WFJOB_INTERNAL:
+			sprintf(name, "TD_%05ld_%s_%s_%05d_%s_%02d", 
+				i, isRef ? "1" : "2",
+				GetBlockName(config, i), GetBlockSubIndex(config, i), 
+				config->compareName, job->slot);
+			PlotBlockTimeDomainInternalSyncGraph(Signal, i, name, job->slot, config);
+			break;
+		case WFJOB_WINDOW:
+			sprintf(name, "TD_%05ld_%s_%s_%05d_%s", 
+				i, isRef ? "3" : "4",
+				GetBlockName(config, i), GetBlockSubIndex(config, i), config->compareName);
+			PlotBlockTimeDomainGraph(Signal, i, name, WAVEFORM_WINDOW, 0, config);
+			break;
+	}
+}
+
+void PlotTimeDomainGraphsAll(AudioSignal *ReferenceSignal, AudioSignal *ComparisonSignal, parameters *config)
+{
+	long int	refCount = 0, total = 0, output = 0, completed = 0;
+	WaveformJob	*jobs = NULL;
+
+	refCount = CollectWaveformJobs(ReferenceSignal, NULL, config);
+	total = refCount + CollectWaveformJobs(ComparisonSignal, NULL, config);
+	if(!total)
+		return;
+
+	jobs = (WaveformJob*)malloc(sizeof(WaveformJob)*total);
+	if(!jobs)
+	{
+		logmsg("ERROR: Not enough memory for waveform plots\n");
+		return;
+	}
+	CollectWaveformJobs(ReferenceSignal, jobs, config);
+	CollectWaveformJobs(ComparisonSignal, jobs + refCount, config);
+
+	logmsg("%ld plots:\n", total);
+	output = total/80;
+	if(output < 1)
+		output = 1;
+
+#ifdef OPENMP_ENABLE
+	#pragma omp parallel for schedule(dynamic)
+#endif
+	for(long int j = 0; j < total; j++)
+	{
+		long int done = 0;
+
+		ExecuteWaveformJob(&jobs[j], config);
+#ifdef OPENMP_ENABLE
+		#pragma omp atomic capture
+#endif
+		done = ++completed;
+		if(done % output == 0)
+			logmsg(PLOT_ADVANCE_CHAR);
+	}
+
+	free(jobs);
+}
+
+void PlotTimeDomainGraphs(AudioSignal *Signal, parameters *config)
+{
+	if(!Signal)
+		return;
+
+	if(Signal->role == ROLE_REF)
+		PlotTimeDomainGraphsAll(Signal, NULL, config);
+	else
+		PlotTimeDomainGraphsAll(NULL, Signal, config);
 }
 
 int ExecutePlotBlockTimeDomainGraph(int waveType, AudioSignal *Signal, long int block, double data, char *folder, parameters *config)
@@ -6225,10 +6678,23 @@ void PlotPhaseDifferences(parameters *config)
 		return;
 	}
 
-	if(PlotEachTypePhase(phaseDiff, size, config->compareName, PHASE_DIFF, config) > 1)
 	{
-		PlotAllPhase(phaseDiff, size, config->compareName, PHASE_DIFF, config);
-		logmsg(PLOT_ADVANCE_CHAR);
+		PlotJobList	list = { NULL, 0, 0 };
+
+		if(AddPhaseTypeJobs(&list, phaseDiff, size, config->compareName, PHASE_DIFF, config) > 1)
+		{
+			PlotJob *job = NewPlotJob(&list, PJOB_PHASE_ALL);
+
+			if(job)
+			{
+				SetPlotJobName(job, NULL, config->compareName);
+				job->data = phaseDiff;
+				job->size = size;
+				job->role = PHASE_DIFF;
+			}
+		}
+		RunPlotJobs(&list, NULL, config);
+		FreePlotJobList(&list);
 	}
 	
 	free(phaseDiff);

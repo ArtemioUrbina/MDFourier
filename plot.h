@@ -202,6 +202,7 @@ int MatchColor(char *color);
 void listColors(void);
 
 void PlotAllDifferentAmplitudes(FlatAmplDifference *amplDiff, long int size, char channel, char *filename, parameters *config);
+void PlotAllDifferentAmplitudesInFolder(FlatAmplDifference *amplDiff, long int size, char channel, char *filename, char *folder, parameters *config);
 int PlotEachTypeDifferentAmplitudes(FlatAmplDifference *amplDiff, long int size, char *filename, parameters *config);
 void PlotSingleTypeDifferentAmplitudes(FlatAmplDifference *amplDiff, long int size, int type, char *filename, char channel, parameters *config);
 
@@ -213,6 +214,7 @@ void PlotSingleTypeDifferentAmplitudes(FlatAmplDifference *amplDiff, long int si
 //void PlotAllMissingFrequencies(FlatFrequency *freqDiff, long int size, char *filename, parameters *config);
 
 int PlotEachTypeSpectrogram(FlatFrequency *freqs, long int size, char *filename, int signal, parameters *config, AudioSignal *Signal);
+void SetNoiseFloorReferenceLimits(FlatFrequency *freqs, long int size, parameters *config);
 int PlotNoiseFloorSpectrogram(FlatFrequency* freqs, long int size, char* filename, int signal, parameters* config, AudioSignal* Signal);
 
 void PlotSingleTypeSpectrogram(FlatFrequency *freqs, long int size, int type, char *filename, int signal, char channel, parameters *config);
@@ -260,6 +262,8 @@ void PlotTimeSpectrogramUnMatchedContent(AudioSignal *Signal, char channel, para
 
 void DrawLabelsTimeSpectrogram(PlotFile *plot, int khz, int khzIncrement, parameters *config);
 void PlotTimeDomainGraphs(AudioSignal *Signal, parameters *config);
+void PlotTimeDomainGraphsAll(AudioSignal *ReferenceSignal, AudioSignal *ComparisonSignal, parameters *config);
+void DrawWaveformSamples(PlotFile *plot, double *samples, long int numSamples, double plotSize, double MinY, double MaxY, int clamp, parameters *config);
 void PlotBlockTimeDomainGraph(AudioSignal *Signal, int block, char *name, int window, double data, parameters *config);
 void PlotBlockPhaseGraph(AudioSignal *Signal, int block, char *name, parameters *config);
 void PlotBlockTimeDomainInternalSyncGraph(AudioSignal *Signal, int block, char *name, int slot, parameters *config);
