@@ -73,6 +73,7 @@ void NormalizeMagnitudesByRatio(AudioSignal *Signal, double ratio, parameters *c
 MaxMagn FindMaxMagnitudeBlock(AudioSignal *Signal, parameters *config);
 int FindMultiMaxMagnitudeBlock(AudioSignal *Signal, MaxMagn	*MaxMag, int *size, parameters *config);
 double FindLocalMaximumInBlock(AudioSignal *Signal, MaxMagn refMax, int allowDifference, parameters *config);
+double FindPeakNearInBlock(AudioSignal *Signal, MaxMagn refMax, double *peakHertz, parameters *config);
 double FindFundamentalMagnitudeAverage(AudioSignal *Signal, parameters *config);
 double FindFundamentalMagnitudeStdDev(AudioSignal *Signal, double AvgFundMag, parameters *config);
 
@@ -602,6 +603,29 @@ int FrequencyDomainNormalize(AudioSignal **ReferenceSignal, AudioSignal **Compar
 	}
 
 	if(config->verbose) { logmsg(" - Amplitude ratio is %gdB\n", ratiodBFS == NO_AMPLITUDE ? 0 : ratiodBFS); }
+
+	/* The peak can sit at another frequency in the Comparison when the block runs from a clock of its own */
+	if(ComparisonLocalMaximum == 0 || fabs(ratiodBFS) > maxRatiodBFS || ratiodBFS == NO_AMPLITUDE)
+	{
+		double	nearPeak = 0, nearHertz = 0, nearRatiodBFS = 0;
+
+		nearPeak = FindPeakNearInBlock(*ComparisonSignal, MaxRef, &nearHertz, config);
+		if(nearPeak)
+		{
+			nearRatiodBFS = CalculateAmplitudeInternal(nearPeak, MaxRef.magnitude);
+			if(ratiodBFS == NO_AMPLITUDE || fabs(nearRatiodBFS) < fabs(ratiodBFS))
+			{
+				if(config->verbose) {
+					logmsg(" - Comparison peak near %g Hz is at %g Hz, Amplitude ratio is %gdB\n",
+						MaxRef.hertz, nearHertz, nearRatiodBFS);
+				}
+				ComparisonLocalMaximum = nearPeak;
+				ratioRef = nearPeak/MaxRef.magnitude;
+				ratiodBFS = nearRatiodBFS;
+			}
+		}
+	}
+
 	if(ComparisonLocalMaximum == 0 || fabs(ratiodBFS) > maxRatiodBFS || ratiodBFS == NO_AMPLITUDE)
 	{
 		int		found = 0, pos = 1, allowDifference = 0, tries = 0, numMatches = FREQDOMTRIES;
@@ -3227,6 +3251,43 @@ double FindLocalMaximumInBlock(AudioSignal *Signal, MaxMagn refMax, int allowDif
 			allowDifference ? " with tolerance": "", highest, refMax.block);
 	}
 	return 0;
+}
+
+/* Search window around the Reference peak, as a fraction of its frequency */
+#define PEAK_NEAR_PCT	0.05
+
+double FindPeakNearInBlock(AudioSignal *Signal, MaxMagn refMax, double *peakHertz, parameters *config)
+{
+	double		highest = 0, window = 0, binSize = 0;
+	Frequency	*freq = NULL;
+
+	if(!Signal || refMax.block < 0)
+		return 0;
+
+	if(refMax.channel == CHANNEL_LEFT)
+		freq = Signal->Blocks[refMax.block].freq;
+	if(refMax.channel == CHANNEL_RIGHT)
+		freq = Signal->Blocks[refMax.block].freqRight;
+	if(!freq)
+		return 0;
+
+	window = refMax.hertz*PEAK_NEAR_PCT;
+	binSize = FindFrequencyBinSizeForBlock(Signal, refMax.block);
+	if(window < 5*binSize)
+		window = 5*binSize;
+
+	for(int i = 0; i < config->MaxFreq; i++)
+	{
+		if(!freq[i].hertz)
+			break;
+		if(fabs(refMax.hertz - freq[i].hertz) <= window && freq[i].magnitude > highest)
+		{
+			highest = freq[i].magnitude;
+			if(peakHertz)
+				*peakHertz = freq[i].hertz;
+		}
+	}
+	return highest;
 }
 
 double FindFundamentalMagnitudeAverage(AudioSignal *Signal, parameters *config)
