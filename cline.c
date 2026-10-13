@@ -241,7 +241,6 @@ void CleanParameters(parameters *config)
 	config->averagePlot = 1;
 	config->weightedAveragePlot = 1;
 	config->noiseFloorAutoAdjust = 1;
-	config->changedCLKFrom = 0;
 	config->pErrorReport = 0;
 	config->noBalance = 0;
 
@@ -275,23 +274,16 @@ void CleanParameters(parameters *config)
 	config->comparisonSignal = NULL;
 	config->nyquistLimit = 0;  // only used in MDWave
 
-	config->clkBlock = NO_CLK;
-	config->clkFreq = 0;
-	config->clkRatio = 0;
-	config->clkNotFound = 0;
-	config->clkWarning = 0;
-	config->clkRef = 0;
-	config->clkCom = 0;
-
+	memset(config->clocks, 0, sizeof(ClockDef)*MAX_CLOCKS);
+	for(int c = 0; c < MAX_CLOCKS; c++)
+	{
+		config->clocks[c].refID = CLKID_NONE; 
+		config->clocks[c].comID = CLKID_NONE;
+	}
+	config->clockCount = 0;
+	config->clkMeasure = 0;
 	config->doSamplerateAdjust = 'n';
 	config->doClkAdjust = 0;
-
-	config->clkBlocksAdjust = NULL;
-	config->clkBlkAdjustNum = 0;
-	config->clkIDs = NULL;
-	config->clkIDCount = 0;
-	config->clkRefID = CLKID_NONE;
-	config->clkComID = CLKID_NONE;
 
 	config->useExtraData = 1;
 	config->compressToBlocks = 0;
@@ -299,9 +291,7 @@ void CleanParameters(parameters *config)
 	config->drawMissExtraFreq = 1;
 
 	config->SRNoMatch = 0;
-	config->diffClkNoMatch = 0;
 
-	config->centsDifferenceCLK = 0;
 	config->RefCentsDifferenceSR = 0;
 	config->ComCentsDifferenceSR = 0;
 

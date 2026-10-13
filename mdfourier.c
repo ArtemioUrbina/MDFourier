@@ -55,8 +55,9 @@ double FindMaxSampleForWaveform(AudioSignal *Signal, int *block, parameters *con
 double FindMaxSampleInBlock(AudioBlocks *AudioArray);
 void FindViewPort(parameters *config);
 int ReportClockResults(AudioSignal *ReferenceSignal, AudioSignal *ComparisonSignal, parameters *config);
-int IdentifyCLK(double measured, int *matches, double *ppmDiff, parameters *config);
-void ReportCLKIdentity(char *roleName, double measured, int *clkID, parameters *config);
+int ReportClock(AudioSignal *ReferenceSignal, AudioSignal *ComparisonSignal, int c, parameters *config);
+int IdentifyCLK(double measured, int *matches, double *ppmDiff, ClockDef *clock);
+void ReportCLKIdentity(char *roleName, double measured, int *clkID, ClockDef *clock);
 int RecalculateFrequencyStructures(AudioSignal *ReferenceSignal, AudioSignal *ComparisonSignal, parameters *config);
 int NormalizeAndFinishProcess(AudioSignal **ReferenceSignal, AudioSignal **ComparisonSignal, parameters *config);
 int FrequencyDomainNormalize(AudioSignal **ReferenceSignal, AudioSignal **ComparisonSignal, parameters *config);
@@ -308,7 +309,7 @@ void FindViewPort(parameters *config)
 
 	config->notVisible = outside;
 }
-void PrintSignalCLKData(AudioSignal *Signal, parameters *config)
+void PrintSignalCLKData(AudioSignal *Signal, ClockDef *clock)
 {
 	if(Signal->EstimatedSR)
 	{
@@ -334,16 +335,16 @@ void PrintSignalCLKData(AudioSignal *Signal, parameters *config)
 
 	logmsg("\n");
 
-	if(config->clkWarning & Signal->role)
-		logmsg("WARNING: %s has noise or higher harmonics than the fundamental in the clock block.\n",
-			Signal->role == ROLE_REF ? "Reference" : "Comparison");
+	if(clock->warning & Signal->role)
+		logmsg("WARNING: %s has noise or higher harmonics than the fundamental in the %s clock block.\n",
+			Signal->role == ROLE_REF ? "Reference" : "Comparison", clock->name);
 
-	if(config->clkNotFound & Signal->role)
-		logmsg("WARNING: %s clock frequency not found within tolerance. Using highest value.\n",
-			Signal->role == ROLE_REF ? "Reference" : "Comparison");
+	if(clock->notFound & Signal->role)
+		logmsg("WARNING: %s %s clock frequency not found within tolerance. Using highest value.\n",
+			Signal->role == ROLE_REF ? "Reference" : "Comparison", clock->name);
 }
 
-int IdentifyCLK(double measured, int *matches, double *ppmDiff, parameters *config)
+int IdentifyCLK(double measured, int *matches, double *ppmDiff, ClockDef *clock)
 {
 	int		i = 0, bestMatch = CLKID_NONE, nearest = CLKID_NONE;
 	double	ppm = 0, bestMatchPPM = 0, nearestPPM = 0;
@@ -351,12 +352,12 @@ int IdentifyCLK(double measured, int *matches, double *ppmDiff, parameters *conf
 	*matches = 0;
 	*ppmDiff = 0;
 
-	if(!config->clkIDs || !config->clkIDCount || measured <= 0)
+	if(!clock->ids || !clock->idCount || measured <= 0)
 		return CLKID_NONE;
 
-	for(i = 0; i < config->clkIDCount; i++)
+	for(i = 0; i < clock->idCount; i++)
 	{
-		ppm = (measured - config->clkIDs[i].nominal)/config->clkIDs[i].nominal*1000000.0;
+		ppm = (measured - clock->ids[i].nominal)/clock->ids[i].nominal*1000000.0; 
 
 		if(nearest == CLKID_NONE || fabs(ppm) < fabs(nearestPPM))
 		{
@@ -364,7 +365,7 @@ int IdentifyCLK(double measured, int *matches, double *ppmDiff, parameters *conf
 			nearestPPM = ppm;
 		}
 
-		if(measured >= config->clkIDs[i].minHz && measured <= config->clkIDs[i].maxHz)
+		if(measured >= clock->ids[i].minHz && measured <= clock->ids[i].maxHz)
 		{
 			(*matches)++;
 			if(bestMatch == CLKID_NONE || fabs(ppm) < fabs(bestMatchPPM))
@@ -385,13 +386,13 @@ int IdentifyCLK(double measured, int *matches, double *ppmDiff, parameters *conf
 	return nearest;
 }
 
-void ReportCLKIdentity(char *roleName, double measured, int *clkID, parameters *config)
+void ReportCLKIdentity(char *roleName, double measured, int *clkID, ClockDef *clock)
 {
 	int		index = CLKID_NONE, matches = 0;
 	double	ppmDiff = 0;
 
 	*clkID = CLKID_NONE;
-	index = IdentifyCLK(measured, &matches, &ppmDiff, config);
+	index = IdentifyCLK(measured, &matches, &ppmDiff, clock);
 	if(index == CLKID_NONE)
 		return;
 
@@ -400,8 +401,8 @@ void ReportCLKIdentity(char *roleName, double measured, int *clkID, parameters *
 	{
 		*clkID = index;
 		logmsg(" - %s identified as: %s [%0.2lf ppm from %0.04lfHz]",
-			roleName, config->clkIDs[index].displayName,
-			ppmDiff, config->clkIDs[index].nominal);
+			roleName, clock->ids[index].displayName,
+			ppmDiff, clock->ids[index].nominal);
 		if(matches > 1)
 			logmsg(" (%d ranges matched, closest used)", matches);
 		logmsg("\n");
@@ -409,87 +410,82 @@ void ReportCLKIdentity(char *roleName, double measured, int *clkID, parameters *
 	else
 	{
 		logmsg(" - %s identified as: Unknown, nearest is %s [%0.2lf ppm from %0.04lfHz, range is +/-%g%s]\n",
-			roleName, config->clkIDs[index].displayName,
-			ppmDiff, config->clkIDs[index].nominal,
-			config->clkIDs[index].tolerance, GetCLKToleranceUnit(&config->clkIDs[index]));
+			roleName, clock->ids[index].displayName,
+			ppmDiff, clock->ids[index].nominal,
+			clock->ids[index].tolerance, GetCLKToleranceUnit(&clock->ids[index]));
 	}
+}
+
+int ReportClock(AudioSignal *ReferenceSignal, AudioSignal *ComparisonSignal, int c, parameters *config)
+{
+	double		refClkFraction = 0, compClkFraction = 0;
+	ClockDef	*clock = &config->clocks[c];
+
+	if(!CalculateCLKAmplitudes(ReferenceSignal, ComparisonSignal, c, config)) {
+		logmsg("\n* WARNING: %s Clocks based on expected %0.2lf Hz on note %s# %d could not be calculated\n",
+		clock->name, clock->freq, GetBlockName(config, clock->block),
+		GetBlockSubIndex(config, clock->block));
+		return 0;
+	}
+
+	refClkFraction = CalculateClkFraction(ReferenceSignal, c, config);
+	compClkFraction = CalculateClkFraction(ComparisonSignal, c, config);
+	if(!refClkFraction || !compClkFraction)
+	{
+		logmsg("\n* WARNING: %s Clocks could not be measured\n", clock->name);
+		return 0;
+	}
+
+	clock->ref = refClkFraction * clock->ratio;
+	clock->com = compClkFraction * clock->ratio;
+
+	logmsg("\n* Estimated %s Clocks based on expected %0.04lf Hz on note %s# %d:\n",
+		clock->name, clock->freq, GetBlockName(config, clock->block),
+		GetBlockSubIndex(config, clock->block));
+	logmsg(" - Reference: %0.04lfHz -> %0.04lfHz", refClkFraction, clock->ref);
+	PrintSignalCLKData(ReferenceSignal, clock);
+
+	logmsg(" - Comparison: %0.04lfHz -> %0.04lfHz", compClkFraction, clock->com);
+	PrintSignalCLKData(ComparisonSignal, clock);
+
+	/* Identify before -j changes all */
+	if(clock->idCount)
+	{
+		ReportCLKIdentity("Reference", clock->ref, &clock->refID, clock);
+		ReportCLKIdentity("Comparison", clock->com, &clock->comID, clock);
+	}
+
+	clock->centsDifference = 1200*log2(refClkFraction/compClkFraction);
+	if(fabs(clock->centsDifference) >= MIN_CENTS_DIFF)
+	{
+		logmsg(" - Pitch difference in cents: %g\n", clock->centsDifference);
+		if(!config->doClkAdjust)
+		{
+			clock->noMatch = 1;
+			logmsg(" - WARNING: %s clocks don't match, results may vary considerably. Can adjust with -j\n", clock->name);
+		}
+		return 1;
+	}
+
+	if(config->doClkAdjust)
+		logmsg(" - WARNING: Ignoring -j for %s since pitch difference in cents is: %g\n", clock->name, clock->centsDifference);
+	return 0;
 }
 
 int ReportClockResults(AudioSignal *ReferenceSignal, AudioSignal *ComparisonSignal, parameters *config)
 {
-	double refClkFraction = 0, compClkFraction = 0;
+	int differ = 0;
 
-	if(!config->clkMeasure)
-		return 1;
-
-	if(!CalculateCLKAmplitudes(ReferenceSignal, ComparisonSignal, config)) {
-		logmsg("\n* WARNING: %s Clocks based on expected %0.2lf Hz on note %s# %d could not be calculated\n",
-		config->clkName, config->clkFreq, GetBlockName(config, config->clkBlock),
-		GetBlockSubIndex(config, config->clkBlock));
-		return 0;
-	}
-
-	refClkFraction = CalculateClkFraction(ReferenceSignal, config);
-	compClkFraction = CalculateClkFraction(ComparisonSignal, config);
-
-	config->clkRef = refClkFraction * config->clkRatio;
-	config->clkCom = compClkFraction * config->clkRatio;
-
-	logmsg("\n* Estimated %s Clocks based on expected %0.04lf Hz on note %s# %d:\n",
-		config->clkName, config->clkFreq, GetBlockName(config, config->clkBlock),
-		GetBlockSubIndex(config, config->clkBlock));
-	logmsg(" - Reference: %0.04lfHz -> %0.04lfHz", refClkFraction, config->clkRef);
-	PrintSignalCLKData(ReferenceSignal, config);
-
-	logmsg(" - Comparison: %0.04lfHz -> %0.04lfHz", compClkFraction, config->clkCom);
-	PrintSignalCLKData(ComparisonSignal, config);
-
-	/* Identify before -j changes all */
-	if(config->clkIDCount)
+	for(int c = 0; c < config->clockCount; c++)
 	{
-		ReportCLKIdentity("Reference", config->clkRef, &config->clkRefID, config);
-		ReportCLKIdentity("Comparison", config->clkCom, &config->clkComID, config);
-	}
-
-	config->centsDifferenceCLK = 1200*log2(refClkFraction/compClkFraction);
-	if(fabs(config->centsDifferenceCLK) >= MIN_CENTS_DIFF)
-	{
-		logmsg(" - Pitch difference in cents: %g\n", config->centsDifferenceCLK);
-		if(!config->doClkAdjust)
+		config->clocks[c].adjusted = 0;
+		if(ReportClock(ReferenceSignal, ComparisonSignal, c, config))
 		{
-			/*
-			int reportOption = 0;
-
-			if(config->RefCentsDifferenceSR || config->ComCentsDifferenceSR)
-			{
-				double diff = 0;
-
-				if(config->RefCentsDifferenceSR)
-					diff = fabs(config->RefCentsDifferenceSR - config->centsDifferenceCLK);
-				else
-					diff = fabs(config->ComCentsDifferenceSR - config->centsDifferenceCLK);
-				if(diff >= 5) // Same issue between both, reported above
-					reportOption = 1;
-				else if(diff >= 1)
-					reportOption = 1;
-			}
-			else
-				reportOption = 1;
-			config->diffClkNoMatch = 1;
-
-			if(reportOption)
-			*/
-			config->diffClkNoMatch = 1;
-			logmsg(" - WARNING: Clocks don't match, results may vary considerably. Can adjust with -j\n");
+			config->clocks[c].adjusted = config->doClkAdjust;
+			differ++;
 		}
-		return 0;
 	}
-	else
-	{
-		if(config->doClkAdjust)
-			logmsg(" - WARNING: Ignoring -j since pitch difference in cents is: %g\n", config->centsDifferenceCLK);
-	}
-	return 1;
+	return differ;
 }
 
 int LoadAudioFiles(AudioSignal **ReferenceSignal, AudioSignal **ComparisonSignal, parameters *config)
@@ -1007,15 +1003,12 @@ int LoadAndProcessAudioFiles(AudioSignal **ReferenceSignal, AudioSignal **Compar
 	CalculateFrequencyBrackets(*ReferenceSignal, config);
 	CalculateFrequencyBrackets(*ComparisonSignal, config);
 
-	if(!ReportClockResults(*ReferenceSignal, *ComparisonSignal, config))
+	if(ReportClockResults(*ReferenceSignal, *ComparisonSignal, config) && config->doClkAdjust)
 	{
-		if(config->doClkAdjust)
+		if(!RecalculateFrequencyStructures(*ReferenceSignal, *ComparisonSignal, config))
 		{
-			if(!RecalculateFrequencyStructures(*ReferenceSignal, *ComparisonSignal, config))
-			{
-				logmsg("Could not recalculate frequencies, Aborting\n");
-				return 1;
-			}
+			logmsg("Could not recalculate frequencies, Aborting\n");
+			return 0;
 		}
 	}
 
@@ -1394,19 +1387,19 @@ void AdjustTimeDomainData(AudioSignal* ReferenceSignal, AudioSignal* ComparisonS
 	}
 }
 
-int IsTypeInCLKLArray(int type, parameters *config)
+// Sample rate to use for a block's DFT 
+double GetBlockSampleRate(AudioSignal *Signal, int type, parameters *config)
 {
-	int i = 0;
+	int c = -1;
 
-	if(config->clkBlkAdjustNum == -1) /* profile indicates all */
-		return 1;
+	if(!config->doClkAdjust || Signal->role != ROLE_COMP)
+		return Signal->SampleRate;
 
-	for(i = 0; i < config->clkBlkAdjustNum; i++)
-	{
-		if(config->clkBlocksAdjust[i] == type)
-			return 1;
-	}
-	return 0;
+	c = GetClockForType(type, config);
+	if(c < 0 || !config->clocks[c].adjusted || !config->clocks[c].comSampleRate)
+		return Signal->SampleRate;
+
+	return config->clocks[c].comSampleRate;
 }
 
 /* A block DFT queued while walking the signal.
@@ -1416,6 +1409,7 @@ typedef struct dfft_job_st {
 	long int	block;
 	long int	offset;
 	long int	size;
+	double		samplerate;
 	double		*window;
 } DFFTJob;
 
@@ -1434,7 +1428,7 @@ int RunDFFTJobs(AudioSignal *Signal, DFFTJob *jobs, long int count, int recalcul
 		if(recalculate)
 			CleanFrequenciesInBlock(block, config);
 
-		ok = ExecuteDFFT(block, Signal->Samples + jobs[j].offset, jobs[j].size, Signal->SampleRate, jobs[j].window, Signal->AudioChannels, config->ZeroPad, config);
+		ok = ExecuteDFFT(block, Signal->Samples + jobs[j].offset, jobs[j].size, jobs[j].samplerate, jobs[j].window, Signal->AudioChannels, config->ZeroPad, config);
 		if(ok)
 			ok = FillFrequencyStructures(Signal, block, config);
 		if(ok && recalculate && config->plotAllNotesWindowed)
@@ -1452,6 +1446,41 @@ int RunDFFTJobs(AudioSignal *Signal, DFFTJob *jobs, long int count, int recalcul
 	return !failed;
 }
 
+// Force a Hamming window for the clock signal and zero padding
+int ExecuteClockDFFT(AudioSignal *Signal, int c, double *samples, long int size, long int frames, long int cutFrames, double framerate, double samplerate, char *label, parameters *config)
+{
+	windowManager	clockWindows;
+	double			*window = NULL;
+	int				ok = 0;
+	char			name[64];
+
+	if(!initWindows(&clockWindows, Signal->SampleRate, 'm', config))
+	{
+		freeWindows(&clockWindows);
+		return 0;
+	}
+
+	window = getWindowByLength(&clockWindows, frames, cutFrames, framerate, config);
+	CleanFrequenciesInBlock(&Signal->clkFrequencies[c], config);
+	ok = ExecuteDFFT(&Signal->clkFrequencies[c], samples, size, samplerate, window, Signal->AudioChannels, ZEROPAD_FACTOR_CLK /* force ZeroPad */, config);
+	if(ok)
+		ok = FillFrequencyStructures(Signal, &Signal->clkFrequencies[c], config);
+
+	if(ok && config->drawWindows)
+	{
+		// one clock keeps the old name
+		if(config->clockCount == 1)
+			sprintf(name, "%s", label);
+		else
+			sprintf(name, "%s-%.20s", label, config->clocks[c].name);
+		VisualizeWindows(&clockWindows, name, Signal->role, config);
+	}
+
+	freeWindows(&clockWindows);
+	return ok;
+}
+
+/* -j recalculates the blocks of adjusted clocks */
 int RecalculateFFTW(AudioSignal *Signal, parameters *config)
 {
 	long int		i = 0, jobCount = 0;
@@ -1477,16 +1506,22 @@ int RecalculateFFTW(AudioSignal *Signal, parameters *config)
 
 	while(i < config->types.totalBlocks)
 	{
-		if((Signal->Blocks[i].type > TYPE_SILENCE || Signal->Blocks[i].type == TYPE_WATERMARK) &&
-			IsTypeInCLKLArray(Signal->Blocks[i].type, config))
+		int clock = -1;
+
+		if(Signal->Blocks[i].type > TYPE_SILENCE || Signal->Blocks[i].type == TYPE_WATERMARK)
+			clock = GetClockForType(Signal->Blocks[i].type, config);
+
+		if(clock >= 0 && config->clocks[clock].adjusted)
 		{
-			long int frames = 0, cutFrames = 0, currSamplesSize = 0;
+			long int	frames = 0, cutFrames = 0, currSamplesSize = 0;
+			double		samplerate = 0;
 
 			frames = GetBlockFrames(config, i);
 			cutFrames = GetBlockCutFrames(config, i);
+			samplerate = GetBlockSampleRate(Signal, Signal->Blocks[i].type, config);
 
 			// Same window selection as ProcessSignal, the block data was loaded with it
-			// Window manager is not thread safe
+			// Windows are created here, serially, the window manager is not thread safe
 			if(Signal->Blocks[i].maskType == MASK_USE_WINDOW)
 				windowUsed = getWindowByLength(&windows, frames, cutFrames, config->smallerFramerate, config);
 			else
@@ -1497,46 +1532,23 @@ int RecalculateFFTW(AudioSignal *Signal, parameters *config)
 			jobs[jobCount].block = i;
 			jobs[jobCount].offset = Signal->Blocks[i].offset;
 			jobs[jobCount].size = currSamplesSize;
+			jobs[jobCount].samplerate = samplerate;
 			jobs[jobCount].window = windowUsed;
 			jobCount++;
 
 			// Draws the recalculated, not the original ones
-			if(config->clkMeasure && config->clkBlock == i)
+			for(int k = 0; k < config->clockCount; k++)
 			{
-				windowManager clockWindows;
-	
-				// Force a Hamming window for the clock signal
-				if(!initWindows(&clockWindows, Signal->SampleRate, 'm', config))
+				if(config->clocks[k].block != i || !config->clocks[k].adjusted)
+					continue;
+
+				if(!ExecuteClockDFFT(Signal, k, Signal->Samples + Signal->Blocks[i].offset, currSamplesSize,
+						frames, cutFrames, Signal->framerate, samplerate, "CLK-RECALC", config))
 				{
 					free(jobs);
 					freeWindows(&windows);
-					freeWindows(&clockWindows);
 					return 0;
 				}
-
-				// The CLK uses its own zero padding
-				windowUsed = getWindowByLength(&clockWindows, frames, cutFrames, Signal->framerate, config);
-				CleanFrequenciesInBlock(&Signal->clkFrequencies, config);
-				if(!ExecuteDFFT(&Signal->clkFrequencies, Signal->Samples + Signal->Blocks[i].offset, currSamplesSize, Signal->SampleRate, windowUsed, Signal->AudioChannels, ZEROPAD_FACTOR_CLK, config)) // zeropad on 
-				{
-					free(jobs);
-					freeWindows(&windows);
-					freeWindows(&clockWindows);
-					return 0;
-				}
-
-				if(!FillFrequencyStructures(Signal, &Signal->clkFrequencies, config))
-				{
-					free(jobs);
-					freeWindows(&windows);
-					freeWindows(&clockWindows);
-					return 0;
-				}
-
-				if(config->drawWindows)
-					VisualizeWindows(&clockWindows, "CLK-RECALC", Signal->role, config);
-
-				freeWindows(&clockWindows);
 			}
 		}
 		i++;
@@ -1585,94 +1597,36 @@ void RecalculateFrameRateAndSamplerate(AudioSignal *Signal, parameters *config)
 // Doing comparison always was default
 // It is noisier to adjust clk upwards than downwards though
 // so we go for the lower one
-double RecalculateFrameRateAndSamplerateComp(AudioSignal *ReferenceSignal, AudioSignal *ComparisonSignal, parameters *config)
-{
-	double		ratio = 0, refClkFraction = 0, compClkFraction = 0, adjustedTo = 0;
-	int			estimatedSampleRate = 0;
-	AudioSignal	*changedSignal = 0;
-
-	refClkFraction = CalculateClkFraction(ReferenceSignal, config);
-	compClkFraction = CalculateClkFraction(ComparisonSignal, config);
-
-	config->clkRef = refClkFraction * config->clkRatio;
-	config->clkCom = compClkFraction * config->clkRatio;
-
-	// Needs more validation, works with DOS profile
-	// Commenting out the auto select, 
-	// Keep the reference and only change the clk of the comparision
-	//if(refClkFraction < compClkFraction)
-	{
-		changedSignal = ComparisonSignal;
-		ratio = refClkFraction/compClkFraction;
-		changedSignal->originalCLK = config->clkCom;
-		adjustedTo = config->clkRef;
-	}
-	/*
-	else
-	{
-		changedSignal = ReferenceSignal;
-		ratio = compClkFraction/refClkFraction;
-		changedSignal->originalCLK = config->clkRef;
-		adjustedTo = config->clkCom;
-	}
-	*/
-
-	config->changedCLKFrom = changedSignal->role;
-
-	// Samplerate CHECK (removed ceil here)
-	estimatedSampleRate = changedSignal->SampleRate*ratio;
-	changedSignal->EstimatedSR_CLK = estimatedSampleRate;
-
-	changedSignal->originalSR_CLK = changedSignal->SampleRate;
-	changedSignal->SampleRate = estimatedSampleRate;
-	changedSignal->originalFrameRate = changedSignal->framerate;
-	changedSignal->framerate = CalculateFrameRate(changedSignal, config);
-	if(config->verbose) {
-		logmsg(" - Adjusted frame rate to match same lengths with %s: %gms [SR: %g->%gHz]\n",
-			config->clkName,
-			changedSignal->framerate,
-			changedSignal->originalSR_CLK, changedSignal->SampleRate);
-	}
-	return adjustedTo;
-}
-
 int RecalculateFrequencyStructures(AudioSignal *ReferenceSignal, AudioSignal *ComparisonSignal, parameters *config)
 {
-	double adjusted = 0;
-	struct timespec	start, end;
+	for(int i = 0; i < config->clockCount; i++)
+	{
+		ClockDef	*clock = &config->clocks[i];
 
-	//RecalculateFrameRateAndSamplerate(ReferenceSignal, config);
-	//RecalculateFrameRateAndSamplerate(ComparisonSignal, config);
+		if(!clock->adjusted)
+			continue;
 
-	adjusted = RecalculateFrameRateAndSamplerateComp(ReferenceSignal, ComparisonSignal, config);
-	logmsg(" - Adjusted %s %s to %0.04lfHz\n",
-			config->changedCLKFrom == ROLE_REF? "Reference" : "Comparison",
-			config->clkName, adjusted);
-	CompareFrameRates(ReferenceSignal, ComparisonSignal, config);
+		// Needs more validation, works with DOS profile
+		// Commenting out the auto select, 
+		// Keep the reference and only change the clk of the comparision
+		clock->comSampleRate = ComparisonSignal->SampleRate*(clock->ref/clock->com);
+		logmsg(" - Adjusted Comparison %s to %0.04lfHz\n", clock->name, clock->ref);
+		if(config->verbose)
+			logmsg("   %s blocks use %0.4lfHz instead of %gHz\n", clock->name,
+				clock->comSampleRate, ComparisonSignal->SampleRate);
+	}
 
-	// Reestimate maxBlockSeconds for Zero padding
-	SetAmplitudeMatchByDuration(ReferenceSignal, config);
-
-	logmsg(" - Recalculating Discrete Fast Fourier Transforms with adjusted %s value\n", config->clkName);
-
-	if(config->clock)
-		clock_gettime(CLOCK_MONOTONIC, &start);
-
+	logmsg(" - Recalculating Discrete Fast Fourier Transforms with adjusted clocks\n");
 	if(!RecalculateFFTW(ReferenceSignal, config))
 		return 0;
 
 	if(!RecalculateFFTW(ComparisonSignal, config))
 		return 0;
 
-	if(!CalculateCLKAmplitudes(ReferenceSignal, ComparisonSignal, config))
-		return 0;
-
-	if(config->clock)
+	for(int i = 0; i < config->clockCount; i++)
 	{
-		double	elapsedSeconds;
-		clock_gettime(CLOCK_MONOTONIC, &end);
-		elapsedSeconds = TimeSpecToSeconds(&end) - TimeSpecToSeconds(&start);
-		logmsg(" - clk: Recalculating DFFT took %0.2fs\n", elapsedSeconds);
+		if(config->clocks[i].adjusted && !CalculateCLKAmplitudes(ReferenceSignal, ComparisonSignal, i, config))
+			return 0; 
 	}
 	return 1;
 }
@@ -1868,6 +1822,7 @@ int ProcessSignal(AudioSignal *Signal, parameters *config)
 			jobs[jobCount].block = i;
 			jobs[jobCount].offset = pos;
 			jobs[jobCount].size = loadedBlockSize-difference;
+			jobs[jobCount].samplerate = Signal->SampleRate;
 			jobs[jobCount].window = windowUsed;
 			jobCount++;
 #ifdef DEBUG
@@ -1876,46 +1831,23 @@ int ProcessSignal(AudioSignal *Signal, parameters *config)
 #endif
 		}
 
-		if(config->clkMeasure && config->clkBlock == i)
+		// Clocks measured on this block
+		for(int c = 0; c < config->clockCount; c++)
 		{
-			windowManager clockWindows;
+			if(config->clocks[c].block != i)
+				continue;
 
 			memset(sampleBuffer, 0, sampleBufferSize*sizeof(double));
 			memcpy(sampleBuffer, Signal->Samples + pos, (loadedBlockSize-difference)*sizeof(double));
 
-			// Force a Hamming window for the clock signal
-			if(!initWindows(&clockWindows, Signal->SampleRate, 'm', config))
+			if(!ExecuteClockDFFT(Signal, c, sampleBuffer, loadedBlockSize-difference, frames, cutFrames,
+					framerate, Signal->SampleRate, "CLK", config))
 			{
 				free(sampleBuffer);
 				free(jobs);
 				freeWindows(&windows);
-				freeWindows(&clockWindows);
 				return 0;
 			}
-
-			// The CLK uses its own zero padding
-			windowUsed = getWindowByLength(&clockWindows, frames, cutFrames, framerate, config);
-			if(!ExecuteDFFT(&Signal->clkFrequencies, sampleBuffer, loadedBlockSize-difference, Signal->SampleRate, windowUsed, Signal->AudioChannels, ZEROPAD_FACTOR_CLK /* force ZeroPad */, config))
-			{
-				free(sampleBuffer);
-				free(jobs);
-				freeWindows(&windows);
-				freeWindows(&clockWindows);
-				return 0;
-			}
-
-			if(!FillFrequencyStructures(Signal, &Signal->clkFrequencies, config))
-			{
-				free(sampleBuffer);
-				free(jobs);
-				freeWindows(&windows);
-				freeWindows(&clockWindows);
-				return 0;
-			}
-			if(config->drawWindows)
-				VisualizeWindows(&clockWindows, "CLK", Signal->role, config);
-
-			freeWindows(&clockWindows);
 		}
 
 		pos += loadedBlockSize;
@@ -2034,7 +1966,7 @@ int ExecuteDFFT(AudioBlocks *AudioArray, double *samples, size_t size, double sa
 // https://holometer.fnal.gov/GH_FFT.pdf
 int ExecuteDFFTInternal(AudioBlocks *AudioArray, double *samples, size_t size, double samplerate, double *window, char channel, int AudioChannels, int ZeroPad, parameters *config)
 {
-	fftw_plan		p = NULL;	// Shared per size, from the plan cache
+	fftw_plan		p = NULL;	/* shared per size, from the plan cache */
 	long			stereoSignalSize = 0, realMonoSize = 0;
 	long			i = 0, monoSignalSize = 0, zeropadding = 0;
 	double			*signal = NULL;
@@ -2190,7 +2122,7 @@ typedef struct hertz_index_st {
 	int		index;
 } HertzIndex;
 
-inline int HertzIndexOrder(const HertzIndex a, const HertzIndex b)
+static inline int HertzIndexOrder(const HertzIndex a, const HertzIndex b)
 {
 	if(a.hertz < b.hertz)
 		return -1;

@@ -272,6 +272,32 @@ typedef struct clkid_st {
 	double		maxHz;
 } CLKIdentity;
 
+#define MAX_CLOCKS			8
+#define CLK_ADJUST_ALL		-1
+
+typedef struct clock_def_st {
+	char		name[20];
+	int			block;
+	double		freq;			// expected tone
+	double		ratio;
+	int			*blocksAdjust;
+	int			blkAdjustNum;
+	CLKIdentity	*ids;
+	int			idCount;
+
+	// Results
+	double		ref;			// measured clock, after ratio
+	double		com;
+	int			refID;			// identity index, CLKID_NONE or CLKID_UNKNOWN
+	int			comID;
+	double		centsDifference;
+	int			notFound;		// roles where the tone was not found
+	int			warning;		// roles where a harmonic was stronger
+	int			noMatch;		// clocks differ and -j was not used
+	int			adjusted;		// -j: comparison blocks of this clock were recalculated
+	double		comSampleRate;	// sample rate used for them
+} ClockDef;
+
 typedef struct sync_st {
 	char		syncName[255];
 	double		MSPerFrame;
@@ -486,10 +512,7 @@ typedef struct AudioSt {
 	int			delayElemCount;
 
 	double		balance;
-	AudioBlocks	clkFrequencies;
-	double		originalCLK;
-	double		EstimatedSR_CLK;
-	double		originalSR_CLK;
+	AudioBlocks	clkFrequencies[MAX_CLOCKS];
 
 	double		EstimatedSR;
 	double		originalSR;
@@ -690,10 +713,7 @@ typedef struct parameters_st {
 	double			notVisible;
 	int				stereoNotFound;
 	int				SRNoMatch;
-	int				diffClkNoMatch;
 	int				internalSyncTolerance;
-	int				changedCLKFrom;
-	double			centsDifferenceCLK;
 	double			RefCentsDifferenceSR;
 	double			ComCentsDifferenceSR;
 	int				pErrorReport;
@@ -746,21 +766,9 @@ typedef struct parameters_st {
 	double			BisectionAmplitude;
 
 /* Values only used for clock frequency */
-	char		clkName[20];
-	int			clkMeasure;
-	int			clkBlock;
-	double		clkFreq;
-	double		clkRatio;
-	int			clkNotFound;
-	int			clkWarning;
-    double      clkRef;
-    double      clkCom;
-	int			*clkBlocksAdjust;
-	int			clkBlkAdjustNum;
-	CLKIdentity	*clkIDs;
-	int			clkIDCount;
-	int			clkRefID;
-	int			clkComID;
+	ClockDef	clocks[MAX_CLOCKS];
+	int			clockCount;
+	int			clkMeasure;		// clockCount > 0
 
 	int			doClkAdjust;
 	char		doSamplerateAdjust;

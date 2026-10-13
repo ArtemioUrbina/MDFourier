@@ -171,8 +171,8 @@ int GetLineCount(int role, parameters *config);
 double GetMSPerFrame(AudioSignal *Signal, parameters *config);
 double GetMSPerFrameRole(int role, parameters *config);
 char *GetFileName(int role, parameters *config);
-double CalculateClkFraction(AudioSignal *Signal, parameters *config);
-int CalculateCLKAmplitudes(AudioSignal *ReferenceSignal, AudioSignal *ComparisonSignal, parameters *config);
+double CalculateClkFraction(AudioSignal *Signal, int clock, parameters *config);
+int CalculateCLKAmplitudes(AudioSignal *ReferenceSignal, AudioSignal *ComparisonSignal, int clock, parameters *config);
 
 long int GetSignalMaxInt(AudioSignal *Signal);
 long int GetSignalMinInt(AudioSignal *Signal);

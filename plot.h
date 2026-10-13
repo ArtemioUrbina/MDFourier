@@ -282,8 +282,8 @@ void DrawGridZeroAngleCentered(PlotFile *plot, double maxAngle, double angleIncr
 void DrawLabelsZeroAngleCentered(PlotFile *plot, double maxAngle, double angleIncrement, double hz, parameters *config);
 void PlotDifferenceTimeSpectrogram(parameters *config);
 
-void PlotCLKSpectrogram(AudioSignal *Signal, parameters *config);
-FlatFrequency *CreateFlatFrequenciesCLK(AudioSignal *Signal, long int *size, parameters *config);
-void PlotCLKSpectrogramInternal(FlatFrequency *freqs, long int size, char *filename, int signal, parameters *config);
+void PlotCLKSpectrogram(AudioSignal *Signal, int clock, parameters *config);
+FlatFrequency *CreateFlatFrequenciesCLK(AudioSignal *Signal, int clock, long int *size, parameters *config);
+void PlotCLKSpectrogramInternal(FlatFrequency *freqs, long int size, char *filename, int signal, int clock, parameters *config);
 
 #endif

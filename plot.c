@@ -833,13 +833,8 @@ void PlotResults(AudioSignal *ReferenceSignal, AudioSignal *ComparisonSignal, pa
 #ifdef OPENMP_ENABLE
 	#pragma omp parallel for
 #endif
-		for (int i = 0; i < 2; i++)
-		{
-			if (i == 0)
-				PlotCLKSpectrogram(ReferenceSignal, config);
-			else
-				PlotCLKSpectrogram(ComparisonSignal, config);
-		}
+		for (int i = 0; i < 2*config->clockCount; i++)
+			PlotCLKSpectrogram(i % 2 == 0 ? ReferenceSignal : ComparisonSignal, i/2, config);
 
 		ReturnToMainPath(&returnFolder);
 
@@ -1647,9 +1642,11 @@ void enableTestWarnings(parameters *config)
 	config->notVisible = 20.75;
 
 	config->clkMeasure = 1;
-	config->clkBlock = 2;
-	config->clkFreq = 8000.0;
-	config->clkRatio = 4.0;
+	config->clockCount = 1;
+	sprintf(config->clocks[0].name, "FM");
+	config->clocks[0].block = 2;
+	config->clocks[0].freq = 8000.0;
+	config->clocks[0].ratio = 4.0;
 	config->doClkAdjust = 1;
 
 	config->warningStereoReversed = 1;
@@ -1719,74 +1716,74 @@ void DrawSRData(PlotFile *plot, AudioSignal *Signal, char *msg, parameters *conf
 		Signal->originalSR/1000, Signal->EstimatedSR/1000.0);
 }
 
-void DrawClockData(PlotFile *plot, AudioSignal *Signal, char *msg, parameters *config)
+void SetClockColor(PlotFile *plot, ClockDef *clock)
 {
-	msg[0] = '\0';
-	if(!config->clkMeasure)
-		return;
-
-	if(fabs(config->centsDifferenceCLK) >= MAX_CENTS_DIFF)
+	if(clock->adjusted || fabs(clock->centsDifference) >= MAX_CENTS_DIFF) 
 		pl_pencolor_r(plot->plotter, 0xcccc, 0xcccc, 0);
 	else
 		pl_pencolor_r(plot->plotter, 0, 0xcccc, 0xcccc);
-
-	if(!Signal->originalCLK)
-		sprintf(msg, "%s %s: %0.4lfHz",
-			config->clkName,
-			Signal->role == ROLE_REF ? "RF" : "CM",
-			Signal->role == ROLE_REF ? config->clkRef : config->clkCom);
-	else
-	{
-		char str[100];
-
-		pl_pencolor_r(plot->plotter, 0xcccc, 0xcccc, 0);
-		if(config->doClkAdjust)
-			sprintf(str, "%s %%s: %%0.4lf\\->%%0.4lfHz", config->clkName);
-		else
-			sprintf(str, "%s %%s: %%0.4lf(%%0.4lf)Hz", config->clkName);
-		sprintf(msg, str,
-			Signal->role == ROLE_REF ? "RF" : "CM",
-			Signal->originalCLK,
-			config->changedCLKFrom == ROLE_REF ? config->clkCom : config->clkRef);
-	}
 }
 
-char *GetCLKIdentityName(AudioSignal *Signal, parameters *config)
+void GetClockValueText(AudioSignal *Signal, ClockDef *clock, int decimals, char *msg)
 {
-	int clkID = CLKID_NONE;
-
-	if(!Signal || !config->clkIDCount)
-		return NULL;
-
-	clkID = Signal->role == ROLE_REF ? config->clkRefID : config->clkComID;
-	if(clkID == CLKID_UNKNOWN)
-		return "Unknown";
-	if(clkID < 0 || clkID >= config->clkIDCount)
-		return NULL;
-	return config->clkIDs[clkID].displayName;
+	if(Signal->role == ROLE_REF)
+		sprintf(msg, "%0.*lf", decimals, clock->ref);
+	else if(clock->adjusted) 
+		sprintf(msg, "%0.*lf\\->%0.*lf", decimals, clock->com, decimals, clock->ref);
+	else
+		sprintf(msg, "%0.*lf", decimals, clock->com);
 }
 
-void DrawClockIdentity(PlotFile *plot, AudioSignal *Signal, char *clockLabel, int row, parameters *config)
+void DrawClockData(PlotFile *plot, AudioSignal *Signal, char *msg, parameters *config)
+{
+	char		value[100];
+	ClockDef	*clock = &config->clocks[0];
+
+	msg[0] = '\0';
+	if(!config->clkMeasure) 
+		return;
+
+	SetClockColor(plot, clock);
+	GetClockValueText(Signal, clock, 4, value);
+	sprintf(msg, "%s %s: %sHz", clock->name, Signal->role == ROLE_REF ? "RF" : "CM", value);
+}
+
+char *GetCLKIdentityName(AudioSignal *Signal, int clock, parameters *config)
+{
+	int			clkID = CLKID_NONE;  
+	ClockDef	*clockDef = NULL;
+
+	if(!Signal || clock < 0 || clock >= config->clockCount)
+		return NULL;
+
+	clockDef = &config->clocks[clock];
+	if(!clockDef->idCount)
+		return NULL;
+
+	clkID = Signal->role == ROLE_REF ? clockDef->refID : clockDef->comID;
+	if(clkID == CLKID_UNKNOWN)
+		return "Unknown";		
+	if(clkID < 0 || clkID >= clockDef->idCount)
+		return NULL;
+	return clockDef->ids[clkID].displayName;
+}
+
+double GetClockRowLimit(int row, parameters *config)
+{
+	if(row == 1 && config->MaxFreq != FREQ_COUNT)  
+		return config->plotResX-4*config->plotResX/10;
+	return config->plotResX-3*config->plotResX/10;
+}
+
+double DrawClockIdentityAt(PlotFile *plot, char *name, double x, double limit, double y)
 {
 	int		len = 0;
-	char	*name = NULL, label[BUFFER_SIZE];
-	double	x = 0, limit = 0, available = 0;
+	char	label[BUFFER_SIZE];
+	double	available = 0, width = 0;
 
-	name = GetCLKIdentityName(Signal, config);
-	if(!name)
-		return;
-
-	if(row == 1 && config->MaxFreq != FREQ_COUNT)
-		limit = config->plotResX-4*config->plotResX/10;
-	else
-		limit = config->plotResX-3*config->plotResX/10;
-
-	x = config->plotResX-5*config->plotResX/10 +
-		pl_flabelwidth_r(plot->plotter, clockLabel) + 
-		pl_flabelwidth_r(plot->plotter, " ");
-	available = limit - x - pl_flabelwidth_r(plot->plotter, " ");
-	if(available <= 0)
-		return;
+	available = limit - x;
+	if(!name || available <= 0)
+		return 0;
 
 	len = strlen(name);
 	if(len > BUFFER_SIZE - 8)
@@ -1797,20 +1794,87 @@ void DrawClockIdentity(PlotFile *plot, AudioSignal *Signal, char *clockLabel, in
 		len--;
 		sprintf(label, "[%.*s.]", len, name);
 	}
-	if(pl_flabelwidth_r(plot->plotter, label) > available)
-		return;
+	width = pl_flabelwidth_r(plot->plotter, label);
+	if(width > available)
+		return 0;
 
 	if(strcmp(name, "Unknown") == 0)
 		pl_pencolor_r(plot->plotter, 0xcccc, 0xcccc, 0);
 	else
 		pl_pencolor_r(plot->plotter, 0xcccc, 0xcccc, 0xcccc);
 
-	pl_fmove_r(plot->plotter, x, config->plotResY/2-row*BAR_HEIGHT);
+	pl_fmove_r(plot->plotter, x, y);
 	pl_alabel_r(plot->plotter, 'l', 'l', label);
+	return width;
+}
+
+void DrawClockIdentity(PlotFile *plot, AudioSignal *Signal, char *clockLabel, int row, parameters *config)
+{
+	double	x = 0;
+
+	x = config->plotResX-5*config->plotResX/10 +
+		pl_flabelwidth_r(plot->plotter, clockLabel) + 
+		pl_flabelwidth_r(plot->plotter, " ");
+		
+	DrawClockIdentityAt(plot, GetCLKIdentityName(Signal, 0, config), x,
+		GetClockRowLimit(row, config) - pl_flabelwidth_r(plot->plotter, " "),
+		config->plotResY/2-row*BAR_HEIGHT);
+}
+
+/* Several clocks share the row, cut with ".." when they don't fit */
+void DrawClockRowMultiple(PlotFile *plot, AudioSignal *Signal, int row, parameters *config)
+{
+	char	text[200];
+	double	x = 0, y = 0, limit = 0, space = 0, dots = 0;
+
+	x = config->plotResX-5*config->plotResX/10;
+	y = config->plotResY/2-row*BAR_HEIGHT;
+	limit = GetClockRowLimit(row, config);
+	space = pl_flabelwidth_r(plot->plotter, " ");
+	dots = pl_flabelwidth_r(plot->plotter, "..");
+
+	pl_pencolor_r(plot->plotter, 0xcccc, 0xcccc, 0xcccc);
+	pl_fmove_r(plot->plotter, x, y);
+	pl_alabel_r(plot->plotter, 'l', 'l', Signal->role == ROLE_REF ? "RF" : "CM");
+	x += pl_flabelwidth_r(plot->plotter, Signal->role == ROLE_REF ? "RF" : "CM") + space;
+
+	for(int c = 0; c < config->clockCount; c++)
+	{
+		double	width = 0;
+		int		last = c == config->clockCount - 1;
+
+		// Measured value only
+		sprintf(text, "%.20s:%0.2lf", config->clocks[c].name,
+			Signal->role == ROLE_REF ? config->clocks[c].ref : config->clocks[c].com);
+		width = pl_flabelwidth_r(plot->plotter, text);
+		// leave room for the dots if more clocks 
+		if(x + width + (last ? 0 : space + dots) > limit)
+		{
+			pl_pencolor_r(plot->plotter, 0xcccc, 0xcccc, 0xcccc);
+			pl_fmove_r(plot->plotter, x, y);
+			pl_alabel_r(plot->plotter, 'l', 'l', "..");
+			return;
+		}
+
+		SetClockColor(plot, &config->clocks[c]);
+		pl_fmove_r(plot->plotter, x, y);
+		pl_alabel_r(plot->plotter, 'l', 'l', text);
+		x += width;
+
+		x += DrawClockIdentityAt(plot, GetCLKIdentityName(Signal, c, config), x,
+				limit - (last ? 0 : space + dots), y);
+		x += space;
+	}
 }
 
 void DrawClockRow(PlotFile *plot, AudioSignal *Signal, char *msg, int row, parameters *config)
 {
+	if(config->clockCount > 1)
+	{
+		DrawClockRowMultiple(plot, Signal, row, config);
+		return;
+	}
+
 	PLOT_COLUMN(5, row);
 	DrawClockData(plot, Signal, msg, config);
 	pl_alabel_r(plot->plotter, 'l', 'l', msg);
@@ -2189,21 +2253,20 @@ void DrawLabelsMDF(PlotFile *plot, char *Gname, char *GType, int type, parameter
 		}
 	}
 
-	if(config->clkMeasure && config->doClkAdjust && 
-		(config->referenceSignal->originalCLK || config->comparisonSignal->originalCLK))
+	for(int c = 0; c < config->clockCount && config->doClkAdjust; c++)
 	{
+		ClockDef	*clock = &config->clocks[c];
+
+		if(!clock->ref || !clock->com)
+			continue;
+
 		PLOT_WARN(1, warning++);
-		sprintf(msg, "NOTE: %s %s clock adjusted by: %0.2f\\ct (-j)", 
-				config->changedCLKFrom == ROLE_REF ? "Reference" : "Comparison",
-				config->clkName, config->centsDifferenceCLK);
-		pl_alabel_r(plot->plotter, 'l', 'l', msg);
-	}
-	else if(config->clkMeasure && config->doClkAdjust && fabs(config->centsDifferenceCLK) <= MAX_CENTS_DIFF)
-	{
-		PLOT_WARN(1, warning++);
-		sprintf(msg, "NOTE: %s %s clock adjust ignored: %0.2f\\ct (-j)", 
-				config->changedCLKFrom == ROLE_REF ? "Reference" : "Comparison",
-				config->clkName, config->centsDifferenceCLK);
+		if(clock->adjusted)
+			sprintf(msg, "NOTE: Comparison %.20s clock adjusted by: %0.2f\\ct (-j)", 
+				clock->name, clock->centsDifference);
+		else
+			sprintf(msg, "NOTE: Comparison %.20s clock adjust ignored: %0.2f\\ct (-j)", 
+				clock->name, clock->centsDifference);
 		pl_alabel_r(plot->plotter, 'l', 'l', msg);
 	}
 
@@ -2355,21 +2418,28 @@ void DrawLabelsMDF(PlotFile *plot, char *Gname, char *GType, int type, parameter
 		pl_alabel_r(plot->plotter, 'l', 'l', "WARNING: L/R Channels might be reversed (or mono)");
 	}
 
-	if(config->clkWarning)
+	for(int c = 0; c < config->clockCount; c++)
 	{
-		PLOT_WARN(1, warning++);
-		sprintf(msg, "WARNING: %s %s noise/harmonics in the clk block", 
-			config->clkWarning == ROLE_REF ? "Reference" : config->clkWarning == ROLE_COMP ? "Comparison" : "Both files",
-			(config->clkWarning == ROLE_REF || config->clkWarning == ROLE_COMP) ? "has" : "have");
-		pl_alabel_r(plot->plotter, 'l', 'l', msg);
-	}
+		ClockDef	*clock = &config->clocks[c];
 
-	if(config->clkNotFound)
-	{
-		PLOT_WARN(1, warning++);
-		sprintf(msg, "WARNING: %s clk could not be detected", 
-			config->clkNotFound == ROLE_REF ? "Reference" : config->clkNotFound == ROLE_COMP ? "Comparison" : "Both files");
-		pl_alabel_r(plot->plotter, 'l', 'l', msg);
+		if(clock->warning)
+		{
+			PLOT_WARN(1, warning++);
+			sprintf(msg, "WARNING: %s %s noise/harmonics in the %.20s clk block", 
+				clock->warning == ROLE_REF ? "Reference" : clock->warning == ROLE_COMP ? "Comparison" : "Both files",
+				(clock->warning == ROLE_REF || clock->warning == ROLE_COMP) ? "has" : "have",
+				clock->name);
+			pl_alabel_r(plot->plotter, 'l', 'l', msg);
+		}
+
+		if(clock->notFound)
+		{
+			PLOT_WARN(1, warning++);
+			sprintf(msg, "WARNING: %s %.20s clk could not be detected", 
+				clock->notFound == ROLE_REF ? "Reference" : clock->notFound == ROLE_COMP ? "Comparison" : "Both files",
+				clock->name);
+			pl_alabel_r(plot->plotter, 'l', 'l', msg);
+		}
 	}
 
 	if(config->substractAveragePlot)
@@ -2410,11 +2480,13 @@ void DrawLabelsMDF(PlotFile *plot, char *Gname, char *GType, int type, parameter
 		pl_alabel_r(plot->plotter, 'l', 'l', msg);
 	}
 
-	if(config->clkMeasure && config->diffClkNoMatch && !config->doClkAdjust)
+	for(int c = 0; c < config->clockCount && !config->doClkAdjust; c++)
 	{
+		if(!config->clocks[c].noMatch)
+			continue;
 		PLOT_WARN(1, warning++);
-		sprintf(msg, "WARNING: %s clock don't match by: %0.2f\\ct (can use -j)", 
-				config->clkName, config->centsDifferenceCLK);
+		sprintf(msg, "WARNING: %.20s clocks don't match by: %0.2f\\ct (can use -j)", 
+				config->clocks[c].name, config->clocks[c].centsDifference);
 		pl_alabel_r(plot->plotter, 'l', 'l', msg);
 	}
 
@@ -6947,35 +7019,40 @@ void DrawLabelsZeroAngleCentered(PlotFile *plot, double maxAngle, double angleIn
 	pl_restorestate_r(plot->plotter);
 }
 
-void PlotCLKSpectrogram(AudioSignal *Signal, parameters *config)
+void PlotCLKSpectrogram(AudioSignal *Signal, int clock, parameters *config)
 {
 	char 				tmpName[BUFFER_SIZE/2], name[BUFFER_SIZE];
 	long int			size = 0;
 	FlatFrequency		*frequencies = NULL;
 	
 	ShortenFileName(basename(Signal->SourceFile), tmpName, BUFFER_SIZE/2);
-	frequencies = CreateFlatFrequenciesCLK(Signal, &size, config);
-	sprintf(name, "SP_%c_%s_CLK_%s", Signal->role == ROLE_REF ? 'A' : 'B', tmpName, config->clkName);
-	PlotCLKSpectrogramInternal(frequencies, size, name, Signal->role, config);
+	frequencies = CreateFlatFrequenciesCLK(Signal, clock, &size, config);
+	if(!frequencies)
+		return;
+	sprintf(name, "SP_%c_%s_CLK_%s", Signal->role == ROLE_REF ? 'A' : 'B', tmpName, config->clocks[clock].name);
+	PlotCLKSpectrogramInternal(frequencies, size, name, Signal->role, clock, config);
 
 	free(frequencies);
 	frequencies = NULL;
 }
 
-FlatFrequency *CreateFlatFrequenciesCLK(AudioSignal *Signal, long int *size, parameters *config)
+FlatFrequency *CreateFlatFrequenciesCLK(AudioSignal *Signal, int clock, long int *size, parameters *config)
 {
 	long int		i = 0;
 	long int		count = 0, counter = 0;
 	FlatFrequency	*Freqs = NULL;
 
-	if(!size || !Signal || !config)
+	if(!size || !Signal || !config || clock < 0 || clock >= config->clockCount)
 		return NULL;
 
 	*size = 0;
 
+	if(!Signal->clkFrequencies[clock].freq)
+		return NULL;
+
 	for(i = 0; i < config->MaxFreq; i++)
 	{
-		if(Signal->clkFrequencies.freq[i].hertz != 0)
+		if(Signal->clkFrequencies[clock].freq[i].hertz != 0)
 			count ++;
 		else
 			break;
@@ -6990,8 +7067,8 @@ FlatFrequency *CreateFlatFrequenciesCLK(AudioSignal *Signal, long int *size, par
 	{
 		FlatFrequency tmp;
 
-		tmp.hertz = Signal->clkFrequencies.freq[i].hertz;
-		tmp.amplitude = Signal->clkFrequencies.freq[i].amplitude;
+		tmp.hertz = Signal->clkFrequencies[clock].freq[i].hertz;
+		tmp.amplitude = Signal->clkFrequencies[clock].freq[i].amplitude;
 		tmp.type = TYPE_CLK_ANALYSIS;
 		tmp.color = COLOR_YELLOW;
 		tmp.channel = CHANNEL_LEFT;
@@ -7008,7 +7085,7 @@ FlatFrequency *CreateFlatFrequenciesCLK(AudioSignal *Signal, long int *size, par
 	return(Freqs);
 }
 
-void PlotCLKSpectrogramInternal(FlatFrequency *freqs, long int size, char *filename, int signal, parameters *config)
+void PlotCLKSpectrogramInternal(FlatFrequency *freqs, long int size, char *filename, int signal, int clock, parameters *config)
 {
 	PlotFile	plot;
 	double		startAmplitude = config->significantAmplitude, endAmplitude = config->lowestDBFS;
@@ -7062,11 +7139,11 @@ void PlotCLKSpectrogramInternal(FlatFrequency *freqs, long int size, char *filen
 	{
 		char	clkLabel[BUFFER_SIZE], *idName = NULL;
 
-		idName = GetCLKIdentityName(signal == ROLE_REF ? config->referenceSignal : config->comparisonSignal, config);
+		idName = GetCLKIdentityName(signal == ROLE_REF ? config->referenceSignal : config->comparisonSignal, clock, config);
 		if(idName)
-			sprintf(clkLabel, "%s - %.200s", config->clkName, idName);
+			sprintf(clkLabel, "%s - %.200s", config->clocks[clock].name, idName);
 		else
-			sprintf(clkLabel, "%s", config->clkName);
+			sprintf(clkLabel, "%s", config->clocks[clock].name);
 		DrawLabelsMDF(&plot, signal == ROLE_REF ? SPECTROGRAM_CLK_REF : SPECTROGRAM_CLK_COM, clkLabel, signal == ROLE_REF ? PLOT_SINGLE_REF : PLOT_SINGLE_COM, config);
 	}
 

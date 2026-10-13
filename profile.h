@@ -49,7 +49,10 @@ int MatchVideoFormat(parameters * config, char* format);
 void listFormats(parameters * config);
 
 int ValidateCLKArray(parameters *config);
-int LoadCLKIdentities(char *lineBuffer, FILE *file, parameters *config);
+int LoadClockLine(char *lineBuffer, int *measured, parameters *config);
+int LoadCLKIdentities(char *lineBuffer, FILE *file, ClockDef *clock);
 char *GetCLKToleranceUnit(CLKIdentity *clkID);
+int GetClockForType(int type, parameters *config);
+void ReleaseClock(ClockDef *clock);
 void ReleaseCLKData(parameters *config);
 #endif

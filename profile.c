@@ -3,7 +3,7 @@
  * A Fourier Transform analysis tool to compare game console audio
  * http://junkerhq.net/MDFourier/
  *
- * Copyright (C)2019-2020 Artemio Urbina
+ * Copyright (C)2019-2026 Artemio Urbina
  *
  * This file is part of the 240p Test Suite
  *
@@ -252,15 +252,15 @@ int SkipCLKToken(char *lineBuffer, int pos)
 	return pos;
 }
 
-int CreateCLKArray(char *lineBuffer, parameters *config)
+int CreateCLKArray(char *lineBuffer, ClockDef *clock)
 {
 	/* 	If no blocks are specified, or  '*' found apply to all.
 			Otherwise apply to explicitly mentioned blocks */
 
 	int pos = 0, fields = 0, listStart = 0, params = 0, start = 0, count = 0, read = 0;
 
-	config->clkBlocksAdjust = NULL;
-	config->clkBlkAdjustNum = -1; /* apply to all by default */
+	clock->blocksAdjust = NULL;
+	clock->blkAdjustNum = CLK_ADJUST_ALL; /* apply to all by default */
 
 	/* We start by catching up to the already parsed position */
 	/* "%*s %*c %d %lf %lf" */
@@ -291,8 +291,8 @@ int CreateCLKArray(char *lineBuffer, parameters *config)
 		pos = SkipCLKSeparators(lineBuffer, pos);
 	}
 
-	config->clkBlocksAdjust = (int*)malloc(sizeof(int)*params);
-	if(!config->clkBlocksAdjust)
+	clock->blocksAdjust = (int*)malloc(sizeof(int)*params);
+	if(!clock->blocksAdjust)
 		return 0;
 
 	pos = listStart;
@@ -301,68 +301,181 @@ int CreateCLKArray(char *lineBuffer, parameters *config)
 		start = pos;
 		pos = SkipCLKToken(lineBuffer, pos);
 		/* The whole token must be a number */
-		if(sscanf(lineBuffer+start, "%d%n", &config->clkBlocksAdjust[count], &read) != 1 || start + read != pos)
+		if(sscanf(lineBuffer+start, "%d%n", &clock->blocksAdjust[count], &read) != 1 || start + read != pos)
 		{
 			logmsg("ERROR: Invalid block type in CLK adjust list: %s\n", lineBuffer+start);
-			free(config->clkBlocksAdjust);
-			config->clkBlocksAdjust = NULL;
+			free(clock->blocksAdjust);
+			clock->blocksAdjust = NULL;
 			return 0;
 		}
 		count++;
 		pos = SkipCLKSeparators(lineBuffer, pos);
 	}
 
-	config->clkBlkAdjustNum = count;
+	clock->blkAdjustNum = count;
 	return 1;
+}
+
+int LoadClockLine(char *lineBuffer, int *measured, parameters *config)
+{
+	char		name[20], tmp = '\0';
+	ClockDef	*clock = NULL;
+
+	*measured = 0;
+	if(sscanf(lineBuffer, "%19s %c", name, &tmp) != 2)
+	{
+		logmsg("ERROR: Invalid MD Fourier Audio Blocks File (CLK):\n%s\n", lineBuffer);
+		return 0;
+	}
+
+	if(tmp != 'y')
+		return 1;
+
+	if(config->clockCount == MAX_CLOCKS)
+	{
+		logmsg("ERROR: Only %d clocks can be defined in a profile:\n%s\n", MAX_CLOCKS, lineBuffer);
+		return 0;
+	}
+
+	// file names and labels so they must be unique 
+	for(int c = 0; c < config->clockCount; c++)
+	{
+		if(strcmp(config->clocks[c].name, name) == 0) 
+		{
+			logmsg("ERROR: Clock name '%s' is defined twice in the profile\n", name);
+			return 0;
+		}
+	}
+	
+	clock = &config->clocks[config->clockCount];
+	memset(clock, 0, sizeof(ClockDef));  
+	clock->refID = CLKID_NONE;
+	clock->comID = CLKID_NONE;	
+	sprintf(clock->name, "%s", name);	
+
+	if(sscanf(lineBuffer, "%*s %*c %d %lf %lf", 
+		&clock->block,
+		&clock->freq,	
+		&clock->ratio) != 3)
+	{
+		logmsg("ERROR: Invalid MD Fourier Audio Blocks File (CLK):\n%s\n", lineBuffer);
+		return 0;
+	}
+
+	if(clock->block <= 0 || clock->freq <= 0 || clock->ratio <= 0)  
+	{
+		logmsg("ERROR: Invalid MD Fourier Audio Blocks File (CLK Values):\n%s\n", lineBuffer);
+		return 0; 
+	}
+
+	if(!CreateCLKArray(lineBuffer, clock))
+	{
+		logmsg("ERROR: Invalid MD Fourier Audio Blocks File (CLK Block Array):\n%s\n", lineBuffer);
+		return 0;		
+	}
+	
+	config->clockCount++;
+	config->clkMeasure = 1;
+	*measured = 1;
+	return 1;
+}
+
+int GetClockForType(int type, parameters *config)
+{
+	int all = -1;
+
+	for(int c = 0; c < config->clockCount; c++)
+	{
+		if(config->clocks[c].blkAdjustNum == CLK_ADJUST_ALL)
+			all = c;
+		else
+		{
+			for(int i = 0; i < config->clocks[c].blkAdjustNum; i++)
+			{
+				if(config->clocks[c].blocksAdjust[i] == type)
+					return c;
+			}
+		}
+	}
+	return all;
 }
 
 int ValidateCLKArray(parameters *config)
 {
-	int i = 0, t = 0, clkType = 0, clkTypeListed = 0;
+	int i = 0, t = 0, clkType = 0, allCount = 0;
 
-	if(config->clkBlkAdjustNum == -1)
+	for(int c = 0; c < config->clockCount; c++)
 	{
-		logmsg(" - Clock adjustment applies to all block types\n");
-		return 1;
-	}
+		ClockDef *clock = &config->clocks[c];
 
-	logmsg(" - Clock adjustment limited to types:");
-	for(i = 0; i < config->clkBlkAdjustNum; i++)
-	{
-		int found = 0;
-
-		for(t = 0; t < config->types.typeCount; t++)
+		if(clock->blkAdjustNum == CLK_ADJUST_ALL)
 		{
-			if(config->types.typeArray[t].type == config->clkBlocksAdjust[i] &&
-				config->types.typeArray[t].type > TYPE_SILENCE)
+			allCount++;
+			if(config->clockCount == 1)
+				logmsg(" - %s clock adjustment applies to all block types\n", clock->name);
+			else
+				logmsg(" - %s clock adjustment applies to the types other clocks don't list\n", clock->name);
+			continue;
+		}
+
+		logmsg(" - %s clock adjustment limited to types:", clock->name);
+		for(i = 0; i < clock->blkAdjustNum; i++)
+		{
+			int found = 0;
+
+			for(t = 0; t < config->types.typeCount; t++)
 			{
-				logmsg(" %s", config->types.typeArray[t].typeDisplayName);
-				found = 1;
-				break;
+				if(config->types.typeArray[t].type == clock->blocksAdjust[i] &&
+					config->types.typeArray[t].type > TYPE_SILENCE)
+				{
+					logmsg(" %s", config->types.typeArray[t].typeDisplayName);
+					found = 1;
+					break;
+				}
+			}
+			if(!found)
+			{
+				logmsg("\nERROR: %s adjust list has type %d, which is not an audio block type in this profile\n",
+					clock->name, clock->blocksAdjust[i]);
+				return 0;
+			}
+
+			// a type can only follow one clock
+			for(int o = 0; o < c; o++)
+			{
+				for(int j = 0; j < config->clocks[o].blkAdjustNum; j++)
+				{
+					if(config->clocks[o].blocksAdjust[j] == clock->blocksAdjust[i])
+					{
+						logmsg("\nERROR: Type %d is in the adjust list of both %s and %s clocks\n",
+							clock->blocksAdjust[i], config->clocks[o].name, clock->name);
+						return 0;
+					}
+				}
 			}
 		}
-		if(!found)
+		logmsg("\n");
+	}
+
+	if(allCount > 1)
+	{
+		logmsg("ERROR: Only one clock can adjust all block types, list the types for the others\n");
+		return 0;
+	}
+
+	// The block used to measure each clock must be adjusted by that clock
+	for(int c = 0; c < config->clockCount; c++)
+	{
+		clkType = GetBlockType(config, config->clocks[c].block);
+		if(GetClockForType(clkType, config) != c)
 		{
-			logmsg("\nERROR: CLK adjust list has type %d, which is not an audio block type in this profile\n",
-				config->clkBlocksAdjust[i]);
+			logmsg("ERROR: %s block %s# %d (type %d) is not adjusted by the %s clock\n",
+				config->clocks[c].name,
+				GetBlockName(config, config->clocks[c].block),
+				GetBlockSubIndex(config, config->clocks[c].block), clkType,
+				config->clocks[c].name);
 			return 0;
 		}
-	}
-	logmsg("\n");
-
-	/* The block used to measure the clock must also be adjusted */
-	clkType = GetBlockType(config, config->clkBlock);
-	for(i = 0; i < config->clkBlkAdjustNum; i++)
-	{
-		if(config->clkBlocksAdjust[i] == clkType)
-			clkTypeListed = 1;
-	}
-	if(!clkTypeListed)
-	{
-		logmsg("ERROR: CLK block %s# %d (type %d) is not in the CLK adjust list\n",
-			GetBlockName(config, config->clkBlock),
-			GetBlockSubIndex(config, config->clkBlock), clkType);
-		return 0;
 	}
 	return 1;
 }
@@ -426,7 +539,7 @@ char *GetCLKToleranceUnit(CLKIdentity *clkID)
 /*  [CLKID] N
  *  Name	Nominal	Tolerance(ppm|c|cents|Hz)
  */
-int LoadCLKIdentities(char *lineBuffer, FILE *file, parameters *config)
+int LoadCLKIdentities(char *lineBuffer, FILE *file, ClockDef *clock)
 {
 	int		i = 0, j = 0, count = 0;
 	char	tolerance[PARAM_BUFFER_SIZE];
@@ -437,94 +550,96 @@ int LoadCLKIdentities(char *lineBuffer, FILE *file, parameters *config)
 		return 0;
 	}
 
-	if(config->clkIDs)
+	if(clock->ids)
 	{
-		free(config->clkIDs);
-		config->clkIDs = NULL;
-		config->clkIDCount = 0;
+		free(clock->ids);
+		clock->ids = NULL;
+		clock->idCount = 0;
 	}
 
-	config->clkIDs = (CLKIdentity*)malloc(sizeof(CLKIdentity)*count);
-	if(!config->clkIDs)
+	clock->ids = (CLKIdentity*)malloc(sizeof(CLKIdentity)*count);
+	if(!clock->ids)
 	{
 		logmsg("ERROR: Not enough memory for CLK identities\n");
 		return 0;
 	}
-	memset(config->clkIDs, 0, sizeof(CLKIdentity)*count);
+	memset(clock->ids, 0, sizeof(CLKIdentity)*count);
 
 	for(i = 0; i < count; i++)
 	{
 		readLine(lineBuffer, file);
-		if(sscanf(lineBuffer, "%127s %lf %s", 
-			config->clkIDs[i].name,
-			&config->clkIDs[i].nominal,
+		if(sscanf(lineBuffer, "%127s %lf %s",  
+			clock->ids[i].name, 
+			&clock->ids[i].nominal,
 			tolerance) != 3)
 		{
 			logmsg("ERROR: Invalid CLKID line, expected 'Name Nominal Tolerance(ppm|c|Hz)':\n%s\n", lineBuffer);
-			free(config->clkIDs);
-			config->clkIDs = NULL;
+			free(clock->ids);
+			clock->ids = NULL;
 			return 0;
 		}
 
-		if(config->clkIDs[i].nominal <= 0 || !ParseCLKTolerance(tolerance, &config->clkIDs[i]))
+		if(clock->ids[i].nominal <= 0 || !ParseCLKTolerance(tolerance, &clock->ids[i]))
 		{
 			logmsg("ERROR: Invalid CLKID values, nominal must be > 0 and tolerance end in ppm, c or Hz:\n%s\n", lineBuffer);
-			free(config->clkIDs);
-			config->clkIDs = NULL;
+			free(clock->ids);
+			clock->ids = NULL;
 			return 0;
 		}
 
-		CleanName(config->clkIDs[i].name, config->clkIDs[i].displayName);
-		CalculateCLKIdentityRange(&config->clkIDs[i]);
+		CleanName(clock->ids[i].name, clock->ids[i].displayName);
+		CalculateCLKIdentityRange(&clock->ids[i]);	
 	}
-	config->clkIDCount = count;
-
-	if(!config->clkMeasure)
-	{
-		logmsg(" - WARNING: [CLKID] ignored, CLK measurement is disabled in profile\n");
-		return 1;
-	}
+	clock->idCount = count;
 
 	/* find closest nominal */
 	for(i = 0; i < count; i++)
 	{
 		for(j = i + 1; j < count; j++)
 		{
-			if(config->clkIDs[i].minHz <= config->clkIDs[j].maxHz &&
-				config->clkIDs[j].minHz <= config->clkIDs[i].maxHz)
+			if(clock->ids[i].minHz <= clock->ids[j].maxHz &&
+				clock->ids[j].minHz <= clock->ids[i].maxHz)
 			{
-				logmsg(" - WARNING: CLKID ranges for '%s' and '%s' overlap\n",
-					config->clkIDs[i].displayName, config->clkIDs[j].displayName);
+				logmsg(" - WARNING: %s CLKID ranges for '%s' and '%s' overlap\n",
+					clock->name, clock->ids[i].displayName, clock->ids[j].displayName);
 			}
 		}
 	}
 	return 1;
 }
 
+void ReleaseClock(ClockDef *clock)
+{
+	if(clock->blocksAdjust)
+	{
+		free(clock->blocksAdjust);
+		clock->blocksAdjust = NULL;
+	}
+	clock->blkAdjustNum = 0;
+
+	if(clock->ids)
+	{
+		free(clock->ids);
+		clock->ids = NULL;
+	}
+	clock->idCount = 0;
+	clock->refID = CLKID_NONE;
+	clock->comID = CLKID_NONE;
+}
+
 void ReleaseCLKData(parameters *config)
 {
-	if(config->clkBlocksAdjust)
-	{
-		free(config->clkBlocksAdjust);
-		config->clkBlocksAdjust = NULL;
-	}
-	config->clkBlkAdjustNum = 0;
-
-	if(config->clkIDs)
-	{
-		free(config->clkIDs);
-		config->clkIDs = NULL;
-	}
-	config->clkIDCount = 0;
-	config->clkRefID = CLKID_NONE;
-	config->clkComID = CLKID_NONE;
+	for(int c = 0; c < config->clockCount; c++)
+		ReleaseClock(&config->clocks[c]);
+	config->clockCount = 0;
+	config->clkMeasure = 0;
 }
 
 int LoadAudioBlockStructure(FILE *file, parameters *config)
 {
-	int		insideInternal = 0, i = 0, syncCount = 0, lineCount = 7;
+	int		insideInternal = 0, i = 0, syncCount = 0, lineCount = 7, clockLines = 0;
 	int		hadSilenceOverride = 0, internalCount = 0;
-	char	lineBuffer[LINE_BUFFER_SIZE], tmp = '\0';
+	char	lineBuffer[LINE_BUFFER_SIZE];
 	char	buffer[PARAM_BUFFER_SIZE], buffer2[PARAM_BUFFER_SIZE], buffer3[PARAM_BUFFER_SIZE];
 
 	config->noSyncProfile = 0;
@@ -611,53 +726,48 @@ int LoadAudioBlockStructure(FILE *file, parameters *config)
 		}
 	}
 
-	/* CLK estimation */
+	/* Clocks: CLK lines, each one optionally followed by its [CLKID] , until [MonoBalanceBlock] */
 	readLine(lineBuffer, file);
-	if(sscanf(lineBuffer, "%s %c", config->clkName, &tmp) != 2)
+	clockLines = 0;
+	while(strncmp(lineBuffer, "[MonoBalanceBlock]", 18) != 0)
 	{
-		logmsg("ERROR: Invalid MD Fourier Audio Blocks File (CLK):\n%s\n", lineBuffer);
-		fclose(file);
-		return 0;
-	}
-	config->clkMeasure = (tmp == 'y');
-	if(config->clkMeasure)
-	{
-		if(sscanf(lineBuffer, "%*s %*c %d %lf %lf", 
-			&config->clkBlock,
-			&config->clkFreq,
-			&config->clkRatio) != 3)
-		{
-			logmsg("ERROR: Invalid MD Fourier Audio Blocks File (CLK):\n%s\n", lineBuffer);
-			fclose(file);
-			return 0;
-		}
+		int measured = 0;
 
-		if(config->clkBlock <= 0 || config->clkFreq <= 0 || config->clkRatio <= 0)
+		if(!LoadClockLine(lineBuffer, &measured, config))
 		{
-			logmsg("ERROR: Invalid MD Fourier Audio Blocks File (CLK Values):\n%s\n", lineBuffer);
 			fclose(file);
 			return 0;
 		}
+		if(clockLines++)
+			lineCount++;
 
-		if(!CreateCLKArray(lineBuffer, config))
-		{
-			logmsg("ERROR: Invalid MD Fourier Audio Blocks File (CLK Block Array):\n%s\n", lineBuffer);
-			fclose(file);
-			return 0;
-		}
-	}
-
-	/* Clock Identification ranges */
-	readLine(lineBuffer, file);
-	if(strncmp(lineBuffer, "[CLKID]", 7) == 0)
-	{
-		if(!LoadCLKIdentities(lineBuffer, file, config))
-		{
-			fclose(file);
-			return 0;
-		}
-		lineCount += config->clkIDCount + 1;
 		readLine(lineBuffer, file);
+		if(strncmp(lineBuffer, "[CLKID]", 7) == 0)
+		{
+			ClockDef	ignored, *clock = NULL;
+
+			if(measured)
+				clock = &config->clocks[config->clockCount - 1];	
+			else
+			{
+				memset(&ignored, 0, sizeof(ClockDef)); 
+				clock = &ignored;
+			}
+
+			if(!LoadCLKIdentities(lineBuffer, file, clock))
+			{
+				fclose(file);
+				return 0;
+			}
+			lineCount += clock->idCount + 1;	
+
+			if(!measured)
+			{
+				logmsg(" - WARNING: [CLKID] ignored, CLK measurement is disabled for that clock\n");
+				ReleaseClock(&ignored);
+			}
+			readLine(lineBuffer, file);
+		}
 	}
 
 	/* Stereo Balancing, line was already read above */

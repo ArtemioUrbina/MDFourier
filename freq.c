@@ -33,7 +33,7 @@
 #include "float.h"
 #include "profile.h"
 
-inline int FrequencyMagnitudeOrder(const Frequency a, const Frequency b)
+static inline int FrequencyMagnitudeOrder(const Frequency a, const Frequency b)
 {
 	if(a.magnitude > b.magnitude)
 		return -1;
@@ -335,8 +335,8 @@ AudioSignal *CreateAudioSignal(parameters *config)
 	}
 
 	InitAudio(Signal, config);
-	if(config->clkMeasure)
-		InitAudioBlock(&Signal->clkFrequencies, CHANNEL_MONO, MASK_DEFAULT, config);	// we use the new mask default here
+	for(int c = 0; c < config->clockCount; c++)
+		InitAudioBlock(&Signal->clkFrequencies[c], CHANNEL_MONO, MASK_DEFAULT, config);	// we use the new mask default here
 	return Signal;
 }
 
@@ -464,13 +464,10 @@ void InitAudio(AudioSignal *Signal, parameters *config)
 	Signal->delayElemCount = 0;
 
 	Signal->balance = 0;
-	memset(&Signal->clkFrequencies, 0, sizeof(AudioBlocks));
-	Signal->originalCLK = 0;
+	memset(Signal->clkFrequencies, 0, sizeof(AudioBlocks)*MAX_CLOCKS);
 	Signal->EstimatedSR = 0;
 	Signal->originalSR = 0;
 
-	Signal->EstimatedSR_CLK = 0;
-	Signal->originalSR_CLK = 0;
 	Signal->originalFrameRate = 0;
 }
 
@@ -643,8 +640,8 @@ void ReleaseAudio(AudioSignal *Signal, parameters *config)
 		Signal->Blocks = NULL;
 	}
 
-	if(config->clkMeasure)
-		ReleaseBlock(&Signal->clkFrequencies);
+	for(int c = 0; c < MAX_CLOCKS; c++)
+		ReleaseBlock(&Signal->clkFrequencies[c]);
 	ReleasePCM(Signal);
 
 	InitAudio(Signal, config);
@@ -2743,7 +2740,7 @@ static double RefinePeakFrequency(FFTWSpectrum *fftw, double ENBW, long int bin,
 	return CalculateFrequency(bin + offset, boxsize);
 }
 
-inline void SwapFrequency(Frequency *a, Frequency *b)
+static inline void SwapFrequency(Frequency *a, Frequency *b)
 {
 	Frequency tmp = *a;
 
@@ -2886,7 +2883,7 @@ int FillFrequencyStructuresInternal(AudioSignal *Signal, AudioBlocks *AudioArray
 		memcpy(*targetFreq, f_array, sizeof(Frequency)*amount);
 
 		// CLK: refine the peaks between bins while the spectrum exists
-		if(Signal && AudioArray == &Signal->clkFrequencies)
+		if(Signal && AudioArray >= &Signal->clkFrequencies[0] && AudioArray < &Signal->clkFrequencies[MAX_CLOCKS])
 		{
 			for(i = 0; i < amount; i++)
 			{
@@ -3278,7 +3275,8 @@ long int GetZeroPadValues(long int *monoSignalSize, double *seconds, double samp
 	if(!monoSignalSize || !seconds)
 		return zeropadding;
 
-	alignmentSize = (long int)(ZeroPadFactor * samplerate);
+	// Rounded, with -j the comparison rate of an adjusted clock is not an integer
+	alignmentSize = (long int)(ZeroPadFactor * samplerate + 0.5);
 	// Align frequency bins to 1Hz
 	if(*monoSignalSize != alignmentSize)
 	{
@@ -3596,91 +3594,100 @@ char *GetFileName(int role, parameters *config)
 		return(config->comparisonFile);
 }
 
-double CalculateClkFraction(AudioSignal *Signal, parameters *config)
+double CalculateClkFraction(AudioSignal *Signal, int clock, parameters *config)
 {
-	int i = 0, highestWithinRange = -1;
-	double target = 0, tolerance = 0.05;
+	int			i = 0, highestWithinRange = -1;
+	double		target = 0, tolerance = 0.05;
+	ClockDef	*clk = NULL;
+	Frequency	*freq = NULL;
 
-	if(!config->clkMeasure)
+	if(clock < 0 || clock >= config->clockCount)
 		return 0;
 
-	if(!Signal || !Signal->clkFrequencies.freq)
+	clk = &config->clocks[clock];
+	freq = Signal ? Signal->clkFrequencies[clock].freq : NULL;
+	if(!freq)
 		return 0;
 
 	// Discard harmonics in the clock, we use 5% tolerance
-	target = config->clkFreq * config->clkRatio;
+	target = clk->freq * clk->ratio;
 	for(i = 0; i < config->MaxFreq; i++)
 	{
-		if(fabs(Signal->clkFrequencies.freq[i].hertz*config->clkRatio - target) < tolerance*target)
+		if(fabs(freq[i].hertz*clk->ratio - target) < tolerance*target)
 		{
 			highestWithinRange = i;
 			break;
 		}
 	}
 
-	// Not found
+	// Not found, use the strongest one
 	if(highestWithinRange == -1)
 	{
-		config->clkNotFound |= Signal->role;
-		return Signal->clkFrequencies.freq[0].hertz * config->clkRatio;
+		clk->notFound |= Signal->role;
+		return freq[0].hertz;
 	}
 	if(highestWithinRange != 0)
-		config->clkWarning |= Signal->role;
+		clk->warning |= Signal->role;
 
-	return Signal->clkFrequencies.freq[highestWithinRange].hertz;
+	return freq[highestWithinRange].hertz;
 }
 
-double FindMaxMagnitudeCLKSignal(AudioSignal *Signal, parameters *config)
+double FindMaxMagnitudeCLKSignal(AudioSignal *Signal, int clock, parameters *config)
 {
 	double		MaxMagnitude = -1;
+	Frequency	*freq = Signal->clkFrequencies[clock].freq;
 
 	// Find global peak
 	for(int i = 0; i < config->MaxFreq; i++)
 	{
-		if(!Signal->clkFrequencies.freq[i].hertz)
+		if(!freq[i].hertz)
 			break;
-		if(Signal->clkFrequencies.freq[i].magnitude > MaxMagnitude)
-			MaxMagnitude = Signal->clkFrequencies.freq[i].magnitude;
+		if(freq[i].magnitude > MaxMagnitude)
+			MaxMagnitude = freq[i].magnitude;
 	}
 	
 	return MaxMagnitude;
 }
 
-void CalculateSignalCLKAmplitudes(AudioSignal *Signal, double ZeroMagCLK, parameters *config)
+void CalculateSignalCLKAmplitudes(AudioSignal *Signal, int clock, double ZeroMagCLK, parameters *config)
 {
-	if(config->clkMeasure && Signal->clkFrequencies.freq)
+	Frequency	*freq = Signal->clkFrequencies[clock].freq;
+
+	if(freq)
 	{
 		for(int i = 0; i < config->MaxFreq; i++)
 		{
-			if(!Signal->clkFrequencies.freq[i].hertz)
+			if(!freq[i].hertz)
 				break;
 
-			Signal->clkFrequencies.freq[i].amplitude = 
-				CalculateAmplitude(Signal->clkFrequencies.freq[i].magnitude, ZeroMagCLK);
+			freq[i].amplitude = CalculateAmplitude(freq[i].magnitude, ZeroMagCLK);
 		}
 	}
 
 	if(config->verbose)
 	{
 		logmsgFileOnly("==================== CLK-FREQ %s ===================\n", 
-				config->clkName);
-		PrintFrequenciesBlock(Signal, Signal->clkFrequencies.freq, config->MaxFreq, TYPE_CLK_ANALYSIS, config);
+				config->clocks[clock].name);
+		PrintFrequenciesBlock(Signal, freq, config->MaxFreq, TYPE_CLK_ANALYSIS, config);
 	}
 }
 
-int CalculateCLKAmplitudes(AudioSignal *ReferenceSignal, AudioSignal *ComparisonSignal, parameters *config)
+int CalculateCLKAmplitudes(AudioSignal *ReferenceSignal, AudioSignal *ComparisonSignal, int clock, parameters *config)
 {
 	double ZeroMagCLK = 0, MaxRef = 0, MaxCom = 0;
 
-	if(!config->clkMeasure || !ReferenceSignal->clkFrequencies.freq || !ComparisonSignal->clkFrequencies.freq)
+	if(clock < 0 || clock >= config->clockCount)
 		return 0;
 
-	MaxRef = FindMaxMagnitudeCLKSignal(ReferenceSignal, config);
-	MaxCom = FindMaxMagnitudeCLKSignal(ComparisonSignal, config);
+	if(!ReferenceSignal->clkFrequencies[clock].freq || !ComparisonSignal->clkFrequencies[clock].freq)
+		return 0;
+
+	MaxRef = FindMaxMagnitudeCLKSignal(ReferenceSignal, clock, config);
+	MaxCom = FindMaxMagnitudeCLKSignal(ComparisonSignal, clock, config);
 
 	if(MaxRef == -1 || MaxCom == -1)
 	{
-		logmsg("WARNING: Could not calculate CLK amplitudes\n");
+		logmsg("WARNING: Could not calculate %s amplitudes\n", config->clocks[clock].name);
 		return 0;
 	}
 
@@ -3689,8 +3696,8 @@ int CalculateCLKAmplitudes(AudioSignal *ReferenceSignal, AudioSignal *Comparison
 	else
 		ZeroMagCLK = MaxCom;
 
-	CalculateSignalCLKAmplitudes(ReferenceSignal, ZeroMagCLK, config);
-	CalculateSignalCLKAmplitudes(ComparisonSignal, ZeroMagCLK, config);
+	CalculateSignalCLKAmplitudes(ReferenceSignal, clock, ZeroMagCLK, config);
+	CalculateSignalCLKAmplitudes(ComparisonSignal, clock, ZeroMagCLK, config);
 	return 1;
 }
 
