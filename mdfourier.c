@@ -1674,6 +1674,95 @@ int DuplicateSamplesForWaveformPlots(AudioSignal *Signal, long int element, long
 	return 1;
 }
 
+#define DIGITAL_SILENCE_LSB		0.5		// samples are integer values
+#define DIGITAL_SILENCE_CHANGES	0.001	// fraction of samples allowed above it
+
+double GetChannelSample(double *samples, long int i, int AudioChannels, char channel)
+{
+	if(channel == CHANNEL_RIGHT)
+		return samples[i*AudioChannels+1];
+	if(channel == CHANNEL_STEREO)
+		return (samples[i*AudioChannels]+samples[i*AudioChannels+1])/2.0;
+	return samples[i*AudioChannels];
+}
+
+long int CountSilenceChanges(AudioSignal *Signal, double *samples, long int size, double *window, char channel)
+{
+	long int	monoSize = 0, changes = 0;
+	double		rest = 0;
+
+	monoSize = size/Signal->AudioChannels;
+	if(monoSize <= 1)
+		return monoSize;
+
+	rest = GetChannelSample(samples, monoSize/2, Signal->AudioChannels, channel);
+	for(long int i = 0; i < monoSize; i++)
+	{
+		double	value = 0;
+
+		value = GetChannelSample(samples, i, Signal->AudioChannels, channel) - rest;
+		if(window)
+			value *= window[i];
+		if(fabs(value) >= DIGITAL_SILENCE_LSB)
+			changes++;
+	}
+
+	return changes;
+}
+
+int IsDigitalSilence(AudioSignal *Signal, double *samples, long int size, double *window, char channel, parameters *config)
+{
+	long int	monoSize = 0, changes = 0;
+
+	monoSize = size/Signal->AudioChannels;
+	changes = CountSilenceChanges(Signal, samples, size, window, channel);
+	if(config->verbose)
+		logmsgFileOnly(" - %s Silence (%c): %ld of %ld windowed samples move from rest (limit %g)\n",
+			getRoleText(Signal), channel, changes, monoSize, monoSize*DIGITAL_SILENCE_CHANGES);
+	return(monoSize > 1 && changes <= monoSize*DIGITAL_SILENCE_CHANGES);
+}
+
+void DiscardDigitalSilence(AudioSignal *Signal, DFFTJob *jobs, long int jobCount, parameters *config)
+{
+	for(long int j = 0; j < jobCount; j++)
+	{
+		long int	b = jobs[j].block;
+		double		*samples = Signal->Samples + jobs[j].offset;
+
+		if(Signal->Blocks[b].type == TYPE_SILENCE)
+		{
+			int		left = 0, right = 0;
+			char	channel = CHANNEL_LEFT;
+
+			// Same channel selection as ExecuteDFFT
+			if(Signal->AudioChannels == 2 && Signal->Blocks[b].channel != CHANNEL_STEREO)
+				channel = CHANNEL_STEREO;
+
+			if(Signal->Blocks[b].freq && Signal->Blocks[b].SilenceSizeLeft &&
+				IsDigitalSilence(Signal, samples, jobs[j].size, jobs[j].window, channel, config))
+			{
+				for(int i = 0; i < config->MaxFreq; i++)
+					CleanFrequency(&Signal->Blocks[b].freq[i]);
+				Signal->Blocks[b].SilenceSizeLeft = 0;
+				left = 1;
+			}
+
+			if(Signal->AudioChannels == 2 && Signal->Blocks[b].freqRight && Signal->Blocks[b].SilenceSizeRight &&
+				IsDigitalSilence(Signal, samples, jobs[j].size, jobs[j].window, CHANNEL_RIGHT, config))
+			{
+				for(int i = 0; i < config->MaxFreq; i++)
+					CleanFrequency(&Signal->Blocks[b].freqRight[i]);
+				Signal->Blocks[b].SilenceSizeRight = 0;
+				right = 1;
+			}
+
+			if(left || right)
+				logmsg(" - %s %s# %d (%ld) is digital silence%s, no noise floor data from it\n",
+					getRoleText(Signal), GetBlockName(config, b), GetBlockSubIndex(config, b), b,
+					Signal->Blocks[b].freqRight && left != right ? (left ? " (left channel)" : " (right channel)") : "");
+		}
+	}
+}
 
 int ProcessSignal(AudioSignal *Signal, parameters *config)
 {
@@ -1893,6 +1982,7 @@ int ProcessSignal(AudioSignal *Signal, parameters *config)
 		freeWindows(&windows);
 		return 0;
 	}
+	DiscardDigitalSilence(Signal, jobs, jobCount, config);
 	free(jobs);
 	jobs = NULL;
 
