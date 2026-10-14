@@ -188,6 +188,10 @@
 #define CLKID_NONE			-1
 #define CLKID_UNKNOWN		-2
 
+#define CLKID_ENABLE		'y'
+#define CLKID_DISABLE		'n'
+#define CLKID_OPTIONAL		'o'
+
 #if defined (WIN32)
 	#define MAX_FOLDER_NAME	50
 	#define MAX_FILE_NAME	25
@@ -292,9 +296,14 @@ typedef struct clock_def_st {
 	int			comID;
 	double		centsDifference;
 	int			notFound;		// roles where the tone was not found
+	int			weak;			// roles where it was found but below teh significant amplitude
+	double		refTone;		// tone amplitude in dBFS, relative to each signal's peak
+	double		comTone;
 	int			warning;		// roles where a harmonic was stronger
 	int			noMatch;		// clocks differ and -j was not used
 	int			adjusted;		// -j: comparison blocks of this clock were recalculated
+	int			optional;		// 'o' in the profile, its types are skipped if the tone is missing
+	int			disabled;		// optional clock whose types were skipped
 	double		comSampleRate;	// sample rate used for them
 } ClockDef;
 

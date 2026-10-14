@@ -175,6 +175,16 @@ int CheckSyncFormats(parameters *config)
 	return 1;
 }
 
+int HasOptionalClocks(parameters *config)
+{
+	for(int c = 0; c < config->clockCount; c++)
+	{
+		if(config->clocks[c].optional)
+			return 1;
+	}
+	return 0;
+}
+
 int EndProfileLoad(parameters *config)
 {
 	logmsg("* Using profile [%s]\n", config->types.Name);	
@@ -202,6 +212,10 @@ int EndProfileLoad(parameters *config)
 			config->doClkAdjust = 0;  // no current need to, but anyway...
 		}
 	}
+	else
+		if(HasOptionalClocks(config))	// their type lists are used without -j
+			if(!ValidateCLKArray(config))
+				return 0;
 
 	CheckSilenceOverride(config);
 	PrintAudioBlocks(config);
@@ -318,21 +332,24 @@ int CreateCLKArray(char *lineBuffer, ClockDef *clock)
 
 int LoadClockLine(char *lineBuffer, int *measured, parameters *config)
 {
-	char		name[20], tmp = '\0';
+	char		name[20], type = '\0';
 	ClockDef	*clock = NULL;
 
 	*measured = 0;
-	if(sscanf(lineBuffer, "%19s %c", name, &tmp) != 2)
+	if(sscanf(lineBuffer, "%19s %c", name, &type) != 2)
 	{
 		logmsg("ERROR: Invalid MD Fourier Audio Blocks File (CLK):\n%s\n", lineBuffer);
 		return 0;
 	}
 
-	if(tmp == 'n')
+	if(type == CLKID_DISABLE)
 		return 1;
 
-	if(tmp != 'y')
+	if(type != CLKID_ENABLE && type != CLKID_OPTIONAL)
+	{
+		logmsg("ERROR: Clock must be enabled with 'y', 'o' (optional) or 'n':\n%s\n", lineBuffer);
 		return 0;
+	}
 
 	if(config->clockCount == MAX_CLOCKS)
 	{
@@ -355,6 +372,7 @@ int LoadClockLine(char *lineBuffer, int *measured, parameters *config)
 	clock->refID = CLKID_NONE;
 	clock->comID = CLKID_NONE;	
 	sprintf(clock->name, "%s", name);	
+	clock->optional = type == CLKID_OPTIONAL;
 
 	if(sscanf(lineBuffer, "%*s %*c %d %lf %lf", 
 		&clock->block,
@@ -413,6 +431,11 @@ int ValidateCLKArray(parameters *config)
 
 		if(clock->blkAdjustNum == CLK_ADJUST_ALL)
 		{
+			if(clock->optional)
+			{
+				logmsg("ERROR: Optional clock %s must list its block types, otherwise all would be skipped\n", clock->name);
+				return 0;
+			}
 			allCount++;
 			if(config->clockCount == 1)
 				logmsg(" - %s clock adjustment applies to all block types\n", clock->name);

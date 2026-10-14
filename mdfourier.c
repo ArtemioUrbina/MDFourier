@@ -55,7 +55,7 @@ double FindMaxSampleForWaveform(AudioSignal *Signal, int *block, parameters *con
 double FindMaxSampleInBlock(AudioBlocks *AudioArray);
 void FindViewPort(parameters *config);
 int ReportClockResults(AudioSignal *ReferenceSignal, AudioSignal *ComparisonSignal, parameters *config);
-int ReportClock(AudioSignal *ReferenceSignal, AudioSignal *ComparisonSignal, int c, parameters *config);
+int ReportClock(AudioSignal *ReferenceSignal, AudioSignal *ComparisonSignal, int clockIdx, parameters *config);
 int IdentifyCLK(double measured, int *matches, double *ppmDiff, ClockDef *clock);
 void ReportCLKIdentity(char *roleName, double measured, int *clkID, ClockDef *clock);
 int RecalculateFrequencyStructures(AudioSignal *ReferenceSignal, AudioSignal *ComparisonSignal, parameters *config);
@@ -339,9 +339,119 @@ void PrintSignalCLKData(AudioSignal *Signal, ClockDef *clock)
 		logmsg("WARNING: %s has noise or higher harmonics than the fundamental in the %s clock block.\n",
 			Signal->role == ROLE_REF ? "Reference" : "Comparison", clock->name);
 
-	if(clock->notFound & Signal->role)
+	if(clock->weak & Signal->role)
+		logmsg("WARNING: %s %s clock tone is at %0.2f dBFS below the significant amplitude. Treated as not found.\n",
+			Signal->role == ROLE_REF ? "Reference" : "Comparison", clock->name,
+			Signal->role == ROLE_REF ? clock->refTone : clock->comTone);
+	else if(clock->notFound & Signal->role)
 		logmsg("WARNING: %s %s clock tone not found within 5%% of %gHz, the value shown is the strongest frequency.\n",
 			Signal->role == ROLE_REF ? "Reference" : "Comparison", clock->name, clock->freq);
+}
+
+double GetSignalPeakMagnitude(AudioSignal *Signal, parameters *config)
+{
+	double	peak = 0;
+
+	for(int block = 0; block < config->types.totalBlocks; block++)
+	{
+		int type = GetBlockType(config, block);
+
+		if(type > TYPE_CONTROL)
+		{
+			if(Signal->Blocks[block].freq && Signal->Blocks[block].freq[0].magnitude > peak)
+				peak = Signal->Blocks[block].freq[0].magnitude;
+			if(Signal->Blocks[block].freqRight && Signal->Blocks[block].freqRight[0].magnitude > peak)
+				peak = Signal->Blocks[block].freqRight[0].magnitude;
+		}
+	}
+	return peak;
+}
+
+// A tone within 5% can still be noise when the signal is not present 
+void CheckClockToneLevel(AudioSignal *Signal, int c, double hertz, parameters *config)
+{
+	double		magnitude = 0, peak = 0, amplitude = NO_AMPLITUDE;
+	ClockDef	*clock = &config->clocks[c];
+	Frequency	*freq = Signal->clkFrequencies[c].freq;
+
+	if(!freq || (clock->notFound & Signal->role))
+		return;
+
+	for(int i = 0; i < config->MaxFreq && freq[i].hertz && !magnitude; i++)
+	{
+		if(freq[i].hertz == hertz)
+			magnitude = freq[i].magnitude;
+	}
+
+	peak = GetSignalPeakMagnitude(Signal, config);
+	if(magnitude && peak)
+		amplitude = CalculateAmplitudeInternal(magnitude, peak);
+
+	if(Signal->role == ROLE_REF)
+		clock->refTone = amplitude;
+	else
+		clock->comTone = amplitude;
+
+	if(amplitude < config->significantAmplitude)
+	{
+		clock->notFound |= Signal->role;
+		clock->weak |= Signal->role;
+	}
+}
+
+// Optional clocks with 'o' in the profile
+void SkipBlockType(AudioSignal *ReferenceSignal, AudioSignal *ComparisonSignal, int type, parameters *config)
+{
+	for(int t = 0; t < config->types.typeCount; t++)
+	{
+		if(config->types.typeArray[t].type == type)
+			config->types.typeArray[t].type = TYPE_SKIP;
+	}
+
+	for(int n = 0; n < config->types.totalBlocks; n++)
+	{
+		if(ReferenceSignal->Blocks[n].type == type)
+			ReferenceSignal->Blocks[n].type = TYPE_SKIP;
+		if(ComparisonSignal->Blocks[n].type == type)
+			ComparisonSignal->Blocks[n].type = TYPE_SKIP;
+	}
+}
+
+int SkipMissingOptionalClocks(AudioSignal *ReferenceSignal, AudioSignal *ComparisonSignal, parameters *config)
+{
+	int disabled = 0;
+
+	for(int c = 0; c < config->clockCount; c++)
+	{
+		ClockDef	*clock = &config->clocks[c];
+
+		if(clock->optional && clock->notFound)
+		{
+			logmsg(" - %s is optional and its tone is missing in %s, skipping:", clock->name,
+				clock->notFound == (ROLE_REF | ROLE_COMP) ? "both signals" : clock->notFound == ROLE_REF ? "Reference" : "Comparison");
+			for(int i = 0; i < clock->blkAdjustNum; i++)
+			{
+				logmsg(" %s", GetTypeDisplayName(config, clock->blocksAdjust[i]));
+				SkipBlockType(ReferenceSignal, ComparisonSignal, clock->blocksAdjust[i], config);
+			}
+			logmsg("\n");
+			clock->disabled = 1;
+			disabled++;
+		}
+	}
+
+	if(disabled)
+	{
+		config->types.regularBlocks = GetActiveAudioBlocks(config);
+		// The peak could have been in a skipped block
+		// Max Frequency runs later in teh process
+		if(config->normType != max_frequency)
+		{
+			FindMaxMagnitude(ReferenceSignal, config);
+			FindMaxMagnitude(ComparisonSignal, config);
+		}
+	}
+	return disabled;
 }
 
 int IdentifyCLK(double measured, int *matches, double *ppmDiff, ClockDef *clock)
@@ -416,25 +526,34 @@ void ReportCLKIdentity(char *roleName, double measured, int *clkID, ClockDef *cl
 	}
 }
 
-int ReportClock(AudioSignal *ReferenceSignal, AudioSignal *ComparisonSignal, int c, parameters *config)
+int ReportClock(AudioSignal *ReferenceSignal, AudioSignal *ComparisonSignal, int clockIdx, parameters *config)
 {
 	double		refClkFraction = 0, compClkFraction = 0;
-	ClockDef	*clock = &config->clocks[c];
+	ClockDef	*clock = &config->clocks[clockIdx];
 
-	if(!CalculateCLKAmplitudes(ReferenceSignal, ComparisonSignal, c, config)) {
+	if(!CalculateCLKAmplitudes(ReferenceSignal, ComparisonSignal, clockIdx, config)) {
 		logmsg("\n* WARNING: %s Clocks based on expected %0.2lf Hz on note %s# %d could not be calculated\n",
 		clock->name, clock->freq, GetBlockName(config, clock->block),
 		GetBlockSubIndex(config, clock->block));
+		// A clock block without frequencies is digital silence, the tone is missing there
+		if(!ReferenceSignal->clkFrequencies[clockIdx].freq || !ReferenceSignal->clkFrequencies[clockIdx].freq[0].hertz)
+			clock->notFound |= ROLE_REF;
+		if(!ComparisonSignal->clkFrequencies[clockIdx].freq || !ComparisonSignal->clkFrequencies[clockIdx].freq[0].hertz)
+			clock->notFound |= ROLE_COMP;
 		return 0;
 	}
 
-	refClkFraction = CalculateClkFraction(ReferenceSignal, c, config);
-	compClkFraction = CalculateClkFraction(ComparisonSignal, c, config);
+	refClkFraction = CalculateClkFraction(ReferenceSignal, clockIdx, config);
+	compClkFraction = CalculateClkFraction(ComparisonSignal, clockIdx, config);
 	if(!refClkFraction || !compClkFraction)
 	{
 		logmsg("\n* WARNING: %s Clocks could not be measured\n", clock->name);
+		clock->notFound |= (!refClkFraction ? ROLE_REF : 0) | (!compClkFraction ? ROLE_COMP : 0);
 		return 0;
 	}
+
+	CheckClockToneLevel(ReferenceSignal, clockIdx, refClkFraction, config);
+	CheckClockToneLevel(ComparisonSignal, clockIdx, compClkFraction, config);
 
 	clock->ref = refClkFraction * clock->ratio;
 	clock->com = compClkFraction * clock->ratio;
@@ -1024,6 +1143,8 @@ int LoadAndProcessAudioFiles(AudioSignal **ReferenceSignal, AudioSignal **Compar
 			return 0;
 		}
 	}
+
+	SkipMissingOptionalClocks(*ReferenceSignal, *ComparisonSignal, config);
 
 	if(!NormalizeAndFinishProcess(ReferenceSignal, ComparisonSignal, config))
 		return 0;

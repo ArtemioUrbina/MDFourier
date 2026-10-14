@@ -1759,8 +1759,9 @@ char *GetCLKIdentityName(AudioSignal *Signal, int clock, parameters *config)
 void GetClockStatusText(ClockDef *clock, parameters *config, char *msg)
 {
 	if(clock->notFound)
-		sprintf(msg, "%.20s: tone not found in %s", clock->name,
-			clock->notFound == (ROLE_REF | ROLE_COMP) ? "both" : clock->notFound == ROLE_REF ? "RF" : "CM");
+		sprintf(msg, "%.20s: tone not found in %s%s", clock->name,
+			clock->notFound == (ROLE_REF | ROLE_COMP) ? "both" : clock->notFound == ROLE_REF ? "RF" : "CM",
+			clock->disabled ? ", blocks skipped" : "");
 	else if(!clock->ref || !clock->com)
 		sprintf(msg, "%.20s: not measured", clock->name);
 	else if(clock->adjusted)
@@ -1786,7 +1787,7 @@ void GetClockSignalText(AudioSignal *Signal, ClockDef *clock, int c, parameters 
 	if(idName)
 		len += sprintf(msg+len, " [%.30s]", idName);
 
-	if(clock->warning & Signal->role)
+	if((clock->warning & Signal->role) && !(clock->notFound & Signal->role))
 		sprintf(msg+len, " harmonics");
 }
 
