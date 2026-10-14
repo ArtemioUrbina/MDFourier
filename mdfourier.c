@@ -340,8 +340,8 @@ void PrintSignalCLKData(AudioSignal *Signal, ClockDef *clock)
 			Signal->role == ROLE_REF ? "Reference" : "Comparison", clock->name);
 
 	if(clock->notFound & Signal->role)
-		logmsg("WARNING: %s %s clock frequency not found within tolerance. Using highest value.\n",
-			Signal->role == ROLE_REF ? "Reference" : "Comparison", clock->name);
+		logmsg("WARNING: %s %s clock tone not found within 5%% of %gHz, the value shown is the strongest frequency.\n",
+			Signal->role == ROLE_REF ? "Reference" : "Comparison", clock->name, clock->freq);
 }
 
 int IdentifyCLK(double measured, int *matches, double *ppmDiff, ClockDef *clock)
@@ -442,6 +442,7 @@ int ReportClock(AudioSignal *ReferenceSignal, AudioSignal *ComparisonSignal, int
 	logmsg("\n* Estimated %s Clocks based on expected %0.04lf Hz on note %s# %d:\n",
 		clock->name, clock->freq, GetBlockName(config, clock->block),
 		GetBlockSubIndex(config, clock->block));
+
 	logmsg(" - Reference: %0.04lfHz -> %0.04lfHz", refClkFraction, clock->ref);
 	PrintSignalCLKData(ReferenceSignal, clock);
 
@@ -451,8 +452,20 @@ int ReportClock(AudioSignal *ReferenceSignal, AudioSignal *ComparisonSignal, int
 	/* Identify before -j changes all */
 	if(clock->idCount)
 	{
-		ReportCLKIdentity("Reference", clock->ref, &clock->refID, clock);
-		ReportCLKIdentity("Comparison", clock->com, &clock->comID, clock);
+		if(!(clock->notFound & ROLE_REF))
+			ReportCLKIdentity("Reference", clock->ref, &clock->refID, clock);
+		if(!(clock->notFound & ROLE_COMP))
+			ReportCLKIdentity("Comparison", clock->com, &clock->comID, clock);
+	}
+
+	/* Without the tone in both signals there is nothing to compare or adjust */
+	if(clock->notFound)
+	{
+		clock->centsDifference = 0;
+		logmsg(" - %s clock not compared, tone missing in %s%s\n", clock->name,
+			clock->notFound == (ROLE_REF | ROLE_COMP) ? "both signals" : clock->notFound == ROLE_REF ? "Reference" : "Comparison",
+			config->doClkAdjust ? ". Not adjusted with -j" : "");
+		return 0;
 	}
 
 	clock->centsDifference = 1200*log2(refClkFraction/compClkFraction);
@@ -1599,6 +1612,8 @@ void RecalculateFrameRateAndSamplerate(AudioSignal *Signal, parameters *config)
 // so we go for the lower one
 int RecalculateFrequencyStructures(AudioSignal *ReferenceSignal, AudioSignal *ComparisonSignal, parameters *config)
 {
+	logmsg(" * Recalculating Discrete Fast Fourier Transforms with adjusted clocks\n");
+
 	for(int i = 0; i < config->clockCount; i++)
 	{
 		ClockDef	*clock = &config->clocks[i];
@@ -1616,7 +1631,6 @@ int RecalculateFrequencyStructures(AudioSignal *ReferenceSignal, AudioSignal *Co
 				clock->comSampleRate, ComparisonSignal->SampleRate);
 	}
 
-	logmsg(" - Recalculating Discrete Fast Fourier Transforms with adjusted clocks\n");
 	if(!RecalculateFFTW(ReferenceSignal, config))
 		return 0;
 

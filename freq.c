@@ -1051,7 +1051,7 @@ int DetectWatermark(AudioSignal *Signal, parameters *config)
 	for(int i = 0; i < freqSearch; i++)
 	{
 		if(Signal->Blocks[watermark].freq[i].hertz &&
-			Signal->Blocks[watermark].freq[i].amplitude > config->significantAmplitude/2)
+			Signal->Blocks[watermark].freq[i].amplitude > config->significantAmplitude*0.8)  // At least a bit higher than Noise Floor
 		{
 			if(fabs(Signal->Blocks[watermark].freq[i].hertz - WaterMarkValid) < WATERMARK_TOLERANCE)
 			{

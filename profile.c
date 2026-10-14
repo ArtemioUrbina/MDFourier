@@ -328,8 +328,11 @@ int LoadClockLine(char *lineBuffer, int *measured, parameters *config)
 		return 0;
 	}
 
-	if(tmp != 'y')
+	if(tmp == 'n')
 		return 1;
+
+	if(tmp != 'y')
+		return 0;
 
 	if(config->clockCount == MAX_CLOCKS)
 	{
@@ -735,6 +738,7 @@ int LoadAudioBlockStructure(FILE *file, parameters *config)
 
 		if(!LoadClockLine(lineBuffer, &measured, config))
 		{
+			logmsg("ERROR: Invalid Clock Line (expected 'Name Enable Block Freq Mult):\n%s\n", lineBuffer);
 			fclose(file);
 			return 0;
 		}

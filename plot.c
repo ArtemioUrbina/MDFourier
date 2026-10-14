@@ -1726,26 +1726,14 @@ void SetClockColor(PlotFile *plot, ClockDef *clock)
 
 void GetClockValueText(AudioSignal *Signal, ClockDef *clock, int decimals, char *msg)
 {
-	if(Signal->role == ROLE_REF)
+	if(clock->notFound & Signal->role)
+		sprintf(msg, "not found");
+	else if(Signal->role == ROLE_REF)
 		sprintf(msg, "%0.*lf", decimals, clock->ref);
 	else if(clock->adjusted) 
 		sprintf(msg, "%0.*lf\\->%0.*lf", decimals, clock->com, decimals, clock->ref);
 	else
 		sprintf(msg, "%0.*lf", decimals, clock->com);
-}
-
-void DrawClockData(PlotFile *plot, AudioSignal *Signal, char *msg, parameters *config)
-{
-	char		value[100];
-	ClockDef	*clock = &config->clocks[0];
-
-	msg[0] = '\0';
-	if(!config->clkMeasure) 
-		return;
-
-	SetClockColor(plot, clock);
-	GetClockValueText(Signal, clock, 4, value);
-	sprintf(msg, "%s %s: %sHz", clock->name, Signal->role == ROLE_REF ? "RF" : "CM", value);
 }
 
 char *GetCLKIdentityName(AudioSignal *Signal, int clock, parameters *config)
@@ -1768,117 +1756,94 @@ char *GetCLKIdentityName(AudioSignal *Signal, int clock, parameters *config)
 	return clockDef->ids[clkID].displayName;
 }
 
-double GetClockRowLimit(int row, parameters *config)
+void GetClockStatusText(ClockDef *clock, parameters *config, char *msg)
 {
-	if(row == 1 && config->MaxFreq != FREQ_COUNT)  
-		return config->plotResX-4*config->plotResX/10;
-	return config->plotResX-3*config->plotResX/10;
-}
-
-double DrawClockIdentityAt(PlotFile *plot, char *name, double x, double limit, double y)
-{
-	int		len = 0;
-	char	label[BUFFER_SIZE];
-	double	available = 0, width = 0;
-
-	available = limit - x;
-	if(!name || available <= 0)
-		return 0;
-
-	len = strlen(name);
-	if(len > BUFFER_SIZE - 8)
-		len = BUFFER_SIZE - 8;
-	sprintf(label, "[%.*s]", len, name);
-	while(len > 1 && pl_flabelwidth_r(plot->plotter, label) > available)
-	{
-		len--;
-		sprintf(label, "[%.*s.]", len, name);
-	}
-	width = pl_flabelwidth_r(plot->plotter, label);
-	if(width > available)
-		return 0;
-
-	if(strcmp(name, "Unknown") == 0)
-		pl_pencolor_r(plot->plotter, 0xcccc, 0xcccc, 0);
+	if(clock->notFound)
+		sprintf(msg, "%.20s: tone not found in %s", clock->name,
+			clock->notFound == (ROLE_REF | ROLE_COMP) ? "both" : clock->notFound == ROLE_REF ? "RF" : "CM");
+	else if(!clock->ref || !clock->com)
+		sprintf(msg, "%.20s: not measured", clock->name);
+	else if(clock->adjusted)
+		sprintf(msg, "%.20s: %0.2f\\ct adjusted (-j)", clock->name, clock->centsDifference);
+	else if(clock->noMatch) 
+		sprintf(msg, "%.20s: %0.2f\\ct don't match (can use -j)", clock->name, clock->centsDifference);
+	else if(config->doClkAdjust)
+		sprintf(msg, "%.20s: %0.2f\\ct, -j not needed", clock->name, clock->centsDifference);
 	else
-		pl_pencolor_r(plot->plotter, 0xcccc, 0xcccc, 0xcccc);
-
-	pl_fmove_r(plot->plotter, x, y);
-	pl_alabel_r(plot->plotter, 'l', 'l', label);
-	return width;
+		sprintf(msg, "%.20s: %0.2f\\ct", clock->name, clock->centsDifference);
 }
 
-void DrawClockIdentity(PlotFile *plot, AudioSignal *Signal, char *clockLabel, int row, parameters *config)
+void GetClockSignalText(AudioSignal *Signal, ClockDef *clock, int c, parameters *config, char *msg)
 {
-	double	x = 0;
+	char	value[100], *idName = NULL;
+	int		len = 0;
 
-	x = config->plotResX-5*config->plotResX/10 +
-		pl_flabelwidth_r(plot->plotter, clockLabel) + 
-		pl_flabelwidth_r(plot->plotter, " ");
-		
-	DrawClockIdentityAt(plot, GetCLKIdentityName(Signal, 0, config), x,
-		GetClockRowLimit(row, config) - pl_flabelwidth_r(plot->plotter, " "),
-		config->plotResY/2-row*BAR_HEIGHT);
+	GetClockValueText(Signal, clock, 2, value);
+	len = sprintf(msg, "  %s %s%s", Signal->role == ROLE_REF ? "RF" : "CM", value,
+			clock->notFound & Signal->role ? "" : "Hz");
+
+	idName = GetCLKIdentityName(Signal, c, config);  
+	if(idName)
+		len += sprintf(msg+len, " [%.30s]", idName);
+
+	if(clock->warning & Signal->role)
+		sprintf(msg+len, " harmonics");
 }
 
-/* Several clocks share the row, cut with ".." when they don't fit */
-void DrawClockRowMultiple(PlotFile *plot, AudioSignal *Signal, int row, parameters *config)
+// Clock data at the top left of the graph area
+void DrawClockData(PlotFile *plot, int type, parameters *config)
 {
-	char	text[200];
-	double	x = 0, y = 0, limit = 0, space = 0, dots = 0;
+	double	x = 0, y = 0, lineHeight = 0;
+	char	msg[BUFFER_SIZE];
 
-	x = config->plotResX-5*config->plotResX/10;
-	y = config->plotResY/2-row*BAR_HEIGHT;
-	limit = GetClockRowLimit(row, config);
-	space = pl_flabelwidth_r(plot->plotter, " ");
-	dots = pl_flabelwidth_r(plot->plotter, "..");
+	if(!config->clkMeasure || !config->clockCount)
+		return;
 
-	pl_pencolor_r(plot->plotter, 0xcccc, 0xcccc, 0xcccc);
-	pl_fmove_r(plot->plotter, x, y);
-	pl_alabel_r(plot->plotter, 'l', 'l', Signal->role == ROLE_REF ? "RF" : "CM");
-	x += pl_flabelwidth_r(plot->plotter, Signal->role == ROLE_REF ? "RF" : "CM") + space;
+	pl_savestate_r(plot->plotter);
+	// Same space the frequency labels use, the graph area is 0 to plotResX and -plotResY/2 to plotResY/2
+	pl_fspace_r(plot->plotter, 0-X0BORDER*config->plotResX*plot->leftmargin, -1*config->plotResY/2-Y0BORDER*config->plotResY,
+		config->plotResX+X1BORDER*config->plotResX, config->plotResY/2+Y1BORDER*config->plotResY);
+	pl_ffontname_r(plot->plotter, PLOT_FONT);
+	pl_ffontsize_r(plot->plotter, FONT_SIZE_2);
+
+	lineHeight = FONT_SIZE_2*1.25;
+	x = config->plotResX/100;
+	y = config->plotResY/2 - lineHeight;
 
 	for(int c = 0; c < config->clockCount; c++)
 	{
-		double	width = 0;
-		int		last = c == config->clockCount - 1;
+		ClockDef	*clock = &config->clocks[c];
 
-		// Measured value only
-		sprintf(text, "%.20s:%0.2lf", config->clocks[c].name,
-			Signal->role == ROLE_REF ? config->clocks[c].ref : config->clocks[c].com);
-		width = pl_flabelwidth_r(plot->plotter, text);
-		// leave room for the dots if more clocks 
-		if(x + width + (last ? 0 : space + dots) > limit)
+		if(clock->notFound || clock->noMatch)
+			pl_pencolor_r(plot->plotter, 0xcccc, 0xcccc, 0);
+		else
+			SetClockColor(plot, clock);
+		GetClockStatusText(clock, config, msg);
+		pl_fmove_r(plot->plotter, x, y);
+		pl_alabel_r(plot->plotter, 'l', 'l', msg);
+		y -= lineHeight;
+
+		pl_pencolor_r(plot->plotter, 0xaaaa, 0xaaaa, 0xaaaa);
+		if(type != PLOT_SINGLE_COM && config->referenceSignal)
 		{
-			pl_pencolor_r(plot->plotter, 0xcccc, 0xcccc, 0xcccc);
+			GetClockSignalText(config->referenceSignal, clock, c, config, msg);
 			pl_fmove_r(plot->plotter, x, y);
-			pl_alabel_r(plot->plotter, 'l', 'l', "..");
-			return;
+			pl_alabel_r(plot->plotter, 'l', 'l', msg);
+			y -= lineHeight;
 		}
 
-		SetClockColor(plot, &config->clocks[c]);
-		pl_fmove_r(plot->plotter, x, y);
-		pl_alabel_r(plot->plotter, 'l', 'l', text);
-		x += width;
+		if(type != PLOT_SINGLE_REF && config->comparisonSignal)
+		{
+			GetClockSignalText(config->comparisonSignal, clock, c, config, msg);
+			pl_fmove_r(plot->plotter, x, y);
+			pl_alabel_r(plot->plotter, 'l', 'l', msg);
+			y -= lineHeight;
+		}
 
-		x += DrawClockIdentityAt(plot, GetCLKIdentityName(Signal, c, config), x,
-				limit - (last ? 0 : space + dots), y);
-		x += space;
-	}
-}
-
-void DrawClockRow(PlotFile *plot, AudioSignal *Signal, char *msg, int row, parameters *config)
-{
-	if(config->clockCount > 1)
-	{
-		DrawClockRowMultiple(plot, Signal, row, config);
-		return;
+		y -= lineHeight/3;	// gap between clocks
 	}
 
-	PLOT_COLUMN(5, row);
-	DrawClockData(plot, Signal, msg, config);
-	pl_alabel_r(plot->plotter, 'l', 'l', msg);
-	DrawClockIdentity(plot, Signal, msg, row, config);
+	pl_restorestate_r(plot->plotter);
 }
 
 void DrawImbalance(PlotFile *plot, AudioSignal *Signal, char *msg, parameters *config)
@@ -2253,23 +2218,6 @@ void DrawLabelsMDF(PlotFile *plot, char *Gname, char *GType, int type, parameter
 		}
 	}
 
-	for(int c = 0; c < config->clockCount && config->doClkAdjust; c++)
-	{
-		ClockDef	*clock = &config->clocks[c];
-
-		if(!clock->ref || !clock->com)
-			continue;
-
-		PLOT_WARN(1, warning++);
-		if(clock->adjusted)
-			sprintf(msg, "NOTE: Comparison %.20s clock adjusted by: %0.2f\\ct (-j)", 
-				clock->name, clock->centsDifference);
-		else
-			sprintf(msg, "NOTE: Comparison %.20s clock adjust ignored: %0.2f\\ct (-j)", 
-				clock->name, clock->centsDifference);
-		pl_alabel_r(plot->plotter, 'l', 'l', msg);
-	}
-
 	if(config->syncTolerance)
 	{
 		int		i = 0;
@@ -2418,30 +2366,6 @@ void DrawLabelsMDF(PlotFile *plot, char *Gname, char *GType, int type, parameter
 		pl_alabel_r(plot->plotter, 'l', 'l', "WARNING: L/R Channels might be reversed (or mono)");
 	}
 
-	for(int c = 0; c < config->clockCount; c++)
-	{
-		ClockDef	*clock = &config->clocks[c];
-
-		if(clock->warning)
-		{
-			PLOT_WARN(1, warning++);
-			sprintf(msg, "WARNING: %s %s noise/harmonics in the %.20s clk block", 
-				clock->warning == ROLE_REF ? "Reference" : clock->warning == ROLE_COMP ? "Comparison" : "Both files",
-				(clock->warning == ROLE_REF || clock->warning == ROLE_COMP) ? "has" : "have",
-				clock->name);
-			pl_alabel_r(plot->plotter, 'l', 'l', msg);
-		}
-
-		if(clock->notFound)
-		{
-			PLOT_WARN(1, warning++);
-			sprintf(msg, "WARNING: %s %.20s clk could not be detected", 
-				clock->notFound == ROLE_REF ? "Reference" : clock->notFound == ROLE_COMP ? "Comparison" : "Both files",
-				clock->name);
-			pl_alabel_r(plot->plotter, 'l', 'l', msg);
-		}
-	}
-
 	if(config->substractAveragePlot)
 	{
 		PLOT_WARN(1, warning++);
@@ -2477,16 +2401,6 @@ void DrawLabelsMDF(PlotFile *plot, char *Gname, char *GType, int type, parameter
 		sprintf(msg, "WARNING: %s%s match expected duration (can use -R)",
 			config->SRNoMatch == (ROLE_REF | ROLE_COMP) ? "Signal" : config->SRNoMatch == ROLE_REF ? "RF" : "CM",
 			config->SRNoMatch == (ROLE_REF | ROLE_COMP) ? "s don't" : " doesn't");
-		pl_alabel_r(plot->plotter, 'l', 'l', msg);
-	}
-
-	for(int c = 0; c < config->clockCount && !config->doClkAdjust; c++)
-	{
-		if(!config->clocks[c].noMatch)
-			continue;
-		PLOT_WARN(1, warning++);
-		sprintf(msg, "WARNING: %.20s clocks don't match by: %0.2f\\ct (can use -j)", 
-				config->clocks[c].name, config->clocks[c].centsDifference);
 		pl_alabel_r(plot->plotter, 'l', 'l', msg);
 	}
 
@@ -2617,18 +2531,7 @@ void DrawLabelsMDF(PlotFile *plot, char *Gname, char *GType, int type, parameter
 		pl_alabel_r(plot->plotter, 'l', 'l', "Low Fundamentals present");
 	}
 
-	if(config->clkMeasure)
-	{
-		if(type == PLOT_COMPARE)
-		{
-			DrawClockRow(plot, config->referenceSignal, msg, 1, config);
-			DrawClockRow(plot, config->comparisonSignal, msg, 2, config);
-		}
-		else if(type == PLOT_SINGLE_REF)
-			DrawClockRow(plot, config->referenceSignal, msg, 1, config);
-		else
-			DrawClockRow(plot, config->comparisonSignal, msg, 2, config);
-	}
+	DrawClockData(plot, type, config);
 
 	if(config->notVisible > 1)
 	{
