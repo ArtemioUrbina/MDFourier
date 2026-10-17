@@ -964,6 +964,22 @@ int LoadAudioBlockStructure(FILE *file, parameters *config)
 			}
 			config->types.typeArray[i].cutFrames = abs(config->types.typeArray[i].cutFrames);
 
+			// Stereo block that also gets its channel separation measured
+			if(config->types.typeArray[i].channel == CHANNEL_SEPARATION)
+			{
+				if(config->types.typeArray[i].type < TYPE_CONTROL)
+				{
+					logmsg("ERROR: Only regular blocks can measure channel separation\n %s\n", lineBuffer);
+					fclose(file);
+					return 0;
+				}
+				config->types.typeArray[i].channel = CHANNEL_STEREO;
+				config->types.typeArray[i].separation = 1;
+				config->types.typeArray[i].noCompare = 1;	// it has its own report
+				config->hasSeparation++;
+				config->hasTimeDomain++;	// their waveforms are always plotted
+			}
+
 			if(!CheckChannel(&config->types.typeArray[i].channel, config))
 			{
 				logmsg("ERROR: Invalid MD Fourier Audio Blocks File\n(Element Count, frames, skip, color, *channel*): %s\n", lineBuffer);
@@ -991,12 +1007,34 @@ int LoadAudioBlockStructure(FILE *file, parameters *config)
 				if(config->types.typeArray[i].maskType == ';')
 					config->types.typeArray[i].maskType = MASK_NONE;
 
-				if(config->types.typeArray[i].maskType != MASK_USE_WINDOW && config->types.typeArray[i].maskType != MASK_NONE)
+				else
 				{
-					logmsg("ERROR: Mask type can only be 'w' or 'n' for windowed or none (windowed was the original default)\n %s (0x%02X)\n", lineBuffer,
-						config->types.typeArray[i].maskType);
-					fclose(file);
-					return 0;
+					char	flags[PARAM_BUFFER_SIZE];
+
+					if(config->types.typeArray[i].maskType != MASK_USE_WINDOW && config->types.typeArray[i].maskType != MASK_NONE)
+					{
+						logmsg("ERROR: Mask type can only be 'w' or 'n' for windowed or none (windowed was the original default)\n %s (0x%02X)\n", lineBuffer,
+							config->types.typeArray[i].maskType);
+						fclose(file);
+						return 0;
+					}
+
+					// Optional flags after the mask, up to a ';' comment
+					if(sscanf(lineBuffer, "%*s %*s %*d %*d %*d %*s %*c %*c %127s\n", flags) == 1)
+					{
+						for(int f = 0; flags[f] && flags[f] != ';'; f++)
+						{
+							if(flags[f] == BLOCK_FLAG_NOCOMPARE)
+								config->types.typeArray[i].noCompare = 1;
+							else
+							{
+								logmsg("ERROR: Unknown block flag '%c', only '%c' (not compared) is valid\n %s\n",
+									flags[f], BLOCK_FLAG_NOCOMPARE, lineBuffer);
+								fclose(file);
+								return 0;
+							}
+						}
+					}
 				}
 			}
 			else
@@ -1370,7 +1408,7 @@ void PrintAudioBlocks(parameters *config)
 		TotalSeconds += seconds;
 		frames += config->types.typeArray[i].elementCount * config->types.typeArray[i].frames;
 
-		logmsgFileOnly("Frames: %0.5ld/%0.5d | length: %6.3f [%10.3f to %10.3f] | %c%s %s %d %d %d %s %c %s", 
+		logmsgFileOnly("Frames: %0.5ld/%0.5d | length: %6.3f [%10.3f to %10.3f] | %c%s %s %d %d %d %s %c %s%s", 
 			(long int)config->types.typeArray[i].elementCount*config->types.typeArray[i].frames,
 			frames,
 			seconds, 
@@ -1383,7 +1421,8 @@ void PrintAudioBlocks(parameters *config)
 			config->types.typeArray[i].frames,
 			config->types.typeArray[i].cutFrames*-1,
 			config->types.typeArray[i].color,
-			config->types.typeArray[i].channel,
+			config->types.typeArray[i].separation ? CHANNEL_SEPARATION : config->types.typeArray[i].channel,
+			config->types.typeArray[i].noCompare && !config->types.typeArray[i].separation ? "x " : "",
 			config->types.typeArray[i].IsaddOnData ? "(ExtraData)" : " ");
 
 		if(config->types.typeArray[i].type == TYPE_WATERMARK)

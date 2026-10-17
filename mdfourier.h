@@ -145,11 +145,12 @@
 #define	ROLE_REF	1
 #define	ROLE_COMP	2
 
-#define CHANNEL_NONE	'-'	//Invalid state
-#define	CHANNEL_MONO	'm'	//Is mono, used for balance
-#define	CHANNEL_STEREO	'S'	//Requires Stereo
-#define	CHANNEL_PSTEREO	's'	//Allows mono vs Stereo
-#define	CHANNEL_NOISE	'n'	//Allows "deeper" fundamental frequency noise analysis
+#define CHANNEL_NONE		'-'	//Invalid state
+#define	CHANNEL_MONO		'm'	//Is mono, used for balance
+#define	CHANNEL_STEREO		'S'	//Requires Stereo
+#define	CHANNEL_PSTEREO		's'	//Allows mono vs Stereo
+#define	CHANNEL_NOISE		'n'	//Allows "deeper" fundamental frequency noise analysis
+#define	CHANNEL_SEPARATION	'C'	//Stereo plots for channel separation per block (L only, R only or both)
 
 #define CHANNEL_LEFT	'l'
 #define CHANNEL_RIGHT	'r'
@@ -180,6 +181,9 @@
 #define MASK_USE_WINDOW	'*'
 #define MASK_NONE		'-'
 #define MASK_DEFAULT	MASK_NONE
+
+/* Block flags, optional column after the mask */
+#define BLOCK_FLAG_NOCOMPARE	'x'	// analyzed and plotted, but left out of the comparison
 
 /* Clock identification ranges [CLKID] */
 #define CLKID_UNIT_HZ		'h'
@@ -264,6 +268,8 @@ typedef struct abt_st {
 	double		syncLen;
 	int			IsaddOnData;
 	char		maskType;
+	int			noCompare;
+	int			separation;
 } AudioBlockType;
 
 typedef struct clkid_st {
@@ -473,6 +479,16 @@ typedef struct AudioBlock_st {
 	double			AverageDifference;
 	double			missingPercent;
 	double			extraPercent;
+
+	int				noCompare;
+	int				separation;
+	int				sepValid;
+	char			sepActive;
+	double			sepHertz;
+	double			sepActiveMag;
+	double			sepLeakMag;
+	double			sepFloorMag;
+	double			sepPhaseDiff;
 } AudioBlocks;
 
 typedef struct AudioSt {
@@ -711,6 +727,7 @@ typedef struct parameters_st {
 	double			AmpBarRange;
 	int				FullTimeSpectroScale;
 	int				hasTimeDomain;
+	int				hasSeparation;
 	int				hasSilenceOverRide;
 	int				hasAddOnData;
 	int				frequencyNormalizationTries;

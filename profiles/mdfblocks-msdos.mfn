@@ -4,7 +4,7 @@ DOS: Sound Blaster FM and PCM
 VGA70 14.26805 449 6000 14 10
 FM y 2 6002.078595 8.283114 1 2 3 4 5 6 7 8
 [CLKID] 4
-OPL2/3      49715.9028   250ppm
+OPL2/3      49715.9028   500ppm
 CQM         49804.4221   500ppm
 ESFM        49624.7075   500ppm
 OPL3-SAx    49515.7895   500ppm
@@ -14,7 +14,7 @@ Nominal     22222.2222   500ppm
 DSP2        21739.1304   500ppm
 SB16        22050.0      500ppm
 OPL3-SAx    22138.1      300ppm
-ESS         22158.0      300ppm
+ESS         22158.0      500ppm
 PCMS o 381 2756.25 8.0 13 14
 [CLKID] 4
 SB16        22050.0      500ppm
@@ -28,7 +28,7 @@ SB16        44100.0      500ppm
 [ToneLines] 38
 Sync            s   1  20  0 red     m
 Silence         n   1  20  0 gray    m
-CHIPID          1   1  60  0 orange  m
+CHIPID          1   1  60  0 orange  m - x
     PADDING     k   1  20  0 red     m
 MIXER           W   1  10    salmon  m 1000 2000 Mixer
     PADDING     k   1  20  0 gray    m
@@ -48,19 +48,19 @@ Vibrato         t   2  70  0 mint    s
     PADDING     k   1  20  0 red     m
 Wave            8   8  20  4 yellow  s *
     PADDING     k   1  20  0 red     m
-PCMCLK          9   1  60  3 indigo  m
+PCMCLK          9   1  60  3 indigo  m - x
 PCMIdle         t   1  20  0 sky     m
 PCMSine        10  64  10  2 sky     m *
     PADDING     k   1  20  0 red     m
 PCMLevel       11   8  20  4 cobalt  m *
     PADDING     k   1  20  0 red     m
-PSClk          13   1  60  3 blue    s
-PSSep          14   3  20  4 violet  s *
+PSClk          13   1  60  3 blue    s - x
+PSSep          14   3  20  4 violet  C *
     PADDING     k   1  20  0 red     m
-P16Clk         15   1  60  3 purple  s
+P16Clk         15   1  60  3 purple  s - x
 P16Sine        16  64  10  2 magenta s *
     PADDING     k   1  20  0 red     m
 P16Level       17   8  20  4 pink    s *
-P16Sep         18   3  20  4 rose    s *
+P16Sep         18   3  20  4 rose    C *
 Silence         n   1  20  0 gray    m
 Sync            s   1  20  0 red     m

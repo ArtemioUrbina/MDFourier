@@ -534,7 +534,7 @@ int AddDifferenceTypeJobs(PlotJobList *list, FlatAmplDifference *amplDiff, long 
 	{
 		int type = config->types.typeArray[i].type, count = 1;
 
-		if(type <= TYPE_CONTROL || config->types.typeArray[i].IsaddOnData)
+		if(type <= TYPE_CONTROL || config->types.typeArray[i].IsaddOnData || config->types.typeArray[i].noCompare)
 			continue;
 
 		if(config->types.typeArray[i].channel == CHANNEL_STEREO && someStereo)
@@ -581,7 +581,7 @@ int AddPhaseTypeJobs(PlotJobList *list, FlatPhase *phaseDiff, long int size, cha
 	{
 		int type = config->types.typeArray[i].type, count = 1;
 
-		if(type <= TYPE_CONTROL || config->types.typeArray[i].IsaddOnData)
+		if(type <= TYPE_CONTROL || config->types.typeArray[i].IsaddOnData || config->types.typeArray[i].noCompare)
 			continue;
 
 		if(config->types.typeArray[i].channel == CHANNEL_STEREO && bothStereo)
@@ -957,6 +957,15 @@ void PlotResults(AudioSignal *ReferenceSignal, AudioSignal *ComparisonSignal, pa
 		}
 		else
 			logmsg(" X Noise floor plots make no sense with current parameters.\n");
+	}
+
+	if(config->hasSeparation)
+	{
+		struct	timespec	lstart, lend;
+
+		StartPlot(" - Channel Separation", &lstart, config);
+		PlotSeparation(ReferenceSignal, ComparisonSignal, config);
+		EndPlot("Channel Separation", &lstart, &lend, config);
 	}
 
 	if((config->hasTimeDomain && config->plotTimeDomain) || config->plotAllNotes)
@@ -2876,6 +2885,18 @@ void DrawColorAllTypeScale(PlotFile *plot, int mode, double x, double y, double 
 	int		numTypes = 0, t = 0, maxMatch = 0;
 
 	numTypes = GetActiveBlockTypesNoRepeat(config);
+	// Blocks that are not compared are only listed in spectrograms
+	if(mode != MODE_SPEC)
+	{
+		for(int i = 0; i < config->types.typeCount; i++)
+		{
+			if(config->types.typeArray[i].type > TYPE_CONTROL && !config->types.typeArray[i].IsaddOnData &&
+				config->types.typeArray[i].noCompare)
+				numTypes--;
+		}
+	}
+	if(numTypes <= 0)
+		return;
 	segments = floor(fabs(endDbs/dbIncrement));
 
 	width *= numTypes;
@@ -2895,7 +2916,8 @@ void DrawColorAllTypeScale(PlotFile *plot, int mode, double x, double y, double 
 
 	for(int i = 0; i < config->types.typeCount; i++)
 	{
-		if(config->types.typeArray[i].type > TYPE_CONTROL && !config->types.typeArray[i].IsaddOnData)
+		if(config->types.typeArray[i].type > TYPE_CONTROL && !config->types.typeArray[i].IsaddOnData &&
+			!(mode != MODE_SPEC && config->types.typeArray[i].noCompare))
 		{
 			colorName[t] = MatchColor(GetTypeColor(config, config->types.typeArray[i].type));
 			typeID[t] = config->types.typeArray[i].type;
@@ -3371,7 +3393,7 @@ int PlotEachTypeDifferentAmplitudes(FlatAmplDifference *amplDiff, long int size,
 	{
 		type = config->types.typeArray[i].type;
 
-		if(type > TYPE_CONTROL && !config->types.typeArray[i].IsaddOnData)
+		if(type > TYPE_CONTROL && !config->types.typeArray[i].IsaddOnData && !config->types.typeArray[i].noCompare)
 		{
 			char	*returnFolder = NULL;
 		
@@ -4797,7 +4819,7 @@ int PlotDifferentAmplitudesAveraged(FlatAmplDifference *amplDiff, long int size,
 	{
 		type = config->types.typeArray[i].type;
 
-		if(type > TYPE_CONTROL && !config->types.typeArray[i].IsaddOnData)
+		if(type > TYPE_CONTROL && !config->types.typeArray[i].IsaddOnData && !config->types.typeArray[i].noCompare)
 		{
 			PlotJob *job = NewPlotJob(&list, PJOB_DIFF_AVG_TYPE);
 
@@ -5172,7 +5194,7 @@ void PlotAllDifferentAmplitudesAveraged(FlatAmplDifference *amplDiff, long int s
 		int type = 0, color = 0;
 
 		type = config->types.typeArray[t].type;
-		if(type <= TYPE_CONTROL || config->types.typeArray[t].IsaddOnData)
+		if(type <= TYPE_CONTROL || config->types.typeArray[t].IsaddOnData || config->types.typeArray[t].noCompare)
 			continue;
 
 		color = MatchColor(GetTypeColor(config, type));
@@ -5831,7 +5853,7 @@ long int CollectWaveformJobs(AudioSignal *Signal, WaveformJob *jobs, parameters 
 {
 	long int count = 0;
 
-	if(!Signal || !(config->plotAllNotes || config->timeDomainSync))
+	if(!Signal || !(config->plotAllNotes || config->timeDomainSync || config->hasSeparation))
 		return 0;
 
 	for(long int i = 0; i < config->types.totalBlocks; i++)
@@ -5839,6 +5861,7 @@ long int CollectWaveformJobs(AudioSignal *Signal, WaveformJob *jobs, parameters 
 		int doPlot = 0;
 
 		doPlot = Signal->Blocks[i].type == TYPE_TIMEDOMAIN ||
+				(Signal->Blocks[i].separation && Signal->Blocks[i].type != TYPE_SKIP) ||
 				(config->timeDomainSync && Signal->Blocks[i].type == TYPE_SYNC) ||
 				(config->timeDomainSync && Signal->Blocks[i].type == TYPE_SILENCE);
 		if(!(config->plotAllNotes || doPlot))
@@ -6731,7 +6754,7 @@ int PlotEachTypePhase(FlatPhase *phaseDiff, long int size, char *filename, int p
 	{
 		type = config->types.typeArray[i].type;
 
-		if(type > TYPE_CONTROL && !config->types.typeArray[i].IsaddOnData)
+		if(type > TYPE_CONTROL && !config->types.typeArray[i].IsaddOnData && !config->types.typeArray[i].noCompare)
 		{
 			char	*returnFolder = NULL;
 
@@ -7054,6 +7077,176 @@ void PlotCLKSpectrogramInternal(FlatFrequency *freqs, long int size, char *filen
 	ClosePlot(&plot);
 }
 
+void PlotSeparation(AudioSignal *ReferenceSignal, AudioSignal *ComparisonSignal, parameters *config)
+{
+	PlotFile	plot;
+	char		name[BUFFER_SIZE*2], label[BUFFER_SIZE];
+	int			count = 0, step = 0, inverted = 0, single = 0;
+	double		maxSep = 0, top = 0, resX = 0, resY = 0, left = 0, right = 0, bottom = 0, height = 0, slot = 0;
+
+	if(ReferenceSignal->AudioChannels != 2 || ComparisonSignal->AudioChannels != 2)
+	{
+		logmsg(" X Channel separation needs two stereo signals\n");
+		return;
+	}
+
+	for(int b = 0; b < config->types.totalBlocks; b++)
+	{
+		if(!ReferenceSignal->Blocks[b].separation || ReferenceSignal->Blocks[b].type == TYPE_SKIP)
+			continue;
+		count++;
+		for(int r = 0; r < 2; r++)
+		{
+			AudioBlocks	*blk = r ? &ComparisonSignal->Blocks[b] : &ReferenceSignal->Blocks[b];
+			int			lim = 0;
+			double		sep = GetSeparationDB(blk, &lim);
+
+			// a noise limited value is only a minimum, it doesn't set the scale
+			if(blk->sepValid && blk->sepActive != CHANNEL_STEREO && !lim && sep > maxSep)
+				maxSep = sep;
+		}
+	}
+	if(!count)
+		return;
+
+	top = ceil(maxSep/10.0)*10.0 + 20.0;
+	if(top < 60)
+		top = 60;
+
+	resX = config->plotResX;
+	resY = config->plotResY;
+	left = resX*0.25;		// clock table
+	right = resX*0.97;
+	bottom = resY*0.14;
+	height = resY*0.72;
+	slot = (right - left)/count;
+
+	sprintf(name, "SEP_%s", config->compareName);
+	FillPlot(&plot, name, 0, 0, resX, resY, 1, 1, config);
+	if(!CreatePlotFile(&plot, config))
+		return;
+
+	pl_ffontname_r(plot.plotter, PLOT_FONT);
+	pl_ffontsize_r(plot.plotter, FONT_SIZE_1);
+
+	// dB grid
+	for(double db = 0; db <= top; db += 10)
+	{
+		double y = bottom + height*db/top;
+
+		pl_pencolor_r(plot.plotter, 0x5555, 0x5555, 0x5555);
+		pl_fline_r(plot.plotter, left, y, right, y);
+		pl_endpath_r(plot.plotter);
+		pl_pencolor_r(plot.plotter, 0xaaaa, 0xaaaa, 0xaaaa);
+		pl_fmove_r(plot.plotter, left - resX*0.01, y);
+		sprintf(label, "%gdB", db);
+		pl_alabel_r(plot.plotter, 'r', 'c', label);
+	}
+
+	for(int b = 0; b < config->types.totalBlocks; b++)
+	{
+		AudioBlocks	*ref = &ReferenceSignal->Blocks[b], *com = &ComparisonSignal->Blocks[b];
+		double		x = left + slot*step, center = x + slot/2;
+		int			color = MatchColor(GetBlockColor(config, b));
+		char		active = ref->sepValid ? ref->sepActive : com->sepActive;
+
+		if(!ref->separation || ref->type == TYPE_SKIP)
+			continue;
+		step++;
+
+		if(active == CHANNEL_STEREO)
+		{
+			for(int r = 0; r < 2; r++)
+			{
+				AudioBlocks	*blk = r ? com : ref;
+				int			lim = 0;
+
+				if(!blk->sepValid)
+					sprintf(label, "%s: no tone", r ? "CM" : "RF");
+				else
+					sprintf(label, "%s L-R %+0.2fdB %+0.1f deg", r ? "CM" : "RF", GetSeparationDB(blk, &lim), blk->sepPhaseDiff);
+				SetPenColor(color, r ? 0x8000 : 0xffff, &plot);
+				pl_fmove_r(plot.plotter, center, bottom + height*(0.30 - r*0.08));
+				pl_alabel_r(plot.plotter, 'c', 'c', label);
+			}
+		}
+		else
+		{
+			for(int r = 0; r < 2; r++)
+			{
+				AudioBlocks	*blk = r ? com : ref;
+				int			lim = 0;
+				double		sep = 0, x0 = 0, x1 = 0, y1 = 0;
+
+				if(!blk->sepValid || blk->sepActive == CHANNEL_STEREO)
+					continue;
+
+				sep = GetSeparationDB(blk, &lim);
+				x0 = x + slot*(r ? 0.52 : 0.12);
+				x1 = x + slot*(r ? 0.88 : 0.48);
+				y1 = bottom + height*(sep > top ? top : sep)/top;
+
+				SetPenColor(color, r ? 0x8000 : 0xffff, &plot);
+				SetFillColor(color, r ? 0x8000 : 0xffff, &plot);
+				pl_filltype_r(plot.plotter, lim ? 0 : 1);
+				pl_fbox_r(plot.plotter, x0, bottom, x1, y1);
+				pl_endpath_r(plot.plotter);
+				pl_filltype_r(plot.plotter, 0);
+
+				pl_fmove_r(plot.plotter, (x0 + x1)/2, y1 + resY*0.012);
+				sprintf(label, "%s%0.1f %c", lim ? ">=" : "", sep, blk->sepActive == CHANNEL_LEFT ? 'L' : 'R');
+				pl_alabel_r(plot.plotter, 'c', 'b', label);
+			}
+		}
+
+		pl_pencolor_r(plot.plotter, 0xaaaa, 0xaaaa, 0xaaaa);
+		pl_fmove_r(plot.plotter, center, bottom - resY*0.025);
+		sprintf(label, "%s# %d", GetBlockName(config, b), GetBlockSubIndex(config, b));
+		pl_alabel_r(plot.plotter, 'c', 'c', label);
+		pl_fmove_r(plot.plotter, center, bottom - resY*0.05);
+		if(ref->sepValid && com->sepValid && ref->sepActive != com->sepActive)
+		{
+			pl_pencolor_r(plot.plotter, 0xffff, 0xaaaa, 0);
+			if(ref->sepActive != CHANNEL_STEREO && com->sepActive != CHANNEL_STEREO)
+			{
+				sprintf(label, "L/R inverted");
+				inverted++;
+			}
+			else
+				sprintf(label, "channels differ");
+		}
+		else
+			sprintf(label, "%s %0.0fHz", active == CHANNEL_STEREO ? "both" : (active == CHANNEL_LEFT ? "left only" : "right only"),
+				ref->sepValid ? ref->sepHertz : com->sepHertz);
+		if(ref->sepValid && com->sepValid && ref->sepActive != CHANNEL_STEREO && com->sepActive != CHANNEL_STEREO)
+			single++;
+		pl_alabel_r(plot.plotter, 'c', 'c', label);
+	}
+
+	pl_pencolor_r(plot.plotter, 0xaaaa, 0xaaaa, 0xaaaa);
+	pl_fmove_r(plot.plotter, left, bottom - resY*0.085);
+	pl_alabel_r(plot.plotter, 'l', 'c', "Bars: Reference bright, Comparison dim. Hollow: leak below the noise floor, value is a minimum");
+
+	if(inverted)
+	{
+		pl_pencolor_r(plot.plotter, 0xffff, 0x5555, 0);
+		pl_fmove_r(plot.plotter, left, bottom + height + resY*0.03);
+		if(inverted == single)
+			pl_alabel_r(plot.plotter, 'l', 'c', "WARNING: Left and Right are inverted between Reference and Comparison in every step");
+		else
+		{
+			sprintf(label, "WARNING: Left and Right are inverted in %d of %d single channel steps", inverted, single);
+			pl_alabel_r(plot.plotter, 'l', 'c', label);
+		}
+	}
+	pl_pencolor_r(plot.plotter, 0xaaaa, 0xaaaa, 0xaaaa);
+	pl_fmove_r(plot.plotter, left, bottom + height + resY*0.055);
+	pl_alabel_r(plot.plotter, 'l', 'c', "Stereo Separation: how much quieter the silent channel is than the tone in the active one (higher is better)");
+
+	DrawLabelsMDF(&plot, "CHANNEL SEPARATION [%s]", "Separation", PLOT_COMPARE, config);
+	ClosePlot(&plot);
+}
+
 /*
 void PlotDifferenceTimeSpectrogram(parameters *config)
 {
@@ -7193,3 +7386,4 @@ void PlotDifferenceTimeSpectrogram(parameters *config)
 	ClosePlot(&plot);
 }
 */
+

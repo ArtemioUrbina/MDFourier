@@ -63,6 +63,7 @@ int NormalizeAndFinishProcess(AudioSignal **ReferenceSignal, AudioSignal **Compa
 int FrequencyDomainNormalize(AudioSignal **ReferenceSignal, AudioSignal **ComparisonSignal, parameters *config);
 void AdjustTimeDomainData(AudioSignal *ReferenceSignal, AudioSignal *ComparisonSignal, parameters *config);
 void printTextResults(parameters *config);
+void ReportSeparation(AudioSignal *ReferenceSignal, AudioSignal *ComparisonSignal, parameters *config);
 
 // Time domain
 MaxSample FindMaxSampleAmplitude(AudioSignal *Signal);
@@ -134,6 +135,9 @@ int main(int argc, char *argv[])
 	ReleasePCM(ComparisonSignal);
 
 	AdjustTimeDomainData(ReferenceSignal, ComparisonSignal, &config);
+
+	if(config.hasSeparation)
+		ReportSeparation(ReferenceSignal, ComparisonSignal, &config);
 
 	logmsg("\n* Comparing frequencies: ");
 	if(!CompareAudioBlocks(ReferenceSignal, ComparisonSignal, &config))
@@ -1792,7 +1796,7 @@ int DuplicateSamplesForWaveformPlots(AudioSignal *Signal, long int element, long
 	{
 		if(config->plotTimeDomainHiDiff || config->plotAllNotes ||
 				config->doClkAdjust || Signal->Blocks[element].type == TYPE_TIMEDOMAIN ||
-				Signal->Blocks[element].type == TYPE_SILENCE)
+				Signal->Blocks[element].type == TYPE_SILENCE || Signal->Blocks[element].separation)
 		{
 			int forcecopy = 0;
 
@@ -2533,6 +2537,9 @@ int CompareAudioBlocks(AudioSignal *ReferenceSignal, AudioSignal *ComparisonSign
  
 		/* Ignore Control blocks */
 		if(type < TYPE_CONTROL)
+			continue;
+
+		if(ReferenceSignal->Blocks[block].separation)
 			continue;
 
 		refSize = CalculateMaxCompare(block, ReferenceSignal, type != TYPE_SILENCE ? config->significantAmplitude : SILENCE_LIMIT, CHANNEL_LEFT, config);
@@ -3282,6 +3289,8 @@ double FindLocalMaximumInBlock(AudioSignal *Signal, MaxMagn refMax, int allowDif
 
 			magnitude = Signal->Blocks[refMax.block].freq[i].magnitude;
 			diff = fabs(refMax.hertz - Signal->Blocks[refMax.block].freq[i].hertz);
+			if(magnitude > highest)
+				highest = magnitude;
 
 			if(diff == 0)
 			{
@@ -3309,10 +3318,12 @@ double FindLocalMaximumInBlock(AudioSignal *Signal, MaxMagn refMax, int allowDif
 
 				magnitude = Signal->Blocks[refMax.block].freqRight[i].magnitude;
 				diff = fabs(refMax.hertz - Signal->Blocks[refMax.block].freqRight[i].hertz);
+				if(magnitude > highest)
+					highest = magnitude;
 
 				if(diff == 0)
 				{
-					if(config->verbose) {
+					if(config->verbose >= 2) {
 						logmsg(" - Comparison Local Max magnitude for [R:%g->C:%g] Hz is %g at %s# %d (%d)\n",
 							refMax.hertz, Signal->Blocks[refMax.block].freqRight[i].hertz,
 							magnitude, GetBlockName(config, refMax.block), GetBlockSubIndex(config, refMax.block), refMax.block);
@@ -3403,9 +3414,14 @@ double FindLocalMaximumInBlock(AudioSignal *Signal, MaxMagn refMax, int allowDif
 		}
 	}
 
-	if(config->verbose) {
-		logmsg(" - Comparison Local Maximum (No Hz match%s) with %g magnitude at block %d\n",
-			allowDifference ? " with tolerance": "", highest, refMax.block);
+	if(config->verbose >= 2) {
+		if(highest)
+			logmsg(" - Comparison has no %g Hz%s match at %s# %d (%d), its highest magnitude is %g\n",
+				refMax.hertz, allowDifference ? " (with tolerance)" : "",
+				GetBlockName(config, refMax.block), GetBlockSubIndex(config, refMax.block), refMax.block, highest);
+		else
+			logmsg(" - Comparison has no frequencies at %s# %d (%d), block is empty\n",
+				GetBlockName(config, refMax.block), GetBlockSubIndex(config, refMax.block), refMax.block);
 	}
 	return 0;
 }
@@ -3544,4 +3560,115 @@ double FindFundamentalMagnitudeStdDev(AudioSignal *Signal, double AvgFundMag, pa
 	}
 
 	return stdDevFundMag;
+}
+
+void SeparationText(AudioBlocks *block, char *text)
+{
+	int		limited = 0;
+	double	value = 0;
+
+	if(!block->sepValid)
+	{
+		sprintf(text, "no tone");
+		return;
+	}
+
+	if(block->sepActive != CHANNEL_STEREO && !block->sepLeakMag && !block->sepFloorMag)
+	{
+		sprintf(text, "%s digital silence", block->sepActive == CHANNEL_LEFT ? "L->R" : "R->L");
+		return;
+	}
+
+	value = GetSeparationDB(block, &limited);
+	if(block->sepActive == CHANNEL_STEREO)
+		sprintf(text, "both L-R %+5.2fdB %+6.1f deg", value, block->sepPhaseDiff);
+	else
+		sprintf(text, "%s %s%5.1fdB", block->sepActive == CHANNEL_LEFT ? "L->R" : "R->L",
+			limited ? ">=" : "  ", value);
+}
+
+void ReportSeparation(AudioSignal *ReferenceSignal, AudioSignal *ComparisonSignal, parameters *config)
+{
+	int		differ = 0, inverted = 0, single = 0, limitedCount = 0, worstBlock = -1, active = 0;
+	double	worst = 0;
+
+	for(int block = 0; block < config->types.totalBlocks; block++)
+		if(ReferenceSignal->Blocks[block].separation && ReferenceSignal->Blocks[block].type != TYPE_SKIP)
+			active++;
+	if(!active || ReferenceSignal->AudioChannels != 2 || ComparisonSignal->AudioChannels != 2)
+		return;
+
+	logmsg("\n* Channel separation (tone in one channel, the other read at the same frequency):\n");
+	for(int block = 0; block < config->types.totalBlocks; block++)
+	{
+		AudioBlocks	*ref = &ReferenceSignal->Blocks[block], *com = &ComparisonSignal->Blocks[block];
+		char		refText[64], comText[64], diffText[64];
+		int			refLim = 0, comLim = 0;
+		double		refSep = 0, comSep = 0;
+
+		if(!ref->separation || ref->type == TYPE_SKIP)
+			continue;
+
+		SeparationText(ref, refText);
+		SeparationText(com, comText);
+		refSep = GetSeparationDB(ref, &refLim);
+		comSep = GetSeparationDB(com, &comLim);
+
+		diffText[0] = '\0';
+		if(ref->sepValid && com->sepValid)
+		{
+			int refSingle = ref->sepActive != CHANNEL_STEREO, comSingle = com->sepActive != CHANNEL_STEREO;
+
+			// a tone in one channel in both signals: it can be inverted
+			if(refSingle && comSingle)
+				single++;
+
+			if(ref->sepActive != com->sepActive)
+			{
+				if(refSingle && comSingle)
+				{
+					sprintf(diffText, " <- L/R inverted");
+					inverted++;
+				}
+				else
+				{
+					// one signal plays it in both channels, the other in one
+					sprintf(diffText, " <- channels differ");
+					differ++;
+				}
+			}
+			else if(!refLim && !comLim)
+				sprintf(diffText, " (%+0.1fdB)", comSep - refSep);
+		}
+
+		logmsgFileOnly(" - %s# %d %7.1fHz Ref %s | Com %s%s\n",
+			GetBlockName(config, block), GetBlockSubIndex(config, block),
+			ref->sepValid ? ref->sepHertz : com->sepHertz, refText, comText, diffText);
+
+		limitedCount += refLim + comLim;
+		for(int r = 0; r < 2; r++)
+		{
+			AudioBlocks	*b = r ? com : ref;
+			int			lim = r ? comLim : refLim;
+			double		sep = r ? comSep : refSep;
+
+			if(b->sepValid && b->sepActive != CHANNEL_STEREO && !lim && (worstBlock == -1 || sep < worst))
+			{
+				worst = sep;
+				worstBlock = block;
+			}
+		}
+	}
+
+	if(worstBlock != -1)
+		logmsg(" - Lowest separation: %0.1fdB in %s# %d\n", worst,
+			GetBlockName(config, worstBlock), GetBlockSubIndex(config, worstBlock));
+	if(limitedCount)
+		logmsg(" - %d result(s) limited by the noise floor\n", limitedCount);
+	if(inverted && inverted == single)
+		logmsg(" - WARNING: Left and Right are inverted between Reference and Comparison\n");
+	else if(inverted)
+		logmsg(" - WARNING: Left and Right are inverted in %d of %d single channel blocks\n", inverted, single);
+	if(differ)
+		logmsg(" - WARNING: %d block(s) play the tone in both channels in one signal and in one channel in the other\n", differ);
 }

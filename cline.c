@@ -178,6 +178,7 @@ void CleanParameters(parameters *config)
 	config->AmpBarRange = BAR_DIFF_DB_TOLERANCE;
 	config->FullTimeSpectroScale = 0;
 	config->hasTimeDomain = 0;
+	config->hasSeparation = 0;
 	config->hasSilenceOverRide = 0;
 
 	config->maxBlockFrameCount = 0;

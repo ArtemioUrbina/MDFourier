@@ -183,6 +183,7 @@ typedef struct flat_phase_St {
 	char	channel;
 } FlatPhase;
 
+void PlotSeparation(AudioSignal *ReferenceSignal, AudioSignal *ComparisonSignal, parameters *config);
 void PlotResults(AudioSignal *ReferenceSignal, AudioSignal *ComparisonSignal, parameters *config);
 void PlotAmpDifferences(parameters *config);
 void PlotAllWeightedAmpDifferences(parameters *config);

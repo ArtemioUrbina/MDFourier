@@ -332,6 +332,8 @@ AudioSignal *CreateAudioSignal(parameters *config)
 	{
 		if(!InitAudioBlock(&Signal->Blocks[n], GetBlockChannel(config, n), GetBlockMaskType(config, n), config))
 			return NULL;
+		Signal->Blocks[n].separation = GetBlockSeparation(config, n);
+		Signal->Blocks[n].noCompare = GetBlockNoCompare(config, n);
 	}
 
 	InitAudio(Signal, config);
@@ -1609,6 +1611,40 @@ char GetBlockChannel(parameters *config, int pos)
 	return CHANNEL_NONE;
 }
 
+int GetBlockSeparation(parameters *config, int pos)
+{
+	int elementsCounted = 0;
+
+	if(!config)
+		return 0;
+
+	for(int i = 0; i < config->types.typeCount; i++)
+	{
+		elementsCounted += config->types.typeArray[i].elementCount;
+		if(elementsCounted > pos)
+			return(config->types.typeArray[i].separation);
+	}
+	
+	return 0;
+}
+
+int GetBlockNoCompare(parameters *config, int pos)
+{
+	int elementsCounted = 0;
+
+	if(!config)
+		return 0;
+
+	for(int i = 0; i < config->types.typeCount; i++)
+	{
+		elementsCounted += config->types.typeArray[i].elementCount;
+		if(elementsCounted > pos)
+			return(config->types.typeArray[i].noCompare);
+	}
+	
+	return 0;
+}
+
 char GetBlockMaskType(parameters *config, int pos)
 {
 	int elementsCounted = 0;
@@ -2710,14 +2746,155 @@ int FillFrequencyStructures(AudioSignal *Signal, AudioBlocks *AudioArray, parame
 	}
 	if(!FillFrequencyStructuresInternal(Signal, AudioArray, channel, config))
 		return 0;
+	if(Signal && Signal->AudioChannels == 2 && AudioArray->separation)
+		MeasureSeparation(AudioArray, config);
 	ReleaseFFTW(AudioArray);
 	return 1;
+}
+
+#define SEP_PEAK_BINS	2
+#define SEP_FLOOR_SKIP	8
+#define SEP_FLOOR_BINS	200
+#define SEP_BOTH_DB		10.0
+
+long int FindPeakBin(FFTWSpectrum *fftw, long int startBin, long int endBin, double *mag)
+{
+	long int	peak = -1;
+
+	*mag = 0;
+	for(long int i = startBin; i < endBin; i++)
+	{
+		double m = CalculateMagnitude(&fftw->spectrum[i], fftw->ENBW);
+
+		if(m > *mag)
+		{
+			*mag = m;
+			peak = i;
+		}
+	}
+	return peak;
+}
+
+double MaxMagnitudeNear(FFTWSpectrum *fftw, long int bin, long int endBin)
+{
+	double	max = 0;
+
+	for(long int i = bin - SEP_PEAK_BINS; i <= bin + SEP_PEAK_BINS; i++)
+	{
+		double m = 0;
+
+		if(i >= 0 && i <= endBin)
+		{
+			m = CalculateMagnitude(&fftw->spectrum[i], fftw->ENBW); 
+			if(m > max)
+				max = m;
+		}
+	}
+	return max;
+}
+
+#undef SORT_NAME
+#undef SORT_TYPE
+#undef SORT_CMP
+#define SORT_NAME Double
+#define SORT_TYPE double
+#define SORT_CMP(x, y)  ((x) < (y) ? -1 : ((x) > (y) ? 1 : 0))
+#include "sort.h"
+
+double MedianFloorNear(FFTWSpectrum *fftw, long int bin, long int startBin, long int endBin)
+{
+	double		values[2*SEP_FLOOR_BINS], median = 0;
+	long int	count = 0;
+
+	for(long int i = bin - SEP_FLOOR_BINS; i <= bin + SEP_FLOOR_BINS; i++)
+	{
+		if(i < startBin || i >= endBin || labs(i - bin) <= SEP_FLOOR_SKIP)
+			continue;
+		if(count < 2*SEP_FLOOR_BINS)
+			values[count++] = CalculateMagnitude(&fftw->spectrum[i], fftw->ENBW);
+	}
+
+	if(!count)
+		return 0;
+
+	Double_quick_sort(values, count);
+	median = values[count/2];
+	return median;
+}
+double PhaseDiffDegrees(fftw_complex *left, fftw_complex *right)
+{
+	double diff = CalculatePhase(left) - CalculatePhase(right);
+
+	while(diff > 180)
+		diff -= 360;
+	while(diff < -180)
+		diff += 360;
+	return diff;
+}
+
+void MeasureSeparation(AudioBlocks *AudioArray, parameters *config)
+{
+	long int		startBin = 0, endBin = 0, binL = 0, binR = 0, bin = 0;
+	double			boxsize = 0, magL = 0, magR = 0;
+	FFTWSpectrum	*active = NULL, *silent = NULL;
+
+	AudioArray->sepValid = 0;
+	if(!AudioArray->fftwValues.spectrum || !AudioArray->fftwValuesRight.spectrum ||
+		AudioArray->fftwValues.size != AudioArray->fftwValuesRight.size || AudioArray->seconds == 0.0)
+		return;
+
+	boxsize = RoundFloat(AudioArray->seconds, 3);
+	startBin = ceil(config->startHz*boxsize);
+	endBin = floor(config->endHz*boxsize);
+	if(endBin > (long int)AudioArray->fftwValues.size/2)
+		endBin = AudioArray->fftwValues.size/2;
+	if(startBin < 1)
+		startBin = 1;
+	if(endBin <= startBin)
+		return;
+
+	binL = FindPeakBin(&AudioArray->fftwValues, startBin, endBin, &magL);
+	binR = FindPeakBin(&AudioArray->fftwValuesRight, startBin, endBin, &magR);
+	if(binL < 0 && binR < 0)
+		return;
+
+	if(magL >= magR)
+	{
+		bin = binL;
+		active = &AudioArray->fftwValues;
+		silent = &AudioArray->fftwValuesRight;
+		AudioArray->sepActive = CHANNEL_LEFT;
+	}
+	else
+	{
+		bin = binR;
+		active = &AudioArray->fftwValuesRight;
+		silent = &AudioArray->fftwValues;
+		AudioArray->sepActive = CHANNEL_RIGHT;
+	}
+
+	AudioArray->sepHertz = CalculateFrequency(bin, boxsize);
+	AudioArray->sepActiveMag = CalculateMagnitude(&active->spectrum[bin], active->ENBW);
+	AudioArray->sepLeakMag = MaxMagnitudeNear(silent, bin, endBin);
+	AudioArray->sepFloorMag = MedianFloorNear(silent, bin, startBin, endBin);
+	AudioArray->sepPhaseDiff = 0;
+
+	if(AudioArray->sepLeakMag > 0 &&
+		20*log10(AudioArray->sepActiveMag/AudioArray->sepLeakMag) < SEP_BOTH_DB)
+	{
+		// both channels play it: keep left/right order for the level difference
+		AudioArray->sepActive = CHANNEL_STEREO;
+		AudioArray->sepActiveMag = CalculateMagnitude(&AudioArray->fftwValues.spectrum[bin], AudioArray->fftwValues.ENBW);
+		AudioArray->sepLeakMag = CalculateMagnitude(&AudioArray->fftwValuesRight.spectrum[bin], AudioArray->fftwValuesRight.ENBW);
+		AudioArray->sepPhaseDiff = PhaseDiffDegrees(&AudioArray->fftwValues.spectrum[bin], &AudioArray->fftwValuesRight.spectrum[bin]);
+	}
+	AudioArray->sepValid = AudioArray->sepActiveMag > 0;
 }
 
 /*
  * Refine CLK peak's frequency between bins, with a parabola
  */
-static double RefinePeakFrequency(FFTWSpectrum *fftw, double ENBW, long int bin, long int size, double boxsize)
+double RefinePeakFrequency(FFTWSpectrum *fftw, double ENBW, long int bin, long int size, double boxsize)
 {
 	double a = 0, b = 0, c = 0, denom = 0, offset = 0;
 
@@ -3960,3 +4137,30 @@ inline double GetSignalMinDBFS(AudioSignal *Signal)
 	}
 	return Min;
 }
+
+#define SEP_NOISE_LIMIT_DB	6.0
+
+double GetSeparationDB(AudioBlocks *block, int *limited)
+{
+	*limited = 0;
+	if(!block->sepValid)
+		return 0;
+
+	if(block->sepActive == CHANNEL_STEREO)
+	{
+		if(!block->sepLeakMag)
+			return 0;
+		return 20*log10(block->sepActiveMag/block->sepLeakMag);	// L - R
+	}
+
+	if(block->sepFloorMag > 0 && (block->sepLeakMag == 0 ||
+		20*log10(block->sepLeakMag/block->sepFloorMag) < SEP_NOISE_LIMIT_DB))
+	{
+		*limited = 1;
+		return 20*log10(block->sepActiveMag/block->sepFloorMag);
+	}
+	if(!block->sepLeakMag)
+		return 0;
+	return 20*log10(block->sepActiveMag/block->sepLeakMag);
+}
+
