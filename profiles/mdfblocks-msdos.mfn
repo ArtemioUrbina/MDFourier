@@ -22,8 +22,9 @@ SBPro       21739.1304   500ppm
 ESS         21676.3131   300ppm
 OPL3-SAx    21656.8490   300ppm
 PCM16 o 386 5512.5 8.0 15 16 17 18
-[CLKID] 1
-SB16        44100.0      500ppm
+[CLKID] 2
+SB16        44100.0      100ppm
+ESS         44110.80     100ppm
 [MonoBalanceBlock] 2
 [ToneLines] 38
 Sync            s   1  20  0 red     m
@@ -39,7 +40,7 @@ Sine            3 128  10  2 lime    s *
 Depth           4   8  20  4 emerald s *
     PADDING     k   1  20  0 red     m
 Feedback        5   7  20  4 mint    s *
-Feedback7       6   1  20  4 cyan    s *
+Feedback_7      6   1  20  4 cyan    s *
     PADDING     k   1  20  0 red     m
 Level           7   8  20  4 canary  s *
     PADDING     k   1  20  0 gray    m
@@ -48,19 +49,19 @@ Vibrato         t   2  70  0 mint    s
     PADDING     k   1  20  0 red     m
 Wave            8   8  20  4 yellow  s *
     PADDING     k   1  20  0 red     m
-PCMCLK          9   1  60  3 indigo  m - x
-PCMIdle         t   1  20  0 sky     m
-PCMSine        10  64  10  2 sky     m *
+PCM_CLK         9   1  60  3 indigo  m - x
+PCM_Idle        t   1  20  0 sky     m
+PCM_Sine       10  64  10  2 sky     m *
     PADDING     k   1  20  0 red     m
-PCMLevel       11   8  20  4 cobalt  m *
+PCM_Level      11   8  20  4 cobalt  m *
     PADDING     k   1  20  0 red     m
-PSClk          13   1  60  3 blue    s - x
-PSSep          14   3  20  4 violet  C *
+PCM8_CLK       13   1  60  3 blue    s - x
+PCM8_Sep       14   3  20  4 violet  C *
     PADDING     k   1  20  0 red     m
-P16Clk         15   1  60  3 purple  s - x
-P16Sine        16  64  10  2 magenta s *
+PCM16_CLK      15   1  60  3 purple  s - x
+PCM16_Sine     16  64  10  2 magenta s *
     PADDING     k   1  20  0 red     m
-P16Level       17   8  20  4 pink    s *
-P16Sep         18   3  20  4 rose    C *
+PCM16_Level    17   8  20  4 pink    s *
+PCM16_Sep      18   3  20  4 rose    C *
 Silence         n   1  20  0 gray    m
 Sync            s   1  20  0 red     m

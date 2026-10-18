@@ -344,17 +344,20 @@ void PrintSignalCLKData(AudioSignal *Signal, ClockDef *clock)
 
 	logmsg("\n");
 
-	if(clock->warning & Signal->role)
-		logmsg("WARNING: %s has noise or higher harmonics than the fundamental in the %s clock block.\n",
-			Signal->role == ROLE_REF ? "Reference" : "Comparison", clock->name);
-
-	if(clock->weak & Signal->role)
-		logmsg("WARNING: %s %s clock tone is at %0.2f dBFS below the significant amplitude. Treated as not found.\n",
-			Signal->role == ROLE_REF ? "Reference" : "Comparison", clock->name,
-			Signal->role == ROLE_REF ? clock->refTone : clock->comTone);
-	else if(clock->notFound & Signal->role && !clock->optional)
-		logmsg("WARNING: %s %s clock tone not found within 5%% of %gHz, the value shown is the strongest frequency.\n",
-			Signal->role == ROLE_REF ? "Reference" : "Comparison", clock->name, clock->freq);
+	if(!clock->optional)
+	{
+		if(clock->warning & Signal->role)
+			logmsg("WARNING: %s has noise or higher harmonics than the fundamental in the %s clock block.\n",
+				Signal->role == ROLE_REF ? "Reference" : "Comparison", clock->name);
+	
+		if(clock->weak & Signal->role)
+			logmsg("WARNING: %s %s clock tone is at %0.2f dBFS below the significant amplitude. Treated as not found.\n",
+				Signal->role == ROLE_REF ? "Reference" : "Comparison", clock->name,
+				Signal->role == ROLE_REF ? clock->refTone : clock->comTone);
+		else if(clock->notFound & Signal->role)
+			logmsg("WARNING: %s %s clock tone not found within 5%% of %gHz, the value shown is the strongest frequency.\n",
+				Signal->role == ROLE_REF ? "Reference" : "Comparison", clock->name, clock->freq);
+	}
 }
 
 // A tone within 5% can still be noise when the signal is not present 
