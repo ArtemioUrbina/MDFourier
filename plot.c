@@ -7236,14 +7236,21 @@ void PlotSeparation(AudioSignal *ReferenceSignal, AudioSignal *ComparisonSignal,
 				pl_fmove_r(plot.plotter, (x0 + x1)/2, y1 + resY*0.012);
 				sprintf(label, "%s%0.1f %c", lim ? ">=" : "", sep, blk->sepActive == CHANNEL_LEFT ? 'L' : 'R');
 				pl_alabel_r(plot.plotter, 'c', 'b', label);
+
+				// Signal ID below the bar
+				sprintf(label, "%s", r ? "Comparison" : "Reference");
+				if(pl_flabelwidth_r(plot.plotter, label) > x1 - x0)
+					sprintf(label, "%s", r ? "Com" : "Ref");
+				pl_fmove_r(plot.plotter, (x0 + x1)/2, bottom - resY*0.008);
+				pl_alabel_r(plot.plotter, 'c', 't', label);
 			}
 		}
 
 		pl_pencolor_r(plot.plotter, 0xaaaa, 0xaaaa, 0xaaaa);
-		pl_fmove_r(plot.plotter, center, bottom - resY*0.025);
+		pl_fmove_r(plot.plotter, center, bottom - resY*0.04);
 		sprintf(label, "%s# %d", GetBlockDisplayName(config, b), GetBlockSubIndex(config, b));
 		pl_alabel_r(plot.plotter, 'c', 'c', label);
-		pl_fmove_r(plot.plotter, center, bottom - resY*0.05);
+		pl_fmove_r(plot.plotter, center, bottom - resY*0.062);
 		if(ref->sepValid && com->sepValid && ref->sepActive != com->sepActive)
 		{
 			pl_pencolor_r(plot.plotter, 0xffff, 0xaaaa, 0);
@@ -7264,9 +7271,9 @@ void PlotSeparation(AudioSignal *ReferenceSignal, AudioSignal *ComparisonSignal,
 	}
 
 	pl_pencolor_r(plot.plotter, 0xaaaa, 0xaaaa, 0xaaaa);
-	pl_fmove_r(plot.plotter, left, bottom - resY*0.085);
-	pl_alabel_r(plot.plotter, 'l', 'c', "Bars: Reference bright, Comparison dim");
-	pl_fmove_r(plot.plotter, left, bottom - resY*0.1);
+	pl_fmove_r(plot.plotter, left, bottom - resY*0.09);
+	pl_alabel_r(plot.plotter, 'l', 'c', "Bars: separation in dB for the active channel");
+	pl_fmove_r(plot.plotter, left, bottom - resY*0.105);
 	pl_alabel_r(plot.plotter, 'l', 'c', "Hollow: separation is below the noise floor");
 
 	if(inverted)
