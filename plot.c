@@ -6961,129 +6961,157 @@ void DrawLabelsZeroAngleCentered(PlotFile *plot, double maxAngle, double angleIn
 void PlotCLKSpectrogram(AudioSignal *Signal, int clock, parameters *config)
 {
 	char 				tmpName[BUFFER_SIZE/2], name[BUFFER_SIZE];
-	long int			size = 0;
-	FlatFrequency		*frequencies = NULL;
-	
+
+	if(!Signal || !Signal->clkFrequencies[clock].freq)
+		return; 
+		
 	ShortenFileName(basename(Signal->SourceFile), tmpName, BUFFER_SIZE/2);
-	frequencies = CreateFlatFrequenciesCLK(Signal, clock, &size, config);
-	if(!frequencies)
-		return;
-	sprintf(name, "SP_%c_%s_CLK_%s", Signal->role == ROLE_REF ? 'A' : 'B', tmpName, config->clocks[clock].name);
-	PlotCLKSpectrogramInternal(frequencies, size, name, Signal->role, clock, config);
-
-	free(frequencies);
-	frequencies = NULL;
+	sprintf(name, "CLK_%02d_%s_%c_%s", clock + 1, config->clocks[clock].name, Signal->role == ROLE_REF ? 'A' : 'B', tmpName);
+	PlotCLKSpectrogramInternal(Signal, name, clock, config); 
+	logmsg(PLOT_PROCESS_CHAR);
 }
 
-FlatFrequency *CreateFlatFrequenciesCLK(AudioSignal *Signal, int clock, long int *size, parameters *config)
+#define CLK_PLOT_SPAN	100.0
+#define CLK_PLOT_DEPTH	100.0
+#define CLK_PLOT_HORZ	10.0
+
+static double CLKPeakHertz(AudioSignal *Signal, int clock, parameters *config)
 {
-	long int		i = 0;
-	long int		count = 0, counter = 0;
-	FlatFrequency	*Freqs = NULL;
+	Frequency	*freq = Signal ? Signal->clkFrequencies[clock].freq : NULL;
+	double		mag = 0, hz = 0;
 
-	if(!size || !Signal || !config || clock < 0 || clock >= config->clockCount)
-		return NULL;
-
-	*size = 0;
-
-	if(!Signal->clkFrequencies[clock].freq)
-		return NULL;
-
-	for(i = 0; i < config->MaxFreq; i++)
+	if(!freq)
+		return 0;
+		
+	for(int f = 0; f < config->MaxFreq && freq[f].hertz; f++)
 	{
-		if(Signal->clkFrequencies[clock].freq[i].hertz != 0)
-			count ++;
-		else
-			break;
+		if(freq[f].magnitude > mag)
+		{
+			mag = freq[f].magnitude;
+			hz = freq[f].hertz;
+		}
 	}
-
-	Freqs = (FlatFrequency*)malloc(sizeof(FlatFrequency)*count);
-	if(!Freqs)
-		return NULL;
-	memset(Freqs, 0, sizeof(FlatFrequency)*count);
-
-	for(i = 0; i < count; i++)
-	{
-		FlatFrequency tmp;
-
-		tmp.hertz = Signal->clkFrequencies[clock].freq[i].hertz;
-		tmp.amplitude = Signal->clkFrequencies[clock].freq[i].amplitude;
-		tmp.type = TYPE_CLK_ANALYSIS;
-		tmp.color = COLOR_YELLOW;
-		tmp.channel = CHANNEL_LEFT;
-
-		if(InsertElementInPlace(Freqs, tmp, counter))
-			counter ++;
-	}
-	
-	logmsg(PLOT_PROCESS_CHAR);
-	FlatFrequenciesByAmplitude_tim_sort(Freqs, counter);
-	logmsg(PLOT_PROCESS_CHAR);
-
-	*size = counter;
-	return(Freqs);
+	return hz;
 }
 
-void PlotCLKSpectrogramInternal(FlatFrequency *freqs, long int size, char *filename, int signal, int clock, parameters *config)
+void PlotCLKSpectrogramInternal(AudioSignal *Signal, char *filename, int clock, parameters *config)
 {
 	PlotFile	plot;
-	double		startAmplitude = config->significantAmplitude, endAmplitude = config->lowestDBFS;
+	char		label[BUFFER_SIZE];
+	double		center = 0, peakMag = 0, resX = 0, resY = 0, y = 0, depth = CLK_PLOT_DEPTH;
+	ClockDef	*clk = &config->clocks[clock];
+	Frequency	*freq = Signal->clkFrequencies[clock].freq;
+	int			found = !(clk->notFound & Signal->role);
 
-	if(!config)
+	peakMag = GetSignalPeakMagnitude(Signal, config);
+	if(!peakMag)
 		return;
 
-	// Find limits
-	for(int f = 0; f < size; f++)
+	if(!(clk->notFound & ROLE_REF))
+		center = CLKPeakHertz(config->referenceSignal, clock, config);
+	else
 	{
-		if(freqs[f].amplitude > startAmplitude)
-			startAmplitude = freqs[f].amplitude;
-		if(freqs[f].amplitude < endAmplitude)
-			endAmplitude = freqs[f].amplitude;
+		if(!(clk->notFound & ROLE_COMP))
+			center = CLKPeakHertz(config->comparisonSignal, clock, config);
+		else
+			center = clk->freq;		// no tone in either: the expected frequency
 	}
 
-	if(endAmplitude < NS_LOWEST_AMPLITUDE)
-		endAmplitude = NS_LOWEST_AMPLITUDE;
+	if(-config->significantAmplitude + 10 > depth)
+		depth = ceil((-config->significantAmplitude + 10)/10.0)*10.0;
 
-	FillPlot(&plot, filename, config->startHzPlot, endAmplitude, config->endHzPlot, 0.0, 1, 1, config);
-
+	resX = config->plotResX;
+	resY = config->plotResY;
+	FillPlot(&plot, filename, 0, 0, resX, resY, 1, 1, config);
 	if(!CreatePlotFile(&plot, config))
 		return;
 
-	DrawGridZeroToLimit(&plot, endAmplitude, VERT_SCALE_STEP, config->endHzPlot, 1000, 0, config);
-	DrawLabelsZeroToLimit(&plot, endAmplitude, VERT_SCALE_STEP, config->endHzPlot, 0, config);
+	pl_ffontname_r(plot.plotter, PLOT_FONT);
+	pl_ffontsize_r(plot.plotter, FONT_SIZE_1);
 
-	//DrawNoiseLines(&plot, 0, endAmplitude, Signal, config);
-	//DrawLabelsNoise(&plot, config->endHzPlot, Signal, config);
-
-	for(int f = 0; f < size; f++)
+	// dBFS grid, 0 at the top
+	for(double db = 0; db <= depth; db += CLK_PLOT_HORZ)
 	{
-		if(freqs[f].amplitude >= endAmplitude && freqs[f].hertz)
-		{ 
-			long int intensity;
-			double x, y;
-
-			x = transformtoLog(freqs[f].hertz, config);
-			y = freqs[f].amplitude;
-			intensity = CalculateWeightedError(((fabs(endAmplitude) - fabs(startAmplitude)) - (fabs(freqs[f].amplitude)- fabs(startAmplitude)))/(fabs(endAmplitude)-fabs(startAmplitude)), config)*0xffff;
-			
-			//pl_flinewidth_r(plot.plotter, 100*range_0_1);
-			SetPenColor(freqs[f].color, intensity, &plot);
-			pl_fline_r(plot.plotter, x, y, x, endAmplitude);
-			pl_endpath_r(plot.plotter);
-		}
+		y = resY - resY*db/depth;
+		pl_pencolor_r(plot.plotter, 0, 0x5555, 0);
+		pl_fline_r(plot.plotter, 0, y, resX, y);
+		pl_endpath_r(plot.plotter);
+		pl_pencolor_r(plot.plotter, 0, 0xaaaa, 0);
+		pl_fmove_r(plot.plotter, -resX*0.01, y);
+		sprintf(label, "%gdBFS", -db);
+		pl_alabel_r(plot.plotter, 'r', 'c', label);
 	}
 
-	plot.SpecialWarning = "NOTE: dBFS scale relative between CLK signals";
-	DrawColorScale(&plot, TYPE_CLK_ANALYSIS, MODE_SPEC, LEFT_MARGIN, HEIGHT_MARGIN, config->plotResX/COLOR_BARS_WIDTH_SCALE, config->plotResY/1.15, (int)startAmplitude, (int)(endAmplitude-startAmplitude), VERT_SCALE_STEP, CHANNEL_STEREO, config);
+	// Hz grid every CLK_PLOT_HORZ Hz from the center, labels above the grid
+	for(double hz = -CLK_PLOT_SPAN; hz <= CLK_PLOT_SPAN; hz += CLK_PLOT_HORZ)
+	{
+		double x = resX*(hz + CLK_PLOT_SPAN)/(2*CLK_PLOT_SPAN);
+
+		pl_pencolor_r(plot.plotter, 0, hz == 0 ? 0x7777 : 0x5555, 0);
+		pl_fline_r(plot.plotter, x, 0, x, resY);
+		pl_endpath_r(plot.plotter);
+		pl_pencolor_r(plot.plotter, 0, 0xaaaa, 0);
+		pl_fmove_r(plot.plotter, x, resY + resY*0.012);
+		if(hz == 0)
+			sprintf(label, "%0.2fHz", center);
+		else
+			sprintf(label, "%+gHz", hz);
+		pl_alabel_r(plot.plotter, 'c', 'b', label);
+	}
+
+	for(int f = 0; f < config->MaxFreq && freq[f].hertz; f++)
+	{
+		double		db = 0, x = 0;
+		long int	intensity = 0;
+
+		if(fabs(freq[f].hertz - center) > CLK_PLOT_SPAN || freq[f].magnitude <= 0)
+			continue;
+
+		db = 20*log10(freq[f].magnitude/peakMag);
+		if(db < -depth)
+			continue;
+		if(db > 0)
+			db = 0;
+
+		x = resX*(freq[f].hertz - center + CLK_PLOT_SPAN)/(2*CLK_PLOT_SPAN);
+		y = resY + resY*db/depth;
+		intensity = CalculateWeightedError(1.0 + db/depth, config)*0xffff;
+		SetPenColor(COLOR_YELLOW, intensity, &plot);
+		pl_fline_r(plot.plotter, x, y, x, 0);
+		pl_endpath_r(plot.plotter);
+	}
+
+	y = resY + resY*config->significantAmplitude/depth;
+	if(y > 0)
+	{
+		pl_pencolor_r(plot.plotter, 0x9999, 0x9999, 0);
+		pl_linemod_r(plot.plotter, "dotdashed");
+		pl_fline_r(plot.plotter, 0, y, resX, y);
+		pl_endpath_r(plot.plotter);
+		pl_linemod_r(plot.plotter, "solid");
+		pl_fmove_r(plot.plotter, resX*0.99, y + resY*0.01);
+		sprintf(label, "Significant %0.1fdBFS", config->significantAmplitude);
+		pl_alabel_r(plot.plotter, 'r', 'b', label);
+	}
+
+	if(!found)
+	{
+		pl_pencolor_r(plot.plotter, 0xffff, 0x5555, 0);
+		pl_fmove_r(plot.plotter, resX/2, resY*0.6);
+		pl_alabel_r(plot.plotter, 'c', 'c', "Clock tone not found, only noise shown");
+	}
+
+	plot.SpecialWarning = "NOTE: dBFS relative to this signal's loudest tone";
 	{
 		char	clkLabel[BUFFER_SIZE], *idName = NULL;
 
-		idName = GetCLKIdentityName(signal == ROLE_REF ? config->referenceSignal : config->comparisonSignal, clock, config);
+		idName = GetCLKIdentityName(Signal, clock, config);
 		if(idName)
-			sprintf(clkLabel, "%s - %.200s", config->clocks[clock].name, idName);
+			sprintf(clkLabel, "%s - %.200s", clk->name, idName);
 		else
-			sprintf(clkLabel, "%s", config->clocks[clock].name);
-		DrawLabelsMDF(&plot, signal == ROLE_REF ? SPECTROGRAM_CLK_REF : SPECTROGRAM_CLK_COM, clkLabel, signal == ROLE_REF ? PLOT_SINGLE_REF : PLOT_SINGLE_COM, config);
+			sprintf(clkLabel, "%s", clk->name);
+		DrawLabelsMDF(&plot, Signal->role == ROLE_REF ? SPECTROGRAM_CLK_REF : SPECTROGRAM_CLK_COM, clkLabel,
+			Signal->role == ROLE_REF ? PLOT_SINGLE_REF : PLOT_SINGLE_COM, config);
 	}
 
 	ClosePlot(&plot);

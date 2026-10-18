@@ -284,7 +284,6 @@ void DrawLabelsZeroAngleCentered(PlotFile *plot, double maxAngle, double angleIn
 void PlotDifferenceTimeSpectrogram(parameters *config);
 
 void PlotCLKSpectrogram(AudioSignal *Signal, int clock, parameters *config);
-FlatFrequency *CreateFlatFrequenciesCLK(AudioSignal *Signal, int clock, long int *size, parameters *config);
-void PlotCLKSpectrogramInternal(FlatFrequency *freqs, long int size, char *filename, int signal, int clock, parameters *config);
+void PlotCLKSpectrogramInternal(AudioSignal *Signal, char *filename, int clock, parameters *config);
 
 #endif

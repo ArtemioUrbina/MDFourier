@@ -2516,6 +2516,25 @@ void CalculateAmplitudes(AudioSignal *Signal, double ZeroDbMagReference, paramet
 	}
 }
 
+double GetSignalPeakMagnitude(AudioSignal *Signal, parameters *config)
+{
+	double	peak = 0;
+
+	for(int block = 0; block < config->types.totalBlocks; block++)
+	{
+		int type = GetBlockType(config, block);
+
+		if(type > TYPE_CONTROL)
+		{
+			if(Signal->Blocks[block].freq && Signal->Blocks[block].freq[0].magnitude > peak)
+				peak = Signal->Blocks[block].freq[0].magnitude;
+			if(Signal->Blocks[block].freqRight && Signal->Blocks[block].freqRight[0].magnitude > peak)
+				peak = Signal->Blocks[block].freqRight[0].magnitude;
+		}
+	}
+	return peak;
+}
+
 void CleanMatched(AudioSignal *ReferenceSignal, AudioSignal *TestSignal, parameters *config)
 {
 	long int size = 0;

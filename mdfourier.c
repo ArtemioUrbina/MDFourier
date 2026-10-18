@@ -357,25 +357,6 @@ void PrintSignalCLKData(AudioSignal *Signal, ClockDef *clock)
 			Signal->role == ROLE_REF ? "Reference" : "Comparison", clock->name, clock->freq);
 }
 
-double GetSignalPeakMagnitude(AudioSignal *Signal, parameters *config)
-{
-	double	peak = 0;
-
-	for(int block = 0; block < config->types.totalBlocks; block++)
-	{
-		int type = GetBlockType(config, block);
-
-		if(type > TYPE_CONTROL)
-		{
-			if(Signal->Blocks[block].freq && Signal->Blocks[block].freq[0].magnitude > peak)
-				peak = Signal->Blocks[block].freq[0].magnitude;
-			if(Signal->Blocks[block].freqRight && Signal->Blocks[block].freqRight[0].magnitude > peak)
-				peak = Signal->Blocks[block].freqRight[0].magnitude;
-		}
-	}
-	return peak;
-}
-
 // A tone within 5% can still be noise when the signal is not present 
 void CheckClockToneLevel(AudioSignal *Signal, int c, double hertz, parameters *config)
 {
