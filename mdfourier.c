@@ -209,12 +209,14 @@ void printTextResults(parameters *config)
 	
 	for(int i = 0; i < config->types.typeCount; i++)
 	{
-		if(config->types.typeArray[i].type > TYPE_CONTROL && !config->types.typeArray[i].IsaddOnData)
+		if(config->types.typeArray[i].type > TYPE_CONTROL && !config->types.typeArray[i].IsaddOnData &&
+			!config->types.typeArray[i].noCompare)
 		{
 			typeID[t] = config->types.typeArray[i].type;
 			t++;
 		}
 	}
+	numTypes = t;	// types left out of the comparison have no results
 
 	/* Find worst with any amplitude difference */
 	for(t = 0; t < numTypes; t++)
@@ -223,6 +225,9 @@ void printTextResults(parameters *config)
 		long int	cnt = 0, cmp = 0;
 
 		FindDifferenceWithinInterval(typeID[t], &cnt, &cmp, config->AmpBarRange, CHANNEL_STEREO, config);
+
+		if(!cmp)
+			continue;
 
 		pcnt = ((double)cnt*100.0f)/(double)cmp;
 		if(pcnt < lowest)
@@ -585,7 +590,7 @@ int ReportClock(AudioSignal *ReferenceSignal, AudioSignal *ComparisonSignal, int
 	if(clock->notFound)
 	{
 		clock->centsDifference = 0;
-		logmsg(" - %s clock not compared, tone missing in %s%s\n", clock->name,
+		logmsg(" - NOTE: %s clock not compared, tone missing in %s%s\n", clock->name,
 			clock->notFound == (ROLE_REF | ROLE_COMP) ? "both signals" : clock->notFound == ROLE_REF ? "Reference" : "Comparison",
 			config->doClkAdjust ? ". Not adjusted with -j" : "");
 		return 0;
@@ -604,7 +609,7 @@ int ReportClock(AudioSignal *ReferenceSignal, AudioSignal *ComparisonSignal, int
 	}
 
 	if(config->doClkAdjust)
-		logmsg(" - WARNING: Ignoring -j for %s since pitch difference in cents is: %g\n", clock->name, clock->centsDifference);
+		logmsg(" - NOTE: Ignoring -j for %s since pitch difference in cents is: %g\n", clock->name, clock->centsDifference);
 	return 0;
 }
 
@@ -2539,7 +2544,8 @@ int CompareAudioBlocks(AudioSignal *ReferenceSignal, AudioSignal *ComparisonSign
 		if(type < TYPE_CONTROL)
 			continue;
 
-		if(ReferenceSignal->Blocks[block].separation)
+		/* Marked 'x' in the profile (clock tones) or 'C' separation blocks,*/
+		if(ReferenceSignal->Blocks[block].noCompare || ReferenceSignal->Blocks[block].separation)
 			continue;
 
 		refSize = CalculateMaxCompare(block, ReferenceSignal, type != TYPE_SILENCE ? config->significantAmplitude : SILENCE_LIMIT, CHANNEL_LEFT, config);
@@ -3666,9 +3672,15 @@ void ReportSeparation(AudioSignal *ReferenceSignal, AudioSignal *ComparisonSigna
 	if(limitedCount)
 		logmsg(" - %d result(s) limited by the noise floor\n", limitedCount);
 	if(inverted && inverted == single)
+	{
 		logmsg(" - WARNING: Left and Right are inverted between Reference and Comparison\n");
+		config->warningStereoReversed = 1;
+	}
 	else if(inverted)
+	{
 		logmsg(" - WARNING: Left and Right are inverted in %d of %d single channel blocks\n", inverted, single);
+		config->warningStereoReversed = 1;
+	}
 	if(differ)
 		logmsg(" - WARNING: %d block(s) play the tone in both channels in one signal and in one channel in the other\n", differ);
 }

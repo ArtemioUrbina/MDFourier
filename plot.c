@@ -622,6 +622,18 @@ int AddPhaseTypeJobs(PlotJobList *list, FlatPhase *phaseDiff, long int size, cha
 	return types;
 }
 
+int HasSeparationBlocks(AudioSignal *Signal, parameters *config)
+{
+	if(!Signal || Signal->AudioChannels != 2)
+		return 0;
+	for(int b = 0; b < config->types.totalBlocks; b++)
+	{ 
+		if(Signal->Blocks[b].separation && Signal->Blocks[b].type != TYPE_SKIP)
+			return 1; 
+	}
+	return 0;
+}
+
 void PlotResults(AudioSignal *ReferenceSignal, AudioSignal *ComparisonSignal, parameters *config)
 {
 	struct	timespec	start, end;
@@ -959,7 +971,7 @@ void PlotResults(AudioSignal *ReferenceSignal, AudioSignal *ComparisonSignal, pa
 			logmsg(" X Noise floor plots make no sense with current parameters.\n");
 	}
 
-	if(config->hasSeparation)
+	if(config->hasSeparation && HasSeparationBlocks(ReferenceSignal, config))
 	{
 		struct	timespec	lstart, lend;
 
@@ -7201,7 +7213,7 @@ void PlotSeparation(AudioSignal *ReferenceSignal, AudioSignal *ComparisonSignal,
 
 		pl_pencolor_r(plot.plotter, 0xaaaa, 0xaaaa, 0xaaaa);
 		pl_fmove_r(plot.plotter, center, bottom - resY*0.025);
-		sprintf(label, "%s# %d", GetBlockName(config, b), GetBlockSubIndex(config, b));
+		sprintf(label, "%s# %d", GetBlockDisplayName(config, b), GetBlockSubIndex(config, b));
 		pl_alabel_r(plot.plotter, 'c', 'c', label);
 		pl_fmove_r(plot.plotter, center, bottom - resY*0.05);
 		if(ref->sepValid && com->sepValid && ref->sepActive != com->sepActive)
@@ -7225,7 +7237,9 @@ void PlotSeparation(AudioSignal *ReferenceSignal, AudioSignal *ComparisonSignal,
 
 	pl_pencolor_r(plot.plotter, 0xaaaa, 0xaaaa, 0xaaaa);
 	pl_fmove_r(plot.plotter, left, bottom - resY*0.085);
-	pl_alabel_r(plot.plotter, 'l', 'c', "Bars: Reference bright, Comparison dim. Hollow: leak below the noise floor, value is a minimum");
+	pl_alabel_r(plot.plotter, 'l', 'c', "Bars: Reference bright, Comparison dim");
+	pl_fmove_r(plot.plotter, left, bottom - resY*0.1);
+	pl_alabel_r(plot.plotter, 'l', 'c', "Hollow: separation is below the noise floor");
 
 	if(inverted)
 	{

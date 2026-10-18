@@ -444,21 +444,25 @@ int ValidateCLKArray(parameters *config)
 			continue;
 		}
 
-		logmsg(" - %s clock adjustment limited to types:", clock->name);
+		logmsg(" - %s clock adjustment selected for: ", clock->name);
 		for(i = 0; i < clock->blkAdjustNum; i++)
 		{
 			int found = 0;
-
+		
 			for(t = 0; t < config->types.typeCount; t++)
 			{
 				if(config->types.typeArray[t].type == clock->blocksAdjust[i] &&
 					config->types.typeArray[t].type > TYPE_SILENCE)
 				{
-					logmsg(" %s", config->types.typeArray[t].typeDisplayName);
+					if(i > 0)
+						logmsg(i == clock->blkAdjustNum - 1 ? " & " : ", ");
+					logmsg("%s", config->types.typeArray[t].typeDisplayName);
+
 					found = 1;
 					break;
 				}
 			}
+		
 			if(!found)
 			{
 				logmsg("\nERROR: %s adjust list has type %d, which is not an audio block type in this profile\n",

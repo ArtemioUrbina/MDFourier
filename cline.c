@@ -444,7 +444,6 @@ int commandline(int argc , char *argv[], parameters *config)
 		break;
 	  case 'j':
 		config->doClkAdjust = 1;
-		logmsg("\t-Adjusting Clock\n");
 		break;
 	  case 'k':
 		config->clock = 1;
