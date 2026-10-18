@@ -294,6 +294,7 @@ typedef struct clock_def_st {
 	int			blkAdjustNum;
 	CLKIdentity	*ids;
 	int			idCount;
+	int			color;
 
 	// Results
 	double		ref;			// measured clock, after ratio

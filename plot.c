@@ -6975,7 +6975,7 @@ void PlotCLKSpectrogram(AudioSignal *Signal, int clock, parameters *config)
 #define CLK_PLOT_DEPTH	100.0
 #define CLK_PLOT_HORZ	10.0
 
-static double CLKPeakHertz(AudioSignal *Signal, int clock, parameters *config)
+double CLKPeakHertz(AudioSignal *Signal, int clock, parameters *config)
 {
 	Frequency	*freq = Signal ? Signal->clkFrequencies[clock].freq : NULL;
 	double		mag = 0, hz = 0;
@@ -7076,7 +7076,7 @@ void PlotCLKSpectrogramInternal(AudioSignal *Signal, char *filename, int clock, 
 		x = resX*(freq[f].hertz - center + CLK_PLOT_SPAN)/(2*CLK_PLOT_SPAN);
 		y = resY + resY*db/depth;
 		intensity = CalculateWeightedError(1.0 + db/depth, config)*0xffff;
-		SetPenColor(COLOR_YELLOW, intensity, &plot);
+		SetPenColor(clk->color, intensity, &plot);
 		pl_fline_r(plot.plotter, x, y, x, 0);
 		pl_endpath_r(plot.plotter);
 	}
@@ -7125,10 +7125,7 @@ void PlotSeparation(AudioSignal *ReferenceSignal, AudioSignal *ComparisonSignal,
 	double		maxSep = 0, top = 0, resX = 0, resY = 0, left = 0, right = 0, bottom = 0, height = 0, slot = 0;
 
 	if(ReferenceSignal->AudioChannels != 2 || ComparisonSignal->AudioChannels != 2)
-	{
-		logmsg(" X Channel separation needs two stereo signals\n");
 		return;
-	}
 
 	for(int b = 0; b < config->types.totalBlocks; b++)
 	{

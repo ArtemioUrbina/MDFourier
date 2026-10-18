@@ -373,6 +373,7 @@ int LoadClockLine(char *lineBuffer, int *measured, parameters *config)
 	clock->comID = CLKID_NONE;	
 	sprintf(clock->name, "%s", name);	
 	clock->optional = type == CLKID_OPTIONAL;
+	clock->color = COLOR_YELLOW;
 
 	if(sscanf(lineBuffer, "%*s %*c %d %lf %lf", 
 		&clock->block,
@@ -399,6 +400,20 @@ int LoadClockLine(char *lineBuffer, int *measured, parameters *config)
 	config->clkMeasure = 1;
 	*measured = 1;
 	return 1;
+}
+
+void SetClockBlockColor(parameters *config)
+{
+	for(int c = 0; c < config->clockCount; c++)
+	{
+		if(config->clocks[c].blkAdjustNum)
+		{
+			int type = config->clocks[c].blocksAdjust[0];
+			int color = MatchColor(GetTypeColor(config, type));
+			if(color != COLOR_NONE)
+				config->clocks[c].color = color;
+		}
+	}
 }
 
 int GetClockForType(int type, parameters *config)
@@ -1126,6 +1141,7 @@ int LoadAudioBlockStructure(FILE *file, parameters *config)
 
 	fclose(file);
 
+	SetClockBlockColor(config);
 	return 1;
 }
 
