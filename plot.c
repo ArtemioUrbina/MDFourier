@@ -6994,28 +6994,117 @@ double CLKPeakHertz(AudioSignal *Signal, int clock, parameters *config)
 	return hz;
 }
 
+double CLKRecordedRatio(AudioSignal *Signal, ClockDef *clk)
+{
+	if(Signal->role != ROLE_COMP || !clk->adjusted || !clk->comSampleRate)
+		return 1.0;
+	return Signal->SampleRate/clk->comSampleRate;
+}
+
+double CLKPlotX(double hz, double center, double resX)
+{
+	return resX*(hz - center + CLK_PLOT_SPAN)/(2*CLK_PLOT_SPAN);
+}
+
+void DrawCLKSpectrum(PlotFile *plot, Frequency *freq, double ratio, double center, double peakMag, double depth, int color, int gray, parameters *config)
+{
+	double resX = config->plotResX, resY = config->plotResY;
+
+	for(int f = 0; f < config->MaxFreq && freq[f].hertz; f++)
+	{
+		double		db = 0, x = 0, y = 0, hz = freq[f].hertz*ratio;
+		long int	intensity = 0;
+
+		if(fabs(hz - center) > CLK_PLOT_SPAN || freq[f].magnitude <= 0)
+			continue;
+
+		db = 20*log10(freq[f].magnitude/peakMag);
+		if(db < -depth)
+			continue;
+		if(db > 0)
+			db = 0;
+
+		x = CLKPlotX(hz, center, resX);
+		y = resY + resY*db/depth;
+		intensity = CalculateWeightedError(1.0 + db/depth, config)*0xffff;
+		if(gray)
+		{
+			long int g = 0x2222 + intensity/3;
+
+			pl_pencolor_r(plot->plotter, g, g, g);
+		}
+		else
+			SetPenColor(color, intensity, plot);
+			
+		pl_fline_r(plot->plotter, x, y, x, 0);
+		pl_endpath_r(plot->plotter);
+	}
+}
+
+void DrawCLKGuide(PlotFile *plot, double hz, double center, double avoid, char *text, long int r, long int g, long int b, char *style, int row, parameters *config)
+{
+	char	label[BUFFER_SIZE];
+	double	resX = config->plotResX, resY = config->plotResY, x = 0, y = 0;
+
+	if(!hz || fabs(hz - center) > CLK_PLOT_SPAN)
+		return;
+
+	x = CLKPlotX(hz, center, resX);
+	pl_pencolor_r(plot->plotter, r, g, b);
+	pl_linemod_r(plot->plotter, style);
+	pl_fline_r(plot->plotter, x, 0, x, resY);
+	pl_endpath_r(plot->plotter);
+	pl_linemod_r(plot->plotter, "solid");
+
+	y = resY*(0.96 - 0.035*row);
+	sprintf(label, "%s %0.4fHz", text, hz);
+	if(hz < avoid)
+	{
+		pl_fmove_r(plot->plotter, x - resX*0.004, y);
+		pl_alabel_r(plot->plotter, 'r', 'c', label);
+	}
+	else
+	{
+		pl_fmove_r(plot->plotter, x + resX*0.004, y);
+		pl_alabel_r(plot->plotter, 'l', 'c', label);
+	}
+}
+
 void PlotCLKSpectrogramInternal(AudioSignal *Signal, char *filename, int clock, parameters *config)
 {
 	PlotFile	plot;
 	char		label[BUFFER_SIZE];
 	double		center = 0, peakMag = 0, resX = 0, resY = 0, y = 0, depth = CLK_PLOT_DEPTH;
+	double		ratio = 1.0, refPeak = 0, comPeak = 0, comRecorded = 0;
 	ClockDef	*clk = &config->clocks[clock];
 	Frequency	*freq = Signal->clkFrequencies[clock].freq;
 	int			found = !(clk->notFound & Signal->role);
+	int			refFound = !(clk->notFound & ROLE_REF);
+	int			comFound = !(clk->notFound & ROLE_COMP);
+	int			adjusted = 0;
 
 	peakMag = GetSignalPeakMagnitude(Signal, config);
 	if(!peakMag)
 		return;
 
-	if(!(clk->notFound & ROLE_REF))
-		center = CLKPeakHertz(config->referenceSignal, clock, config);
-	else
+	if(refFound)
+		refPeak = CLKPeakHertz(config->referenceSignal, clock, config);
+	if(comFound)
 	{
-		if(!(clk->notFound & ROLE_COMP))
-			center = CLKPeakHertz(config->comparisonSignal, clock, config);
-		else
-			center = clk->freq;		// no tone in either: the expected frequency
+		// Recorded peak of the comparison, before -j moved it
+		comPeak = CLKPeakHertz(config->comparisonSignal, clock, config);
+		comRecorded = comPeak*CLKRecordedRatio(config->comparisonSignal, clk);
 	}
+
+	if(refFound)
+		center = refPeak;
+	else if(comFound)
+		center = comRecorded;
+	else
+		center = clk->freq;		// no tone in either: the expected frequency
+
+	ratio = CLKRecordedRatio(Signal, clk);
+	adjusted = ratio != 1.0;
 
 	if(-config->significantAmplitude + 10 > depth)
 		depth = ceil((-config->significantAmplitude + 10)/10.0)*10.0;
@@ -7059,27 +7148,10 @@ void PlotCLKSpectrogramInternal(AudioSignal *Signal, char *filename, int clock, 
 		pl_alabel_r(plot.plotter, 'c', 'b', label);
 	}
 
-	for(int f = 0; f < config->MaxFreq && freq[f].hertz; f++)
-	{
-		double		db = 0, x = 0;
-		long int	intensity = 0;
-
-		if(fabs(freq[f].hertz - center) > CLK_PLOT_SPAN || freq[f].magnitude <= 0)
-			continue;
-
-		db = 20*log10(freq[f].magnitude/peakMag);
-		if(db < -depth)
-			continue;
-		if(db > 0)
-			db = 0;
-
-		x = resX*(freq[f].hertz - center + CLK_PLOT_SPAN)/(2*CLK_PLOT_SPAN);
-		y = resY + resY*db/depth;
-		intensity = CalculateWeightedError(1.0 + db/depth, config)*0xffff;
-		SetPenColor(clk->color, intensity, &plot);
-		pl_fline_r(plot.plotter, x, y, x, 0);
-		pl_endpath_r(plot.plotter);
-	}
+	// -j: the comparison as recorded in gray, the adjusted one over it
+	if(adjusted)
+		DrawCLKSpectrum(&plot, freq, ratio, center, peakMag, depth, clk->color, 1, config);
+	DrawCLKSpectrum(&plot, freq, 1.0, center, peakMag, depth, clk->color, 0, config);
 
 	y = resY + resY*config->significantAmplitude/depth;
 	if(y > 0)
@@ -7092,6 +7164,32 @@ void PlotCLKSpectrogramInternal(AudioSignal *Signal, char *filename, int clock, 
 		pl_fmove_r(plot.plotter, resX*0.99, y + resY*0.01);
 		sprintf(label, "Significant %0.1fdBFS", config->significantAmplitude);
 		pl_alabel_r(plot.plotter, 'r', 'b', label);
+	}
+
+	// Where the other signal's tone is, and in the comparison where it was recorded
+	if(Signal->role == ROLE_REF)
+	{
+		if(comFound) 
+			DrawCLKGuide(&plot, comRecorded, center, refPeak, "Comparison", 0xaaaa, 0xaaaa, 0xaaaa, "shortdashed", 0, config);
+	}
+	else
+	{
+		if(refFound)
+			DrawCLKGuide(&plot, refPeak, center, comRecorded, adjusted ? "Reference, adjusted to" : "Reference", 0xdddd, 0xdddd, 0xdddd, "shortdashed", 0, config);
+		if(adjusted && found)	
+			DrawCLKGuide(&plot, comRecorded, center, refPeak, "Recorded", 0x8888, 0x8888, 0x8888, "dotted", 1, config);
+	}
+
+	if(adjusted)
+	{
+		pl_pencolor_r(plot.plotter, 0xdddd, 0xdddd, 0xdddd);
+		pl_fmove_r(plot.plotter, resX*0.99, resY*0.80);
+		sprintf(label, "Adjusted with -j: %0.4fHz -> %0.4fHz (%+0.2f ppm)",
+			clk->com, clk->ref, (clk->ref/clk->com - 1.0)*1000000.0);
+		pl_alabel_r(plot.plotter, 'r', 'c', label);
+		pl_pencolor_r(plot.plotter, 0x9999, 0x9999, 0x9999);
+		pl_fmove_r(plot.plotter, resX*0.99, resY*0.765);
+		pl_alabel_r(plot.plotter, 'r', 'c', "Gray: as recorded, color: as compared");
 	}
 
 	if(!found)
