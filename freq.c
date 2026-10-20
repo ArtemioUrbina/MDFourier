@@ -661,7 +661,7 @@ typedef struct plan_cache_st {
 PlanCacheEntry	*planCache = NULL;
 int	planCacheCount = 0, planCacheMax = 0;
 
-void InitFFTW()
+void InitFFTW(void)
 {
 	static int done = 0;
 
