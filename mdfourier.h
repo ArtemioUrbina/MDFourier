@@ -48,7 +48,7 @@
 
 #include "incbeta.h"
 
-#define MDVERSION "1.165"
+#define MDVERSION "1.20"
 
 #if INTPTR_MAX == INT64_MAX
 #define	BITS_MDF "64-bit"
