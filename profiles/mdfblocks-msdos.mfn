@@ -23,8 +23,8 @@ ESS         21676.3131   300ppm
 OPL3-SAx    21656.8490   300ppm
 PCM16 o 386 5512.5 8.0 15 16 17 18
 [CLKID] 2
-SB16        44100.0      100ppm
-ESS         44110.80     100ppm
+SB16        44100.0      85ppm
+ESS         44107.6      85ppm
 [MonoBalanceBlock] 2
 [ToneLines] 38
 Sync            s   1  20  0 red     m
