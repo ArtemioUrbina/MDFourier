@@ -1000,8 +1000,8 @@ int ConvertAudioTypeForProcessing(int type, parameters *config)
 }
 
 #define WATERMARK_SEARCH_PCT		(1.0/100.0)
-#define WATERMARK_TOLERANCE			100.0
-#define WATERMARK_PCT_NOISEFLOOR	0.8
+#define WATERMARK_TOLERANCE			100.0			// in Hz
+#define WATERMARK_STRENGTH			20.0
 
 int DetectWatermark(AudioSignal *Signal, parameters *config)
 {
@@ -1054,7 +1054,7 @@ int DetectWatermark(AudioSignal *Signal, parameters *config)
 	for(int i = 0; i < freqSearch; i++)
 	{
 		if(Signal->Blocks[watermark].freq[i].hertz &&
-			Signal->Blocks[watermark].freq[i].amplitude > config->significantAmplitude*WATERMARK_PCT_NOISEFLOOR)  // At least a bit higher than Noise Floor
+			Signal->Blocks[watermark].freq[i].amplitude > Signal->Blocks[watermark].freq[0].amplitude - WATERMARK_STRENGTH)  // near the strongest in the block
 		{
 			if(fabs(Signal->Blocks[watermark].freq[i].hertz - WaterMarkValid) < WATERMARK_TOLERANCE)
 			{
