@@ -406,7 +406,7 @@ void SetClockBlockColor(parameters *config)
 {
 	for(int c = 0; c < config->clockCount; c++)
 	{
-		if(config->clocks[c].blkAdjustNum)
+		if(config->clocks[c].blkAdjustNum > 0)
 		{
 			int type = config->clocks[c].blocksAdjust[0];
 			int color = MatchColor(GetTypeColor(config, type));

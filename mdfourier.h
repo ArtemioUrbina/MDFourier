@@ -132,9 +132,8 @@
 #define MININT32		-2147483648.0
 
 
-// This value is the pitch difference at which it will be reported
-// 0.25 cents is around 7hz in a 48khz signal
-// 0.05 cents is around 2hz in a 48khz signal
+// Pitch difference in cents at which it is reported
+// In a 20 kHz tone 0.25 cents is ~2.9 Hz and 0.08 cents ~0.9 Hz
 #define MAX_CENTS_DIFF 0.25
 #define MIN_CENTS_DIFF 0.08
 
