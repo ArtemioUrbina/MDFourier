@@ -170,7 +170,9 @@
 #define	WATERMARK_NONE				0
 #define	WATERMARK_VALID				1
 #define	WATERMARK_INVALID			2
-#define	WATERMARK_INDETERMINATE		3
+#define	WATERMARK_ALT_VALID			3
+#define	WATERMARK_ALT_INVALID		4
+#define	WATERMARK_INDETERMINATE		5
 
 #define	AMPL_HIDIFF		1.0
 #define	MISS_HIDIFF		1.0
@@ -338,6 +340,9 @@ typedef struct abd_st {
 	int				watermarkValidFreq;
 	int				watermarkInvalidFreq;
 	char			watermarkDisplayName[128];
+	int				watermarkAltValidFreq;
+	int				watermarkAltInvalidFreq;
+	char			watermarkAltDisplayName[128];
 } AudioBlockDef;
 
 /********************************************************/

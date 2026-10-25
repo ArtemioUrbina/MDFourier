@@ -1007,6 +1007,7 @@ int DetectWatermark(AudioSignal *Signal, parameters *config)
 {
 	int watermark = -1, found = 0;
 	double	WaterMarkValid = 0, WaterMarkInvalid = 0;
+	double	WaterMarkAltValid = 0, WaterMarkAltInvalid = 0;
 	double	freqSearch = config->MaxFreq * WATERMARK_SEARCH_PCT;
 
 	if(!config || !Signal)
@@ -1050,6 +1051,13 @@ int DetectWatermark(AudioSignal *Signal, parameters *config)
 					Signal->header.fmt.NumOfChan, Signal->SampleRate, config);
 	WaterMarkInvalid = FindFrequencyBracket(config->types.watermarkInvalidFreq, Signal->Blocks[watermark].fftwValues.size, 
 					Signal->header.fmt.NumOfChan, Signal->SampleRate, config);
+	if(config->types.watermarkAltValidFreq)
+	{
+		WaterMarkAltValid = FindFrequencyBracket(config->types.watermarkAltValidFreq, Signal->Blocks[watermark].fftwValues.size,  
+						Signal->header.fmt.NumOfChan, Signal->SampleRate, config);
+		WaterMarkAltInvalid = FindFrequencyBracket(config->types.watermarkAltInvalidFreq, Signal->Blocks[watermark].fftwValues.size, 
+						Signal->header.fmt.NumOfChan, Signal->SampleRate, config);
+	}
 
 	for(int i = 0; i < freqSearch; i++)
 	{
@@ -1067,6 +1075,22 @@ int DetectWatermark(AudioSignal *Signal, parameters *config)
 				Signal->watermarkStatus = WATERMARK_INVALID;
 				logmsg(" - WARNING: %s signal was recorded with %s difference. Results are probably incorrect.\n",
 						getRoleText(Signal), config->types.watermarkDisplayName);
+				found = 1;
+				break;
+			}
+			if(WaterMarkAltValid && fabs(Signal->Blocks[watermark].freq[i].hertz - WaterMarkAltValid) < WATERMARK_TOLERANCE)
+			{
+				Signal->watermarkStatus = WATERMARK_ALT_VALID;
+				logmsg(" - NOTE: %s signal was recorded under %s. Results are probably incorrect.\n",
+						getRoleText(Signal), config->types.watermarkAltDisplayName);
+				found = 1;
+				break;
+			}
+			if(WaterMarkAltInvalid && fabs(Signal->Blocks[watermark].freq[i].hertz - WaterMarkAltInvalid) < WATERMARK_TOLERANCE)
+			{
+				Signal->watermarkStatus = WATERMARK_ALT_INVALID;
+				logmsg(" - WARNING: %s signal was recorded under %s with %s difference. Results are probably incorrect.\n",
+						getRoleText(Signal), config->types.watermarkAltDisplayName, config->types.watermarkDisplayName);
 				found = 1;
 				break;
 			}
@@ -1105,6 +1129,19 @@ int DetectWatermarkIssue(char *msg, AudioSignal* Signal, parameters *config)
 		case WATERMARK_INDETERMINATE:
 			sprintf(msg, "WARNING: %s state unknown in %s. Results might be incorrect",
 				config->types.watermarkDisplayName,
+				Signal->role == ROLE_REF ? "Ref" : "Comp");
+			return 1;
+			break;
+		case WATERMARK_ALT_VALID:
+			sprintf(msg, "NOTE: %s recorded under %s. Probably incorrect",
+				Signal->role == ROLE_REF ? "Ref" : "Comp",
+				config->types.watermarkAltDisplayName);
+			return 1;
+			break;
+		case WATERMARK_ALT_INVALID:
+			sprintf(msg, "WARNING: Invalid %s under %s in %s. Probably incorrect",
+				config->types.watermarkDisplayName,
+				config->types.watermarkAltDisplayName,
 				Signal->role == ROLE_REF ? "Ref" : "Comp");
 			return 1;
 			break;

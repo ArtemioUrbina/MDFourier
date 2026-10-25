@@ -414,17 +414,24 @@ double findAverageAmplitudeForTarget(Pulses *pulseArray, double targetFrequency,
 	return useAmplitude;
 }
 
+// Pulses with edges that are inconsistent (SB16 emulation that apply register writes every ~10 ms in SB Live
+// A pulse counts from half a frame and the start is counted as found instead of centered on the expected length. // It is a sync error in the recording so only enabled with -TTTT
+#define SYNC_TOL_QUANTIZED	4
 long int DetectPulseTrainSequence(Pulses *pulseArray, double targetFrequency, double *targetFrequencyHarmonic, long int TotalMS, int factor, int *maxdetected, long int start, int role, int AudioChannels, parameters *config)
 {
 	long	i = 0, sequence_start = 0;
 	int		frame_pulse_count = 0, frame_silence_count = 0, 
-			pulse_count = 0, silence_count = 0, lastcountedWasPulse = 0, lookingfor = 0;
+			pulse_count = 0, silence_count = 0, lastcountedWasPulse = 0, lookingfor = 0, minPulse = 0;
 	double	averageAmplitude = 0;
 
 	*maxdetected = 0;
 
 	lookingfor = getPulseFrameLen(role, config)*factor-factor/2;
 	lookingfor = lookingfor * 0.95;
+	// Shortest pulse that closes, the rest of the timing keeps "lookingfor" 
+	minPulse = lookingfor;
+	if(config->syncTolerance >= SYNC_TOL_QUANTIZED)
+		minPulse = lookingfor/2;
 
 	//smoothAmplitudes(pulseArray, targetFrequency, TotalMS, start);
 	averageAmplitude = findAverageAmplitudeForTarget(pulseArray, targetFrequency, targetFrequencyHarmonic, TotalMS, start, factor, AudioChannels, config);
@@ -555,7 +562,7 @@ long int DetectPulseTrainSequence(Pulses *pulseArray, double targetFrequency, do
 					linefeedNeeded = 0;
 				}
 
-				if(lastcountedWasPulse == 1 && frame_pulse_count >= lookingfor)
+				if(lastcountedWasPulse == 1 && frame_pulse_count >= minPulse)
 				{
 					if(config->debugSync)
 						logmsgFileOnly(" Counting as silence due to pulse count\n");
@@ -566,7 +573,7 @@ long int DetectPulseTrainSequence(Pulses *pulseArray, double targetFrequency, do
 					logmsgFileOnly("\n");
 			}
 
-			if(frame_pulse_count >= lookingfor && (pulseArray[i].hertz != targetFrequency
+			if(frame_pulse_count >= minPulse && (pulseArray[i].hertz != targetFrequency
 				|| (config->syncTolerance && pulseArray[i].amplitude < averageAmplitude && frame_silence_count > (int)(lookingfor*1.5)	)))
 			{
 				pulse_count++;
@@ -825,6 +832,19 @@ long int AdjustPulseSampleStartByLength(double* Samples, wav_hdr header, long in
 
 		foundPulseLength = pulseArray[endDetectPos].samples - pulseArray[startDetectPos].samples;
 		foundPos = pulseArray[startDetectPos].samples;
+
+		// Quantized pulses. The length says nothing about the frame.
+		// Their start is the closest we can get. No centering 
+		if (config->syncTolerance >= SYNC_TOL_QUANTIZED)
+		{
+			if (config->debugSync)
+				logmsgFileOnly("Quantized pulses (-TTTT): start kept at %ld, length %ld samples\n",
+					SamplesForDisplay(foundPos, AudioChannels), 
+					SamplesForDisplay(foundPulseLength, AudioChannels));
+			free(buffer);
+			free(pulseArray);
+			return foundPos;
+		}
 
 		percent = (double)labs(foundPulseLength-synLenInSamples)*100.0/(double)synLenInSamples;
 

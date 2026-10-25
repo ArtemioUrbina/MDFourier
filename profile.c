@@ -941,24 +941,37 @@ int LoadAudioBlockStructure(FILE *file, parameters *config)
 		}
 		else if(config->types.typeArray[i].type == TYPE_WATERMARK)
 		{
-			if(sscanf(lineBuffer, "%*s %*s %d %d %20s %c %d %d %128s\n", 
+			int wmFields;
+
+			wmFields = sscanf(lineBuffer, "%*s %*s %d %d %20s %c %d %d %127s %d %d %127s\n", 
 				&config->types.typeArray[i].elementCount,
 				&config->types.typeArray[i].frames,
 				&config->types.typeArray[i].color[0],
 				&config->types.typeArray[i].channel,
 				&config->types.watermarkValidFreq,
 				&config->types.watermarkInvalidFreq,
-				config->types.watermarkDisplayName) != 7)
+				config->types.watermarkDisplayName,
+				&config->types.watermarkAltValidFreq,
+				&config->types.watermarkAltInvalidFreq,
+				config->types.watermarkAltDisplayName);
+			if(wmFields != 7 && wmFields != 10)
 			{
 				logmsg("ERROR: Invalid MD Fourier Audio Blocks File (line %d)\n(Display_name, id, element count, frames, color, channel, WMValid, WMFail, Name): %s\n", lineCount, lineBuffer);
 				fclose(file);
 				return 0;
 			}
 
-			if(!config->types.watermarkValidFreq || !config->types.watermarkInvalidFreq)
+			if(!config->types.watermarkValidFreq || !config->types.watermarkInvalidFreq ||
+				(wmFields == 10 && (!config->types.watermarkAltValidFreq || !config->types.watermarkAltInvalidFreq)))
 			{
 				logmsg("ERROR: Invalid Watermark values: %s\n", lineBuffer);
 				return 0;
+			}
+			if(wmFields == 7)
+			{
+				config->types.watermarkAltValidFreq = 0;
+				config->types.watermarkAltInvalidFreq = 0;
+				config->types.watermarkAltDisplayName[0] = '\0';
 			}
 		}
 		else  // All regular lines
@@ -1291,24 +1304,37 @@ int LoadAudioNoSyncProfile(FILE *file, parameters *config)
 		
 		if(config->types.typeArray[t].type == TYPE_WATERMARK)
 		{
-			if(sscanf(lineBuffer, "%*s %*s %d %d %20s %c %d %d %128s\n", 
+			int wmFields;
+
+			wmFields = sscanf(lineBuffer, "%*s %*s %d %d %20s %c %d %d %127s %d %d %127s\n", 
 				&config->types.typeArray[t].elementCount,
 				&config->types.typeArray[t].frames,
 				&config->types.typeArray[t].color[0],
 				&config->types.typeArray[t].channel,
 				&config->types.watermarkValidFreq,
 				&config->types.watermarkInvalidFreq,
-				config->types.watermarkDisplayName) != 7)
+				config->types.watermarkDisplayName,
+				&config->types.watermarkAltValidFreq,
+				&config->types.watermarkAltInvalidFreq,
+				config->types.watermarkAltDisplayName);
+			if(wmFields != 7 && wmFields != 10)
 			{
 				logmsg("ERROR: Invalid MD Fourier Audio Blocks File (Element Count, frames, color, channel, WMValid, WMFail, Name): %s\n", lineBuffer);
 				fclose(file);
 				return 0;
 			}
 
-			if(!config->types.watermarkValidFreq || !config->types.watermarkInvalidFreq)
+			if(!config->types.watermarkValidFreq || !config->types.watermarkInvalidFreq ||
+				(wmFields == 10 && (!config->types.watermarkAltValidFreq || !config->types.watermarkAltInvalidFreq)))
 			{
 				logmsg("ERROR: Invalid Watermark values: %s\n", lineBuffer);
 				return 0;
+			}
+			if(wmFields == 7)
+			{
+				config->types.watermarkAltValidFreq = 0;
+				config->types.watermarkAltInvalidFreq = 0;
+				config->types.watermarkAltDisplayName[0] = '\0';
 			}
 		}
 		else
@@ -1451,6 +1477,11 @@ void PrintAudioBlocks(parameters *config)
 				config->types.watermarkValidFreq,
 				config->types.watermarkInvalidFreq,
 				config->types.watermarkDisplayName);
+			if(config->types.watermarkAltValidFreq)
+				logmsgFileOnly(" %d %d %s", 
+					config->types.watermarkAltValidFreq,
+					config->types.watermarkAltInvalidFreq,
+					config->types.watermarkAltDisplayName);
 		}
 
 		logmsgFileOnly("\n");

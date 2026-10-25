@@ -3,7 +3,7 @@
  * A Fourier Transform analysis tool to compare game console audio
  * http://junkerhq.net/MDFourier/
  *
- * Copyright (C)2019-2020 Artemio Urbina
+ * Copyright (C)2019-2026 Artemio Urbina
  *
  * This file is part of the 240p Test Suite
  *
@@ -54,7 +54,8 @@ void PrintUsage(void)
 	logmsg("	 -B: Do not do stereo channel audio <B>alancing\n");
 	logmsg("	 -I: <I>gnore frame rate difference for analysis\n");
 	logmsg("	 -p: Define the noise floor value in dBFS (0 to disable auto adjust)\n");
-	logmsg("	 -T: Increase Sync detection <T>olerance (ignore frequency for pulses)\n");
+	logmsg("	 -T: Increase Sync detection <T>olerance (ignore frequency, can be added up to -TTT)\n");
+	logmsg("		-TTTT also accepts pulses of half a frame (emulated audio)\n");
 	logmsg("	 -Y: Define the Reference Video Format from the profile\n");
 	logmsg("	 -Z: Define the Comparison Video Format from the profile\n");
 	logmsg("	 -m: Set <m>anual sync samples, takes format [r|c]:<start sample>:<end sample>\n");
@@ -262,6 +263,9 @@ void CleanParameters(parameters *config)
 	config->types.useWatermark = 0;
 	config->types.watermarkValidFreq = 0;
 	config->types.watermarkInvalidFreq = 0;
+	config->types.watermarkAltValidFreq = 0;
+	config->types.watermarkAltInvalidFreq = 0;
+	config->types.watermarkAltDisplayName[0] = '\0';
 
 	config->thresholdAmplitudeHiDif = AMPL_HIDIFF;
 	config->thresholdMissingHiDif = MISS_HIDIFF;
@@ -666,8 +670,8 @@ int commandline(int argc , char *argv[], parameters *config)
 		break;
 	  case 'T':
 		config->syncTolerance++;
-		if(config->syncTolerance > 3)
-			config->syncTolerance = 3;
+		if(config->syncTolerance > 4)
+			config->syncTolerance = 4;
 		break;
 	  case 't':
 		config->plotTimeSpectrogram = 0;
@@ -849,6 +853,9 @@ int commandline(int argc , char *argv[], parameters *config)
 
 	if(config->FullTimeSpectroScale)
 		config->MaxFreq = END_HZ;
+
+	if(config->syncTolerance == 4)
+		logmsg("\t-Sync pulses down to half a frame accepted (-TTTT), for emulated audio\n");
 
 	if(config->endHz <= config->startHz)
 	{

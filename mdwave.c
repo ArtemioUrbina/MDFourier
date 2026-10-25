@@ -1064,17 +1064,17 @@ int commandline_wave(int argc , char *argv[], parameters *config)
 	  case 'I':
 		config->ignoreFrameRateDiff = 1;
 		break;
-      case 'T':
+	  case 'T':
 		config->syncTolerance++;
-		if(config->syncTolerance > 3)
-			config->syncTolerance = 3;
+		if(config->syncTolerance > 4)
+			config->syncTolerance = 4;
 		break;
 	  case '0':
 		sprintf(config->outputPath, "%s", optarg);
 		break;
-      case '9':
+	  case '9':
 		config->compressToBlocks = 1;
-        break;
+		break;
 	  case '?':
 		if (optopt == 'r')
 		  logmsg("\t ERROR:  Reference File -%c requires an argument.\n", optopt);
@@ -1166,6 +1166,8 @@ void PrintUsage_wave(void)
 	logmsg("	 -C: Use <C>omparison framerate profile in 'No-Sync' compare mode\n");
 	logmsg("	 -Y: Define the Video Format from the profile\n");
 	logmsg("	 -n: Just cut the wav file without performing DFFT\n");
+	logmsg("	 -T: Increase Sync detection <T>olerance (ignore frequency, can be added up to -TTT)\n");
+	logmsg("		-TTTT also accepts pulses of half a frame (emulated audio)\n");
 	logmsg("   Output options:\n");
 	logmsg("	 -v: Enable <v>erbose mode, spits all the FFTW results\n");
 	logmsg("	 -l: Do not <l>og output to file [reference]_vs_[compare].txt\n");
