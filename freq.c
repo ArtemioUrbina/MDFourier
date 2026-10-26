@@ -334,6 +334,7 @@ AudioSignal *CreateAudioSignal(parameters *config)
 			return NULL;
 		Signal->Blocks[n].separation = GetBlockSeparation(config, n);
 		Signal->Blocks[n].noCompare = GetBlockNoCompare(config, n);
+		Signal->Blocks[n].bands = GetBlockBands(config, n);
 	}
 
 	InitAudio(Signal, config);
@@ -1445,6 +1446,30 @@ int GetActiveBlockTypesNoRepeatArray(int **types, parameters *config)
 	return norepeat;
 }
 
+// Types that take part in the comparison: no control, extra data, 'x' or 'C' blocks
+int GetComparedBlockTypesNoRepeat(parameters *config)
+{
+	int count = 0, *types = NULL;
+
+	if(!config)
+		return 0;
+
+	types = (int*)malloc(sizeof(int)*config->types.typeCount);
+	if(!types)
+		return 0;
+
+	for(int i = 0; i < config->types.typeCount; i++)
+	{		
+		int type = config->types.typeArray[i].type; 
+
+		if(type > TYPE_CONTROL && !config->types.typeArray[i].IsaddOnData &&
+			!config->types.typeArray[i].noCompare && !isInArray(type, types, count))
+			types[count++] = type;
+	}
+	free(types);
+	return count;
+}
+
 int GetActiveBlockTypesNoRepeat(parameters *config)
 {
 	int numTypes = 0, *types = NULL;
@@ -1660,6 +1685,23 @@ int GetBlockSeparation(parameters *config, int pos)
 		elementsCounted += config->types.typeArray[i].elementCount;
 		if(elementsCounted > pos)
 			return(config->types.typeArray[i].separation);
+	}
+	
+	return 0;
+}
+
+int GetBlockBands(parameters *config, int pos)
+{
+	int elementsCounted = 0;
+
+	if(!config)
+		return 0;
+
+	for(int i = 0; i < config->types.typeCount; i++)
+	{
+		elementsCounted += config->types.typeArray[i].elementCount;
+		if(elementsCounted > pos)
+			return(config->types.typeArray[i].bands);
 	}
 	
 	return 0;
@@ -2804,6 +2846,8 @@ int FillFrequencyStructures(AudioSignal *Signal, AudioBlocks *AudioArray, parame
 		return 0;
 	if(Signal && Signal->AudioChannels == 2 && AudioArray->separation)
 		MeasureSeparation(AudioArray, config);
+	if(AudioArray->bands)
+		MeasureBands(AudioArray, config);
 	ReleaseFFTW(AudioArray);
 	return 1;
 }
@@ -2947,9 +2991,266 @@ void MeasureSeparation(AudioBlocks *AudioArray, parameters *config)
 	AudioArray->sepValid = AudioArray->sepActiveMag > 0;
 }
 
-/*
- * Refine CLK peak's frequency between bins, with a parabola
- */
+// In noise peaks are random, but its average spectrum is not. The power of the bins in each 1/3 octave band
+// is averaged, so each band scatters by about 4.34/sqrt(bins) dB instead of ~5.6 dB per bin.
+// Since they are averaged and not summed they are independent of teh block length, so frame rates can differ
+double NoiseBandCenter(int band)
+{
+	return 1000.0*pow(2.0, (band + NOISE_BAND_FIRST)/3.0);
+}
+
+void MeasureBandsChannel(FFTWSpectrum *fftw, double *bandMag, long int *bandBins, double boxsize, double nyquist, double audioSeconds, parameters *config)
+{
+	for(int b = 0; b < NOISE_BANDS; b++)
+	{
+		double		center = NoiseBandCenter(b), low = 0, high = 0, power = 0;
+		long int	startBin = 0, endBin = 0;
+
+		bandMag[b] = 0;		
+		bandBins[b] = 0;
+
+		low = center/pow(2.0, 1.0/6.0);
+		high = center*pow(2.0, 1.0/6.0);
+		if(low < config->startHz || high > config->endHz || high > nyquist)
+			continue;
+
+		startBin = ceil(low*boxsize);
+		endBin = floor(high*boxsize);
+		if(endBin > (long int)fftw->size/2)				
+			endBin = fftw->size/2;
+		if(endBin < startBin)
+			continue;
+
+		for(long int i = startBin; i <= endBin; i++)
+		{		
+			double m = CalculateMagnitude(&fftw->spectrum[i], fftw->ENBW);
+
+			power += m*m;
+		}
+		
+		bandMag[b] = sqrt(power/(endBin - startBin + 1));
+		// Zero padding interpolates bins, the audio's length sets how many are independent
+		bandBins[b] = (long int)floor((high - low)*audioSeconds);
+	}
+}
+
+void MeasureBands(AudioBlocks *AudioArray, parameters *config)
+{
+	double	boxsize = 0, nyquist = 0;
+
+	AudioArray->bandValid = 0;
+	if(!AudioArray->fftwValues.spectrum || AudioArray->seconds == 0.0)
+		return;
+
+	boxsize = RoundFloat(AudioArray->seconds, 3);
+	nyquist = (AudioArray->fftwValues.size/2)/boxsize;
+	MeasureBandsChannel(&AudioArray->fftwValues, AudioArray->bandMag[0], AudioArray->bandBins, boxsize, nyquist, AudioArray->audioSeconds, config);
+	
+	if(AudioArray->fftwValuesRight.spectrum)
+	{	
+		long int	bins[NOISE_BANDS];
+
+		MeasureBandsChannel(&AudioArray->fftwValuesRight, AudioArray->bandMag[1], bins, boxsize, nyquist, AudioArray->audioSeconds, config);
+	}
+	
+	AudioArray->bandValid = 1;
+}
+
+void CalculateBandAmplitudes(AudioSignal *Signal, double ZeroDbMagReference, parameters *config)
+{
+	for(int block = 0; block < config->types.totalBlocks; block++)
+	{
+		AudioBlocks *blk = &Signal->Blocks[block];
+
+		if(!blk->bands || !blk->bandValid)
+			continue;	
+			
+		for(int c = 0; c < 2; c++)
+			for(int b = 0; b < NOISE_BANDS; b++)
+				blk->bandAmp[c][b] = blk->bandMag[c][b] > 0 && ZeroDbMagReference > 0 ?
+					CalculateAmplitudeInternal(blk->bandMag[c][b], ZeroDbMagReference) : NO_AMPLITUDE;
+	}
+}
+
+int BandUsable(AudioBlocks *ref, AudioBlocks *com, int c, int b)
+{
+	return ref->bandValid && com->bandValid &&
+		ref->bandBins[b] >= NOISE_BAND_MIN_BINS && com->bandBins[b] >= NOISE_BAND_MIN_BINS &&
+		ref->bandAmp[c][b] != NO_AMPLITUDE && com->bandAmp[c][b] != NO_AMPLITUDE;
+}
+
+// Two random estimates of a band differ by 4.34*sqrt(2/bins) dB, one standard deviation, when the bins are independent
+// https://mitocw.ups.edu.ec/courses/mechanical-engineering/2-161-signal-processing-continuous-and-discrete-fall-2008/lecture-notes/lecture_23.pdf
+// https://holometer.fnal.gov/GH_FFT.pdf
+
+double BandScatter(AudioBlocks *ref, AudioBlocks *com, int b)
+{
+	long int bins = ref->bandBins[b] < com->bandBins[b] ? ref->bandBins[b] : com->bandBins[b];
+
+	return bins > 0 ? 4.34*sqrt(2.0/bins) : 100;
+}
+
+// How much more a recording scatters than independent bins would.
+// Noise clocked slower than a band repeats its pattern across the spectrum, so its bands move together.
+// Each block's two halves are the same noise from the same settings, their difference is its real scatter.
+// Compared to what independent bins give for teh halves, over the band and two on each side, as an RMS ratio.
+
+#define BAND_HALF_SPAN	2
+
+double BandExcessSquared(AudioBlocks *blk, int c, int b)
+{
+	double	sum = 0;
+	int		count = 0;
+
+	for(int j = b - BAND_HALF_SPAN; j <= b + BAND_HALF_SPAN; j++)
+	{
+		double expected = 0;
+
+		if(j < 0 || j >= NOISE_BANDS || blk->bandHalfBins[j] < NOISE_BAND_MIN_BINS/2)
+			continue;
+		expected = 4.34*sqrt(2.0/blk->bandHalfBins[j]);
+		sum += (blk->bandHalfDiff[c][j]/expected)*(blk->bandHalfDiff[c][j]/expected);
+		count++;
+	}
+	return count ? sum/count : 1;
+}
+
+double BandExcess(AudioBlocks *ref, AudioBlocks *com, int c, int b)
+{
+	double excess = sqrt((BandExcessSquared(ref, c, b) + BandExcessSquared(com, c, b))/2);
+
+	return excess < 1 ? 1 : excess;
+}
+
+// 3 standard deviations scaled by what the recordings show
+double BandRange(AudioBlocks *ref, AudioBlocks *com, int c, int b)
+{
+	return 3*BandScatter(ref, com, b)*BandExcess(ref, com, c, b);
+}
+
+// Band levels of a stretch of samples, Hann windowed, in dB of the average bin power. Only differences between two stretches are used
+int BandLevelsOfSamples(double *samples, long int monoSize, int AudioChannels, char channel, double samplerate, double *levels, parameters *config)
+{
+	double			*signal = NULL;
+	fftw_complex	*spectrum = NULL;
+	fftw_plan		p = NULL;
+
+	(void)config;
+	signal = (double*)fftw_malloc(sizeof(double)*(monoSize+1));
+	spectrum = (fftw_complex*)fftw_malloc(sizeof(fftw_complex)*(monoSize/2+1));
+	if(!signal || !spectrum)
+	{	
+		if(signal)
+			fftw_free(signal);
+		if(spectrum)
+			fftw_free(spectrum);
+		logmsg("Not enough memory\n");
+		return 0;
+	}		
+	p = GetR2CPlan(monoSize);
+	if(!p)
+	{
+		fftw_free(signal);
+		fftw_free(spectrum);
+		return 0;
+	}
+
+	for(long int i = 0; i < monoSize; i++)
+	{
+		double s = 0, w = 0.5 - 0.5*cos(2*M_PI*i/(monoSize - 1));
+
+		if(channel == CHANNEL_RIGHT)
+			s = samples[i*AudioChannels+1];
+		else if(channel == CHANNEL_STEREO)
+			s = (samples[i*AudioChannels] + samples[i*AudioChannels+1])/2.0;
+		else
+			s = samples[i*AudioChannels];
+		signal[i] = s*w;
+	}
+	fftw_execute_dft_r2c(p, signal, spectrum);
+
+	for(int b = 0; b < NOISE_BANDS; b++)
+	{
+		double		center = NoiseBandCenter(b), power = 0;
+		long int	startBin = ceil(center/pow(2.0, 1.0/6.0)*monoSize/samplerate);
+		long int	endBin = floor(center*pow(2.0, 1.0/6.0)*monoSize/samplerate);
+
+		levels[b] = NO_AMPLITUDE;
+		if(endBin > monoSize/2)
+			endBin = monoSize/2;
+		if(endBin < startBin)
+			continue;		
+			
+		for(long int i = startBin; i <= endBin; i++)
+			power += creal(spectrum[i])*creal(spectrum[i]) + cimag(spectrum[i])*cimag(spectrum[i]);
+		power /= endBin - startBin + 1;
+		if(power > 0)
+			levels[b] = 10*log10(power);
+	}
+
+	fftw_free(signal);
+	fftw_free(spectrum);
+	return 1;
+}
+
+// This block's two halves compared for its random scatter. 
+int MeasureBandHalves(AudioBlocks *AudioArray, double *samples, long int size, double samplerate, double *window, int AudioChannels, parameters *config)
+{
+	long int	monoSize = size/AudioChannels, used = monoSize, half = 0;
+	double		seconds = 0;
+	int			channels = 1;
+	char		channel[2] = { CHANNEL_LEFT, CHANNEL_RIGHT };
+
+	for(int b = 0; b < NOISE_BANDS; b++)
+		AudioArray->bandHalfBins[b] = 0;
+
+	if(window)
+	{
+		while(used > 0 && window[used - 1] == 0)
+			used--;		
+	}
+	half = used/2;
+	if(half < 64)
+		return 1;
+
+	if(AudioChannels == 2)
+	{	
+		if(AudioArray->channel == CHANNEL_STEREO)
+			channels = 2;
+		else
+			channel[0] = CHANNEL_STEREO;	// as ExecuteDFFT: a mono block in a stereo file
+	}
+
+	for(int c = 0; c < channels; c++)
+	{
+		double first[NOISE_BANDS], second[NOISE_BANDS];
+
+		if(!BandLevelsOfSamples(samples, half, AudioChannels, channel[c], samplerate, first, config))
+			return 0;
+		if(!BandLevelsOfSamples(samples + half*AudioChannels, half, AudioChannels, channel[c], samplerate, second, config)) 	
+			return 0;
+		for(int b = 0; b < NOISE_BANDS; b++)
+			AudioArray->bandHalfDiff[c][b] = first[b] != NO_AMPLITUDE && second[b] != NO_AMPLITUDE ? first[b] - second[b] : 0;
+	}
+
+	// Hann makes it 1.5 bins
+	seconds = (double)half/samplerate;
+	for(int b = 0; b < NOISE_BANDS; b++)
+	{
+		double center = NoiseBandCenter(b);
+
+		if(AudioArray->bandBins[b])
+			AudioArray->bandHalfBins[b] = (long int)floor((center*pow(2.0, 1.0/6.0) - center/pow(2.0, 1.0/6.0))*seconds/1.5);
+	}
+	return 1;
+}
+
+int BandChannels(AudioBlocks *ref, AudioBlocks *com)
+{
+	return ref->bandMag[1][NOISE_BANDS/2] > 0 && com->bandMag[1][NOISE_BANDS/2] > 0 ? 2 : 1;
+}
+
+// Refine CLK peak's frequency between bins, with a parabola
 double RefinePeakFrequency(FFTWSpectrum *fftw, double ENBW, long int bin, long int size, double boxsize)
 {
 	double a = 0, b = 0, c = 0, denom = 0, offset = 0;
@@ -2970,7 +3271,7 @@ double RefinePeakFrequency(FFTWSpectrum *fftw, double ENBW, long int bin, long i
 	if(denom == 0)
 		return CalculateFrequency(bin, boxsize);
 
-	offset = 0.5*(a - c)/denom;		/* -0.5 to 0.5 bins */
+	offset = 0.5*(a - c)/denom;		// -0.5 to 0.5 bins
 	return CalculateFrequency(bin + offset, boxsize);
 }
 

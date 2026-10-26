@@ -64,6 +64,7 @@ int FrequencyDomainNormalize(AudioSignal **ReferenceSignal, AudioSignal **Compar
 void AdjustTimeDomainData(AudioSignal *ReferenceSignal, AudioSignal *ComparisonSignal, parameters *config);
 void printTextResults(parameters *config);
 void ReportSeparation(AudioSignal *ReferenceSignal, AudioSignal *ComparisonSignal, parameters *config);
+void ReportBands(AudioSignal *ReferenceSignal, AudioSignal *ComparisonSignal, parameters *config);
 
 // Time domain
 MaxSample FindMaxSampleAmplitude(AudioSignal *Signal);
@@ -138,6 +139,8 @@ int main(int argc, char *argv[])
 
 	if(config.hasSeparation)
 		ReportSeparation(ReferenceSignal, ComparisonSignal, &config);
+	if(config.hasBands)
+		ReportBands(ReferenceSignal, ComparisonSignal, &config);
 
 	logmsg("\n* Comparing frequencies: ");
 	if(!CompareAudioBlocks(ReferenceSignal, ComparisonSignal, &config))
@@ -1206,6 +1209,11 @@ int NormalizeAndFinishProcess(AudioSignal **ReferenceSignal, AudioSignal **Compa
 
 	CalculateAmplitudes(*ReferenceSignal, ZeroDbMagnitudeRef, config);
 	CalculateAmplitudes(*ComparisonSignal, ZeroDbMagnitudeRef, config);
+	if(config->hasBands)
+	{
+		CalculateBandAmplitudes(*ReferenceSignal, ZeroDbMagnitudeRef, config);
+		CalculateBandAmplitudes(*ComparisonSignal, ZeroDbMagnitudeRef, config);
+	}
 
 	if(config->verbose)
 	{
@@ -1558,6 +1566,8 @@ int RunDFFTJobs(AudioSignal *Signal, DFFTJob *jobs, long int count, int recalcul
 		ok = ExecuteDFFT(block, Signal->Samples + jobs[j].offset, jobs[j].size, jobs[j].samplerate, jobs[j].window, Signal->AudioChannels, config->ZeroPad, config);
 		if(ok)
 			ok = FillFrequencyStructures(Signal, block, config);
+		if(ok && block->bands)
+			ok = MeasureBandHalves(block, Signal->Samples + jobs[j].offset, jobs[j].size, jobs[j].samplerate, jobs[j].window, Signal->AudioChannels, config);
 		if(ok && recalculate && config->plotAllNotesWindowed)
 			ok = CopySamplesForTimeDomainPlotWindowOnly(block, jobs[j].window, Signal->AudioChannels, config);
 
@@ -2295,6 +2305,7 @@ int ExecuteDFFTInternal(AudioBlocks *AudioArray, double *samples, size_t size, d
 		AudioArray->fftwValuesRight.ENBW = samplerate*S2;
 	}
 	AudioArray->seconds = seconds;
+	AudioArray->audioSeconds = (double)realMonoSize/samplerate;
 	fftw_free(signal);
 	signal = NULL;
 
@@ -3039,6 +3050,12 @@ void NormalizeMagnitudesByRatio(AudioSignal *Signal, double ratio, parameters *c
 					Signal->Blocks[block].freqRight[i].magnitude *= ratio;
 				}
 			}
+			if(Signal->Blocks[block].bands)
+			{
+				for(int c = 0; c < 2; c++)
+					for(int b = 0; b < NOISE_BANDS; b++)
+						Signal->Blocks[block].bandMag[c][b] *= ratio;
+			}
 		}
 	}
 	Signal->MaxMagnitude.magnitude *= ratio;
@@ -3064,7 +3081,8 @@ MaxMagn FindMaxMagnitudeBlock(AudioSignal *Signal, parameters *config)
 		int type = TYPE_NOTYPE;
 
 		type = GetBlockType(config, block);
-		if(type > TYPE_CONTROL || type == TYPE_WATERMARK)
+		// noise compared by bands: its peaks are random
+		if((type > TYPE_CONTROL || type == TYPE_WATERMARK) && !Signal->Blocks[block].bands)
 		{
 			size = GetBlockFreqSize(Signal, block, CHANNEL_LEFT, config);
 			for(long int i = 0; i < size; i++)
@@ -3177,7 +3195,7 @@ int FindMultiMaxMagnitudeBlock(AudioSignal *Signal, MaxMagn	*MaxMag, int *size, 
 		int type = TYPE_NOTYPE;
 
 		type = GetBlockType(config, block);
-		if(type > TYPE_CONTROL || type == TYPE_WATERMARK)
+		if((type > TYPE_CONTROL || type == TYPE_WATERMARK) && !Signal->Blocks[block].bands)
 		{
 			blocksize = GetBlockFreqSize(Signal, block, CHANNEL_LEFT, config);
 			for(long int i = 0; i < blocksize; i++)
@@ -3467,7 +3485,7 @@ double FindFundamentalMagnitudeAverage(AudioSignal *Signal, parameters *config)
 		int type = TYPE_NOTYPE;
 
 		type = GetBlockType(config, block);
-		if(type > TYPE_CONTROL && Signal->Blocks[block].freq[0].hertz != 0)
+		if(type > TYPE_CONTROL && !Signal->Blocks[block].bands && Signal->Blocks[block].freq[0].hertz != 0)
 		{
 			AvgFundMag += Signal->Blocks[block].freq[0].magnitude;
 			count ++;
@@ -3481,7 +3499,7 @@ double FindFundamentalMagnitudeAverage(AudioSignal *Signal, parameters *config)
 			int type = TYPE_NOTYPE;
 
 			type = GetBlockType(config, block);
-			if(type > TYPE_CONTROL && Signal->Blocks[block].freqRight[0].hertz != 0)
+			if(type > TYPE_CONTROL && !Signal->Blocks[block].bands && Signal->Blocks[block].freqRight[0].hertz != 0)
 			{
 				AvgFundMag += Signal->Blocks[block].freqRight[0].magnitude;
 				count ++;
@@ -3518,7 +3536,7 @@ double FindFundamentalMagnitudeStdDev(AudioSignal *Signal, double AvgFundMag, pa
 		int type = TYPE_NOTYPE;
 
 		type = GetBlockType(config, block);
-		if(type > TYPE_CONTROL && Signal->Blocks[block].freq[0].hertz != 0)
+		if(type > TYPE_CONTROL && !Signal->Blocks[block].bands && Signal->Blocks[block].freq[0].hertz != 0)
 		{
 			stdDevFundMag += pow(Signal->Blocks[block].freq[0].magnitude - AvgFundMag, 2);
 			count ++;
@@ -3532,7 +3550,7 @@ double FindFundamentalMagnitudeStdDev(AudioSignal *Signal, double AvgFundMag, pa
 			int type = TYPE_NOTYPE;
 
 			type = GetBlockType(config, block);
-			if(type > TYPE_CONTROL && Signal->Blocks[block].freqRight[0].hertz != 0)
+			if(type > TYPE_CONTROL && !Signal->Blocks[block].bands && Signal->Blocks[block].freqRight[0].hertz != 0)
 			{
 				stdDevFundMag += pow(Signal->Blocks[block].freqRight[0].magnitude - AvgFundMag, 2);
 				count ++;
@@ -3667,4 +3685,88 @@ void ReportSeparation(AudioSignal *ReferenceSignal, AudioSignal *ComparisonSigna
 	}
 	if(differ)
 		logmsg(" - WARNING: %d block(s) play the tone in both channels in one signal and in one channel in the other\n", differ);
+}
+
+void ReportBands(AudioSignal *ReferenceSignal, AudioSignal *ComparisonSignal, parameters *config)
+{
+	double	worst = 0, worstHz = 0;
+	int		worstBlock = -1, worstChannel = 0, compared = 0, flagged = 0;
+
+	logmsg("\n* Noise compared by 1/3 octave bands:\n");
+	if(config->verbose)
+		logmsg("   Expected difference measured from each block's halves, flagged beyond 3 std devs\n");
+	for(int block = 0; block < config->types.totalBlocks; block++)
+	{
+		AudioBlocks	*ref = &ReferenceSignal->Blocks[block], *com = &ComparisonSignal->Blocks[block];
+		int			channels = 0, blockFlagged = 0, blockCompared = 0;
+
+		if(!ref->bands || ref->type == TYPE_SKIP)
+			continue;
+		if(!ref->bandValid || !com->bandValid)
+		{
+			logmsg(" - %s# %d: no data\n", GetBlockDisplayName(config, block), GetBlockSubIndex(config, block));
+			continue;
+		}
+
+		channels = BandChannels(ref, com);
+		for(int c = 0; c < channels; c++)
+		{
+			double	sum = 0, blockWorst = 0, blockWorstHz = 0;
+			int		count = 0, beyond = 0;
+
+			for(int b = 0; b < NOISE_BANDS; b++)
+			{
+				double diff = 0;
+
+				if(!BandUsable(ref, com, c, b))
+					continue;
+				diff = com->bandAmp[c][b] - ref->bandAmp[c][b];
+				sum += diff;
+				count++;
+				if(fabs(diff) > BandRange(ref, com, c, b))
+					beyond++;
+				if(fabs(diff) > fabs(blockWorst))
+				{
+					blockWorst = diff;
+					blockWorstHz = NoiseBandCenter(b);
+				}
+			}
+			ref->bandBeyond[c] = beyond;
+			if(!count)
+			{
+				logmsg(" - %s# %d%s: too short for any band\n", GetBlockDisplayName(config, block), GetBlockSubIndex(config, block),
+					channels == 2 ? (c ? " R" : " L") : "");
+				continue;
+			}
+			blockCompared = 1;
+			if(beyond)
+				blockFlagged = 1;
+			if(config->verbose)
+			{
+				logmsg(" - %s# %d%s: %d bands, average %+0.2f dB, largest %+0.2f dB at %0.0f Hz",
+					GetBlockDisplayName(config, block), GetBlockSubIndex(config, block),
+					channels == 2 ? (c ? " R" : " L") : "", count, sum/count, blockWorst, blockWorstHz);
+				if(beyond)
+					logmsg(", %d beyond the expected difference\n", beyond);
+				else
+					logmsg("\n");
+			}
+			if(fabs(blockWorst) > fabs(worst))
+			{
+				worst = blockWorst;
+				worstHz = blockWorstHz;
+				worstBlock = block;
+				worstChannel = channels == 2 ? (c ? 'R' : 'L') : 0;
+			}
+		}
+		compared += blockCompared;
+		flagged += blockFlagged;
+	}
+
+	if(compared)
+		logmsg(" - %d of %d blocks have bands beyond the expected difference\n", flagged, compared);
+	if(worstBlock != -1)
+		logmsg(" - Largest band difference: %+0.2f dB in %s# %d%s at %0.0f Hz\n", worst,
+			GetBlockDisplayName(config, worstBlock), GetBlockSubIndex(config, worstBlock),
+			worstChannel == 'L' ? " L" : (worstChannel == 'R' ? " R" : ""), worstHz);
 }

@@ -65,6 +65,7 @@
 
 #define ZEROPAD_FACTOR				16
 #define ZEROPAD_FACTOR_CLK			16
+#define CLK_WINDOW_TYPE				'm'		// Hamming for clock blocks
 
 #define SIGNIFICANT_AMPLITUDE		-66.0
 #define NS_LOWEST_AMPLITUDE			-200
@@ -185,6 +186,10 @@
 
 /* Block flags, optional column after the mask */
 #define BLOCK_FLAG_NOCOMPARE	'x'	// analyzed and plotted, but left out of the comparison
+#define BLOCK_FLAG_BANDS		'b'	// noise is compared as averaged 1/3 octave bands
+#define NOISE_BANDS			31
+#define NOISE_BAND_FIRST	-17
+#define NOISE_BAND_MIN_BINS	20		// each band scatters 4.34/sqrt(bins) dB, ~1 dB at 20
 
 /* Clock identification ranges [CLKID] */
 #define CLKID_UNIT_HZ		'h'
@@ -271,6 +276,7 @@ typedef struct abt_st {
 	char		maskType;
 	int			noCompare;
 	int			separation;
+	int			bands;
 } AudioBlockType;
 
 typedef struct clkid_st {
@@ -487,6 +493,15 @@ typedef struct AudioBlock_st {
 
 	int				noCompare;
 	int				separation;
+	int				bands;							// 'b': noise compared by bands
+	int				bandValid;
+	double			bandMag[2][NOISE_BANDS];		// RMS bin magnitude in each band
+	double			bandAmp[2][NOISE_BANDS];		// dBFS after normalization
+	long int		bandBins[NOISE_BANDS];			// independent bins
+	double			audioSeconds;					// analyzed audio, without the zero padding
+	int				bandBeyond[2];					// bands beyond the random scatter in the Reference block
+	double			bandHalfDiff[2][NOISE_BANDS];	// first half - second half of the block dB
+	long int		bandHalfBins[NOISE_BANDS];		// independent bins in each half
 	int				sepValid;
 	char			sepActive;
 	double			sepHertz;
@@ -733,6 +748,7 @@ typedef struct parameters_st {
 	int				FullTimeSpectroScale;
 	int				hasTimeDomain;
 	int				hasSeparation;
+	int				hasBands;
 	int				hasSilenceOverRide;
 	int				hasAddOnData;
 	int				frequencyNormalizationTries;

@@ -1368,7 +1368,12 @@ The \textit{[ToneLines]} line indicates how many block lines follow. Each line h
 	\item \textbf{Color:} The color used in the graphs for this type.\footnote{Available colors are listed in appendix~\ref{availablecolors}.}
 	\item \textbf{Channel:} \textit{m} for \textit{mono}, \textit{S} for \textit{stereo}, \textit{s} for \textit{stereo} that can also be compared against a \textit{mono} recording, \textit{n} for \textit{noise}, and \textit{C} for a \textit{stereo} block that measures \textit{channel separation}.\footnote{See appendix~\ref{separation}.} Stereo types are analyzed per channel.\footnote{This is important for stereo audio balancing, see appendix~\ref{stereobalancing}.}
 	\item \textbf{Mask (optional):} \textit{-}, or no value, is the default: each file is analyzed with the full duration of the block at its own \textit{frame rate}, and a window of that length. With \textit{*}, the file with the longer frames is cut to the duration the block has at the shorter frame duration, and the window for that shorter duration is used, so both files analyze the same amount of audio. This was the original behavior, and it is used by the \textit{Mega Drive/Genesis}, \textit{Sega CD}, \textit{MSX} and \textit{MS-DOS} profiles.
-	\item \textbf{Flags (optional):} Letters after the mask, which must then be written. \textit{x} analyzes and plots the block but leaves it out of the comparison, for example the blocks that hold clock tones. A semicolon starts a comment.
+	\item \textbf{Flags (optional):} Letters after the mask.
+	\begin{itemize}
+		\item \textit{x} analyzes and plots the block but leaves it out of the comparison, for example the blocks that hold clock tones.
+		\item \textit{b} compares a noise block by its averaged spectrum in bands instead of by its frequencies, as described in appendix~\ref{noisebands}.
+	\end{itemize}
+	\item A semicolon starts a comment.
 \end{itemize}
 
 For example, FM audio has been named \textit{"FM"}, type \textit{1}, \textit{96} elements of \textit{20} frames each and will be colored in \textit{green}. Definition is in frames since some hardware variants, emulators and \ac{fpga} implementations sometimes run at different frame rates than the vintage retail platform, which result in different durations. We align them with the video signal and gain information along the way, which also helps when comparing systems from different regions that have their own quirks.
@@ -1757,6 +1762,38 @@ The log has a line for each block with both files. When the active channel is th
 - Lowest separation: 55.0dB in PCM8_Sep# 1
 \end{verbatim}
 
+\chapter{Noise compared by bands}
+\label{noisebands}
+
+Since the noise is pseudo random, two recordings of the same noise channel from the same console have different peaks, so comparing them frequency by frequency shows differences that aren't there.
+
+\begin{figure}[H]
+	\centering
+	\includegraphics[width=1.0\linewidth]{images/results/16-RAND_DIFF_06_Noise_SB2-CMS-1_vs_SB2-CMS-3_0000.png}
+	\caption[16-RAND_DIFF_06_Noise_SB2-CMS-1_vs_SB2-CMS-3_0000]{Noise compared by 1/3 octave bands between two CMS recordings}
+	\label{fig:16-RAND_DIFF_06_Noise_SB2-CMS-1_vs_SB2-CMS-3_0000}
+\end{figure}
+
+Its average spectrum is not random, so that is what blocks marked with the \textit{b} flag compare. Examples are the noise channels of the \textit{CMS} and the \textit{PC Engine}. This fragment of the \textit{CMS} profile has one:
+
+\begin{verbatim}
+	Noise           6   7  40  8 aqua    s - b
+\end{verbatim}
+
+The power of the bins is averaged in each \textit{1/3 octave} band of the analyzed range. A single bin of noise varies by about \textit{5.6} \ac{db}, and a band with \textit{n} independent bins by \textit{4.34/$\sqrt{n}$} \ac{db}. That number is the width of the band multiplied by the duration of the block, so longer blocks reach lower bands. Only bands with at least \textit{20} are used, about \textit{1} \ac{db} each. Since the power is averaged rather than added, blocks of different lengths and from different frame rates can be compared.
+
+Noise clocked slower than a band's frequency repeats its pattern across the spectrum, so its bands scatter more than that. Each recording measures its own scatter by comparing the two halves of every block. The allowed range is widened to match cases where the halves differ more than expected, over the band and the two on each side. Two recordings of the same noise then almost always stay within three standard deviations.
+
+These blocks are left out of the normalization and of the regular comparison. The log reports how many blocks have bands beyond the expected difference, and the largest difference found. With \textit{-v} it adds a line for each block and channel, with the number of bands compared, the average and the largest difference, and how many bands are beyond it:
+
+\begin{verbatim}
+	* Noise compared by 1/3 octave bands:
+	- 2 of 7 blocks have bands beyond the expected difference
+	- Largest band difference: -13.05 dB in Noise# 2 L at 16000 Hz
+\end{verbatim}
+
+Each type has its own graph, \textit{RAND\_DIFF}, with the difference of every band, one color per block, the right channel dashed. The gray dashed line is the expected difference, the widest of all blocks, and the blocks marked with an \textit{*} have bands beyond their own.
+
 \chapter{Stereo Audio Balancing}
 \label{stereobalancing}
 
@@ -1893,7 +1930,7 @@ The \textit{MS-DOS} \textit{Tone Generator} can run from a \textit{DOS} box unde
 The \textit{Tone Generator} starts every event at the vertical retrace, within a fraction of a millisecond. \textit{Windows} keeps the overall timing right, but it can't hold that precision:
 
 \begin{itemize}
-	\item The \textit{DOS} box doesn't get the real timer. Under \textit{Windows 9x} the \textit{Tone Generator} uses the \textit{CPU} time stamp counter instead, measured against the \ac{bios} ticks. Under \textit{Windows 3.x} on a \textit{486}, without that counter, the virtual timer counts at half the expected rate and is read as such. Either way the total length matches the one from \textit{MS-DOS}, and the \textit{/T} option can check it.
+	\item The \textit{DOS} box doesn't see the real timer. Under \textit{Windows 9x} the \textit{Tone Generator} uses the \textit{CPU} time stamp counter instead, measured against the \ac{bios} ticks. Under \textit{Windows 3.x} on a \textit{486}, without that counter, the virtual timer counts at half the expected rate and is read as such. Either way the total length matches the one from \textit{MS-DOS}, and the \textit{/T} option checks it.
 	\item \textit{Windows} interrupts the program to deliver its own timer ticks and run other tasks. When a retrace goes by, the \textit{Tone Generator} catches up instead of stopping, so the events of that frame start late. Under \textit{Windows 3.1} this happened in about one frame out of four, by up to \textit{52} \ac{ms}. The report at the end lists the late and missed frames.
 	\item The interrupts from the \textit{Sound Blaster} can arrive late, or not at all, when a \textit{Windows} driver also uses the card. Then the \ac{pcm} sections can be missing or shifted. Under \textit{Windows 3.1}, removing the \textit{Sound Blaster} driver from \textit{SYSTEM.INI} and adding \textit{TrapTimerPorts=OFF} to its \textit{[386Enh]} section can help.
 	\item The \textit{ESS} \textit{Extended} mode and \textit{WSS} codecs are left to \textit{Windows}, so \textit{16 bit} \ac{pcm} is played only through a \textit{DSP 4.xx}.

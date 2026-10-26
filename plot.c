@@ -109,6 +109,7 @@
 #define TS_DIFFERENCE_TITLE			"DIFFERENT AMPLITUDES - TIME SPECTROGRAM [%s]"
 #define SPECTROGRAM_CLK_REF			"Reference CLK - Spectrogram [%s]"
 #define SPECTROGRAM_CLK_COM			"Comparison CLK - Spectrogram [%s]"
+#define RANDOM_TITLE				"DIFFERENT PSEUDO RANDOM NOISE BANDS [%s]"
 
 #define BAR_HEADER					"Matched frequencies w/diff amplitude"
 #define BAR_DIFF					"w/any amplitude difference"
@@ -529,7 +530,7 @@ int AddDifferenceTypeJobs(PlotJobList *list, FlatAmplDifference *amplDiff, long 
 	char	channels[3] = { CHANNEL_STEREO, CHANNEL_LEFT, CHANNEL_RIGHT };
 
 	someStereo = config->referenceSignal->AudioChannels == 2 || config->comparisonSignal->AudioChannels == 2;
-	typeCount = GetActiveBlockTypesNoRepeat(config);
+	typeCount = GetComparedBlockTypesNoRepeat(config);
 	for(int i = 0; i < config->types.typeCount; i++)
 	{
 		int type = config->types.typeArray[i].type, count = 1;
@@ -980,6 +981,15 @@ void PlotResults(AudioSignal *ReferenceSignal, AudioSignal *ComparisonSignal, pa
 		EndPlot("Channel Separation", &lstart, &lend, config);
 	}
 
+	if(config->hasBands)
+	{
+		struct	timespec	lstart, lend;
+
+		StartPlot(" - Noise Bands", &lstart, config);
+		PlotBands(ReferenceSignal, ComparisonSignal, config);
+		EndPlot("Noise Bands", &lstart, &lend, config);
+	}
+
 	if((config->hasTimeDomain && config->plotTimeDomain) || config->plotAllNotes)
 	{
 		struct	timespec	lstart, lend;
@@ -1045,10 +1055,10 @@ void PlotAmpDifferences(parameters *config)
 		PlotJobList	list = { NULL, 0, 0 };
 
 		someStereo = config->referenceSignal->AudioChannels == 2 || config->comparisonSignal->AudioChannels == 2;
-		typeCount = GetActiveBlockTypesNoRepeat(config);
+		typeCount = GetComparedBlockTypesNoRepeat(config);
 		if (typeCount > 1 || someStereo)
 		{
-			if (AddDifferenceTypeJobs(&list, amplDiff, size, config->compareName, config) > 1)
+			if (AddDifferenceTypeJobs(&list, amplDiff, size, config->compareName, config) >= 1)
 				plotAll = 1;
 		}
 		else
@@ -4841,7 +4851,7 @@ int PlotDifferentAmplitudesAveraged(FlatAmplDifference *amplDiff, long int size,
 				job->typeIndex = i;
 				job->slot = types;
 				// folders are only used for creating them, names are built in the job
-				if(typeCount > 1 || (config->types.typeArray[i].channel == CHANNEL_STEREO && someStereo))
+				if(GetComparedBlockTypesNoRepeat(config) > 1 || (config->types.typeArray[i].channel == CHANNEL_STEREO && someStereo))
 					snprintf(job->folder, sizeof(job->folder), "%s", DIFFERENCE_FOLDER);
 			}
 			types ++;
@@ -4859,7 +4869,7 @@ int PlotDifferentAmplitudesAveraged(FlatAmplDifference *amplDiff, long int size,
 	RunPlotJobs(&list, &results, config);
 	FreePlotJobList(&list);
 
-	if(types > 1 && averagedArray && averagedSizes)
+	if(types >= 1 && averagedArray && averagedSizes)
 	{
 		sprintf(name, "DA__ALL_AVG_%s", filename);
 		PlotAllDifferentAmplitudesAveraged(amplDiff, size, name, averagedArray, averagedSizes, config);
@@ -7391,6 +7401,189 @@ void PlotSeparation(AudioSignal *ReferenceSignal, AudioSignal *ComparisonSignal,
 	ClosePlot(&plot);
 }
 
+#define BANDS_MIN_DB	3.0
+
+int bandColors[] = { COLOR_CYAN, COLOR_ORANGE, COLOR_MAGENTA, COLOR_YELLOW, COLOR_SKY, COLOR_RED,
+					COLOR_MINT, COLOR_PINK, COLOR_VIOLET, COLOR_CANARY, COLOR_SALMON, COLOR_ROSE, COLOR_GRAY };
+#define BAND_COLORS	(int)(sizeof(bandColors)/sizeof(bandColors[0]))
+
+int BandBlockColor(int typeColor, int element)
+{
+	int skip = 0;
+
+	if(!element)
+		return typeColor;
+		
+	for(int i = 0; i < BAND_COLORS; i++)
+		if(bandColors[i] == typeColor)
+			skip = 1;
+			
+	element--;
+	if(skip)
+	{
+		int index = element % (BAND_COLORS - 1);
+
+		for(int i = 0; i < BAND_COLORS; i++)
+		{
+			if(bandColors[i] == typeColor)
+				continue;	
+			if(!index--)
+				return bandColors[i];
+		}
+	}
+	return bandColors[element % BAND_COLORS];
+}
+
+void PlotBandsType(AudioSignal *ReferenceSignal, AudioSignal *ComparisonSignal, int typeIndex, parameters *config)
+{
+	PlotFile	plot;
+	char		name[BUFFER_SIZE*2], label[BUFFER_SIZE];
+	int			type = config->types.typeArray[typeIndex].type, color = 0, elements = 0, element = 0, line = 0;
+	double		dB = BANDS_MIN_DB, minScatter[NOISE_BANDS];
+
+	color = MatchColor(config->types.typeArray[typeIndex].color);
+	for(int band = 0; band < NOISE_BANDS; band++)
+		minScatter[band] = 0;
+
+	// Scale: the largest difference and the expected difference
+	for(int block = 0; block < config->types.totalBlocks; block++)
+	{
+		AudioBlocks	*ref = &ReferenceSignal->Blocks[block], *com = &ComparisonSignal->Blocks[block];
+
+		if(GetBlockType(config, block) != type || !ref->bands)
+			continue;
+			
+		elements++;
+		for(int channel = 0; channel < BandChannels(ref, com); channel++)
+		{
+			for(int band = 0; band < NOISE_BANDS; band++)
+			{
+				double diff = 0;
+
+				if(BandUsable(ref, com, channel, band))
+				{
+					diff = fabs(com->bandAmp[channel][band] - ref->bandAmp[channel][band]);
+					if(diff > dB)
+						dB = diff;
+					if(BandRange(ref, com, channel, band) > minScatter[band])
+						minScatter[band] = BandRange(ref, com, channel, band);
+				}
+			}
+		}
+	}
+	if(!elements)
+		return;
+		
+	dB = ceil(dB);
+	if(dB > 24)
+		dB = 24;
+		
+	sprintf(name, "RAND_DIFF_%02d_%s_%s", type, config->types.typeArray[typeIndex].typeName, config->compareName);
+	FillPlot(&plot, name, config->startHzPlot, -1*dB, config->endHzPlot, dB, 1, 1, config);
+	if(!CreatePlotFile(&plot, config))
+		return;
+		
+	DrawGridZeroDBCentered(&plot, dB, 1, config->endHzPlot, HORZ_SCALE_STEP, config);
+	DrawLabelsZeroDBCentered(&plot, dB, 1, config->endHzPlot, config);
+
+	// Expected difference
+	pl_pencolor_r(plot.plotter, 0x7777, 0x7777, 0x7777);
+	pl_linemod_r(plot.plotter, "shortdashed");
+	for(int sign = -1; sign <= 1; sign += 2)
+	{
+		int last = -1;
+
+		for(int band = 0; band < NOISE_BANDS; band++)
+		{
+			if(minScatter[band])
+			{
+				if(last != -1)
+					pl_fline_r(plot.plotter, transformtoLog(NoiseBandCenter(last), config), sign*fmin(minScatter[last], dB),
+						transformtoLog(NoiseBandCenter(band), config), sign*fmin(minScatter[band], dB));
+				last = band;
+			}
+		}
+		pl_endpath_r(plot.plotter);
+	}
+	pl_linemod_r(plot.plotter, "solid");
+
+	for(int block = 0; block < config->types.totalBlocks; block++)
+	{		
+		AudioBlocks	*ref = &ReferenceSignal->Blocks[block], *com = &ComparisonSignal->Blocks[block];
+		int			blockColor = 0;
+
+		if(GetBlockType(config, block) != type || !ref->bands)
+			continue;
+
+		blockColor = BandBlockColor(color, element);
+		element++;
+		for(int chan = 0; chan < BandChannels(ref, com); chan++)
+		{
+			int last = -1;
+
+			SetPenColor(blockColor, 0xffff, &plot);
+			pl_linemod_r(plot.plotter, chan ? "shortdashed" : "solid");
+			for(int band = 0; band < NOISE_BANDS; band++)
+			{	
+				double diff = 0;
+
+				if(BandUsable(ref, com, chan, band))
+				{
+					diff = com->bandAmp[chan][band] - ref->bandAmp[chan][band];
+					if(diff > dB)
+						diff = dB;
+					if(diff < -dB)
+						diff = -dB;
+					if(last != -1)
+						pl_fcont_r(plot.plotter, transformtoLog(NoiseBandCenter(band), config), diff);
+					else
+						pl_fmove_r(plot.plotter, transformtoLog(NoiseBandCenter(band), config), diff);
+					last = band;
+				}
+			}
+			pl_endpath_r(plot.plotter);
+			pl_linemod_r(plot.plotter, "solid");
+
+			pl_savestate_r(plot.plotter);
+			pl_fspace_r(plot.plotter, 0, 0, config->plotResX, config->plotResY);
+			pl_ffontname_r(plot.plotter, PLOT_FONT);
+			pl_ffontsize_r(plot.plotter, FONT_SIZE_1);
+			SetPenColor(blockColor, 0xffff, &plot);
+			pl_fmove_r(plot.plotter, config->plotResX*0.03, config->plotResY*(0.80 - line*0.025));
+			sprintf(label, "%s# %d%s%s", GetBlockDisplayName(config, block), GetBlockSubIndex(config, block),
+				BandChannels(ref, com) == 2 ? (chan ? " R (dashed)" : " L") : "",
+				ref->bandBeyond[chan] ? " *" : "");
+			pl_alabel_r(plot.plotter, 'l', 'c', label);
+			pl_restorestate_r(plot.plotter);
+			line++;
+		}
+	}
+
+	pl_savestate_r(plot.plotter);
+	pl_fspace_r(plot.plotter, 0, 0, config->plotResX, config->plotResY);
+	pl_ffontname_r(plot.plotter, PLOT_FONT);
+	pl_ffontsize_r(plot.plotter, FONT_SIZE_1);
+	pl_pencolor_r(plot.plotter, 0xaaaa, 0xaaaa, 0xaaaa);
+	pl_fmove_r(plot.plotter, config->plotResX*0.03, config->plotResY*(0.80 - line*0.025 - 0.01));
+	pl_alabel_r(plot.plotter, 'l', 'c', "Gray dashed: expected difference, widest of all blocks");
+	pl_fmove_r(plot.plotter, config->plotResX*0.03, config->plotResY*(0.80 - line*0.025 - 0.035));
+	pl_alabel_r(plot.plotter, 'l', 'c', "*: bands beyond the expected difference");
+	pl_restorestate_r(plot.plotter);
+
+	sprintf(label, "%s", config->types.typeArray[typeIndex].typeDisplayName);
+	DrawLabelsMDF(&plot, RANDOM_TITLE, label, PLOT_COMPARE, config);
+	ClosePlot(&plot);
+}
+
+void PlotBands(AudioSignal *ReferenceSignal, AudioSignal *ComparisonSignal, parameters *config)
+{
+	for(int i = 0; i < config->types.typeCount; i++)
+	{	
+		if(config->types.typeArray[i].bands && !config->types.typeArray[i].IsaddOnData)
+			PlotBandsType(ReferenceSignal, ComparisonSignal, i, config);
+	}
+}
+
 /*
 void PlotDifferenceTimeSpectrogram(parameters *config)
 {
@@ -7530,4 +7723,3 @@ void PlotDifferenceTimeSpectrogram(parameters *config)
 	ClosePlot(&plot);
 }
 */
-

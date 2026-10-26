@@ -1058,10 +1058,23 @@ int LoadAudioBlockStructure(FILE *file, parameters *config)
 						{
 							if(flags[f] == BLOCK_FLAG_NOCOMPARE)
 								config->types.typeArray[i].noCompare = 1;
+							else if(flags[f] == BLOCK_FLAG_BANDS)
+							{
+								if(config->types.typeArray[i].type <= TYPE_CONTROL || config->types.typeArray[i].separation)
+								{
+									logmsg("ERROR: Only regular blocks can be compared by bands\n %s\n", lineBuffer);
+									fclose(file);
+									return 0;
+								}
+								
+								config->types.typeArray[i].bands = 1;
+								config->types.typeArray[i].noCompare = 1;
+								config->hasBands++;
+							}
 							else
 							{
-								logmsg("ERROR: Unknown block flag '%c', only '%c' (not compared) is valid\n %s\n",
-									flags[f], BLOCK_FLAG_NOCOMPARE, lineBuffer);
+								logmsg("ERROR: Unknown block flag '%c', only '%c' (not compared) and '%c' (noise bands) are valid\n %s\n",
+									flags[f], BLOCK_FLAG_NOCOMPARE, BLOCK_FLAG_BANDS, lineBuffer);
 								fclose(file);
 								return 0;
 							}
@@ -1468,7 +1481,8 @@ void PrintAudioBlocks(parameters *config)
 			config->types.typeArray[i].cutFrames*-1,
 			config->types.typeArray[i].color,
 			config->types.typeArray[i].separation ? CHANNEL_SEPARATION : config->types.typeArray[i].channel,
-			config->types.typeArray[i].noCompare && !config->types.typeArray[i].separation ? "x " : "",
+			config->types.typeArray[i].bands ? "b " :	
+				(config->types.typeArray[i].noCompare && !config->types.typeArray[i].separation ? "x " : ""),
 			config->types.typeArray[i].IsaddOnData ? "(ExtraData)" : " ");
 
 		if(config->types.typeArray[i].type == TYPE_WATERMARK)

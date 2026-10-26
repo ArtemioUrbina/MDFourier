@@ -180,6 +180,7 @@ void CleanParameters(parameters *config)
 	config->FullTimeSpectroScale = 0;
 	config->hasTimeDomain = 0;
 	config->hasSeparation = 0;
+	config->hasBands = 0;
 	config->hasSilenceOverRide = 0;
 
 	config->maxBlockFrameCount = 0;
