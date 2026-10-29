@@ -1879,7 +1879,7 @@ void DiscardDigitalSilence(AudioSignal *Signal, DFFTJob *jobs, long int jobCount
 			if(Signal->Blocks[b].freq && Signal->Blocks[b].SilenceSizeLeft &&
 				IsDigitalSilence(Signal, samples, jobs[j].size, jobs[j].window, channel, config))
 			{
-				for(int i = 0; i < config->MaxFreq; i++)
+				for(long int i = 0; i < Signal->Blocks[b].SilenceSizeLeft; i++)
 					CleanFrequency(&Signal->Blocks[b].freq[i]);
 				Signal->Blocks[b].SilenceSizeLeft = 0;
 				left = 1;
@@ -1888,13 +1888,13 @@ void DiscardDigitalSilence(AudioSignal *Signal, DFFTJob *jobs, long int jobCount
 			if(Signal->AudioChannels == 2 && Signal->Blocks[b].freqRight && Signal->Blocks[b].SilenceSizeRight &&
 				IsDigitalSilence(Signal, samples, jobs[j].size, jobs[j].window, CHANNEL_RIGHT, config))
 			{
-				for(int i = 0; i < config->MaxFreq; i++)
+				for(long int i = 0; i < Signal->Blocks[b].SilenceSizeRight; i++)
 					CleanFrequency(&Signal->Blocks[b].freqRight[i]);
 				Signal->Blocks[b].SilenceSizeRight = 0;
 				right = 1;
 			}
 
-			if(left || right)
+			if((left || right) && config->verbose)
 				logmsg(" - %s %s# %d (%ld) is digital silence%s, no noise floor data from it\n",
 					getRoleText(Signal), GetBlockName(config, b), GetBlockSubIndex(config, b), b,
 					Signal->Blocks[b].freqRight && left != right ? (left ? " (left channel)" : " (right channel)") : "");

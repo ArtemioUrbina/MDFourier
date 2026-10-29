@@ -357,15 +357,22 @@ void CleanFrequency(Frequency *freq)
 
 void CleanFrequenciesInBlock(AudioBlocks * AudioArray,  parameters *config)
 {
+	long int sizeLeft = config->MaxFreq, sizeRight = config->MaxFreq;
+
+	if(AudioArray->SilenceSizeLeft)
+		sizeLeft = AudioArray->SilenceSizeLeft;
+	if(AudioArray->SilenceSizeRight)
+		sizeRight = AudioArray->SilenceSizeRight;
+
 	if(AudioArray->freq)
 	{
-		for(int i = 0; i < config->MaxFreq; i++)
+		for(long int i = 0; i < sizeLeft; i++)
 			CleanFrequency(&AudioArray->freq[i]);
 	}
 
 	if(AudioArray->freqRight)
 	{
-		for(int i = 0; i < config->MaxFreq; i++)
+		for(long int i = 0; i < sizeRight; i++)
 			CleanFrequency(&AudioArray->freqRight[i]);
 	}
 }
