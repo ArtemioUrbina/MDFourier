@@ -88,7 +88,7 @@ void PrintUsage(void)
 	logmsg("	 -D: Don't create <D>ifferences Plots\n");
 	logmsg("	 -g: Don't create avera<g>e points over the plotted graphs\n");
 	logmsg("	 -M: Don't create <M>issing Plots\n");
-	logmsg("	 -S: Don't create <S>pectrogram Plots\n");
+	logmsg("	 -S: Don't create <S>pectrum Plots\n");
 	logmsg("	 -F: Don't create Noise <F>loor Plots\n");
 	logmsg("	 -t: Don't create Time Spectrogram Plots\n");
 	logmsg("	 -O: Don't create Phase Pl<O>ts\n");

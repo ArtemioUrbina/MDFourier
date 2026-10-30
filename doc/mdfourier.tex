@@ -400,12 +400,12 @@ All graphs use the horizontal axis for frequency, in a logarithmic scale by defa
 
 For \textit{Difference} graphs the vertical axis is the amplitude difference in \ac{db}, and a central axis for \db{0}. Values rise to \db{18} towards the top and fall to \db{-18} on the lower part of the graph by default. When \textit{25\%} or more of the differences of a type fall outside that range, the software widens it automatically and reports it in the log. A fixed range can be set with \textit{-d}.
 
-There will be two sets of \textit{Spectrograms}, one for the \textit{Reference} file and one for the \textit{Comparison} file, with one graph for each defined \textit{type} plus the general one.
+There will be two sets of \textit{Spectra}, one for the \textit{Reference} file and one for the \textit{Comparison} file, with one graph for each defined \textit{type} plus the general one.
 
 \begin{figure}[H]
 	\centering
 	\includegraphics[width=1.0\linewidth]{images/interpretation/Plot1-SameFile-Spectrogram.png}
-	\caption[Spectrogram]{The Spectrogram for a Genesis 1 VA3 via headphone out.}
+	\caption[Spectrum]{The Spectrum for a Genesis 1 VA3 via headphone out.}
 	\label{fig:plot2-samefile-fm-spectrogram}
 \end{figure}
 
@@ -415,7 +415,7 @@ Three colors--as defined from the \textit{mfn file}\footnote{The configuration f
 
 The top of the graph corresponds to the strongest frequency in either file, which is \dbr{0}. The bottom of the graph corresponds to the \textit{minimum significant amplitude}, as described in section~\ref{MinSigAmplitude}.
 
-As expected, both sets of \textit{spectrograms} are identical in this case, since we used the same file compared against itself.
+As expected, both sets of \textit{spectra} are identical in this case, since we used the same file compared against itself.
 
 \section{Scenario 2: Comparing two different recordings from the same console}
 \label{scenario2}
@@ -459,12 +459,12 @@ For demonstration purposes, the same \textit{Reference} file was modified to add
 
 As expected all three \textit{types} (\textit{FM}, \textit{PSG} and \textit{Noise}) were affected and show a spike, exactly \db{6} tall and centered around \hz{500}.
 
-It is interesting to contrast both spectrograms (figures \ref{fig:plot3-spectrogram} and \ref{fig:plot3-spectrogram-500Hz}), since the \hz{500} spike is also shown there.
+It is interesting to contrast both spectra (figures \ref{fig:plot3-spectrogram} and \ref{fig:plot3-spectrogram-500Hz}), since the \hz{500} spike is also shown there.
 
 \begin{figure}[H]
 	\centering
 	\includegraphics[width=1.0\linewidth]{images/interpretation/Plot3-Spectrogram.png}
-	\caption[Reference File]{Spectrogram for the \textit{Reference} File.}
+	\caption[Reference File]{Spectrum for the \textit{Reference} File.}
 	\label{fig:plot3-spectrogram}
 \end{figure}
 
@@ -1161,13 +1161,13 @@ The file names for these graphs have the format:\\ \nolinkurl{DA__ALL_AVG_Refere
 
 \subsubsection{Noise Floor}
 
-This option generates a noise floor spectrogram for each file, and an averaged comparison graph of both. They are plotted with the same scale, so they make sense when compared. It is disabled with \textit{-F}. When one of the files has \textit{digital silence}, only the noise floor of the other file is drawn, since there is nothing to compare.\footnote{See section~\ref{MinSigAmplitude}.}
+This option generates a noise floor spectrum for each file, and an averaged comparison graph of both. They are plotted with the same scale, so they make sense when compared. It is disabled with \textit{-F}. When one of the files has \textit{digital silence}, only the noise floor of the other file is drawn, since there is nothing to compare.\footnote{See section~\ref{MinSigAmplitude}.}
 
 The file names for these graphs have the format:\\ \nolinkurl{NF_SP_A_Reference_-1Silence.png}, \nolinkurl{NF_SP_B_Comparison_-1Silence.png} and \nolinkurl{NF__Reference_vs_Comparison_-1Silence_AVG_.png}
 
-\subsubsection{Spectrograms}
+\subsubsection{Spectra}
 
-Plots all the frequencies available in each file.\footnote{As limited by the analysis parameters, such as amplitude and frequency count per block.} Two sets of spectrograms are generated, one for the \textit{Reference} file and one for the \textit{Comparison} file. It is disabled with \textit{-S}.
+Plots all the frequencies available in each file.\footnote{As limited by the analysis parameters, such as amplitude and frequency count per block.} Two sets of spectra are generated, one for the \textit{Reference} file and one for the \textit{Comparison} file. It is disabled with \textit{-S}. Each one shows the amplitude of every frequency of a type, from all its blocks together, with no time axis; the \textit{Time Spectrograms} are the ones that show them over time. These graphs are saved in the \textit{Spectrograms} folder, which keeps its name.
 
 The file names for these graphs have the format:\\ \nolinkurl{SP__ALL_A_Reference.png} and \nolinkurl{SP_A_Reference_##Type.png}
 
@@ -1271,7 +1271,7 @@ usage: mdfourier -P profile.mdf -r reference.wav -c compare.wav
   -D: Don't create <D>ifferences Plots
   -g: Don't create avera<g>e points over the plotted graphs
   -M: Don't create <M>issing Plots
-  -S: Don't create <S>pectrogram Plots
+  -S: Don't create <S>pectrum Plots
   -F: Don't create Noise <F>loor Plots
   -t: Don't create Time Spectrogram Plots
   -O: Don't create Phase Pl<O>ts

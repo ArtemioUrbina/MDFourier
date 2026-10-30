@@ -71,12 +71,12 @@
 #define EXTRA_TITLE_TS_COM			"Comparison - EXTRA FREQUENCIES - Time Spectrogram [%s] (Not in Reference)"
 #define EXTRA_TITLE_TS_COM_LEFT		"Comparison - EXTRA FREQUENCIES LEFT CHANNEL - Time Spectrogram [%s] (Not in Reference)"
 #define EXTRA_TITLE_TS_COM_RIGHT	"Comparison - EXTRA FREQUENCIES RIGHT CHANNEL - Time Spectrogram [%s] (Not in Reference)"
-#define SPECTROGRAM_TITLE_REF		"Reference - SPECTROGRAM [%s]"
-#define SPECTROGRAM_TITLE_REF_LEFT	"Reference - SPECTROGRAM LEFT CHANNEL [%s]"
-#define SPECTROGRAM_TITLE_REF_RIGHT	"Reference - SPECTROGRAM RIGHT CHANNEL [%s]"
-#define SPECTROGRAM_TITLE_COM		"Comparison - SPECTROGRAM [%s]"
-#define SPECTROGRAM_TITLE_COM_LEFT	"Comparison - SPECTROGRAM LEFT CHANNEL [%s]"
-#define SPECTROGRAM_TITLE_COM_RIGHT	"Comparison - SPECTROGRAM RIGHT CHANNEL [%s]"
+#define SPECTROGRAM_TITLE_REF		"Reference - SPECTRUM [%s]"
+#define SPECTROGRAM_TITLE_REF_LEFT	"Reference - SPECTRUM LEFT CHANNEL [%s]"
+#define SPECTROGRAM_TITLE_REF_RIGHT	"Reference - SPECTRUM RIGHT CHANNEL [%s]"
+#define SPECTROGRAM_TITLE_COM		"Comparison - SPECTRUM [%s]"
+#define SPECTROGRAM_TITLE_COM_LEFT	"Comparison - SPECTRUM LEFT CHANNEL [%s]"
+#define SPECTROGRAM_TITLE_COM_RIGHT	"Comparison - SPECTRUM RIGHT CHANNEL [%s]"
 #define TSPECTROGRAM_TITLE_REF		"Reference - TIME SPECTROGRAM [%s]"
 #define TSPECTROGRAM_TITLE_REF_LFT	"Reference - TIME SPECTROGRAM LEFT CHANNEL [%s]"
 #define TSPECTROGRAM_TITLE_REF_RGHT	"Reference - TIME SPECTROGRAM RIGHT CHANNEL [%s]"
@@ -89,12 +89,12 @@
 #define DIFFERENCE_AVG_TITLE_RIGHT	"DIFFERENT AMPLITUDES RIGHT CHANNEL AVERAGED [%s]"
 #define NOISE_TITLE					"NOISE FLOOR AVERAGED"
 #define NOISE_AVG_TITLE				"NOISE FLOOR AVERAGED"
-#define SPECTROGRAM_NOISE_REF		"Reference NOISE FLOOR - Spectrogram [%s]"
-#define SPECTROGRAM_NOISE_REF_LEFT	"Reference NOISE FLOOR LEFT - Spectrogram [%s]"
-#define SPECTROGRAM_NOISE_REF_RIGHT	"Reference NOISE FLOOR RIGHT - Spectrogram [%s]"
-#define SPECTROGRAM_NOISE_COM		"Comparison NOISE FLOOR - Spectrogram [%s]"
-#define SPECTROGRAM_NOISE_COM_LEFT	"Comparison NOISE FLOOR LEFT - Spectrogram [%s]"
-#define SPECTROGRAM_NOISE_COM_RIGHT	"Comparison NOISE FLOOR RIGHT - Spectrogram [%s]"
+#define SPECTROGRAM_NOISE_REF		"Reference NOISE FLOOR - Spectrum [%s]"
+#define SPECTROGRAM_NOISE_REF_LEFT	"Reference NOISE FLOOR LEFT - Spectrum [%s]"
+#define SPECTROGRAM_NOISE_REF_RIGHT	"Reference NOISE FLOOR RIGHT - Spectrum [%s]"
+#define SPECTROGRAM_NOISE_COM		"Comparison NOISE FLOOR - Spectrum [%s]"
+#define SPECTROGRAM_NOISE_COM_LEFT	"Comparison NOISE FLOOR LEFT - Spectrum [%s]"
+#define SPECTROGRAM_NOISE_COM_RIGHT	"Comparison NOISE FLOOR RIGHT - Spectrum [%s]"
 #define WAVEFORM_TITLE_REF			"Reference - WAVEFORM [%s]"
 #define WAVEFORM_TITLE_COM			"Comparison - WAVEFORM [%s]"
 #define PHASE_DIFF_TITLE			"PHASE DIFFERENCE [%s]"
@@ -107,8 +107,8 @@
 #define PHASE_SIG_TITLE_COM_LEFT	"Comparison - PHASE LEFT CHANNEL [%s]"
 #define PHASE_SIG_TITLE_COM_RIGHT	"Comparison - PHASE RIGHT CHANNEL [%s]"
 #define TS_DIFFERENCE_TITLE			"DIFFERENT AMPLITUDES - TIME SPECTROGRAM [%s]"
-#define SPECTROGRAM_CLK_REF			"Reference CLK - Spectrogram [%s]"
-#define SPECTROGRAM_CLK_COM			"Comparison CLK - Spectrogram [%s]"
+#define SPECTROGRAM_CLK_REF			"Reference CLK - Spectrum [%s]"
+#define SPECTROGRAM_CLK_COM			"Comparison CLK - Spectrum [%s]"
 #define RANDOM_TITLE				"DIFFERENT PSEUDO RANDOM NOISE BANDS [%s]"
 
 #define BAR_HEADER					"Matched frequencies w/diff amplitude"
@@ -730,7 +730,7 @@ void PlotResults(AudioSignal *ReferenceSignal, AudioSignal *ComparisonSignal, pa
 		long int			sizeRef = 0, sizeComp = 0;
 		FlatFrequency		*freqsRef = NULL, *freqsComp = NULL;
 
-		StartPlot(" - Spectrograms", &lstart, config);
+		StartPlot(" - Spectra", &lstart, config);
 #ifdef OPENMP_ENABLE
 	#pragma omp parallel for
 #endif
@@ -799,11 +799,11 @@ void PlotResults(AudioSignal *ReferenceSignal, AudioSignal *ComparisonSignal, pa
 			free(freqsComp);
 			freqsComp = NULL;
 		}
-		EndPlot("Spectrogram", &lstart, &lend, config);
+		EndPlot("Spectra", &lstart, &lend, config);
 
 		if(config->plotNoiseFloor)
 		{
-			StartPlot(" - Noise Floor Spectrograms", &lstart, config);
+			StartPlot(" - Noise Floor Spectra", &lstart, config);
 #ifdef OPENMP_ENABLE
 			#pragma omp parallel for
 #endif
@@ -829,7 +829,7 @@ void PlotResults(AudioSignal *ReferenceSignal, AudioSignal *ComparisonSignal, pa
 			if(freqsComp)
 				free(freqsComp);
 
-			EndPlot("Noise Floor Spectrogram", &lstart, &lend, config);
+			EndPlot("Noise Floor Spectra", &lstart, &lend, config);
 		}
 	}
 
