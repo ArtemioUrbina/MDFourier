@@ -53,7 +53,7 @@ void PrintUsage(void)
 	logmsg("		'n' No normalization\n");
 	logmsg("	 -B: Do not do stereo channel audio <B>alancing\n");
 	logmsg("	 -I: <I>gnore frame rate difference for analysis\n");
-	logmsg("	 -p: Define the noise floor value in dBFS (0 to disable auto adjust)\n");
+	logmsg("	 -p: Define the noise floor value in dBr (0 to disable auto adjust)\n");
 	logmsg("	 -T: Increase Sync detection <T>olerance (ignore frequency, can be added up to -TTT)\n");
 	logmsg("		-TTTT also accepts pulses of half a frame (emulated audio)\n");
 	logmsg("	 -Y: Define the Reference Video Format from the profile\n");
@@ -352,7 +352,7 @@ int commandline(int argc , char *argv[], parameters *config)
 			logmsg("-ERROR: Range must be between %g and %g\n", 0.0001, 16.0);
 			return 0;
 		}
-		logmsg("\t-Changing Bar range to %dbfs\n", config->AmpBarRange);
+		logmsg("\t-Changing Bar range to %gdB\n", config->AmpBarRange);
 		break;
 	  case 'C':
 		config->outputCSV = 1;
@@ -816,7 +816,7 @@ int commandline(int argc , char *argv[], parameters *config)
 		else if (optopt == 'P')
 		  logmsg("\t ERROR: Profile File -%c requires a file argument\n", optopt);
 		else if (optopt == 'p')
-		  logmsg("\t ERROR: Significant Amplitude -%c requires an argument: -1.0 to -200.0 dBFS\n\t\tOr 0 for Auto Adjustment to Comparision Noise Floor\n", optopt);
+		  logmsg("\t ERROR: Significant Amplitude -%c requires an argument: -1.0 to -200.0 dBr\n\t\tOr 0 for Auto Adjustment to Comparision Noise Floor\n", optopt);
 		else if (optopt == '1')
 		  logmsg("\t ERROR: Bisection lines -%c requires an argument: <h>:<d>\n", optopt);
 		else if (optopt == 'r')

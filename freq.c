@@ -2027,7 +2027,7 @@ Frequency FindNoiseBlockInsideOneStandardDeviation(AudioSignal *Signal, paramete
 	if(config->verbose){
 		logmsg("  - %s signal profile defined noise channel data:\n", 
 			getRoleText(Signal));
-		logmsg("      Standard deviation: %g dBFS [%g Hz] Mean: %g dBFS [%g Hz] Cutoff: %g dBFS [%g Hz]\n",
+		logmsg("      Standard deviation: %g dB [%g Hz] Mean: %g dBr [%g Hz] Cutoff: %g dBr [%g Hz]\n",
 			sd.amplitude, sd.hertz,
 			mean.amplitude, mean.hertz,
 			cutOff.amplitude, cutOff.hertz);
@@ -2114,7 +2114,7 @@ void FindStandAloneFloor(AudioSignal *Signal, parameters *config)
 	{
 		loudest.amplitude = CalculateAmplitude(loudest.magnitude, maxMagnitude);
 
-		logmsg(" - %s signal noise floor: %g dBFS [%g Hz]\n", 
+		logmsg(" - %s signal noise floor: %g dBr [%g Hz]\n", 
 			getRoleText(Signal),
 			loudest.amplitude,
 			loudest.hertz);
@@ -2233,7 +2233,7 @@ void FindFloor(AudioSignal *Signal, parameters *config)
 
 		selectedNoise = floor(GetSignalMinDBFS(Signal)*1.20);
 
-		logmsg(" - %s signal is a digitally generated file, no noise found. Using %g dBFS\n",
+		logmsg(" - %s signal is a digitally generated file, no noise found. Using %g dBr\n",
 			getRoleText(Signal), selectedNoise);
 
 		if (Signal->role == ROLE_REF)
@@ -2246,7 +2246,7 @@ void FindFloor(AudioSignal *Signal, parameters *config)
 
 	if(loudestFreq.hertz && loudestFreq.amplitude != NO_AMPLITUDE)
 	{
-		logmsg(" - %s signal relative noise floor: %g Hz %g dBFS\n", 
+		logmsg(" - %s signal relative noise floor: %g Hz %g dBr\n", 
 			getRoleText(Signal),
 			loudestFreq.hertz,
 			loudestFreq.amplitude);
@@ -2327,13 +2327,13 @@ void FindFloor(AudioSignal *Signal, parameters *config)
 		logmsg("    ");
 
 		if(foundScan)
-			logmsg("[Horizontal scan rate: %0.2f Hz %0.2f dBFS] ", horizontalFreq.hertz, horizontalFreq.amplitude);
+			logmsg("[Horizontal scan rate: %0.2f Hz %0.2f dBr] ", horizontalFreq.hertz, horizontalFreq.amplitude);
 
 		if(foundGrid)
-			logmsg("[Vertical scan noise: %0.2f Hz %0.2f dBFS] ", gridFreq.hertz, gridFreq.amplitude);
+			logmsg("[Vertical scan noise: %0.2f Hz %0.2f dBr] ", gridFreq.hertz, gridFreq.amplitude);
 
 		if(foundCross)
-			logmsg("[Crosstalk: %0.2f Hz %0.2f dBFS]", crossFreq.hertz, crossFreq.amplitude);
+			logmsg("[Crosstalk: %0.2f Hz %0.2f dBr]", crossFreq.hertz, crossFreq.amplitude);
 
 		logmsg("\n");
 	}
@@ -2350,7 +2350,7 @@ void FindFloor(AudioSignal *Signal, parameters *config)
 	if(loudestFreq.amplitude > LOWEST_NOISEFLOOR_ALLOWED)
 	{
 		if(Signal->floorAmplitude == 0)
-			logmsg("- %s signal relative noise floor is too loud ( %g Hz %g dBFS)\n", 
+			logmsg("- %s signal relative noise floor is too loud ( %g Hz %g dBr)\n", 
 				getRoleText(Signal),
 				loudestFreq.hertz,
 				loudestFreq.amplitude);
@@ -2360,7 +2360,7 @@ void FindFloor(AudioSignal *Signal, parameters *config)
 
 	if(noiseFreq.hertz)
 	{
-		logmsg(" - %s Noise Channel relative floor: %g Hz %g dBFS\n",
+		logmsg(" - %s Noise Channel relative floor: %g Hz %g dBr\n",
 			getRoleText(Signal),
 			noiseFreq.hertz,
 			noiseFreq.amplitude);
@@ -2446,7 +2446,7 @@ void GlobalNormalize(AudioSignal *Signal, parameters *config)
 	Signal->MaxMagnitude.hertz = MaxFreq;
 	Signal->MaxMagnitude.block = MaxBlock;
 
-	// Normalize and calculate Amplitude in dBFSs 
+	// Normalize and calculate Amplitude in dBr (relative to the peak) 
 	for(int block = 0; block < config->types.totalBlocks; block++)
 	{
 		int type = TYPE_NOTYPE;
@@ -2558,7 +2558,7 @@ void CalculateAmplitudes(AudioSignal *Signal, double ZeroDbMagReference, paramet
 	if(!Signal)
 		return;
 
-	//Calculate Amplitude in dBFS 
+	//Calculate Amplitude in dBr (relative to the peak) 
 	for(int block = 0; block < config->types.totalBlocks; block++)
 	{
 		int			type = TYPE_NOTYPE;
@@ -2713,7 +2713,7 @@ void PrintFrequenciesBlock(AudioSignal *Signal, Frequency *freq, long int size, 
 
 		if(freq[j].hertz && freq[j].amplitude != NO_AMPLITUDE)
 		{
-			logmsgFileOnly("Frequency [%5d] %7g Hz Amplitude: %g dBFS Phase: %g",
+			logmsgFileOnly("Frequency [%5d] %7g Hz Amplitude: %g dBr Phase: %g",
 				j, 
 				freq[j].hertz,
 				freq[j].amplitude,
@@ -3465,14 +3465,14 @@ void PrintComparedBlocks(AudioBlocks *ReferenceArray, AudioBlocks *ComparedArray
 		{
 			int match = 0;
 
-			logmsgFileOnly("[%5d] Ref: %7g Hz %6.4f dBFS [>%3d]", 
+			logmsgFileOnly("[%5d] Ref: %7g Hz %6.4f dBr [>%3d]", 
 						j,
 						ReferenceArray->freq[j].hertz,
 						ReferenceArray->freq[j].amplitude,
 						ReferenceArray->freq[j].matched - 1);
 
 			if(ComparedArray->freq[j].hertz)
-				logmsgFileOnly("\tComp: %7g Hz %6.4f dBFS [<%3d]", 
+				logmsgFileOnly("\tComp: %7g Hz %6.4f dBr [<%3d]", 
 						ComparedArray->freq[j].hertz,
 						ComparedArray->freq[j].amplitude,
 						ComparedArray->freq[j].matched - 1);
@@ -3505,14 +3505,14 @@ void PrintComparedBlocks(AudioBlocks *ReferenceArray, AudioBlocks *ComparedArray
 			{
 				int match = 0;
 	
-				logmsgFileOnly("[%5d] Ref: %7g Hz %6.4f dBFS [>%3d]", 
+				logmsgFileOnly("[%5d] Ref: %7g Hz %6.4f dBr [>%3d]", 
 							j,
 							ReferenceArray->freqRight[j].hertz,
 							ReferenceArray->freqRight[j].amplitude,
 							ReferenceArray->freqRight[j].matched - 1);
 	
 				if(ComparedArray->freqRight[j].hertz)
-					logmsgFileOnly("\tComp: %7g Hz %6.4f dBFS [<%3d]", 
+					logmsgFileOnly("\tComp: %7g Hz %6.4f dBr [<%3d]", 
 							ComparedArray->freqRight[j].hertz,
 							ComparedArray->freqRight[j].amplitude,
 							ComparedArray->freqRight[j].matched - 1);
@@ -3555,14 +3555,14 @@ void PrintThesholdDifferenceBlocks(AudioBlocks *ReferenceArray, AudioBlocks *Com
 			if(matchedto >= 0 && 
 					fabs(ReferenceArray->freq[j].amplitude - ComparedArray->freq[matchedto].amplitude) > threshold)
 			{
-				logmsgFileOnly("[%5d] Ref: %7g Hz %6.4f dB [%+0.3g dBFS]", 
+				logmsgFileOnly("[%5d] Ref: %7g Hz %6.4f dBr [%+0.3g dB]", 
 							j,
 							ReferenceArray->freq[j].hertz,
 							ReferenceArray->freq[j].amplitude,
 							ReferenceArray->freq[j].matched - 1 >= 0 ? ReferenceArray->freq[j].amplitude - ComparedArray->freq[ReferenceArray->freq[j].matched - 1].amplitude : -1000);
 	
 				if(ComparedArray->freq[matchedto].hertz)
-					logmsgFileOnly("\tComp: %7g Hz %6.4f dBFS", 
+					logmsgFileOnly("\tComp: %7g Hz %6.4f dBr", 
 							ComparedArray->freq[matchedto].hertz,
 							ComparedArray->freq[matchedto].amplitude);
 				else
@@ -3589,14 +3589,14 @@ void PrintThesholdDifferenceBlocks(AudioBlocks *ReferenceArray, AudioBlocks *Com
 				if(matchedto >= 0 && 
 					fabs(ReferenceArray->freqRight[j].amplitude - ComparedArray->freqRight[matchedto].amplitude) > threshold)
 				{
-					logmsgFileOnly("[%5d] Ref: %7g Hz %6.4f dBFS [%+0.3g dBFS]", 
+					logmsgFileOnly("[%5d] Ref: %7g Hz %6.4f dBr [%+0.3g dB]", 
 								j,
 								ReferenceArray->freqRight[j].hertz,
 								ReferenceArray->freqRight[j].amplitude,
 								ReferenceArray->freqRight[j].matched - 1 >= 0 ? ReferenceArray->freqRight[j].amplitude - ComparedArray->freqRight[ReferenceArray->freqRight[j].matched - 1].amplitude : -1000);
 		
 					if(ComparedArray->freqRight[matchedto].hertz)
-						logmsgFileOnly("\tComp: %7g Hz %6.4f dBFS", 
+						logmsgFileOnly("\tComp: %7g Hz %6.4f dBr", 
 								ComparedArray->freqRight[matchedto].hertz,
 								ComparedArray->freqRight[matchedto].amplitude);
 					else
@@ -4339,7 +4339,7 @@ double FindFundamentalAmplitudeAverage(AudioSignal *Signal, parameters *config)
 		AvgFundAmp /= count;
 
 	if(config->verbose) {
-		logmsg(" - %s signal Average Fundamental Amplitude %g dBFS from %ld elements\n", 
+		logmsg(" - %s signal Average Fundamental Amplitude %g dBr from %ld elements\n", 
 				getRoleText(Signal),
 				AvgFundAmp, count);
 	}
@@ -4405,7 +4405,7 @@ double FindNoiseFloorAmplitudeAverage(AudioSignal *Signal, parameters *config)
 	if(count)
 	{
 		AvgFundAmp /= count;
-		logmsg(" - %s signal Noise Floor Average Amplitude %g dBFS\n", 
+		logmsg(" - %s signal Noise Floor Average Amplitude %g dBr\n", 
 			getRoleText(Signal), AvgFundAmp);
 	}
 

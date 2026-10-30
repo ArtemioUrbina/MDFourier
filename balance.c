@@ -246,13 +246,13 @@ int CheckBalance(AudioSignal *Signal, int block, parameters *config)
 		
 		if(fabs(amplDiff) >= 0.0001)
 		{
-			logmsg(" - %s signal stereo imbalance: %s channel is higher by %g dBFS",
+			logmsg(" - %s signal stereo imbalance: %s channel is higher by %g dB",
 					getRoleText(Signal),
 					diffNam == CHANNEL_LEFT ? "left" : "right", amplDiff);
 		}
 		else
 		{
-			logmsg(" - %s signal stereo imbalance: %s channel is higher by less than 0.0001 dBFS",
+			logmsg(" - %s signal stereo imbalance: %s channel is higher by less than 0.0001 dB",
 					getRoleText(Signal),
 					diffNam == CHANNEL_LEFT ? "left" : "right");
 		}

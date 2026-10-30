@@ -297,11 +297,11 @@ double findAverageAmplitudeForTarget(Pulses *pulseArray, double targetFrequency,
 	percent = (double)count/(double)(TotalMS-start)*100.0;
 
 	/* 
-	 * Select an amplitude threshold (always returned as a negative dBFS).
+	 * Select an amplitude threshold (always returned as a negative dBr, relative to the loudest pulse).
 	 * Pass only pulses that are clearly above the noise floor.
 	 *
 	 * FACTOR_LFEXPL is not handled here: it falls through
-	 * to the useAmplitude == 0 guard below, which returns -1 dBFS.
+	 * to the useAmplitude == 0 guard below, which returns -1 dBr.
 	 *
 	 */
 	if(factor == FACTOR_EXPLORE)	/* first-round detection */
@@ -374,9 +374,9 @@ double findAverageAmplitudeForTarget(Pulses *pulseArray, double targetFrequency,
 	{
 		/* Either the signal was perfectly uniform (all cases evaluated to
 		 * exactly 0 after arithmetic), or this is FACTOR_LFEXPL.
-		 * Fall back to -1 dBFS */
+		 * Fall back to -1 dBr */
 		if (config->debugSync)
-			logmsgFileOnly("Signal is too perfect (or factor has no case), matching to -1 dBFS\n");
+			logmsgFileOnly("Signal is too perfect (or factor has no case), matching to -1 dBr\n");
 		useAmplitude = -1;
 	}
 
@@ -463,7 +463,7 @@ long int DetectPulseTrainSequence(Pulses *pulseArray, double targetFrequency, do
 				frame_pulse_count++;
 				lastcountedWasPulse = 1;
 				if(config->debugSync)
-					logmsgFileOnly("[i:%ld] Sample:%7ld [%5gHz %0.2f dBFS] <<Pulse Frame counted %d>>", 
+					logmsgFileOnly("[i:%ld] Sample:%7ld [%5gHz %0.2f dBr] <<Pulse Frame counted %d>>", 
 						i, SamplesForDisplay(pulseArray[i].samples, AudioChannels),
 						pulseArray[i].hertz, pulseArray[i].amplitude, 
 						frame_pulse_count);
@@ -506,7 +506,7 @@ long int DetectPulseTrainSequence(Pulses *pulseArray, double targetFrequency, do
 			frame_pulse_count > 2 && frame_pulse_count < lookingfor/10)
 		{
 			if(config->debugSync)
-				logmsgFileOnly("[i:%ld] Sample:%7ld [%5gHz %0.2f dBFS] Undefined Amplitude found (digital silence), resetting the sequence FC: %d SC: %d\n", 
+				logmsgFileOnly("[i:%ld] Sample:%7ld [%5gHz %0.2f dBr] Undefined Amplitude found (digital silence), resetting the sequence FC: %d SC: %d\n", 
 					i, SamplesForDisplay(pulseArray[i].samples, AudioChannels),
 					pulseArray[i].hertz, pulseArray[i].amplitude, 
 					frame_pulse_count, frame_silence_count);
@@ -523,7 +523,7 @@ long int DetectPulseTrainSequence(Pulses *pulseArray, double targetFrequency, do
 				(targetFrequencyHarmonic[1] != NO_FREQ && pulseArray[i].hertz == targetFrequencyHarmonic[1]))))
 			{
 				if(config->debugSync)
-					logmsgFileOnly("[i:%ld] Sample:%7ld [%5gHz %0.2f dBFS] Silence Frame found due to AVG but skipped due to Hz SC: %d\n", 
+					logmsgFileOnly("[i:%ld] Sample:%7ld [%5gHz %0.2f dBr] Silence Frame found due to AVG but skipped due to Hz SC: %d\n", 
 						i, SamplesForDisplay(pulseArray[i].samples, AudioChannels),
 						pulseArray[i].hertz, pulseArray[i].amplitude, 
 						frame_silence_count);
@@ -537,7 +537,7 @@ long int DetectPulseTrainSequence(Pulses *pulseArray, double targetFrequency, do
 			if(pulseArray[i].amplitude < averageAmplitude)
 			{
 				if(config->debugSync)
-					logmsgFileOnly("[i:%ld] sample:%7ld [%5gHz %0.2f dBFS] %s %d\n", 
+					logmsgFileOnly("[i:%ld] sample:%7ld [%5gHz %0.2f dBr] %s %d\n", 
 						i, SamplesForDisplay(pulseArray[i].samples, AudioChannels),
 						pulseArray[i].hertz, pulseArray[i].amplitude, 
 						sequence_start ? " Silence Frame counted" : "--", frame_silence_count);
@@ -549,7 +549,7 @@ long int DetectPulseTrainSequence(Pulses *pulseArray, double targetFrequency, do
 				int linefeedNeeded = 1;
 
 				if(config->debugSync)
-					logmsgFileOnly("[i:%ld] sample:%7ld [%5gHz %0.2f dBFS] Non Frame skipped %d LC:%d", 
+					logmsgFileOnly("[i:%ld] sample:%7ld [%5gHz %0.2f dBr] Non Frame skipped %d LC:%d", 
 						i, SamplesForDisplay(pulseArray[i].samples, AudioChannels),
 						pulseArray[i].hertz, pulseArray[i].amplitude, 
 						frame_silence_count, lastcountedWasPulse);

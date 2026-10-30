@@ -78,6 +78,8 @@ Please refer to [this post](https://donluca.theclassicgamer.net/compiling-static
 - Install MSYS2
 - Use the UCRT64 version
 
+Open the **MSYS2 UCRT64** terminal for every step below, including building MDFourier. `echo $MSYSTEM` must print `UCRT64` and `which gcc` must print `/ucrt64/bin/gcc`
+
 #### Compiler and libraries
 Run the following commands to install all tools and libraries that work for our static buils:
 
@@ -133,6 +135,8 @@ In order to build it statically:
 
 - Install MSYS2
 - Use the CLANG64 version
+
+Open the **MSYS2 CLANG64** terminal for every step below, including building MDFourier. `echo $MSYSTEM` must print `CLANG64` and `which clang` must print `/clang64/bin/clang`
 
 #### Compiler and libraries
 Run the following commands to install all tools and libraries that work for our static buils:

@@ -113,7 +113,7 @@
 #define END_HZ		20000.0
 #define MAX_HZ		192000.0
 
-#define SILENCE_LIMIT	-220  //dBFS
+#define SILENCE_LIMIT	-220  //dBr
 
 #define START_HZ_PLOT	0
 
@@ -228,7 +228,7 @@
 #define	MAX_SYNC		9
 
 #define	FREQDOMTRIES	500
-#define	FREQDOMRATIO	-30.0  // dBFS
+#define	FREQDOMRATIO	-30.0  // dB
 
 #define	DELAYCOUNT		10
 
@@ -311,7 +311,7 @@ typedef struct clock_def_st {
 	double		centsDifference;
 	int			notFound;		// roles where the tone was not found
 	int			weak;			// roles where it was found but below teh significant amplitude
-	double		refTone;		// tone amplitude in dBFS, relative to each signal's peak
+	double		refTone;		// tone amplitude in dBr, relative to each signal's peak
 	double		comTone;
 	int			warning;		// roles where a harmonic was stronger
 	int			noMatch;		// clocks differ and -j was not used
@@ -496,7 +496,7 @@ typedef struct AudioBlock_st {
 	int				bands;							// 'b': noise compared by bands
 	int				bandValid;
 	double			bandMag[2][NOISE_BANDS];		// RMS bin magnitude in each band
-	double			bandAmp[2][NOISE_BANDS];		// dBFS after normalization
+	double			bandAmp[2][NOISE_BANDS];		// dBr after normalization
 	long int		bandBins[NOISE_BANDS];			// independent bins
 	double			audioSeconds;					// analyzed audio, without the zero padding
 	int				bandBeyond[2];					// bands beyond the random scatter in the Reference block

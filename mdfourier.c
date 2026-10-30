@@ -354,7 +354,7 @@ void PrintSignalCLKData(AudioSignal *Signal, ClockDef *clock)
 				Signal->role == ROLE_REF ? "Reference" : "Comparison", clock->name);
 	
 		if(clock->weak & Signal->role)
-			logmsg("WARNING: %s %s clock tone is at %0.2f dBFS below the significant amplitude. Treated as not found.\n",
+			logmsg("WARNING: %s %s clock tone is at %0.2f dB below the significant amplitude. Treated as not found.\n",
 				Signal->role == ROLE_REF ? "Reference" : "Comparison", clock->name,
 				Signal->role == ROLE_REF ? clock->refTone : clock->comTone);
 		else if(clock->notFound & Signal->role)
@@ -974,7 +974,7 @@ int ProcessNoiseFloor(AudioSignal *ReferenceSignal, AudioSignal *ComparisonSigna
 	if(refHasFloor && avgRef < ReferenceSignal->floorAmplitude)
 	{
 		config->noiseFloorTooHigh |= ReferenceSignal->role;
-		logmsg(" - Reference noise floor %g dBFS is louder than the average %g dBFS of the signal, ignoring\n",
+		logmsg(" - Reference noise floor %g dBr is louder than the average %g dBr of the signal, ignoring\n",
 				ReferenceSignal->floorAmplitude, avgRef);
 		ReferenceSignal->floorAmplitude = SIGNIFICANT_AMPLITUDE;
 	}
@@ -986,7 +986,7 @@ int ProcessNoiseFloor(AudioSignal *ReferenceSignal, AudioSignal *ComparisonSigna
 	if(comHasFloor && avgComp < ComparisonSignal->floorAmplitude)
 	{
 		config->noiseFloorTooHigh |= ComparisonSignal->role;
-		logmsg(" - Comparison noise floor %g dBFS is louder than the average %g dBFS of the signal, ignoring\n",
+		logmsg(" - Comparison noise floor %g dBr is louder than the average %g dBr of the signal, ignoring\n",
 				ComparisonSignal->floorAmplitude, avgComp);
 		ComparisonSignal->floorAmplitude = SIGNIFICANT_AMPLITUDE;
 	}
@@ -1031,7 +1031,7 @@ int ProcessNoiseFloor(AudioSignal *ReferenceSignal, AudioSignal *ComparisonSigna
 
 	if(config->significantAmplitude >= HIGHEST_NOISEFLOOR_ALLOWED)
 	{
-		logmsg(" - WARNING: Noise floor %g dBFS is louder than the default %g dBFS. If differences are not visible, define a limit with -p <dbfs>\n",
+		logmsg(" - WARNING: Noise floor %g dBr is louder than the default %g dBr. If differences are not visible, define a limit with -p <dBr>\n",
 				config->significantAmplitude, HIGHEST_NOISEFLOOR_ALLOWED);
 		//if(!config->noiseFloorTooHigh)
 		//	config->noiseFloorTooHigh = ROLE_COMP;
@@ -1043,13 +1043,13 @@ int ProcessNoiseFloor(AudioSignal *ReferenceSignal, AudioSignal *ComparisonSigna
 	// check if digital noise floor, so we limit ourselves to a reasonable noise floor
 	if(config->significantAmplitude < NOISE_FLOOR_DIGITAL_FAIR)
 	{
-		logmsg(" - Found possible digital noise floor at %g dBFS. Limiting to %g dBFS, use -p to override\n",
+		logmsg(" - Found possible digital noise floor at %g dBr. Limiting to %g dBr, use -p to override\n",
 			config->significantAmplitude, NOISE_FLOOR_DIGITAL_FAIR);
 		config->significantAmplitude = NOISE_FLOOR_DIGITAL_FAIR;
 	}
 	else
 	*/
-	logmsg(" - Using %g dBFS as minimum significant amplitude for analysis\n",	config->significantAmplitude);
+	logmsg(" - Using %g dBr as minimum significant amplitude for analysis\n",	config->significantAmplitude);
 
 	if(refHasFloor)
 		FindNoiseFloorAmplitudeAverage(ReferenceSignal, config);
@@ -1160,7 +1160,7 @@ int LoadAndProcessAudioFiles(AudioSignal **ReferenceSignal, AudioSignal **Compar
 			return 0;
 	}
 	else
-		logmsg(" - Ignoring Noise floor, using %gdBFS\n", config->significantAmplitude);
+		logmsg(" - Ignoring Noise floor, using %gdBr\n", config->significantAmplitude);
 	return 1;
 }
 
@@ -2330,7 +2330,7 @@ int CalculateMaxCompare(int block, AudioSignal *Signal, double significant, char
 	limit = significant;
 
 	if(Signal->role == ROLE_COMP)
-		limit += -20;	// Allow going 20 dbfs "deeper"
+		limit += -20;	// Allow going 20 dB "deeper"
 
 	for(int freq = 0; freq < size; freq++)
 	{

@@ -24,6 +24,7 @@
 \newacronym{pal}{PAL}{Phase Alternating Line}
 \newacronym{db}{dB}{decibel}
 \newacronym{dbfs}{dBFS}{decibels relative to full scale}
+\newacronym{dbr}{dBr}{decibels relative to the strongest frequency}
 \newacronym{pcm}{PCM}{Pulse-code modulation}
 \newacronym{spdif}{S/PDIF}{Sony/Philips Digital Interface}
 \newacronym{fpga}{FPGA}{Field-programmable gate array}
@@ -41,11 +42,13 @@
 \newcommand{\ac}[1]{\textit{\mbox{\acrshort{#1}}}}
 \newcommand{\hz}[1]{\textit{\mbox{#1\acrshort{hz}}}}
 \newcommand{\khz}[1]{\textit{\mbox{#1\acrshort{khz}}}}
-\newcommand{\db}[1]{\textit{\mbox{#1\acrshort{dbfs}}}}
+\newcommand{\db}[1]{\textit{\mbox{#1\acrshort{db}}}}
+\newcommand{\dbfs}[1]{\textit{\mbox{#1\acrshort{dbfs}}}}
+\newcommand{\dbr}[1]{\textit{\mbox{#1\acrshort{dbr}}}}
 \newcommand{\dbSPL}[1]{\textit{\mbox{#1\acrshort{db}}}}
 
-\newcommand{\rootdb}{$\sqrt{|\ac{dbfs}|}$}
-\newcommand{\squaredb}{$\textit{\acrshort{dbfs}}^2$}
+\newcommand{\rootdb}{$\sqrt{|\ac{dbr}|}$}
+\newcommand{\squaredb}{$\textit{\acrshort{dbr}}^2$}
 \makeglossaries
 
 %opening
@@ -254,7 +257,9 @@ When we were measuring \textit{amplitudes} before, we used the \ac{db}. In that 
 
 However when dealing with digital values that have a defined \textit{bit depth}, our limit is fixed from the other side--the biggest amplitude we can represent with a limited number of \textit{bits}. This number is easily calculated, for \textit{n} bits we get $2^n$ possible values.
 
-Because of this, when using digital files we use a variation of the \textit{decibel} named \define{dbfs}. The highest possible amplitude starts at \db{0} and values go down into negative numbers, until they reach the lowest amplitude that can be represented by the selected \textit{bit depth}. When using a \textit{bit depth} of \textit{16}, as used in \textit{Compact Discs}, the minimum \textit{amplitude} that can be represented is \db{-96}. The \textit{Analysis Software} in \textit{MDFourier} reads \textit{8}, \textit{16}, \textit{24} and \textit{32 bit} \ac{pcm}, as well as \textit{32} and \textit{64 bit} floating point files.
+Because of this, when using digital files we use a variation of the \textit{decibel} named \define{dbfs}. The highest possible amplitude starts at \dbfs{0} and values go down into negative numbers, until they reach the lowest amplitude that can be represented by the selected \textit{bit depth}. When using a \textit{bit depth} of \textit{16}, as used in \textit{Compact Discs}, the minimum \textit{amplitude} that can be represented is \dbfs{-96}. The \textit{Analysis Software} in \textit{MDFourier} reads \textit{8}, \textit{16}, \textit{24} and \textit{32 bit} \ac{pcm}, as well as \textit{32} and \textit{64 bit} floating point files.
+
+This analysis works with the amplitudes of frequencies, not with samples. After both files are normalized, the strongest frequency found in either of them becomes the reference, and every other amplitude is measured against it. These levels are in \define{dbr}:\cite{decibelsuffixes} the strongest frequency is \dbr{0}, and the rest are negative. A tone at \dbfs{-12} in the file is still \dbr{0} when it is the strongest one. Differences between the two files are plain \ac{db}, and \ac{dbfs} is kept for sample levels, such as the bit depth limits above or the waveform graphs.
 
 This is commonly referred to as the \textit{dynamic range}, and it tells us how far apart the minimum and maximum \textit{amplitudes} that can be represented in a \textit{audio recording} are. For example, if we have a dynamic range of \dbSPL{96}, we can represent the relative amplitudes of \textit{thunderclap} and \textit{rustling leaves} within the same recording; but we could have no lower or higher amplitudes since they'd exceed the range.
 
@@ -351,9 +356,9 @@ The value is derived from the \textit{silence blocks} defined in the profile, as
 
 \begin{itemize}
 	\item The frequency with the highest amplitude found in the \textit{silence blocks} of the \textit{Reference} file is its \textit{relative noise floor}, and it is used as the \textit{minimal significant amplitude}.
-	\item If the \textit{Comparison} file has a louder noise floor--but not louder than \db{-40}--that one is used instead, so that its noise is not compared as if it were signal. If both floors differ by more than \db{20}, a warning is drawn in the graphs.
-	\item If there is no \textit{silence block}, or no noise floor can be found, the default of \db{-66} is used.
-	\item A noise floor louder than \db{-40} is reported as a warning, since the differences might not be visible. In that case a fixed value can be set with \textit{-p}.
+	\item If the \textit{Comparison} file has a louder noise floor--but not louder than \dbr{-40}--that one is used instead, so that its noise is not compared as if it were signal. If both floors differ by more than \db{20}, a warning is drawn in the graphs.
+	\item If there is no \textit{silence block}, or no noise floor can be found, the default of \dbr{-66} is used.
+	\item A noise floor louder than \dbr{-40} is reported as a warning, since the differences might not be visible. In that case a fixed value can be set with \textit{-p}.
 \end{itemize}
 
 The software also predicts and reports where the \textit{electrical grid} noise (\hz{60} or \hz{50}), the \textit{horizontal scan rate} noise (around \khz{15.7} in \ac{ntsc}) and its \textit{crosstalk} should appear, based on the detected \textit{frame rate}. These are listed in the log with their amplitudes in the silence block.
@@ -393,7 +398,7 @@ Of course all of the \textit{Differences} and \textit{Missing} graphs will only 
 
 All graphs use the horizontal axis for frequency, in a logarithmic scale by default.\footnote{A linear scale can be selected with \textit{-N}.} Values start from \hz{1} on the left and end at  \khz{20} on the right, which covers the human hearing spectrum. The analyzed range is \hz{20} to \khz{20} by default, and can be changed with \textit{-s} and \textit{-e}.\footnote{Although the plotted range can be altered to cover only a fraction of the spectrum, the resulting graph will hold the same scale.}
 
-For \textit{Difference} graphs the vertical axis is the amplitude in \ac{dbfs}, and a central axis for \db{0}. Values rise to \db{18} towards the top and fall to \db{-18} on the lower part of the graph by default. When \textit{25\%} or more of the differences of a type fall outside that range, the software widens it automatically and reports it in the log. A fixed range can be set with \textit{-d}.
+For \textit{Difference} graphs the vertical axis is the amplitude difference in \ac{db}, and a central axis for \db{0}. Values rise to \db{18} towards the top and fall to \db{-18} on the lower part of the graph by default. When \textit{25\%} or more of the differences of a type fall outside that range, the software widens it automatically and reports it in the log. A fixed range can be set with \textit{-d}.
 
 There will be two sets of \textit{Spectrograms}, one for the \textit{Reference} file and one for the \textit{Comparison} file, with one graph for each defined \textit{type} plus the general one.
 
@@ -404,11 +409,11 @@ There will be two sets of \textit{Spectrograms}, one for the \textit{Reference} 
 	\label{fig:plot2-samefile-fm-spectrogram}
 \end{figure}
 
-The Amplitude of each of the fundamental \textit{sine waves} that compose the original signal is represented by vertical lines that reach from the bottom to the point that corresponds to the amplitude in \ac{dbfs}. The line is also colored to represent that amplitude with the scale on the left showing the equivalence.
+The Amplitude of each of the fundamental \textit{sine waves} that compose the original signal is represented by vertical lines that reach from the bottom to the point that corresponds to the amplitude in \ac{dbr}. The line is also colored to represent that amplitude with the scale on the left showing the equivalence.
 
 Three colors--as defined from the \textit{mfn file}\footnote{The configuration file is described in appendix~\ref{mfnconfig}.}--are used to plot the graph, with each one of them plotting the frequencies from each corresponding \textit{type} from the \ac{wav} file.
 
-The top of the graph corresponds to the maximum possible amplitude, which is \db{0}. The bottom of the graph corresponds to the \textit{minimum significant amplitude}, as described in section~\ref{MinSigAmplitude}.
+The top of the graph corresponds to the strongest frequency in either file, which is \dbr{0}. The bottom of the graph corresponds to the \textit{minimum significant amplitude}, as described in section~\ref{MinSigAmplitude}.
 
 As expected, both sets of \textit{spectrograms} are identical in this case, since we used the same file compared against itself.
 
@@ -612,8 +617,8 @@ Also, there was a slight difference in the detected frame rates. This happens si
 
 * Comparing Stereo channel amplitude
 - Mono block used for balance: SPSG# 0
-- Reference signal stereo imbalance: left channel is higher by 0.0497657 dBFS (0.57459%)
-- Comparison signal stereo imbalance: right channel is higher by 0.0423347 dBFS (0.48859%)
+- Reference signal stereo imbalance: left channel is higher by 0.0497657 dB (0.57459%)
+- Comparison signal stereo imbalance: right channel is higher by 0.0423347 dB (0.48859%)
 \end{verbatim}
 
 At \khz{48} both cards have very accurate sampling clocks with a minimal difference\footnote{We are talking \textit{0.0001}\ac{ms}. In this case, that is \textit{0.0000001 seconds}!} and \textit{MDFourier} compensates for such issues.\footnote{The expected frame rate from the vintage console analyzed here is \textit{16.688}\ac{ms} per frame, or \hz{59.92} as measured with a scope. See appendix~\ref{framerate}} Differences can be more prominent when using \khz{44.1}, but the software can still compensate for them without issues.
@@ -676,7 +681,7 @@ Another graph that shows the same differences is the \textit{Missing} frequencie
 	\label{fig:plot6-mp3-3}
 \end{figure}
 
-It can be appreciated that the missing frequencies were detected after the \khz{18} line, aside from some harmonics below \db{-45}.
+It can be appreciated that the missing frequencies were detected after the \khz{18} line, aside from some harmonics below \dbr{-45}.
 
 \chapter{Results from vintage retail hardware}
 \label{results}
@@ -881,7 +886,7 @@ Due to the similarities shown between the \textit{Nomad} and the \textit{Model 2
 
 The consoles are indeed similar between themselves, with differences probably arising from amplification circuits. The \textit{Low pass filter} is steeper in the \textit{Sega Nomad} for \textit{FM}, among other differences in the high rage regarding \textit{PSG}.
 
-Another interesting point is that both of these systems exhibit video refresh noise at a higher amplitude via the \textit{AV out} than their \textit{Model 1} counterparts: around \db{-45} instead of \db{-70}.
+Another interesting point is that both of these systems exhibit video refresh noise at a higher amplitude via the \textit{AV out} than their \textit{Model 1} counterparts: around \dbr{-45} instead of \dbr{-70}.
 
 \section{Sega Genesis Model 1 VA3 (US) vs\\ Sega CDX (US)}
 
@@ -1188,7 +1193,7 @@ The file names for these graphs have the format:\\ \nolinkurl{TD_#####_Type_####
 
 \subsubsection{Clocks}
 
-When the profile measures \textit{clocks},\footnote{See appendix~\ref{clockmeasure}.} a graph of the clock tone is created for each clock and file in the \textit{CLK} folder. It shows \hz{100} to each side of the tone, centered on the \textit{Reference} peak so both files can be compared at the same position. If the tone was not found in the \textit{Reference}, it is centered on the \textit{Comparison} peak, or on the expected frequency when neither has it. The vertical scale is in \ac{dbfs} relative to the loudest tone of that file, at least \db{100} deep, with a line at the \textit{minimal significant amplitude}. When the tone was not found, the graph says so and only the noise is shown. The name of the clock and its identity are in the title.
+When the profile measures \textit{clocks},\footnote{See appendix~\ref{clockmeasure}.} a graph of the clock tone is created for each clock and file in the \textit{CLK} folder. It shows \hz{100} to each side of the tone, centered on the \textit{Reference} peak so both files can be compared at the same position. If the tone was not found in the \textit{Reference}, it is centered on the \textit{Comparison} peak, or on the expected frequency when neither has it. The vertical scale is in \ac{dbr}, relative to the loudest tone of that file, at least \db{100} deep, with a line at the \textit{minimal significant amplitude}. When the tone was not found, the graph says so and only the noise is shown. The name of the clock and its identity are in the title.
 
 The file names for these graphs have the format:\\ \nolinkurl{CLK_01_Name_A_Reference.png}, where the number is the order of the clock in the profile, and \textit{A} or \textit{B} is the \textit{Reference} or \textit{Comparison}.
 
@@ -1204,7 +1209,7 @@ The file names for these graphs have the format:\\ \nolinkurl{SEP_Reference_vs_C
 
 The log file is saved next to the graphs as \nolinkurl{Log_Reference_vs_Comparison.txt}, unless \textit{-l} is used. The \textit{-C} option creates a \textit{CSV} file with the values of the \textit{Difference} graphs, and \textit{-7} plots every window used for the \ac{dft}.
 
-The appearance of all graphs can be changed with these options: \textit{-W} for a white background, \textit{-L} for the resolution, \textit{-d} for the vertical range in \ac{dbfs}, \textit{-N} for a linear frequency scale, \textit{-J} to limit the horizontal range to the analyzed frequencies, and \textit{-q} to draw a pair of bisection lines at a given frequency and amplitude.
+The appearance of all graphs can be changed with these options: \textit{-W} for a white background, \textit{-L} for the resolution, \textit{-d} for the vertical range in \ac{db}, \textit{-N} for a linear frequency scale, \textit{-J} to limit the horizontal range to the analyzed frequencies, and \textit{-q} to draw a pair of bisection lines at a given frequency and amplitude.
 
 \subsection{Extra Command}
 \label{extracommand}
@@ -1229,7 +1234,7 @@ usage: mdfourier -P profile.mdf -r reference.wav -c compare.wav
      'n' No normalization
   -B: Do not do stereo channel audio <B>alancing
   -I: <I>gnore frame rate difference for analysis
-  -p: Define the noise floor value in dBFS
+  -p: Define the noise floor value in dBr
       (0 to disable auto adjust)
   -T: Increase Sync detection <T>olerance (ignore frequency, can be added up to -TTT)
       -TTTT also accepts pulses of half a frame (emulated audio)
@@ -1622,7 +1627,7 @@ usage: mdwave -P profile.mdf -r audio.wav
   -w: enable <w>indowing. Default is a custom Tukey window.
      'n' none, 't' Tukey, 'h' Hann, 'f' FlatTop & 'm' Hamming
   -i: <i>gnores the silence block noise floor if present
-  -p: Define the noise floor value in dBFS
+  -p: Define the noise floor value in dBr
       (0 to disable auto adjust)
   -f: Change the number of <f>requencies to use from FFTW
   -s: Defines <s>tart of the frequency range to compare with FFT
@@ -1663,7 +1668,7 @@ This is the default option used by the software. It involves finding the \textit
 
 This means that the exact same fundamental frequency with the highest magnitude value is searched for, occurring at the same position in time--which corresponds to the block. Having both points, a meaningful \textit{reference point} is set for the comparison, and the relative amplitudes between the signals can be calculated.
 
-In order to calculate the amplitudes, \db{0} is matched against the absolute highest magnitude from the \textit{Comparison} file\footnote{Since the highest point of the \textit{Reference} signal was matched to one other point in the \textit{Comparison} file, there are only two options: either both peaks are in the exact same spot, or there is a higher peak in the \textit{Comparison} file.}, after both signals have been relatively normalized in amplitude against the reference point.
+In order to calculate the amplitudes, \dbr{0} is matched against the absolute highest magnitude from the \textit{Comparison} file\footnote{Since the highest point of the \textit{Reference} signal was matched to one other point in the \textit{Comparison} file, there are only two options: either both peaks are in the exact same spot, or there is a higher peak in the \textit{Comparison} file.}, after both signals have been relatively normalized in amplitude against the reference point.
 
 This method has shown to be always accurate within the tests. However, results can be unexpected in certain corner cases as the one shown in appendix~\ref{cornercase}.
 
@@ -1677,7 +1682,7 @@ The process is very similar to the \textit{frequency domain} variant but it is d
 
 The highest amplitude is searched for within the samples of the meaningful audio signal, as dictated by the configuration file.\footnote{Described in section~\ref{mfnconfig}.} The corresponding segment in time is then located in the \textit{Comparison} file, and a pre-defined duration is searched for the sample with the \textit{maximum local} value.\footnote{One frame in the current implementation.}
 
-The \textit{Comparison} signal is then absolutely normalized to \db{0},\footnote{Relative to the highest value that can be represented with the \textit{bit depth} of the file.} and the \textit{Reference} signal is then relatively normalized using the adjusted \textit{local maximum} value. This follows the same rationale described for the \textit{frequency domain} equivalent.
+The \textit{Comparison} signal is then absolutely normalized to \dbfs{0},\footnote{Relative to the highest value that can be represented with the \textit{bit depth} of the file.} and the \textit{Reference} signal is then relatively normalized using the adjusted \textit{local maximum} value. This follows the same rationale described for the \textit{frequency domain} equivalent.
 
 Although the results can sometimes be deceivingly familiar, they are not correctly referenced in corner cases,\footnote{See appendix~\ref{cornercase} for an example.} and they do not represent the real relation between the signals. However, they can be useful for analysis while in the process of understanding how to interpret the graphs.
 
@@ -2260,6 +2265,8 @@ A guide on creating a redistributable \textit{MDFourier} binary with the librari
 
 Install \textit{MSYS2} \cite{msys2} and open the \textit{UCRT64} environment, which is the one used for the distributed executable. The \textit{CLANG64} environment also works; the \textit{makefile} then uses \texttt{clang} and links \texttt{winpthread}. The steps below use \textit{UCRT64}; for \textit{CLANG64}, replace \texttt{ucrt-x86\_64} with \texttt{clang-x86\_64} in the package names and \texttt{/ucrt64} with \texttt{/clang64} in the prefixes, and add \texttt{CC=clang CXX=clang++} to the \texttt{configure} commands.
 
+Use the terminal of that environment, \textit{MSYS2 UCRT64} or \textit{MSYS2 CLANG64}, for every step below, including building \textit{MDFourier}. In it, \texttt{echo \$MSYSTEM} must print \texttt{UCRT64} (or \texttt{CLANG64}), and \texttt{which gcc} must print \texttt{/ucrt64/bin/gcc} (or \texttt{which clang}, \texttt{/clang64/bin/clang}). 
+
 \subsection{Compiler and libraries}
 
 \begin{verbatim}
@@ -2483,6 +2490,11 @@ And thanks to \textit{Psikyo}, since repairing and playing their \textit{Strikes
 	\textit{web page},
 	\url{https://community.plm.automation.siemens.com/t5/Testing-Knowledge-Base/Window-Types-Hanning-Flattop-Uniform-Tukey-and-Exponential/ta-p/445063/}.
 	
+	\bibitem{decibelsuffixes}
+	Decibel, suffixes and reference values,
+	\textit{Wikipedia},
+	\url{https://en.wikipedia.org/wiki/Decibel\#Suffixes_and_reference_values}
+
 	\bibitem{dbfs}
 	dB Full Scale, 
 	\url{https://www.sweetwater.com/insync/dbfs/}

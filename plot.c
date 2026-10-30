@@ -1902,7 +1902,7 @@ void DrawImbalance(PlotFile *plot, AudioSignal *Signal, char *msg, parameters *c
 	else
 		pl_pencolor_r(plot->plotter, 0, 0xcccc, 0xcccc);
 	if(Signal->balance)
-		sprintf(msg, "Imbalance %s %s: %0.2fdBFS", 
+		sprintf(msg, "Imbalance %s %s: %0.2fdB", 
 				Signal->role == ROLE_REF ? "RF" : "CM",
 				Signal->balance > 0 ? "R" : "L", 
 				fabs(Signal->balance));
@@ -2186,7 +2186,7 @@ void DrawLabelsMDF(PlotFile *plot, char *Gname, char *GType, int type, parameter
 		PLOT_WARN(1, warning++);
 		if(config->ignoreFloor == 2)
 		{
-			sprintf(msg, "NOTE: Noise floor was manually set to %gdBFS (-p)", config->origSignificantAmplitude);
+			sprintf(msg, "NOTE: Noise floor was manually set to %gdBr (-p)", config->origSignificantAmplitude);
 			pl_alabel_r(plot->plotter, 'l', 'l', msg);
 		}
 		else
@@ -2459,7 +2459,7 @@ void DrawLabelsMDF(PlotFile *plot, char *Gname, char *GType, int type, parameter
 		if(config->significantAmplitude > HIGHEST_NOISEFLOOR_ALLOWED || config->ignoreFloor
 		 || config->significantAmplitude < SIGNIFICANT_AMPLITUDE)
 			pl_pencolor_r(plot->plotter, 0xcccc, 0xcccc, 0);
-		sprintf(msg, "Significant: %0.1f dBFS", config->significantAmplitude);
+		sprintf(msg, "Significant: %0.1f dBr", config->significantAmplitude);
 		pl_alabel_r(plot->plotter, 'l', 'l', msg);
 	}
 
@@ -2484,7 +2484,7 @@ void DrawLabelsMDF(PlotFile *plot, char *Gname, char *GType, int type, parameter
 		if(config->referenceSignal->gridAmplitude)
 		{
 			PLOT_COLUMN(3, 1);
-			sprintf(msg, "Ref %0.1fhz:  %0.1fdBFS", 
+			sprintf(msg, "Ref %0.1fhz:  %0.1fdBr", 
 					config->referenceSignal->gridFrequency,
 					config->referenceSignal->gridAmplitude);
 			pl_alabel_r(plot->plotter, 'l', 'l', msg);
@@ -2493,7 +2493,7 @@ void DrawLabelsMDF(PlotFile *plot, char *Gname, char *GType, int type, parameter
 		if(config->referenceSignal->scanrateAmplitude)
 		{
 			PLOT_COLUMN(3, 2);
-			sprintf(msg, "Ref %0.1fkhz: %0.1fdBFS", 
+			sprintf(msg, "Ref %0.1fkhz: %0.1fdBr", 
 					config->referenceSignal->scanrateFrequency/1000.0,
 					config->referenceSignal->scanrateAmplitude);
 			pl_alabel_r(plot->plotter, 'l', 'l', msg);
@@ -2505,7 +2505,7 @@ void DrawLabelsMDF(PlotFile *plot, char *Gname, char *GType, int type, parameter
 		if(config->comparisonSignal->gridAmplitude)
 		{
 			PLOT_COLUMN(2, 1);
-			sprintf(msg, "Com %0.1fhz: %0.1fdBFS", 
+			sprintf(msg, "Com %0.1fhz: %0.1fdBr", 
 					config->comparisonSignal->gridFrequency,
 					config->comparisonSignal->gridAmplitude);
 			pl_alabel_r(plot->plotter, 'l', 'l', msg);
@@ -2514,7 +2514,7 @@ void DrawLabelsMDF(PlotFile *plot, char *Gname, char *GType, int type, parameter
 		if(config->comparisonSignal->scanrateAmplitude)
 		{
 			PLOT_COLUMN(2, 2);
-			sprintf(msg, "Com %0.1fkhz: %0.1fdBFS", 
+			sprintf(msg, "Com %0.1fkhz: %0.1fdBr", 
 					config->comparisonSignal->scanrateFrequency/1000.0,
 					config->comparisonSignal->scanrateAmplitude);
 			pl_alabel_r(plot->plotter, 'l', 'l', msg);
@@ -2572,7 +2572,7 @@ void DrawLabelsMDF(PlotFile *plot, char *Gname, char *GType, int type, parameter
 			pl_pencolor_r(plot->plotter, 0xeeee, 0xeeee, 0);
 		else
 			pl_pencolor_r(plot->plotter, 0, 0xcccc, 0xcccc);
-		sprintf(msg, "Data \\ua\\da %0.2fdBFS: %0.2f%%", 
+		sprintf(msg, "Data \\ua\\da %0.2fdB: %0.2f%%", 
 			config->maxDbPlotZC, config->notVisible);
 		pl_alabel_r(plot->plotter, 'l', 'l', msg);
 	}
@@ -2677,7 +2677,7 @@ void DrawLabelsZeroToLimit(PlotFile *plot, double dBFS, double dbIncrement, doub
 	for(int i = 0; i <= segments; i ++)
 	{
 		pl_fmove_r(plot->plotter, config->plotResX+PLOT_SPACER, -1*i*config->plotResY/segments);
-		sprintf(label, "%gdBFS", -1*i*dbIncrement);
+		sprintf(label, "%gdBr", -1*i*dbIncrement);
 		pl_alabel_r(plot->plotter, 'l', 'c', label);
 	}
 
@@ -2772,7 +2772,7 @@ void DrawColorScale(PlotFile *plot, int type, int mode, double x, double y, doub
 	/* dB label */
 
 	pl_fmove_r(plot->plotter, x+width/2, y-FONT_SIZE_2);
-	pl_alabel_r(plot->plotter, 'c', 'c', "dBFS");
+	pl_alabel_r(plot->plotter, 'c', 'c', "dBr");
 
 	for(double i = 0; i < segments; i++)
 	{
@@ -2983,7 +2983,7 @@ void DrawColorAllTypeScale(PlotFile *plot, int mode, double x, double y, double 
 		/* dB label */
 	
 		pl_fmove_r(plot->plotter, x+width/2, y-FONT_SIZE_2);
-		pl_alabel_r(plot->plotter, 'c', 'c', "dBFS");
+		pl_alabel_r(plot->plotter, 'c', 'c', "dBr");
 
 		for(double i = 0; i < segments; i++)
 		{
@@ -3332,7 +3332,7 @@ void SaveCSVAmpDiff(FlatAmplDifference *amplDiff, long int size, char *filename,
 	csv = fopen(name, "wb");
 	if(!csv)
 		return;
-	fprintf(csv, "Type, Frequency(Hz), Diff(dbfs)\n");
+	fprintf(csv, "Type, Frequency(Hz), Diff(dB)\n");
 	for(int a = 0; a < size; a++)
 	{
 		if(amplDiff[a].type > TYPE_CONTROL)
@@ -6341,9 +6341,9 @@ char *GetWFMTypeText(int wftype, char *buffer, double data, int role)
 	if(wftype ==  WAVEFORM_AMPDIFF)
 	{
 		if(role == ROLE_REF)
-			sprintf(buffer, " -- Average Differences in matching comparision: %g dBFS", data);
+			sprintf(buffer, " -- Average Differences in matching comparision: %g dB", data);
 		else
-			sprintf(buffer, " -- Average Differences here: %g dBFS", data);
+			sprintf(buffer, " -- Average Differences here: %g dB", data);
 	}
 	if(wftype ==  WAVEFORM_MISSING)
 	{
@@ -7128,7 +7128,7 @@ void PlotCLKSpectrogramInternal(AudioSignal *Signal, char *filename, int clock, 
 	pl_ffontname_r(plot.plotter, PLOT_FONT);
 	pl_ffontsize_r(plot.plotter, FONT_SIZE_1);
 
-	// dBFS grid, 0 at the top
+	// dBr grid, 0 at the top
 	for(double db = 0; db <= depth; db += CLK_PLOT_HORZ)
 	{
 		y = resY - resY*db/depth;
@@ -7137,7 +7137,7 @@ void PlotCLKSpectrogramInternal(AudioSignal *Signal, char *filename, int clock, 
 		pl_endpath_r(plot.plotter);
 		pl_pencolor_r(plot.plotter, 0, 0xaaaa, 0);
 		pl_fmove_r(plot.plotter, -resX*0.01, y);
-		sprintf(label, "%gdBFS", -db);
+		sprintf(label, "%gdBr", -db);
 		pl_alabel_r(plot.plotter, 'r', 'c', label);
 	}
 
@@ -7172,7 +7172,7 @@ void PlotCLKSpectrogramInternal(AudioSignal *Signal, char *filename, int clock, 
 		pl_endpath_r(plot.plotter);
 		pl_linemod_r(plot.plotter, "solid");
 		pl_fmove_r(plot.plotter, resX*0.99, y + resY*0.01);
-		sprintf(label, "Significant %0.1fdBFS", config->significantAmplitude);
+		sprintf(label, "Significant %0.1fdBr", config->significantAmplitude);
 		pl_alabel_r(plot.plotter, 'r', 'b', label);
 	}
 
@@ -7209,7 +7209,7 @@ void PlotCLKSpectrogramInternal(AudioSignal *Signal, char *filename, int clock, 
 		pl_alabel_r(plot.plotter, 'c', 'c', "Clock tone not found, only noise shown");
 	}
 
-	plot.SpecialWarning = "NOTE: dBFS relative to this signal's loudest tone";
+	plot.SpecialWarning = "NOTE: dBr, relative to this signal's loudest tone";
 	{
 		char	clkLabel[BUFFER_SIZE], *idName = NULL;
 
@@ -7607,7 +7607,7 @@ void PlotDifferenceTimeSpectrogram(parameters *config)
 	if(!framecount)
 		return;
 
-	// This calculates the viewport in dBFS 
+	// This calculates the viewport in dB 
 	steps = 1.0;
 	abs_significant = fabs(config->maxDbPlotZC);
 	outside = FindDifferencePercentOutsideViewPort(&maxDiff, &type, abs_significant, config);

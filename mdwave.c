@@ -406,7 +406,7 @@ int ProcessSignalMDW(AudioSignal *Signal, parameters *config)
 				config->significantAmplitude = Signal->floorAmplitude;
 		}
 	
-		logmsg(" - Using %g dBFS as minimum significant amplitude for analysis\n",
+		logmsg(" - Using %g dBr as minimum significant amplitude for analysis\n",
 				config->significantAmplitude);
 	
 		if(config->verbose)
