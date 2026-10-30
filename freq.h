@@ -124,6 +124,7 @@ double GetSignalPeakMagnitude(AudioSignal *Signal, parameters *config);
 int IsHRefreshNoise(AudioSignal *Signal, double freq);
 int IsHRefreshNoiseCrossTalk(AudioSignal *Signal, double freq);
 int IsGridFrequencyNoise(AudioSignal *Signal, double freq);
+void FindMainsNoise(AudioSignal *Signal, Frequency *silenceData, long int size, parameters *config);
 
 void PrintComparedBlocks(AudioBlocks *ReferenceArray, AudioBlocks *ComparedArray, parameters *config);
 void PrintThesholdDifferenceBlocks(AudioBlocks *ReferenceArray, AudioBlocks *ComparedArray, parameters *config, double threshold);
@@ -131,6 +132,7 @@ void PrintThesholdDifferenceBlocks(AudioBlocks *ReferenceArray, AudioBlocks *Com
 int CalculateTimeDurations(AudioSignal *Signal, parameters *config);
 double CalculateWeightedError(double pError, parameters *config);
 double RoundFloat(double x, int p);
+double GetBinLabelSeconds(double seconds, parameters *config);
 long int RoundToNsamples(double src, int AudioChannels, int *discard, double *leftDecimals);
 double GetDecimalValues(double value);
 double SamplesToSeconds(double samplerate, long int samples, int AudioChannels);

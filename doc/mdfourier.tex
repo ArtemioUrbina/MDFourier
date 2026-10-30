@@ -361,7 +361,7 @@ The value is derived from the \textit{silence blocks} defined in the profile, as
 	\item A noise floor louder than \dbr{-40} is reported as a warning, since the differences might not be visible. In that case a fixed value can be set with \textit{-p}.
 \end{itemize}
 
-The software also predicts and reports where the \textit{electrical grid} noise (\hz{60} or \hz{50}), the \textit{horizontal scan rate} noise (around \khz{15.7} in \ac{ntsc}) and its \textit{crosstalk} should appear, based on the detected \textit{frame rate}. These are listed in the log with their amplitudes in the silence block.
+The software also predicts where the \textit{vertical refresh} (the detected \textit{frame rate}), the \textit{horizontal scan rate} (around \khz{15.7} in \ac{ntsc}) and half of it should appear, and lists their amplitudes in the output. It also looks for \textit{mains} hum at \hz{50} or \hz{60} and its first two harmonics. It is reported when it stands at least \db{10} above the median level of the silence, and drawn as dashed lines in the \textit{Noise Floor} graphs. In \ac{ntsc} and \ac{pal} the vertical refresh is close to the mains frequency, so both fall in the same bin and the log says they can't be separated.
 
 The \textit{-p} option sets the \textit{minimal significant amplitude} to a fixed value, for example \textit{-p -80}. Using \textit{-p 0} disables the automatic adjustment and uses the default.\footnote{See appendix~\ref{extracommand}.}
 

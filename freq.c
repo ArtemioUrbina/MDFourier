@@ -51,6 +51,14 @@ static inline int FrequencyMagnitudeOrder(const Frequency a, const Frequency b)
 #define SORT_CMP(x, y)  FrequencyMagnitudeOrder((x), (y))
 #include "sort.h"  // https://github.com/swenson/sort/
 
+#undef SORT_NAME
+#undef SORT_TYPE
+#undef SORT_CMP
+#define SORT_NAME Double
+#define SORT_TYPE double
+#define SORT_CMP(x, y)  ((x) < (y) ? -1 : ((x) > (y) ? 1 : 0))
+#include "sort.h"
+
 inline int areDoublesEqual(double a, double b)
 {
 	double diff = 0;
@@ -67,6 +75,36 @@ inline int areDoublesEqual(double a, double b)
 	if(diff != 0.0 && diff < DBL_PERFECT_MATCH)
 		return 1;
 	return 0;
+}
+
+// Bin frequencies are labelled with the block length rounded to ms, so that
+// 44.1 and 48 kHz, and small frame rate differences, give the same labels and
+// the Reference and Comparison bins can be matched by frequency.
+
+// When the length in frames of the Reference video format rounds to
+// the same ms, that length is used for the labels instead.
+
+double GetBinLabelSeconds(double seconds, parameters *config)
+{
+	double		rounded = 0, frameSeconds = 0, nominal = 0;
+	long int	frames = 0;
+
+	rounded = RoundFloat(seconds, 3);
+	if(rounded == 0 || !config)
+		return rounded;
+
+	frameSeconds = config->types.SyncFormat[config->videoFormatRef].MSPerFrame/1000.0;
+	if(frameSeconds <= 0)
+		return rounded;
+
+	frames = (long int)floor(rounded/frameSeconds + 0.5);
+	if(frames < 1)
+		return rounded;
+
+	nominal = frames*frameSeconds;
+	if(fabs(RoundFloat(nominal, 3) - rounded) < DBL_PERFECT_MATCH)
+		return nominal;
+	return rounded;
 }
 
 double FindFrequencyBinSizeForBlock(AudioSignal *Signal, long int block)
@@ -121,7 +159,7 @@ double FindFrequencyBracketForSync(double frequency, size_t size, int AudioChann
 double FindFrequencyBracket(double frequency, size_t size, int AudioChannels, double samplerate, parameters *config)
 {
 	long int startBin= 0, endBin = 0;
-	double seconds = 0, boxsize = 0, minDiff = 0, targetFreq = 0;
+	double seconds = 0, boxsize = 0, labelSeconds = 0, minDiff = 0, targetFreq = 0;
 
 	if(!config)
 	{
@@ -144,6 +182,8 @@ double FindFrequencyBracket(double frequency, size_t size, int AudioChannels, do
 	if(boxsize == 0)
 		boxsize = seconds;
 
+	labelSeconds = GetBinLabelSeconds(seconds, config);
+
 	startBin = ceil(config->startHz*boxsize);
 	endBin = floor(config->endHz*boxsize);
 
@@ -151,7 +191,7 @@ double FindFrequencyBracket(double frequency, size_t size, int AudioChannels, do
 	{
 		double Hertz = 0, difference = 0;
 
-		Hertz = CalculateFrequency(i, boxsize);
+		Hertz = CalculateFrequency(i, labelSeconds);
 		difference = fabs(Hertz - frequency);
 		if(difference < minDiff)
 		{
@@ -189,7 +229,7 @@ void CalculateFrequencyBrackets(AudioSignal *Signal, parameters *config)
 		crossNoise = scanNoise/2;
 		Signal->crossFrequency = FindFrequencyBracket(crossNoise, Signal->Blocks[index].fftwValues.size, Signal->AudioChannels, Signal->SampleRate, config);
 
-		logmsg(" - Expected noise [%s Predict/DFT]: Vertical: %g/%g Hz Scan: %g/%g Hz Cross: %g/%g Hz\n",
+		logmsg(" - Expected noise [%s Predict/DFT]: Vertical: %g/%g Hz Scan: %g/%g Hz Half line: %g/%g Hz\n",
 			getRoleText(Signal),
 			vertNoise, Signal->gridFrequency, scanNoise, Signal->scanrateFrequency, crossNoise, Signal->crossFrequency);
 	}
@@ -238,10 +278,129 @@ int IsGridFrequencyNoise(AudioSignal *Signal, double freq)
 	if(Signal->gridFrequency == 0 || !Signal->SilenceBinSize)
 		return 0;
 
-	if(freq == Signal->gridFrequency)
+	// the predicted frequency is not always on the silence block bins
+	if(fabs(freq - Signal->gridFrequency) <= Signal->SilenceBinSize/2)
 		return 1;
 	return 0;
 }
+
+/* Mains hum, fundamental and two harmonics */
+#define MAINS_HARMONICS		3
+#define MAINS_ABOVE_MEDIAN	10.0	// dB above the median silence level to report it
+
+int IsOnRefreshHarmonic(AudioSignal *Signal, double hertz)
+{
+	int m = 0;
+
+	if(!Signal->gridFrequency)
+		return 0;
+	m = (int)floor(hertz/Signal->gridFrequency + 0.5);
+	if(m < 1)
+		return 0;
+	return fabs(hertz - m*Signal->gridFrequency) <= Signal->SilenceBinSize/2;
+}
+
+int IsLocalPeak(Frequency *silenceData, long int size, Frequency *entry, double binSize)
+{
+	for(long int i = 0; i < size; i++)
+	{
+		double distance = fabs(silenceData[i].hertz - entry->hertz);
+
+		if(distance > binSize*0.5 && distance < binSize*1.5 && silenceData[i].amplitude != NO_AMPLITUDE &&
+			silenceData[i].amplitude > entry->amplitude)
+			return 0;
+	}
+	return 1;
+}
+
+void FindMainsNoise(AudioSignal *Signal, Frequency *silenceData, long int size, parameters *config)
+{
+	double		*levels = NULL, median = 0, tolerance = 0, bestAmpl = NO_AMPLITUDE;
+	double		families[2] = { 50.0, 60.0 };
+	Frequency	best;
+	long int	count = 0;
+
+	(void)config;
+	Signal->mainsFrequency = 0;
+	Signal->mainsAmplitude = 0;
+	Signal->mainsShared = 0;
+
+	if(!silenceData || size <= 0 || !Signal->SilenceBinSize)
+		return;
+
+	levels = (double*)malloc(sizeof(double)*size);
+	if(!levels)
+		return;
+	for(long int i = 0; i < size; i++)
+	{
+		if(silenceData[i].amplitude != NO_AMPLITUDE)
+			levels[count++] = silenceData[i].amplitude;
+	}
+	if(!count)
+	{
+		free(levels);
+		return;
+	}
+	Double_quick_sort(levels, count);
+	median = levels[count/2];
+	free(levels);
+
+	// nearest bin, without reaching the other (50 and 60 Hz)
+	tolerance = Signal->SilenceBinSize*0.75;
+	CleanFrequency(&best);
+
+	for(int f = 0; f < 2; f++)
+	{
+		double		familyAmpl = NO_AMPLITUDE;
+		int			onRefresh = 0;
+		Frequency	fundamental;
+
+		// mains on the same bin as the vertical refresh
+		onRefresh = Signal->gridFrequency && fabs(families[f] - Signal->gridFrequency) < Signal->SilenceBinSize;
+
+		CleanFrequency(&fundamental);
+		for(long int i = 0; i < size; i++)
+		{
+			if(silenceData[i].amplitude == NO_AMPLITUDE)
+				continue;
+			// The bin is on a refresh harmonic can't tell them apart
+			if(!onRefresh && IsOnRefreshHarmonic(Signal, silenceData[i].hertz))
+				continue;
+			for(int k = 1; k <= MAINS_HARMONICS; k++)
+			{
+				if(fabs(silenceData[i].hertz - families[f]*k) <= tolerance &&
+					IsLocalPeak(silenceData, size, &silenceData[i], Signal->SilenceBinSize))
+				{
+					if(silenceData[i].amplitude > familyAmpl)
+						familyAmpl = silenceData[i].amplitude;
+					if(k == 1 && (!fundamental.hertz || silenceData[i].amplitude > fundamental.amplitude))
+						fundamental = silenceData[i];
+				}
+			}
+		}
+
+		if(familyAmpl != NO_AMPLITUDE && familyAmpl > bestAmpl)
+		{
+			bestAmpl = familyAmpl;
+			best = fundamental;
+			if(!best.hertz)
+				best.hertz = families[f];
+		}
+	}
+
+	if(bestAmpl == NO_AMPLITUDE || bestAmpl - median < MAINS_ABOVE_MEDIAN)
+		return;
+
+	Signal->mainsFrequency = best.hertz;
+	Signal->mainsAmplitude = best.amplitude != NO_AMPLITUDE && best.amplitude ? best.amplitude : bestAmpl;
+	if(Signal->gridFrequency && fabs(Signal->mainsFrequency - Signal->gridFrequency) < Signal->SilenceBinSize)
+		Signal->mainsShared = 1;
+
+	logmsg(" - %s signal mains: %0.2f Hz %0.2f dBr, %0.1f dB above the silence median%s\n",
+		getRoleText(Signal), Signal->mainsFrequency, Signal->mainsAmplitude, bestAmpl - median,
+		Signal->mainsShared ? ", same bin as the vertical refresh, they can't be separated" : "");
+}
+
 
 int InitFreqStruc(Frequency **freq, parameters *config)
 {
@@ -462,6 +621,9 @@ void InitAudio(AudioSignal *Signal, parameters *config)
 	Signal->scanrateAmplitude = 0;
 	Signal->crossFrequency = 0;
 	Signal->crossAmplitude = 0;
+	Signal->mainsFrequency = 0;
+	Signal->mainsAmplitude = 0;
+	Signal->mainsShared = 0;
 	Signal->SilenceBinSize = 0;
 
 	Signal->nyquistLimit = 0;
@@ -2327,16 +2489,18 @@ void FindFloor(AudioSignal *Signal, parameters *config)
 		logmsg("    ");
 
 		if(foundScan)
-			logmsg("[Horizontal scan rate: %0.2f Hz %0.2f dBr] ", horizontalFreq.hertz, horizontalFreq.amplitude);
+			logmsg("[Horizontal scan: %0.2f Hz %0.2f dBr] ", horizontalFreq.hertz, horizontalFreq.amplitude);
 
 		if(foundGrid)
-			logmsg("[Vertical scan noise: %0.2f Hz %0.2f dBr] ", gridFreq.hertz, gridFreq.amplitude);
+			logmsg("[Vertical refresh: %0.2f Hz %0.2f dBr] ", gridFreq.hertz, gridFreq.amplitude);
 
 		if(foundCross)
-			logmsg("[Crosstalk: %0.2f Hz %0.2f dBr]", crossFreq.hertz, crossFreq.amplitude);
+			logmsg("[Half line rate: %0.2f Hz %0.2f dBr]", crossFreq.hertz, crossFreq.amplitude);
 
 		logmsg("\n");
 	}
+
+	FindMainsNoise(Signal, silenceData, size, config);
 
 	free(silenceData);
 	silenceData = NULL;
@@ -2900,14 +3064,6 @@ double MaxMagnitudeNear(FFTWSpectrum *fftw, long int bin, long int endBin)
 	return max;
 }
 
-#undef SORT_NAME
-#undef SORT_TYPE
-#undef SORT_CMP
-#define SORT_NAME Double
-#define SORT_TYPE double
-#define SORT_CMP(x, y)  ((x) < (y) ? -1 : ((x) > (y) ? 1 : 0))
-#include "sort.h"
-
 double MedianFloorNear(FFTWSpectrum *fftw, long int bin, long int startBin, long int endBin)
 {
 	double		values[2*SEP_FLOOR_BINS], median = 0;
@@ -2980,7 +3136,7 @@ void MeasureSeparation(AudioBlocks *AudioArray, parameters *config)
 		AudioArray->sepActive = CHANNEL_RIGHT;
 	}
 
-	AudioArray->sepHertz = CalculateFrequency(bin, boxsize);
+	AudioArray->sepHertz = CalculateFrequency(bin, GetBinLabelSeconds(AudioArray->seconds, config));
 	AudioArray->sepActiveMag = CalculateMagnitude(&active->spectrum[bin], active->ENBW);
 	AudioArray->sepLeakMag = MaxMagnitudeNear(silent, bin, endBin);
 	AudioArray->sepFloorMag = MedianFloorNear(silent, bin, startBin, endBin);
@@ -3341,7 +3497,7 @@ void SelectTopFrequencies(Frequency *f_array, long int count, long int amount)
 int FillFrequencyStructuresInternal(AudioSignal *Signal, AudioBlocks *AudioArray, char channel, parameters *config)
 {
 	long int 		i = 0, startBin= 0, endBin = 0, count = 0, size = 0, amount = 0;
-	double 			boxsize = 0;
+	double 			boxsize = 0, labelSeconds = 0;
 	int				nyquistLimit = 0;
 	long int		*SilenceSize = NULL;
 	double			ENBW = 0;
@@ -3377,6 +3533,10 @@ int FillFrequencyStructuresInternal(AudioSignal *Signal, AudioBlocks *AudioArray
 
 	// Round to 3 decimal places so that 48kHz and 44 kHz line up
 	boxsize = RoundFloat(AudioArray->seconds, 3);
+	// CLK blocks are aligned to whole seconds, the rest use the block length
+	labelSeconds = boxsize;
+	if(!Signal || AudioArray < &Signal->clkFrequencies[0] || AudioArray >= &Signal->clkFrequencies[MAX_CLOCKS])
+		labelSeconds = GetBinLabelSeconds(AudioArray->seconds, config);
 
 	startBin = ceil(config->startHz*boxsize);
 	endBin = floor(config->endHz*boxsize);
@@ -3403,7 +3563,7 @@ int FillFrequencyStructuresInternal(AudioSignal *Signal, AudioBlocks *AudioArray
 
 	for(i = startBin; i < endBin; i++)
 	{
-		f_array[count].hertz = CalculateFrequency(i, boxsize);
+		f_array[count].hertz = CalculateFrequency(i, labelSeconds);
 		f_array[count].magnitude = CalculateMagnitude(&fftw->spectrum[i], ENBW);
 		f_array[count].amplitude = NO_AMPLITUDE;
 		f_array[count].phase = CalculatePhase(&fftw->spectrum[i]);

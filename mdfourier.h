@@ -545,6 +545,9 @@ typedef struct AudioSt {
 	double		scanrateAmplitude;
 	double		crossFrequency;
 	double		crossAmplitude;
+	double		mainsFrequency;
+	double		mainsAmplitude;
+	int			mainsShared;		// in the same bin as the vertical refresh
 	double		SilenceBinSize;
 
 	int			nyquistLimit;

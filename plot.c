@@ -3257,14 +3257,25 @@ void DrawNoiseLines(PlotFile *plot, double start, double end, AudioSignal *Signa
 		// Scanrate
 		pl_pencolor_r (plot->plotter, 0xAAAA, 0xAAAA, 0);
 		pl_fline_r(plot->plotter, transformtoLog(ScanRate, config), start, transformtoLog(ScanRate, config), end);
-		// Crosstalk
+		// Half line rate
 		pl_pencolor_r (plot->plotter, 0xAAAA, 0x8888, 0);
 		pl_fline_r(plot->plotter, transformtoLog(ScanRate/2, config), start, transformtoLog(ScanRate/2, config), end);
 		if(ScanRate > 30000)
 		{
-			// Half Crosstalk
+			// Quarter line rate
 			pl_pencolor_r (plot->plotter, 0xAAAA, 0x6666, 0);
 			pl_fline_r(plot->plotter, transformtoLog(ScanRate/4, config), start, transformtoLog(ScanRate/4, config), end);
+		}
+	}
+
+	// Mains hum
+	if(Signal->mainsFrequency)
+	{
+		pl_linemod_r(plot->plotter, "longdashed");
+		for(harmonic = 1; harmonic <= 3; harmonic++)
+		{
+			pl_pencolor_r (plot->plotter, 0, 0xAAAA-0x1800*harmonic, 0xAAAA-0x1800*harmonic);
+			pl_fline_r(plot->plotter, transformtoLog(Signal->mainsFrequency*harmonic, config), start, transformtoLog(Signal->mainsFrequency*harmonic, config), end);
 		}
 	}
 	pl_linemod_r(plot->plotter, "solid");
@@ -3311,6 +3322,14 @@ void DrawLabelsNoise(PlotFile *plot, double hz, AudioSignal *Signal, parameters 
 			sprintf(label, "  %0.2fkHz", ScanRate/4000);
 			pl_alabel_r(plot->plotter, 'c', 'b', label);
 		}
+	}
+
+	if(Signal->mainsFrequency && !Signal->mainsShared)
+	{
+		pl_pencolor_r(plot->plotter, 0, 0xAAAA, 0xAAAA);
+		pl_fmove_r(plot->plotter, config->plotResX/hz*transformtoLog(Signal->mainsFrequency, config), config->plotResY/2-FONT_SIZE_1);
+		sprintf(label, "Mains %0.0fHz ", Signal->mainsFrequency);
+		pl_alabel_r(plot->plotter, 'r', 't', label);
 	}
 
 	pl_restorestate_r(plot->plotter);
