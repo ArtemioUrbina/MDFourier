@@ -617,8 +617,8 @@ Also, there was a slight difference in the detected frame rates. This happens si
 
 * Comparing Stereo channel amplitude
 - Mono block used for balance: SPSG# 0
-- Reference signal stereo imbalance: left channel is higher by 0.0497657 dB (0.57459%)
-- Comparison signal stereo imbalance: right channel is higher by 0.0423347 dB (0.48859%)
+- Reference signal stereo imbalance: left channel is higher by 0.0497657 dB (0.57459% in amplitude)
+- Comparison signal stereo imbalance: right channel is higher by 0.0423347 dB (0.48859% in amplitude)
 \end{verbatim}
 
 At \khz{48} both cards have very accurate sampling clocks with a minimal difference\footnote{We are talking \textit{0.0001}\ac{ms}. In this case, that is \textit{0.0000001 seconds}!} and \textit{MDFourier} compensates for such issues.\footnote{The expected frame rate from the vintage console analyzed here is \textit{16.688}\ac{ms} per frame, or \hz{59.92} as measured with a scope. See appendix~\ref{framerate}} Differences can be more prominent when using \khz{44.1}, but the software can still compensate for them without issues.

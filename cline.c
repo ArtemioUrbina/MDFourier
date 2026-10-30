@@ -161,9 +161,9 @@ void CleanParameters(parameters *config)
 	config->origSignificantAmplitude = SIGNIFICANT_AMPLITUDE;
 	config->significantAmplitude = SIGNIFICANT_AMPLITUDE;
 	config->referenceNoiseFloor = 0;
-	config->smallerFramerate = 0;
-	config->biggerFramerate = 0;
-	config->referenceFramerate = 0;
+	config->shorterMSPerFrame = 0;
+	config->longerMSPerFrame = 0;
+	config->referenceMSPerFrame = 0;
 	config->ZeroPad = 0;
 	config->ZeroPadFactor = 1;
 	config->debugSync = 0;

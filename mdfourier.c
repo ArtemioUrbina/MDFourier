@@ -1073,7 +1073,7 @@ int LoadAndProcessAudioFiles(AudioSignal **ReferenceSignal, AudioSignal **Compar
 
 	SelectSilenceProfile(config);
 
-	config->referenceFramerate = (*ReferenceSignal)->framerate;
+	config->referenceMSPerFrame = (*ReferenceSignal)->msPerFrame;
 	CompareFrameRates(*ReferenceSignal, *ComparisonSignal, config);
 
 	/* Balance check */
@@ -1455,7 +1455,7 @@ void AdjustTimeDomainData(AudioSignal* ReferenceSignal, AudioSignal* ComparisonS
 
 		if(ReferenceSignal->Blocks[block].maskType == MASK_USE_WINDOW)
 		{
-			/* For Time Domain Plots with big framerate difference we set negative difference for the smaller, so they are drawn at the same scale. */
+			/* For Time Domain Plots with a big frame rate difference we set negative difference for the smaller, so they are drawn at the same scale. */
 			if(ReferenceSignal->Blocks[block].audio.difference != 0)
 			{
 				double seconds = 0;
@@ -1481,13 +1481,13 @@ void AdjustTimeDomainData(AudioSignal* ReferenceSignal, AudioSignal* ComparisonS
 				long		frames = 0;
 
 				frames = GetBlockFrames(config, block);
-				if(ReferenceSignal->framerate != ComparisonSignal->framerate)
+				if(ReferenceSignal->msPerFrame != ComparisonSignal->msPerFrame)
 				{
 					double secondsRef = 0, secondsComp = 0, padding = 0;
 
-					secondsRef = FramesToSeconds(frames, ReferenceSignal->framerate);
-					secondsComp = FramesToSeconds(frames, ComparisonSignal->framerate);
-					if(ReferenceSignal->framerate > ComparisonSignal->framerate)
+					secondsRef = FramesToSeconds(frames, ReferenceSignal->msPerFrame);
+					secondsComp = FramesToSeconds(frames, ComparisonSignal->msPerFrame);
+					if(ReferenceSignal->msPerFrame > ComparisonSignal->msPerFrame)
 					{
 						padding = secondsRef - secondsComp;
 						ComparisonSignal->Blocks[block].audio.padding += SecondsToSamples(ComparisonSignal->SampleRate, padding, 1, NULL, NULL);
@@ -1509,16 +1509,16 @@ void AdjustTimeDomainData(AudioSignal* ReferenceSignal, AudioSignal* ComparisonS
 				double		padding = 0, duration = 0, longest_seconds = 0;
 
 				frames = GetBlockFrames(config, block);
-				longest_seconds = FramesToSeconds(config->maxBlockFrameCount, config->biggerFramerate);
+				longest_seconds = FramesToSeconds(config->maxBlockFrameCount, config->longerMSPerFrame);
 
-				duration = FramesToSeconds(frames, ReferenceSignal->framerate);
+				duration = FramesToSeconds(frames, ReferenceSignal->msPerFrame);
 				if(longest_seconds > duration)
 				{
 					padding = longest_seconds - duration;
 					ReferenceSignal->Blocks[block].audio.padding += SecondsToSamples(ReferenceSignal->SampleRate, padding, 1, NULL, NULL);
 				}
 			
-				duration = FramesToSeconds(frames, ComparisonSignal->framerate);
+				duration = FramesToSeconds(frames, ComparisonSignal->msPerFrame);
 				if(longest_seconds > duration)
 				{
 					padding = longest_seconds - duration;
@@ -1591,7 +1591,7 @@ int RunDFFTJobs(AudioSignal *Signal, DFFTJob *jobs, long int count, int recalcul
 }
 
 // Force a Hamming window for the clock signal and zero padding
-int ExecuteClockDFFT(AudioSignal *Signal, int c, double *samples, long int size, long int frames, long int cutFrames, double framerate, double samplerate, char *label, parameters *config)
+int ExecuteClockDFFT(AudioSignal *Signal, int c, double *samples, long int size, long int frames, long int cutFrames, double msPerFrame, double samplerate, char *label, parameters *config)
 {
 	windowManager	clockWindows;
 	double			*window = NULL;
@@ -1604,7 +1604,7 @@ int ExecuteClockDFFT(AudioSignal *Signal, int c, double *samples, long int size,
 		return 0;
 	}
 
-	window = getWindowByLength(&clockWindows, frames, cutFrames, framerate, config);
+	window = getWindowByLength(&clockWindows, frames, cutFrames, msPerFrame, config);
 	CleanFrequenciesInBlock(&Signal->clkFrequencies[c], config);
 	ok = ExecuteDFFT(&Signal->clkFrequencies[c], samples, size, samplerate, window, Signal->AudioChannels, ZEROPAD_FACTOR_CLK /* force ZeroPad */, config);
 	if(ok)
@@ -1667,9 +1667,9 @@ int RecalculateFFTW(AudioSignal *Signal, parameters *config)
 			// Same window selection as ProcessSignal, the block data was loaded with it
 			// Windows are created here, serially, the window manager is not thread safe
 			if(Signal->Blocks[i].maskType == MASK_USE_WINDOW)
-				windowUsed = getWindowByLength(&windows, frames, cutFrames, config->smallerFramerate, config);
+				windowUsed = getWindowByLength(&windows, frames, cutFrames, config->shorterMSPerFrame, config);
 			else
-				windowUsed = getWindowByLength(&windows, frames, cutFrames, Signal->framerate, config);
+				windowUsed = getWindowByLength(&windows, frames, cutFrames, Signal->msPerFrame, config);
 
 			currSamplesSize = Signal->Blocks[i].loadSize - Signal->Blocks[i].difference;
 
@@ -1687,7 +1687,7 @@ int RecalculateFFTW(AudioSignal *Signal, parameters *config)
 					continue;
 
 				if(!ExecuteClockDFFT(Signal, k, Signal->Samples + Signal->Blocks[i].offset, currSamplesSize,
-						frames, cutFrames, Signal->framerate, samplerate, "CLK-RECALC", config))
+						frames, cutFrames, Signal->msPerFrame, samplerate, "CLK-RECALC", config))
 				{
 					free(jobs);
 					freeWindows(&windows);
@@ -1730,9 +1730,9 @@ void RecalculateFrameRateAndSamplerate(AudioSignal *Signal, parameters *config)
 
 	Signal->originalSR_CLK = Signal->SampleRate;
 	Signal->SampleRate = estimatedSampleRate;
-	Signal->framerate = CalculateFrameRate(Signal, config);
+	Signal->msPerFrame = CalculateMSPerFrame(Signal, config);
 	logmsg("New frame rate: %g SR: %g->%g (%g)\n",
-		Signal->framerate,
+		Signal->msPerFrame,
 		Signal->originalSR_CLK, Signal->SampleRate,
 		ratio);
 }
@@ -1776,13 +1776,13 @@ int RecalculateFrequencyStructures(AudioSignal *ReferenceSignal, AudioSignal *Co
 	return 1;
 }
 
-int DuplicateSamplesForWaveformPlots(AudioSignal *Signal, long int element, long int pos, long int loadedBlockSize, long int difference, double framerate, double *windowUsed, parameters *config, long int syncAdvance)
+int DuplicateSamplesForWaveformPlots(AudioSignal *Signal, long int element, long int pos, long int loadedBlockSize, long int difference, double msPerFrame, double *windowUsed, parameters *config, long int syncAdvance)
 {
 	if(config->timeDomainSync && Signal->Blocks[element].type == TYPE_SYNC)
 	{
 		long int oneFrameSamples = 0;
 
-		oneFrameSamples = SecondsToSamples(Signal->SampleRate, FramesToSeconds(framerate, 1), Signal->AudioChannels, NULL, NULL);
+		oneFrameSamples = SecondsToSamples(Signal->SampleRate, FramesToSeconds(1, msPerFrame), Signal->AudioChannels, NULL, NULL);
 		if(pos > oneFrameSamples) {
 			if(!CopySamplesForTimeDomainPlot(&Signal->Blocks[element], Signal->Samples + pos - oneFrameSamples, loadedBlockSize+oneFrameSamples, difference, windowUsed, Signal->AudioChannels, 0, config))
 				return 0;
@@ -1928,7 +1928,7 @@ int ProcessSignal(AudioSignal *Signal, parameters *config)
 
 	pos = Signal->startOffset;
 
-	longest = FramesToSeconds(Signal->framerate, GetLongestElementFrames(config));
+	longest = FramesToSeconds(GetLongestElementFrames(config), Signal->msPerFrame);
 	if(!longest)
 	{
 		logmsg("\tERROR: Block definitions are invalid, total length is 0.\n");
@@ -1966,32 +1966,32 @@ int ProcessSignal(AudioSignal *Signal, parameters *config)
 	{
 		int			endProcess = 0;
 		double		*windowUsed = NULL;
-		double		duration = 0, framerate = 0;
+		double		duration = 0, msPerFrame = 0;
 		long int	frames = 0, difference = 0, cutFrames = 0;
 
 		if(!syncinternal)
-			framerate = Signal->framerate;
+			msPerFrame = Signal->msPerFrame;
 		else
-			framerate = config->referenceFramerate;
+			msPerFrame = config->referenceMSPerFrame;
 
 		frames = GetBlockFrames(config, i);
 		cutFrames = GetBlockCutFrames(config, i);
-		duration = FramesToSeconds(framerate, frames);
+		duration = FramesToSeconds(frames, msPerFrame);
 
 		/* This version looks better when -1hz difference, but is incorrect in frame alignment
-		if(areDoublesEqual(framerate, config->smallerFramerate) && !syncinternal)  // this compensates for shorter durations
+		if(areDoublesEqual(msPerFrame, config->shorterMSPerFrame) && !syncinternal)  // this compensates for shorter durations
 			loadedBlockSize = SecondsToSamples(Signal->SampleRate, duration, Signal->AudioChannels, NULL, NULL);
 		else
 			loadedBlockSize = SecondsToSamples(Signal->SampleRate, duration, Signal->AudioChannels, &discardSamples, &leftDecimals);
 		*/
 
-		// This compensates framerate difference in the old style, and used in Mega Drive FM between PAL and NTSC
+		// This compensates frame rate differences in the old style, and used in Mega Drive FM between PAL and NTSC
 		// Here the window masks out part of the signal in the old style, needed when
 		// XTAL for audio is the same between PAL and NTSC (?)
 		// C64 needs this off (MASK_NONE) and Genesis on (MASK_USE_WINDOW)
 		// current new default is off (MASK_NONE) if the profile doesn't specify it
 		if(Signal->Blocks[i].maskType == MASK_USE_WINDOW)
-			difference = GetSampleSizeDifferenceByFrameRate(framerate, frames, Signal->SampleRate, Signal->AudioChannels, config);
+			difference = GetSampleSizeDifferenceByFrameRate(msPerFrame, frames, Signal->SampleRate, Signal->AudioChannels, config);
 
 		// This compensates for subsample time differences
 		loadedBlockSize = SecondsToSamples(Signal->SampleRate, duration, Signal->AudioChannels, &discardSamples, &leftDecimals);
@@ -1999,9 +1999,9 @@ int ProcessSignal(AudioSignal *Signal, parameters *config)
 		if(Signal->Blocks[i].type >= TYPE_SILENCE || Signal->Blocks[i].type == TYPE_WATERMARK)
 		{
 			if(!syncinternal && Signal->Blocks[i].maskType == MASK_USE_WINDOW)
-				windowUsed = getWindowByLength(&windows, frames, cutFrames, config->smallerFramerate, config); // We get the smaller window, since we'll truncate
+				windowUsed = getWindowByLength(&windows, frames, cutFrames, config->shorterMSPerFrame, config); // We get the smaller window, since we'll truncate
 			else
-				windowUsed = getWindowByLength(&windows, frames, cutFrames, framerate, config);
+				windowUsed = getWindowByLength(&windows, frames, cutFrames, msPerFrame, config);
 		}
 
 		if(pos + loadedBlockSize > Signal->numSamples)
@@ -2010,7 +2010,7 @@ int ProcessSignal(AudioSignal *Signal, parameters *config)
 			endProcess = 1;
 		}
 
-		if(!DuplicateSamplesForWaveformPlots(Signal, i, pos, loadedBlockSize, difference, framerate, windowUsed, config, syncAdvance))
+		if(!DuplicateSamplesForWaveformPlots(Signal, i, pos, loadedBlockSize, difference, msPerFrame, windowUsed, config, syncAdvance))
 		{
 			free(sampleBuffer);
 			free(jobs);
@@ -2061,7 +2061,7 @@ int ProcessSignal(AudioSignal *Signal, parameters *config)
 			jobCount++;
 #ifdef DEBUG
 			if(config->verbose >= 3)
-				logmsg("estimated %g (difference %ld)\n", Signal->Blocks[i].frames*Signal->framerate/1000.0, difference);
+				logmsg("estimated %g (difference %ld)\n", Signal->Blocks[i].frames*Signal->msPerFrame/1000.0, difference);
 #endif
 		}
 
@@ -2075,7 +2075,7 @@ int ProcessSignal(AudioSignal *Signal, parameters *config)
 			memcpy(sampleBuffer, Signal->Samples + pos, (loadedBlockSize-difference)*sizeof(double));
 
 			if(!ExecuteClockDFFT(Signal, c, sampleBuffer, loadedBlockSize-difference, frames, cutFrames,
-					framerate, Signal->SampleRate, "CLK", config))
+					msPerFrame, Signal->SampleRate, "CLK", config))
 			{
 				free(sampleBuffer);
 				free(jobs);
@@ -2942,7 +2942,7 @@ MaxSample FindMaxSampleAmplitude(AudioSignal *Signal)
 	maxSampleValue.maxSample = 0;
 	maxSampleValue.offset = 0;
 	maxSampleValue.samplerate = Signal->SampleRate;
-	maxSampleValue.framerate = Signal->framerate;
+	maxSampleValue.msPerFrame = Signal->msPerFrame;
 
 	if(!Signal)
 		return maxSampleValue;
@@ -2978,12 +2978,12 @@ double FindLocalMaximumAroundSample(AudioSignal *Signal, MaxSample refMax)
 	start = Signal->startOffset;
 	end = Signal->endOffset;
 
-	if(!areDoublesEqual(refMax.framerate, Signal->framerate))
+	if(!areDoublesEqual(refMax.msPerFrame, Signal->msPerFrame))
 	{
 		refSeconds = SamplesToSeconds(refMax.samplerate, refMax.offset, Signal->AudioChannels);
-		refFrames = refSeconds/(refMax.framerate/1000.0);
+		refFrames = refSeconds/(refMax.msPerFrame/1000.0);
 
-		tarSeconds = FramesToSeconds(refFrames, Signal->framerate);
+		tarSeconds = FramesToSeconds(refFrames, Signal->msPerFrame);
 		pos = start + SecondsToSamples(Signal->SampleRate, tarSeconds, Signal->AudioChannels, NULL, NULL);
 	}
 	else
@@ -3136,7 +3136,7 @@ MaxMagn FindMaxMagnitudeBlock(AudioSignal *Signal, parameters *config)
 			double seconds = 0;
 			long int offset = 0;
 
-			seconds = FramesToSeconds(GetElementFrameOffset(MaxMag.block, config), Signal->framerate);
+			seconds = FramesToSeconds(GetElementFrameOffset(MaxMag.block, config), Signal->msPerFrame);
 			offset = SecondsToSamples(Signal->SampleRate, seconds, Signal->header.fmt.NumOfChan, NULL, NULL);
 			offset = SamplesForDisplay(offset, Signal->header.fmt.NumOfChan);
 

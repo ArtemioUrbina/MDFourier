@@ -251,7 +251,7 @@ typedef struct max_vol {
 	double		maxSample;
 	uint32_t	offset;
 	double		samplerate;
-	double		framerate;
+	double		msPerFrame;	// ms per frame
 } MaxSample;
 
 typedef struct max_mag {
@@ -527,7 +527,7 @@ typedef struct AudioSt {
 	long int	SamplesStart;
 	long int	samplesPosFLAC;
 	int			errorFLAC;
-	double		framerate;
+	double		msPerFrame;
 	wav_hdr		header;
 	uint8_t		fmtExtra[24];
 	int			fmtType;
@@ -564,7 +564,7 @@ typedef struct AudioSt {
 
 	double		EstimatedSR;
 	double		originalSR;
-	double		originalFrameRate;
+	double		originalMSPerFrame;
 
 	AudioBlocks *Blocks;
 }  AudioSignal;
@@ -699,9 +699,9 @@ typedef struct parameters_st {
 	double			origSignificantAmplitude;
 	double			significantAmplitude;
 	double			referenceNoiseFloor;
-	double			smallerFramerate;
-	double			biggerFramerate;
-	double			referenceFramerate;
+	double			shorterMSPerFrame;	// the shorter of the two frames, the higher frame rate
+	double			longerMSPerFrame;	// the longer of the two frames, the lower frame rate
+	double			referenceMSPerFrame;	// ms per frame
 	int				logScale;
 	int				logScaleTS;
 	int				debugSync;

@@ -3,7 +3,7 @@
  * A Fourier Transform analysis tool to compare game console audio
  * http://junkerhq.net/MDFourier/
  *
- * Copyright (C)2019-2020 Artemio Urbina
+ * Copyright (C)2019-2026 Artemio Urbina
  *
  * This file is part of the 240p Test Suite
  *
@@ -38,8 +38,8 @@ double *hammingWindow(long int n);
 double *rectWindow(long int n);
 
 int initWindows(windowManager *wm, double SampleRate, char winType, parameters *config);
-double *getWindowByLength(windowManager *wm, long int frames, long int cutFrames, double framerate, parameters *config);
-double *CreateWindow(windowManager *wm, long int frames, long int cutFrames, double framerate, parameters *config);
+double *getWindowByLength(windowManager *wm, long int frames, long int cutFrames, double msPerFrame, parameters *config);
+double *CreateWindow(windowManager *wm, long int frames, long int cutFrames, double msPerFrame, parameters *config);
 void freeWindows(windowManager *windows);
 double CompensateValueForWindow(double value, char winType);
 double CalculateCorrectionFactor(windowManager *wm, long int frames);

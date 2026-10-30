@@ -3,7 +3,7 @@
  * A Fourier Transform analysis tool to compare game console audio
  * http://junkerhq.net/MDFourier/
  *
- * Copyright (C)2019-2020 Artemio Urbina
+ * Copyright (C)2019-2026 Artemio Urbina
  *
  * This file is part of the 240p Test Suite
  *
@@ -80,10 +80,12 @@ inline int areDoublesEqual(double a, double b)
 // Bin frequencies are labelled with the block length rounded to ms, so that
 // 44.1 and 48 kHz, and small frame rate differences, give the same labels and
 // the Reference and Comparison bins can be matched by frequency.
-
-// When the length in frames of the Reference video format rounds to
+// The rounded length is too short or long for the frame based blocks, 0.133s
+// instead of 0.13333s at 75fps, so every label was off by up to 0.4%.
+// When the nominal length in frames of the Reference video format rounds to
 // the same ms, that length is used for the labels instead.
-
+// The result depends only on the rounded length, so blocks that were matched
+// before are matched the same way. Bin ranges still use the rounded length.
 double GetBinLabelSeconds(double seconds, parameters *config)
 {
 	double		rounded = 0, frameSeconds = 0, nominal = 0;
@@ -278,17 +280,17 @@ int IsGridFrequencyNoise(AudioSignal *Signal, double freq)
 	if(Signal->gridFrequency == 0 || !Signal->SilenceBinSize)
 		return 0;
 
-	// the predicted frequency is not always on the silence block bins
+	// nearest bin: the predicted frequency is not always on the silence block's bins
 	if(fabs(freq - Signal->gridFrequency) <= Signal->SilenceBinSize/2)
 		return 1;
 	return 0;
 }
 
-/* Mains hum, fundamental and two harmonics */
+/* Mains hum: the 50 or 60 Hz family, fundamental and two harmonics */
 #define MAINS_HARMONICS		3
 #define MAINS_ABOVE_MEDIAN	10.0	// dB above the median silence level to report it
 
-int IsOnRefreshHarmonic(AudioSignal *Signal, double hertz)
+static int IsOnRefreshHarmonic(AudioSignal *Signal, double hertz)
 {
 	int m = 0;
 
@@ -300,7 +302,8 @@ int IsOnRefreshHarmonic(AudioSignal *Signal, double hertz)
 	return fabs(hertz - m*Signal->gridFrequency) <= Signal->SilenceBinSize/2;
 }
 
-int IsLocalPeak(Frequency *silenceData, long int size, Frequency *entry, double binSize)
+/* A tone is higher than the bins next to it, the skirt of a nearby tone is not */
+static int IsLocalPeak(Frequency *silenceData, long int size, Frequency *entry, double binSize)
 {
 	for(long int i = 0; i < size; i++)
 	{
@@ -345,7 +348,7 @@ void FindMainsNoise(AudioSignal *Signal, Frequency *silenceData, long int size, 
 	median = levels[count/2];
 	free(levels);
 
-	// nearest bin, without reaching the other (50 and 60 Hz)
+	// nearest bin, without reaching the other family (50 and 60 Hz are 10 Hz apart)
 	tolerance = Signal->SilenceBinSize*0.75;
 	CleanFrequency(&best);
 
@@ -355,7 +358,7 @@ void FindMainsNoise(AudioSignal *Signal, Frequency *silenceData, long int size, 
 		int			onRefresh = 0;
 		Frequency	fundamental;
 
-		// mains on the same bin as the vertical refresh
+		// mains on the same bin as the vertical refresh (60 Hz on NTSC, 50 Hz on PAL): every harmonic is shared
 		onRefresh = Signal->gridFrequency && fabs(families[f] - Signal->gridFrequency) < Signal->SilenceBinSize;
 
 		CleanFrequency(&fundamental);
@@ -363,7 +366,7 @@ void FindMainsNoise(AudioSignal *Signal, Frequency *silenceData, long int size, 
 		{
 			if(silenceData[i].amplitude == NO_AMPLITUDE)
 				continue;
-			// The bin is on a refresh harmonic can't tell them apart
+			// otherwise a bin on a refresh harmonic (150 Hz is 2x75 and 3x50) can't be told apart
 			if(!onRefresh && IsOnRefreshHarmonic(Signal, silenceData[i].hertz))
 				continue;
 			for(int k = 1; k <= MAINS_HARMONICS; k++)
@@ -603,7 +606,7 @@ void InitAudio(AudioSignal *Signal, parameters *config)
 	Signal->SamplesStart = 0;
 	Signal->samplesPosFLAC = 0;
 	Signal->errorFLAC = 0;
-	Signal->framerate = 0.0;
+	Signal->msPerFrame = 0.0;
 	memset(&Signal->header, 0, sizeof(wav_hdr));
 	memset(&Signal->fmtExtra, 0, sizeof(uint8_t)*FMT_EXTRA_SIZE);
 	Signal->fmtType = 0;
@@ -640,7 +643,7 @@ void InitAudio(AudioSignal *Signal, parameters *config)
 	Signal->EstimatedSR = 0;
 	Signal->originalSR = 0;
 
-	Signal->originalFrameRate = 0;
+	Signal->originalMSPerFrame = 0;
 }
 
 int initInternalSync(AudioBlocks * AudioArray, int size)
@@ -991,77 +994,77 @@ double GetMSPerFrameRole(int role, parameters *config)
 	return(roundFloat(getMSPerFrameInternal(role, config)));
 }
 
-double GetLowerFrameRate(double framerateA, double framerateB)
+double GetShorterMSPerFrame(double msPerFrameA, double msPerFrameB)
 {
-	if(framerateA > framerateB)
-		return framerateB;
+	if(msPerFrameA > msPerFrameB)
+		return msPerFrameB;
 
-	return framerateA;
+	return msPerFrameA;
 }
 
-double GetHigherFrameRate(double framerateA, double framerateB)
+double GetLongerMSPerFrame(double msPerFrameA, double msPerFrameB)
 {
-	if(framerateA < framerateB)
-		return framerateB;
+	if(msPerFrameA < msPerFrameB)
+		return msPerFrameB;
 
-	return framerateA;
+	return msPerFrameA;
 }
 
 void CompareFrameRates(AudioSignal *Signal1, AudioSignal *Signal2, parameters *config)
 {
 	// Any difference needs to be accounted for
-	if(Signal1->framerate == Signal2->framerate)
+	if(Signal1->msPerFrame == Signal2->msPerFrame)
 	{
-		config->smallerFramerate = Signal1->framerate;
-		config->biggerFramerate = Signal1->framerate;
+		config->shorterMSPerFrame = Signal1->msPerFrame;
+		config->longerMSPerFrame = Signal1->msPerFrame;
 	}
 	else
 	{
 		double diff = 0;
 
-		diff = fabs(Signal1->framerate - Signal2->framerate);
-		config->smallerFramerate = GetLowerFrameRate(Signal1->framerate, Signal2->framerate);
-		config->biggerFramerate  = GetHigherFrameRate(Signal1->framerate, Signal2->framerate);
+		diff = fabs(Signal1->msPerFrame - Signal2->msPerFrame);
+		config->shorterMSPerFrame = GetShorterMSPerFrame(Signal1->msPerFrame, Signal2->msPerFrame);
+		config->longerMSPerFrame  = GetLongerMSPerFrame(Signal1->msPerFrame, Signal2->msPerFrame);
 		if((config->verbose && diff > 0.001) || diff > 0.1) {
 			logmsg("\n= Different frame rates found (%.8g), compensating to %.8gms =\n", 
-				diff, config->smallerFramerate);
+				diff, config->shorterMSPerFrame);
 		}
 	}
 }
 
-void CompareFrameRatesMDW(AudioSignal *Signal, double framerate, parameters *config)
+void CompareFrameRatesMDW(AudioSignal *Signal, double msPerFrame, parameters *config)
 {
 	double diff = 0;
 
-	diff = fabs(Signal->framerate - framerate);
+	diff = fabs(Signal->msPerFrame - msPerFrame);
 	if(diff == 0.0)
-		config->smallerFramerate = framerate;
+		config->shorterMSPerFrame = msPerFrame;
 	else
 	{
-		config->smallerFramerate = GetLowerFrameRate(Signal->framerate, framerate);
+		config->shorterMSPerFrame = GetShorterMSPerFrame(Signal->msPerFrame, msPerFrame);
 		if(config->verbose && diff > 0.001) {
 			logmsg("\n= Different frame rates found (%.8g), compensating to %.8gms =\n", 
-				diff, config->smallerFramerate);
+				diff, config->shorterMSPerFrame);
 		}
 		if(diff <= 0.0005) // this is a sync detection error
-			Signal->framerate = framerate;
+			Signal->msPerFrame = msPerFrame;
 	}
 }
 
-long int GetSampleSizeDifferenceByFrameRate(double framerate, long int frames, double samplerate, int AudioChannels, parameters *config)
+long int GetSampleSizeDifferenceByFrameRate(double msPerFrame, long int frames, double samplerate, int AudioChannels, parameters *config)
 {
 	long int difference = 0;
 
-	if(config->smallerFramerate == 0)
+	if(config->shorterMSPerFrame == 0)
 		return 0;
 
-	if(framerate > config->smallerFramerate)
+	if(msPerFrame > config->shorterMSPerFrame)
 	{
 		long int SmallerSamples = 0;
 		long int BiggerSamples = 0;
 
-		SmallerSamples = SecondsToSamples(samplerate, FramesToSeconds(config->smallerFramerate, frames), AudioChannels, NULL, NULL);
-		BiggerSamples = SecondsToSamples(samplerate, FramesToSeconds(framerate, frames), AudioChannels, NULL, NULL);
+		SmallerSamples = SecondsToSamples(samplerate, FramesToSeconds(frames, config->shorterMSPerFrame), AudioChannels, NULL, NULL);
+		BiggerSamples = SecondsToSamples(samplerate, FramesToSeconds(frames, msPerFrame), AudioChannels, NULL, NULL);
 	
 		difference = BiggerSamples - SmallerSamples;
 	}
@@ -1069,12 +1072,12 @@ long int GetSampleSizeDifferenceByFrameRate(double framerate, long int frames, d
 	return difference;
 }
 
-double GetSignalTotalDuration(double framerate, parameters *config)
+double GetSignalTotalDuration(double msPerFrame, parameters *config)
 {
 	long int frames = 0;
 
 	frames = GetSignalTotalFrames(config);
-	return(FramesToSeconds(frames, framerate));
+	return(FramesToSeconds(frames, msPerFrame));
 }
 
 int GetFirstSyncIndex(parameters *config)
@@ -1358,7 +1361,7 @@ int GetLastSyncElementIndex(parameters *config)
 	return 0;
 }
 
-double GetFirstSyncDuration(double framerate, parameters *config)
+double GetFirstSyncDuration(double msPerFrame, parameters *config)
 {
 	int		first = 0;
 	double	frames = 0;
@@ -1370,7 +1373,7 @@ double GetFirstSyncDuration(double framerate, parameters *config)
 	if(first == NO_INDEX)
 		return 0;
 	frames = config->types.typeArray[first].elementCount * config->types.typeArray[first].frames;
-	return(FramesToSeconds(frames, framerate));
+	return(FramesToSeconds(frames, msPerFrame));
 }
 
 double GetFirstElementFrameOffset(parameters *config)
@@ -1391,7 +1394,7 @@ double GetFirstElementFrameOffset(parameters *config)
 	return(frames);
 }
 
-double GetLastSyncDuration(double framerate, parameters *config)
+double GetLastSyncDuration(double msPerFrame, parameters *config)
 {
 	int		first = 0;
 
@@ -1406,7 +1409,7 @@ double GetLastSyncDuration(double framerate, parameters *config)
 			double	frames = 0;
 
 			frames = config->types.typeArray[i].elementCount * config->types.typeArray[i].frames;
-			return(FramesToSeconds(frames, framerate));
+			return(FramesToSeconds(frames, msPerFrame));
 		}
 	}
 	return 0;
@@ -1429,7 +1432,7 @@ int GetFirstSilenceIndex(parameters *config)
 	return NO_INDEX;
 }
 
-double GetFirstSilenceDuration(double framerate, parameters *config)
+double GetFirstSilenceDuration(double msPerFrame, parameters *config)
 {
 	if(!config)
 		return 0;
@@ -1441,7 +1444,7 @@ double GetFirstSilenceDuration(double framerate, parameters *config)
 			double	frames = 0;
 
 			frames = config->types.typeArray[i].elementCount * config->types.typeArray[i].frames;
-			return(FramesToSeconds(frames, framerate));
+			return(FramesToSeconds(frames, msPerFrame));
 		}
 	}
 	return 0;
@@ -1466,7 +1469,7 @@ int GetFirstMonoIndex(parameters *config)
 	return NO_INDEX;
 }
 
-long int GetSecondSyncSilenceSampleOffset(double framerate, wav_hdr header, int frameAdjust, double silenceOffset, parameters *config)
+long int GetSecondSyncSilenceSampleOffset(double msPerFrame, wav_hdr header, int frameAdjust, double silenceOffset, parameters *config)
 {
 	int silence_count = 0, i = 0, firstsyncfound = 0;
 
@@ -1495,10 +1498,10 @@ long int GetSecondSyncSilenceSampleOffset(double framerate, wav_hdr header, int 
 			double seconds = 0;
 			long int offset = 0, length = 0;
 
-			seconds = FramesToSeconds(GetBlockFrameOffset(i, config) - frameAdjust, framerate);
+			seconds = FramesToSeconds(GetBlockFrameOffset(i, config) - frameAdjust, msPerFrame);
 			offset = SecondsToSamples(header.fmt.SamplesPerSec, seconds, header.fmt.NumOfChan, NULL, NULL);
 
-			seconds = FramesToSeconds(config->types.typeArray[i].frames*silenceOffset, framerate);
+			seconds = FramesToSeconds(config->types.typeArray[i].frames*silenceOffset, msPerFrame);
 			length = SecondsToSamples(header.fmt.SamplesPerSec, seconds, header.fmt.NumOfChan, NULL, NULL);
 			offset += length;
 			return(offset);
@@ -2705,7 +2708,7 @@ void FindMaxMagnitude(AudioSignal *Signal, parameters *config)
 		double seconds = 0;
 		long int offset = 0;
 
-		seconds = FramesToSeconds(GetElementFrameOffset(MaxBlock, config), Signal->framerate);
+		seconds = FramesToSeconds(GetElementFrameOffset(MaxBlock, config), Signal->msPerFrame);
 		offset = SecondsToSamples(Signal->SampleRate, seconds, Signal->header.fmt.NumOfChan, NULL, NULL);
 		offset = SamplesForDisplay(offset, Signal->header.fmt.NumOfChan);
 
@@ -3533,7 +3536,7 @@ int FillFrequencyStructuresInternal(AudioSignal *Signal, AudioBlocks *AudioArray
 
 	// Round to 3 decimal places so that 48kHz and 44 kHz line up
 	boxsize = RoundFloat(AudioArray->seconds, 3);
-	// CLK blocks are aligned to whole seconds, the rest use the block length
+	// CLK blocks are aligned to whole seconds, the rest use the nominal block length
 	labelSeconds = boxsize;
 	if(!Signal || AudioArray < &Signal->clkFrequencies[0] || AudioArray >= &Signal->clkFrequencies[MAX_CLOCKS])
 		labelSeconds = GetBinLabelSeconds(AudioArray->seconds, config);
@@ -3846,14 +3849,14 @@ inline long int SamplesToBytes(long int samples, int bytesPerSample)
 	return(samples*bytesPerSample);
 }
 
-inline double FramesToSeconds(double frames, double framerate)
+inline double FramesToSeconds(double frames, double msPerFrame)
 {
-	return(frames*framerate/1000.0);
+	return(frames*msPerFrame/1000.0);
 }
 
-inline double SecondsToFrames(double seconds, double framerate)
+inline double SecondsToFrames(double seconds, double msPerFrame)
 {
-	return((seconds*1000.0)/framerate);
+	return((seconds*1000.0)/msPerFrame);
 }
 
 inline long int SecondsToSamples(double samplerate, double seconds, int AudioChannels, int *discard, double *leftDecimals)
@@ -3866,14 +3869,14 @@ inline double SamplesToSeconds(double samplerate, long int samples, int AudioCha
 	return((double)samples/(samplerate*(double)AudioChannels));
 }
 
-inline double FramesToSamples(double frames, double samplerate, double framerate)
+inline double FramesToSamples(double frames, double samplerate, double msPerFrame)
 {
-	return(floor(samplerate/1000.0*frames*framerate));
+	return(floor(samplerate/1000.0*frames*msPerFrame));
 }
 
-inline double SamplesToFrames(double samplerate, long int samples, double framerate, int AudioChannels)
+inline double SamplesToFrames(double samplerate, long int samples, double msPerFrame, int AudioChannels)
 {
-	return(roundFloat(((double)samples*1000.0)/(samplerate*(double)AudioChannels*framerate)));
+	return(roundFloat(((double)samples*1000.0)/(samplerate*(double)AudioChannels*msPerFrame)));
 }
 
 inline double BytesToSamples(long int samples, int bytesPerSample)
@@ -3933,8 +3936,8 @@ void SetAmplitudeMatchByDuration(__attribute__((unused))AudioSignal *reference, 
 	if(!config->padBlockSizes)
 		return;
 
-	// we use the bigger framerate so that when padding, everything is covered
-	config->maxBlockSeconds = FramesToSeconds(config->biggerFramerate, config->maxBlockFrameCount);
+	// we use the longer frame (bigger msPerFrame) so that when padding, everything is covered
+	config->maxBlockSeconds = FramesToSeconds(config->maxBlockFrameCount, config->longerMSPerFrame);
 }
 
 void SetAmplitudeMatchByDurationMDW(AudioSignal *reference, parameters *config)
@@ -3942,7 +3945,7 @@ void SetAmplitudeMatchByDurationMDW(AudioSignal *reference, parameters *config)
 	if(!config->padBlockSizes)
 		return;
 
-	config->maxBlockSeconds = FramesToSeconds(reference->framerate, config->maxBlockFrameCount);
+	config->maxBlockSeconds = FramesToSeconds(config->maxBlockFrameCount, reference->msPerFrame);
 }
 
 // Zero padding to make all blocks the same frame size
@@ -4010,9 +4013,9 @@ int ApplySamplerateChange(AudioSignal *Signal, parameters *config)
 	return 0;
 }
 
-double CalculateFrameRateAndCheckSamplerate(AudioSignal *Signal, parameters *config)
+double CalculateMSPerFrameAndCheckSamplerate(AudioSignal *Signal, parameters *config)
 {
-	double framerate = 0, endOffset = 0, startOffset = 0;
+	double msPerFrame = 0, endOffset = 0, startOffset = 0;
 	double expectedFR = 0, diffFR = 0, SRDifference = 0;
 	double calculatedSamplerate = 0, LastSyncFrameOffset = 0;
 	double centsDifferenceSR = 0;
@@ -4041,9 +4044,9 @@ double CalculateFrameRateAndCheckSamplerate(AudioSignal *Signal, parameters *con
 		return 0;
 	}
 
-	framerate = CalculateFrameRate(Signal, config);
+	msPerFrame = CalculateMSPerFrame(Signal, config);
 
-	diffFR = roundFloat(fabs(expectedFR - framerate));
+	diffFR = roundFloat(fabs(expectedFR - msPerFrame));
 
 	calculatedSamplerate = (endOffset-startOffset)/(expectedFR*LastSyncFrameOffset);
 	calculatedSamplerate = calculatedSamplerate*1000.0/(double)Signal->AudioChannels;
@@ -4059,7 +4062,7 @@ double CalculateFrameRateAndCheckSamplerate(AudioSignal *Signal, parameters *con
 	{
 		double tDiff = 0, samples = 0; /*, sign = 1; */
 
-		tDiff = fabs(expectedFR*LastSyncFrameOffset) - fabs(framerate*LastSyncFrameOffset);
+		tDiff = fabs(expectedFR*LastSyncFrameOffset) - fabs(msPerFrame*LastSyncFrameOffset);
 		samples = -1 * calculatedSamplerate / 1000.0 * tDiff;
 		//sign = samples > 0 ? -1 : 1;
 		//samples = ceil(RoundFloat(fabs(samples), 2));
@@ -4067,7 +4070,7 @@ double CalculateFrameRateAndCheckSamplerate(AudioSignal *Signal, parameters *con
 		if(fabs(samples) > 0.70)
 		{
 			logmsg(" - WARNING Expected %.12gms and got %.12gms (Difference %gms/%g samples/%g frames of %gms) [%ld-%ld]\n", 
-				expectedFR*LastSyncFrameOffset, framerate*LastSyncFrameOffset,
+				expectedFR*LastSyncFrameOffset, msPerFrame*LastSyncFrameOffset,
 				-1*tDiff, samples,
 				-1*tDiff/expectedFR,
 				expectedFR,
@@ -4083,8 +4086,8 @@ double CalculateFrameRateAndCheckSamplerate(AudioSignal *Signal, parameters *con
 			
 			Signal->endOffset = (long int)endOffset;
 
-			framerate = CalculateFrameRate(Signal, config);
-			diffFR = roundFloat(fabs(expectedFR - framerate));
+			msPerFrame = CalculateMSPerFrame(Signal, config);
+			diffFR = roundFloat(fabs(expectedFR - msPerFrame));
 
 			calculatedSamplerate = (endOffset-startOffset)/(expectedFR*LastSyncFrameOffset);
 			calculatedSamplerate = calculatedSamplerate*1000.0/(double)Signal->AudioChannels;
@@ -4093,7 +4096,7 @@ double CalculateFrameRateAndCheckSamplerate(AudioSignal *Signal, parameters *con
 			centsDifferenceSR = 1200.0*log2(calculatedSamplerate/(double)Signal->SampleRate);
 			SRDifference = calculatedSamplerate - Signal->SampleRate;
 
-			tDiff = fabs(expectedFR*LastSyncFrameOffset) - fabs(framerate*LastSyncFrameOffset);
+			tDiff = fabs(expectedFR*LastSyncFrameOffset) - fabs(msPerFrame*LastSyncFrameOffset);
 			samples = -1 * calculatedSamplerate / 1000.0 * tDiff;
 
 			tDiff = RoundFloat(tDiff, 5);
@@ -4103,7 +4106,7 @@ double CalculateFrameRateAndCheckSamplerate(AudioSignal *Signal, parameters *con
 			logmsg(" - WARNING RECALC start %ld end %ld, Expected %gms and got %gms (Difference is %gms/%g samples/%g frames of %gms)\n", 
 				SamplesForDisplay(Signal->startOffset, Signal->AudioChannels),
 				SamplesForDisplay(Signal->endOffset, Signal->AudioChannels),
-				expectedFR*LastSyncFrameOffset, framerate*LastSyncFrameOffset,
+				expectedFR*LastSyncFrameOffset, msPerFrame*LastSyncFrameOffset,
 				-1*tDiff, samples,
 				-1*tDiff/expectedFR,
 				expectedFR);
@@ -4112,20 +4115,20 @@ double CalculateFrameRateAndCheckSamplerate(AudioSignal *Signal, parameters *con
 	}
 
 	if(areDoublesEqual(fabs(SRDifference), 0.0))  // do not make adjustments if they make no change at all 
-		return framerate;
+		return msPerFrame;
 
 	if(config->doSamplerateAdjust != 'n' && fabs(centsDifferenceSR) > 0)
 	{
 		if(ApplySamplerateChange(Signal, config))
 		{
 			logmsg(" - NOTE: Auto adjustment of samplerate and frame rate applied\n");
-			logmsg("    Original framerate: %gms (%g difference) detected %fHz (%gHz difference) sample rate from audio duration\n", framerate, diffFR, calculatedSamplerate, SRDifference);
+			logmsg("    Original framerate: %gms (%g difference) detected %fHz (%gHz difference) sample rate from audio duration\n", msPerFrame, diffFR, calculatedSamplerate, SRDifference);
 
 			Signal->originalSR = Signal->SampleRate;
-			Signal->originalFrameRate = framerate;
+			Signal->originalMSPerFrame = msPerFrame;
 ;
-			framerate = (endOffset-startOffset)/(calculatedSamplerate *LastSyncFrameOffset);
-			framerate = framerate*1000.0/(double)Signal->AudioChannels;  // 1000 ms
+			msPerFrame = (endOffset-startOffset)/(calculatedSamplerate *LastSyncFrameOffset);
+			msPerFrame = msPerFrame*1000.0/(double)Signal->AudioChannels;  // 1000 ms
 
 			// Samplerate CHECK, removed all rounding here
 			Signal->SampleRate = calculatedSamplerate;
@@ -4143,9 +4146,9 @@ double CalculateFrameRateAndCheckSamplerate(AudioSignal *Signal, parameters *con
 			{
 				double tDiff = 0;
 
-				tDiff = fabs(expectedFR*LastSyncFrameOffset) - fabs(framerate*LastSyncFrameOffset);
+				tDiff = fabs(expectedFR*LastSyncFrameOffset) - fabs(msPerFrame*LastSyncFrameOffset);
 				logmsg(" - Expected %.10gms and got %gms (Difference is %gms/%g samples/%g frames of %gms)\n", 
-					expectedFR*LastSyncFrameOffset, framerate*LastSyncFrameOffset,
+					expectedFR*LastSyncFrameOffset, msPerFrame*LastSyncFrameOffset,
 					-1*tDiff, -1 * calculatedSamplerate / 1000.0 * tDiff,
 					-1*tDiff/expectedFR,
 					expectedFR);
@@ -4173,12 +4176,12 @@ double CalculateFrameRateAndCheckSamplerate(AudioSignal *Signal, parameters *con
 		}
 	}
 
-	return framerate;
+	return msPerFrame;
 }
 
-double CalculateFrameRate(AudioSignal *Signal, parameters *config)
+double CalculateMSPerFrame(AudioSignal *Signal, parameters *config)
 {
-	double		framerate = 0;
+	double		msPerFrame = 0;
 	double		endOffset = 0, startOffset = 0, samplerate = 0;
 	double		LastSyncFrameOffset = 0;
 
@@ -4192,16 +4195,16 @@ double CalculateFrameRate(AudioSignal *Signal, parameters *config)
 	if(!LastSyncFrameOffset)
 		return 0;
 
-	framerate = (endOffset-startOffset)/(samplerate*LastSyncFrameOffset); // 1000 ms 
-	framerate = framerate*1000.0/(double)Signal->AudioChannels;  // 1000 ms
-	//framerate = roundFloat(framerate);
+	msPerFrame = (endOffset-startOffset)/(samplerate*LastSyncFrameOffset); // 1000 ms 
+	msPerFrame = msPerFrame*1000.0/(double)Signal->AudioChannels;  // 1000 ms
+	//msPerFrame = roundFloat(msPerFrame);
 
-	return framerate;
+	return msPerFrame;
 }
 
-double CalculateFrameRateNS(AudioSignal *Signal, double Frames, parameters *config)
+double CalculateMSPerFrameNS(AudioSignal *Signal, double Frames, parameters *config)
 {
-	double framerate = 0, endOffset = 0, startOffset = 0, samplerate = 0;
+	double msPerFrame = 0, endOffset = 0, startOffset = 0, samplerate = 0;
 	double expectedFR = 0, diff = 0;
 
 	startOffset = Signal->startOffset;
@@ -4209,11 +4212,11 @@ double CalculateFrameRateNS(AudioSignal *Signal, double Frames, parameters *conf
 	samplerate = Signal->SampleRate;
 	expectedFR = GetMSPerFrame(Signal, config);
 
-	framerate = (endOffset-startOffset)/(samplerate*Frames);
-	framerate = framerate*1000.0/Signal->AudioChannels;  // 1000 ms
-	//framerate = roundFloat(framerate);
+	msPerFrame = (endOffset-startOffset)/(samplerate*Frames);
+	msPerFrame = msPerFrame*1000.0/Signal->AudioChannels;  // 1000 ms
+	//msPerFrame = roundFloat(msPerFrame);
 
-	diff = roundFloat(fabs(expectedFR - framerate));
+	diff = roundFloat(fabs(expectedFR - msPerFrame));
 	//The range to report this on will probably vary by console...
 	if(config->verbose && diff > 0.001) //  && diff < 0.02)
 	{
@@ -4226,21 +4229,21 @@ double CalculateFrameRateNS(AudioSignal *Signal, double Frames, parameters *conf
 				diff, calculatedSamplerate);
 	}
 
-	return framerate;
+	return msPerFrame;
 }
 
 double CalculateScanRateOriginalFramerate(AudioSignal *Signal)
 {
-	if(Signal->originalFrameRate == 0)
+	if(Signal->originalMSPerFrame == 0)
 		return 0;
-	return(1000.0/Signal->originalFrameRate);
+	return(1000.0/Signal->originalMSPerFrame);
 }
 
 double CalculateScanRate(AudioSignal *Signal)
 {
-	if(Signal->framerate == 0)
+	if(Signal->msPerFrame == 0)
 		return 0;
-	return(1000.0/Signal->framerate);
+	return(1000.0/Signal->msPerFrame);
 }
 
 int getPulseCount(int role, parameters *config)

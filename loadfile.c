@@ -3,7 +3,7 @@
  * A Fourier Transform analysis tool to compare game console audio
  * http://junkerhq.net/MDFourier/
  *
- * Copyright (C)2019-2020 Artemio Urbina
+ * Copyright (C)2019-2026 Artemio Urbina
  *
  * This file is part of the 240p Test Suite
  *
@@ -540,7 +540,7 @@ int DetectSync(AudioSignal *Signal, parameters *config)
 	struct	timespec	start, end;
 	double				seconds = 0;
 
-	Signal->framerate = GetMSPerFrame(Signal, config);
+	Signal->msPerFrame = GetMSPerFrame(Signal, config);
 
 	if(config->ManualSyncRef || config->ManualSyncComp)
 	{
@@ -557,7 +557,7 @@ int DetectSync(AudioSignal *Signal, parameters *config)
 					SamplesForDisplay(Signal->endOffset, Signal->AudioChannels));
 				return 0;
 			}
-			Signal->framerate = CalculateFrameRateAndCheckSamplerate(Signal, config);
+			Signal->msPerFrame = CalculateMSPerFrameAndCheckSamplerate(Signal, config);
 			setvalue = 1;
 		}
 
@@ -572,25 +572,25 @@ int DetectSync(AudioSignal *Signal, parameters *config)
 					SamplesForDisplay(Signal->endOffset, Signal->AudioChannels));
 				return 0;
 			}
-			Signal->framerate = CalculateFrameRateAndCheckSamplerate(Signal, config);
+			Signal->msPerFrame = CalculateMSPerFrameAndCheckSamplerate(Signal, config);
 			setvalue = 1;
 		}
 
 		if(setvalue)
 		{
-			if(!Signal->framerate)
+			if(!Signal->msPerFrame)
 			{
 				logmsg("\nERROR: Framerate could not be detected.\n");
 				return 0;
 			}
 
 			logmsg(" - Detected %.8g Hz signal (%.8gms per frame) from Audio file\n", 
-						roundFloat(CalculateScanRate(Signal)), Signal->framerate);
+						roundFloat(CalculateScanRate(Signal)), Signal->msPerFrame);
 
 			seconds = (double)Signal->numSamples/Signal->SampleRate/(double)Signal->AudioChannels;
-			if(seconds < GetSignalTotalDuration(Signal->framerate, config))
+			if(seconds < GetSignalTotalDuration(Signal->msPerFrame, config))
 				logmsg(" - File length is smaller than the expected %gs\n",
-					GetSignalTotalDuration(Signal->framerate, config));
+					GetSignalTotalDuration(Signal->msPerFrame, config));
 
 			if(GetFirstSilenceIndex(config) != NO_INDEX)
 				Signal->hasSilenceBlock = 1;
@@ -685,8 +685,8 @@ int DetectSync(AudioSignal *Signal, parameters *config)
 				logmsg("]\n");
 			}
 
-			Signal->framerate = CalculateFrameRateAndCheckSamplerate(Signal, config);
-			if(!Signal->framerate)
+			Signal->msPerFrame = CalculateMSPerFrameAndCheckSamplerate(Signal, config);
+			if(!Signal->msPerFrame)
 			{
 				logmsg("\nERROR: Framerate could not be detected.\n");
 				return 0;
@@ -694,13 +694,13 @@ int DetectSync(AudioSignal *Signal, parameters *config)
 
 			if(Signal->originalSR != 0.0)
 				logmsg(" - Using adjusted %.8g Hz signal (%.8gms per frame) from Audio signal duration\n",
-					roundFloat(CalculateScanRate(Signal)), Signal->framerate);
+					roundFloat(CalculateScanRate(Signal)), Signal->msPerFrame);
 			else
 				logmsg(" - Detected %.8g Hz signal (%.8gms per frame) from Audio file\n", 
-						roundFloat(CalculateScanRate(Signal)), Signal->framerate);
+						roundFloat(CalculateScanRate(Signal)), Signal->msPerFrame);
 
 			expected = GetMSPerFrame(Signal, config);
-			diff = fabs(100.0 - Signal->framerate*100.0/expected);
+			diff = fabs(100.0 - Signal->msPerFrame*100.0/expected);
 			if(diff > 1.0)
 			{
 				logmsg("\n%s: Framerate is %g%% different from the expected %gms.\n",
@@ -755,7 +755,7 @@ int DetectSync(AudioSignal *Signal, parameters *config)
 				logmsg("]\n");
 
 				Signal->endOffset = SecondsToSamples(Signal->SampleRate, 
-										GetSignalTotalDuration(Signal->framerate, config), 
+										GetSignalTotalDuration(Signal->msPerFrame, config), 
 										Signal->AudioChannels, NULL, NULL);
 			}
 			break;
@@ -767,25 +767,25 @@ int DetectSync(AudioSignal *Signal, parameters *config)
 				Signal->startOffset = 0;
 				Signal->endOffset = Signal->numSamples;
 		
-				expected = Signal->framerate;
+				expected = Signal->msPerFrame;
 		
 				if(Signal->role == ROLE_REF)
 				{
 					double secondsTmp = 0;
 					secondsTmp = SamplesToSeconds(Signal->SampleRate, Signal->endOffset, Signal->AudioChannels);
 					config->NoSyncTotalFrames = (secondsTmp*1000)/expected;
-					Signal->framerate = expected;
+					Signal->msPerFrame = expected;
 					logmsg(" - Loaded %.8g Hz signal (%.8gms per frame) from profile file\n", 
-								CalculateScanRate(Signal), Signal->framerate);
+								CalculateScanRate(Signal), Signal->msPerFrame);
 				}
 				else
 				{
-					Signal->framerate = CalculateFrameRateNS(Signal, config->NoSyncTotalFrames, config);
+					Signal->msPerFrame = CalculateMSPerFrameNS(Signal, config->NoSyncTotalFrames, config);
 					logmsg(" - Detected %.8g Hz signal (%.8gms per frame) from Audio file\n", 
-								CalculateScanRate(Signal), Signal->framerate);
+								CalculateScanRate(Signal), Signal->msPerFrame);
 				}
 		
-				diff = fabs(100.0 - Signal->framerate*100.0/expected);
+				diff = fabs(100.0 - Signal->msPerFrame*100.0/expected);
 				if(diff > 1.0)
 				{
 					logmsg("\nERROR: Framerate is %g%% different from the expected %gms.\n",
@@ -801,7 +801,7 @@ int DetectSync(AudioSignal *Signal, parameters *config)
 			{
 				Signal->startOffset = 0;
 				Signal->endOffset = SecondsToSamples(Signal->SampleRate,
-					GetSignalTotalDuration(Signal->framerate, config),
+					GetSignalTotalDuration(Signal->msPerFrame, config),
 					Signal->AudioChannels, NULL, NULL);
 				if (Signal->endOffset > Signal->numSamples)
 				{
@@ -852,7 +852,7 @@ int DetectSync(AudioSignal *Signal, parameters *config)
 				logmsg("]\n");
 
 				Signal->endOffset = SecondsToSamples(Signal->SampleRate, 
-										GetSignalTotalDuration(Signal->framerate, config), 
+										GetSignalTotalDuration(Signal->msPerFrame, config), 
 										Signal->AudioChannels, NULL, NULL);
 			}
 			config->significantAmplitude = -90;
@@ -866,9 +866,9 @@ int DetectSync(AudioSignal *Signal, parameters *config)
 	}
 
 	seconds = (double)Signal->numSamples/Signal->SampleRate/(double)Signal->AudioChannels;
-	if(seconds < GetSignalTotalDuration(Signal->framerate, config))
+	if(seconds < GetSignalTotalDuration(Signal->msPerFrame, config))
 		logmsg(" - File length is smaller than the expected %gs\n",
-				GetSignalTotalDuration(Signal->framerate, config));
+				GetSignalTotalDuration(Signal->msPerFrame, config));
 
 	if(GetFirstSilenceIndex(config) != NO_INDEX)
 		Signal->hasSilenceBlock = 1;
@@ -884,7 +884,7 @@ int AdjustSignalValues(AudioSignal *Signal, parameters *config)
 	Signal->SampleRate = Signal->header.fmt.SamplesPerSec;
 
 	// Default if none is found
-	Signal->framerate = GetMSPerFrame(Signal, config);
+	Signal->msPerFrame = GetMSPerFrame(Signal, config);
 
 	Signal->AudioChannels = Signal->header.fmt.NumOfChan;
 	if(Signal->SampleRate/2 < config->endHz)
@@ -906,10 +906,10 @@ int AdjustSignalValues(AudioSignal *Signal, parameters *config)
 		Signal->AudioChannels == 2 ? "Stereo" : "Mono", 
 		seconds);
 
-	if(seconds < GetSignalTotalDuration(Signal->framerate, config))
+	if(seconds < GetSignalTotalDuration(Signal->msPerFrame, config))
 	{
 		logmsg(" - WARNING: Estimated file length is shorter than the expected %g seconds\n",
-				GetSignalTotalDuration(Signal->framerate, config));
+				GetSignalTotalDuration(Signal->msPerFrame, config));
 		config->smallFile |= Signal->role;
 	}
 
@@ -939,7 +939,7 @@ int MoveSampleBlockInternal(AudioSignal *Signal, long int element, long int pos,
 		return 0;
 	}
 
-	signalLengthSeconds = FramesToSeconds(signalLengthFrames, config->referenceFramerate);
+	signalLengthSeconds = FramesToSeconds(signalLengthFrames, config->referenceMSPerFrame);
 	signalLengthSamples = SecondsToSamples(Signal->SampleRate, signalLengthSeconds, Signal->AudioChannels, NULL, NULL);
 
 	if(pos + signalStartOffset + signalLengthSamples > Signal->numSamples)
@@ -1003,7 +1003,7 @@ int MoveSampleBlockExternal(AudioSignal *Signal, long int element, long int pos,
 		return 0;
 	}
 
-	signalLengthSeconds = FramesToSeconds(signalLengthFrames, config->referenceFramerate);
+	signalLengthSeconds = FramesToSeconds(signalLengthFrames, config->referenceMSPerFrame);
 	signalLengthSamples = SecondsToSamples(Signal->SampleRate, signalLengthSeconds, Signal->AudioChannels, NULL, NULL);
 
 	if(pos + signalStartOffset + signalLengthSamples > Signal->numSamples)
@@ -1117,7 +1117,7 @@ int ProcessInternalSync(AudioSignal *Signal, long int element, long int pos, int
 		logmsg(" - %s command delay: %g ms [%g frames]\n",
 			GetBlockName(config, element),
 			SamplesToSeconds(Signal->SampleRate, internalSyncOffset, Signal->AudioChannels)*1000.0,
-			SamplesToFrames(Signal->SampleRate, internalSyncOffset, config->referenceFramerate, Signal->AudioChannels));
+			SamplesToFrames(Signal->SampleRate, internalSyncOffset, config->referenceMSPerFrame, Signal->AudioChannels));
 
 		if(config->verbose) {
 				logmsg("  > Found at: %ld (%ld+%ld) smp\n\tPulse Length: %ld smp Silence Length: %ld smp\n", 
@@ -1197,7 +1197,7 @@ int ProcessInternalSync(AudioSignal *Signal, long int element, long int pos, int
 		logmsg(" - %s command delay: %g ms [%g frames]\n",
 			GetBlockName(config, element),
 			SamplesToSeconds(Signal->SampleRate, internalSyncOffset, Signal->AudioChannels)*1000.0,
-			SamplesToFrames(Signal->SampleRate, internalSyncOffset, config->referenceFramerate, Signal->AudioChannels));
+			SamplesToFrames(Signal->SampleRate, internalSyncOffset, config->referenceMSPerFrame, Signal->AudioChannels));
 
 		if(config->verbose) {
 			logmsg("  > Found at: %ld (%ld+%ld) smp\n\tPulse Length: %ld smp Silence Length: %ld smp\n", 
@@ -1238,7 +1238,7 @@ int ProcessInternalSync(AudioSignal *Signal, long int element, long int pos, int
 				return 0;
 
 			/*
-			oneframe = SecondsToSamples(Signal->SampleRate, FramesToSeconds(1, config->referenceFramerate), Signal->AudioChannels, NULL, NULL);
+			oneframe = SecondsToSamples(Signal->SampleRate, FramesToSeconds(1, config->referenceMSPerFrame), Signal->AudioChannels, NULL, NULL);
 			if(!CopySamplesForTimeDomainPlotInternalSync(&Signal->Blocks[element], 
 					(Signal->Samples + pos + signalStart), 
 					(oneframe*2), 3, 

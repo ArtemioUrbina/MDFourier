@@ -3,7 +3,7 @@
  * A Fourier Transform analysis tool to compare game console audio
  * http://junkerhq.net/MDFourier/
  *
- * Copyright (C)2019-2020 Artemio Urbina
+ * Copyright (C)2019-2026 Artemio Urbina
  *
  * This file is part of the 240p Test Suite
  *
@@ -69,7 +69,7 @@ int CheckBalance(AudioSignal *Signal, int block, parameters *config)
 
 	pos = Signal->startOffset;
 
-	longest = FramesToSeconds(Signal->framerate, GetLongestElementFrames(config));
+	longest = FramesToSeconds(GetLongestElementFrames(config), Signal->msPerFrame);
 	if(!longest)
 	{
 		logmsg("Block definitions are invalid, total length is 0.\n");
@@ -98,13 +98,13 @@ int CheckBalance(AudioSignal *Signal, int block, parameters *config)
 
 		frames = GetBlockFrames(config, i);
 		cutFrames = GetBlockCutFrames(config, i);
-		duration = FramesToSeconds(Signal->framerate, frames);
+		duration = FramesToSeconds(frames, Signal->msPerFrame);
 		
 		loadedBlockSize = SecondsToSamples(Signal->SampleRate, duration, Signal->AudioChannels, &discardBytes, &leftDecimals);
 
-		difference = GetSampleSizeDifferenceByFrameRate(Signal->framerate, frames, Signal->SampleRate, Signal->AudioChannels, config);
+		difference = GetSampleSizeDifferenceByFrameRate(Signal->msPerFrame, frames, Signal->SampleRate, Signal->AudioChannels, config);
 
-		windowUsed = getWindowByLength(&windows, frames, cutFrames, config->smallerFramerate, config);
+		windowUsed = getWindowByLength(&windows, frames, cutFrames, config->shorterMSPerFrame, config);
 
 		if(i == block)
 		{
@@ -262,7 +262,7 @@ int CheckBalance(AudioSignal *Signal, int block, parameters *config)
 			double	percent_higher;
 
 			percent_higher = 100.0 * (pow(10, amplDiff / 20)-1.0);
-			logmsg(" (%0.5f%%)",
+			logmsg(" (%0.5f%% in amplitude)",
 				percent_higher);
 		}
 		logmsg("\n");

@@ -3,7 +3,7 @@
  * A Fourier Transform analysis tool to compare game console audio
  * http://junkerhq.net/MDFourier/
  *
- * Copyright (C)2019-2020 Artemio Urbina
+ * Copyright (C)2019-2026 Artemio Urbina
  *
  * This file is part of the 240p Test Suite
  *
@@ -40,15 +40,15 @@ int LoadAudioBlockStructure(FILE *file, parameters *config);
 int LoadAudioNoSyncProfile(FILE *file, parameters *config);
 int GetFirstSilenceIndex(parameters *config);
 int GetFirstMonoIndex(parameters *config);
-long int GetSecondSyncSilenceSampleOffset(double framerate, wav_hdr header, int frameAdjust, double silenceOffset, parameters *config);
+long int GetSecondSyncSilenceSampleOffset(double msPerFrame, wav_hdr header, int frameAdjust, double silenceOffset, parameters *config);
 int GetActiveAudioBlocks(parameters *config);
 int GetTotalAudioBlocks(parameters *config);
 long int GetLongestElementFrames(parameters *config);
 long int GetSignalTotalFrames(parameters *config);
-double GetFirstSyncDuration(double framerate, parameters *config);
-double GetLastSyncDuration(double framerate, parameters *config);
-double GetSignalTotalDuration(double framerate, parameters *config);
-double GetFirstSilenceDuration(double framerate, parameters *config);
+double GetFirstSyncDuration(double msPerFrame, parameters *config);
+double GetLastSyncDuration(double msPerFrame, parameters *config);
+double GetSignalTotalDuration(double msPerFrame, parameters *config);
+double GetFirstSilenceDuration(double msPerFrame, parameters *config);
 long int GetBlockFrames(parameters *config, int pos);
 long int GetBlockCutFrames(parameters *config, int pos);
 char *GetBlockName(parameters *config, int pos);
@@ -66,7 +66,7 @@ void ReleasePCM(AudioSignal *Signal);
 long int GetLastSyncFrameOffset(parameters *config);
 long int GetBlockFrameOffset(int block, parameters *config);
 long int GetElementFrameOffset(int block, parameters *config);
-long int GetSampleSizeDifferenceByFrameRate(double framerate, long int frames, double samplerate, int AudioChannels, parameters *config);
+long int GetSampleSizeDifferenceByFrameRate(double msPerFrame, long int frames, double samplerate, int AudioChannels, parameters *config);
 double GetFirstElementFrameOffset(parameters* config);
 int GetFirstSyncIndex(parameters *config);
 int GetLastSyncIndex(parameters *config);
@@ -115,9 +115,9 @@ void FindMaxMagnitude(AudioSignal *Signal, parameters *config);
 void CalculateAmplitudes(AudioSignal *Signal, double ZeroDbMagReference, parameters *config);
 void FindFloor(AudioSignal *Signal, parameters *config);
 void FindStandAloneFloor(AudioSignal *Signal, parameters *config);
-double GetLowerFrameRate(double framerateA, double framerateB);
+double GetShorterMSPerFrame(double msPerFrameA, double msPerFrameB);
 void CompareFrameRates(AudioSignal *Signal1, AudioSignal *Signal2, parameters *config);
-void CompareFrameRatesMDW(AudioSignal *Signal, double framerate, parameters *config);
+void CompareFrameRatesMDW(AudioSignal *Signal, double msPerFrame, parameters *config);
 double CalculatePCMMagnitude(double amplitude, double MaxMagnitude);
 double GetSignalPeakMagnitude(AudioSignal *Signal, parameters *config);
 
@@ -136,11 +136,11 @@ double GetBinLabelSeconds(double seconds, parameters *config);
 long int RoundToNsamples(double src, int AudioChannels, int *discard, double *leftDecimals);
 double GetDecimalValues(double value);
 double SamplesToSeconds(double samplerate, long int samples, int AudioChannels);
-double FramesToSeconds(double frames, double framerate);
-double SecondsToFrames(double seconds, double framerate);
+double FramesToSeconds(double frames, double msPerFrame);
+double SecondsToFrames(double seconds, double msPerFrame);
 long int SecondsToSamples(double samplerate, double seconds, int AudioChannels, int *discard, double *leftDecimals);
-double FramesToSamples(double frames, double samplerate, double framerate);
-double SamplesToFrames(double samplerate, long int samples, double framerate, int AudioChannels);
+double FramesToSamples(double frames, double samplerate, double msPerFrame);
+double SamplesToFrames(double samplerate, long int samples, double msPerFrame, int AudioChannels);
 long int SamplesToBytes(long int samples, int bytesPerSample);
 long int SamplesForDisplay(long int samples, int AudioChannels);
 int DetectWatermark(AudioSignal *Signal, parameters *config);
@@ -165,9 +165,9 @@ int MeasureBandHalves(AudioBlocks *AudioArray, double *samples, long int size, d
 int BandChannels(AudioBlocks *ref, AudioBlocks *com);
 int GetBlockNoCompare(parameters *config, int pos);
 double GetSeparationDB(AudioBlocks *block, int *limited);
-double CalculateFrameRate(AudioSignal *Signal, parameters *config);
-double CalculateFrameRateNS(AudioSignal *Signal, double Frames, parameters *config);
-double CalculateFrameRateAndCheckSamplerate(AudioSignal *Signal, parameters *config);
+double CalculateMSPerFrame(AudioSignal *Signal, parameters *config);
+double CalculateMSPerFrameNS(AudioSignal *Signal, double Frames, parameters *config);
+double CalculateMSPerFrameAndCheckSamplerate(AudioSignal *Signal, parameters *config);
 double CalculateScanRate(AudioSignal *Signal);
 double CalculateScanRateOriginalFramerate(AudioSignal *Signal);
 

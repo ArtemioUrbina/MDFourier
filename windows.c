@@ -3,7 +3,7 @@
  * A Fourier Transform analysis tool to compare game console audio
  * http://junkerhq.net/MDFourier/
  *
- * Copyright (C)2019-2020 Artemio Urbina
+ * Copyright (C)2019-2026 Artemio Urbina
  *
  * This file is part of the 240p Test Suite
  *
@@ -112,7 +112,7 @@ double *CreateWindowInternal(windowManager *wm, double *(*createWindow)(long), c
 	return window;
 }
 
-double *CreateWindow(windowManager *wm, long int frames, long int cutFrames, double framerate, parameters *config)
+double *CreateWindow(windowManager *wm, long int frames, long int cutFrames, double msPerFrame, parameters *config)
 {
 	double		seconds = 0;
 	long int	size = 0;
@@ -143,22 +143,22 @@ double *CreateWindow(windowManager *wm, long int frames, long int cutFrames, dou
 		wm->MaxWindow += MAX_WINDOWS;
 	}
 
-	seconds = FramesToSeconds(frames-cutFrames, framerate);
+	seconds = FramesToSeconds(frames-cutFrames, msPerFrame);
 	size = ceil(wm->SampleRate*seconds);
 
-	secondsPadding = FramesToSeconds(cutFrames, framerate);
+	secondsPadding = FramesToSeconds(cutFrames, msPerFrame);
 	sizePadding = ceil(wm->SampleRate*secondsPadding);
 
 	/* Used for clk adjust, eventhough one frame is overkill */
 	if(config->doClkAdjust)
 	{
-		oneFramePadding = FramesToSeconds(1, framerate);
+		oneFramePadding = FramesToSeconds(1, msPerFrame);
 		clkAdjustBufferSize = ceil(wm->SampleRate*oneFramePadding);
 	}
 
 	if(!size)
 	{
-		logmsg("ERROR: Asked for window with null size %ld Frames %g Framerate\n", frames, framerate);
+		logmsg("ERROR: Asked for window with null size %ld Frames %g Framerate\n", frames, msPerFrame);
 		return NULL;
 	}
 
@@ -166,10 +166,10 @@ double *CreateWindow(windowManager *wm, long int frames, long int cutFrames, dou
 	if(config->verbose >= 2) {
 		if(!config->doClkAdjust)
 			logmsg(" *** Creating window: size %ld+(p)%ld = %ld (%ld frames %g fr)\n",
-				size, sizePadding, size+sizePadding, frames, framerate);
+				size, sizePadding, size+sizePadding, frames, msPerFrame);
 		else
 			logmsg(" *** Creating window: size %ld+(p)%ld(+(clk)%ld)=%ld(%ld) (%ld frames %g fr) clkAdjustBufferSize: %ld\n",
-				size, sizePadding, clkAdjustBufferSize, size+sizePadding, size+sizePadding+clkAdjustBufferSize, frames, framerate, clkAdjustBufferSize);
+				size, sizePadding, clkAdjustBufferSize, size+sizePadding, size+sizePadding+clkAdjustBufferSize, frames, msPerFrame, clkAdjustBufferSize);
 	}
 #endif
 	
@@ -188,11 +188,11 @@ double *CreateWindow(windowManager *wm, long int frames, long int cutFrames, dou
 	if(wm->winType == 'm')
 		return(CreateWindowInternal(wm, hammingWindow, "Hamming", seconds, size, sizePadding, clkAdjustBufferSize, frames, config));
 
-	logmsg("FAILED Creating window size %g (%ld frames %g fr)\n", frames*framerate, frames, framerate);
+	logmsg("FAILED Creating window size %g (%ld frames %g fr)\n", frames*msPerFrame, frames, msPerFrame);
 	return NULL;
 }
 
-double *getWindowByLength(windowManager *wm, long int frames, long int cutFrames, double framerate, parameters *config)
+double *getWindowByLength(windowManager *wm, long int frames, long int cutFrames, double msPerFrame, parameters *config)
 {
 	double		seconds = 0;
 	long int	size = 0;
@@ -202,16 +202,16 @@ double *getWindowByLength(windowManager *wm, long int frames, long int cutFrames
 	if(!wm)
 		return 0;
 
-	seconds = FramesToSeconds(frames-cutFrames, framerate);
+	seconds = FramesToSeconds(frames-cutFrames, msPerFrame);
 	size = ceil(wm->SampleRate*seconds);
 
-	secondsPadding = FramesToSeconds(cutFrames, framerate);
+	secondsPadding = FramesToSeconds(cutFrames, msPerFrame);
 	sizePadding = ceil(wm->SampleRate*secondsPadding);
 
 #ifdef DEBUG
 	if(config->verbose >= 3)
 		logmsg("Asked for window: %ld pad:%ld (%ld frames %ld cut frames %g fr)\n",
-			size, sizePadding, frames, cutFrames, framerate);
+			size, sizePadding, frames, cutFrames, msPerFrame);
 #endif
 
 	for(int i = 0; i < wm->windowCount; i++)
@@ -221,7 +221,7 @@ double *getWindowByLength(windowManager *wm, long int frames, long int cutFrames
 #ifdef DEBUG
 			if(config->verbose >= 2)
 				logmsg("Served window size %ld zero:%ld (%ld frames %ld cut frames %g fr)\n",
-					size, sizePadding, frames, cutFrames, framerate);
+					size, sizePadding, frames, cutFrames, msPerFrame);
 #endif
 			
 			return wm->windowArray[i].window;
@@ -230,9 +230,9 @@ double *getWindowByLength(windowManager *wm, long int frames, long int cutFrames
 
 #ifdef DEBUG
 	if(config->verbose >= 2)
-		logmsg("Creating window %ld zero:%ld (%ld frames %ld cut frames %g fr)\n", size, sizePadding, frames, cutFrames, framerate);
+		logmsg("Creating window %ld zero:%ld (%ld frames %ld cut frames %g fr)\n", size, sizePadding, frames, cutFrames, msPerFrame);
 #endif
-	return CreateWindow(wm, frames, cutFrames, framerate, config);
+	return CreateWindow(wm, frames, cutFrames, msPerFrame, config);
 }
 
 void freeWindows(windowManager *wm)

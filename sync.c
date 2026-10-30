@@ -3,7 +3,7 @@
  * A Fourier Transform analysis tool to compare game console audio
  * http://junkerhq.net/MDFourier/
  *
- * Copyright (C)2019-2020 Artemio Urbina
+ * Copyright (C)2019-2026 Artemio Urbina
  *
  * This file is part of the 240p Test Suite
  *
@@ -156,7 +156,7 @@ long int DetectEndPulse(double *AllSamples, long int startpulse, wav_hdr header,
 		}
 
 	
-		/* We try to figure out position of the pulses, things are not fine with this recording, profile selected, framerate, etc */
+		/* We try to figure out position of the pulses, things are not fine with this recording, profile selected, frame rate, etc */
 		if(config->debugSync)
 			logmsgFileOnly("End pulse CLEAN detection failed started search at %ld samples\n", SamplesForDisplay(sampleOffset, AudioChannels));
 	}

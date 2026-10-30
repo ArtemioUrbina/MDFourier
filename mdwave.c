@@ -130,8 +130,8 @@ int ExecuteMDWave(parameters *config)
 	else
 		ReferenceSignal->role = ROLE_COMP;
 
-	config->referenceFramerate = ReferenceSignal->framerate;
-	config->smallerFramerate = ReferenceSignal->framerate;
+	config->referenceMSPerFrame = ReferenceSignal->msPerFrame;
+	config->shorterMSPerFrame = ReferenceSignal->msPerFrame;
 
 	/* Balance check */
 	if(config->channelBalance && !config->noSyncProfile)
@@ -258,7 +258,7 @@ int ProcessSignalMDW(AudioSignal *Signal, parameters *config)
 
 	pos = Signal->startOffset;
 
-	longest = FramesToSeconds(Signal->framerate, GetLongestElementFrames(config));
+	longest = FramesToSeconds(GetLongestElementFrames(config), Signal->msPerFrame);
 	if(!longest)
 	{
 		logmsg("\tERROR: Block definitions are invalid, total length is 0.\n");
@@ -295,20 +295,20 @@ int ProcessSignalMDW(AudioSignal *Signal, parameters *config)
 
 	while(i < config->types.totalBlocks)
 	{
-		double duration = 0, framerate = 0;
+		double duration = 0, msPerFrame = 0;
 		long int frames = 0, difference = 0, cutFrames = 0;
 
 		if(!syncinternal)
-			framerate = Signal->framerate;
+			msPerFrame = Signal->msPerFrame;
 		else
-			framerate = config->referenceFramerate;
+			msPerFrame = config->referenceMSPerFrame;
 
 		frames = GetBlockFrames(config, i);
 		cutFrames = GetBlockCutFrames(config, i);
-		duration = FramesToSeconds(framerate, frames);
+		duration = FramesToSeconds(frames, msPerFrame);
 
 		if(Signal->Blocks[i].maskType == MASK_USE_WINDOW)
-			difference = GetSampleSizeDifferenceByFrameRate(framerate, frames, Signal->SampleRate, Signal->AudioChannels, config);
+			difference = GetSampleSizeDifferenceByFrameRate(msPerFrame, frames, Signal->SampleRate, Signal->AudioChannels, config);
 
 		loadedBlockSize = SecondsToSamples(Signal->SampleRate, duration, Signal->AudioChannels, &discardSamples, &leftDecimals);
 
@@ -316,9 +316,9 @@ int ProcessSignalMDW(AudioSignal *Signal, parameters *config)
 		if(Signal->Blocks[i].type >= TYPE_SILENCE || Signal->Blocks[i].type == TYPE_WATERMARK)
 		{
 			if(!syncinternal && Signal->Blocks[i].maskType == MASK_USE_WINDOW)
-				windowUsed = getWindowByLength(&windows, frames, cutFrames, config->smallerFramerate, config);
+				windowUsed = getWindowByLength(&windows, frames, cutFrames, config->shorterMSPerFrame, config);
 			else
-				windowUsed = getWindowByLength(&windows, frames, cutFrames, framerate, config);
+				windowUsed = getWindowByLength(&windows, frames, cutFrames, msPerFrame, config);
 		}
 
 		//logmsg("Loaded %ld Left %ld Discard %ld difference %ld Decimals %g\n", loadedBlockSize, discardSamples, difference, leftDecimals);
@@ -451,20 +451,20 @@ int ProcessSignalMDW(AudioSignal *Signal, parameters *config)
 		// redo after processing
 		while(i < config->types.totalBlocks)
 		{
-			double duration = 0, framerate = 0;
+			double duration = 0, msPerFrame = 0;
 			long int frames = 0, difference = 0, cutFrames = 0;
 	
 			if(!syncinternal)
-				framerate = Signal->framerate;
+				msPerFrame = Signal->msPerFrame;
 			else
-				framerate = config->referenceFramerate;
+				msPerFrame = config->referenceMSPerFrame;
 	
 			frames = GetBlockFrames(config, i);
 			cutFrames = GetBlockCutFrames(config, i);
-			duration = FramesToSeconds(framerate, frames);
+			duration = FramesToSeconds(frames, msPerFrame);
 	
 			if(Signal->Blocks[i].maskType == MASK_USE_WINDOW)
-				difference = GetSampleSizeDifferenceByFrameRate(framerate, frames, Signal->SampleRate, Signal->AudioChannels, config);
+				difference = GetSampleSizeDifferenceByFrameRate(msPerFrame, frames, Signal->SampleRate, Signal->AudioChannels, config);
 
 			loadedBlockSize = SecondsToSamples(Signal->SampleRate, duration, Signal->AudioChannels, &discardSamples, &leftDecimals);
 
@@ -472,9 +472,9 @@ int ProcessSignalMDW(AudioSignal *Signal, parameters *config)
 			if(Signal->Blocks[i].type >= TYPE_SILENCE || Signal->Blocks[i].type == TYPE_WATERMARK)
 			{
 				if(!syncinternal && Signal->Blocks[i].maskType == MASK_USE_WINDOW)
-					windowUsed = getWindowByLength(&windows, frames, cutFrames, config->smallerFramerate, config);
+					windowUsed = getWindowByLength(&windows, frames, cutFrames, config->shorterMSPerFrame, config);
 				else
-					windowUsed = getWindowByLength(&windows, frames, cutFrames, framerate, config);
+					windowUsed = getWindowByLength(&windows, frames, cutFrames, msPerFrame, config);
 			}
 			
 			//logmsg("Loaded %ld Left %ld Discard %ld difference %ld Decimals %g\n", loadedBlockSize, discardSamples, difference, leftDecimals);
@@ -540,7 +540,7 @@ int ProcessSignalMDW(AudioSignal *Signal, parameters *config)
 			pos += loadedBlockSize;
 			pos += discardSamples;
 
-			// Use original framerate for CD-DA chunks
+			// Use the original ms per frame for CD-DA chunks
 			if(Signal->Blocks[i].type == TYPE_INTERNAL_KNOWN || Signal->Blocks[i].type == TYPE_INTERNAL_UNKNOWN)
 				syncinternal = !syncinternal;
 
