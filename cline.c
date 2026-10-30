@@ -62,7 +62,7 @@ void PrintUsage(void)
 	logmsg("		where r is for reference and c is for comparison\n");
 	logmsg("		example: -m r:64001:12236801\n");
 	logmsg("		sample values must be the start of each pulse sequence\n");
-	logmsg("	 -1: Set bisection lines to pinpoint in plots, takes format <hertz>:<amplitude>\n");
+	logmsg("	 -q: Set bisection lines to pinpoint in plots, takes format <hertz>:<amplitude>\n");
 	logmsg("		example: -q 1825.26:3.75\n");
 	logmsg("	 -R: Adjust sample <R>ate if duration difference is found\n");
 	logmsg("	 -j: Ad<j>ust clock (profile defined) via FFTW if difference is found\n");
@@ -76,9 +76,10 @@ void PrintUsage(void)
 	logmsg("	 -A: Do not weight values in <A>veraged Plot (implies -g)\n");
 	logmsg("	 -G: Adjust difference plots around avera<G>e difference.\n");
 	logmsg("	 -W: Use <W>hite background for plots.\n");
-	logmsg("	 -d: Max <d>BFS for plots vertically\n");
+	logmsg("	 -d: Max <d>B for difference plots vertically\n");
 	logmsg("	 -a: Zoom in to dB in waveform plots\n");
 	logmsg("	 -L: Plot resolution:\n");
+	logmsg("		0: %gx%g\n", PLOT_RES_X_LL, PLOT_RES_Y_LL);
 	logmsg("		1: %gx%g  2: %gx%g 3: %gx%g\n",
 			PLOT_RES_X_LOW, PLOT_RES_Y_LOW, PLOT_RES_X, PLOT_RES_Y, PLOT_RES_X_1K, PLOT_RES_Y_1K);
 	logmsg("		4: %gx%g 5: %gx%g 6: %gx%g\n",
@@ -98,8 +99,10 @@ void PrintUsage(void)
 	logmsg("	 -u: Create waveform plots for all notes\n");
 	logmsg("	      -uu:  Create DFT windowed waveform plots for all notes\n");
 	logmsg("	      -uuu: Create waveform plots for all notes, including DFT windows\n");
+	logmsg("	      -uuuu: Same as -uuu, showing the real zero padding\n");
 	logmsg("	 -E: Defines Full frequency rang<E> for Time Spectrogram plots\n");
-	logmsg("	 -N: Use li<N>ear scale instead of logaritmic scale for plots\n");
+	logmsg("	 -N: Use li<N>ear scale instead of logarithmic scale for plots\n");
+	logmsg("	 -8: Use linear scale for Time Spectrogram plots\n");
 	logmsg("	 -x: (text) Enables e<x>tended log results. Shows a table with matches\n");
 	logmsg("	 -0: Change output folder\n");
 	logmsg("	 -y: Output debug Sync pulse detection algorithm information\n");
@@ -427,7 +430,7 @@ int commandline(int argc , char *argv[], parameters *config)
 			config->thresholdMissingHiDif = percent;
 			config->thresholdExtraHiDif = percent;
 
-			logmsg("\t-Percentage for highly different wavefors set at %g%% (old value 1%%)\n", percent);
+			logmsg("\t-Percentage for highly different waveforms set at %g%% (old value 1%%)\n", percent);
 			config->plotTimeDomainHiDiff = 1;
 		}
 		break;
@@ -623,7 +626,7 @@ int commandline(int argc , char *argv[], parameters *config)
 			if(sscanf(optarg, "%lf:%lf", &BisectionHertz, &BisectionAmplitude) != 2)
 			{
 				logmsg("-ERROR: Invalid values for bisection lines (-q): %s.\n", optarg);
-				logmsg("  Must be of the from <bisection hertz>:<bisection samplitude>\n");
+				logmsg("  Must be of the form <bisection hertz>:<bisection amplitude>\n");
 				return 0;
 			}
 
@@ -644,12 +647,12 @@ int commandline(int argc , char *argv[], parameters *config)
 			if(param == 'r')
 				logmsg("Reference\n");
 			if(param == 'c')
-				logmsg("Comparision\n");
+				logmsg("Comparison\n");
 		}
 		else
 		{
 			logmsg("-ERROR: Invalid value for Sample rate Adjustment -%c.\n", c);
-			logmsg("  Must be 'r' for Reference, 'c' for Comparision or 'b' for Both\n");
+			logmsg("  Must be 'r' for Reference, 'c' for Comparison or 'b' for Both\n");
 			return 0;
 		}
 		break;
@@ -816,8 +819,8 @@ int commandline(int argc , char *argv[], parameters *config)
 		else if (optopt == 'P')
 		  logmsg("\t ERROR: Profile File -%c requires a file argument\n", optopt);
 		else if (optopt == 'p')
-		  logmsg("\t ERROR: Significant Amplitude -%c requires an argument: -1.0 to -200.0 dBr\n\t\tOr 0 for Auto Adjustment to Comparision Noise Floor\n", optopt);
-		else if (optopt == '1')
+		  logmsg("\t ERROR: Significant Amplitude -%c requires an argument: -1.0 to -200.0 dBr\n\t\tOr 0 for Auto Adjustment to Comparison Noise Floor\n", optopt);
+		else if (optopt == 'q')
 		  logmsg("\t ERROR: Bisection lines -%c requires an argument: <h>:<d>\n", optopt);
 		else if (optopt == 'r')
 		  logmsg("\t ERROR: Reference File -%c requires an argument.\n", optopt);

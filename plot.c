@@ -966,7 +966,7 @@ void PlotResults(AudioSignal *ReferenceSignal, AudioSignal *ComparisonSignal, pa
 				EndPlot("Noise Floor", &lstart, &lend, config);
 			}
 			else
-				logmsg(" X Noise Floor graphs ommited: no noise floor value found.\n");
+				logmsg(" X Noise Floor graphs omitted: no noise floor value found.\n");
 		}
 		else
 			logmsg(" X Noise floor plots make no sense with current parameters.\n");
@@ -6341,21 +6341,21 @@ char *GetWFMTypeText(int wftype, char *buffer, double data, int role)
 	if(wftype ==  WAVEFORM_AMPDIFF)
 	{
 		if(role == ROLE_REF)
-			sprintf(buffer, " -- Average Differences in matching comparision: %g dB", data);
+			sprintf(buffer, " -- Average Differences in matching comparison: %g dB", data);
 		else
 			sprintf(buffer, " -- Average Differences here: %g dB", data);
 	}
 	if(wftype ==  WAVEFORM_MISSING)
 	{
 		if(role == ROLE_REF)
-			sprintf(buffer, " -- Missing Frequencies in matching comparision: %g%%", data);
+			sprintf(buffer, " -- Missing Frequencies in matching comparison: %g%%", data);
 		else
 			sprintf(buffer, " -- Missing Frequencies from here: %g%%", data);
 	}
 	if(wftype ==  WAVEFORM_EXTRA)
 	{
 		if(role == ROLE_REF)
-			sprintf(buffer, " -- Extra Frequencies found in matching comparision: %g%%", data);
+			sprintf(buffer, " -- Extra Frequencies found in matching comparison: %g%%", data);
 		else
 			sprintf(buffer, " -- Extra Frequencies found here: %g%%", data);
 	}

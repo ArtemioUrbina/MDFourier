@@ -1158,20 +1158,24 @@ void PrintUsage_wave(void)
 	logmsg("	 -w: enable <w>indowing. Default is a custom Tukey window.\n");
 	logmsg("		'n' none, 't' Tukey, 'h' Hann, 'f' FlatTop & 'm' Hamming\n");
 	logmsg("	 -i: <i>gnores the silence block noise floor if present\n");
+	logmsg("	 -p: Define the noise floor value in dBr (0 to disable auto adjust)\n");
 	logmsg("	 -f: Change the number of <f>requencies to use from FFTW\n");
 	logmsg("	 -s: Defines <s>tart of the frequency range to compare with FFT\n");
 	logmsg("	 -e: Defines <e>nd of the frequency range to compare with FFT\n");
 	logmsg("	 -z: Uses Zero Padding to equal 1 Hz FFT bins\n");
 	logmsg("	 -B: Do not do stereo channel audio <B>alancing\n");
 	logmsg("	 -C: Use <C>omparison framerate profile in 'No-Sync' compare mode\n");
-	logmsg("	 -Y: Define the Video Format from the profile\n");
+	logmsg("	 -Y: Define the Video Format from the profile (number)\n");
+	logmsg("	 -I: <I>gnore frame rate difference\n");
+	logmsg("	 -m: Set <m>anual sync samples, takes format [r|c]:<start>:<end>\n");
 	logmsg("	 -n: Just cut the wav file without performing DFFT\n");
 	logmsg("	 -T: Increase Sync detection <T>olerance (ignore frequency, can be added up to -TTT)\n");
 	logmsg("		-TTTT also accepts pulses of half a frame (emulated audio)\n");
 	logmsg("   Output options:\n");
 	logmsg("	 -v: Enable <v>erbose mode, spits all the FFTW results\n");
-	logmsg("	 -l: Do not <l>og output to file [reference]_vs_[compare].txt\n");
+	logmsg("	 -l: Enable <l>og output to file\n");
 	logmsg("	 -k: cloc<k> FFTW operations\n");
+	logmsg("	 -y: Output debug Sync pulse detection algorithm information\n");
 	logmsg("	 -0: Change output folder\n");
 }
 

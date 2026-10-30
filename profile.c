@@ -780,7 +780,7 @@ int LoadAudioBlockStructure(FILE *file, parameters *config)
 
 		if(!LoadClockLine(lineBuffer, &measured, config))
 		{
-			logmsg("ERROR: Invalid Clock Line (expected 'Name Enable Block Freq Mult):\n%s\n", lineBuffer);
+			logmsg("ERROR: Invalid Clock Line (expected 'Name Enable Block Freq Ratio [Types]'):\n%s\n", lineBuffer);
 			fclose(file);
 			return 0;
 		}
@@ -1045,7 +1045,7 @@ int LoadAudioBlockStructure(FILE *file, parameters *config)
 
 					if(config->types.typeArray[i].maskType != MASK_USE_WINDOW && config->types.typeArray[i].maskType != MASK_NONE)
 					{
-						logmsg("ERROR: Mask type can only be 'w' or 'n' for windowed or none (windowed was the original default)\n %s (0x%02X)\n", lineBuffer,
+						logmsg("ERROR: Mask type can only be '*' for windowed or '-' for none (the default)\n %s (0x%02X)\n", lineBuffer,
 							config->types.typeArray[i].maskType);
 						fclose(file);
 						return 0;

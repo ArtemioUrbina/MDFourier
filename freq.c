@@ -1879,7 +1879,7 @@ double GetInternalSyncLen(int pos, parameters *config)
 				return(config->types.typeArray[i].syncLen);
 	}
 	
-	logmsg("WARNING: sync lenght request for invalid block\n");
+	logmsg("WARNING: sync length request for invalid block\n");
 	return 0;
 }
 

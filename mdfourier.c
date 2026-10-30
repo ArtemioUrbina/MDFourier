@@ -726,7 +726,14 @@ int FrequencyDomainNormalize(AudioSignal **ReferenceSignal, AudioSignal **Compar
 		config->warningStereoReversed = 1;
 	}
 
-	if(config->verbose) { logmsg(" - Amplitude ratio is %gdB\n", ratiodBFS == NO_AMPLITUDE ? 0 : ratiodBFS); }
+	if(config->verbose)
+	{
+		if(ComparisonLocalMaximum == 0 || ratiodBFS == NO_AMPLITUDE)
+			logmsg(" - No Comparison match at %g Hz in %s# %d, searching nearby\n", MaxRef.hertz,
+				GetBlockName(config, MaxRef.block), GetBlockSubIndex(config, MaxRef.block));
+		else
+			logmsg(" - Amplitude ratio is %gdB\n", ratiodBFS);
+	}
 
 	/* The peak can sit at another frequency in the Comparison when the block runs from a clock of its own */
 	if(ComparisonLocalMaximum == 0 || fabs(ratiodBFS) > maxRatiodBFS || ratiodBFS == NO_AMPLITUDE)
@@ -790,7 +797,7 @@ int FrequencyDomainNormalize(AudioSignal **ReferenceSignal, AudioSignal **Compar
 							ComparisonLocalMaximumArrayforLowest = ComparisonLocalMaximumArray;
 							matchIndex = pos;
 						}
-						if(config->verbose >= 2) { logmsg(" - Comparision ratio is %gdB\n", dbfsratioArray); }
+						if(config->verbose >= 2) { logmsg(" - Comparison ratio is %gdB\n", dbfsratioArray); }
 						if(fabs(dbfsratioArray) <= fabs(FREQDOMRATIO)) {
 							found = 1;
 							break;
@@ -1747,7 +1754,7 @@ int RecalculateFrequencyStructures(AudioSignal *ReferenceSignal, AudioSignal *Co
 
 		// Needs more validation, works with DOS profile
 		// Commenting out the auto select, 
-		// Keep the reference and only change the clk of the comparision
+		// Keep the reference and only change the clk of the comparison
 		clock->comSampleRate = ComparisonSignal->SampleRate*(clock->ref/clock->com);
 		logmsg(" - Adjusted Comparison %s to %0.04lfHz\n", clock->name, clock->ref);
 		if(config->verbose)
