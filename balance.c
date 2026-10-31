@@ -302,7 +302,7 @@ int ExecuteBalanceDFFT(AudioBlocks *AudioArray, double *samples, size_t size, do
 	long		  	i = 0, monoSignalSize = 0, zeropadding = 0;
 	double		  	*signal = NULL;
 	fftw_complex  	*spectrum = NULL;
-	double		 	seconds = 0, S2 = 0;
+	double		 	seconds = 0, S1 = 0;
 	
 	if(!AudioArray)
 	{
@@ -364,7 +364,7 @@ int ExecuteBalanceDFFT(AudioBlocks *AudioArray, double *samples, size_t size, do
 		if(window)
 		{
 			signal[i] *= window[i];
-			S2 += window[i]*window[i];
+			S1 += window[i];
 		}
 	}
 
@@ -377,7 +377,9 @@ int ExecuteBalanceDFFT(AudioBlocks *AudioArray, double *samples, size_t size, do
 
 	AudioArray->fftwValues.spectrum = spectrum;
 	AudioArray->fftwValues.size = monoSignalSize;
-	AudioArray->fftwValues.ENBW = samplerate*S2;
+	if(!window)
+		S1 = monoSignalSize - zeropadding;
+	AudioArray->fftwValues.windowSum = S1;
 	AudioArray->seconds = seconds;
 
 	return(1);

@@ -552,7 +552,7 @@ void InitAudio(AudioSignal *Signal, parameters *config)
 			
 			Signal->Blocks[n].fftwValues.spectrum = NULL;
 			Signal->Blocks[n].fftwValues.size = 0;
-			Signal->Blocks[n].fftwValues.ENBW = 0;
+			Signal->Blocks[n].fftwValues.windowSum = 0;
 
 			Signal->Blocks[n].audio.samples = NULL;
 			Signal->Blocks[n].audio.windowed_samples = NULL;
@@ -563,7 +563,7 @@ void InitAudio(AudioSignal *Signal, parameters *config)
 
 			Signal->Blocks[n].fftwValuesRight.spectrum = NULL;
 			Signal->Blocks[n].fftwValuesRight.size = 0;
-			Signal->Blocks[n].fftwValuesRight.ENBW = 0;
+			Signal->Blocks[n].fftwValuesRight.windowSum = 0;
 
 			Signal->Blocks[n].audioRight.samples = NULL;
 			Signal->Blocks[n].audioRight.windowed_samples = NULL;
@@ -627,6 +627,7 @@ void InitAudio(AudioSignal *Signal, parameters *config)
 	Signal->mainsFrequency = 0;
 	Signal->mainsAmplitude = 0;
 	Signal->mainsShared = 0;
+	Signal->magnitudeScale = 1;
 	Signal->SilenceBinSize = 0;
 
 	Signal->nyquistLimit = 0;
@@ -678,7 +679,7 @@ void CleanAndReleaseFFTW(AudioBlocks * AudioArray)
 
 	ReleaseFFTW(AudioArray);
 	AudioArray->fftwValues.size = 0;
-	AudioArray->fftwValues.ENBW = 0;
+	AudioArray->fftwValues.windowSum = 0;
 }
 
 void ReleaseFFTW(AudioBlocks * AudioArray)
@@ -2394,12 +2395,20 @@ void FindFloor(AudioSignal *Signal, parameters *config)
 
 	if (size == 0)  // Digitally generated file with perfect alignment and no noise
 	{
-		double selectedNoise = 0;
+		double selectedNoise = 0, floorMagnitude = 0;
 
-		selectedNoise = floor(GetSignalMinDBFS(Signal)*1.20);
+		// The bit depth floor is in dBFS, but amplitudes are dBr. We define 0 as the strongest tone, and
+		// the test leaves headroom below full scale.
+		// Magnitudes are tone amplitudes in sample units (2|X|/S1) times the normalization, so a tone at
+		// the bit depth floor has this magnitude, and goes on the dBr scale like any other
+		floorMagnitude = GetSignalMaxInt(Signal)*pow(10, GetSignalMinDBFS(Signal)/20)*Signal->magnitudeScale;
+		if(config->zeroDbMagnitude > 0 && floorMagnitude > 0)
+			selectedNoise = floor(CalculateAmplitudeInternal(floorMagnitude, config->zeroDbMagnitude) - DIGITAL_FLOOR_MARGIN);
+		else
+			selectedNoise = floor(GetSignalMinDBFS(Signal) - DIGITAL_FLOOR_MARGIN);
 
-		logmsg(" - %s signal is a digitally generated file, no noise found. Using %g dBr\n",
-			getRoleText(Signal), selectedNoise);
+		logmsg(" - %s signal is a digitally generated file, no noise found. Using %g dBr (%g dBFS bit depth floor, %g dB below)\n",
+			getRoleText(Signal), selectedNoise, GetSignalMinDBFS(Signal), DIGITAL_FLOOR_MARGIN);
 
 		if (Signal->role == ROLE_REF)
 			config->referenceNoiseFloor = selectedNoise;
@@ -3038,7 +3047,7 @@ long int FindPeakBin(FFTWSpectrum *fftw, long int startBin, long int endBin, dou
 	*mag = 0;
 	for(long int i = startBin; i < endBin; i++)
 	{
-		double m = CalculateMagnitude(&fftw->spectrum[i], fftw->ENBW);
+		double m = CalculateMagnitude(&fftw->spectrum[i], fftw->windowSum);
 
 		if(m > *mag)
 		{
@@ -3059,7 +3068,7 @@ double MaxMagnitudeNear(FFTWSpectrum *fftw, long int bin, long int endBin)
 
 		if(i >= 0 && i <= endBin)
 		{
-			m = CalculateMagnitude(&fftw->spectrum[i], fftw->ENBW); 
+			m = CalculateMagnitude(&fftw->spectrum[i], fftw->windowSum); 
 			if(m > max)
 				max = m;
 		}
@@ -3077,7 +3086,7 @@ double MedianFloorNear(FFTWSpectrum *fftw, long int bin, long int startBin, long
 		if(i < startBin || i >= endBin || labs(i - bin) <= SEP_FLOOR_SKIP)
 			continue;
 		if(count < 2*SEP_FLOOR_BINS)
-			values[count++] = CalculateMagnitude(&fftw->spectrum[i], fftw->ENBW);
+			values[count++] = CalculateMagnitude(&fftw->spectrum[i], fftw->windowSum);
 	}
 
 	if(!count)
@@ -3140,7 +3149,7 @@ void MeasureSeparation(AudioBlocks *AudioArray, parameters *config)
 	}
 
 	AudioArray->sepHertz = CalculateFrequency(bin, GetBinLabelSeconds(AudioArray->seconds, config));
-	AudioArray->sepActiveMag = CalculateMagnitude(&active->spectrum[bin], active->ENBW);
+	AudioArray->sepActiveMag = CalculateMagnitude(&active->spectrum[bin], active->windowSum);
 	AudioArray->sepLeakMag = MaxMagnitudeNear(silent, bin, endBin);
 	AudioArray->sepFloorMag = MedianFloorNear(silent, bin, startBin, endBin);
 	AudioArray->sepPhaseDiff = 0;
@@ -3150,8 +3159,8 @@ void MeasureSeparation(AudioBlocks *AudioArray, parameters *config)
 	{
 		// both channels play it: keep left/right order for the level difference
 		AudioArray->sepActive = CHANNEL_STEREO;
-		AudioArray->sepActiveMag = CalculateMagnitude(&AudioArray->fftwValues.spectrum[bin], AudioArray->fftwValues.ENBW);
-		AudioArray->sepLeakMag = CalculateMagnitude(&AudioArray->fftwValuesRight.spectrum[bin], AudioArray->fftwValuesRight.ENBW);
+		AudioArray->sepActiveMag = CalculateMagnitude(&AudioArray->fftwValues.spectrum[bin], AudioArray->fftwValues.windowSum);
+		AudioArray->sepLeakMag = CalculateMagnitude(&AudioArray->fftwValuesRight.spectrum[bin], AudioArray->fftwValuesRight.windowSum);
 		AudioArray->sepPhaseDiff = PhaseDiffDegrees(&AudioArray->fftwValues.spectrum[bin], &AudioArray->fftwValuesRight.spectrum[bin]);
 	}
 	AudioArray->sepValid = AudioArray->sepActiveMag > 0;
@@ -3189,7 +3198,7 @@ void MeasureBandsChannel(FFTWSpectrum *fftw, double *bandMag, long int *bandBins
 
 		for(long int i = startBin; i <= endBin; i++)
 		{		
-			double m = CalculateMagnitude(&fftw->spectrum[i], fftw->ENBW);
+			double m = CalculateMagnitude(&fftw->spectrum[i], fftw->windowSum);
 
 			power += m*m;
 		}
@@ -3417,16 +3426,16 @@ int BandChannels(AudioBlocks *ref, AudioBlocks *com)
 }
 
 // Refine CLK peak's frequency between bins, with a parabola
-double RefinePeakFrequency(FFTWSpectrum *fftw, double ENBW, long int bin, long int size, double boxsize)
+double RefinePeakFrequency(FFTWSpectrum *fftw, double windowSum, long int bin, long int size, double boxsize)
 {
 	double a = 0, b = 0, c = 0, denom = 0, offset = 0;
 
 	if(bin <= 0 || bin >= size/2)
 		return CalculateFrequency(bin, boxsize);
 
-	a = CalculateMagnitude(&fftw->spectrum[bin-1], ENBW);
-	b = CalculateMagnitude(&fftw->spectrum[bin], ENBW);
-	c = CalculateMagnitude(&fftw->spectrum[bin+1], ENBW);
+	a = CalculateMagnitude(&fftw->spectrum[bin-1], windowSum);
+	b = CalculateMagnitude(&fftw->spectrum[bin], windowSum);
+	c = CalculateMagnitude(&fftw->spectrum[bin+1], windowSum);
 	if(a <= 0 || b <= 0 || c <= 0 || b < a || b < c)
 		return CalculateFrequency(bin, boxsize);
 
@@ -3503,7 +3512,7 @@ int FillFrequencyStructuresInternal(AudioSignal *Signal, AudioBlocks *AudioArray
 	double 			boxsize = 0, labelSeconds = 0;
 	int				nyquistLimit = 0;
 	long int		*SilenceSize = NULL;
-	double			ENBW = 0;
+	double			windowSum = 0;
 	Frequency		*f_array = NULL, **targetFreq = NULL;
 	FFTWSpectrum	*fftw = NULL;
 
@@ -3520,9 +3529,9 @@ int FillFrequencyStructuresInternal(AudioSignal *Signal, AudioBlocks *AudioArray
 		SilenceSize = &AudioArray->SilenceSizeRight;
 	}
 	size = fftw->size;
-	ENBW = fftw->ENBW;
+	windowSum = fftw->windowSum;
 
-	if(!size || !fftw->spectrum || !targetFreq || !(*targetFreq) || !ENBW)
+	if(!size || !fftw->spectrum || !targetFreq || !(*targetFreq) || !windowSum)
 	{
 		logmsg("ERROR: Invalid FillFrequencyStructures params\n");
 		return 0;
@@ -3567,7 +3576,7 @@ int FillFrequencyStructuresInternal(AudioSignal *Signal, AudioBlocks *AudioArray
 	for(i = startBin; i < endBin; i++)
 	{
 		f_array[count].hertz = CalculateFrequency(i, labelSeconds);
-		f_array[count].magnitude = CalculateMagnitude(&fftw->spectrum[i], ENBW);
+		f_array[count].magnitude = CalculateMagnitude(&fftw->spectrum[i], windowSum);
 		f_array[count].amplitude = NO_AMPLITUDE;
 		f_array[count].phase = CalculatePhase(&fftw->spectrum[i]);
 		f_array[count].matched = 0;
@@ -3594,7 +3603,7 @@ int FillFrequencyStructuresInternal(AudioSignal *Signal, AudioBlocks *AudioArray
 			{
 				long int bin = (long int)floor((*targetFreq)[i].hertz*boxsize + 0.5);
 
-				(*targetFreq)[i].hertz = RefinePeakFrequency(fftw, ENBW, bin, size, boxsize);
+				(*targetFreq)[i].hertz = RefinePeakFrequency(fftw, windowSum, bin, size, boxsize);
 			}
 		}
 

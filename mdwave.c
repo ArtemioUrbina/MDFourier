@@ -733,13 +733,14 @@ int ExecuteDFFTInternal(AudioBlocks *AudioArray, double *samples, double *discar
 		{
 			AudioArray->fftwValues.spectrum = spectrum;
 			AudioArray->fftwValues.size = monoSignalSize;
-			AudioArray->fftwValues.ENBW = monoSignalSize;
+			// MDWave keeps 2|X|/N. Same in both directions
+			AudioArray->fftwValues.windowSum = monoSignalSize;
 		}
 		else
 		{
 			AudioArray->fftwValuesRight.spectrum = spectrum;
 			AudioArray->fftwValuesRight.size = monoSignalSize;
-			AudioArray->fftwValuesRight.ENBW = monoSignalSize;
+			AudioArray->fftwValuesRight.windowSum = monoSignalSize;
 		}
 		AudioArray->seconds = seconds;
 	}

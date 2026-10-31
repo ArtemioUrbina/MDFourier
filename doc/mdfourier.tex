@@ -365,7 +365,7 @@ The software also predicts where the \textit{vertical refresh} (the detected \te
 
 The \textit{-p} option sets the \textit{minimal significant amplitude} to a fixed value, for example \textit{-p -80}. Using \textit{-p 0} disables the automatic adjustment and uses the default.\footnote{See appendix~\ref{extracommand}.}
 
-Recordings made from digital sources can have \textit{digital silence}, where the samples in the silence block don't change at all or only at the very edges. Its noise floor is set from its \textit{bit depth}, and no noise floor comparison is drawn for it.
+Recordings made from digital sources can have \textit{digital silence}. Its noise floor is set from its \textit{bit depth}, the level of the smallest value the file can represent, \dbfs{-96} for \textit{16} bits, moved to the \ac{dbr} scale by the level of the strongest frequency, and \db{20} below it. A \textit{16} bit file whose strongest tone is at \dbfs{-12} gets a floor of about \dbr{-104}. No noise floor comparison is drawn for it.
 
 \chapter{How to interpret the graphs}
 \label{howtographs}

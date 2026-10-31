@@ -1217,6 +1217,7 @@ int NormalizeAndFinishProcess(AudioSignal **ReferenceSignal, AudioSignal **Compa
 		}
 	}
 
+	config->zeroDbMagnitude = ZeroDbMagnitudeRef;
 	CalculateAmplitudes(*ReferenceSignal, ZeroDbMagnitudeRef, config);
 	CalculateAmplitudes(*ComparisonSignal, ZeroDbMagnitudeRef, config);
 	if(config->hasBands)
@@ -2209,7 +2210,7 @@ int ExecuteDFFTInternal(AudioBlocks *AudioArray, double *samples, size_t size, d
 	long			i = 0, monoSignalSize = 0, zeropadding = 0;
 	double			*signal = NULL;
 	fftw_complex	*spectrum = NULL;
-	double			seconds = 0, S2 = 0;
+	double			seconds = 0, S1 = 0;
 
 	if(!AudioArray)
 	{
@@ -2281,9 +2282,9 @@ int ExecuteDFFTInternal(AudioBlocks *AudioArray, double *samples, size_t size, d
 		if(window)
 		{
 			signal[i] *= window[i];
-			S2 += window[i]*window[i];
-			if(isinf(S2)) {
-				logmsg("i: %ld S2: %g window[i]: %g\n", i, S2, window[i]);
+			S1 += window[i];
+			if(isinf(S1)) {
+				logmsg("i: %ld S1: %g window[i]: %g\n", i, S1, window[i]);
 				logmsg("monoSignalSize: %ld zeropadding: %ld monoSignalSize - zeropadding: %ld\n",
 					monoSignalSize, zeropadding, monoSignalSize - zeropadding);
 				logmsg("ERROR: Window error in code detected\n");
@@ -2299,20 +2300,24 @@ int ExecuteDFFTInternal(AudioBlocks *AudioArray, double *samples, size_t size, d
 
 #ifdef DEBUG
 	if(config->verbose >= 3)
-		logmsg("Seconds %g was %g. S2: %ld\n", seconds, AudioArray->seconds, S2);
+		logmsg("Seconds %g was %g. S1: %g\n", seconds, AudioArray->seconds, S1);
 #endif
 
+	// Amplitude spectrum: 2|X|/S1 reads a tone's amplitude in sample units, for any block
+	// length, zero padding or sample rate (Heinzel et al., section 9)
+	if(!window)
+		S1 = monoSignalSize - zeropadding;
 	if(channel != CHANNEL_RIGHT)
 	{
 		AudioArray->fftwValues.spectrum = spectrum;
 		AudioArray->fftwValues.size = monoSignalSize;
-		AudioArray->fftwValues.ENBW = samplerate*S2;
+		AudioArray->fftwValues.windowSum = S1;
 	}
 	else
 	{
 		AudioArray->fftwValuesRight.spectrum = spectrum;
 		AudioArray->fftwValuesRight.size = monoSignalSize;
-		AudioArray->fftwValuesRight.ENBW = samplerate*S2;
+		AudioArray->fftwValuesRight.windowSum = S1;
 	}
 	AudioArray->seconds = seconds;
 	AudioArray->audioSeconds = (double)realMonoSize/samplerate;
@@ -3220,6 +3225,7 @@ void NormalizeMagnitudesByRatio(AudioSignal *Signal, double ratio, parameters *c
 		}
 	}
 	Signal->MaxMagnitude.magnitude *= ratio;
+	Signal->magnitudeScale *= ratio;
 }
 
 MaxMagn FindMaxMagnitudeBlock(AudioSignal *Signal, parameters *config)

@@ -73,6 +73,7 @@
 #define	PCM_16BIT_MIN_AMPLITUDE		-96.33
 #define	PCM_24BIT_MIN_AMPLITUDE		-144.49
 #define	PCM_32BIT_MIN_AMPLITUDE		-192.66
+#define	DIGITAL_FLOOR_MARGIN		20.0	// dB below the bit depth floor for a file with no noise
 #define HIGHEST_NOISEFLOOR_ALLOWED	-40.0
 #define	NOISE_FLOOR_DIGITAL_FAIR	-120.0
 
@@ -451,7 +452,7 @@ typedef struct FrequencySt {
 typedef struct fftw_spectrum_st {
 	fftw_complex  	*spectrum;
 	size_t			size;
-	size_t			ENBW;
+	double			windowSum;	// S1, the sum of the window. 2|X|/S1 amplitude in sample units
 } FFTWSpectrum;
 
 typedef struct samples_st {
@@ -550,6 +551,7 @@ typedef struct AudioSt {
 	double		mainsFrequency;
 	double		mainsAmplitude;
 	int			mainsShared;		// in the same bin as the vertical refresh
+	double		magnitudeScale;
 	double		SilenceBinSize;
 
 	int			nyquistLimit;
@@ -772,6 +774,7 @@ typedef struct parameters_st {
 	int				pErrorReport;
 	int				noBalance;
 	double			highestValueBitDepth;
+	double			zeroDbMagnitude;	// magnitude of 0 dBr, higherst of both signals
 	double			lowestValueBitDepth;
     double          lowestDBFS;
 	int				stereoBalanceBlock;
