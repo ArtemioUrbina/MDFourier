@@ -64,6 +64,7 @@ int FrequencyDomainNormalize(AudioSignal **ReferenceSignal, AudioSignal **Compar
 void AdjustTimeDomainData(AudioSignal *ReferenceSignal, AudioSignal *ComparisonSignal, parameters *config);
 void printTextResults(parameters *config);
 void ReportSeparation(AudioSignal *ReferenceSignal, AudioSignal *ComparisonSignal, parameters *config);
+void RemovePhaseDelay(parameters *config);
 void ReportBands(AudioSignal *ReferenceSignal, AudioSignal *ComparisonSignal, parameters *config);
 
 // Time domain
@@ -152,6 +153,8 @@ int main(int argc, char *argv[])
 
 	config.averageDifference = FindDifferenceAverage(&config);
 	logmsg("Average difference is %g dB\n", config.averageDifference);
+	if(config.plotPhase)
+		RemovePhaseDelay(&config);
 	if(config.substractAveragePlot)
 	{
 		config.averageDifferenceOrig = config.averageDifference;
@@ -2406,10 +2409,35 @@ int FindMatchingFrequency(HertzIndex *sorted, int size, Frequency *freqComp, dou
 	return best;
 }
 
+#define PHASE_ABOVE_SIGNIFICANT	20.0	// dB above the significant amplitude for a tone to be used for phase
+#define PHASE_PEAK_BINS			2.5		// bins (of the analysed audio) to its sides where no louder bin can be
+
+// Phase is only meaningful for tones: a bin on the side of a peak takes its phase from the peak,
+// and a noise bin has a random phase. A Reference bin is used when it is PHASE_ABOVE_SIGNIFICANT
+// dB above the significant amplitude and no louder bin is within PHASE_PEAK_BINS on both sides
+int IsPhaseTone(Frequency *freqRef, int freq, double reach, parameters *config)
+{
+	int		isPeak = 1;
+	double	hertz = freqRef[freq].hertz;
+
+	if(!reach || freqRef[freq].amplitude < config->significantAmplitude + PHASE_ABOVE_SIGNIFICANT)
+		return 0;
+	if(hertz - reach < config->startHz || hertz + reach > config->endHz)
+		return 0; 
+
+	for(int i = 0; i < freq && isPeak; i++)
+	{
+		if(fabs(freqRef[i].hertz - hertz) <= reach)
+			isPeak = 0;
+	}
+	return isPeak;
+}
+
 int CompareFrequencies(AudioSignal *ReferenceSignal, AudioSignal *ComparisonSignal, char channel, int block, int refSize, int testSize, parameters *config)
 {
 	Frequency	*freqRef = NULL, *freqComp = NULL;
 	HertzIndex	*sorted = NULL;
+	double		reach = 0;
 
 	if(channel == CHANNEL_LEFT)
 	{
@@ -2445,6 +2473,10 @@ int CompareFrequencies(AudioSignal *ReferenceSignal, AudioSignal *ComparisonSign
 		
 		HertzIndex_heap_sort(sorted, testSize);
 	}
+
+	// bins of the analysed audio, zero padding only interpolates between them
+	if(ReferenceSignal->Blocks[block].audioSeconds > 0)
+		reach = PHASE_PEAK_BINS/ReferenceSignal->Blocks[block].audioSeconds;
 
 	for(int freq = 0; freq < refSize; freq++)
 	{
@@ -2493,7 +2525,7 @@ int CompareFrequencies(AudioSignal *ReferenceSignal, AudioSignal *ComparisonSign
 				}
 			}
 
-			if(!areDoublesEqual(freqRef[freq].phase, freqComp[index].phase))
+			if(config->plotPhase && IsPhaseTone(freqRef, freq, reach, config))
 			{
 				if(!InsertPhaseDifference(block, freqRef[freq], freqComp[index], channel, config))
 				{
@@ -2518,6 +2550,128 @@ int CompareFrequencies(AudioSignal *ReferenceSignal, AudioSignal *ComparisonSign
 	}
 	free(sorted);
 	return 1;
+}
+
+/*
+	Delaying a signal by t multiplies its spectrum by e^(-i*2*pi*f*t). That adds -360*f*t degrees
+	at frequency f. A straight line that grows with frequency. A 24 us offset adds 86 degrees at
+	10 kHz, which is what the phase graphs showed before the delay was removed.
+	Shift Theorem, J. O. Smith, Mathematics of the DFT: https://ccrma.stanford.edu/~jos/st/Shift_Theorem.html
+
+	So a time offset between the Reference and Comparison blocks hides the phase response of the
+	system in the phase difference. The offset comes from the sync precision
+	and from when each sound source starts (a DMA transfer can start later than an FM note), so
+	one delay is estimated per type.
+	
+	The fit is how well the tones line up, from 0 to 1.
+*/
+
+#define PHASE_DELAY_SPAN	0.001	// largest delay searched, in seconds
+#define PHASE_FIT_LOW		0.5		// below this, one delay doesn't line up the type's tones
+#define PHASE_DELAY_MIN_RANGE	4.0	// highest/lowest tone frequency needed to estimate a delay (two octaves)
+
+double WrapDegrees(double degrees)
+{
+	degrees = fmod(degrees + 180.0, 360.0);
+	if(degrees <= 0)
+		degrees += 360.0;
+	return degrees - 180.0;	// (-180, 180]
+}
+
+// |sum of w*e^(i*(phase + 360*f*delay))| / sum of w, for the left channel tones of a type
+double PhaseFit(int type, double delay, parameters *config)
+{
+	double complex	sum = 0;
+	double			weights = 0;
+
+	for(int b = 0; b < config->types.totalBlocks; b++)
+	{
+		BlockDifference	*bd = &config->Differences.BlockDiffArray[b];
+
+		for(long int p = 0; GetBlockType(config, b) == type && p < bd->cntPhaseBlkDiff; p++)
+		{
+			if(bd->phaseDiffArray[p].channel != CHANNEL_RIGHT)
+			{
+				sum += bd->phaseDiffArray[p].weight*cexp(I*M_PI/180.0*(bd->phaseDiffArray[p].diffPhase + 360.0*bd->phaseDiffArray[p].hertz*delay));
+				weights += bd->phaseDiffArray[p].weight;
+			}
+		}
+	}
+	return weights > 0 ? cabs(sum)/weights : 0;
+}
+
+void RemovePhaseDelay(parameters *config)
+{
+	if(!config->Differences.BlockDiffArray)
+		return;
+
+	for(int t = 0; t < config->types.typeCount; t++)
+	{
+		int			type = config->types.typeArray[t].type;
+		long int	tones = 0;
+		double		minHz = 0, maxHz = 0, step = 0, delay = 0, fit = 0;
+
+		config->types.typeArray[t].phaseDelay = 0;
+		config->types.typeArray[t].phaseDelayValid = 0;
+		for(int b = 0; b < config->types.totalBlocks; b++)
+		{
+			BlockDifference	*bd = &config->Differences.BlockDiffArray[b];
+
+			for(long int p = 0; GetBlockType(config, b) == type && p < bd->cntPhaseBlkDiff; p++)
+			{
+				if(bd->phaseDiffArray[p].channel != CHANNEL_RIGHT)
+					tones ++;
+				if(bd->phaseDiffArray[p].hertz > maxHz)
+					maxHz = bd->phaseDiffArray[p].hertz;
+				if(!minHz || bd->phaseDiffArray[p].hertz < minHz)
+					minHz = bd->phaseDiffArray[p].hertz;
+			}
+		}
+
+		if(tones && maxHz < PHASE_DELAY_MIN_RANGE*minHz && config->verbose)
+			logmsg(" - Phase [%s]: tones from %0.1f to %0.1f Hz, too narrow a range to estimate a delay, none removed\n",
+				config->types.typeArray[t].typeDisplayName, minHz, maxHz);
+		if(tones && maxHz >= PHASE_DELAY_MIN_RANGE*minHz)
+		{
+			// an eighth of a turn at the highest tone per step over the whole span,
+			// then twice ten times finer around the best
+			int		steps = 0;
+			double	center = 0;
+
+			step = 1.0/(8.0*maxHz);
+			steps = (int)(PHASE_DELAY_SPAN/step);
+			for(int pass = 0; pass < 3; pass++)
+			{
+				center = delay;
+				for(int k = -steps; k <= steps; k++)
+				{
+					double current = PhaseFit(type, center + k*step, config);
+
+					if(current > fit)
+					{
+						fit = current;
+						delay = center + k*step;
+					}
+				}
+				step /= 10.0;
+				steps = 10;
+			}
+
+			for(int b = 0; b < config->types.totalBlocks; b++)
+			{
+				BlockDifference	*bd = &config->Differences.BlockDiffArray[b];
+
+				for(long int p = 0; GetBlockType(config, b) == type && p < bd->cntPhaseBlkDiff; p++)
+					bd->phaseDiffArray[p].diffPhase = WrapDegrees(bd->phaseDiffArray[p].diffPhase + 360.0*bd->phaseDiffArray[p].hertz*delay);
+			}
+			config->types.typeArray[t].phaseDelay = delay;
+			config->types.typeArray[t].phaseDelayValid = 1;
+			if(config->verbose)
+				logmsg(" - Phase [%s]: Comparison %0.2f us %s than the Reference, removed (%ld tones, fit %0.2f)%s\n",
+					config->types.typeArray[t].typeDisplayName, fabs(delay)*1e6, delay >= 0 ? "later" : "earlier", tones, fit,
+					fit < PHASE_FIT_LOW ? ", phase not reliable" : "");
+		}
+	}
 }
 
 int CompareAudioBlocks(AudioSignal *ReferenceSignal, AudioSignal *ComparisonSignal, parameters *config)

@@ -429,6 +429,7 @@ int InsertPhaseDifference(int block, Frequency ref, Frequency comp, char channel
 
 	config->Differences.BlockDiffArray[block].phaseDiffArray[position].hertz = ref.hertz;
 	config->Differences.BlockDiffArray[block].phaseDiffArray[position].diffPhase = diffPhase;
+	config->Differences.BlockDiffArray[block].phaseDiffArray[position].weight = ref.magnitude;
 	config->Differences.BlockDiffArray[block].phaseDiffArray[position].channel = channel;
 
 	config->Differences.BlockDiffArray[block].cntPhaseBlkDiff ++;

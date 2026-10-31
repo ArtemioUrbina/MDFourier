@@ -97,9 +97,9 @@
 #define SPECTROGRAM_NOISE_COM_RIGHT	"Comparison NOISE FLOOR RIGHT - Spectrum [%s]"
 #define WAVEFORM_TITLE_REF			"Reference - WAVEFORM [%s]"
 #define WAVEFORM_TITLE_COM			"Comparison - WAVEFORM [%s]"
-#define PHASE_DIFF_TITLE			"PHASE DIFFERENCE [%s]"
-#define PHASE_DIFF_TITLE_LEFT		"PHASE DIFFERENCE LEFT CHANNEL [%s]"
-#define PHASE_DIFF_TITLE_RIGHT		"PHASE DIFFERENCE RIGHT CHANNEL [%s]"
+#define PHASE_DIFF_TITLE			"PHASE DIFFERENCE, DELAY REMOVED [%s]"
+#define PHASE_DIFF_TITLE_LEFT		"PHASE DIFFERENCE, DELAY REMOVED, LEFT CHANNEL [%s]"
+#define PHASE_DIFF_TITLE_RIGHT		"PHASE DIFFERENCE, DELAY REMOVED, RIGHT CHANNEL [%s]"
 #define PHASE_SIG_TITLE_REF			"Reference - PHASE [%s]"
 #define PHASE_SIG_TITLE_REF_LEFT	"Reference - PHASE LEFT CHANNEL [%s]"
 #define PHASE_SIG_TITLE_REF_RIGHT	"Reference - PHASE RIGHT CHANNEL [%s]"
@@ -6777,7 +6777,10 @@ void PlotAllPhase(FlatPhase *phaseDiff, long int size, char *filename, int pType
 
 	DrawColorAllTypeScale(&plot, MODE_SPEC, LEFT_MARGIN, HEIGHT_MARGIN, 0, 0, 0, VERT_SCALE_STEP_BAR, NO_DRAW_BARS, CHANNEL_STEREO, config);
 	if(pType == PHASE_DIFF)
+	{
+		plot.SpecialWarning = "NOTE: A delay is removed for each type, -v lists them";
 		DrawLabelsMDF(&plot, PHASE_DIFF_TITLE, ALL_LABEL, PLOT_COMPARE, config);
+	}
 	else
 		DrawLabelsMDF(&plot, pType == PHASE_REF ? PHASE_SIG_TITLE_REF : PHASE_SIG_TITLE_COM, ALL_LABEL, pType == PHASE_REF  ? PLOT_SINGLE_REF : PLOT_SINGLE_COM, config);
 
@@ -6858,7 +6861,7 @@ int PlotEachTypePhase(FlatPhase *phaseDiff, long int size, char *filename, int p
 void PlotSingleTypePhase(FlatPhase *phaseDiff, long int size, int type, char *filename, int pType, char channel, parameters *config)
 {
 	PlotFile	plot;
-	char		*title;
+	char		*title, note[BUFFER_SIZE];
 
 	if(!config)
 		return;
@@ -6889,6 +6892,15 @@ void PlotSingleTypePhase(FlatPhase *phaseDiff, long int size, int type, char *fi
 
 	if(pType == PHASE_DIFF)
 	{
+		for(int t = 0; t < config->types.typeCount; t++)
+		{
+			if(config->types.typeArray[t].type == type && config->types.typeArray[t].phaseDelayValid)
+			{
+				sprintf(note, "NOTE: Delay removed, Comparison %0.1fus %s", fabs(config->types.typeArray[t].phaseDelay)*1e6,
+					config->types.typeArray[t].phaseDelay >= 0 ? "later" : "earlier");
+				plot.SpecialWarning = note;
+			}
+		}
 		if(channel == CHANNEL_STEREO)
 			title = PHASE_DIFF_TITLE;
 		else

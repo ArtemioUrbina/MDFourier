@@ -277,6 +277,8 @@ typedef struct abt_st {
 	int			noCompare;
 	int			separation;
 	int			bands;
+	double		phaseDelay;
+	int			phaseDelayValid;
 } AudioBlockType;
 
 typedef struct clkid_st {
@@ -607,6 +609,7 @@ typedef struct ampl_diff_st {
 typedef struct phase_diff_st {
 	double	hertz;
 	double	diffPhase;
+	double	weight;	
 	char	channel;
 } PhaseDifference;
 

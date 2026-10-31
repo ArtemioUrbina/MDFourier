@@ -1179,7 +1179,12 @@ The file names for these graphs have the format:\\ \nolinkurl{T_SP_A_Reference.p
 
 \subsubsection{Phase}
 
-Plots the phase difference for the frequencies common to both files. It is disabled with \textit{-O}.
+Plots the phase difference between the \textit{Comparison} and the \textit{Reference} for the tones common to both files. A frequency is used when it is at least \db{20} above the \textit{minimum significant amplitude} and no louder frequency is next to it, since the sides of each peak and the noise have no stable phase. It is disabled with \textit{-O}.
+
+A time offset between the files adds a phase difference that grows with frequency and hides everything else. It comes from the precision of the sync and from when each sound source starts: a \textit{DMA} transfer can start later than an \textit{FM} note, for example. So a delay is estimated for each type, the one that best lines up its tones, and removed before plotting.
+
+With \textit{-v} the log lists each delay with how well it fits, from 0 to 1, for example \textit{Phase [FM]: Comparison 23.78 us earlier than the Reference, removed (2175 tones, fit 0.96)}. Below \textit{0.5} the phase of that type is not reliable.
+
 
 The file names for these graphs have the format:\\ \nolinkurl{PHASE_DIFF__ALL_Reference_vs_Comparison.png} and \nolinkurl{PHASE_DIFF_Reference_vs_Comparison_##Type.png}
 
