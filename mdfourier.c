@@ -237,12 +237,19 @@ void printTextResults(parameters *config)
 		long int	cnt = 0, cmp = 0;
 
 		FindDifferenceWithinInterval(typeID[t], &cnt, &cmp, config->AmpBarRange, CHANNEL_STEREO, config);
+		if(config->drawPerfect)
+		{
+			long int perfect = 0, total = 0;
+
+			FindPerfectMatches(typeID[t], &perfect, &total, CHANNEL_STEREO, config);
+			cnt += perfect;
+		}
 
 		if(!cmp)
 			continue;
 
 		pcnt = ((double)cnt*100.0f)/(double)cmp;
-		if(pcnt < lowest)
+		if(pcnt < lowest || lowID == -1)
 		{
 			lowID = t;
 			lowest = pcnt;

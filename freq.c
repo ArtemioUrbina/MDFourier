@@ -4208,8 +4208,8 @@ void CheckDurationPitch(parameters *config)
 		}
 	}
 	else if(refOff || comOff)
-		logmsg(" - NOTE: Both durations are %0.2f cents from the profile's frame rate and match each other,\n"
-			"   The profile's frame rate differs from this system's\n", (ref + com)/2);
+		logmsg(" - NOTE: Both durations are %0.2f cents from the profile frame rate\n",
+			(ref + com)/2);
 }
 
 double CalculateMSPerFrameAndCheckSamplerate(AudioSignal *Signal, parameters *config)
