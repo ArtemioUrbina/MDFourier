@@ -125,6 +125,8 @@ int IsHRefreshNoise(AudioSignal *Signal, double freq);
 int IsHRefreshNoiseCrossTalk(AudioSignal *Signal, double freq);
 int IsGridFrequencyNoise(AudioSignal *Signal, double freq);
 void FindMainsNoise(AudioSignal *Signal, Frequency *silenceData, long int size, parameters *config);
+int FindSilencePeakInside(Frequency *freq, long int size, double binSize, Frequency *peak);
+int FindSilenceLoudestPeak(AudioSignal *Signal, Frequency *inside, parameters *config);
 
 void PrintComparedBlocks(AudioBlocks *ReferenceArray, AudioBlocks *ComparedArray, parameters *config);
 void PrintThesholdDifferenceBlocks(AudioBlocks *ReferenceArray, AudioBlocks *ComparedArray, parameters *config, double threshold);

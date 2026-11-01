@@ -290,7 +290,7 @@ int IsGridFrequencyNoise(AudioSignal *Signal, double freq)
 #define MAINS_HARMONICS		3
 #define MAINS_ABOVE_MEDIAN	10.0	// dB above the median silence level to report it
 
-static int IsOnRefreshHarmonic(AudioSignal *Signal, double hertz)
+int IsOnRefreshHarmonic(AudioSignal *Signal, double hertz)
 {
 	int m = 0;
 
@@ -303,7 +303,7 @@ static int IsOnRefreshHarmonic(AudioSignal *Signal, double hertz)
 }
 
 /* A tone is higher than the bins next to it, the skirt of a nearby tone is not */
-static int IsLocalPeak(Frequency *silenceData, long int size, Frequency *entry, double binSize)
+int IsLocalPeak(Frequency *silenceData, long int size, Frequency *entry, double binSize)
 {
 	for(long int i = 0; i < size; i++)
 	{
@@ -2368,11 +2368,71 @@ long int GatherAllSilenceData(AudioSignal *Signal, Frequency **allData, Frequenc
 	return freqCount;
 }
 
+/* The loudest bin that has a bin on each side and is louder than both, the range edges have one side */
+int FindSilencePeakInside(Frequency *freq, long int size, double binSize, Frequency *peak)
+{
+	int found = 0;
+
+	for(long int i = 0; i < size && !found; i++)
+	{
+		double left = NO_AMPLITUDE, right = NO_AMPLITUDE;
+
+		if(freq[i].hertz && freq[i].amplitude != NO_AMPLITUDE)
+		{
+			for(long int j = 0; j < size; j++)
+			{
+				double distance = freq[j].hertz - freq[i].hertz;
+
+				if(freq[j].hertz && freq[j].amplitude != NO_AMPLITUDE &&
+					fabs(distance) > binSize*0.5 && fabs(distance) < binSize*1.5)
+				{
+					if(distance < 0)
+						left = freq[j].amplitude;
+					else
+						right = freq[j].amplitude;
+				}
+			}
+
+			if(left != NO_AMPLITUDE && right != NO_AMPLITUDE &&
+				left <= freq[i].amplitude && right <= freq[i].amplitude)
+			{
+				*peak = freq[i];
+				found = 1;
+			}
+		}
+	}
+	return found;
+}
+
+/* The loudest peak inside the range in all silence blocks, their bins are sorted by magnitude */
+int FindSilenceLoudestPeak(AudioSignal *Signal, Frequency *inside, parameters *config)
+{
+	Frequency	peak;
+
+	CleanFrequency(inside);
+	for(int b = 0; b < config->types.totalBlocks; b++)
+	{
+		if(GetBlockType(config, b) == TYPE_SILENCE)
+		{
+			double binSize = FindFrequencyBinSizeForBlock(Signal, b);
+
+			if(FindSilencePeakInside(Signal->Blocks[b].freq, Signal->Blocks[b].SilenceSizeLeft, binSize, &peak) &&
+				(!inside->hertz || peak.amplitude > inside->amplitude))
+				*inside = peak;
+			if(Signal->Blocks[b].freqRight &&
+				FindSilencePeakInside(Signal->Blocks[b].freqRight, Signal->Blocks[b].SilenceSizeRight, binSize, &peak) &&
+				(!inside->hertz || peak.amplitude > inside->amplitude))
+				*inside = peak;
+		}
+	}
+	return inside->hertz != 0;
+}
+
 void FindFloor(AudioSignal *Signal, parameters *config)
 {
 	long int	size = 0;
 	int 		foundScan = 0, foundGrid = 0, foundCross = 0, silenceBlocks = 0;
-	Frequency	loudestFreq, noiseFreq, gridFreq, horizontalFreq, crossFreq, *silenceData = NULL;
+	Frequency	loudestFreq, insideFreq, noiseFreq, gridFreq, horizontalFreq, crossFreq, *silenceData = NULL;
 
 	if(!Signal)
 		return;
@@ -2381,6 +2441,7 @@ void FindFloor(AudioSignal *Signal, parameters *config)
 		return;
 
 	CleanFrequency(&loudestFreq);
+	CleanFrequency(&insideFreq);
 	CleanFrequency(&noiseFreq);
 	CleanFrequency(&gridFreq);
 	CleanFrequency(&horizontalFreq);
@@ -2416,6 +2477,16 @@ void FindFloor(AudioSignal *Signal, parameters *config)
 		Signal->floorAmplitude = selectedNoise;
 		Signal->floorFreq = Signal->gridFrequency;  // we assign a default
 		return;
+	}
+
+	// The loudest bin can be the first one in the range, leakage from below 20 Hz, or its skirt.
+	// Use the loudest peak that has a bin on each side
+	if(FindSilenceLoudestPeak(Signal, &insideFreq, config) && insideFreq.hertz != loudestFreq.hertz)
+	{
+		if(config->verbose)
+			logmsg(" - %s signal loudest silence bin %g Hz %g dBr left out, it is a range edge or its skirt\n",
+				getRoleText(Signal), loudestFreq.hertz, loudestFreq.amplitude);
+		loudestFreq = insideFreq;
 	}
 
 	if(loudestFreq.hertz && loudestFreq.amplitude != NO_AMPLITUDE)

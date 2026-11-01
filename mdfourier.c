@@ -63,6 +63,8 @@ int NormalizeAndFinishProcess(AudioSignal **ReferenceSignal, AudioSignal **Compa
 int FrequencyDomainNormalize(AudioSignal **ReferenceSignal, AudioSignal **ComparisonSignal, parameters *config);
 void AdjustTimeDomainData(AudioSignal *ReferenceSignal, AudioSignal *ComparisonSignal, parameters *config);
 void printTextResults(parameters *config);
+void logTypeResults(int type, parameters *config);
+double ResultPercent(long int count, long int total);
 void ReportSeparation(AudioSignal *ReferenceSignal, AudioSignal *ComparisonSignal, parameters *config);
 void RemovePhaseDelay(parameters *config);
 void ReportBands(AudioSignal *ReferenceSignal, AudioSignal *ComparisonSignal, parameters *config);
@@ -224,6 +226,10 @@ void printTextResults(parameters *config)
 	}
 	numTypes = t;	// types left out of the comparison have no results
 
+	/* Per type, the numbers in the graph bars, in the log file to compare runs */
+	for(t = 0; t < numTypes; t++)
+		logTypeResults(typeID[t], config);
+
 	/* Find worst with any amplitude difference */
 	for(t = 0; t < numTypes; t++)
 	{
@@ -254,6 +260,33 @@ void printTextResults(parameters *config)
 
 	free(typeID);
 	typeID = NULL;
+}
+
+double ResultPercent(long int count, long int total)
+{
+	if(!total)
+		return 0;
+	return (double)count*100.0/(double)total;
+}
+
+void logTypeResults(int type, parameters *config)
+{
+	long int	differ = 0, compared = 0, within = 0, withinTotal = 0, perfect = 0, perfectTotal = 0;
+	long int	missing = 0, missingTotal = 0, extra = 0, extraTotal = 0;
+
+	FindDifferenceTypeTotals(type, &differ, &compared, CHANNEL_STEREO, config);
+	FindDifferenceWithinInterval(type, &within, &withinTotal, config->AmpBarRange, CHANNEL_STEREO, config);
+	FindPerfectMatches(type, &perfect, &perfectTotal, CHANNEL_STEREO, config);
+	FindMissingFrequenciesByType(type, &missing, &missingTotal, CHANNEL_STEREO, config);
+	FindExtraFrequenciesByType(type, &extra, &extraTotal, CHANNEL_STEREO, config);
+
+	logmsgFileOnly(" - Results [%s]: differ %ld/%ld (%0.4f%%), within %gdB %ld/%ld (%0.4f%%), perfect %ld/%ld (%0.4f%%), missing %ld/%ld (%0.4f%%), extra %ld/%ld (%0.4f%%)\n",
+		GetTypeDisplayName(config, type),
+		differ, compared, ResultPercent(differ, compared),
+		config->AmpBarRange, within, withinTotal, ResultPercent(within, withinTotal),
+		perfect, perfectTotal, ResultPercent(perfect, perfectTotal),
+		missing, missingTotal, ResultPercent(missing, missingTotal),
+		extra, extraTotal, ResultPercent(extra, extraTotal));
 }
 
 void FindViewPort(parameters *config)
