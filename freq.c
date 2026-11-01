@@ -95,6 +95,10 @@ double GetBinLabelSeconds(double seconds, parameters *config)
 	if(rounded == 0 || !config)
 		return rounded;
 
+	// Padded blocks are all maxBlockSeconds long in both files, the exact length labels them
+	if(config->padBlockSizes && config->maxBlockSeconds > 0 && fabs(RoundFloat(config->maxBlockSeconds, 3) - rounded) < DBL_PERFECT_MATCH)
+		return config->maxBlockSeconds;
+
 	frameSeconds = config->types.SyncFormat[config->videoFormatRef].MSPerFrame/1000.0;
 	if(frameSeconds <= 0)
 		return rounded;

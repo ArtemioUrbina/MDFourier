@@ -1569,7 +1569,7 @@ void PrintAudioBlocks(parameters *config)
 
 int CheckProfileBaseLength(parameters *config)
 {
-	long int longest = 0, different = 0;
+	long int longest = 0; // , different = 0;
 
 	if(!config)
 		return 0;
@@ -1602,6 +1602,7 @@ int CheckProfileBaseLength(parameters *config)
 		return 0;
 	}
 
+	/* Commented out in order to always pad below
 	for(int i = 0; i < config->types.typeCount; i++)
 	{
 		if(config->types.typeArray[i].type >= TYPE_CONTROL)
@@ -1610,11 +1611,13 @@ int CheckProfileBaseLength(parameters *config)
 				different++;
 		}
 	}
+	*/
 
 	config->maxBlockFrameCount = longest;
 
-	if(different)
-		config->padBlockSizes = 1;
+	// Always pad to the longest block at the slower frame rate
+	// Without padding they get different bins and don't match
+	config->padBlockSizes = 1;
 
 	return 1;
 }
