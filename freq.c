@@ -223,17 +223,17 @@ void CalculateFrequencyBrackets(AudioSignal *Signal, parameters *config)
 		Signal->SilenceBinSize = FindFrequencyBinSizeForBlock(Signal, index);
 
 		vertNoise = CalculateScanRate(Signal);
-		Signal->gridFrequency = FindFrequencyBracket(vertNoise, Signal->Blocks[index].fftwValues.size, Signal->AudioChannels, Signal->SampleRate, config);
+		Signal->refreshFrequency = FindFrequencyBracket(vertNoise, Signal->Blocks[index].fftwValues.size, Signal->AudioChannels, Signal->SampleRate, config);
 
 		scanNoise = CalculateScanRate(Signal)*(double)GetLineCount(Signal->role, config);
 		Signal->scanrateFrequency = FindFrequencyBracket(scanNoise, Signal->Blocks[index].fftwValues.size, Signal->AudioChannels, Signal->SampleRate, config);
 
 		crossNoise = scanNoise/2;
-		Signal->crossFrequency = FindFrequencyBracket(crossNoise, Signal->Blocks[index].fftwValues.size, Signal->AudioChannels, Signal->SampleRate, config);
+		Signal->halfLineFrequency = FindFrequencyBracket(crossNoise, Signal->Blocks[index].fftwValues.size, Signal->AudioChannels, Signal->SampleRate, config);
 
 		logmsg(" - Expected noise [%s Predict/DFT]: Vertical: %g/%g Hz Scan: %g/%g Hz Half line: %g/%g Hz\n",
 			getRoleText(Signal),
-			vertNoise, Signal->gridFrequency, scanNoise, Signal->scanrateFrequency, crossNoise, Signal->crossFrequency);
+			vertNoise, Signal->refreshFrequency, scanNoise, Signal->scanrateFrequency, crossNoise, Signal->halfLineFrequency);
 	}
 	else
 	{
@@ -263,11 +263,11 @@ int IsHRefreshNoiseCrossTalk(AudioSignal *Signal, double freq)
 		return 0;
 
 	freq = roundFloat(freq);
-	if(Signal->crossFrequency == 0 || !Signal->SilenceBinSize)
+	if(Signal->halfLineFrequency == 0 || !Signal->SilenceBinSize)
 		return 0;
 
-	if(freq >= Signal->crossFrequency - Signal->SilenceBinSize*8 && 
-		freq <= Signal->crossFrequency + Signal->SilenceBinSize*8)
+	if(freq >= Signal->halfLineFrequency - Signal->SilenceBinSize*8 && 
+		freq <= Signal->halfLineFrequency + Signal->SilenceBinSize*8)
 		return 1;
 	return 0;
 }
@@ -277,11 +277,11 @@ int IsGridFrequencyNoise(AudioSignal *Signal, double freq)
 	if(!Signal)
 		return 0;
 
-	if(Signal->gridFrequency == 0 || !Signal->SilenceBinSize)
+	if(Signal->refreshFrequency == 0 || !Signal->SilenceBinSize)
 		return 0;
 
 	// nearest bin: the predicted frequency is not always on the silence block's bins
-	if(fabs(freq - Signal->gridFrequency) <= Signal->SilenceBinSize/2)
+	if(fabs(freq - Signal->refreshFrequency) <= Signal->SilenceBinSize/2)
 		return 1;
 	return 0;
 }
@@ -294,12 +294,12 @@ int IsOnRefreshHarmonic(AudioSignal *Signal, double hertz)
 {
 	int m = 0;
 
-	if(!Signal->gridFrequency)
+	if(!Signal->refreshFrequency)
 		return 0;
-	m = (int)floor(hertz/Signal->gridFrequency + 0.5);
+	m = (int)floor(hertz/Signal->refreshFrequency + 0.5);
 	if(m < 1)
 		return 0;
-	return fabs(hertz - m*Signal->gridFrequency) <= Signal->SilenceBinSize/2;
+	return fabs(hertz - m*Signal->refreshFrequency) <= Signal->SilenceBinSize/2;
 }
 
 /* A tone is higher than the bins next to it, the skirt of a nearby tone is not */
@@ -370,7 +370,7 @@ void FindMainsNoise(AudioSignal *Signal, Frequency *silenceData, long int size, 
 		Frequency	fundamental;
 
 		// mains on the same bin as the vertical refresh (60 Hz on NTSC, 50 Hz on PAL): every harmonic is shared
-		onRefresh = Signal->gridFrequency && fabs(families[f] - Signal->gridFrequency) < Signal->SilenceBinSize;
+		onRefresh = Signal->refreshFrequency && fabs(families[f] - Signal->refreshFrequency) < Signal->SilenceBinSize;
 
 		CleanFrequency(&fundamental);
 		for(long int i = 0; i < size; i++)
@@ -407,7 +407,7 @@ void FindMainsNoise(AudioSignal *Signal, Frequency *silenceData, long int size, 
 
 	Signal->mainsFrequency = best.hertz;
 	Signal->mainsAmplitude = best.amplitude != NO_AMPLITUDE && best.amplitude ? best.amplitude : bestAmpl;
-	if(Signal->gridFrequency && fabs(Signal->mainsFrequency - Signal->gridFrequency) < Signal->SilenceBinSize)
+	if(Signal->refreshFrequency && fabs(Signal->mainsFrequency - Signal->refreshFrequency) < Signal->SilenceBinSize)
 		Signal->mainsShared = 1;
 
 	logmsg(" - %s signal mains: %0.2f Hz %0.2f dBr, %0.1f dB above the silence median%s\n",
@@ -629,12 +629,12 @@ void InitAudio(AudioSignal *Signal, parameters *config)
 
 	memset(&Signal->MaxMagnitude, 0, sizeof(MaxMagn));
 
-	Signal->gridFrequency = 0;
-	Signal->gridAmplitude = 0;
+	Signal->refreshFrequency = 0;
+	Signal->refreshAmplitude = 0;
 	Signal->scanrateFrequency = 0;
 	Signal->scanrateAmplitude = 0;
-	Signal->crossFrequency = 0;
-	Signal->crossAmplitude = 0;
+	Signal->halfLineFrequency = 0;
+	Signal->halfLineAmplitude = 0;
 	Signal->mainsFrequency = 0;
 	Signal->mainsAmplitude = 0;
 	Signal->mainsShared = 0;
@@ -2486,7 +2486,7 @@ void FindFloor(AudioSignal *Signal, parameters *config)
 			config->referenceNoiseFloor = selectedNoise;
 
 		Signal->floorAmplitude = selectedNoise;
-		Signal->floorFreq = Signal->gridFrequency;  // we assign a default
+		Signal->floorFreq = Signal->refreshFrequency;  // we assign a default
 		return;
 	}
 
@@ -2536,7 +2536,7 @@ void FindFloor(AudioSignal *Signal, parameters *config)
 				if(silenceData[i].amplitude > gridFreq.amplitude)
 				{
 					gridFreq = silenceData[i];
-					Signal->gridAmplitude = silenceData[i].amplitude;
+					Signal->refreshAmplitude = silenceData[i].amplitude;
 				}
 
 				if(Signal->floorAmplitude == 0)
@@ -2574,7 +2574,7 @@ void FindFloor(AudioSignal *Signal, parameters *config)
 				if(silenceData[i].amplitude > crossFreq.amplitude)
 				{
 					crossFreq = silenceData[i];
-					Signal->crossAmplitude = silenceData[i].amplitude;
+					Signal->halfLineAmplitude = silenceData[i].amplitude;
 				}
 
 				if(Signal->floorAmplitude == 0)
@@ -4208,8 +4208,8 @@ void CheckDurationPitch(parameters *config)
 		}
 	}
 	else if(refOff || comOff)
-		logmsg(" - NOTE: Both durations are %0.2f cents from the profile frame rate\n",
-			(ref + com)/2);
+		logmsg(" - NOTE: Both durations are %0.2f cents from the profile's frame rate and match each other.\n"
+			"   The profile's frame rate differs from these systems\n", (ref + com)/2);
 }
 
 double CalculateMSPerFrameAndCheckSamplerate(AudioSignal *Signal, parameters *config)

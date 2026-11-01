@@ -546,12 +546,12 @@ typedef struct AudioSt {
 
 	MaxMagn		MaxMagnitude;
 
-	double		gridFrequency;
-	double		gridAmplitude;
+	double		refreshFrequency;
+	double		refreshAmplitude;
 	double		scanrateFrequency;
 	double		scanrateAmplitude;
-	double		crossFrequency;
-	double		crossAmplitude;
+	double		halfLineFrequency;
+	double		halfLineAmplitude;
 	double		mainsFrequency;		// mains hum found in the silence, 0 if none
 	double		mainsAmplitude;
 	int			mainsShared;		// in the same bin as the vertical refresh

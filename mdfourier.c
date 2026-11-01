@@ -731,10 +731,10 @@ int FrequencyDomainNormalize(AudioSignal **ReferenceSignal, AudioSignal **Compar
 {
 	MaxMagn				MaxRef, MaxTar;
 	double				ComparisonLocalMaximum = 0;
-	double				ratioRef = 0, ratiodBFS = 0;
+	double				ratioRef = 0, ratiodB = 0;
 	double				RefAvg = 0;
 	double				CompAvg = 0;
-	double				ratio = 0, maxRatiodBFS = fabs(FREQDOMRATIO);
+	double				ratio = 0, maxRatiodB = fabs(FREQDOMRATIO);
 
 	// Find Normalization factors
 	MaxRef = FindMaxMagnitudeBlock(*ReferenceSignal, config);
@@ -755,52 +755,52 @@ int FrequencyDomainNormalize(AudioSignal **ReferenceSignal, AudioSignal **Compar
 		ratioRef = ComparisonLocalMaximum/MaxRef.magnitude;
 
 	/* Detect extreme cases, and try another approach */
-	ratiodBFS = CalculateAmplitudeInternal(ComparisonLocalMaximum, MaxRef.magnitude);
+	ratiodB = CalculateAmplitudeInternal(ComparisonLocalMaximum, MaxRef.magnitude);
 
 	if(!config->allowStereoVsMono &&
 		MaxRef.block == MaxTar.block &&
 		MaxRef.channel != MaxTar.channel &&
-		fabs(ratiodBFS) > STEREO_TOLERANCE_REPORT)
+		fabs(ratiodB) > STEREO_TOLERANCE_REPORT)
 	{
 		logmsg(" - WARNING: Left and right channels might be reversed or converted from mono to stereo");
 		if(config->verbose)
-			logmsg(" %g/%g", fabs(ratiodBFS), STEREO_TOLERANCE_REPORT);
+			logmsg(" %g/%g", fabs(ratiodB), STEREO_TOLERANCE_REPORT);
 		logmsg("\n");
 		config->warningStereoReversed = 1;
 	}
 
 	if(config->verbose)
 	{
-		if(ComparisonLocalMaximum == 0 || ratiodBFS == NO_AMPLITUDE)
+		if(ComparisonLocalMaximum == 0 || ratiodB == NO_AMPLITUDE)
 			logmsg(" - No Comparison match at %g Hz in %s# %d, searching nearby\n", MaxRef.hertz,
 				GetBlockName(config, MaxRef.block), GetBlockSubIndex(config, MaxRef.block));
 		else
-			logmsg(" - Amplitude ratio is %gdB\n", ratiodBFS);
+			logmsg(" - Amplitude ratio is %gdB\n", ratiodB);
 	}
 
 	/* The peak can sit at another frequency in the Comparison when the block runs from a clock of its own */
-	if(ComparisonLocalMaximum == 0 || fabs(ratiodBFS) > maxRatiodBFS || ratiodBFS == NO_AMPLITUDE)
+	if(ComparisonLocalMaximum == 0 || fabs(ratiodB) > maxRatiodB || ratiodB == NO_AMPLITUDE)
 	{
-		double	nearPeak = 0, nearHertz = 0, nearRatiodBFS = 0;
+		double	nearPeak = 0, nearHertz = 0, nearRatiodB = 0;
 
 		nearPeak = FindPeakNearInBlock(*ComparisonSignal, MaxRef, &nearHertz, config);
 		if(nearPeak)
 		{
-			nearRatiodBFS = CalculateAmplitudeInternal(nearPeak, MaxRef.magnitude);
-			if(ratiodBFS == NO_AMPLITUDE || fabs(nearRatiodBFS) < fabs(ratiodBFS))
+			nearRatiodB = CalculateAmplitudeInternal(nearPeak, MaxRef.magnitude);
+			if(ratiodB == NO_AMPLITUDE || fabs(nearRatiodB) < fabs(ratiodB))
 			{
 				if(config->verbose) {
 					logmsg(" - Comparison peak near %g Hz is at %g Hz, Amplitude ratio is %gdB\n",
-						MaxRef.hertz, nearHertz, nearRatiodBFS);
+						MaxRef.hertz, nearHertz, nearRatiodB);
 				}
 				ComparisonLocalMaximum = nearPeak;
 				ratioRef = nearPeak/MaxRef.magnitude;
-				ratiodBFS = nearRatiodBFS;
+				ratiodB = nearRatiodB;
 			}
 		}
 	}
 
-	if(ComparisonLocalMaximum == 0 || fabs(ratiodBFS) > maxRatiodBFS || ratiodBFS == NO_AMPLITUDE)
+	if(ComparisonLocalMaximum == 0 || fabs(ratiodB) > maxRatiodB || ratiodB == NO_AMPLITUDE)
 	{
 		int		found = 0, pos = 1, allowDifference = 0, tries = 0, numMatches = FREQDOMTRIES;
 		MaxMagn	MaxRefArray[FREQDOMTRIES];
@@ -811,7 +811,7 @@ int FrequencyDomainNormalize(AudioSignal **ReferenceSignal, AudioSignal **Compar
 		if(FindMultiMaxMagnitudeBlock(*ReferenceSignal, MaxRefArray, &numMatches, config))
 		{
 			int		matchIndex = -1;
-			double	lowestRatio = 0, ComparisonLocalMaximumArrayforLowest = 0, localRatiodBFS = ratiodBFS;
+			double	lowestRatio = 0, ComparisonLocalMaximumArrayforLowest = 0, localRatiodB = ratiodB;
 
 			// We have a do for a second cycle allowing tolerance
 			do
@@ -829,19 +829,19 @@ int FrequencyDomainNormalize(AudioSignal **ReferenceSignal, AudioSignal **Compar
 					ComparisonLocalMaximumArray = FindLocalMaximumInBlock(*ComparisonSignal, MaxRefArray[pos], allowDifference, config);
 					if(ComparisonLocalMaximumArray)
 					{
-						double dbfsratioArray = 0;
+						double ratiodBArray = 0;
 
-						dbfsratioArray = CalculateAmplitudeInternal(ComparisonLocalMaximumArray, MaxRefArray[pos].magnitude);
+						ratiodBArray = CalculateAmplitudeInternal(ComparisonLocalMaximumArray, MaxRefArray[pos].magnitude);
 						ratioRefArray = ComparisonLocalMaximumArray/MaxRefArray[pos].magnitude;
-						if(dbfsratioArray > localRatiodBFS)
+						if(ratiodBArray > localRatiodB)
 						{
-							localRatiodBFS = dbfsratioArray;
+							localRatiodB = ratiodBArray;
 							lowestRatio = ratioRefArray;
 							ComparisonLocalMaximumArrayforLowest = ComparisonLocalMaximumArray;
 							matchIndex = pos;
 						}
-						if(config->verbose >= 2) { logmsg(" - Comparison ratio is %gdB\n", dbfsratioArray); }
-						if(fabs(dbfsratioArray) <= fabs(FREQDOMRATIO)) {
+						if(config->verbose >= 2) { logmsg(" - Comparison ratio is %gdB\n", ratiodBArray); }
+						if(fabs(ratiodBArray) <= fabs(FREQDOMRATIO)) {
 							found = 1;
 							break;
 						}
@@ -849,7 +849,7 @@ int FrequencyDomainNormalize(AudioSignal **ReferenceSignal, AudioSignal **Compar
 					pos++;
 				}
 
-				if(localRatiodBFS > ratiodBFS)
+				if(localRatiodB > ratiodB)
 				{
 					found = 1;
 					ComparisonLocalMaximumArray = ComparisonLocalMaximumArrayforLowest;
@@ -922,9 +922,9 @@ int FrequencyDomainNormalize(AudioSignal **ReferenceSignal, AudioSignal **Compar
 	else
 		ratio = CompAvg/RefAvg;
 	if(fabs(ratio) > fabs(FREQDOMRATIO)) {
-		//double dbfsratioArray = 0;
+		//double ratiodBArray = 0;
 
-		//dbfsratioArray = CalculateAmplitude(ComparisonLocalMaximum,  MaxRef.magnitude);
+		//ratiodBArray = CalculateAmplitude(ComparisonLocalMaximum,  MaxRef.magnitude);
 		logmsg("\tWARNING: Average frequency difference after normalization between the signals is too high. (Ratio:%g to 1)\n", ratio);
 		logmsg("\tIf results make no sense please try the following in the Extra Commands box:\n");
 		logmsg("\t* Use Time Domain normalization: -n t\n");

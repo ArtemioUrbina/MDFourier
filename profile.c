@@ -1444,7 +1444,7 @@ int LoadAudioNoSyncProfile(FILE *file, parameters *config)
 void PrintAudioBlocks(parameters *config)
 {
 	long int frames = 0, count = 0, MinFrame = 10000, MaxFrame = 0;
-	double TotalSeconds = 0, averageFrameAnalisis = 0;
+	double TotalSeconds = 0, averageFrames = 0;
 
 	if(!config)
 		return;
@@ -1504,7 +1504,7 @@ void PrintAudioBlocks(parameters *config)
 			config->types.typeArray[i].type >= TYPE_SILENCE &&
 			config->types.typeArray[i].type != TYPE_SKIP)
 		{
-			averageFrameAnalisis += config->types.typeArray[i].frames;
+			averageFrames += config->types.typeArray[i].frames;
 			count++;
 
 			if (config->types.typeArray[i].frames < MinFrame)
@@ -1518,17 +1518,17 @@ void PrintAudioBlocks(parameters *config)
 	{
 		double standardDeviation = 0;
 
-		averageFrameAnalisis = averageFrameAnalisis / count;
+		averageFrames = averageFrames / count;
 		count = 0;
 
-		logmsgFileOnly("Average frame length analysis: %g\n", averageFrameAnalisis);
+		logmsgFileOnly("Average frame length analysis: %g\n", averageFrames);
 		logmsgFileOnly("Minimum frame count for analysis: %ld\n", MinFrame);
 		logmsgFileOnly("Maximum frame count for analysis: %ld\n", MaxFrame);
 		for (int i = 0; i < config->types.typeCount; i++)
 		{
 			if (config->types.typeArray[i].type >= TYPE_SILENCE && config->types.typeArray[i].type != TYPE_SKIP)
 			{
-				standardDeviation += pow((double)config->types.typeArray[i].frames - averageFrameAnalisis, 2);
+				standardDeviation += pow((double)config->types.typeArray[i].frames - averageFrames, 2);
 				count++;
 			}
 		}
@@ -1553,7 +1553,7 @@ void PrintAudioBlocks(parameters *config)
 				sprintf(type, "%c", t);
 
 			logmsgFileOnly("%c%s %s %d %d %d %s %c %s\n",
-				config->types.typeArray[i].frames == averageFrameAnalisis ? ' ' : '*',
+				config->types.typeArray[i].frames == averageFrames ? ' ' : '*',
 				config->types.typeArray[i].typeDisplayName,
 				type,
 				config->types.typeArray[i].elementCount,
