@@ -208,8 +208,8 @@ int EndProfileLoad(parameters *config)
 		}
 		else
 		{
-			logmsg(" - Ignoring -j since no CLK rates were found in profile\n");
-			config->doClkAdjust = 0;  // no current need to, but anyway...
+			logmsg(" - Can't use -j since no CLK rates were found in profile\n");
+			return 0;
 		}
 	}
 	else

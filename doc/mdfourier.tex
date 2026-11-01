@@ -355,7 +355,7 @@ One of these values is a \textit{minimum amplitude} at which to stop comparing t
 The value is derived from the \textit{silence blocks} defined in the profile, as follows:
 
 \begin{itemize}
-	\item The frequency with the highest amplitude found in the \textit{silence blocks} of the \textit{Reference} file is its \textit{relative noise floor}, and it is used as the \textit{minimal significant amplitude}.
+	\item The loudest peak in the \textit{silence blocks} of the \textit{Reference} file is its \textit{relative noise floor}, and it is used as the \textit{minimal significant amplitude}. 
 	\item If the \textit{Comparison} file has a louder noise floor--but not louder than \dbr{-40}--that one is used instead, so that its noise is not compared as if it were signal. If both floors differ by more than \db{20}, a warning is drawn in the graphs.
 	\item If there is no \textit{silence block}, or no noise floor can be found, the default of \dbr{-66} is used.
 	\item A noise floor louder than \dbr{-40} is reported as a warning, since the differences might not be visible. In that case a fixed value can be set with \textit{-p}.
@@ -1794,11 +1794,14 @@ The power of the bins is averaged in each \textit{1/3 octave} band of the analyz
 
 Noise clocked slower than a band's frequency repeats its pattern across the spectrum, so its bands scatter more than that. Each recording measures its own scatter by comparing the two halves of every block. The allowed range is widened to match cases where the halves differ more than expected, over the band and the two on each side. Two recordings of the same noise then almost always stay within three standard deviations.
 
+A quiet band can be set by the capture instead of the console: mains hum, video buzz or the noise of the audio interface. The same bands are measured in the \textit{silence blocks} of each file, and a band is only compared when it is at least \db{10} above the silence in both files. Bands left out break the line in the graph, and \textit{-v} lists how many were left out in each block.
+
 These blocks are left out of the normalization and of the regular comparison. The log reports how many blocks have bands beyond the expected difference, and the largest difference found. With \textit{-v} it adds a line for each block and channel, with the number of bands compared, the average and the largest difference, and how many bands are beyond it:
 
 \begin{verbatim}
 	* Noise compared by 1/3 octave bands:
 	- 2 of 7 blocks have bands beyond the expected difference
+	- 12 bands left out, less than 10 dB above the same band in the silence (hum, buzz or noise of the capture)
 	- Largest band difference: -13.05 dB in Noise# 2 L at 16000 Hz
 \end{verbatim}
 

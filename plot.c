@@ -2430,9 +2430,10 @@ void DrawLabelsMDF(PlotFile *plot, char *Gname, char *GType, int type, parameter
 		}
 
 		PLOT_WARN(1, warning++);
-		sprintf(msg, "WARNING: %s%s match expected duration (can use -R)",
+		sprintf(msg, "WARNING: %s%s match expected duration (can use -R %c)",
 			config->SRNoMatch == (ROLE_REF | ROLE_COMP) ? "Signal" : config->SRNoMatch == ROLE_REF ? "RF" : "CM",
-			config->SRNoMatch == (ROLE_REF | ROLE_COMP) ? "s don't" : " doesn't");
+			config->SRNoMatch == (ROLE_REF | ROLE_COMP) ? "s don't" : " doesn't",
+			config->SRNoMatch == (ROLE_REF | ROLE_COMP) ? 'b' : config->SRNoMatch == ROLE_REF ? 'r' : 'c');
 		pl_alabel_r(plot->plotter, 'l', 'l', msg);
 	}
 
@@ -7469,7 +7470,8 @@ void PlotBandsType(AudioSignal *ReferenceSignal, AudioSignal *ComparisonSignal, 
 {
 	PlotFile	plot;
 	char		name[BUFFER_SIZE*2], label[BUFFER_SIZE];
-	int			type = config->types.typeArray[typeIndex].type, color = 0, elements = 0, element = 0, line = 0;
+	int			type = config->types.typeArray[typeIndex].type;
+	int			color = 0, elements = 0, element = 0, line = 0, atFloor = 0;
 	double		dB = BANDS_MIN_DB, minScatter[NOISE_BANDS];
 
 	color = MatchColor(config->types.typeArray[typeIndex].color);
@@ -7550,7 +7552,7 @@ void PlotBandsType(AudioSignal *ReferenceSignal, AudioSignal *ComparisonSignal, 
 		element++;
 		for(int chan = 0; chan < BandChannels(ref, com); chan++)
 		{
-			int last = -1;
+			int last = -1, usable = 0, floorBands = 0;
 
 			SetPenColor(blockColor, 0xffff, &plot);
 			pl_linemod_r(plot.plotter, chan ? "shortdashed" : "solid");
@@ -7558,14 +7560,18 @@ void PlotBandsType(AudioSignal *ReferenceSignal, AudioSignal *ComparisonSignal, 
 			{	
 				double diff = 0;
 
+				if(BandMeasured(ref, com, chan, band) && !BandUsable(ref, com, chan, band))
+					floorBands++;
 				if(BandUsable(ref, com, chan, band))
 				{
+					usable++;
 					diff = com->bandAmp[chan][band] - ref->bandAmp[chan][band];
 					if(diff > dB)
 						diff = dB;
 					if(diff < -dB)
 						diff = -dB;
-					if(last != -1)
+
+					if(last != -1 && last == band - 1)
 						pl_fcont_r(plot.plotter, transformtoLog(NoiseBandCenter(band), config), diff);
 					else
 						pl_fmove_r(plot.plotter, transformtoLog(NoiseBandCenter(band), config), diff);
@@ -7581,9 +7587,10 @@ void PlotBandsType(AudioSignal *ReferenceSignal, AudioSignal *ComparisonSignal, 
 			pl_ffontsize_r(plot.plotter, FONT_SIZE_1);
 			SetPenColor(blockColor, 0xffff, &plot);
 			pl_fmove_r(plot.plotter, config->plotResX*0.03, config->plotResY*(0.80 - line*0.025));
-			sprintf(label, "%s# %d%s%s", GetBlockDisplayName(config, block), GetBlockSubIndex(config, block),
+			atFloor += floorBands;
+			sprintf(label, "%s# %d%s%s%s", GetBlockDisplayName(config, block), GetBlockSubIndex(config, block),
 				BandChannels(ref, com) == 2 ? (chan ? " R (dashed)" : " L") : "",
-				ref->bandBeyond[chan] ? " *" : "");
+				ref->bandBeyond[chan] ? " *" : "", !usable && floorBands ? ": all bands at the capture's floor" : "");
 			pl_alabel_r(plot.plotter, 'l', 'c', label);
 			pl_restorestate_r(plot.plotter);
 			line++;
@@ -7599,6 +7606,12 @@ void PlotBandsType(AudioSignal *ReferenceSignal, AudioSignal *ComparisonSignal, 
 	pl_alabel_r(plot.plotter, 'l', 'c', "Gray dashed: expected difference, widest of all blocks");
 	pl_fmove_r(plot.plotter, config->plotResX*0.03, config->plotResY*(0.80 - line*0.025 - 0.035));
 	pl_alabel_r(plot.plotter, 'l', 'c', "*: bands beyond the expected difference");
+	if(atFloor)
+	{
+		sprintf(label, "Gaps: bands less than %g dB above the silence, left out", BAND_FLOOR_MARGIN);
+		pl_fmove_r(plot.plotter, config->plotResX*0.03, config->plotResY*(0.80 - line*0.025 - 0.06));
+		pl_alabel_r(plot.plotter, 'l', 'c', label);
+	}
 	pl_restorestate_r(plot.plotter);
 
 	sprintf(label, "%s", config->types.typeArray[typeIndex].typeDisplayName);

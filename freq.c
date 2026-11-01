@@ -316,12 +316,36 @@ int IsLocalPeak(Frequency *silenceData, long int size, Frequency *entry, double 
 	return 1;
 }
 
+double SilenceMedian(Frequency *silenceData, long int size)
+{
+	double		*levels = NULL, median = NO_AMPLITUDE;
+	long int	count = 0;
+
+	if(!silenceData || size <= 0)
+		return NO_AMPLITUDE;
+
+	levels = (double*)malloc(sizeof(double)*size);
+	if(!levels)
+		return NO_AMPLITUDE;
+	for(long int i = 0; i < size; i++)
+	{
+		if(silenceData[i].amplitude != NO_AMPLITUDE)
+			levels[count++] = silenceData[i].amplitude;
+	}
+	if(count)
+	{
+		Double_quick_sort(levels, count);
+		median = levels[count/2];
+	}
+	free(levels);
+	return median;
+}
+
 void FindMainsNoise(AudioSignal *Signal, Frequency *silenceData, long int size, parameters *config)
 {
-	double		*levels = NULL, median = 0, tolerance = 0, bestAmpl = NO_AMPLITUDE;
+	double		median = 0, tolerance = 0, bestAmpl = NO_AMPLITUDE;
 	double		families[2] = { 50.0, 60.0 };
 	Frequency	best;
-	long int	count = 0;
 
 	(void)config;
 	Signal->mainsFrequency = 0;
@@ -331,22 +355,9 @@ void FindMainsNoise(AudioSignal *Signal, Frequency *silenceData, long int size, 
 	if(!silenceData || size <= 0 || !Signal->SilenceBinSize)
 		return;
 
-	levels = (double*)malloc(sizeof(double)*size);
-	if(!levels)
+	median = SilenceMedian(silenceData, size);
+	if(median == NO_AMPLITUDE)
 		return;
-	for(long int i = 0; i < size; i++)
-	{
-		if(silenceData[i].amplitude != NO_AMPLITUDE)
-			levels[count++] = silenceData[i].amplitude;
-	}
-	if(!count)
-	{
-		free(levels);
-		return;
-	}
-	Double_quick_sort(levels, count);
-	median = levels[count/2];
-	free(levels);
 
 	// nearest bin, without reaching the other family (50 and 60 Hz are 10 Hz apart)
 	tolerance = Signal->SilenceBinSize*0.75;
@@ -2500,6 +2511,17 @@ void FindFloor(AudioSignal *Signal, parameters *config)
 			config->referenceNoiseFloor = loudestFreq.amplitude;
 	}
 
+	// When the noise sets the floor, blocks shorter than the silence can have noise above it
+	if(config->verbose && loudestFreq.hertz && loudestFreq.amplitude != NO_AMPLITUDE)
+	{
+		double median = SilenceMedian(silenceData, size);
+
+		if(median != NO_AMPLITUDE)
+			logmsg(" - %s signal noise floor is %0.1f dB above the silence median (%0.2f dBr)%s\n",
+				getRoleText(Signal), loudestFreq.amplitude - median, median,
+				loudestFreq.amplitude - median < NOISE_SETS_FLOOR ? ", the noise sets it, not a tone" : "");
+	}
+
 	// This only works if a low fundamental frequency is defined in profile, otherwise
 	// returns amplitude at 0
 	noiseFreq = FindNoiseBlockInsideOneStandardDeviation(Signal, config);
@@ -3100,7 +3122,8 @@ int FillFrequencyStructures(AudioSignal *Signal, AudioBlocks *AudioArray, parame
 		return 0;
 	if(Signal && Signal->AudioChannels == 2 && AudioArray->separation)
 		MeasureSeparation(AudioArray, config);
-	if(AudioArray->bands)
+	// silence bands tell which bands of the noise blocks are only the capture's floor
+	if(AudioArray->bands || AudioArray->type == TYPE_SILENCE)
 		MeasureBands(AudioArray, config);
 	ReleaseFFTW(AudioArray);
 	return 1;
@@ -3318,11 +3341,67 @@ void CalculateBandAmplitudes(AudioSignal *Signal, double ZeroDbMagReference, par
 	}
 }
 
-int BandUsable(AudioBlocks *ref, AudioBlocks *com, int c, int b)
+// Band power per bin falls with the analysed length, for noise and for tones alike, since a band holds
+// more bins in a longer block. Times the window sum (proportional to the length) it can be compared between blocks
+double BandPowerByLength(AudioBlocks *blk, int c, int b)
+{
+	return blk->bandMag[c][b]*blk->bandMag[c][b]*blk->fftwValues.windowSum;
+}
+
+// A band is only the capture's floor when it is not BAND_FLOOR_MARGIN above the loudest silence in that band
+void MarkBandsAboveFloor(AudioSignal *Signal, parameters *config)
+{
+	double	silence[2][NOISE_BANDS], margin = pow(10.0, BAND_FLOOR_MARGIN/10.0);
+	int		found = 0;
+
+	for(int c = 0; c < 2; c++)
+		for(int b = 0; b < NOISE_BANDS; b++)
+			silence[c][b] = 0;
+
+	for(int block = 0; block < config->types.totalBlocks; block++)
+	{
+		AudioBlocks *blk = &Signal->Blocks[block];
+
+		if(blk->type == TYPE_SILENCE && blk->bandValid)
+		{
+			found = 1;
+			for(int c = 0; c < 2; c++)
+			{
+				for(int b = 0; b < NOISE_BANDS; b++)
+				{
+					// a mono silence block stands for both channels
+					double power = BandPowerByLength(blk, blk->bandMag[1][b] > 0 ? c : 0, b);
+
+					if(power > silence[c][b])
+						silence[c][b] = power;
+				}
+			}
+		}
+	}
+
+	for(int block = 0; block < config->types.totalBlocks; block++)
+	{
+		AudioBlocks *blk = &Signal->Blocks[block];
+
+		if(blk->bands && blk->bandValid)
+		{
+			for(int c = 0; c < 2; c++)
+				for(int b = 0; b < NOISE_BANDS; b++)
+					blk->bandAboveFloor[c][b] = !found || silence[c][b] <= 0 || BandPowerByLength(blk, c, b) > silence[c][b]*margin;
+		}
+	}
+}
+
+int BandMeasured(AudioBlocks *ref, AudioBlocks *com, int c, int b)
 {
 	return ref->bandValid && com->bandValid &&
 		ref->bandBins[b] >= NOISE_BAND_MIN_BINS && com->bandBins[b] >= NOISE_BAND_MIN_BINS &&
 		ref->bandAmp[c][b] != NO_AMPLITUDE && com->bandAmp[c][b] != NO_AMPLITUDE;
+}
+
+int BandUsable(AudioBlocks *ref, AudioBlocks *com, int c, int b)
+{
+	return BandMeasured(ref, com, c, b) && ref->bandAboveFloor[c][b] && com->bandAboveFloor[c][b];
 }
 
 // Two random estimates of a band differ by 4.34*sqrt(2/bins) dB, one standard deviation, when the bins are independent
@@ -4196,6 +4275,18 @@ double CalculateMSPerFrameAndCheckSamplerate(AudioSignal *Signal, parameters *co
 
 	if(areDoublesEqual(fabs(SRDifference), 0.0))  // do not make adjustments if they make no change at all 
 		return msPerFrame;
+
+	// Without -R a duration that doesn't match the profile's frame rate is a pitch difference
+	if(config->doSamplerateAdjust == 'n' && fabs(centsDifferenceSR) >= MAX_CENTS_DIFF)
+	{
+		logmsg(" - WARNING: %s duration is %0.2f cents from the profile's frame rate, its pitch will differ. Can be matched with -R %c\n",
+			getRoleText(Signal), centsDifferenceSR, Signal->role == ROLE_REF ? 'r' : 'c');
+		if(Signal->role == ROLE_REF)
+			config->RefCentsDifferenceSR = centsDifferenceSR;
+		else
+			config->ComCentsDifferenceSR = centsDifferenceSR;
+		config->SRNoMatch |= Signal->role;
+	}
 
 	if(config->doSamplerateAdjust != 'n' && fabs(centsDifferenceSR) > 0)
 	{

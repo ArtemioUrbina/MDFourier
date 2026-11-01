@@ -74,6 +74,7 @@
 #define	PCM_24BIT_MIN_AMPLITUDE		-144.49
 #define	PCM_32BIT_MIN_AMPLITUDE		-192.66
 #define	DIGITAL_FLOOR_MARGIN		20.0	// dB below the bit depth floor for a file with no noise
+#define	NOISE_SETS_FLOOR			14.0	// floor closer than this to the silence median is the noise
 #define HIGHEST_NOISEFLOOR_ALLOWED	-40.0
 #define	NOISE_FLOOR_DIGITAL_FAIR	-120.0
 
@@ -191,6 +192,7 @@
 #define NOISE_BANDS			31
 #define NOISE_BAND_FIRST	-17
 #define NOISE_BAND_MIN_BINS	20		// each band scatters 4.34/sqrt(bins) dB, ~1 dB at 20
+#define BAND_FLOOR_MARGIN	10.0	// dB a band must be above the same band in the silence
 
 /* Clock identification ranges [CLKID] */
 #define CLKID_UNIT_HZ		'h'
@@ -278,7 +280,7 @@ typedef struct abt_st {
 	int			noCompare;
 	int			separation;
 	int			bands;
-	double		phaseDelay;
+	double		phaseDelay;		// delay removed from the phase differences, seconds
 	int			phaseDelayValid;
 } AudioBlockType;
 
@@ -452,7 +454,7 @@ typedef struct FrequencySt {
 typedef struct fftw_spectrum_st {
 	fftw_complex  	*spectrum;
 	size_t			size;
-	double			windowSum;	// S1, the sum of the window. 2|X|/S1 amplitude in sample units
+	double			windowSum;	// S1, the sum of the window: 2|X|/S1 is a tone's amplitude in sample units
 } FFTWSpectrum;
 
 typedef struct samples_st {
@@ -505,6 +507,7 @@ typedef struct AudioBlock_st {
 	int				bandBeyond[2];					// bands beyond the random scatter in the Reference block
 	double			bandHalfDiff[2][NOISE_BANDS];	// first half - second half of the block dB
 	long int		bandHalfBins[NOISE_BANDS];		// independent bins in each half
+	char			bandAboveFloor[2][NOISE_BANDS];	// louder than the same band in the silence of that file
 	int				sepValid;
 	char			sepActive;
 	double			sepHertz;
@@ -530,7 +533,7 @@ typedef struct AudioSt {
 	long int	SamplesStart;
 	long int	samplesPosFLAC;
 	int			errorFLAC;
-	double		msPerFrame;
+	double		msPerFrame;	// measured ms per frame
 	wav_hdr		header;
 	uint8_t		fmtExtra[24];
 	int			fmtType;
@@ -548,10 +551,10 @@ typedef struct AudioSt {
 	double		scanrateAmplitude;
 	double		crossFrequency;
 	double		crossAmplitude;
-	double		mainsFrequency;
+	double		mainsFrequency;		// mains hum found in the silence, 0 if none
 	double		mainsAmplitude;
 	int			mainsShared;		// in the same bin as the vertical refresh
-	double		magnitudeScale;
+	double		magnitudeScale;		// normalization applied to the magnitudes, 1 is sample units
 	double		SilenceBinSize;
 
 	int			nyquistLimit;
@@ -568,7 +571,7 @@ typedef struct AudioSt {
 
 	double		EstimatedSR;
 	double		originalSR;
-	double		originalMSPerFrame;
+	double		originalMSPerFrame;	// ms per frame before any sample rate adjustment
 
 	AudioBlocks *Blocks;
 }  AudioSignal;
@@ -611,7 +614,7 @@ typedef struct ampl_diff_st {
 typedef struct phase_diff_st {
 	double	hertz;
 	double	diffPhase;
-	double	weight;	
+	double	weight;		// Reference magnitude
 	char	channel;
 } PhaseDifference;
 
@@ -774,7 +777,7 @@ typedef struct parameters_st {
 	int				pErrorReport;
 	int				noBalance;
 	double			highestValueBitDepth;
-	double			zeroDbMagnitude;	// magnitude of 0 dBr, higherst of both signals
+	double			zeroDbMagnitude;	// magnitude of 0 dBr, the strongest tone of both signals
 	double			lowestValueBitDepth;
     double          lowestDBFS;
 	int				stereoBalanceBlock;

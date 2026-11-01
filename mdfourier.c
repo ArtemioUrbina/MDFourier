@@ -1257,6 +1257,8 @@ int NormalizeAndFinishProcess(AudioSignal **ReferenceSignal, AudioSignal **Compa
 	{
 		CalculateBandAmplitudes(*ReferenceSignal, ZeroDbMagnitudeRef, config);
 		CalculateBandAmplitudes(*ComparisonSignal, ZeroDbMagnitudeRef, config);
+		MarkBandsAboveFloor(*ReferenceSignal, config);
+		MarkBandsAboveFloor(*ComparisonSignal, config);
 	}
 
 	if(config->verbose)
@@ -3890,7 +3892,7 @@ void ReportSeparation(AudioSignal *ReferenceSignal, AudioSignal *ComparisonSigna
 void ReportBands(AudioSignal *ReferenceSignal, AudioSignal *ComparisonSignal, parameters *config)
 {
 	double	worst = 0, worstHz = 0;
-	int		worstBlock = -1, worstChannel = 0, compared = 0, flagged = 0;
+	int		worstBlock = -1, worstChannel = 0, compared = 0, flagged = 0, atFloor = 0;
 
 	logmsg("\n* Noise compared by 1/3 octave bands:\n");
 	if(config->verbose)
@@ -3912,12 +3914,14 @@ void ReportBands(AudioSignal *ReferenceSignal, AudioSignal *ComparisonSignal, pa
 		for(int c = 0; c < channels; c++)
 		{
 			double	sum = 0, blockWorst = 0, blockWorstHz = 0;
-			int		count = 0, beyond = 0;
+			int		count = 0, beyond = 0, floorBands = 0; 
 
 			for(int b = 0; b < NOISE_BANDS; b++)
 			{
 				double diff = 0;
 
+				if(BandMeasured(ref, com, c, b) && !BandUsable(ref, com, c, b))
+					floorBands++;	
 				if(!BandUsable(ref, com, c, b))
 					continue;
 				diff = com->bandAmp[c][b] - ref->bandAmp[c][b];
@@ -3932,10 +3936,11 @@ void ReportBands(AudioSignal *ReferenceSignal, AudioSignal *ComparisonSignal, pa
 				}
 			}
 			ref->bandBeyond[c] = beyond;
+			atFloor += floorBands;
 			if(!count)
 			{
-				logmsg(" - %s# %d%s: too short for any band\n", GetBlockDisplayName(config, block), GetBlockSubIndex(config, block),
-					channels == 2 ? (c ? " R" : " L") : "");
+				logmsg(" - %s# %d%s: %s\n", GetBlockDisplayName(config, block), GetBlockSubIndex(config, block),
+					channels == 2 ? (c ? " R" : " L") : "", floorBands ? "all bands are at the capture's floor" : "too short for any band");
 				continue;
 			}
 			blockCompared = 1;
@@ -3947,9 +3952,10 @@ void ReportBands(AudioSignal *ReferenceSignal, AudioSignal *ComparisonSignal, pa
 					GetBlockDisplayName(config, block), GetBlockSubIndex(config, block),
 					channels == 2 ? (c ? " R" : " L") : "", count, sum/count, blockWorst, blockWorstHz);
 				if(beyond)
-					logmsg(", %d beyond the expected difference\n", beyond);
-				else
-					logmsg("\n");
+					logmsg(", %d beyond the expected difference", beyond);
+				if(floorBands)
+					logmsg(", %d at the capture's floor left out", floorBands);
+				logmsg("\n");
 			}
 			if(fabs(blockWorst) > fabs(worst))
 			{
@@ -3965,6 +3971,9 @@ void ReportBands(AudioSignal *ReferenceSignal, AudioSignal *ComparisonSignal, pa
 
 	if(compared)
 		logmsg(" - %d of %d blocks have bands beyond the expected difference\n", flagged, compared);
+	if(atFloor)
+		logmsg(" - %d bands left out, less than %g dB above the same band in the silence (hum, buzz or noise of the capture)\n",
+			atFloor, BAND_FLOOR_MARGIN);
 	if(worstBlock != -1)
 		logmsg(" - Largest band difference: %+0.2f dB in %s# %d%s at %0.0f Hz\n", worst,
 			GetBlockDisplayName(config, worstBlock), GetBlockSubIndex(config, worstBlock),
