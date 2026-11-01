@@ -1577,7 +1577,9 @@ The measured clock of each file is matched against these ranges. When it is with
 
 \section{Adjusting clocks with \textit{-j}}
 
-The \textit{-j} option corrects the clock differences for analysis. This is useful when the differences need to be verified as if the signals were being played using the same clock, similar to using auto-tune to match the \textit{Reference}. For each clock that differs from the \textit{Reference}, the \textit{Comparison} blocks of the types that belong to that clock are analyzed again with a corrected sample rate, so that their frequencies line up with the \textit{Reference}. The rest of the blocks, the frame rate and the waveforms are not changed.
+The \textit{-j} option corrects the clock differences for analysis. This is useful when the differences need to be verified as if the signals were being played using the same clock, similar to using auto-tune to match the \textit{Reference}. Keep in mind that it measures a supposition: how both would compare at the same pitch, which is not how they sound.
+
+Without \textit{-j} the results are real, but since the comparison can't express a pitch difference it shows up as amplitude differences and missing or extra data that grows along frequency. 
 
 When \textit{-j} is used, all blocks are analyzed with zero padding to \hz{1} bins, as with \textit{-z}, so that the corrected frequencies of both files fall on the same bins. A note is drawn in the graphs for each adjusted clock. A clock is not adjusted when the difference is below \textit{0.08} cents, or when its tone was not found in one of the files.
 
@@ -1731,7 +1733,8 @@ Since \textit{frame rates} differ and the system uses the frame rate as a master
 
 The software adjusts for these differences, carrying the fractions of a sample over to the next block. Blocks marked with the \textit{*} mask are instead cut in the file with the longer frames, so both files analyze the duration the block has at the shorter frame duration.\footnote{See appendix~\ref{mfnconfig}.} Since the notes are not played during the whole 20 frames and the window filters help to compensate the signals, the comparison is perfectly aligned for the tests. The reader can verify these results via the \textit{MDWave} tool.\footnote{See appendix~\ref{mdwave}.}
 
-If the detected \textit{frame rate} differs too much from the one in the profile, an error is shown since the profile or video format is probably wrong. It can be ignored with \textit{-I}. When the recording is shorter or longer than expected because the \textit{sample rate} of the capture is off, the \textit{-R} option estimates the real \textit{sample rate} from the length of the file, for the \textit{Reference} (\textit{r}), the \textit{Comparison} (\textit{c}) or both (\textit{b}).
+If the detected \textit{frame rate} differs too much from the one in the profile, an error is shown since the profile or video format is probably wrong. It can be ignored with \textit{-I}. When a recording is shorter or longer than the profile expects by \textit{0.25} cents or more, its pitch differs by the same amount, and the log and graphs suggest \textit{-R}.
+There are two possible causes and the software can't tell them apart. Either the system really runs at another rate, as many emulators and \ac{fpga} implementations do at \textit{60} frames per second or the \textit{sample rate} of the capture is off, so it is an error of the recording. The \textit{-R} option estimates the \textit{sample rate} from the length of the file, for the \textit{Reference} (\textit{r}), the \textit{Comparison} (\textit{c}) or both (\textit{b}). In the second case it corrects the capture. In the first it compares both at the same pitch, a supposition like \textit{-j}, and the comparison without it is the real one.
 
 If the \textit{sync pulses} are not detected, the \textit{-T} option makes the detection more tolerant. It can be repeated up to four times, each level relaxing the detection further: \textit{-T} ignores the frequency of the pulses, \textit{-TT} and \textit{-TTT} accept noisier and less regular pulse trains, and \textit{-TTTT} also accepts pulses as short as half a frame.
 

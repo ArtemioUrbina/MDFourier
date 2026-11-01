@@ -535,6 +535,17 @@ int LoadWAVFile(FILE *file, AudioSignal *Signal, parameters *config)
 	return 1;
 }
 
+void SuggestVideoFormat(AudioSignal *Signal, int format, parameters *config)
+{
+	logmsg(" - This signal is configured as '%s'%s, check if that is not the issue.\n",
+		config->types.SyncFormat[format].syncName, config->smallFile ? " and is smaller than expected" : "");
+	for(int f = 0; f < config->types.syncCount; f++)
+	{
+		if(f != format)
+			logmsg("   For '%s' use -%c %d\n", config->types.SyncFormat[f].syncName, Signal->role == ROLE_REF ? 'Y' : 'Z', f);
+	}
+}
+
 int DetectSync(AudioSignal *Signal, parameters *config)
 {
 	struct	timespec	start, end;
@@ -587,6 +598,20 @@ int DetectSync(AudioSignal *Signal, parameters *config)
 			logmsg(" - Detected %.8g Hz signal (%.8gms per frame) from Audio file\n", 
 						roundFloat(CalculateScanRate(Signal)), Signal->msPerFrame);
 
+			if(fabs(100.0 - Signal->msPerFrame*100.0/GetMSPerFrame(Signal, config)) > FRAMERATE_MISMATCH)
+			{
+				logmsg("\n%s: Framerate is %g%% different from the expected %gms.\n",
+					!config->ignoreFrameRateDiff ? "ERROR" : "WARNING",
+					fabs(100.0 - Signal->msPerFrame*100.0/GetMSPerFrame(Signal, config)), GetMSPerFrame(Signal, config));
+				if(config->types.syncCount > 1)
+					SuggestVideoFormat(Signal, Signal->role == ROLE_REF ? config->videoFormatRef : config->videoFormatCom, config);
+				if(!config->ignoreFrameRateDiff)
+				{
+					logmsg("\tIf you want to ignore this and compare the files, use -I.\n");
+					return 0;
+				}
+			}
+
 			seconds = (double)Signal->numSamples/Signal->SampleRate/(double)Signal->AudioChannels;
 			if(seconds < GetSignalTotalDuration(Signal->msPerFrame, config))
 				logmsg(" - File length is smaller than the expected %gs\n",
@@ -627,9 +652,8 @@ int DetectSync(AudioSignal *Signal, parameters *config)
 				logmsg(" - You can try using -TTT for an even more tolerant pulse detection algorithm\n");
 			if(config->syncTolerance == 3)
 				logmsg(" - You can try using -TTTT if the pulses snap to a coarse grid (emulated audio)\n");
-			if((format != 0 || config->smallFile) && config->types.syncCount != 1)
-				logmsg(" - This signal is configured as '%s'%s, check if that is not the issue.\n", 
-							config->types.SyncFormat[format].syncName, config->smallFile ? " and is smaller than expected" : "");
+			if(config->types.syncCount > 1 || config->smallFile)
+				SuggestVideoFormat(Signal, format, config);
 			if(config->trimmingNeeded)
 				logmsg(" - Leading/tailing silence too long, if sync detection fails please consider trimming\n");
 			return 0;
@@ -666,9 +690,8 @@ int DetectSync(AudioSignal *Signal, parameters *config)
 					format = config->videoFormatCom;
 				if(!config->syncTolerance)
 					logmsg(" - You can try using -T for a frequency tolerant pulse detection algorithm\n");
-				if((format != 0 || config->smallFile) && config->types.syncCount != 1)
-					logmsg(" - This signal is configured as '%s'%s, check if that is not the issue.\n", 
-							config->types.SyncFormat[format].syncName, config->smallFile ? " and is smaller than expected" : "");
+				if(config->types.syncCount > 1 || config->smallFile)
+					SuggestVideoFormat(Signal, format, config);
 				return 0;
 			}
 
@@ -701,7 +724,7 @@ int DetectSync(AudioSignal *Signal, parameters *config)
 
 			expected = GetMSPerFrame(Signal, config);
 			diff = fabs(100.0 - Signal->msPerFrame*100.0/expected);
-			if(diff > 1.0)
+			if(diff > FRAMERATE_MISMATCH)
 			{
 				logmsg("\n%s: Framerate is %g%% different from the expected %gms.\n",
 						!config->ignoreFrameRateDiff ? "ERROR" : "WARNING", diff, expected);

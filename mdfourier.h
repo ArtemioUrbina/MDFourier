@@ -139,6 +139,7 @@
 // In a 20 kHz tone 0.25 cents is ~2.9 Hz and 0.08 cents ~0.9 Hz
 #define MAX_CENTS_DIFF 0.25
 #define MIN_CENTS_DIFF 0.08
+#define FRAMERATE_MISMATCH 1.0
 
 #define BUFFER_SIZE		4096
 #define T_BUFFER_SIZE	BUFFER_SIZE*2+256
@@ -774,6 +775,8 @@ typedef struct parameters_st {
 	int				internalSyncTolerance;
 	double			RefCentsDifferenceSR;
 	double			ComCentsDifferenceSR;
+	double			RefCentsFromProfile;	// duration against the profile's frame rate, without -R
+	double			ComCentsFromProfile;
 	int				pErrorReport;
 	int				noBalance;
 	double			highestValueBitDepth;

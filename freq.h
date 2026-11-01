@@ -173,6 +173,7 @@ int GetBlockNoCompare(parameters *config, int pos);
 double GetSeparationDB(AudioBlocks *block, int *limited);
 double CalculateMSPerFrame(AudioSignal *Signal, parameters *config);
 double CalculateMSPerFrameNS(AudioSignal *Signal, double Frames, parameters *config);
+void CheckDurationPitch(parameters *config);
 double CalculateMSPerFrameAndCheckSamplerate(AudioSignal *Signal, parameters *config);
 double CalculateScanRate(AudioSignal *Signal);
 double CalculateScanRateOriginalFramerate(AudioSignal *Signal);

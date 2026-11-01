@@ -4172,6 +4172,46 @@ int ApplySamplerateChange(AudioSignal *Signal, parameters *config)
 	return 0;
 }
 
+// This detects if two files are off from the profile's frame rate by the same amount
+void CheckDurationPitch(parameters *config)
+{
+	double	ref = config->RefCentsFromProfile, com = config->ComCentsFromProfile;
+	int		refOff = fabs(ref) >= MAX_CENTS_DIFF, comOff = fabs(com) >= MAX_CENTS_DIFF;
+	char	option = 'b';
+
+	// no "-0.00" for a file on the profile's frame rate
+	if(fabs(ref) < 0.005)
+		ref = 0;
+	if(fabs(com) < 0.005)
+		com = 0;
+
+	if(fabs(com - ref) >= MAX_CENTS_DIFF)
+	{
+		if(refOff && !comOff)
+			option = 'r';
+		if(comOff && !refOff)
+			option = 'c';
+		logmsg(" - WARNING: Comparison duration differs by %0.2f cents from the Reference, and so does its pitch\n"
+			"   (Reference %0.2f, Comparison %0.2f cents from the profile's frame rate)\n"
+			"   The systems could run at different rates, or it could be an error in capture device clock.\n"
+			"   -R %c matches them to the profile to compare at the same pitch\n",
+			com - ref, ref, com, option);
+		if(option != 'c')
+		{
+			config->RefCentsDifferenceSR = ref;
+			config->SRNoMatch |= ROLE_REF;
+		}
+		if(option != 'r')
+		{
+			config->ComCentsDifferenceSR = com;
+			config->SRNoMatch |= ROLE_COMP;
+		}
+	}
+	else if(refOff || comOff)
+		logmsg(" - NOTE: Both durations are %0.2f cents from the profile's frame rate and match each other,\n"
+			"   The profile's frame rate differs from this system's\n", (ref + com)/2);
+}
+
 double CalculateMSPerFrameAndCheckSamplerate(AudioSignal *Signal, parameters *config)
 {
 	double msPerFrame = 0, endOffset = 0, startOffset = 0;
@@ -4273,20 +4313,21 @@ double CalculateMSPerFrameAndCheckSamplerate(AudioSignal *Signal, parameters *co
 		*/
 	}
 
+	// Without -R, keep how far each duration is from the profile's frame rate.
+	// Beyond FRAMERATE_MISMATCH it is the wrong video format
+	if(config->doSamplerateAdjust == 'n' && fabs(centsDifferenceSR) < 1200.0*log2(1.0 + FRAMERATE_MISMATCH/100.0))
+	{
+		if(Signal->role == ROLE_REF)
+			config->RefCentsFromProfile = centsDifferenceSR;
+		else
+		{
+			config->ComCentsFromProfile = centsDifferenceSR;
+			CheckDurationPitch(config); 
+		}
+	}
+
 	if(areDoublesEqual(fabs(SRDifference), 0.0))  // do not make adjustments if they make no change at all 
 		return msPerFrame;
-
-	// Without -R a duration that doesn't match the profile's frame rate is a pitch difference
-	if(config->doSamplerateAdjust == 'n' && fabs(centsDifferenceSR) >= MAX_CENTS_DIFF)
-	{
-		logmsg(" - WARNING: %s duration is %0.2f cents from the profile's frame rate, its pitch will differ. Can be matched with -R %c\n",
-			getRoleText(Signal), centsDifferenceSR, Signal->role == ROLE_REF ? 'r' : 'c');
-		if(Signal->role == ROLE_REF)
-			config->RefCentsDifferenceSR = centsDifferenceSR;
-		else
-			config->ComCentsDifferenceSR = centsDifferenceSR;
-		config->SRNoMatch |= Signal->role;
-	}
 
 	if(config->doSamplerateAdjust != 'n' && fabs(centsDifferenceSR) > 0)
 	{
@@ -4811,7 +4852,7 @@ inline double GetSignalMinDBFS(AudioSignal *Signal)
 	double Min = 0;
 
 	if(Signal->header.fmt.AudioFormat == WAVE_FORMAT_IEEE_FLOAT)
-		Min = PCM_32BIT_MIN_AMPLITUDE;	
+		Min = Signal->header.fmt.bitsPerSample == 32 ? PCM_24BIT_MIN_AMPLITUDE : PCM_32BIT_MIN_AMPLITUDE;
 	else
 	{
 		switch(Signal->bytesPerSample)

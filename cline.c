@@ -304,6 +304,8 @@ void CleanParameters(parameters *config)
 
 	config->RefCentsDifferenceSR = 0;
 	config->ComCentsDifferenceSR = 0;
+	config->RefCentsFromProfile = 0;
+	config->ComCentsFromProfile = 0;
 
 	config->SetBisectionLines = 0;
 	config->BisectionHertz = 0;
