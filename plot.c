@@ -136,7 +136,7 @@
 #define	COLOR_BARS_WIDTH_SCALE	220
 
 #define	DIFFERENCE_FOLDER	"Difference"
-#define	SPECTROGRAM_FOLDER	"Spectrograms"
+#define	SPECTROGRAM_FOLDER	"Spectra"
 #define	WAVEFORM_FOLDER		"Waveforms"
 #define	PHASE_FOLDER		"Phase"
 #define	MISSING_FOLDER		"MissingAndExtra"

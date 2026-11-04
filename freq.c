@@ -4189,17 +4189,21 @@ void CheckDurationPitch(parameters *config)
 	if(fabs(com) < 0.005)
 		com = 0;
 
+	if(config->clkMeasure)
+	{
+		if(config->verbose && fabs(com - ref) >= MAX_CENTS_DIFF)
+			logmsg(" - Comparison duration differs by %0.2f cents from the Reference, the clocks give the pitch\n", com - ref);
+		return;
+	}
+
 	if(fabs(com - ref) >= MAX_CENTS_DIFF)
 	{
 		if(refOff && !comOff)
 			option = 'r';
 		if(comOff && !refOff)
 			option = 'c';
-		logmsg(" - WARNING: Comparison duration differs by %0.2f cents from the Reference, and so does its pitch\n"
-			"   (Reference %0.2f, Comparison %0.2f cents from the profile's frame rate)\n"
-			"   The systems could run at different rates, or it could be an error in capture device clock.\n"
-			"   -R %c matches them to the profile to compare at the same pitch\n",
-			com - ref, ref, com, option);
+		logmsg(" - WARNING: Durations differ by %0.2f cents, and so does the pitch (can use -R %c)\n", com - ref, option);
+
 		if(option != 'c')
 		{
 			config->RefCentsDifferenceSR = ref;
@@ -4211,9 +4215,6 @@ void CheckDurationPitch(parameters *config)
 			config->SRNoMatch |= ROLE_COMP;
 		}
 	}
-	else if(refOff || comOff)
-		logmsg(" - NOTE: Both durations are %0.2f cents from the profile's frame rate and match each other.\n"
-			"   The profile's frame rate differs from these systems\n", (ref + com)/2);
 }
 
 double CalculateMSPerFrameAndCheckSamplerate(AudioSignal *Signal, parameters *config)

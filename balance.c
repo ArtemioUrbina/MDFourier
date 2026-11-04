@@ -229,7 +229,7 @@ int CheckBalance(AudioSignal *Signal, int block, parameters *config)
 			ratio = Channels[1].freq[matchIndex].magnitude/Channels[0].freq[0].magnitude;
 
 			amplLeft = CalculateAmplitude(Channels[0].freq[0].magnitude, MaxMagLeft);
-			amplRight = CalculateAmplitude(Channels[1].freq[0].magnitude, MaxMagLeft);
+			amplRight = CalculateAmplitude(Channels[1].freq[matchIndex].magnitude, MaxMagLeft);	// the bin of the left peak
 			amplDiff = amplLeft - amplRight;
 		}
 		else
@@ -238,7 +238,7 @@ int CheckBalance(AudioSignal *Signal, int block, parameters *config)
 			ratio = Channels[0].freq[0].magnitude/Channels[1].freq[matchIndex].magnitude;
 
 			amplLeft = CalculateAmplitude(Channels[0].freq[0].magnitude, MaxMagRight);
-			amplRight = CalculateAmplitude(Channels[1].freq[0].magnitude, MaxMagRight);
+			amplRight = CalculateAmplitude(Channels[1].freq[matchIndex].magnitude, MaxMagRight);
 			amplDiff = amplRight - amplLeft;
 		}
 
