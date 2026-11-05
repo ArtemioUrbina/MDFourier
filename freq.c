@@ -870,6 +870,7 @@ fftw_plan GetPlanInternal(long int size, int reverse)
 	#pragma omp critical(fftw_planner)
 #endif
 	{
+		InitFFTW();
 		for(int i = 0; !plan && i < planCacheCount; i++)
 		{
 			if(planCache[i].size == size && planCache[i].reverse == reverse)
@@ -956,22 +957,6 @@ void ReleaseAudioBlockStructure(parameters *config)
 	if(!fftw_export_wisdom_to_filename("wisdom.fftw"))
 		printf("WARNING: Could not save wisdom.fftw file\n");
 
-	if(config->model_plan)
-	{
-		fftw_destroy_plan(config->model_plan);
-		config->model_plan = NULL;
-	}
-	if(config->reverse_plan)
-	{
-		fftw_destroy_plan(config->reverse_plan);
-		config->reverse_plan = NULL;
-	}
-	if(config->sync_plan)
-	{
-		fftw_destroy_plan(config->sync_plan);
-		config->sync_plan = NULL;
-	}
-	
 	ReleaseCLKData(config);
 	ReleaseFFTWPlanCache();
 }

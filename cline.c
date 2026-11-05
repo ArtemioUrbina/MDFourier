@@ -276,9 +276,6 @@ void CleanParameters(parameters *config)
 	config->thresholdMissingHiDif = MISS_HIDIFF;
 	config->thresholdExtraHiDif = EXTRA_HIDIFF;
 
-	config->sync_plan = NULL;
-	config->model_plan = NULL;
-	config->reverse_plan = NULL;
 
 	config->referenceSignal = NULL;
 	config->comparisonSignal = NULL;

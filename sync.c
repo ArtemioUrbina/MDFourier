@@ -1126,7 +1126,7 @@ double ProcessChunkForSyncPulse(double *samples, size_t size, long samplerate, P
 	seconds = (double)size/((double)samplerate*AudioChannels);
 	boxsize = seconds;
 
-	signal = (double*)malloc(sizeof(double)*(monoSignalSize+1));
+	signal = (double*)fftw_malloc(sizeof(double)*(monoSignalSize+1));
 	if(!signal)
 	{
 		logmsgFileOnly("Not enough memory\n");
@@ -1135,31 +1135,17 @@ double ProcessChunkForSyncPulse(double *samples, size_t size, long samplerate, P
 	spectrum = (fftw_complex*)fftw_malloc(sizeof(fftw_complex)*(monoSignalSize/2+1));
 	if(!spectrum)
 	{
+		fftw_free(signal);
 		logmsgFileOnly("Not enough memory\n");
 		return(0);
 	}
 
-	InitFFTW();
-	if(!config->sync_plan)
-	{
-		config->sync_plan = fftw_plan_dft_r2c_1d(monoSignalSize, signal, spectrum, FFTW_MEASURE);
-		if(!config->sync_plan)
-		{
-			logmsgFileOnly("FFTW failed to create FFTW_MEASURE plan\n");
-			free(signal);
-			signal = NULL;
-			fftw_free(spectrum);
-			spectrum = NULL;
-			return 0;
-		}
-	}
-
-	p = fftw_plan_dft_r2c_1d(monoSignalSize, signal, spectrum, FFTW_MEASURE);
+	p = GetR2CPlan(monoSignalSize);
 	if(!p)
 	{
 		logmsgFileOnly("FFTW failed to create FFTW_MEASURE plan\n");
 
-		free(signal);
+		fftw_free(signal);
 		signal = NULL;
 
 		fftw_free(spectrum);
@@ -1180,8 +1166,7 @@ double ProcessChunkForSyncPulse(double *samples, size_t size, long samplerate, P
 			signal[i] = ((double)samples[i*AudioChannels]+(double)samples[i*AudioChannels+1])/2.0;
 	}
 
-	fftw_execute(p); 
-	fftw_destroy_plan(p);
+	fftw_execute_dft_r2c(p, signal, spectrum);
 	p = NULL;
 
 	for(i = 1; i < monoSignalSize/2+1; i++)
@@ -1210,7 +1195,7 @@ double ProcessChunkForSyncPulse(double *samples, size_t size, long samplerate, P
 	fftw_free(spectrum);
 	spectrum = NULL;
 
-	free(signal);
+	fftw_free(signal);
 	signal = NULL;
 
 	pulse->hertz = maxHertz;

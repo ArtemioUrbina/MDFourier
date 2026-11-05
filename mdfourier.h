@@ -797,10 +797,6 @@ typedef struct parameters_st {
 	double 			plotResX;
 	double			plotResY;
 
-	fftw_plan		sync_plan;
-	fftw_plan		model_plan;
-	fftw_plan		reverse_plan;
-
 	double			refNoiseMin;
 	double			refNoiseMax;
 

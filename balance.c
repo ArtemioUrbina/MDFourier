@@ -317,7 +317,7 @@ int ExecuteBalanceDFFT(AudioBlocks *AudioArray, double *samples, size_t size, do
 	if(config->ZeroPad)  /* disabled by default */
 		zeropadding = GetZeroPadValues(&monoSignalSize, &seconds, samplerate, 1);
 
-	signal = (double*)malloc(sizeof(double)*(monoSignalSize+1));
+	signal = (double*)fftw_malloc(sizeof(double)*(monoSignalSize+1));
 	if(!signal)
 	{
 		logmsg("Not enough memory\n");
@@ -326,28 +326,18 @@ int ExecuteBalanceDFFT(AudioBlocks *AudioArray, double *samples, size_t size, do
 	spectrum = (fftw_complex*)fftw_malloc(sizeof(fftw_complex)*(monoSignalSize/2+1));
 	if(!spectrum)
 	{
+		fftw_free(signal);
 		logmsg("Not enough memory\n");
 		return(0);
 	}
 
-	if(!config->model_plan)
-	{
-		config->model_plan = fftw_plan_dft_r2c_1d(monoSignalSize, signal, spectrum, FFTW_MEASURE);
-		if(!config->model_plan)
-		{
-			logmsg("FFTW failed to create FFTW_MEASURE plan\n");
-			free(signal);
-			signal = NULL;
-			return 0;
-		}
-	}
-
-	p = fftw_plan_dft_r2c_1d(monoSignalSize, signal, spectrum, FFTW_MEASURE);
+	p = GetR2CPlan(monoSignalSize);
 	if(!p)
 	{
 		logmsg("FFTW failed to create FFTW_MEASURE plan\n");
-		free(signal);
+		fftw_free(signal);
 		signal = NULL;
+		fftw_free(spectrum);
 		return 0;
 	}
 
@@ -368,11 +358,10 @@ int ExecuteBalanceDFFT(AudioBlocks *AudioArray, double *samples, size_t size, do
 		}
 	}
 
-	fftw_execute(p); 
-	fftw_destroy_plan(p);
+	fftw_execute_dft_r2c(p, signal, spectrum);
 	p = NULL;
 
-	free(signal);
+	fftw_free(signal);
 	signal = NULL;
 
 	AudioArray->fftwValues.spectrum = spectrum;
