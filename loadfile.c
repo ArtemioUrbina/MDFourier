@@ -104,35 +104,109 @@ int LoadFile(AudioSignal **Signal, char *fileName, int role, parameters *config)
 	return 1;
 }
 
-// no endianess considerations, PCM in RIFF is little endian and this code is little endian
+// IEEE float samples in RIFF are little endian, bytes are reversed on big endian machines
 void ConvertByteArrayToIEEE32Sample(const void *buf, void *target)
 {
-	const unsigned char *b = (const unsigned char *)buf;
-	unsigned char *t = (unsigned char *)target;
-
-	t[0] = b[0];
-	t[1] = b[1];
-	t[2] = b[2];
-	t[3] = b[3];
+	memcpy(target, buf, 4);
+	SwapSampleBytes((uint8_t*)target, 1, 4);
 }
 
-// no endianess considerations, PCM in RIFF is little endian and this code is little endian
 void ConvertByteArrayToIEEE64Sample(const void *buf, void *target)
 {
-	const unsigned char *b = (const unsigned char *)buf;
-	unsigned char *t = (unsigned char *)target;
-
-	t[0] = b[0];
-	t[1] = b[1];
-	t[2] = b[2];
-	t[3] = b[3];
-	t[4] = b[4];
-	t[5] = b[5];
-	t[6] = b[6];
-	t[7] = b[7];
+	memcpy(target, buf, 8);
+	SwapSampleBytes((uint8_t*)target, 1, 8);
 }
 
-// For future(?) Endianess compatibility
+int IsBigEndianHost(void)
+{
+	uint16_t	value = 1;
+
+	return(*(uint8_t*)&value == 0);
+}
+
+uint16_t LittleEndian16(uint16_t value)
+{
+	if(IsBigEndianHost())
+		return EndianessChange16bits(value);
+	return value;
+}
+
+uint32_t LittleEndian32(uint32_t value)
+{
+	if(IsBigEndianHost())
+		return EndianessChange32bits(value);
+	return value;
+}
+
+void SwapSampleBytes(uint8_t *bytes, long int count, int size)
+{
+	if(!bytes || !IsBigEndianHost())
+		return;
+
+	for(long int i = 0; i < count; i++)
+	{
+		uint8_t	*sample = bytes + i*size;
+
+		for(int b = 0; b < size/2; b++)
+		{
+			uint8_t	tmp = sample[b];
+
+			sample[b] = sample[size-1-b];
+			sample[size-1-b] = tmp;
+		}
+	}
+}
+
+void RIFFHeaderLittleEndian(riff_hdr *riff)
+{
+	riff->ChunkSize = LittleEndian32(riff->ChunkSize);
+}
+
+void FMTHeaderLittleEndian(fmt_hdr *fmt)
+{
+	fmt->Subchunk1Size = LittleEndian32(fmt->Subchunk1Size);
+	fmt->AudioFormat = LittleEndian16(fmt->AudioFormat);
+	fmt->NumOfChan = LittleEndian16(fmt->NumOfChan);
+	fmt->SamplesPerSec = LittleEndian32(fmt->SamplesPerSec);
+	fmt->bytesPerSec = LittleEndian32(fmt->bytesPerSec);
+	fmt->blockAlign = LittleEndian16(fmt->blockAlign);
+	fmt->bitsPerSample = LittleEndian16(fmt->bitsPerSample);
+}
+
+void FMTExtraLittleEndian(uint8_t *extra, int fmtType)
+{
+	if(fmtType == FMT_TYPE_2_SIZE)
+	{
+		fmt_hdr_ext1	ext1;
+
+		memcpy(&ext1, extra, sizeof(fmt_hdr_ext1));
+		ext1.extSize = LittleEndian16(ext1.extSize);
+		memcpy(extra, &ext1, sizeof(fmt_hdr_ext1));
+	}
+	if(fmtType == FMT_TYPE_3_SIZE)
+	{
+		fmt_hdr_ext2	ext2;
+
+		memcpy(&ext2, extra, sizeof(fmt_hdr_ext2));
+		ext2.extSize = LittleEndian16(ext2.extSize);
+		ext2.wValidBitsPerSample = LittleEndian16(ext2.wValidBitsPerSample);
+		ext2.dwChannelMask = LittleEndian32(ext2.dwChannelMask);
+		ext2.formatCode = LittleEndian16(ext2.formatCode);
+		memcpy(extra, &ext2, sizeof(fmt_hdr_ext2));
+	}
+}
+
+void DataHeaderLittleEndian(data_hdr *data)
+{
+	data->DataSize = LittleEndian32(data->DataSize);
+}
+
+void FactLittleEndian(fact_ck *fact)
+{
+	fact->DataSize = LittleEndian32(fact->DataSize);
+	fact->dwSampleLength = LittleEndian32(fact->dwSampleLength);
+}
+
 uint64_t EndianessChange64bits(uint64_t num)
 {
 	uint64_t swapped = 0;
@@ -175,7 +249,10 @@ int CheckFactChunk(FILE *file, AudioSignal *Signal)
 
 	bytesRead = fread(&Signal->fact, 1, sizeof(fact_ck), file);
 	if(bytesRead == sizeof(fact_ck))
+	{
+		FactLittleEndian(&Signal->fact);
 		Signal->factExists = 1;
+	}
 	else
 		logmsg("\tWARNING: Extensible wave requires a fact chunk. Using header data.\n");
 
@@ -215,6 +292,7 @@ int LoadWAVFile(FILE *file, AudioSignal *Signal, parameters *config)
 		logmsg("\tERROR: Invalid Audio file. File too small. (RIFF not found)\n");
 		return(0);
 	}
+	RIFFHeaderLittleEndian(&Signal->header.riff);
 
 	if(strncmp((char*)Signal->header.riff.RIFF, "RIFF", 4) != 0)
 	{
@@ -241,6 +319,7 @@ int LoadWAVFile(FILE *file, AudioSignal *Signal, parameters *config)
 			logmsg("\tERROR: Invalid Audio file. File too small. (Sub chunk not found)\n");
 			return(0);
 		}
+		schunk.Size = LittleEndian32(schunk.Size);
 		if(strncmp((char*)schunk.chunkID, "fmt", 3) != 0)
 		{
 			if(fseek(file, schunk.Size*sizeof(uint8_t), SEEK_CUR) != 0)
@@ -259,6 +338,7 @@ int LoadWAVFile(FILE *file, AudioSignal *Signal, parameters *config)
 		logmsg("\tERROR: Invalid Audio file. File too small. (fmt chunk not found)\n");
 		return(0);
 	}
+	FMTHeaderLittleEndian(&Signal->header.fmt);
 
 	switch(Signal->header.fmt.Subchunk1Size)
 	{
@@ -272,6 +352,7 @@ int LoadWAVFile(FILE *file, AudioSignal *Signal, parameters *config)
 				return(0);
 			}
 			Signal->fmtType = FMT_TYPE_2_SIZE;
+			FMTExtraLittleEndian(Signal->fmtExtra, Signal->fmtType);
 			break;
 		case FMT_TYPE_3:
 			if(fread(&Signal->fmtExtra, 1, sizeof(fmt_hdr_ext2), file) != sizeof(fmt_hdr_ext2))
@@ -280,6 +361,7 @@ int LoadWAVFile(FILE *file, AudioSignal *Signal, parameters *config)
 				return(0);
 			}
 			Signal->fmtType = FMT_TYPE_3_SIZE;
+			FMTExtraLittleEndian(Signal->fmtExtra, Signal->fmtType);
 			break;
 		default:
 			if(Signal->header.fmt.Subchunk1Size + 8 > sizeof(fmt_hdr))  // Add the fmt and chunksize length: 8 bytes
@@ -304,6 +386,7 @@ int LoadWAVFile(FILE *file, AudioSignal *Signal, parameters *config)
 			logmsg("\tERROR: Invalid Audio file. File too small. (data chunk not found)\n");
 			return(0);
 		}
+		schunk.Size = LittleEndian32(schunk.Size);
 		if(strncmp((char*)schunk.chunkID, "data", 4) != 0)
 		{
 			if(fseek(file, schunk.Size*sizeof(uint8_t), SEEK_CUR) != 0)
@@ -337,6 +420,7 @@ int LoadWAVFile(FILE *file, AudioSignal *Signal, parameters *config)
 		logmsg("\tERROR: Invalid Audio file. File too small. 5\n");
 		return(0);
 	}
+	DataHeaderLittleEndian(&Signal->header.data);
 
 	if(Signal->header.fmt.NumOfChan == 2 || Signal->header.fmt.NumOfChan == 1) /* Check for Stereo and Mono */
 		Signal->AudioChannels = Signal->header.fmt.NumOfChan;
@@ -446,7 +530,7 @@ int LoadWAVFile(FILE *file, AudioSignal *Signal, parameters *config)
 	}
 	memset(Signal->Samples, 0, sizeof(double)*Signal->numSamples);
 
-	// no endianess considerations, PCM in RIFF is little endian and this code is little endian
+	// PCM in RIFF is little endian, samples are built byte by byte so this works on any machine
 	if(Signal->header.fmt.AudioFormat == WAVE_FORMAT_PCM)
 	{
 		for(samplePos = 0; samplePos < Signal->numSamples; samplePos++)

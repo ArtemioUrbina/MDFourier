@@ -33,6 +33,22 @@ int LoadWAVFile(FILE *file, AudioSignal *Signal, parameters *config);
 int DetectSync(AudioSignal *Signal, parameters *config);
 int AdjustSignalValues(AudioSignal *Signal, parameters *config);
 
+/* WAV byte order, these only change data on big endian machines */
+int IsBigEndianHost(void);
+uint16_t LittleEndian16(uint16_t value);
+uint32_t LittleEndian32(uint32_t value);
+void SwapSampleBytes(uint8_t *bytes, long int count, int size);
+void RIFFHeaderLittleEndian(riff_hdr *riff);
+void FMTHeaderLittleEndian(fmt_hdr *fmt);
+void FMTExtraLittleEndian(uint8_t *extra, int fmtType);
+void DataHeaderLittleEndian(data_hdr *data);
+void FactLittleEndian(fact_ck *fact);
+uint64_t EndianessChange64bits(uint64_t num);
+uint32_t EndianessChange32bits(uint32_t num);
+uint16_t EndianessChange16bits(uint16_t num);
+void ConvertByteArrayToIEEE32Sample(const void *buf, void *target);
+void ConvertByteArrayToIEEE64Sample(const void *buf, void *target);
+
 /* Functions that deal with samples */
 int MoveSampleBlockInternal(AudioSignal *Signal, long int element, long int pos, long int signalStartOffset, parameters *config);
 int MoveSampleBlockExternal(AudioSignal *Signal, long int element, long int pos, long int signalStartOffset, parameters *config);

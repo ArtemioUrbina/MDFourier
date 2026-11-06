@@ -30,6 +30,7 @@
 #include "mdfourier.h"
 #include "freq.h"
 #include "cline.h"
+#include "loadfile.h"
 
 #define	CONSOLE_ENABLED		1
 
@@ -143,7 +144,7 @@ void ConvertPCMSampleToByteArray(double sample, char *bytes, int size)
 {
 	int32_t	sampleInt = 0;
 
-	sampleInt = (int32_t)(sample + 0.5);
+	sampleInt = (int32_t)floor(sample + 0.5);
 	
 	bytes[0] = (char)((sampleInt & 0x000000ff));
 	if(size >= 2)
@@ -208,6 +209,7 @@ int SaveWAVEChunk(char *filename, AudioSignal *Signal, double *buffer, long int 
 		samplesf = (float*)samples;
 		for(i = 0; i < loadedBlockSize; i++)
 			samplesf[i] = (float)buffer[i];
+		SwapSampleBytes((uint8_t*)samples, loadedBlockSize, 4);
 		convertedSamples = 1;
 	}
 
@@ -218,6 +220,7 @@ int SaveWAVEChunk(char *filename, AudioSignal *Signal, double *buffer, long int 
 		samplesd = (double*)samples;
 		for(i = 0; i < loadedBlockSize; i++)
 			samplesd[i] = (double)buffer[i];
+		SwapSampleBytes((uint8_t*)samples, loadedBlockSize, 8);
 		convertedSamples = 1;
 	}
 
@@ -229,6 +232,10 @@ int SaveWAVEChunk(char *filename, AudioSignal *Signal, double *buffer, long int 
 
 	cheader.riff.ChunkSize = sizeof(riff_hdr)+sizeof(fmt_hdr)+Signal->fmtType*sizeof(int8_t)+
 				loadedBlockSize*Signal->bytesPerSample+Signal->factExists*sizeof(fact_ck);
+
+	// headers are written little endian
+	RIFFHeaderLittleEndian(&cheader.riff);
+	FMTHeaderLittleEndian(&cheader.fmt);
 
 	if(fwrite(&cheader.riff, 1, sizeof(riff_hdr), chunk) != sizeof(riff_hdr))
 	{
@@ -249,7 +256,11 @@ int SaveWAVEChunk(char *filename, AudioSignal *Signal, double *buffer, long int 
 	// Check extended fmt header
 	if(Signal->fmtType != FMT_TYPE_1_SIZE)
 	{
-		if(fwrite(Signal->fmtExtra, 1, sizeof(int8_t)*Signal->fmtType, chunk) != sizeof(int8_t)*Signal->fmtType)
+		uint8_t	extra[FMT_EXTRA_SIZE];
+
+		memcpy(extra, Signal->fmtExtra, sizeof(uint8_t)*FMT_EXTRA_SIZE);
+		FMTExtraLittleEndian(extra, Signal->fmtType);
+		if(fwrite(extra, 1, sizeof(int8_t)*Signal->fmtType, chunk) != sizeof(int8_t)*Signal->fmtType)
 		{
 			fclose(chunk);
 			logmsg("\tERROR: Could not write fmt extended header chunk to file %s\n", filename);
@@ -259,6 +270,7 @@ int SaveWAVEChunk(char *filename, AudioSignal *Signal, double *buffer, long int 
 	}
 
 	cheader.data.DataSize = loadedBlockSize*Signal->bytesPerSample;
+	DataHeaderLittleEndian(&cheader.data);
 	if(fwrite(&cheader.data, 1, sizeof(data_hdr), chunk) != sizeof(data_hdr))
 	{
 		fclose(chunk);
@@ -286,8 +298,12 @@ int SaveWAVEChunk(char *filename, AudioSignal *Signal, double *buffer, long int 
 
 	if(Signal->factExists)
 	{
+		fact_ck	fact;
+
 		Signal->fact.dwSampleLength = loadedBlockSize/Signal->AudioChannels;
-		if(fwrite(&Signal->fact, 1, sizeof(fact_ck), chunk) != sizeof(fact_ck))
+		fact = Signal->fact;
+		FactLittleEndian(&fact);
+		if(fwrite(&fact, 1, sizeof(fact_ck), chunk) != sizeof(fact_ck))
 		{
 			fclose(chunk);
 			logmsg("\tERROR: Could not write fact header chunk to file %s\n", filename);
