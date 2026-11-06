@@ -248,12 +248,13 @@ void freeWindows(windowManager *wm)
 			wm->windowArray[i].window = NULL;
 		}
 	}
-	if(wm->windowCount)
+	
+	if(wm->windowArray)
 	{
 		free(wm->windowArray);
 		wm->windowArray = NULL;
-		wm->windowCount = 0;
 	}
+	wm->windowCount = 0;
 
 	wm->MaxWindow = 0;
 	wm->SampleRate = 0;
@@ -449,57 +450,4 @@ double *hammingWindow(long int n)
 	}
  
 	return(w);
-}
-
-double CalculateCorrectionFactor(windowManager *wm, long int frames)
-{
-	double		*window = NULL;
-	double		factor = 0, sum = 0;
-	long int	size = 0;
-
-	if(!wm)
-		return 1;
-
-	for(int i = 0; i < wm->windowCount; i++)
-	{
-		if(frames == wm->windowArray[i].frames)
-		{
-			window = wm->windowArray[i].window;
-			size = wm->windowArray[i].size;
-			break;
-		}
-	}
-
-	if(!window)
-		return 1;
-
-	for(long int i = 0; i < size; i++)
-		sum += window[i];
-	
-	factor = (double)size/sum;
-
-	return factor;
-}
-
-double CompensateValueForWindow(double value, char winType)
-{
-	switch(winType)
-	{
-		case 'n':
-			break;
-		case 't':
-			value *= 1.2122;
-			break;
-		case 'f':
-			value *= 4.63899;
-			break;
-		case 'h':
-			value *= 1.99986;
-			break;
-		case 'm':
-			value *= 1.85196;
-			break;
-	}
-
-	return value;
 }

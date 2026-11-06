@@ -41,8 +41,6 @@ int initWindows(windowManager *wm, double SampleRate, char winType, parameters *
 double *getWindowByLength(windowManager *wm, long int frames, long int cutFrames, double msPerFrame, parameters *config);
 double *CreateWindow(windowManager *wm, long int frames, long int cutFrames, double msPerFrame, parameters *config);
 void freeWindows(windowManager *windows);
-double CompensateValueForWindow(double value, char winType);
-double CalculateCorrectionFactor(windowManager *wm, long int frames);
 void printWindows(windowManager *wm);
 
 #endif

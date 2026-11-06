@@ -3937,9 +3937,6 @@ void VisualizeWindows(windowManager *wm, char *type, int role, parameters *confi
 		return;
 	for(int i = 0; i < wm->windowCount; i++)
 	{
-		//logmsg("Factor len %ld: %g\n", wm->windowArray[i].frames,
-			//CalculateCorrectionFactor(wm, wm->windowArray[i].frames));
-
 		//for(long int j = 0; j < wm->windowArray[i].size; j++)
 			//logmsg("Window %ld %g\n", j, wm->windowArray[i].window[j]);
 
