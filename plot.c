@@ -3443,65 +3443,6 @@ void PlotAllDifferentAmplitudesInFolder(FlatAmplDifference *amplDiff, long int s
 	ClosePlot(&plot);
 }
 
-int PlotEachTypeDifferentAmplitudes(FlatAmplDifference *amplDiff, long int size, char *filename, parameters *config)
-{
-	int 		i = 0, type = 0, types = 0, typeCount = 0, someStereo = 0;
-	char		name[BUFFER_SIZE];
-
-	someStereo = config->referenceSignal->AudioChannels == 2 || config->comparisonSignal->AudioChannels == 2;
-	typeCount = GetActiveBlockTypesNoRepeat(config);
-	for(i = 0; i < config->types.typeCount; i++)
-	{
-		type = config->types.typeArray[i].type;
-
-		if(type > TYPE_CONTROL && !config->types.typeArray[i].IsaddOnData && !config->types.typeArray[i].noCompare)
-		{
-			char	*returnFolder = NULL;
-		
-			if(typeCount > 1)
-			{
-				returnFolder = PushFolder(DIFFERENCE_FOLDER);
-				if(!returnFolder)
-					return 0;
-			}
-
-			sprintf(name, "DA_%s_%02d%s", filename, 
-				type, config->types.typeArray[i].typeName);
-			PlotSingleTypeDifferentAmplitudes(amplDiff, size, type, name, CHANNEL_STEREO, config);
-			logmsg(PLOT_ADVANCE_CHAR);
-
-			if(typeCount > 1)
-				ReturnToMainPath(&returnFolder);
-
-			if(config->types.typeArray[i].channel == CHANNEL_STEREO && someStereo)
-			{
-				if(typeCount > 1 || someStereo)
-				{
-					returnFolder = PushFolder(DIFFERENCE_FOLDER);
-					if(!returnFolder)
-						return 0;
-				}
-
-				sprintf(name, "DA_%s_%02d%s_%c", filename,
-					type, config->types.typeArray[i].typeName, CHANNEL_LEFT);
-				PlotSingleTypeDifferentAmplitudes(amplDiff, size, type, name, CHANNEL_LEFT, config);
-				logmsg(PLOT_ADVANCE_CHAR);
-
-				sprintf(name, "DA_%s_%02d%s_%c", filename,
-					type, config->types.typeArray[i].typeName, CHANNEL_RIGHT);
-				PlotSingleTypeDifferentAmplitudes(amplDiff, size, type, name, CHANNEL_RIGHT, config);
-				logmsg(PLOT_ADVANCE_CHAR);
-
-				if(typeCount > 1 || someStereo)
-					ReturnToMainPath(&returnFolder);
-			}
-
-			types ++;
-		}
-	}
-	return types;
-}
-
 void PlotSingleTypeDifferentAmplitudes(FlatAmplDifference *amplDiff, long int size, int type, char *filename, char channel, parameters *config)
 {
 	PlotFile	plot;
@@ -3684,79 +3625,6 @@ void PlotAllSpectrogram(FlatFrequency *freqs, long int size, char *filename, int
 	DrawColorAllTypeScale(&plot, MODE_SPEC, LEFT_MARGIN, HEIGHT_MARGIN, config->plotResX/COLOR_BARS_WIDTH_SCALE, config->plotResY/1.15, significant, VERT_SCALE_STEP_BAR, DRAW_BARS, CHANNEL_STEREO, config);
 	DrawLabelsMDF(&plot, signal == ROLE_REF ? SPECTROGRAM_TITLE_REF : SPECTROGRAM_TITLE_COM, ALL_LABEL, signal == ROLE_REF ? PLOT_SINGLE_REF : PLOT_SINGLE_COM, config);
 	ClosePlot(&plot);
-}
-
-int PlotEachTypeSpectrogram(FlatFrequency* freqs, long int size, char* filename, int signal, parameters* config, AudioSignal* Signal)
-{
-	int 		i = 0, types = 0;
-	char		name[BUFFER_SIZE];
-
-	for (i = 0; i < config->types.typeCount; i++)
-	{
-		if (config->types.typeArray[i].type > TYPE_CONTROL && !config->types.typeArray[i].IsaddOnData)
-		{
-			sprintf(name, "SP_%c_%s_%02d%s", signal == ROLE_REF ? 'A' : 'B', filename,
-				config->types.typeArray[i].type, config->types.typeArray[i].typeName);
-			PlotSingleTypeSpectrogram(freqs, size, config->types.typeArray[i].type, name, signal, CHANNEL_STEREO, config);
-			logmsg(PLOT_ADVANCE_CHAR);
-
-			if (config->types.typeArray[i].channel == CHANNEL_STEREO && Signal->AudioChannels == 2)
-			{
-				sprintf(name, "SP_%c_%s_%02d%s_%c", signal == ROLE_REF ? 'A' : 'B', filename,
-					config->types.typeArray[i].type, config->types.typeArray[i].typeName,
-					CHANNEL_LEFT);
-				PlotSingleTypeSpectrogram(freqs, size, config->types.typeArray[i].type, name, signal, CHANNEL_LEFT, config);
-				logmsg(PLOT_ADVANCE_CHAR);
-
-				sprintf(name, "SP_%c_%s_%02d%s_%c", signal == ROLE_REF ? 'A' : 'B', filename,
-					config->types.typeArray[i].type, config->types.typeArray[i].typeName,
-					CHANNEL_RIGHT);
-				PlotSingleTypeSpectrogram(freqs, size, config->types.typeArray[i].type, name, signal, CHANNEL_RIGHT, config);
-				logmsg(PLOT_ADVANCE_CHAR);
-			}
-			types++;
-		}
-	}
-
-	return types;
-}
-
-int PlotNoiseFloorSpectrogram(FlatFrequency * freqs, long int size, char* filename, int signal, parameters * config, AudioSignal * Signal)
-{
-	int		i = 0, type = 0;
-	char	name[BUFFER_SIZE];
-
-	if(Signal->role == ROLE_REF)
-		SetNoiseFloorReferenceLimits(freqs, size, config);
-
-	for (i = 0; i < config->types.typeCount; i++)
-	{
-		type = config->types.typeArray[i].type;
-		if(type == TYPE_SILENCE)
-		{
-			sprintf(name, "NF_SP_%c_%s_%02d%s", signal == ROLE_REF ? 'A' : 'B', filename, 
-					config->types.typeArray[i].type, config->types.typeArray[i].typeName);
-			PlotNoiseSpectrogram(freqs, size, CHANNEL_STEREO, name, signal, config, Signal);
-			logmsg(PLOT_ADVANCE_CHAR);
-
-			if (config->types.typeArray[i].channel == CHANNEL_STEREO && Signal->AudioChannels == 2)
-			{
-				sprintf(name, "NF_SP_%c_%s_%02d%s_%c", signal == ROLE_REF ? 'A' : 'B', filename,
-					config->types.typeArray[i].type, config->types.typeArray[i].typeName,
-					CHANNEL_LEFT);
-				PlotNoiseSpectrogram(freqs, size, CHANNEL_LEFT, name, signal, config, Signal);
-				logmsg(PLOT_ADVANCE_CHAR);
-
-				sprintf(name, "NF_SP_%c_%s_%02d%s_%c", signal == ROLE_REF ? 'A' : 'B', filename,
-					config->types.typeArray[i].type, config->types.typeArray[i].typeName,
-					CHANNEL_RIGHT);
-				PlotNoiseSpectrogram(freqs, size, CHANNEL_RIGHT, name, signal, config, Signal);
-				logmsg(PLOT_ADVANCE_CHAR);
-			}
-			return 1;
-		}
-	}
-	return 0;
 }
 
 void PlotSingleTypeSpectrogram(FlatFrequency *freqs, long int size, int type, char *filename, int signal, char channel, parameters *config)
@@ -6055,17 +5923,6 @@ void PlotTimeDomainGraphsAll(AudioSignal *ReferenceSignal, AudioSignal *Comparis
 	free(jobs);
 }
 
-void PlotTimeDomainGraphs(AudioSignal *Signal, parameters *config)
-{
-	if(!Signal)
-		return;
-
-	if(Signal->role == ROLE_REF)
-		PlotTimeDomainGraphsAll(Signal, NULL, config);
-	else
-		PlotTimeDomainGraphsAll(NULL, Signal, config);
-}
-
 int ExecutePlotBlockTimeDomainGraph(int waveType, AudioSignal *Signal, long int block, double data, char *folder, parameters *config)
 {
 	char *returnFolder = NULL;
@@ -6802,77 +6659,6 @@ void PlotAllPhase(FlatPhase *phaseDiff, long int size, char *filename, int pType
 		DrawLabelsMDF(&plot, pType == PHASE_REF ? PHASE_SIG_TITLE_REF : PHASE_SIG_TITLE_COM, ALL_LABEL, pType == PHASE_REF  ? PLOT_SINGLE_REF : PLOT_SINGLE_COM, config);
 
 	ClosePlot(&plot);
-}
-
-int PlotEachTypePhase(FlatPhase *phaseDiff, long int size, char *filename, int pType, parameters *config)
-{
-	int 		i = 0, type = 0, types = 0, typeCount = 0, bothStereo = 0;
-	char		name[BUFFER_SIZE];
-
-	bothStereo = config->referenceSignal->AudioChannels == 2 && config->comparisonSignal->AudioChannels == 2;
-	typeCount = GetActiveBlockTypesNoRepeat(config);
-	for(i = 0; i < config->types.typeCount; i++)
-	{
-		type = config->types.typeArray[i].type;
-
-		if(type > TYPE_CONTROL && !config->types.typeArray[i].IsaddOnData && !config->types.typeArray[i].noCompare)
-		{
-			char	*returnFolder = NULL;
-
-			if(typeCount > 1)
-			{
-				returnFolder = PushFolder(PHASE_FOLDER);
-				if(!returnFolder)
-					return 0;
-			}
-
-			if(pType == PHASE_DIFF)
-				sprintf(name, "PHASE_DIFF_%s_%02d%s", filename, 
-					type, config->types.typeArray[i].typeName);
-			else
-				sprintf(name, "PHASE_%c_%s_%02d%s", pType == PHASE_REF ? 'A' : 'B', filename, 
-					type, config->types.typeArray[i].typeName);
-			PlotSingleTypePhase(phaseDiff, size, type, name, pType, CHANNEL_STEREO, config);
-			logmsg(PLOT_ADVANCE_CHAR);
-
-			if(typeCount > 1)
-				ReturnToMainPath(&returnFolder);
-
-			if(config->types.typeArray[i].channel == CHANNEL_STEREO && bothStereo)
-			{
-				if(typeCount > 1 || bothStereo)
-				{
-					returnFolder = PushFolder(PHASE_FOLDER);
-					if(!returnFolder)
-						return 0;
-				}
-
-				if(pType == PHASE_DIFF)
-					sprintf(name, "PHASE_DIFF_%s_%02d%s_%c", filename, 
-						type, config->types.typeArray[i].typeName, CHANNEL_LEFT);
-				else
-					sprintf(name, "PHASE_%c_%s_%02d%s_%c", pType == PHASE_REF ? 'A' : 'B', filename, 
-						type, config->types.typeArray[i].typeName, CHANNEL_LEFT);
-				PlotSingleTypePhase(phaseDiff, size, type, name, pType, CHANNEL_LEFT, config);
-				logmsg(PLOT_ADVANCE_CHAR);
-
-				if(pType == PHASE_DIFF)
-					sprintf(name, "PHASE_DIFF_%s_%02d%s_%c", filename, 
-						type, config->types.typeArray[i].typeName, CHANNEL_RIGHT);
-				else
-					sprintf(name, "PHASE_%c_%s_%02d%s_%c", pType == PHASE_REF ? 'A' : 'B', filename, 
-						type, config->types.typeArray[i].typeName, CHANNEL_RIGHT);
-				PlotSingleTypePhase(phaseDiff, size, type, name, pType, CHANNEL_RIGHT, config);
-				logmsg(PLOT_ADVANCE_CHAR);
-
-				if(typeCount > 1 || bothStereo)
-					ReturnToMainPath(&returnFolder);
-			}
-
-			types ++;
-		}
-	}
-	return types;
 }
 
 void PlotSingleTypePhase(FlatPhase *phaseDiff, long int size, int type, char *filename, int pType, char channel, parameters *config)
