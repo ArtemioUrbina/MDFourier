@@ -535,36 +535,43 @@ int AddDifferenceTypeJobs(PlotJobList *list, FlatAmplDifference *amplDiff, long 
 	{
 		int type = config->types.typeArray[i].type, count = 1;
 
-		if(type <= TYPE_CONTROL || config->types.typeArray[i].IsaddOnData || config->types.typeArray[i].noCompare)
-			continue;
-
-		if(config->types.typeArray[i].channel == CHANNEL_STEREO && someStereo)
-			count = 3;
-
-		for(int c = 0; c < count; c++)
+		if(type > TYPE_CONTROL && !config->types.typeArray[i].IsaddOnData && !config->types.typeArray[i].noCompare)
 		{
-			PlotJob	*job = NewPlotJob(list, PJOB_DIFF_TYPE);
-			char	*folder = NULL;
+			if(config->types.typeArray[i].channel == CHANNEL_STEREO && someStereo)
+				count = 3;
 
-			if(!job)
-				return types;
-			if(c == 0)
+			for(int c = 0; c < count; c++)
 			{
-				sprintf(name, "DA_%s_%02d%s", filename, type, config->types.typeArray[i].typeName);
-				folder = typeCount > 1 ? DIFFERENCE_FOLDER : NULL;
+				PlotJob	*job = NewPlotJob(list, PJOB_DIFF_TYPE);
+				char	*folder = NULL;
+
+				if(!job)
+					return types;
+				// with a single compared type its graphs are the ALL ones
+				if(c == 0)
+				{
+					if(typeCount == 1)
+						sprintf(name, "DA__ALL_%s", filename);
+					else
+						sprintf(name, "DA_%s_%02d%s", filename, type, config->types.typeArray[i].typeName);
+					folder = typeCount > 1 ? DIFFERENCE_FOLDER : NULL;
+				}
+				else
+				{
+					if(typeCount == 1)
+						sprintf(name, "DA__ALL_%s_%c", filename, channels[c]);
+					else
+						sprintf(name, "DA_%s_%02d%s_%c", filename, type, config->types.typeArray[i].typeName, channels[c]);
+					folder = DIFFERENCE_FOLDER;	// typeCount > 1 || someStereo
+				}
+				SetPlotJobName(job, folder, name);
+				job->data = amplDiff;
+				job->size = size;
+				job->type = type;
+				job->channel = channels[c];
 			}
-			else
-			{
-				sprintf(name, "DA_%s_%02d%s_%c", filename, type, config->types.typeArray[i].typeName, channels[c]);
-				folder = DIFFERENCE_FOLDER;	// typeCount > 1 || someStereo
-			}
-			SetPlotJobName(job, folder, name);
-			job->data = amplDiff;
-			job->size = size;
-			job->type = type;
-			job->channel = channels[c];
+			types++;
 		}
-		types++;
 	}
 	return types;
 }
@@ -577,48 +584,69 @@ int AddPhaseTypeJobs(PlotJobList *list, FlatPhase *phaseDiff, long int size, cha
 	char	channels[3] = { CHANNEL_STEREO, CHANNEL_LEFT, CHANNEL_RIGHT };
 
 	bothStereo = config->referenceSignal->AudioChannels == 2 && config->comparisonSignal->AudioChannels == 2;
-	typeCount = GetActiveBlockTypesNoRepeat(config);
+	typeCount = GetComparedBlockTypesNoRepeat(config);
 	for(int i = 0; i < config->types.typeCount; i++)
 	{
 		int type = config->types.typeArray[i].type, count = 1;
 
-		if(type <= TYPE_CONTROL || config->types.typeArray[i].IsaddOnData || config->types.typeArray[i].noCompare)
-			continue;
-
-		if(config->types.typeArray[i].channel == CHANNEL_STEREO && bothStereo)
-			count = 3;
-
-		for(int c = 0; c < count; c++)
+		if(type > TYPE_CONTROL && !config->types.typeArray[i].IsaddOnData && !config->types.typeArray[i].noCompare)
 		{
-			PlotJob	*job = NewPlotJob(list, PJOB_PHASE_TYPE);
-			char	*folder = NULL;
+			if(config->types.typeArray[i].channel == CHANNEL_STEREO && bothStereo)
+				count = 3;
 
-			if(!job)
-				return types;
-			if(c == 0)
+			for(int c = 0; c < count; c++)
 			{
-				if(pType == PHASE_DIFF)
-					sprintf(name, "PHASE_DIFF_%s_%02d%s", filename, type, config->types.typeArray[i].typeName);
+				PlotJob	*job = NewPlotJob(list, PJOB_PHASE_TYPE);
+				char	*folder = NULL;
+
+				if(!job)
+					return types;
+				// with a single compared type its graphs are the ALL ones
+				if(c == 0)
+				{
+					if(typeCount == 1)
+					{
+						if(pType == PHASE_DIFF)
+							sprintf(name, "PHASE_DIFF__ALL_%s", filename);
+						else
+							sprintf(name, "PHASE__ALL_%c_%s", pType == PHASE_REF ? 'A' : 'B', filename);
+					}
+					else
+					{
+						if(pType == PHASE_DIFF)
+							sprintf(name, "PHASE_DIFF_%s_%02d%s", filename, type, config->types.typeArray[i].typeName);
+						else
+							sprintf(name, "PHASE_%c_%s_%02d%s", pType == PHASE_REF ? 'A' : 'B', filename, type, config->types.typeArray[i].typeName);
+					}
+					folder = typeCount > 1 ? PHASE_FOLDER : NULL;
+				}
 				else
-					sprintf(name, "PHASE_%c_%s_%02d%s", pType == PHASE_REF ? 'A' : 'B', filename, type, config->types.typeArray[i].typeName);
-				folder = typeCount > 1 ? PHASE_FOLDER : NULL;
+				{
+					if(typeCount == 1)
+					{
+						if(pType == PHASE_DIFF)
+							sprintf(name, "PHASE_DIFF__ALL_%s_%c", filename, channels[c]);
+						else
+							sprintf(name, "PHASE__ALL_%c_%s_%c", pType == PHASE_REF ? 'A' : 'B', filename, channels[c]);
+					}
+					else
+					{
+						if(pType == PHASE_DIFF)
+							sprintf(name, "PHASE_DIFF_%s_%02d%s_%c", filename, type, config->types.typeArray[i].typeName, channels[c]);
+						else
+							sprintf(name, "PHASE_%c_%s_%02d%s_%c", pType == PHASE_REF ? 'A' : 'B', filename, type, config->types.typeArray[i].typeName, channels[c]);
+					}
+					folder = PHASE_FOLDER;	// typeCount > 1 || bothStereo
+				}
+				SetPlotJobName(job, folder, name);
+				job->data = phaseDiff;
+				job->size = size;
+				job->type = type;
+				job->role = pType;
+				job->channel = channels[c];
 			}
-			else
-			{
-				if(pType == PHASE_DIFF)
-					sprintf(name, "PHASE_DIFF_%s_%02d%s_%c", filename, type, config->types.typeArray[i].typeName, channels[c]);
-				else
-					sprintf(name, "PHASE_%c_%s_%02d%s_%c", pType == PHASE_REF ? 'A' : 'B', filename, type, config->types.typeArray[i].typeName, channels[c]);
-				folder = PHASE_FOLDER;	// typeCount > 1 || bothStereo
-			}
-			SetPlotJobName(job, folder, name);
-			job->data = phaseDiff;
-			job->size = size;
-			job->type = type;
-			job->role = pType;
-			job->channel = channels[c];
+			types++;
 		}
-		types++;
 	}
 	return types;
 }
@@ -631,6 +659,18 @@ int HasSeparationBlocks(AudioSignal *Signal, parameters *config)
 	{ 
 		if(Signal->Blocks[b].separation && Signal->Blocks[b].type != TYPE_SKIP)
 			return 1; 
+	}
+	return 0;
+}
+
+int HasBandBlocks(AudioSignal *Signal, parameters *config)
+{
+	if(!Signal)
+		return 0;
+	for(int b = 0; b < config->types.totalBlocks; b++)
+	{
+		if(Signal->Blocks[b].bands && Signal->Blocks[b].type != TYPE_SKIP)
+			return 1;
 	}
 	return 0;
 }
@@ -981,7 +1021,7 @@ void PlotResults(AudioSignal *ReferenceSignal, AudioSignal *ComparisonSignal, pa
 		EndPlot("Channel Separation", &lstart, &lend, config);
 	}
 
-	if(config->hasBands)
+	if(config->hasBands && HasBandBlocks(ReferenceSignal, config))
 	{
 		struct	timespec	lstart, lend;
 
@@ -1058,10 +1098,10 @@ void PlotAmpDifferences(parameters *config)
 		typeCount = GetComparedBlockTypesNoRepeat(config);
 		if (typeCount > 1 || someStereo)
 		{
-			if (AddDifferenceTypeJobs(&list, amplDiff, size, config->compareName, config) >= 1)
+			if (AddDifferenceTypeJobs(&list, amplDiff, size, config->compareName, config) > 1)
 				plotAll = 1;
 		}
-		else
+		else if (typeCount == 1)
 			plotAll = 1;
 
 		if (plotAll)
@@ -4724,7 +4764,7 @@ int PlotDifferentAmplitudesAveraged(FlatAmplDifference *amplDiff, long int size,
 	PlotJobList			list = { NULL, 0, 0 };
 	AveragedResults		results;
 
-	typeCount = GetActiveBlockTypesNoRepeat(config);
+	typeCount = GetComparedBlockTypesNoRepeat(config);
 	someStereo = config->referenceSignal->AudioChannels == 2 || config->comparisonSignal->AudioChannels == 2;
 
 	averagedArray = (AveragedFrequencies**)malloc(sizeof(AveragedFrequencies*)*typeCount);
@@ -4755,7 +4795,7 @@ int PlotDifferentAmplitudesAveraged(FlatAmplDifference *amplDiff, long int size,
 				job->typeIndex = i;
 				job->slot = types;
 				// folders are only used for creating them, names are built in the job
-				if(GetComparedBlockTypesNoRepeat(config) > 1 || (config->types.typeArray[i].channel == CHANNEL_STEREO && someStereo))
+				if(typeCount > 1 || (config->types.typeArray[i].channel == CHANNEL_STEREO && someStereo))
 					snprintf(job->folder, sizeof(job->folder), "%s", DIFFERENCE_FOLDER);
 			}
 			types ++;
@@ -4773,7 +4813,7 @@ int PlotDifferentAmplitudesAveraged(FlatAmplDifference *amplDiff, long int size,
 	RunPlotJobs(&list, &results, config);
 	FreePlotJobList(&list);
 
-	if(types >= 1 && averagedArray && averagedSizes)
+	if(types > 1 && averagedArray && averagedSizes)
 	{
 		sprintf(name, "DA__ALL_AVG_%s", filename);
 		PlotAllDifferentAmplitudesAveraged(amplDiff, size, name, averagedArray, averagedSizes, config);
@@ -5685,7 +5725,9 @@ void PlotTimeSpectrogramUnMatchedContent(AudioSignal *Signal, char channel, para
 			xpos = x+noteWidth;
 			color = MatchColor(GetBlockColor(config, block));
 
-			for(i = config->MaxFreq-1; i >= 0; i--)
+			// Blocks left out of the comparison ('x', 'b', 'C') were never matched,
+			// they keep their place in time but have nothing missing or extra
+			for(i = Signal->Blocks[block].noCompare ? -1 : config->MaxFreq-1; i >= 0; i--)
 			{
 				if(channel == CHANNEL_LEFT || channel == CHANNEL_STEREO
 					|| Signal->Blocks[block].channel == CHANNEL_MONO 

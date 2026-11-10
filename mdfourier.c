@@ -3899,7 +3899,14 @@ void ReportSeparation(AudioSignal *ReferenceSignal, AudioSignal *ComparisonSigna
 void ReportBands(AudioSignal *ReferenceSignal, AudioSignal *ComparisonSignal, parameters *config)
 {
 	double	worst = 0, worstHz = 0;
-	int		worstBlock = -1, worstChannel = 0, compared = 0, flagged = 0, atFloor = 0;
+	int		worstBlock = -1, worstChannel = 0, compared = 0, flagged = 0, atFloor = 0, active = 0;
+
+	// Skipped by an optional clock with missing tone
+	for(int block = 0; block < config->types.totalBlocks; block++)
+		if(ReferenceSignal->Blocks[block].bands && ReferenceSignal->Blocks[block].type != TYPE_SKIP)
+			active++;
+	if(!active)
+		return;
 
 	logmsg("\n* Noise compared by 1/3 octave bands:\n");
 	if(config->verbose)
