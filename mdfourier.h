@@ -748,7 +748,6 @@ typedef struct parameters_st {
 	int				plotPhase;
 	double			plotRatio;
 	int				averagePlot;
-	int				weightedAveragePlot;
 	int				drawWindows;
 	int				outputCSV;
 	int				whiteBG;

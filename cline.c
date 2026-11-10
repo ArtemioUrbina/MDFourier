@@ -73,7 +73,6 @@ void PrintUsage(void)
 	logmsg("	 -v: Enable <v>erbose mode, spits all the FFTW results\n");
 	logmsg("	 -C: Create <C>SV file with plot values.\n");
 	logmsg("	 -b: Change <b>ar value for frequency match, default is 1.0dB.\n");
-	logmsg("	 -A: Do not weight values in <A>veraged Plot (implies -g)\n");
 	logmsg("	 -G: Adjust difference plots around avera<G>e difference.\n");
 	logmsg("	 -W: Use <W>hite background for plots.\n");
 	logmsg("	 -d: Max <d>B for difference plots vertically\n");
@@ -246,7 +245,6 @@ void CleanParameters(parameters *config)
 	config->plotAllNotesWindowed = 0;
 	config->plotTimeDomainHiDiff = 0;
 	config->averagePlot = 1;
-	config->weightedAveragePlot = 1;
 	config->noiseFloorAutoAdjust = 1;
 	config->pErrorReport = 0;
 	config->noBalance = 0;
@@ -322,14 +320,10 @@ int commandline(int argc , char *argv[], parameters *config)
 	
 	CleanParameters(config);
 
-	// Available: KU123456
-	while ((c = getopt (argc, argv, "Aa:Bb:Cc:Dd:Ee:Ff:GgH:hIiJjkL:lMm:Nn:Oo:P:p:Qq:R:r:Ss:TtuVvWw:XxY:yZ:z0:789")) != -1)
+	// Available: AKU123456
+	while ((c = getopt (argc, argv, "a:Bb:Cc:Dd:Ee:Ff:GgH:hIiJjkL:lMm:Nn:Oo:P:p:Qq:R:r:Ss:TtuVvWw:XxY:yZ:z0:789")) != -1)
 	switch (c)
 	  {
-	  case 'A':
-		config->averagePlot = 1;
-		config->weightedAveragePlot = 0;
-		break;
 	  case 'a':
 		config->zoomWaveForm = atof(optarg);
 		if(config->zoomWaveForm > 0)
@@ -911,8 +905,6 @@ int commandline(int argc , char *argv[], parameters *config)
 
 	if(config->ZeroPad && config->FullTimeSpectroScale)
 		logmsg("\t -Go and play an arcade game credit if you have a slow CPU like mine...\n");
-	if(config->averagePlot && !config->weightedAveragePlot)
-		logmsg("\tAveraged Plots will not be weighted\n");
 
 	if(config->logScale && config->plotRatio == 0)
 		config->plotRatio = config->endHzPlot/log10(config->endHzPlot);

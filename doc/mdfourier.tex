@@ -1151,10 +1151,6 @@ This option traces an \textit{average line} on top of the \textit{Difference} gr
 
 The curve is created by averaging time segments from the frequency data sorted in ascending order. A \textit{Simple Moving Average}\footnote{This is a type of average that is intended to smooth out sudden peaks in the data. Often used in exchange rate graphs. See \cite{sma}.} is then calculated to smooth out the results.
 
-The curve is weighted according to the \textit{Color Filter Functions} described in section~\ref{colorfilter}, by repeating each data point by the amount mapped in the \textit{0-1} interval described by the function. The \textit{-A} option creates the averages without weighting.
-
-As a result, the average will follow the relative amplitudes from the \textit{Reference} signal proportional to the selected \textit{filter function}.
-
 The \textit{-G} option moves the whole \textit{Difference} graph so that its average difference is at \db{0}. This helps when both signals differ by a constant level, and the original average is noted in the graph.
 
 The file names for these graphs have the format:\\ \nolinkurl{DA__ALL_AVG_Reference_vs_Comparison.png} and \nolinkurl{DA_Reference_vs_Comparison_##Type_AVG.png}
@@ -1264,7 +1260,6 @@ usage: mdfourier -P profile.mdf -r reference.wav -c compare.wav
   -v: Enable <v>erbose mode, spits all the FFTW results
   -C: Create <C>SV file with plot values.
   -b: Change <b>ar value for frequency match, default is 1.0dB.
-  -A: Do not weight values in <A>veraged Plot (implies -g)
   -G: Adjust difference plots around avera<G>e difference.
   -W: Use <W>hite background for plots.
   -d: Max <d>B for difference plots vertically
