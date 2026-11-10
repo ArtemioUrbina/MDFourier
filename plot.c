@@ -6927,10 +6927,11 @@ void DrawCLKSpectrum(PlotFile *plot, Frequency *freq, double ratio, double cente
 	}
 }
 
-void DrawCLKGuide(PlotFile *plot, double hz, double center, double avoid, char *text, long int r, long int g, long int b, char *style, int row, parameters *config)
+void DrawCLKGuide(PlotFile *plot, double hz, double center, double avoid, double multiplier, char *text, long int r, long int g, long int b, char *style, int row, parameters *config)
 {
 	char	label[BUFFER_SIZE];
-	double	resX = config->plotResX, resY = config->plotResY, x = 0, y = 0;
+	double	resX = config->plotResX, resY = config->plotResY, x = 0, y = 0, width = 0;
+	int		left = 0;
 
 	if(!hz || fabs(hz - center) > CLK_PLOT_SPAN)
 		return;
@@ -6943,8 +6944,18 @@ void DrawCLKGuide(PlotFile *plot, double hz, double center, double avoid, char *
 	pl_linemod_r(plot->plotter, "solid");
 
 	y = resY*(0.96 - 0.035*row);
-	sprintf(label, "%s %0.4fHz", text, hz);
-	if(hz < avoid)
+	// the tone and the clock it gives with the profile's multiplier
+	if(multiplier != 1.0)
+		sprintf(label, "%s %0.4fHz x%g = %0.2fHz", text, hz, multiplier, hz*multiplier);
+	else
+		sprintf(label, "%s %0.4fHz", text, hz);
+	// The label goes on the side away from the other tone, unless it doesn't fit
+	// there, then on the side with more space
+	left = hz < avoid;
+	width = pl_flabelwidth_r(plot->plotter, label) + resX*0.004;
+	if((left && width > x) || (!left && width > resX - x))
+		left = x > resX - x;
+	if(left)
 	{
 		pl_fmove_r(plot->plotter, x - resX*0.004, y);
 		pl_alabel_r(plot->plotter, 'r', 'c', label);
@@ -7056,14 +7067,14 @@ void PlotCLKSpectrogramInternal(AudioSignal *Signal, char *filename, int clock, 
 	if(Signal->role == ROLE_REF)
 	{
 		if(comFound) 
-			DrawCLKGuide(&plot, comRecorded, center, refPeak, "Comparison", 0xaaaa, 0xaaaa, 0xaaaa, "shortdashed", 0, config);
+			DrawCLKGuide(&plot, comRecorded, center, refPeak, clk->ratio, "Comparison", 0xaaaa, 0xaaaa, 0xaaaa, "shortdashed", 0, config);
 	}
 	else
 	{
 		if(refFound)
-			DrawCLKGuide(&plot, refPeak, center, comRecorded, adjusted ? "Reference, adjusted to" : "Reference", 0xdddd, 0xdddd, 0xdddd, "shortdashed", 0, config);
+			DrawCLKGuide(&plot, refPeak, center, comRecorded, clk->ratio, adjusted ? "Reference, adjusted to" : "Reference", 0xdddd, 0xdddd, 0xdddd, "shortdashed", 0, config);
 		if(adjusted && found)	
-			DrawCLKGuide(&plot, comRecorded, center, refPeak, "Recorded", 0x8888, 0x8888, 0x8888, "dotted", 1, config);
+			DrawCLKGuide(&plot, comRecorded, center, refPeak, clk->ratio, "Recorded", 0x8888, 0x8888, 0x8888, "dotted", 1, config);
 	}
 
 	if(adjusted)
