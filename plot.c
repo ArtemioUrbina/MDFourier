@@ -4560,6 +4560,37 @@ long int movingAverage(AveragedFrequencies *data, AveragedFrequencies *averages,
 	return pos;
 }
 
+// Averages each point with the ones within 1/fraction of an octave centered on it.
+// The window grows with frequency like the log scale of the graph.
+long int OctaveAverage(AveragedFrequencies *data, AveragedFrequencies *averages, long int size, double fraction)
+{
+	long int	low = 0, high = -1;
+	double		sum = 0, ratio = 0;
+
+	if(!data || !averages || size <= 0 || fraction <= 0)
+		return 0;
+
+	ratio = pow(2.0, 1.0/(2.0 *fraction));
+	for(long int i = 0; i < size; i++)
+	{	
+		double	from = data[i].avgfreq/ratio, to = data[i].avgfreq*ratio;
+
+		while(high + 1 < size && data[high + 1].avgfreq <= to)
+		{
+			high++;
+			sum += data[high].avgvol;
+		}
+		while(data[low].avgfreq < from)
+		{
+			sum -= data[low].avgvol;
+			low++;
+		}
+		averages[i].avgfreq = data[i].avgfreq;
+		averages[i].avgvol = sum/(double)(high - low + 1);
+	}
+	return size;
+}
+
 /*
 //This version is more strict, average out stuff that is within 1000 hz
 long int movingAverage(AveragedFrequencies *data, AveragedFrequencies *averages, long int size, long int period)
@@ -4747,7 +4778,11 @@ AveragedFrequencies *CreateFlatDifferencesAveraged(int matchType, char channel, 
 
 	logmsg(PLOT_PROCESS_CHAR);
 
-	*avgSize = movingAverage(averaged, averagedSMA, count, plotType == floorPlot ? 50 : 4);
+	// The noise floor is smoothed by octave fractions
+	if(plotType == floorPlot)
+		*avgSize = OctaveAverage(averaged, averagedSMA, count, NOISE_AVG_OCTAVE_FRACTION);
+	else
+		*avgSize = movingAverage(averaged, averagedSMA, count, 4);
 
 	free(averaged);
 	averaged = NULL;

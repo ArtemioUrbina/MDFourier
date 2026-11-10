@@ -57,6 +57,8 @@ typedef struct averaged_freq{
 	double		avgvol;
 } AveragedFrequencies;
 
+#define NOISE_AVG_OCTAVE_FRACTION	12.0	// noise floor average window: 1/12 octave
+
 #define COLOR_NONE		0	
 #define COLOR_RED 		1
 #define COLOR_GREEN		2
