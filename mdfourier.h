@@ -748,6 +748,7 @@ typedef struct parameters_st {
 	int				plotPhase;
 	double			plotRatio;
 	int				averagePlot;
+	double			averageOctave;		// difference averages over 1/n octave, 0 is the moving average
 	int				drawWindows;
 	int				outputCSV;
 	int				whiteBG;

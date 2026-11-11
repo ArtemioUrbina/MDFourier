@@ -1344,6 +1344,7 @@ int FillPlot(PlotFile *plot, char *name, double x0, double y0, double x1, double
 
 	plot->penWidth = penWidth;
 	plot->SpecialWarning = NULL;
+	plot->AverageLabel = AVG_LABEL_NONE;
 
 	return 1;
 }
@@ -2596,6 +2597,18 @@ void DrawLabelsMDF(PlotFile *plot, char *Gname, char *GType, int type, parameter
 	{
 		PLOT_COLUMN(2, 3);
 		pl_alabel_r(plot->plotter, 'l', 'l', "1Hz Aligned");
+	}
+
+	if(plot->AverageLabel != AVG_LABEL_NONE)
+	{
+		pl_fmove_r(plot->plotter, config->plotResX-3*config->plotResX/10-config->plotResX/100, config->plotResY/2-2*BAR_HEIGHT);
+		if(plot->AverageLabel == AVG_LABEL_NOISE)
+			sprintf(msg, "Average: 1/%g oct", NOISE_AVG_OCTAVE_FRACTION);
+		else if(config->averageOctave > 0)
+			sprintf(msg, "Average: 1/%g oct, weighted", config->averageOctave);
+		else
+			sprintf(msg, "Average: %d points", AVERAGE_MOVING_POINTS);
+		pl_alabel_r(plot->plotter, 'r', 'l', msg);
 	}
 
 	if(config->outputFilterFunction != 3)
@@ -4543,6 +4556,7 @@ long int movingAverage(AveragedFrequencies *data, AveragedFrequencies *averages,
 
 		ma.avgfreq = 0;
 		ma.avgvol = 0;
+		ma.weight = 1;
 		periodArray[current_index].avgfreq = data[i].avgfreq/(double)period;
 		periodArray[current_index].avgvol = data[i].avgvol/(double)period;
  		for(long int j = 0; j < period; j++)
@@ -4562,10 +4576,11 @@ long int movingAverage(AveragedFrequencies *data, AveragedFrequencies *averages,
 
 // Averages each point with the ones within 1/fraction of an octave centered on it.
 // The window grows with frequency like the log scale of the graph.
+// Each point counts by its weight: 1 for all in the noise floor, with -A the brightness of its dot in the difference graphs.
 long int OctaveAverage(AveragedFrequencies *data, AveragedFrequencies *averages, long int size, double fraction)
 {
-	long int	low = 0, high = -1;
-	double		sum = 0, ratio = 0;
+	long int	low = 0, high = -1, pos = 0;
+	double		sum = 0, weights = 0, ratio = 0;
 
 	if(!data || !averages || size <= 0 || fraction <= 0)
 		return 0;
@@ -4578,17 +4593,50 @@ long int OctaveAverage(AveragedFrequencies *data, AveragedFrequencies *averages,
 		while(high + 1 < size && data[high + 1].avgfreq <= to)
 		{
 			high++;
-			sum += data[high].avgvol;
+			sum += data[high].weight*data[high].avgvol;
+			weights += data[high].weight;
 		}
 		while(data[low].avgfreq < from)
 		{
-			sum -= data[low].avgvol;
+			sum -= data[low].weight*data[low].avgvol;
+			weights -= data[low].weight;
 			low++;
 		}
-		averages[i].avgfreq = data[i].avgfreq;
-		averages[i].avgvol = sum/(double)(high - low + 1);
+		if(weights > AVERAGE_MIN_WEIGHT)
+		{
+			averages[pos].avgfreq = data[i].avgfreq;
+			averages[pos].avgvol = sum/weights;
+			averages[pos].weight = weights;
+			pos++;
+		}
 	}
-	return size;
+	return pos;
+}
+
+// Combines the points at the same frequency (from different blocks) into one by their weights.
+long int AverageDuplicatesWeighted(AveragedFrequencies *array, long int size)
+{
+	long int	p = 0, count = 0;
+
+	while(p < size)
+	{
+		double	hz = array[p].avgfreq, sum = 0, weights = 0;
+
+		while(p < size && areDoublesEqual(hz, array[p].avgfreq))
+		{
+			sum += array[p].weight*array[p].avgvol;
+			weights += array[p].weight;
+			p++;	
+		}
+		if(weights > AVERAGE_MIN_WEIGHT)
+		{
+			array[count].avgfreq = hz;
+			array[count].avgvol = sum/weights;
+			array[count].weight = weights;
+			count++;
+		}
+	}
+	return count;
 }
 
 /*
@@ -4679,7 +4727,8 @@ AveragedFrequencies *CreateFlatDifferencesAveraged(int matchType, char channel, 
 {
 	long int			count = 0;
 	AveragedFrequencies	*averaged = NULL, *averagedSMA = NULL;
-	double				significant = 0;
+	double				significant = 0, abs_significant = fabs(config->significantAmplitude);
+	int					weighted = 0;
 
 	if(!config)
 		return NULL;
@@ -4689,6 +4738,8 @@ AveragedFrequencies *CreateFlatDifferencesAveraged(int matchType, char channel, 
 
 	*avgSize = 0;
 	// this is very important, to remove outliers, we consider only data within 50% of the amplitude
+	// With -A each point is also weighted like the brightness of its dot
+	weighted = plotType != floorPlot && config->averageOctave > 0;
 	significant = config->significantAmplitude*0.5;
 
 	// Count how many we have
@@ -4752,6 +4803,10 @@ AveragedFrequencies *CreateFlatDifferencesAveraged(int matchType, char channel, 
 				{
 					averaged[count].avgfreq = config->Differences.BlockDiffArray[b].amplDiffArray[a].hertz;
 					averaged[count].avgvol = config->Differences.BlockDiffArray[b].amplDiffArray[a].diffAmplitude;
+					averaged[count].weight = 1.0;
+					if(weighted)
+						averaged[count].weight = CalculateWeightedError((abs_significant -
+							fabs(config->Differences.BlockDiffArray[b].amplDiffArray[a].refAmplitude))/abs_significant, config);
 					count ++;
 				}
 			}
@@ -4765,7 +4820,10 @@ AveragedFrequencies *CreateFlatDifferencesAveraged(int matchType, char channel, 
 	}
 
 	AverageByFrequency_tim_sort(averaged, count);
-	count = AverageDuplicates(averaged, count);
+	if(weighted)
+		count = AverageDuplicatesWeighted(averaged, count);
+	else
+		count = AverageDuplicates(averaged, count);
 
 	averagedSMA = (AveragedFrequencies*)malloc(sizeof(AveragedFrequencies)*count);
 	if(!averagedSMA)
@@ -4781,8 +4839,10 @@ AveragedFrequencies *CreateFlatDifferencesAveraged(int matchType, char channel, 
 	// The noise floor is smoothed by octave fractions
 	if(plotType == floorPlot)
 		*avgSize = OctaveAverage(averaged, averagedSMA, count, NOISE_AVG_OCTAVE_FRACTION);
+	else if(config->averageOctave > 0)	// -A
+		*avgSize = OctaveAverage(averaged, averagedSMA, count, config->averageOctave);
 	else
-		*avgSize = movingAverage(averaged, averagedSMA, count, 4);
+		*avgSize = movingAverage(averaged, averagedSMA, count, AVERAGE_MOVING_POINTS);
 
 	free(averaged);
 	averaged = NULL;
@@ -4900,6 +4960,97 @@ int PlotNoiseDifferentAmplitudesAveraged(FlatAmplDifference *amplDiff, long int 
 	return 0;
 }
 
+void DrawAveragedLine(PlotFile *plot, AveragedFrequencies *averaged, long int size, int shadow, parameters *config)
+{
+	double	gap = 0, bin = 0, low = 0, high = 0;
+	int		open = 0, inRange = 1;
+
+	if(!averaged || size < 2)
+		return;
+
+	low = plot->Ry0 < plot->Ry1 ? plot->Ry0 : plot->Ry1;
+	high = plot->Ry0 < plot->Ry1 ? plot->Ry1 : plot->Ry0;
+	for(long int a = 0; a < size; a++)
+	{
+		if(averaged[a].avgvol < low || averaged[a].avgvol > high)
+			inRange = 0;
+	}
+
+	if(config->averageOctave <= 0 && inRange)
+	{
+		// the original path, the first point is repeated: keeps the images identical
+		pl_fline_r(plot->plotter, transformtoLog(averaged[0].avgfreq, config), averaged[0].avgvol,
+					transformtoLog(averaged[1].avgfreq, config), averaged[1].avgvol);
+		for(long int a = 1; a < size; a++)
+			pl_fcont_r(plot->plotter, transformtoLog(averaged[a].avgfreq, config), averaged[a].avgvol);
+		pl_endpath_r(plot->plotter);
+		return;
+	}
+
+	if(config->averageOctave > 0)
+	{
+		gap = pow(2.0, 1.0/AVERAGE_GAP_OCTAVE);
+		for(long int a = 1; a < size; a++)
+		{
+			double	step = averaged[a].avgfreq - averaged[a-1].avgfreq;
+
+			if(step > 0 && (bin == 0 || step < bin))
+				bin = step;
+		}
+	}
+	for(long int a = 0; a + 1 < size; a++)
+	{
+		double	x = transformtoLog(averaged[a].avgfreq, config), y = averaged[a].avgvol;
+		double	x2 = transformtoLog(averaged[a+1].avgfreq, config), y2 = averaged[a+1].avgvol;
+		double	t0 = 0, t1 = 1;
+		int		solid = 0;
+
+		solid = gap == 0 || averaged[a+1].avgfreq <= averaged[a].avgfreq*gap ||
+				averaged[a+1].avgfreq - averaged[a].avgfreq <= bin*AVERAGE_GAP_BINS;
+
+		// the part of the segment within [low, high]
+		if(y2 != y)
+		{
+			double	tLow = (low - y)/(y2 - y), tHigh = (high - y)/(y2 - y);
+
+			t0 = fmax(0, fmin(tLow, tHigh));
+			t1 = fmin(1, fmax(tLow, tHigh));
+		}
+		else if(y < low || y > high)
+			t1 = -1;
+
+		if(solid && t0 < t1)
+		{
+			if(!open || t0 > 0)
+			{
+				if(open)
+					pl_endpath_r(plot->plotter);
+				pl_fmove_r(plot->plotter, x + (x2 - x)*t0, y + (y2 - y)*t0);
+			}
+			pl_fcont_r(plot->plotter, x + (x2 - x)*t1, y + (y2 - y)*t1);
+			open = t1 == 1;
+			if(!open)
+				pl_endpath_r(plot->plotter);
+		}
+		else
+		{
+			if(open)
+				pl_endpath_r(plot->plotter);
+			open = 0;
+			// across a gap use dotted
+			if(!solid && !shadow && t0 < t1)
+			{
+				pl_linemod_r(plot->plotter, "dotted");
+				pl_fline_r(plot->plotter, x + (x2 - x)*t0, y + (y2 - y)*t0, x + (x2 - x)*t1, y + (y2 - y)*t1);
+				pl_endpath_r(plot->plotter);
+				pl_linemod_r(plot->plotter, "solid");
+			}
+		}
+	}
+	if(open)
+		pl_endpath_r(plot->plotter);
+}
+
 void PlotNoiseDifferentAmplitudesAveragedInternal(FlatAmplDifference *amplDiff, long int size, int type, char *filename, AveragedFrequencies *averaged, long int avgsize, parameters *config, AudioSignal *Signal)
 {
 	PlotFile	plot;
@@ -4969,43 +5120,19 @@ void PlotNoiseDifferentAmplitudesAveragedInternal(FlatAmplDifference *amplDiff, 
 
 	if(averaged && avgsize > 1)
 	{
-		int first = 1;
-
 		pl_flinewidth_r(plot.plotter, 50);
 		SetPenColor(COLOR_GRAY, 0x0000, &plot);
-		for(long int a = 0; a < avgsize; a++)
-		{
-			if(first)
-			{
-				pl_fline_r(plot.plotter, transformtoLog(averaged[a].avgfreq, config), averaged[a].avgvol,
-							transformtoLog(averaged[a+1].avgfreq, config), averaged[a+1].avgvol);
-				first = 0;
-			}
-			else
-				pl_fcont_r(plot.plotter, transformtoLog(averaged[a].avgfreq, config), averaged[a].avgvol);
-		}
-		pl_endpath_r(plot.plotter);
+		DrawAveragedLine(&plot, averaged, avgsize, 1, config);
 
-		first = 1;
 		pl_flinewidth_r(plot.plotter, plot.penWidth);
 		SetPenColor(color, 0xFFFF, &plot);
-		for(long int a = 0; a < avgsize; a++)
-		{
-			if(first)
-			{
-				pl_fline_r(plot.plotter, transformtoLog(averaged[a].avgfreq, config), averaged[a].avgvol,
-							transformtoLog(averaged[a+1].avgfreq, config), averaged[a+1].avgvol);
-				first = 0;
-			}
-			else
-				pl_fcont_r(plot.plotter, transformtoLog(averaged[a].avgfreq, config), averaged[a].avgvol);
-		}
-		pl_endpath_r(plot.plotter);
+		DrawAveragedLine(&plot, averaged, avgsize, 0, config);
 	}
 
 	DrawColorScale(&plot, type, MODE_DIFF, LEFT_MARGIN, HEIGHT_MARGIN, 
 		config->plotResX/COLOR_BARS_WIDTH_SCALE, config->plotResY/1.15,
 		(int)startAmplitude, (int)(endAmplitude-startAmplitude), VERT_SCALE_STEP_BAR, CHANNEL_STEREO, config);
+	plot.AverageLabel = AVG_LABEL_NOISE;
 	DrawLabelsMDF(&plot, NOISE_AVG_TITLE, GetTypeDisplayName(config, type), PLOT_COMPARE, config);
 	ClosePlot(&plot);
 }
@@ -5062,8 +5189,6 @@ void PlotSingleTypeDifferentAmplitudesAveraged(FlatAmplDifference *amplDiff, lon
 
 	if(averaged && avgsize > 1)
 	{
-		int first = 1;
-
 		/*
 		SetPenColor(color, 0xffff, &plot);
 		for(long int a = 0; a < avgsize; a+=2)
@@ -5082,44 +5207,11 @@ void PlotSingleTypeDifferentAmplitudesAveraged(FlatAmplDifference *amplDiff, lon
 
 		pl_flinewidth_r(plot.plotter, 50);
 		SetPenColor(COLOR_GRAY, 0x0000, &plot);
-		for(long int a = 0; a < avgsize; a++)
-		{
-			if(first)
-			{
-				pl_fline_r(plot.plotter, transformtoLog(averaged[a].avgfreq, config), averaged[a].avgvol,
-							transformtoLog(averaged[a+1].avgfreq, config), averaged[a+1].avgvol);
-				first = 0;
-			}
-			else
-			{
-				//if(fabs(averaged[a].avgvol) <= fabs(dbs))
-					pl_fcont_r(plot.plotter, transformtoLog(averaged[a].avgfreq, config), averaged[a].avgvol);
-				//else
-					//break;
-			}
-		}
-		pl_endpath_r(plot.plotter);
+		DrawAveragedLine(&plot, averaged, avgsize, 1, config);
 
-		first = 1;
 		pl_flinewidth_r(plot.plotter, plot.penWidth);
 		SetPenColor(color, 0xFFFF, &plot);
-		for(long int a = 0; a < avgsize; a++)
-		{
-			if(first)
-			{
-				pl_fline_r(plot.plotter, transformtoLog(averaged[a].avgfreq, config), averaged[a].avgvol,
-							transformtoLog(averaged[a+1].avgfreq, config), averaged[a+1].avgvol);
-				first = 0;
-			}
-			else
-			{
-				//if(fabs(averaged[a].avgvol) <= fabs(dbs))
-					pl_fcont_r(plot.plotter, transformtoLog(averaged[a].avgfreq, config), averaged[a].avgvol);
-				//else
-					//break;
-			}
-		}
-		pl_endpath_r(plot.plotter);
+		DrawAveragedLine(&plot, averaged, avgsize, 0, config);
 	}
 
 	if(ismono)
@@ -5144,6 +5236,7 @@ void PlotSingleTypeDifferentAmplitudesAveraged(FlatAmplDifference *amplDiff, lon
 			break;
 	}
 	DrawColorScale(&plot, type, MODE_DIFF, LEFT_MARGIN, HEIGHT_MARGIN, config->plotResX/COLOR_BARS_WIDTH_SCALE, config->plotResY/1.15, 0, config->significantAmplitude, VERT_SCALE_STEP_BAR, channel, config);
+	plot.AverageLabel = AVG_LABEL_DIFF;
 	DrawLabelsMDF(&plot, title, GetTypeDisplayName(config, type), PLOT_COMPARE, config);
 
 	DrawBisectionLines(&plot, config);
@@ -5203,8 +5296,6 @@ void PlotAllDifferentAmplitudesAveraged(FlatAmplDifference *amplDiff, long int s
 	
 		if(averaged[currType] && avgsize[currType] > 1)
 		{
-			int first = 1;
-
 			/*
 			for(long int a = 0; a < avgsize[currType]; a+=2)
 			{
@@ -5222,49 +5313,17 @@ void PlotAllDifferentAmplitudesAveraged(FlatAmplDifference *amplDiff, long int s
 
 			pl_flinewidth_r(plot.plotter, 50);
 			SetPenColor(COLOR_GRAY, 0x0000, &plot);
-			for(long int a = 0; a < avgsize[currType]; a++)
-			{
-				if(first)
-				{
-					pl_fline_r(plot.plotter, transformtoLog(averaged[currType][a].avgfreq, config), averaged[currType][a].avgvol,
-								transformtoLog(averaged[currType][a+1].avgfreq, config), averaged[currType][a+1].avgvol);
-					first = 0;
-				}
-				else
-				{
-					//if(fabs(averaged[currType][a].avgvol) <= fabs(dBRange))
-						pl_fcont_r(plot.plotter, transformtoLog(averaged[currType][a].avgfreq, config), averaged[currType][a].avgvol);
-					//else
-						//break;
-				}
-			}
-			pl_endpath_r(plot.plotter);
+			DrawAveragedLine(&plot, averaged[currType], avgsize[currType], 1, config);
 	
-			first = 1;
 			pl_flinewidth_r(plot.plotter, plot.penWidth);
 			SetPenColor(color, 0xffff, &plot);
-			for(long int a = 0; a < avgsize[currType]; a++)
-			{
-				if(first)
-				{
-					pl_fline_r(plot.plotter, transformtoLog(averaged[currType][a].avgfreq, config), averaged[currType][a].avgvol,
-								transformtoLog(averaged[currType][a+1].avgfreq, config), averaged[currType][a+1].avgvol);
-					first = 0;
-				}
-				else
-				{
-					//if(fabs(averaged[currType][a].avgvol) <= fabs(dBRange))
-						pl_fcont_r(plot.plotter, transformtoLog(averaged[currType][a].avgfreq, config), averaged[currType][a].avgvol);
-					//else
-						//break;
-				}
-			}
-			pl_endpath_r(plot.plotter);
+			DrawAveragedLine(&plot, averaged[currType], avgsize[currType], 0, config);
 		}
 		currType++;
 	}
 
 	DrawColorAllTypeScale(&plot, MODE_DIFF, LEFT_MARGIN, HEIGHT_MARGIN, config->plotResX/COLOR_BARS_WIDTH_SCALE, config->plotResY/1.15, config->significantAmplitude, VERT_SCALE_STEP_BAR, DRAW_BARS, CHANNEL_STEREO, config);
+	plot.AverageLabel = AVG_LABEL_DIFF;
 	DrawLabelsMDF(&plot, DIFFERENCE_AVG_TITLE, ALL_LABEL, PLOT_COMPARE, config);
 
 	DrawBisectionLines(&plot, config);

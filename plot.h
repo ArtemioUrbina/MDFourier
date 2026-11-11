@@ -50,14 +50,26 @@ typedef struct plot_st {
 	double			penWidth;
 	double			leftmargin;
 	char			*SpecialWarning;
+	int				AverageLabel;	// averaged graphs: which average is noted in the labels
 } PlotFile;
+
+#define AVG_LABEL_NONE		0
+#define AVG_LABEL_DIFF		1
+#define AVG_LABEL_NOISE		2
 
 typedef struct averaged_freq{
 	double		avgfreq;
 	double		avgvol;
+	double		weight;		// with -A, how much the point counts, as its dot brightness
 } AveragedFrequencies;
 
 #define NOISE_AVG_OCTAVE_FRACTION	12.0	// noise floor average window: 1/12 octave
+#define AVERAGE_MIN_WEIGHT			1e-9	// points that weigh less are left out of the average
+#define AVERAGE_OCTAVE_DEFAULT		48		// -A when not given, 1/48 octave. -A 0 is the original moving average
+#define AVERAGE_MOVING_POINTS		4		// difference average window, unless -A is used
+#define AVERAGE_OCTAVE_MAX			96		// narrowest -A octave fraction
+#define AVERAGE_GAP_BINS			2.5		// with -A, points this many bins apart are always joined
+#define AVERAGE_GAP_OCTAVE			3.0		// with -A, averaged lines are dotted across gaps over 1/3 octave
 
 #define COLOR_NONE		0	
 #define COLOR_RED 		1
@@ -250,6 +262,8 @@ char *GetCurrentPathAndChangeToResultsFolder(parameters *config);
 void ReturnToMainPath(char **CurrentPath);
 
 int PlotNoiseDifferentAmplitudesAveraged(FlatAmplDifference *amplDiff, long int size, char *filename, parameters *config, AudioSignal *Signal);
+long int AverageDuplicatesWeighted(AveragedFrequencies *array, long int size);
+void DrawAveragedLine(PlotFile *plot, AveragedFrequencies *averaged, long int size, int shadow, parameters *config);
 void PlotNoiseDifferentAmplitudesAveragedInternal(FlatAmplDifference *amplDiff, long int size, int type, char *filename, AveragedFrequencies *averaged, long int avgsize, parameters *config, AudioSignal *Signal);
 void PlotNoiseSpectrogram(FlatFrequency *freqs, long int size, char channel, char *filename, int signal, parameters *config, AudioSignal *Signal);
 void SaveCSVAmpDiff(FlatAmplDifference *amplDiff, long int size, char *filename, parameters *config);

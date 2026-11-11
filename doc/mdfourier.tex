@@ -1149,7 +1149,11 @@ The file names for these graphs have the format:\\ \nolinkurl{MISSING-A-T_SP_Ref
 
 This option traces an \textit{average line} on top of the \textit{Difference} graphs, making it easier to follow the trend when the output has severely scattered data. It is \textit{on by default}, and can be disabled with \textit{-g}.
 
-The curve is created by averaging time segments from the frequency data sorted in ascending order. A \textit{Simple Moving Average}\footnote{This is a type of average that is intended to smooth out sudden peaks in the data. Often used in exchange rate graphs. See \cite{sma}.} is then calculated to smooth out the results.
+The curve is created from the frequency data sorted in ascending order. Each point is averaged with the ones within \textit{1/48} of an octave centered on it, so the smoothing follows the logarithmic frequency axis of the graphs: narrow features at low frequencies keep their height, while the high end is smoothed over many points. The fraction can be changed with \textit{-A n}, for example \textit{-A 24} for a smoother line, since wider fractions hide narrow features in the sweeps. The \textit{Noise Floor} average always uses \textit{1/12} of an octave, so that lines like mains hum at low frequencies remain visible.
+
+Only the frequencies louder than half the \textit{minimum significant amplitude} are averaged, since the differences of quieter ones are too erratic. Each point counts as much as its brightness in the graph, as defined by the \textit{Color Filter Function} selected with \textit{-o}, so louder frequencies pull the line more. Where the frequencies are more than \textit{1/3} of an octave apart the line is dotted, since there is no data between them, and it is clipped to the vertical range of the graph. The averaging method is noted in the labels of these graphs.
+
+\textit{-A 0} uses the original average of previous versions: a \textit{Simple Moving Average}\footnote{This is a type of average that is intended to smooth out sudden peaks in the data. Often used in exchange rate graphs. See \cite{sma}.} where each point of the curve is the average of 4 consecutive points, without weights.
 
 The \textit{-G} option moves the whole \textit{Difference} graph so that its average difference is at \db{0}. This helps when both signals differ by a constant level, and the original average is noted in the graph.
 
@@ -1270,6 +1274,7 @@ usage: mdfourier -P profile.mdf -r reference.wav -c compare.wav
      7: 15360x8640 8: 30720x17280 9: 61440x34560
   -D: Don't create <D>ifferences Plots
   -g: Don't create avera<g>e points over the plotted graphs
+  -A: <A>verage the difference plots over 1/<n> of an octave (default 48), 0 uses the original moving average
   -M: Don't create <M>issing Plots
   -S: Don't create <S>pectrum Plots
   -F: Don't create Noise <F>loor Plots

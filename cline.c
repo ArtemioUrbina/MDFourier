@@ -87,6 +87,7 @@ void PrintUsage(void)
 			PLOT_RES_X_16K, PLOT_RES_Y_16K, PLOT_RES_X_32K, PLOT_RES_Y_32K, PLOT_RES_X_64K, PLOT_RES_Y_64K);
 	logmsg("	 -D: Don't create <D>ifferences Plots\n");
 	logmsg("	 -g: Don't create avera<g>e points over the plotted graphs\n");
+	logmsg("	 -A: <A>verage the difference plots over 1/<n> of an octave (default 48), 0 uses the original moving average\n");
 	logmsg("	 -M: Don't create <M>issing Plots\n");
 	logmsg("	 -S: Don't create <S>pectrum Plots\n");
 	logmsg("	 -F: Don't create Noise <F>loor Plots\n");
@@ -245,6 +246,7 @@ void CleanParameters(parameters *config)
 	config->plotAllNotesWindowed = 0;
 	config->plotTimeDomainHiDiff = 0;
 	config->averagePlot = 1;
+	config->averageOctave = AVERAGE_OCTAVE_DEFAULT;
 	config->noiseFloorAutoAdjust = 1;
 	config->pErrorReport = 0;
 	config->noBalance = 0;
@@ -320,10 +322,22 @@ int commandline(int argc , char *argv[], parameters *config)
 	
 	CleanParameters(config);
 
-	// Available: AKU123456
-	while ((c = getopt (argc, argv, "a:Bb:Cc:Dd:Ee:Ff:GgH:hIiJjkL:lMm:Nn:Oo:P:p:Qq:R:r:Ss:TtuVvWw:XxY:yZ:z0:789")) != -1)
+	// Available: KU123456
+	while ((c = getopt (argc, argv, "A:a:Bb:Cc:Dd:Ee:Ff:GgH:hIiJjkL:lMm:Nn:Oo:P:p:Qq:R:r:Ss:TtuVvWw:XxY:yZ:z0:789")) != -1)
 	switch (c)
 	  {
+	  case 'A':
+		config->averageOctave = atof(optarg);
+		if(config->averageOctave < 0 || config->averageOctave > AVERAGE_OCTAVE_MAX)
+		{
+			logmsg("-ERROR: Average octave fraction (-A) must be between 0 and %d\n", AVERAGE_OCTAVE_MAX);
+			return 0;
+		}
+		if(config->averageOctave)
+			logmsg("\t-Difference averages over 1/%g of an octave\n", config->averageOctave);
+		else
+			logmsg("\t-Difference averages with a moving average of %d points\n", AVERAGE_MOVING_POINTS);
+		break;
 	  case 'a':
 		config->zoomWaveForm = atof(optarg);
 		if(config->zoomWaveForm > 0)
@@ -790,7 +804,9 @@ int commandline(int argc , char *argv[], parameters *config)
 		break;
 	  default:
 	  case '?':
-		if (optopt == 'b')
+		if (optopt == 'A')
+		  logmsg("\t ERROR: Average -%c requires the octave fraction: 1 to %d, or 0 for the moving average.\n", optopt, AVERAGE_OCTAVE_MAX);
+		else if (optopt == 'b')
 		  logmsg("\t ERROR: Bar Difference -%c option requires a real number > 0.0001 < 16.\n", optopt);
 		else if (optopt == 'c')
 		  logmsg("\t ERROR: Compare File -%c requires an argument.\n", optopt);
