@@ -116,7 +116,7 @@ debugsan: executable
 executable: mdfourier
 executable: mdwave
 
-COMMON_OBJS = profile.o sync.o freq.o windows.o log.o diff.o cline.o plot.o balance.o incbeta.o loadfile.o flac.o
+COMMON_OBJS = profile.o sync.o syncdet.o freq.o windows.o log.o diff.o cline.o plot.o balance.o incbeta.o loadfile.o flac.o
 ALL_OBJS    = $(COMMON_OBJS) mdfourier.o mdwave.o
 
 #Generate .d files with the headers each .c includes, so header changes rebuild them

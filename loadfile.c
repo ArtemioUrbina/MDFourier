@@ -34,6 +34,7 @@
 #include "loadfile.h"
 #include "profile.h"
 #include "sync.h"
+#include "syncdet.h"
 
 int LoadFile(AudioSignal **Signal, char *fileName, int role, parameters *config)
 {
@@ -709,14 +710,25 @@ int DetectSync(AudioSignal *Signal, parameters *config)
 	
 	if(GetFirstSyncIndex(config) != NO_INDEX && !config->noSyncProfile)
 	{
+		int		syncFound = 0;
+
 		if(config->clock)
 			clock_gettime(CLOCK_MONOTONIC, &start);
+
+		/* Both trains at once, the previous detector only with -K or if this fails */
+		if(!config->legacySync && GetLastSyncIndex(config) != NO_INDEX)
+		{
+			syncFound = DetectSyncTrains(Signal, config);
+			if(!syncFound)
+				logmsg(" - Sync: pulse trains not found, using the previous detection\n");
+		}
 
 		/* Find the start offset */
 		if(config->verbose) { 
 			logmsg(" - Sync pulse train: "); 
 		}
-		Signal->startOffset = DetectPulse(Signal->Samples, Signal->header, Signal->role, config);
+		if(!syncFound)
+			Signal->startOffset = DetectPulse(Signal->Samples, Signal->header, Signal->role, config);
 		if(Signal->startOffset == -1)
 		{
 			int format = 0;
@@ -762,7 +774,8 @@ int DetectSync(AudioSignal *Signal, parameters *config)
 			if(config->verbose) { 
 				logmsg("\t to");
 			}
-			Signal->endOffset = DetectEndPulse(Signal->Samples, Signal->startOffset, Signal->header, Signal->role, config);
+			if(!syncFound)
+				Signal->endOffset = DetectEndPulse(Signal->Samples, Signal->startOffset, Signal->header, Signal->role, config);
 			if(Signal->endOffset == -1)
 			{
 				int format = 0;

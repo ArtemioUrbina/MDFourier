@@ -630,6 +630,8 @@ void InitAudio(AudioSignal *Signal, parameters *config)
 
 	Signal->startOffset = 0;
 	Signal->endOffset = 0;
+	Signal->syncFrames = 0;
+	Signal->syncSamplesPerFrame = 0;
 
 	memset(&Signal->MaxMagnitude, 0, sizeof(MaxMagn));
 
@@ -4212,7 +4214,7 @@ double CalculateMSPerFrameAndCheckSamplerate(AudioSignal *Signal, parameters *co
 	startOffset = Signal->startOffset;
 	endOffset = Signal->endOffset;
 	expectedFR = GetMSPerFrame(Signal, config);
-	LastSyncFrameOffset = GetLastSyncFrameOffset(config);
+	LastSyncFrameOffset = GetSyncFrameCount(Signal, config);
 
 	if(startOffset == endOffset)
 	{
@@ -4237,8 +4239,7 @@ double CalculateMSPerFrameAndCheckSamplerate(AudioSignal *Signal, parameters *co
 
 	diffFR = roundFloat(fabs(expectedFR - msPerFrame));
 
-	calculatedSamplerate = (endOffset-startOffset)/(expectedFR*LastSyncFrameOffset);
-	calculatedSamplerate = calculatedSamplerate*1000.0/(double)Signal->AudioChannels;
+	calculatedSamplerate = GetSyncSamplesPerFrame(Signal, config)*1000.0/expectedFR;
 
 	centsDifferenceSR = 1200.0*log2(Signal->SampleRate/calculatedSamplerate);
 	SRDifference = calculatedSamplerate - Signal->SampleRate;
@@ -4329,8 +4330,7 @@ double CalculateMSPerFrameAndCheckSamplerate(AudioSignal *Signal, parameters *co
 			Signal->originalSR = Signal->SampleRate;
 			Signal->originalMSPerFrame = msPerFrame;
 ;
-			msPerFrame = (endOffset-startOffset)/(calculatedSamplerate *LastSyncFrameOffset);
-			msPerFrame = msPerFrame*1000.0/(double)Signal->AudioChannels;  // 1000 ms
+			msPerFrame = GetSyncSamplesPerFrame(Signal, config)*1000.0/calculatedSamplerate;
 
 			// Samplerate CHECK, removed all rounding here
 			Signal->SampleRate = calculatedSamplerate;
@@ -4384,24 +4384,35 @@ double CalculateMSPerFrameAndCheckSamplerate(AudioSignal *Signal, parameters *co
 double CalculateMSPerFrame(AudioSignal *Signal, parameters *config)
 {
 	double		msPerFrame = 0;
-	double		endOffset = 0, startOffset = 0, samplerate = 0;
-	double		LastSyncFrameOffset = 0;
 
-	startOffset = Signal->startOffset;
-	endOffset = Signal->endOffset;
-	samplerate = Signal->SampleRate;
-	LastSyncFrameOffset = GetLastSyncFrameOffset(config);
-
-	if(startOffset == endOffset)
+	if(Signal->startOffset == Signal->endOffset)
 		return 0;
-	if(!LastSyncFrameOffset)
+	if(!GetSyncFrameCount(Signal, config))
 		return 0;
 
-	msPerFrame = (endOffset-startOffset)/(samplerate*LastSyncFrameOffset); // 1000 ms 
-	msPerFrame = msPerFrame*1000.0/(double)Signal->AudioChannels;  // 1000 ms
+	msPerFrame = GetSyncSamplesPerFrame(Signal, config)*1000.0/Signal->SampleRate;
 	//msPerFrame = roundFloat(msPerFrame);
 
 	return msPerFrame;
+}
+
+long int GetSyncFrameCount(AudioSignal *Signal, parameters *config)
+{
+	if(Signal->syncFrames)
+		return Signal->syncFrames;
+	return(GetLastSyncFrameOffset(config));
+}
+
+double GetSyncSamplesPerFrame(AudioSignal *Signal, parameters *config)
+{
+	long int frames = 0;
+
+	if(Signal->syncSamplesPerFrame)
+		return Signal->syncSamplesPerFrame;
+	frames = GetSyncFrameCount(Signal, config);
+	if(!frames)
+		return 0;
+	return((double)(Signal->endOffset - Signal->startOffset)/(double)Signal->AudioChannels/(double)frames);
 }
 
 double CalculateMSPerFrameNS(AudioSignal *Signal, double Frames, parameters *config)

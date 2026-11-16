@@ -543,6 +543,8 @@ typedef struct AudioSt {
 
 	long int	startOffset;
 	long int	endOffset;
+	long int	syncFrames; the profile
+	double		syncSamplesPerFrame;
 
 	MaxMagn		MaxMagnitude;
 
@@ -754,6 +756,7 @@ typedef struct parameters_st {
 	int				whiteBG;
 	int				smallFile;
 	int				syncTolerance;
+	int				legacySync;		// -K, the sync detector before syncdet.c
 	int				usesStereo;
 	int				allowStereoVsMono;
 	double			AmpBarRange;

@@ -172,6 +172,8 @@ int BandChannels(AudioBlocks *ref, AudioBlocks *com);
 int GetBlockNoCompare(parameters *config, int pos);
 double GetSeparationDB(AudioBlocks *block, int *limited);
 double CalculateMSPerFrame(AudioSignal *Signal, parameters *config);
+long int GetSyncFrameCount(AudioSignal *Signal, parameters *config);
+double GetSyncSamplesPerFrame(AudioSignal *Signal, parameters *config);
 double CalculateMSPerFrameNS(AudioSignal *Signal, double Frames, parameters *config);
 void CheckDurationPitch(parameters *config);
 double CalculateMSPerFrameAndCheckSamplerate(AudioSignal *Signal, parameters *config);

@@ -3763,7 +3763,15 @@ void SetNoiseFloorReferenceLimits(FlatFrequency *freqs, long int size, parameter
 	double startAmplitude = 0, endAmplitude = 0;
 
 	if(!freqs)
+	{
+		// Digitally generated reference
+		if(config->referenceNoiseFloor != 0)
+		{
+			config->refNoiseMin = config->significantAmplitude;
+			config->refNoiseMax = config->referenceNoiseFloor;
+		}
 		return;
+	}
 
 	GetNoiseSpectrogramLimits(freqs, size, &startAmplitude, &endAmplitude, config);
 	config->refNoiseMin = startAmplitude;
@@ -6426,10 +6434,13 @@ void PlotBlockTimeDomainGraph(AudioSignal *Signal, int block, char *name, int wa
 
 	if(wavetype == WAVEFORM_SYNCZOOM)
 	{
-		long int oneFrameSamples = 0;
+		long int frameSamples = 0;
 
-		oneFrameSamples = SecondsToSamples(Signal->SampleRate, FramesToSeconds(1, Signal->msPerFrame), Signal->AudioChannels, NULL, NULL);
-		numSamples = oneFrameSamples;
+		// The block starts one frame before the sync, we show that frame and the next one.
+		frameSamples = SecondsToSamples(Signal->SampleRate, FramesToSeconds(1, Signal->msPerFrame), 1, NULL, NULL);
+		numSamples = 2*frameSamples;
+		if(numSamples > Signal->Blocks[block].audio.size)
+			numSamples = Signal->Blocks[block].audio.size;
 	}
 	else
 		numSamples = Signal->Blocks[block].audio.size;

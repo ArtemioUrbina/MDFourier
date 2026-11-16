@@ -56,6 +56,8 @@ void PrintUsage(void)
 	logmsg("	 -p: Define the noise floor value in dBr (0 to disable auto adjust)\n");
 	logmsg("	 -T: Increase Sync detection <T>olerance (ignore frequency, can be added up to -TTT)\n");
 	logmsg("		-TTTT also accepts pulses of half a frame (emulated audio)\n");
+	logmsg("		-T only applies to the previous detector: with -K, or when the current one fails\n");
+	logmsg("	 -K: Use the previous sync pulse detection\n");
 	logmsg("	 -Y: Define the Reference Video Format from the profile\n");
 	logmsg("	 -Z: Define the Comparison Video Format from the profile\n");
 	logmsg("	 -m: Set <m>anual sync samples, takes format [r|c]:<start sample>:<end sample>\n");
@@ -180,6 +182,7 @@ void CleanParameters(parameters *config)
 	config->videoFormatRef = 0;
 	config->videoFormatCom = 0;
 	config->syncTolerance = 0;
+	config->legacySync = 0;
 	config->AmpBarRange = BAR_DIFF_DB_TOLERANCE;
 	config->FullTimeSpectroScale = 0;
 	config->hasTimeDomain = 0;
@@ -322,8 +325,8 @@ int commandline(int argc , char *argv[], parameters *config)
 	
 	CleanParameters(config);
 
-	// Available: KU123456
-	while ((c = getopt (argc, argv, "A:a:Bb:Cc:Dd:Ee:Ff:GgH:hIiJjkL:lMm:Nn:Oo:P:p:Qq:R:r:Ss:TtuVvWw:XxY:yZ:z0:789")) != -1)
+	// Available: U123456
+	while ((c = getopt (argc, argv, "A:a:Bb:Cc:Dd:Ee:Ff:GgH:hIiJjKkL:lMm:Nn:Oo:P:p:Qq:R:r:Ss:TtuVvWw:XxY:yZ:z0:789")) != -1)
 	switch (c)
 	  {
 	  case 'A':
@@ -680,6 +683,9 @@ int commandline(int argc , char *argv[], parameters *config)
 		}
 		logmsg("\t-Frequency start range for FFTW is now %g (default %g)\n", config->startHz, START_HZ);
 		break;
+	  case 'K':
+		config->legacySync = 1;
+		break;
 	  case 'T':
 		config->syncTolerance++;
 		if(config->syncTolerance > 4)
@@ -870,6 +876,8 @@ int commandline(int argc , char *argv[], parameters *config)
 
 	if(config->syncTolerance == 4)
 		logmsg("\t-Sync pulses down to half a frame accepted (-TTTT), for emulated audio\n");
+	if(config->legacySync)
+		logmsg("\t-Using the previous sync pulse detection\n");
 
 	if(config->endHz <= config->startHz)
 	{
