@@ -543,7 +543,7 @@ typedef struct AudioSt {
 
 	long int	startOffset;
 	long int	endOffset;
-	long int	syncFrames; the profile
+	long int	syncFrames;
 	double		syncSamplesPerFrame;
 
 	MaxMagn		MaxMagnitude;
