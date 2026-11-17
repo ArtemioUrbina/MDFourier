@@ -31,6 +31,8 @@
 #include "log.h"
 #include "freq.h"
 
+int syncDetRefit = 0;	// last pass used in SyncDetFindTrain
+
 /* 
 	Values tuned from the previois sync detection and test cases
 */
@@ -140,9 +142,11 @@ int SyncDetFind(AudioSignal *Signal, double frequency, int remeasure, SyncDetRes
 		logmsgFileOnly("\nSync detector: %g Hz, %ld steps of %gms, floor %0.2f dB, max %0.2f dB\n", 
 			frequency, level.count, level.stepMS, level.floor, level.max);
 	
-	/* Strict first, then the closing train anywhere after 90%, then allowing a missing pulse */
+	/* Strict first, then the closing train anywhere after 90%, then allowing a missing pulse,
+	   last refitting the period */
 	result->wideSearch = 0;
 	result->missingPulse = 0;
+	result->refitPeriod = 0;
 	if (!SyncDetSweep(&level, pulseCount, frameSteps, profileFrames, pulseMS, pulseCount, 0, &pulses, &start, &end, &onDB, &tries))
 	{
 		if(SyncDetSweep(&level, pulseCount, frameSteps, profileFrames, pulseMS, pulseCount, 1, &pulses, &start, &end, &onDB, &tries))
@@ -152,6 +156,15 @@ int SyncDetFind(AudioSignal *Signal, double frequency, int remeasure, SyncDetRes
 		else if(SyncDetSweep(&level, pulseCount, frameSteps, profileFrames, pulseMS, pulseCount - 1, 1, &pulses, &start, &end, &onDB, &tries))
 			result->wideSearch = result->missingPulse = 1;
 		else
+		{
+			syncDetRefit = 1;
+			if(SyncDetSweep(&level, pulseCount, frameSteps, profileFrames, pulseMS, pulseCount, 0, &pulses, &start, &end, &onDB, &tries))
+				result->refitPeriod = 1;
+			else if(SyncDetSweep(&level, pulseCount, frameSteps, profileFrames, pulseMS, pulseCount, 1, &pulses, &start, &end, &onDB, &tries))
+				result->refitPeriod = result->wideSearch = 1;
+			syncDetRefit = 0;
+		}
+		if(!result->refitPeriod && !result->wideSearch && !result->missingPulse)
 		{
 			if(config->debugSync)
 				logmsgFileOnly("Sync detector: no pulse trains found after %d thresholds\n", tries); 
@@ -308,8 +321,9 @@ int SyncDetFind(AudioSignal *Signal, double frequency, int remeasure, SyncDetRes
 
 	if(config->debugSync)
 	{
-		logmsgFileOnly("Sync detector: on %0.2f dB after %d thresholds, %d+%d pulses, period %d frames%s%s\n",
-			onDB, tries, start.count, end.count, periodFrames, result->missingPulse ? ", one missing" : "", result->wideSearch ? ", wide search" : "");
+		logmsgFileOnly("Sync detector: on %0.2f dB after %d thresholds, %d+%d pulses, period %d frames%s%s%s\n",
+			onDB, tries, start.count, end.count, periodFrames, result->missingPulse ? ", one missing" : "", result->wideSearch ? ", wide search" : "",
+			result->refitPeriod ? ", period refit" : "");
 		for(int i = 0; i < riseCount; i++)
 			logmsgFileOnly("\tframe %6ld rise %12.2f onset %12.2f fit %+0.4fms\n", (long int)riseFrame[i], riseSample[i], onsetSample[i],
 				(riseSample[i] - (firstFrameSample + samplesPerFrame*riseFrame[i]))/Signal->SampleRate*1000.0);
@@ -534,6 +548,63 @@ int SyncDetEdges(SyncDetLevel *level, double onDB, double offDB, double minOnMS,
 	return found;
 }
 
+// Least squares period from the matched rises
+double SyncDetFitPeriod(SyncDetTrain *train, double period)
+{
+	double	meanPosition = 0, meanRise = 0, positionSpread = 0, positionRiseSpread = 0;
+
+	if(train->count < 3)
+		return period;
+	for(int i = 0; i < train->count; i++)
+	{
+		meanPosition += train->position[i];
+		meanRise += train->pulse[i]->rise;
+	}
+	meanPosition /= train->count;
+	meanRise /= train->count;
+	for(int i = 0; i < train->count; i++)
+	{
+		positionSpread += (train->position[i] - meanPosition)*(train->position[i] - meanPosition);
+		positionRiseSpread += (train->position[i] - meanPosition)*(train->pulse[i]->rise - meanRise);
+	}	
+	
+	if(positionSpread > 0)
+		period = positionRiseSpread/positionSpread;
+	return period;
+}
+
+// Grid positions from firstRise, the nearest rise within tolerance at each
+void SyncDetMatchGrid(SyncDetPulse *pulses, int foundPulses, double firstRise, double period, int gridSize, double tolerance, SyncDetTrain *train)
+{
+	train->count = 0;
+	for(int position = 0; position < gridSize; position++)
+	{
+		double		expected = firstRise + position*period;
+		int			low = 0, high = foundPulses - 1, nearest = 0;
+		
+		// nearest rise
+		while(low < high)
+		{	
+			int middle = (low + high)/2;
+			
+			if(pulses[middle].rise < expected)
+				low = middle + 1;
+			else
+				high = middle;
+		}
+		nearest = low;
+		
+		if(low > 0 && fabs(pulses[low - 1].rise - expected) < fabs(pulses[low].rise - expected))
+			nearest = low - 1;
+		if(fabs(pulses[nearest].rise - expected) <= tolerance)
+		{
+			train->pulse[train->count] = &pulses[nearest];
+			train->position[train->count] = position;
+			train->count ++;
+		}
+	}
+}
+
 // before < 0 is no limit
 int SyncDetFindTrain(SyncDetPulse *pulses, int foundPulses, int gridSize, double periodMin, double periodMax, double tolerance, 
 					double after, double before, int minMatch, SyncDetTrain *train)
@@ -568,55 +639,21 @@ int SyncDetFindTrain(SyncDetPulse *pulses, int foundPulses, int gridSize, double
 		if (period < periodMin || period > periodMax)
 			continue; 
 
-		train->count = 0;
-		for(int position = 0; position < gridSize; position++)
+		SyncDetMatchGrid(pulses, foundPulses, firstRise, period, gridSize, tolerance, train);
+		// the median of quantized gaps can be off in emulators
+		// fit the period from the rises it got and try again. Last pass only
+		if(syncDetRefit && train->count > 2 && train->count < gridSize && train->position[0] == 0)
 		{
-			double		expected = firstRise + position*period;
-			int			low = 0, high = foundPulses - 1, nearest = 0;
-			
-			// nearest rise
-			while(low < high)
-			{
-				int middle = (low + high)/2;
-				
-				if(pulses[middle].rise < expected)
-					low = middle + 1;
-				else
-					high = middle;
-			}
-	
-			nearest = low;
-			if(low > 0 && fabs(pulses[low - 1].rise - expected) < fabs(pulses[low].rise - expected))
-				nearest = low - 1;
-			if(fabs(pulses[nearest].rise - expected) <= tolerance)
-			{
-				train->pulse[train->count] = &pulses[nearest];
-				train->position[train->count] = position;
-				train->count ++;
-			}
+			SyncDetTrain	refit;
+
+			SyncDetMatchGrid(pulses, foundPulses, firstRise, SyncDetFitPeriod(train, period), gridSize, tolerance, &refit);
+			if(refit.count > train->count)
+				*train = refit;
 		}
 		matchedCount = train->count;
 		if(matchedCount >= minMatch && train->position[0] == 0)
 		{
-			if(matchedCount > 2)
-			{
-				double	meanPosition = 0, meanRise = 0, positionSpread = 0, positionRiseSpread = 0;
-
-				for(int i = 0; i < matchedCount; i++)
-				{
-					meanPosition += train->position[i];
-					meanRise += train->pulse[i]->rise;
-				}
-				meanPosition /= matchedCount;
-				meanRise /= matchedCount;
-				for(int i = 0; i < matchedCount; i++)
-				{
-					positionSpread += (train->position[i] - meanPosition)*(train->position[i] - meanPosition);
-					positionRiseSpread += (train->position[i] - meanPosition)*(train->pulse[i]->rise - meanRise);
-				}
-				if(positionSpread > 0)
-					period = positionRiseSpread/positionSpread;
-			} 
+			period = SyncDetFitPeriod(train, period);
 			train->period = period;
 			return 1;
 		}

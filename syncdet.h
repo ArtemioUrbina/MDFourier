@@ -29,6 +29,17 @@
 #ifndef MDFOURIER_SYNCDET_H
 #define MDFOURIER_SYNCDET_H
 
+/*
+	Sync pulse train detection, in layers:
+		1 Band level of the pulse frequency on a coarse time step
+		2 On and off thresholds, swept down from the loudest level
+		3 A state machine that turns the level into pulses
+		4 Pulse trains matched against the profile's grid
+		5 Each rise refined on the full rate signal, the onset of the first
+		  pulse of each train, and a least squares fit over all rises
+	Both trains are found together. -K uses the previous detector in sync.c
+*/
+
 #define SYNCDET_MAX_PULSES	32
 
 typedef struct syncdet_pulse_st {
@@ -68,11 +79,14 @@ typedef struct syncdet_result_st {
 	int			matched[2];
 	int			missingPulse;
 	int			wideSearch;
+	int			refitPeriod;
 	int			ambiguous;
 	int			tries;
 	double		onDB;
 	double		floorDB;
 } SyncDetResult;
+
+extern int syncDetRefit;
 
 int DetectSyncTrains(AudioSignal *Signal, parameters *config);
 int SyncDetFind(AudioSignal *Signal, double frequency, int remeasure, SyncDetResult *result, parameters *config);
@@ -86,6 +100,8 @@ int SyncDetMakeTables(long int window, double frequency, double sampleRate, doub
 int SyncDetEdges(SyncDetLevel *level, double onDB, double offDB, double minOnMS, double minOffMS, SyncDetPulse **pulses);
 int SyncDetFindTrain(SyncDetPulse *pulses, int foundPulses, int gridSize, double periodMin, double periodMax, double tolerance,
 					double after, double before, int minMatch, SyncDetTrain *train);
+double SyncDetFitPeriod(SyncDetTrain *train, double period);
+void SyncDetMatchGrid(SyncDetPulse *pulses, int foundPulses, double firstRise, double period, int gridSize, double tolerance, SyncDetTrain *train);
 void SyncDetExtendTrain(SyncDetPulse *pulses, int foundPulses, int gridSize, double tolerance, SyncDetTrain *train);
 int SyncDetSweep(SyncDetLevel *level, int gridSize, double frameSteps, double profileFrames, double pulseMS, int minMatch, int wide,
 					SyncDetPulse **pulses, SyncDetTrain *start, SyncDetTrain *end, double *onDB, int *tries);
