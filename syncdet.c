@@ -262,7 +262,8 @@ int SyncDetFind(AudioSignal *Signal, double frequency, int remeasure, SyncDetRes
 	innerSigma = sqrt(residual/degreesOfFreedom)/sqrt(frameSpread);
 	
 	/* Frames between trains: the profile's if they match, counted with the profile
-	rate if it is close (the Sega CD waits for the CD track), or the inner period */
+	rate if it is close and the inner period agrees (the Sega CD waits for the CD
+	track), or the inner period */
 	nominalSamples = msPerFrame*Signal->SampleRate/1000.0;
 	trainDistance = (riseSample[startCount] - riseFrame[startCount]*samplesPerFrame) - (riseSample[0] - riseFrame[0]*samplesPerFrame);
 	result->innerFrames = trainDistance/samplesPerFrame;
@@ -270,7 +271,8 @@ int SyncDetFind(AudioSignal *Signal, double frequency, int remeasure, SyncDetRes
 	result->ambiguous = 0;
 	if (fabs(result->innerFrames - profileFrames) <= fmax(1.0, 3.0*result->innerFramesError))
 		trainFrames = profileFrames;
-	else if(fabs(samplesPerFrame/nominalSamples - 1.0) < SYNCDET_NOMINAL_TOL && fabs(trainDistance/nominalSamples - floor(trainDistance/nominalSamples + 0.5)) < SYNCDET_FRACTION_TOL)
+	else if(fabs(samplesPerFrame/nominalSamples - 1.0) < SYNCDET_NOMINAL_TOL && fabs(trainDistance/nominalSamples - floor(trainDistance/nominalSamples + 0.5)) < SYNCDET_FRACTION_TOL &&
+			fabs(trainDistance/nominalSamples - result->innerFrames) <= fmax(1.0, 3.0*result->innerFramesError))
 		trainFrames = (long int)floor(trainDistance/nominalSamples + 0.5);	
 	else
 	{
