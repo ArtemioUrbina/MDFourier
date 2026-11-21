@@ -300,6 +300,7 @@ typedef struct clkid_st {
 
 typedef struct clock_def_st {
 	char		name[20];
+	char		displayName[20];
 	int			block;
 	double		freq;			// expected tone
 	double		ratio;

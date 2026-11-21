@@ -394,15 +394,15 @@ void PrintSignalCLKData(AudioSignal *Signal, ClockDef *clock)
 	{
 		if(clock->warning & Signal->role)
 			logmsg("WARNING: %s has noise or higher harmonics than the fundamental in the %s clock block.\n",
-				Signal->role == ROLE_REF ? "Reference" : "Comparison", clock->name);
+				Signal->role == ROLE_REF ? "Reference" : "Comparison", clock->displayName);
 	
 		if(clock->weak & Signal->role)
 			logmsg("WARNING: %s %s clock tone is at %0.2f dB below the significant amplitude. Treated as not found.\n",
-				Signal->role == ROLE_REF ? "Reference" : "Comparison", clock->name,
+				Signal->role == ROLE_REF ? "Reference" : "Comparison", clock->displayName,
 				Signal->role == ROLE_REF ? clock->refTone : clock->comTone);
 		else if(clock->notFound & Signal->role)
 			logmsg("WARNING: %s %s clock tone not found within 5%% of %gHz, the value shown is the strongest frequency.\n",
-				Signal->role == ROLE_REF ? "Reference" : "Comparison", clock->name, clock->freq);
+				Signal->role == ROLE_REF ? "Reference" : "Comparison", clock->displayName, clock->freq);
 	}
 }
 
@@ -466,7 +466,7 @@ int SkipMissingOptionalClocks(AudioSignal *ReferenceSignal, AudioSignal *Compari
 
 		if(clock->optional && clock->notFound)
 		{
-			logmsg(" - %s is optional and its tone is missing in %s, skipping:", clock->name,
+			logmsg(" - %s is optional and its tone is missing in %s, skipping:", clock->displayName,
 				clock->notFound == (ROLE_REF | ROLE_COMP) ? "both signals" : clock->notFound == ROLE_REF ? "Reference" : "Comparison");
 			for(int i = 0; i < clock->blkAdjustNum; i++)
 			{
@@ -572,7 +572,7 @@ int ReportClock(AudioSignal *ReferenceSignal, AudioSignal *ComparisonSignal, int
 
 	if(!CalculateCLKAmplitudes(ReferenceSignal, ComparisonSignal, clockIdx, config)) {
 		logmsg("\n* WARNING: %s Clocks based on expected %0.2lf Hz on note %s# %d could not be calculated\n",
-		clock->name, clock->freq, GetBlockName(config, clock->block),
+		clock->displayName, clock->freq, GetBlockName(config, clock->block),
 		GetBlockSubIndex(config, clock->block));
 		// A clock block without frequencies is digital silence, the tone is missing there
 		if(!ReferenceSignal->clkFrequencies[clockIdx].freq || !ReferenceSignal->clkFrequencies[clockIdx].freq[0].hertz)
@@ -586,7 +586,7 @@ int ReportClock(AudioSignal *ReferenceSignal, AudioSignal *ComparisonSignal, int
 	compClkFraction = CalculateClkFraction(ComparisonSignal, clockIdx, config);
 	if(!refClkFraction || !compClkFraction)
 	{
-		logmsg("\n* WARNING: %s Clocks could not be measured\n", clock->name);
+		logmsg("\n* WARNING: %s Clocks could not be measured\n", clock->displayName);
 		clock->notFound |= (!refClkFraction ? ROLE_REF : 0) | (!compClkFraction ? ROLE_COMP : 0);
 		return 0;
 	}
@@ -598,7 +598,7 @@ int ReportClock(AudioSignal *ReferenceSignal, AudioSignal *ComparisonSignal, int
 	clock->com = compClkFraction * clock->ratio;
 
 	logmsg("\n* Estimated %s Clocks based on expected %0.04lf Hz on note %s# %d:\n",
-		clock->name, clock->freq, GetBlockName(config, clock->block),
+		clock->displayName, clock->freq, GetBlockName(config, clock->block),
 		GetBlockSubIndex(config, clock->block));
 
 	logmsg(" - Reference: %0.04lfHz -> %0.04lfHz", refClkFraction, clock->ref);
@@ -620,7 +620,7 @@ int ReportClock(AudioSignal *ReferenceSignal, AudioSignal *ComparisonSignal, int
 	if(clock->notFound)
 	{
 		clock->centsDifference = 0;
-		logmsg(" - NOTE: %s clock not compared, tone missing in %s%s\n", clock->name,
+		logmsg(" - NOTE: %s clock not compared, tone missing in %s%s\n", clock->displayName,
 			clock->notFound == (ROLE_REF | ROLE_COMP) ? "both signals" : clock->notFound == ROLE_REF ? "Reference" : "Comparison",
 			config->doClkAdjust ? ". Not adjusted with -j" : "");
 		return 0;
@@ -633,13 +633,13 @@ int ReportClock(AudioSignal *ReferenceSignal, AudioSignal *ComparisonSignal, int
 		if(!config->doClkAdjust)
 		{
 			clock->noMatch = 1;
-			logmsg(" - WARNING: %s clocks don't match, results may vary considerably. Can adjust with -j\n", clock->name);
+			logmsg(" - WARNING: %s clocks don't match, results may vary considerably. Can adjust with -j\n", clock->displayName);
 		}
 		return 1;
 	}
 
 	if(config->doClkAdjust)
-		logmsg(" - NOTE: Ignoring -j for %s since pitch difference in cents is: %g\n", clock->name, clock->centsDifference);
+		logmsg(" - NOTE: Ignoring -j for %s since pitch difference in cents is: %g\n", clock->displayName, clock->centsDifference);
 	return 0;
 }
 
@@ -1802,9 +1802,9 @@ int RecalculateFrequencyStructures(AudioSignal *ReferenceSignal, AudioSignal *Co
 		// Commenting out the auto select, 
 		// Keep the reference and only change the clk of the comparison
 		clock->comSampleRate = ComparisonSignal->SampleRate*(clock->ref/clock->com);
-		logmsg(" - Adjusted Comparison %s to %0.04lfHz\n", clock->name, clock->ref);
+		logmsg(" - Adjusted Comparison %s to %0.04lfHz\n", clock->displayName, clock->ref);
 		if(config->verbose)
-			logmsg("   %s blocks use %0.4lfHz instead of %gHz\n", clock->name,
+			logmsg("   %s blocks use %0.4lfHz instead of %gHz\n", clock->displayName,
 				clock->comSampleRate, ComparisonSignal->SampleRate);
 	}
 

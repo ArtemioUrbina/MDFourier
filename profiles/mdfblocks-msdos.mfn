@@ -2,82 +2,85 @@ MDFourierAudioBlockFile 2.3
 DOS: Sound Blaster FM and PCM
 [VideoModes] 1
 VGA70 14.26805 449 6000 14 10
-FM y 2 6002.078595 8.283114 1 2 3 4 5 6 7 8
+FM y 2 6002.078595 8.283114 1 2 3 4 5 6 7 8 9
 [CLKID] 5
-OPL2/3      49715.9028   500ppm
+OPL2/3      49715.9028   600ppm
 CQM         49804.4221   500ppm
 ESFM        49624.7075   60ppm
 ESS_Solo-1|Crystal 49616.4600 60ppm
 OPL3-SAx|OPL3-L 49515.7895 500ppm
-PCM y 305 2777.7777778 8.0 9 10 11
-[CLKID] 5
+PCM_8_M y 309 2777.7777778 8.0 10 11 12
+[CLKID] 6
 Nominal     22222.2222   500ppm
 DSP2        21739.1304   500ppm
 SB16        22050.0      500ppm
 OPL3-SAx    22138.1      300ppm
 ESS         22158.0      500ppm
-PCMHS o 414 5434.7826087 8.0 19 20
+SBPro       21714.2      300ppm
+PCM_8_HS o 418 5434.7826087 8.0 13 14
 [CLKID] 5
 Nominal     43478.2609   500ppm
 SB16        43389.4      85ppm
 Crystal     44100.0      85ppm
 OPL3-SAx    43313.3      300ppm
 ESS         43352.7      300ppm
-PCMS o 514 2756.25 8.0 13 14
+PCM_8_S o 518 2756.25 8.0 15 16
 [CLKID] 4
 SB16        22050.0      500ppm
 SBPro       21739.1304   500ppm
 ESS         21676.3131   300ppm
 OPL3-SAx    21656.8490   300ppm
-PCM16 o 519 5512.5 8.0 15 16 17 18
+PCM_16_S o 523 5512.5 8.0 17 18 19 20
 [CLKID] 2
 SB16        44100.0      85ppm
 ESS         44110.9      85ppm
 [MonoBalanceBlock] 2
-[ToneLines] 46
-Sync            s   1  20  0 red     m
-Silence         n   1  20  0 gray    m
-CHIPID          1   1  60  0 orange  m - x
-    PADDING     k   1  20  0 red     m
-MIXER           W   1  10    salmon  m 1000 2000 Mixer
-    PADDING     k   1  20  0 gray    m
-FM              2 128  20  4 green   s *
-    PADDING     k   1  25  0 red     m
-Sine            3 128  10  2 lime    s *
-    PADDING     k   1  25  0 red     m
-Depth           4   8  20  4 emerald s *
-    PADDING     k   1  20  0 red     m
-Feedback        5   7  20  4 mint    s *
-Feedback_7      6   1  20  4 cyan    s * b
-    PADDING     k   1  20  0 red     m
-Level           7   8  20  4 canary  s *
-    PADDING     k   1  20  0 gray    m
-Tremolo         t   2  70  0 emerald s
-Vibrato         t   2  70  0 mint    s
-    PADDING     k   1  20  0 red     m
-Wave            8   8  20  4 yellow  s *
-    PADDING     k   1  20  0 red     m
-PCM_CLK         9   1  60  3 indigo  m - x
-PCM_Idle        t   1  20  0 sky     m
-PCM_Sine       10  64  10  2 sky     m *
-    PADDING     k   1  20  0 red     m
-PCM_Level      11   8  20  4 cobalt  m *
-    PADDING     k   1  20  0 red     m
-PCM_Sine_NF    10  32  10  2 sky     m *
-    PADDING     k   1  20  0 red     m
-PCMHS_CLK      19   1  60  3 aqua    m - x
-    PADDING     k   1  20  0 red     m
-PCMHS_Sine     20  64  10  2 aquamarine m *
-    PADDING     k   1  20  0 red     m
-PCMHS_Sine_NF  20  32  10  2 aquamarine m *
-    PADDING     k   1  20  0 red     m
-PCM8_CLK       13   1  60  3 blue    s - x
-PCM8_Sep       14   3  20  4 violet  C *
-    PADDING     k   1  20  0 red     m
-PCM16_CLK      15   1  60  3 purple  s - x
-PCM16_Sine     16  64  10  2 magenta s *
-    PADDING     k   1  20  0 red     m
-PCM16_Level    17   8  20  4 pink    s *
-PCM16_Sep      18   3  20  4 rose    C *
-Silence         n   1  20  0 gray    m
-Sync            s   1  20  0 red     m
+[ToneLines] 48
+Sync               s   1  20  0 red     m
+Silence            n   1  20  0 gray    m
+FM_CHIPID          1   1  60  0 orange  m - x
+    PADDING        k   1  20  0 red     m
+MIXER              W   1  10    salmon  m 1000 2000 Mixer
+    PADDING        k   1  20  0 gray    m
+FM_Sweep           2 128  20  4 green   s *
+    PADDING        k   1  25  0 red     m
+FM_Sine            3 128  10  2 lime    s *
+    PADDING        k   1  25  0 red     m
+FM_Depth           4   8  20  4 emerald s *
+    PADDING        k   1  20  0 red     m
+FM_Feedback        5   7  20  4 mint    s *
+FM_Feedback_7      6   1  20  4 cyan    s * b
+    PADDING        k   1  20  0 red     m
+FM_Level           7   8  20  4 canary  s *
+    PADDING        k   1  20  0 gray    m
+FM_Tremolo         t   2  70  0 emerald s
+FM_Vibrato         t   2  70  0 mint    s
+    PADDING        k   1  20  0 red     m
+FM_Wave            8   8  20  4 yellow  s *
+    PADDING        k   1  20  0 red     m
+FM_Sep             9   3  20  4 scarlet C *
+    PADDING        k   1  20  0 red     m
+PCM_8_M_CLK       10   1  60  3 indigo  m - x
+PCM_8_M_Idle       t   1  20  0 sky     m
+PCM_8_M_Sine      11  64  10  2 sky     m *
+    PADDING        k   1  20  0 red     m
+PCM_8_M_Level     12   8  20  4 cobalt  m *
+    PADDING        k   1  20  0 red     m
+PCM_8_M_Sine_NF   11  32  10  2 sky     m *
+    PADDING        k   1  20  0 red     m
+PCM_8_HS_CLK      13   1  60  3 aqua    m - x
+    PADDING        k   1  20  0 red     m
+PCM_8_HS_Sine     14  64  10  2 aquamarine m *
+    PADDING        k   1  20  0 red     m
+PCM_8_HS_Sine_NF  14  32  10  2 aquamarine m *
+    PADDING        k   1  20  0 red     m
+PCM_8_S_CLK       15   1  60  3 blue    s - x
+PCM_8_S_Sep       16   3  20  4 violet  C *
+    PADDING        k   1  20  0 red     m
+PCM_16_S_CLK      17   1  60  3 purple  s - x
+PCM_16_S_Sine     18  64  10  2 magenta s *
+    PADDING        k   1  20  0 red     m
+PCM_16_S_Level    19   8  20  4 pink    s *
+PCM_16_S_Sep      20   3  20  4 rose    C *
+Silence            n   1  20  0 gray    m
+Sync               s   1  20  0 red     m

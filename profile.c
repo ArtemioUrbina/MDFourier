@@ -372,6 +372,7 @@ int LoadClockLine(char *lineBuffer, int *measured, parameters *config)
 	clock->refID = CLKID_NONE;
 	clock->comID = CLKID_NONE;	
 	sprintf(clock->name, "%s", name);	
+	CleanName(clock->name, clock->displayName);
 	clock->optional = type == CLKID_OPTIONAL;
 	clock->color = COLOR_YELLOW;
 
@@ -448,18 +449,18 @@ int ValidateCLKArray(parameters *config)
 		{
 			if(clock->optional)
 			{
-				logmsg("ERROR: Optional clock %s must list its block types, otherwise all would be skipped\n", clock->name);
+				logmsg("ERROR: Optional clock %s must list its block types, otherwise all would be skipped\n", clock->displayName);
 				return 0;
 			}
 			allCount++;
 			if(config->clockCount == 1)
-				logmsg(" - %s clock adjustment applies to all block types\n", clock->name);
+				logmsg(" - %s clock adjustment applies to all block types\n", clock->displayName);
 			else
-				logmsg(" - %s clock adjustment applies to the types other clocks don't list\n", clock->name);
+				logmsg(" - %s clock adjustment applies to the types other clocks don't list\n", clock->displayName);
 			continue;
 		}
 
-		logmsg(" - %s clock adjustment selected for: ", clock->name);
+		logmsg(" - %s clock adjustment selected for: ", clock->displayName);
 		for(i = 0; i < clock->blkAdjustNum; i++)
 		{
 			int found = 0;
@@ -481,7 +482,7 @@ int ValidateCLKArray(parameters *config)
 			if(!found)
 			{
 				logmsg("\nERROR: %s adjust list has type %d, which is not an audio block type in this profile\n",
-					clock->name, clock->blocksAdjust[i]);
+					clock->displayName, clock->blocksAdjust[i]);
 				return 0;
 			}
 
@@ -493,7 +494,7 @@ int ValidateCLKArray(parameters *config)
 					if(config->clocks[o].blocksAdjust[j] == clock->blocksAdjust[i])
 					{
 						logmsg("\nERROR: Type %d is in the adjust list of both %s and %s clocks\n",
-							clock->blocksAdjust[i], config->clocks[o].name, clock->name);
+							clock->blocksAdjust[i], config->clocks[o].displayName, clock->displayName);
 						return 0;
 					}
 				}
@@ -515,10 +516,10 @@ int ValidateCLKArray(parameters *config)
 		if(GetClockForType(clkType, config) != c)
 		{
 			logmsg("ERROR: %s block %s# %d (type %d) is not adjusted by the %s clock\n",
-				config->clocks[c].name,
+				config->clocks[c].displayName,
 				GetBlockName(config, config->clocks[c].block),
 				GetBlockSubIndex(config, config->clocks[c].block), clkType,
-				config->clocks[c].name);
+				config->clocks[c].displayName);
 			return 0;
 		}
 	}
@@ -646,7 +647,7 @@ int LoadCLKIdentities(char *lineBuffer, FILE *file, ClockDef *clock)
 				clock->ids[j].minHz <= clock->ids[i].maxHz)
 			{
 				logmsg(" - WARNING: %s CLKID ranges for '%s' and '%s' overlap\n",
-					clock->name, clock->ids[i].displayName, clock->ids[j].displayName);
+					clock->displayName, clock->ids[i].displayName, clock->ids[j].displayName);
 			}
 		}
 	}

@@ -1716,6 +1716,7 @@ void enableTestWarnings(parameters *config)
 	config->clkMeasure = 1;
 	config->clockCount = 1;
 	sprintf(config->clocks[0].name, "FM");
+	sprintf(config->clocks[0].displayName, "FM");
 	config->clocks[0].block = 2;
 	config->clocks[0].freq = 8000.0;
 	config->clocks[0].ratio = 4.0;
@@ -1831,19 +1832,19 @@ char *GetCLKIdentityName(AudioSignal *Signal, int clock, parameters *config)
 void GetClockStatusText(ClockDef *clock, parameters *config, char *msg)
 {
 	if(clock->notFound)
-		sprintf(msg, "%.20s: tone not found in %s%s", clock->name,
+		sprintf(msg, "%.20s: tone not found in %s%s", clock->displayName,
 			clock->notFound == (ROLE_REF | ROLE_COMP) ? "both" : clock->notFound == ROLE_REF ? "RF" : "CM",
 			clock->disabled ? ", blocks skipped" : "");
 	else if(!clock->ref || !clock->com)
-		sprintf(msg, "%.20s: not measured", clock->name);
+		sprintf(msg, "%.20s: not measured", clock->displayName);
 	else if(clock->adjusted)
-		sprintf(msg, "%.20s: %0.2f\\ct adjusted (-j)", clock->name, clock->centsDifference);
+		sprintf(msg, "%.20s: %0.2f\\ct adjusted (-j)", clock->displayName, clock->centsDifference);
 	else if(clock->noMatch) 
-		sprintf(msg, "%.20s: %0.2f\\ct don't match (can use -j)", clock->name, clock->centsDifference);
+		sprintf(msg, "%.20s: %0.2f\\ct don't match (can use -j)", clock->displayName, clock->centsDifference);
 	else if(config->doClkAdjust)
-		sprintf(msg, "%.20s: %0.2f\\ct, -j not needed", clock->name, clock->centsDifference);
+		sprintf(msg, "%.20s: %0.2f\\ct, -j not needed", clock->displayName, clock->centsDifference);
 	else
-		sprintf(msg, "%.20s: %0.2f\\ct", clock->name, clock->centsDifference);
+		sprintf(msg, "%.20s: %0.2f\\ct", clock->displayName, clock->centsDifference);
 }
 
 void GetClockSignalText(AudioSignal *Signal, ClockDef *clock, int c, parameters *config, char *msg)
@@ -7207,9 +7208,9 @@ void PlotCLKSpectrogramInternal(AudioSignal *Signal, char *filename, int clock, 
 
 		idName = GetCLKIdentityName(Signal, clock, config);
 		if(idName)
-			sprintf(clkLabel, "%s - %.200s", clk->name, idName);
+			sprintf(clkLabel, "%s - %.200s", clk->displayName, idName);
 		else
-			sprintf(clkLabel, "%s", clk->name);
+			sprintf(clkLabel, "%s", clk->displayName);
 		DrawLabelsMDF(&plot, Signal->role == ROLE_REF ? SPECTROGRAM_CLK_REF : SPECTROGRAM_CLK_COM, clkLabel,
 			Signal->role == ROLE_REF ? PLOT_SINGLE_REF : PLOT_SINGLE_COM, config);
 	}

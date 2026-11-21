@@ -4585,7 +4585,7 @@ void CalculateSignalCLKAmplitudes(AudioSignal *Signal, int clock, double ZeroMag
 	if(config->verbose)
 	{
 		logmsgFileOnly("==================== CLK-FREQ %s ===================\n", 
-				config->clocks[clock].name);
+				config->clocks[clock].displayName);
 		PrintFrequenciesBlock(Signal, freq, config->MaxFreq, TYPE_CLK_ANALYSIS, config);
 	}
 }
@@ -4605,7 +4605,7 @@ int CalculateCLKAmplitudes(AudioSignal *ReferenceSignal, AudioSignal *Comparison
 
 	if(MaxRef == -1 || MaxCom == -1)
 	{
-		logmsg("WARNING: Could not calculate %s amplitudes\n", config->clocks[clock].name);
+		logmsg("WARNING: Could not calculate %s amplitudes\n", config->clocks[clock].displayName);
 		return 0;
 	}
 
