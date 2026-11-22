@@ -2017,11 +2017,11 @@ void DrawFileInfo(PlotFile *plot, AudioSignal *Signal, char *msg, int type, int 
 				if(!config->doClkAdjust)
 				{
 					pl_pencolor_r(plot->plotter, 0xeeee, 0xeeee, 0);
-					sprintf(msg, "[%.7gms %.7gHz]\\->", 
+					sprintf(msg, "[%.4fms %.4fHz]\\->", 
 							Signal->originalMSPerFrame, CalculateScanRateOriginalFramerate(Signal));
 					labelwidth = pl_flabelwidth_r(plot->plotter, msg);
 	
-					sprintf(msg, "[%.7gms %.7gHz]\\->[%.7gms %.7gHz]", 
+					sprintf(msg, "[%.4fms %.4fHz]\\->[%.4fms %.4fHz]", 
 							Signal->originalMSPerFrame, CalculateScanRateOriginalFramerate(Signal),
 							Signal->msPerFrame, CalculateScanRate(Signal));
 					pl_fmove_r(plot->plotter, config->plotResX/20*17-labelwidth, y+config->plotResY/(ypos*40));
@@ -2029,14 +2029,14 @@ void DrawFileInfo(PlotFile *plot, AudioSignal *Signal, char *msg, int type, int 
 				else
 				{
 					pl_pencolor_r(plot->plotter, 0, 0xeeee, 0xeeee);
-					sprintf(msg, "(%.7gms %.7gHz) ", 
+					sprintf(msg, "(%.4fms %.4fHz) ", 
 						Signal->msPerFrame, CalculateScanRate(Signal));
 					labelwidth = pl_flabelwidth_r(plot->plotter, msg);
 					pl_fmove_r(plot->plotter, config->plotResX/20*17-labelwidth, y+config->plotResY/(ypos*40));
 					pl_alabel_r(plot->plotter, 'l', 'l', msg);
 
 					pl_pencolor_r(plot->plotter, 0, 0xeeee, 0);
-					sprintf(msg, "[%.7gms %.7gHz]", 
+					sprintf(msg, "[%.4fms %.4fHz]", 
 						Signal->originalMSPerFrame, CalculateScanRateOriginalFramerate(Signal));
 					pl_fmove_r(plot->plotter, config->plotResX/20*17, y+config->plotResY/(ypos*40));
 				}
@@ -2050,7 +2050,7 @@ void DrawFileInfo(PlotFile *plot, AudioSignal *Signal, char *msg, int type, int 
 				if(difference >= 0.0001)
 					pl_pencolor_r(plot->plotter, 0xeeee, 0xeeee, 0);
 
-				sprintf(msg, "[%.7gms %.7gHz]", 
+				sprintf(msg, "[%.4fms %.4fHz]", 
 						Signal->msPerFrame, CalculateScanRate(Signal));
 				pl_fmove_r(plot->plotter, config->plotResX/20*17, y+config->plotResY/(ypos*40));
 			}
@@ -2085,11 +2085,11 @@ void DrawFileInfo(PlotFile *plot, AudioSignal *Signal, char *msg, int type, int 
 			double labelwidth = 0;
 
 			pl_pencolor_r(plot->plotter, 0xeeee, 0xeeee, 0);
-			sprintf(msg, "[%.7gms %.7gHz]\\->", 
+			sprintf(msg, "[%.4fms %.4fHz]\\->", 
 					Signal->originalMSPerFrame, roundFloat(CalculateScanRateOriginalFramerate(Signal)));
 			labelwidth = pl_flabelwidth_r(plot->plotter, msg);
 
-			sprintf(msg, "[%.7gms %.7gHz]\\->[%.7gms %.7gHz]", 
+			sprintf(msg, "[%.4fms %.4fHz]\\->[%.4fms %.4fHz]", 
 					Signal->originalMSPerFrame, roundFloat(CalculateScanRateOriginalFramerate(Signal)),
 					Signal->msPerFrame, roundFloat(CalculateScanRate(Signal)));
 			pl_fmove_r(plot->plotter, config->plotResX/20*17-labelwidth, y);
@@ -2102,14 +2102,15 @@ void DrawFileInfo(PlotFile *plot, AudioSignal *Signal, char *msg, int type, int 
 			difference = roundFloat(fabs(expectedFR - Signal->msPerFrame));
 			if(difference >= 0.0001)
 				pl_pencolor_r(plot->plotter, 0xeeee, 0xeeee, 0);
-			sprintf(msg, "[%.7gms %.7gHz]", Signal->msPerFrame, roundFloat(CalculateScanRate(Signal)));
+			sprintf(msg, "[%.4fms %.4fHz]", Signal->msPerFrame, roundFloat(CalculateScanRate(Signal)));
 			pl_fmove_r(plot->plotter, config->plotResX/20*17, y);
 		}
 		pl_alabel_r(plot->plotter, 'l', 'l', msg);
 	}
 }
 
-void DrawLabelsMDF(PlotFile *plot, char *Gname, char *GType, int type, parameters *config)
+// Returns how many notes and warnings are stacked at the bottom right
+int DrawLabelsMDF(PlotFile *plot, char *Gname, char *GType, int type, parameters *config)
 {
 	int		warning = 1;
 	char	label[BUFFER_SIZE], msg[BUFFER_SIZE];
@@ -2731,6 +2732,7 @@ void DrawLabelsMDF(PlotFile *plot, char *Gname, char *GType, int type, parameter
 #ifdef TESTWARNINGS
 	*config = backup;
 #endif
+	return warning - 1;
 }
 
 void DrawLabelsZeroToLimit(PlotFile *plot, double dBRange, double dbIncrement, double hz, int drawSignificant, parameters *config)
@@ -7222,7 +7224,7 @@ void PlotSeparation(AudioSignal *ReferenceSignal, AudioSignal *ComparisonSignal,
 {
 	PlotFile	plot;
 	char		name[BUFFER_SIZE*2], label[BUFFER_SIZE];
-	int			count = 0, step = 0, inverted = 0, single = 0;
+	int			count = 0, step = 0, inverted = 0, single = 0, warnings = 0;
 	double		maxSep = 0, top = 0, resX = 0, resY = 0, left = 0, right = 0, bottom = 0, height = 0, slot = 0;
 
 	if(ReferenceSignal->AudioChannels != 2 || ComparisonSignal->AudioChannels != 2)
@@ -7263,6 +7265,13 @@ void PlotSeparation(AudioSignal *ReferenceSignal, AudioSignal *ComparisonSignal,
 	FillPlot(&plot, name, 0, 0, resX, resY, 1, 1, config);
 	if(!CreatePlotFile(&plot, config))
 		return;
+
+	warnings = DrawLabelsMDF(&plot, "CHANNEL SEPARATION [%s]", "Separation", PLOT_COMPARE, config);
+	if(warnings && resY*(0.10 + warnings/60.0 + 0.09) > bottom)
+	{
+		bottom = resY*(0.10 + warnings/60.0 + 0.09);
+		height = resY*0.86 - bottom;
+	}
 
 	pl_ffontname_r(plot.plotter, PLOT_FONT);
 	pl_ffontsize_r(plot.plotter, FONT_SIZE_1);
@@ -7390,7 +7399,6 @@ void PlotSeparation(AudioSignal *ReferenceSignal, AudioSignal *ComparisonSignal,
 	pl_fmove_r(plot.plotter, left, bottom + height + resY*0.055);
 	pl_alabel_r(plot.plotter, 'l', 'c', "Stereo Separation: how much quieter the silent channel is than the tone in the active one (higher is better)");
 
-	DrawLabelsMDF(&plot, "CHANNEL SEPARATION [%s]", "Separation", PLOT_COMPARE, config);
 	ClosePlot(&plot);
 }
 
